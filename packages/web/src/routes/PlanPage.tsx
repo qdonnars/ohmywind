@@ -732,6 +732,7 @@ export function PlanPage() {
             onWptAdd={waypoints.length >= 2 ? handleWptAdd : undefined}
             onWptDelete={handleWptDelete}
             onMapClick={handleMapClick}
+            initialCenter={isParsedOk(initialParsed) ? initialParsed.center : null}
             highlightedSegmentRange={
               selectedLegIdx != null && passage
                 ? computeLegSegmentRanges(passage.segments as { start: { lat: number; lon: number } }[], waypoints)[selectedLegIdx] ?? null
