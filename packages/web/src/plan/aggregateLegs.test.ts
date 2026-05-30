@@ -106,7 +106,6 @@ function makeLeg(overrides: Partial<AggregatedLeg> = {}): AggregatedLeg {
     current_speed_kn: null,
     current_direction_to_deg: null,
     current_relative: null,
-    motor_used: false,
     ...overrides,
   };
 }

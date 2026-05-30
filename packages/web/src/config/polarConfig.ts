@@ -27,12 +27,6 @@ export interface PolarData {
   twa_deg: number[];
   // [tws_idx][twa_idx] -> boat speed in knots.
   boat_speed_kn: number[][];
-  // Optional motor configuration. When both are set, the planner switches
-  // segments with sail speed under `motor_threshold_kn` to `motor_speed_kn`.
-  // Matches BoatPolar (Python) — keep snake_case here so the payload sent
-  // to `plan_passage` deserialises with no remapping in `_parse_polar`.
-  motor_threshold_kn?: number;
-  motor_speed_kn?: number;
 }
 
 // Strong-typed re-exports of the bundled archetype polars. Imports go through
@@ -92,12 +86,6 @@ export interface PolarConfig {
   // in knots. Overrides win over scale + spi, so the user's hand-tune sticks
   // even when other sliders/toggles move.
   overrides: Record<string, number>;
-  // Optional motor config. Both must be set together to take effect: when the
-  // polar-derived boat speed falls under `motorThresholdKn`, the planner runs
-  // the segment at `motorSpeedKn` instead. Either one alone is treated as
-  // "no motor" so a half-filled form never silently changes simulations.
-  motorThresholdKn?: number;
-  motorSpeedKn?: number;
 }
 
 interface PersistedConfig {
@@ -106,8 +94,6 @@ interface PersistedConfig {
   scale: number;
   spi?: SpiKind | boolean;
   overrides: Record<string, number>;
-  motorThresholdKn?: number;
-  motorSpeedKn?: number;
 }
 
 // Per-TWA multipliers. Values derived from sailmaker performance ranges
@@ -146,17 +132,6 @@ function boostMap(kind: SpiKind): Readonly<Record<number, number>> | null {
 
 export function defaultPolarConfig(): PolarConfig {
   return { base: DEFAULT_BASE, scale: SCALE_DEFAULT, spi: "off", overrides: {} };
-}
-
-// Motor speed sanity bounds — keep generous enough for a fast trawler-style
-// auxiliary (8 kn) without admitting absurd values typed by accident.
-const MOTOR_SPEED_MAX = 12;
-const MOTOR_THRESHOLD_MAX = 10;
-
-function sanitizeMotorField(raw: unknown, maxKn: number): number | undefined {
-  if (typeof raw !== "number" || !Number.isFinite(raw)) return undefined;
-  if (raw <= 0 || raw > maxKn) return undefined;
-  return Math.round(raw * 10) / 10;
 }
 
 function isValidBase(x: unknown): x is string {
@@ -213,8 +188,6 @@ export function loadPolarConfig(): PolarConfig {
       scale: clampScale(typeof parsed.scale === "number" ? parsed.scale : SCALE_DEFAULT),
       spi,
       overrides: sanitizeOverrides(parsed.overrides, BASE_POLARS[base]),
-      motorThresholdKn: sanitizeMotorField(parsed.motorThresholdKn, MOTOR_THRESHOLD_MAX),
-      motorSpeedKn: sanitizeMotorField(parsed.motorSpeedKn, MOTOR_SPEED_MAX),
     };
   } catch {
     return defaultPolarConfig();
@@ -229,8 +202,6 @@ export function savePolarConfig(cfg: PolarConfig): void {
       scale: cfg.scale,
       spi: cfg.spi,
       overrides: cfg.overrides,
-      motorThresholdKn: cfg.motorThresholdKn,
-      motorSpeedKn: cfg.motorSpeedKn,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch {
@@ -251,17 +222,7 @@ export function effectivePolar(cfg: PolarConfig): PolarData {
       return Math.round(v * cfg.scale * spiMult * 10) / 10;
     }),
   );
-  // Only propagate motor fields when BOTH are present — matches the backend
-  // contract (`_apply_motor` ignores half-set configs) and keeps the payload
-  // minimal when the user hasn't opted in.
-  const motorActive =
-    typeof cfg.motorThresholdKn === "number" && typeof cfg.motorSpeedKn === "number";
-  return {
-    ...base,
-    boat_speed_kn: matrix,
-    motor_threshold_kn: motorActive ? cfg.motorThresholdKn : undefined,
-    motor_speed_kn: motorActive ? cfg.motorSpeedKn : undefined,
-  };
+  return { ...base, boat_speed_kn: matrix };
 }
 
 export function hasOverrides(cfg: PolarConfig): boolean {
@@ -273,14 +234,11 @@ export function hasOverrides(cfg: PolarConfig): boolean {
 // any cell has been hand-tuned. Used to decide whether to push the custom
 // matrix to the planner; when false, the server's bundled polar suffices.
 export function isPolarCustomized(cfg: PolarConfig, archetype: string): boolean {
-  const motorActive =
-    typeof cfg.motorThresholdKn === "number" && typeof cfg.motorSpeedKn === "number";
   return (
     cfg.base !== archetype ||
     cfg.scale !== SCALE_DEFAULT ||
     cfg.spi !== "off" ||
-    hasOverrides(cfg) ||
-    motorActive
+    hasOverrides(cfg)
   );
 }
 
@@ -292,6 +250,5 @@ export function polarFingerprint(cfg: PolarConfig): string {
     .sort()
     .map((k) => `${k}=${cfg.overrides[k]}`)
     .join(",");
-  const motorKey = `${cfg.motorThresholdKn ?? ""}/${cfg.motorSpeedKn ?? ""}`;
-  return `${cfg.base}|${cfg.scale}|${cfg.spi}|${overrideKey}|${motorKey}`;
+  return `${cfg.base}|${cfg.scale}|${cfg.spi}|${overrideKey}`;
 }

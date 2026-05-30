@@ -41,12 +41,6 @@ export interface AggregatedLeg {
   current_direction_to_deg: number | null;
   // Sign of current_delta_kn translated to a sailor-friendly label.
   current_relative: "portant" | "contraire" | "travers" | null;
-
-  // True when more than half of the leg's distance was covered with the
-  // engine on (per-segment motor_used aggregated by distance share). Used to
-  // override the point-of-sail label with "Moteur" so the user sees at a
-  // glance which legs the planner switched away from sailing.
-  motor_used: boolean;
 }
 
 function circularMeanDeg(angles: number[]): number {
@@ -257,16 +251,6 @@ export function aggregateLegs(
       ? tpSegs.reduce((s, seg) => s + (seg.wave_period_s as number) * seg.distance_nm, 0) / tpTotalDist
       : null;
 
-    // Motor share. Distance-weighted so a single short motor segment in an
-    // otherwise sail-driven leg doesn't flip the whole label. Threshold > 0.5
-    // matches the product decision (majoritaire); under that, the leg keeps
-    // its sailing allure even if a couple of segments were motored through.
-    const motorDist = segs.reduce(
-      (acc, s) => acc + (s.motor_used ? s.distance_nm : 0),
-      0,
-    );
-    const motor_used = motorDist / totalDist > 0.5;
-
     return [{
       distance_nm: totalDist,
       start_time: segs[0].start_time,
@@ -278,7 +262,7 @@ export function aggregateLegs(
       twd_avg_deg,
       bearing_avg_deg,
       gust_max_kn,
-      point_of_sail: motor_used ? "Moteur" : twaToPointOfSail(twa_avg_deg),
+      point_of_sail: twaToPointOfSail(twa_avg_deg),
       polar_after_eff_kn,
       wave_delta_kn,
       current_delta_kn,
@@ -292,7 +276,6 @@ export function aggregateLegs(
       current_speed_kn,
       current_direction_to_deg,
       current_relative,
-      motor_used,
     }];
   });
 }

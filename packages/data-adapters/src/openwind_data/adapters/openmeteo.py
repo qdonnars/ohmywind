@@ -228,13 +228,7 @@ class OpenMeteoAdapter:
         }
         await self._pace_http()
         resp = await client.get(FORECAST_URL, params=params)
-        try:
-            _raise_for_status_with_horizon(resp, model, start)
-        except _OffCoverageError:
-            # Geographic miss: return an empty series so the per-segment
-            # fallback chain in ``estimate_passage`` can advance to the next
-            # model without a 500.
-            return WindSeries(model=model, points=())
+        _raise_for_status_with_horizon(resp, model, start)
         return _parse_wind(resp.json(), model, start, end)
 
     async def _fetch_sea(
@@ -255,10 +249,7 @@ class OpenMeteoAdapter:
         }
         await self._pace_http()
         resp = await client.get(MARINE_URL, params=params)
-        try:
-            _raise_for_status_with_horizon(resp, "open-meteo-marine", start)
-        except _OffCoverageError:
-            return SeaSeries(points=())
+        _raise_for_status_with_horizon(resp, "open-meteo-marine", start)
         return _parse_sea(resp.json(), start, end)
 
 
@@ -270,17 +261,6 @@ def _raise_for_status_with_horizon(
     instead of surfacing a raw ``HTTPStatusError`` (which would 500 the API).
     Other 400s (malformed params, etc.) keep their native exception so real
     bugs stay visible.
-
-    Two recognised 400 patterns:
-      - ``"... out of allowed range ..."`` on start_date/end_date → horizon
-        error (model's forecast horizon doesn't cover the requested time).
-      - ``"No data is available for this location"`` → the point is outside
-        the model's geographic coverage (typical: AROME France queried in
-        the North Sea, ICON-D2 outside DE/CH/AT). Caller wants this to look
-        like a non-fatal "empty series" so the per-segment fallback chain
-        in ``estimate_passage`` can advance to the next model. We signal it
-        by raising a sentinel; the caller converts to empty
-        ``WindSeries(points=())``.
     """
     if resp.status_code == 400:
         try:
@@ -290,24 +270,7 @@ def _raise_for_status_with_horizon(
         reason = str(payload.get("reason", ""))
         if "out of allowed range" in reason and ("start_date" in reason or "end_date" in reason):
             raise ForecastHorizonError(model, requested_time)
-        if "no data is available" in reason.lower():
-            # Sentinel: caller catches this and returns an empty series so
-            # null-data fallback kicks in.
-            raise _OffCoverageError(model, str(payload.get("reason", "")))
     resp.raise_for_status()
-
-
-class _OffCoverageError(RuntimeError):
-    """Internal sentinel — Open-Meteo replied 400 with "No data is available
-    for this location". Lets the wind/sea fetchers return an empty series
-    instead of bubbling a raw HTTPStatusError, which lets the per-segment
-    fallback chain advance.
-    """
-
-    def __init__(self, model: str, reason: str) -> None:
-        self.model = model
-        self.reason = reason
-        super().__init__(f"open-meteo off-coverage for {model!r}: {reason}")
 
 
 def _slice_bundle(bundle: ForecastBundle, start: datetime, end: datetime) -> ForecastBundle:

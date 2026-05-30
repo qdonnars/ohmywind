@@ -357,32 +357,6 @@ async def test_om_400_other_keeps_http_error(marine_porquerolles):
 
 
 @respx.mock
-async def test_om_400_no_data_returns_empty_wind_series(marine_porquerolles):
-    """Open-Meteo replies 400 with "No data is available for this location"
-    when the queried point falls outside a model's geographic coverage
-    (typical: AROME France queried in the North Sea, ICON-D2 outside
-    DE/CH/AT). We translate that to an empty ``WindSeries`` so the
-    per-segment null-data fallback in ``estimate_passage`` can advance to
-    the next model instead of bubbling a 500.
-    """
-    respx.get(FORECAST_URL).mock(
-        return_value=httpx.Response(
-            400,
-            json={"error": True, "reason": "No data is available for this location"},
-        )
-    )
-    respx.get(MARINE_URL).mock(return_value=httpx.Response(200, json=marine_porquerolles))
-
-    adapter = OpenMeteoAdapter(http_min_interval_s=0)
-    start, end = _start_end()
-    bundle = await adapter.fetch(
-        lat=54.0, lon=8.0, start=start, end=end, models=["meteofrance_arome_france"]
-    )
-    wind = bundle.wind_by_model["meteofrance_arome_france"]
-    assert wind.points == ()
-
-
-@respx.mock
 async def test_http_pacing_serializes_concurrent_starts(
     forecast_marseille_arome, marine_porquerolles
 ):

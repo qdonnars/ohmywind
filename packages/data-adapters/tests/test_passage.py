@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from itertools import pairwise
 
@@ -15,7 +14,7 @@ from openwind_data.adapters.base import (
     WindPoint,
     WindSeries,
 )
-from openwind_data.routing.archetypes import BoatPolar, get_polar, lookup_polar
+from openwind_data.routing.archetypes import get_polar, lookup_polar
 from openwind_data.routing.geometry import Point
 from openwind_data.routing.passage import (
     LIGHT_WIND_THRESHOLD_KN,
@@ -504,16 +503,7 @@ class TestModelFallback:
         assert "horizon" in msg
         assert "meteofrance_arome_france" in msg
 
-    async def test_auto_all_fail_raises_no_model_covered(self) -> None:
-        """When every model in the chain returns empty wind data (not a real
-        horizon error — just no data), the new per-segment fallback raises
-        ``NoModelCoveredError`` to make the off-coverage cause explicit
-        instead of masquerading it as a horizon issue. The outer AUTO loop
-        still tries each model in order, but advance-on-empty-data is now
-        per-segment, so exhaustion surfaces at fetch level.
-        """
-        from openwind_data.routing.passage import NoModelCoveredError
-
+    async def test_auto_all_fail_raises_last(self) -> None:
         adapter = HorizonLimitedStubAdapter(
             short_horizon_models=(
                 "meteofrance_arome_france",
@@ -522,7 +512,7 @@ class TestModelFallback:
                 "gfs_seamless",
             )
         )
-        with pytest.raises(NoModelCoveredError):
+        with pytest.raises(ForecastHorizonError) as excinfo:
             await estimate_passage(
                 [MARSEILLE, PORQUEROLLES],
                 DEPARTURE,
@@ -531,6 +521,7 @@ class TestModelFallback:
                 model="auto",
                 segment_length_nm=10.0,
             )
+        assert excinfo.value.model == "gfs_seamless"
 
 
 class TestBestVmgUpwind:
@@ -1070,7 +1061,7 @@ class TestPolarOverride:
     """Custom polar payload overrides the bundled archetype polar."""
 
     @staticmethod
-    def _doubled_polar(base_name: str) -> BoatPolar:
+    def _doubled_polar(base_name: str) -> "BoatPolar":
         from openwind_data.routing.archetypes import BoatPolar
 
         base = get_polar(base_name)
@@ -1157,109 +1148,6 @@ class TestPolarOverride:
         assert plan.report.arrival_time == target
 
 
-class TestMotorConfig:
-    """When the polar carries motor_threshold_kn + motor_speed_kn, low-wind
-    segments switch to the configured motor speed instead of crawling at the
-    sail-derived polar speed."""
-
-    @staticmethod
-    def _polar_with_motor(
-        base_name: str, *, threshold_kn: float | None, motor_kn: float | None
-    ) -> BoatPolar:
-        from openwind_data.routing.archetypes import BoatPolar
-
-        base = get_polar(base_name)
-        return BoatPolar(
-            name=base.name,
-            length_ft=base.length_ft,
-            type=base.type,
-            category=base.category,
-            examples=base.examples,
-            performance_class=base.performance_class,
-            tws_kn=base.tws_kn,
-            twa_deg=base.twa_deg,
-            boat_speed_kn=base.boat_speed_kn,
-            motor_threshold_kn=threshold_kn,
-            motor_speed_kn=motor_kn,
-        )
-
-    async def test_motor_activates_in_light_wind(self) -> None:
-        # 2 kn TWS on a 30 ft cruiser produces a sail speed well under 2 kn
-        # post-efficiency, so the motor at 5 kn must kick in on every segment
-        # and the resulting passage must be markedly faster than the no-motor
-        # baseline.
-        adapter_base = StubAdapter(tws_kn=2.0, twd_deg=90.0)
-        baseline = await estimate_passage(
-            [MARSEILLE, PORQUEROLLES],
-            DEPARTURE,
-            "cruiser_30ft",
-            adapter=adapter_base,
-            segment_length_nm=10.0,
-        )
-        assert all(not s.motor_used for s in baseline.segments)
-
-        adapter_motor = StubAdapter(tws_kn=2.0, twd_deg=90.0)
-        motor_polar = self._polar_with_motor("cruiser_30ft", threshold_kn=3.0, motor_kn=5.0)
-        with_motor = await estimate_passage(
-            [MARSEILLE, PORQUEROLLES],
-            DEPARTURE,
-            "cruiser_30ft",
-            adapter=adapter_motor,
-            segment_length_nm=10.0,
-            polar_override=motor_polar,
-        )
-        # Every segment must report motor_used = True (light wind → all
-        # segments under the 3 kn threshold).
-        assert all(s.motor_used for s in with_motor.segments)
-        # Each motor segment runs at exactly 5 kn (no efficiency / derate
-        # applied under power).
-        for s in with_motor.segments:
-            assert s.boat_speed_kn == pytest.approx(5.0)
-        # And the passage is much faster overall — order of magnitude check
-        # only, since the StubAdapter floors at MIN_BOAT_SPEED_KN.
-        assert with_motor.duration_h < baseline.duration_h * 0.6
-
-    async def test_motor_skipped_above_threshold(self) -> None:
-        # 12 kn TWS produces a polar speed >> 3 kn threshold → motor never
-        # fires even when configured.
-        adapter = StubAdapter(tws_kn=12.0, twd_deg=90.0)
-        motor_polar = self._polar_with_motor("cruiser_30ft", threshold_kn=3.0, motor_kn=5.0)
-        report = await estimate_passage(
-            [MARSEILLE, PORQUEROLLES],
-            DEPARTURE,
-            "cruiser_30ft",
-            adapter=adapter,
-            segment_length_nm=10.0,
-            polar_override=motor_polar,
-        )
-        assert all(not s.motor_used for s in report.segments)
-
-    async def test_motor_ignored_when_only_one_field_set(self) -> None:
-        # Defensive: threshold alone (no motor speed) must be a no-op so a
-        # half-filled form on the frontend never silently changes durations.
-        adapter_base = StubAdapter(tws_kn=2.0, twd_deg=90.0)
-        baseline = await estimate_passage(
-            [MARSEILLE, PORQUEROLLES],
-            DEPARTURE,
-            "cruiser_30ft",
-            adapter=adapter_base,
-            segment_length_nm=10.0,
-        )
-
-        adapter_half = StubAdapter(tws_kn=2.0, twd_deg=90.0)
-        half = self._polar_with_motor("cruiser_30ft", threshold_kn=3.0, motor_kn=None)
-        report = await estimate_passage(
-            [MARSEILLE, PORQUEROLLES],
-            DEPARTURE,
-            "cruiser_30ft",
-            adapter=adapter_half,
-            segment_length_nm=10.0,
-            polar_override=half,
-        )
-        assert report.duration_h == pytest.approx(baseline.duration_h, rel=1e-6)
-        assert all(not s.motor_used for s in report.segments)
-
-
 class TestModelChainOverride:
     """Caller-supplied model chain overrides the default AROME→ICON→ECMWF→GFS."""
 
@@ -1322,221 +1210,3 @@ class TestModelChainOverride:
             segment_length_nm=10.0,
         )
         assert plan.report.model == "icon_eu"
-
-
-class GeoCoverageStubAdapter:
-    """Per-(model, lat-band) coverage stub.
-
-    ``model_coverage`` maps a model name to a predicate ``(lat, lon) -> bool``
-    that returns True when the model has data at that point. Returns empty
-    wind (``points=()``) when False; returns a constant-wind series when True.
-    Lets us simulate the real-world "AROME France queried in the North Sea"
-    scenario without going to network — each segment can independently hit
-    or miss coverage for the primary model.
-    """
-
-    def __init__(
-        self,
-        model_coverage: dict[str, Callable[[float, float], bool]],
-        tws_kn: float = 10.0,
-        twd_deg: float = 0.0,
-    ) -> None:
-        self.model_coverage = model_coverage
-        self.tws_kn = tws_kn
-        self.twd_deg = twd_deg
-        # Track every fetch call so tests can assert the per-segment retry
-        # pattern (primary tried for all N segments, fallback for the K
-        # missed ones only).
-        self.calls: list[tuple[float, float, str]] = []
-
-    async def fetch(
-        self,
-        lat: float,
-        lon: float,
-        start: datetime,
-        end: datetime,
-        models: list[str] | None = None,
-    ) -> ForecastBundle:
-        models = models or ["meteofrance_arome_france"]
-        wind: dict[str, WindSeries] = {}
-        for m in models:
-            self.calls.append((lat, lon, m))
-            predicate = self.model_coverage.get(m, lambda _lat, _lon: False)
-            if predicate(lat, lon):
-                points: list[WindPoint] = []
-                t = start
-                while t <= end:
-                    points.append(
-                        WindPoint(
-                            time=t,
-                            speed_kn=self.tws_kn,
-                            direction_deg=self.twd_deg,
-                            gust_kn=None,
-                        )
-                    )
-                    t = t + timedelta(hours=1)
-                wind[m] = WindSeries(model=m, points=tuple(points))
-            else:
-                wind[m] = WindSeries(model=m, points=())
-        return ForecastBundle(
-            lat=lat,
-            lon=lon,
-            start=start,
-            end=end,
-            wind_by_model=wind,
-            sea=SeaSeries(points=()),
-            requested_at=start,
-        )
-
-
-class TestNullDataPerSegmentFallback:
-    """Per-segment fallback to the next chain model when the primary returns
-    null wind for individual points — typical real-world case: route crosses
-    the French / Dutch border and AROME France has data only on the south
-    half. Issue raised by @f_blc on a German-border passage.
-    """
-
-    async def test_primary_covers_whole_route_uses_no_extra_fetches(self) -> None:
-        """No fallback should fire when the primary covers everything —
-        cost stays at 1 batched fetch per segment (preserves the existing
-        behaviour for any route inside AROME's footprint).
-        """
-        adapter = GeoCoverageStubAdapter(
-            model_coverage={
-                "meteofrance_arome_france": lambda _lat, _lon: True,
-                "icon_eu": lambda _lat, _lon: True,
-            }
-        )
-        report = await estimate_passage(
-            [MARSEILLE, PORQUEROLLES],
-            DEPARTURE,
-            "cruiser_40ft",
-            adapter=adapter,
-            model="auto",
-            model_chain=("meteofrance_arome_france", "icon_eu"),
-            segment_length_nm=10.0,
-        )
-        # All segments use the primary; no fallback warning, no per-segment
-        # extra HTTP call (only primary requests in adapter.calls).
-        assert report.model == "meteofrance_arome_france"
-        assert all(s.model_used == "meteofrance_arome_france" for s in report.segments)
-        assert all(c[2] == "meteofrance_arome_france" for c in adapter.calls)
-        assert not any("fallback" in w.lower() for w in report.warnings)
-
-    async def test_primary_null_falls_back_to_next_model_per_segment(self) -> None:
-        """Simulates a North-Sea-border route: AROME (France only) returns
-        null everywhere; ICON-EU has full coverage. Every segment must
-        resolve to icon_eu and the per-segment fallback re-fetches each.
-        """
-        adapter = GeoCoverageStubAdapter(
-            model_coverage={
-                # AROME has no coverage anywhere in this scenario.
-                "meteofrance_arome_france": lambda _lat, _lon: False,
-                "icon_eu": lambda _lat, _lon: True,
-            }
-        )
-        report = await estimate_passage(
-            [MARSEILLE, PORQUEROLLES],  # geographic position is opaque to the stub
-            DEPARTURE,
-            "cruiser_40ft",
-            adapter=adapter,
-            model="auto",
-            model_chain=("meteofrance_arome_france", "icon_eu"),
-            segment_length_nm=10.0,
-        )
-        # Full-route swap → ``model`` is promoted to icon_eu (matches the
-        # legacy outer-AUTO-loop behaviour, no fallback warning needed).
-        assert report.model == "icon_eu"
-        assert all(s.model_used == "icon_eu" for s in report.segments)
-
-    async def test_mixed_coverage_fallback_per_segment_with_warning(self) -> None:
-        """Mixed case: AROME covers lat <= 43.2, ICON-EU covers everything.
-        Some segments resolve to AROME, others to ICON-EU. ``report.model``
-        stays the primary (AROME) and a warning surfaces the split.
-        """
-        adapter = GeoCoverageStubAdapter(
-            model_coverage={
-                "meteofrance_arome_france": lambda lat, _lon: lat <= 43.2,
-                "icon_eu": lambda _lat, _lon: True,
-            }
-        )
-        report = await estimate_passage(
-            [MARSEILLE, PORQUEROLLES],
-            DEPARTURE,
-            "cruiser_40ft",
-            adapter=adapter,
-            model="auto",
-            model_chain=("meteofrance_arome_france", "icon_eu"),
-            segment_length_nm=10.0,
-        )
-        # ``report.model`` keeps the primary so the UI doesn't lie about
-        # which model was the user's pick.
-        assert report.model == "meteofrance_arome_france"
-        used = {s.model_used for s in report.segments}
-        assert used == {"meteofrance_arome_france", "icon_eu"}
-        # Warning surfaces the partial-coverage situation.
-        assert any("fallback" in w.lower() for w in report.warnings)
-        assert any("icon_eu" in w for w in report.warnings)
-
-    async def test_all_models_null_raises_no_model_covered(self) -> None:
-        """When every model in the chain returns null for a given point,
-        the fallback exhausts and surfaces a user-actionable error
-        (distinct from ForecastHorizonError, which is a time issue, not a
-        coverage issue).
-        """
-        from openwind_data.routing.passage import NoModelCoveredError
-
-        adapter = GeoCoverageStubAdapter(
-            model_coverage={
-                "meteofrance_arome_france": lambda _lat, _lon: False,
-                "icon_eu": lambda _lat, _lon: False,
-                "ecmwf_ifs025": lambda _lat, _lon: False,
-                "gfs_seamless": lambda _lat, _lon: False,
-            }
-        )
-        with pytest.raises(NoModelCoveredError) as excinfo:
-            await estimate_passage(
-                [MARSEILLE, PORQUEROLLES],
-                DEPARTURE,
-                "cruiser_40ft",
-                adapter=adapter,
-                model="auto",
-                model_chain=(
-                    "meteofrance_arome_france",
-                    "icon_eu",
-                    "ecmwf_ifs025",
-                    "gfs_seamless",
-                ),
-                segment_length_nm=10.0,
-            )
-        msg = str(excinfo.value)
-        assert "no model" in msg
-        assert "off-coverage" in msg
-
-    async def test_chain_walks_past_intermediate_null_model(self) -> None:
-        """Three-model chain: AROME and ICON-D2 are both off-coverage,
-        ICON-EU works. Each missed segment must walk past ICON-D2 and
-        land on ICON-EU.
-        """
-        adapter = GeoCoverageStubAdapter(
-            model_coverage={
-                "meteofrance_arome_france": lambda _lat, _lon: False,
-                "icon_d2": lambda _lat, _lon: False,
-                "icon_eu": lambda _lat, _lon: True,
-            }
-        )
-        report = await estimate_passage(
-            [MARSEILLE, PORQUEROLLES],
-            DEPARTURE,
-            "cruiser_40ft",
-            adapter=adapter,
-            model="auto",
-            model_chain=("meteofrance_arome_france", "icon_d2", "icon_eu"),
-            segment_length_nm=10.0,
-        )
-        assert report.model == "icon_eu"
-        assert all(s.model_used == "icon_eu" for s in report.segments)
-        # Sanity check: ICON-D2 was attempted on at least one segment.
-        models_attempted = {c[2] for c in adapter.calls}
-        assert "icon_d2" in models_attempted
-        assert "icon_eu" in models_attempted

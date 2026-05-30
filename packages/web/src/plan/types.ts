@@ -24,7 +24,6 @@ export interface SegmentReport {
   current_source?: string | null;
   gust_kn?: number | null;
   wave_period_s?: number | null;
-  motor_used?: boolean;
 }
 
 export interface PassageReport {

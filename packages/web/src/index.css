@@ -160,68 +160,6 @@ body {
   animation: emptyPulse 3s ease-in-out infinite;
 }
 
-/* Onboarding tour: halo on target, card entry, caret arrows, progress bar */
-@keyframes onboardHalo {
-  0%, 100% {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ow-accent) 70%, transparent),
-                0 0 0 10px color-mix(in srgb, var(--ow-accent) 20%, transparent),
-                0 0 28px 4px color-mix(in srgb, var(--ow-accent) 35%, transparent);
-  }
-  50% {
-    box-shadow: 0 0 0 5px color-mix(in srgb, var(--ow-accent) 85%, transparent),
-                0 0 0 18px color-mix(in srgb, var(--ow-accent) 8%, transparent),
-                0 0 40px 8px color-mix(in srgb, var(--ow-accent) 55%, transparent);
-  }
-}
-.onboard-halo {
-  animation: onboardHalo 1.8s ease-in-out infinite;
-}
-
-@keyframes onboardCardIn {
-  from { opacity: 0; transform: translateY(6px) scale(0.98); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-.onboard-card-enter {
-  animation: onboardCardIn 0.28s ease-out;
-}
-
-.onboard-caret-up,
-.onboard-caret-down,
-.onboard-caret-left {
-  width: 0;
-  height: 0;
-}
-.onboard-caret-up {
-  top: -8px;
-  left: 50%;
-  margin-left: -8px;
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  border-bottom: 8px solid var(--ow-accent-line);
-}
-.onboard-caret-down {
-  bottom: -8px;
-  left: 50%;
-  margin-left: -8px;
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  border-top: 8px solid var(--ow-accent-line);
-}
-.onboard-caret-left {
-  left: -8px;
-  border-top: 8px solid transparent;
-  border-bottom: 8px solid transparent;
-  border-right: 8px solid var(--ow-accent-line);
-}
-
-@keyframes onboardProgress {
-  from { width: 0%; }
-  to   { width: 100%; }
-}
-.onboard-progress {
-  animation: onboardProgress 6.5s linear forwards;
-}
-
 /* Plan waypoint marker + hover delete badge */
 .ow-wpt {
   position: relative;

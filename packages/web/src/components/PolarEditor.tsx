@@ -90,28 +90,6 @@ export function PolarEditor() {
     });
   }
 
-  function setMotorThreshold(raw: string) {
-    const val = raw.trim();
-    if (val === "") {
-      update({ ...config, motorThresholdKn: undefined });
-      return;
-    }
-    const num = Number(val);
-    if (!Number.isFinite(num) || num <= 0) return;
-    update({ ...config, motorThresholdKn: Math.round(num * 10) / 10 });
-  }
-
-  function setMotorSpeed(raw: string) {
-    const val = raw.trim();
-    if (val === "") {
-      update({ ...config, motorSpeedKn: undefined });
-      return;
-    }
-    const num = Number(val);
-    if (!Number.isFinite(num) || num <= 0) return;
-    update({ ...config, motorSpeedKn: Math.round(num * 10) / 10 });
-  }
-
   function resetAll() {
     update(defaultPolarConfig());
   }
@@ -443,54 +421,6 @@ export function PolarEditor() {
         </svg>
       </div>
 
-      {/* Motor (optional) — switches segments with sail speed under the
-          threshold to a fixed motor speed. Both fields must be filled for
-          the override to apply; the backend ignores partial configs. */}
-      <fieldset className="polar-motor">
-        <legend className="polar-motor-legend">Moteur (optionnel)</legend>
-        <div className="polar-motor-grid">
-          <label className="polar-motor-label">
-            <span>Vitesse seuil (kn)</span>
-            <input
-              type="number"
-              inputMode="decimal"
-              step="0.1"
-              min="0.1"
-              max="10"
-              placeholder="ex. 2"
-              value={config.motorThresholdKn ?? ""}
-              onChange={(e) => setMotorThreshold(e.target.value)}
-              className="polar-motor-input"
-            />
-          </label>
-          <label className="polar-motor-label">
-            <span>Vitesse moteur (kn)</span>
-            <input
-              type="number"
-              inputMode="decimal"
-              step="0.1"
-              min="0.1"
-              max="12"
-              placeholder="ex. 5"
-              value={config.motorSpeedKn ?? ""}
-              onChange={(e) => setMotorSpeed(e.target.value)}
-              className="polar-motor-input"
-            />
-          </label>
-        </div>
-        <p className="polar-motor-hint">
-          Sous la vitesse seuil calculée par la polaire, on bascule au moteur.
-          Laissez les deux champs vides pour rester 100&nbsp;% voile (comportement par défaut).
-        </p>
-        {(typeof config.motorThresholdKn === "number") !==
-          (typeof config.motorSpeedKn === "number") && (
-          <p className="polar-motor-warn">
-            Renseignez les deux valeurs pour activer le moteur. Tant qu'un seul champ
-            est rempli, la simulation reste 100&nbsp;% voile.
-          </p>
-        )}
-      </fieldset>
-
       {/* Footer actions */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="text-xs opacity-70">
@@ -685,59 +615,6 @@ export function PolarEditor() {
         .polar-btn:hover {
           background: var(--ow-bg-2, rgba(255,255,255,0.06));
           color: var(--ow-fg-0, #e2e8f0);
-        }
-        .polar-motor {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          padding: 12px 14px;
-          border-radius: 10px;
-          background: var(--ow-bg-1, rgba(255,255,255,0.03));
-          border: 1px solid var(--ow-line-2, rgba(255,255,255,0.10));
-        }
-        .polar-motor-legend {
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          opacity: 0.7;
-          padding: 0 6px;
-        }
-        .polar-motor-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 10px;
-        }
-        .polar-motor-label {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          font-size: 12px;
-          color: var(--ow-fg-1, #cbd5e1);
-        }
-        .polar-motor-input {
-          background: var(--ow-bg-1, rgba(255,255,255,0.04));
-          color: var(--ow-fg-0, #e2e8f0);
-          border: 1px solid var(--ow-line-2, rgba(255,255,255,0.10));
-          border-radius: 8px;
-          padding: 7px 10px;
-          font-size: 13px;
-          font-family: ui-monospace, monospace;
-        }
-        .polar-motor-input:focus {
-          outline: none;
-          border-color: var(--ow-accent, #14b8a6);
-        }
-        .polar-motor-hint {
-          font-size: 11.5px;
-          line-height: 1.5;
-          opacity: 0.65;
-          margin: 0;
-        }
-        .polar-motor-warn {
-          font-size: 11.5px;
-          line-height: 1.5;
-          color: #fbbf24;
-          margin: 0;
         }
       `}</style>
     </div>

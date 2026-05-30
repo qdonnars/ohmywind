@@ -1,6 +1,5 @@
 import type { ModelForecast, HourlyData, GeocodingResult } from "../types";
 import {
-  ACTIVE_LIMIT,
   activeModels,
   loadModelConfig,
   type ModelName,
@@ -106,38 +105,15 @@ export function sanitizeHourly(hourly: HourlyData): HourlyData {
   };
 }
 
-// Fetch a single model's wind forecast. Returns null when the upstream call
-// fails OR when the payload has no ``hourly`` block (typical Open-Meteo
-// response shape when the requested point is outside the model grid, e.g.
-// AROME France queried at the Danish coast). The caller uses null to drive
-// the per-slot fallback to the next priority model.
-async function fetchOneModel(
-  name: ModelName,
-  base: string,
-): Promise<ModelForecast | null> {
-  const endpoint = MODEL_ENDPOINTS[name];
-  try {
-    const resp = await fetch(`${endpoint.endpoint}${base}${endpoint.extraParams || ""}`);
-    const data = await resp.json();
-    if (!data.hourly) return null;
-    return { modelName: name, hourly: sanitizeHourly(data.hourly) };
-  } catch {
-    return null;
-  }
-}
-
 export async function fetchAllModels(
   lat: number,
   lon: number
 ): Promise<ModelForecast[]> {
   const config = loadModelConfig();
-  const top = activeModels(config);
-  const fallbackPool = config.order.slice(ACTIVE_LIMIT);
-  // Cache key includes the FULL order (not just the active subset) because
-  // the fallback chain depends on what comes after the top N. Two users with
-  // the same top 4 but different "Ignorés" lists would resolve to different
-  // tables on a spot where one of the top 4 doesn't cover.
-  const cacheKey = `${lat.toFixed(4)},${lon.toFixed(4)}|${config.order.join(",")}`;
+  const selected = activeModels(config);
+  // Cache key includes the active model list so that reordering or swapping
+  // models in /config doesn't return a stale subset on the next page load.
+  const cacheKey = `${lat.toFixed(4)},${lon.toFixed(4)}|${selected.join(",")}`;
   const cached = cache.get(cacheKey);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL) {
     return cached.models;
@@ -145,32 +121,27 @@ export async function fetchAllModels(
 
   const base = `?latitude=${lat}&longitude=${lon}&${PARAMS}`;
 
-  // Phase 1: fire the top N models in parallel (preserves the previous
-  // behaviour when the spot is fully covered).
-  const phase1 = await Promise.all(top.map((m) => fetchOneModel(m, base)));
+  const results = await Promise.allSettled<ModelForecast>(
+    selected.map((name) => {
+      const model = MODEL_ENDPOINTS[name];
+      return fetch(`${model.endpoint}${base}${model.extraParams || ""}`)
+        .then((r) => r.json())
+        .then((data): ModelForecast => ({
+          modelName: name,
+          hourly: data.hourly ? sanitizeHourly(data.hourly) : data.hourly,
+        }));
+    })
+  );
 
-  // Phase 2: for each top slot that came back null, walk the user's
-  // "Ignorés" list sequentially until one returns data. Each fallback
-  // model is consumed at most once (so two failed top slots won't both
-  // try to claim the same fallback).
-  const pool = [...fallbackPool];
-  const slots: (ModelForecast | null)[] = phase1.slice();
-  for (let i = 0; i < slots.length; i++) {
-    if (slots[i] != null) continue;
-    const originalSlot = top[i];
-    while (pool.length > 0) {
-      const candidate = pool.shift() as ModelName;
-      const data = await fetchOneModel(candidate, base);
-      if (data != null) {
-        slots[i] = { ...data, fellBackFrom: originalSlot };
-        break;
-      }
-    }
-  }
+  // Promise.allSettled preserves input order, so the user's configured order
+  // flows through to the WindTable rendering loop.
+  const models = results
+    .filter(
+      (r): r is PromiseFulfilledResult<ModelForecast> =>
+        r.status === "fulfilled" && r.value.hourly != null
+    )
+    .map((r) => r.value);
 
-  // Drop slots where even the full fallback pool didn't yield a covering
-  // model (rare: would need a spot outside every grid in the user's config).
-  const models = slots.filter((s): s is ModelForecast => s != null);
   cache.set(cacheKey, { models, fetchedAt: Date.now() });
   return models;
 }

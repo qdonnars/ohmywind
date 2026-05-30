@@ -406,18 +406,12 @@ export function MarineTable({
 
   const nowHour = nowParisHourPrefix();
 
-  // Persisted across spot switches: see WindTable for the same pattern.
-  const leftmostHourRef = useRef<string | null>(null);
-
   const updateVisibleDay = useCallback(() => {
     const el = scrollRef.current;
     if (!el || masterTimeline.length === 0) return;
     const leftmostIdx = Math.max(0, Math.floor(el.scrollLeft / CELL_W));
     const t = masterTimeline[Math.min(leftmostIdx, masterTimeline.length - 1)];
-    if (t) {
-      setVisibleDay(t.slice(0, 10));
-      leftmostHourRef.current = t;
-    }
+    if (t) setVisibleDay(t.slice(0, 10));
   }, [masterTimeline]);
 
   const checkScrollEnd = useCallback(() => {
@@ -430,17 +424,11 @@ export function MarineTable({
 
   useEffect(() => {
     if (!scrollRef.current || masterTimeline.length === 0) return;
-    // Same anchor restoration as WindTable. Initial scroll-to-now keeps a
-    // 60px context offset; restoration from an anchor lands exactly on
-    // the leftmost cell to avoid pixel drift across spot switches.
-    const hasAnchor = leftmostHourRef.current != null;
-    const anchor = leftmostHourRef.current ?? nowHour;
-    const idx = masterTimeline.findIndex((t) => t.startsWith(anchor.slice(0, 13)));
+    const idx = masterTimeline.findIndex((t) => t.startsWith(nowHour));
     const nearestIdx =
-      idx >= 0 ? idx : masterTimeline.findIndex((t) => t > anchor.slice(0, 13));
+      idx >= 0 ? idx : masterTimeline.findIndex((t) => t > nowHour.slice(0, 13));
     if (nearestIdx > 0) {
-      const offset = hasAnchor ? 0 : 60;
-      scrollRef.current.scrollLeft = Math.max(0, nearestIdx * CELL_W - offset);
+      scrollRef.current.scrollLeft = Math.max(0, nearestIdx * CELL_W - 60);
     }
     checkScrollEnd();
   }, [masterTimeline, nowHour, checkScrollEnd]);
@@ -459,9 +447,9 @@ export function MarineTable({
   const tideSeries = marine.tide_height_zh_m ?? marine.tide_height_m;
 
   return (
-    <div className="animate-fade-in h-full">
-      <div className={`scroll-container h-full ${scrolledEnd ? "scrolled-end" : ""}`}>
-        <div ref={scrollRef} className="h-full overflow-auto wind-table-scroll">
+    <div className="animate-fade-in">
+      <div className={`scroll-container ${scrolledEnd ? "scrolled-end" : ""}`}>
+        <div ref={scrollRef} className="overflow-x-auto wind-table-scroll">
           <table className="border-collapse" role="table">
             <thead className="sticky top-0 z-20">
               <TimelineHeader

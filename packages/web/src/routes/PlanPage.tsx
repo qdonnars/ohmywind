@@ -129,13 +129,8 @@ interface DrawerHandle {
 
 const ResizableMobileDrawer = forwardRef<DrawerHandle, {
   defaultVh: number;
-  /** Optional auto-target height. When this value changes the drawer
-   *  animates to it (CSS transition on ``height``). Manual drag still
-   *  overrides until the next ``targetVh`` change. Pass ``undefined`` to
-   *  fall back to ``defaultVh`` / persisted height with no auto-resize. */
-  targetVh?: number;
   children: React.ReactNode;
-}>(function ResizableMobileDrawer({ defaultVh, targetVh, children }, ref) {
+}>(function ResizableMobileDrawer({ defaultVh, children }, ref) {
   const [vh, setVh] = useState<number>(() => {
     try {
       const raw = localStorage.getItem(DRAWER_HEIGHT_KEY);
@@ -146,25 +141,10 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
     }
   });
   const dragRef = useRef<{ startY: number; startVh: number } | null>(null);
-  // Animate only when the auto-target moves the drawer; user drag should
-  // feel direct (no easing lag). Toggled in onPointerDown/onPointerUp.
-  const [isAnimating, setIsAnimating] = useState(false);
 
   function persist(next: number) {
     try { localStorage.setItem(DRAWER_HEIGHT_KEY, String(next)); } catch { /* best-effort */ }
   }
-
-  // React to targetVh changes: clamp to bounds and animate. We deliberately
-  // do NOT persist this value — auto-targets follow app state, while
-  // localStorage captures the user's deliberate drag preference.
-  useEffect(() => {
-    if (targetVh == null) return;
-    const clamped = Math.max(DRAWER_MIN_VH, Math.min(DRAWER_MAX_VH, targetVh));
-    setIsAnimating(true);
-    setVh(clamped);
-    const t = setTimeout(() => setIsAnimating(false), 320);
-    return () => clearTimeout(t);
-  }, [targetVh]);
 
   useImperativeHandle(ref, () => ({
     expand: () => {
@@ -199,18 +179,13 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
   return (
     <div
       className="lg:hidden shrink-0 overflow-y-auto border-t flex flex-col"
-      style={{
-        height: `${vh}vh`,
-        background: "var(--ow-bg-1)",
-        borderColor: "var(--ow-line)",
-        transition: isAnimating ? "height 280ms cubic-bezier(0.4, 0, 0.2, 1)" : undefined,
-      }}
+      style={{ height: `${vh}vh`, background: "var(--ow-bg-1)", borderColor: "var(--ow-line)" }}
     >
       <div
         role="separator"
         aria-orientation="horizontal"
         aria-label="Redimensionner le panneau"
-        onPointerDown={(e) => { setIsAnimating(false); onPointerDown(e); }}
+        onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
@@ -379,19 +354,6 @@ export function PlanPage() {
   useEffect(() => { setSelectedLegIdx(null); }, [waypoints, passage]);
   const [windows, setWindows] = useState<PassageWindow[] | null>(null);
   const [metaWarnings, setMetaWarnings] = useState<string[]>([]);
-  // Compact "pick a mode" state on mobile: drops the sidebar to just the
-  // mode pills + reset button (and shrinks the bottom drawer) until the
-  // user actively confirms their mode choice. Initialised true when we
-  // already have a route to display (cached / URL) so reload doesn't hide
-  // the user's previous context.
-  const [actionTaken, setActionTaken] = useState<boolean>(
-    () => urlHasWaypoints || useCachedRoute,
-  );
-  // Reset to compact whenever the user drops back below 2 waypoints so the
-  // next time they reach 2 they get the pick-a-mode step again.
-  useEffect(() => {
-    if (waypoints.length < 2) setActionTaken(false);
-  }, [waypoints.length]);
 
   useEffect(() => {
     fetchArchetypes().then(setArchetypes).catch(() => {});
@@ -594,7 +556,6 @@ export function PlanPage() {
   }
 
   function handleReset() {
-    setActionTaken(false);
     clearLastSimulation();
     // Also expire the dormant ow_last_trip cookie so a future read (if we ever
     // wire it up) doesn't resurrect a stale plan.
@@ -623,9 +584,6 @@ export function PlanPage() {
   }
 
   function handleModeChange(next: "single" | "compare") {
-    // Any pill click confirms the user's intent — even re-clicking the
-    // already-active mode unlocks the compact "pick-a-mode" view on mobile.
-    setActionTaken(true);
     if (next === planMode) return;
     setPlanMode(next);
     setApiError(null);
@@ -748,8 +706,8 @@ export function PlanPage() {
     onWindowSelect: handleWindowSelect,
     selectedLegIdx,
     onSelectedLegChange: setSelectedLegIdx,
+    onExpandDrawer: () => drawerRef.current?.expand(),
     onReset: handleReset,
-    actionTaken,
   };
 
   return (
@@ -774,7 +732,6 @@ export function PlanPage() {
             onWptAdd={waypoints.length >= 2 ? handleWptAdd : undefined}
             onWptDelete={handleWptDelete}
             onMapClick={handleMapClick}
-            initialCenter={isParsedOk(initialParsed) ? initialParsed.center : null}
             highlightedSegmentRange={
               selectedLegIdx != null && passage
                 ? computeLegSegmentRanges(passage.segments as { start: { lat: number; lon: number } }[], waypoints)[selectedLegIdx] ?? null
@@ -817,22 +774,8 @@ export function PlanPage() {
         </ResizableDesktopSidebar>
       </div>
 
-      {/* Mobile drawer — below map. Auto-slides to a target height based on
-          where the user is in the flow (no waypoints → minimal so the map
-          stays the focus; 2 waypoints → tall enough to surface just the
-          mode pills; mode confirmed → full content height). The drag handle
-          still lets the user override at any time. */}
-      <ResizableMobileDrawer
-        ref={drawerRef}
-        defaultVh={passage ? 38 : 60}
-        targetVh={
-          waypoints.length < 2
-            ? 18
-            : !actionTaken
-              ? 22
-              : 65
-        }
-      >
+      {/* Mobile drawer — below map. User-resizable via the handle bar at the top. */}
+      <ResizableMobileDrawer ref={drawerRef} defaultVh={passage ? 38 : 60}>
         <PlanSidebar {...sidebarProps} />
       </ResizableMobileDrawer>
     </div>

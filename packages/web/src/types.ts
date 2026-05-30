@@ -18,12 +18,6 @@ export interface HourlyData {
 export interface ModelForecast {
   modelName: string;
   hourly: HourlyData;
-  // When set, the slot was originally requested for ``fellBackFrom`` but that
-  // model returned no data for this spot (typical: AROME queried at Danish
-  // coast). The fetch layer walked the user's full priority order to find a
-  // model that does cover, and substituted it. The UI surfaces a small badge
-  // so the user understands why an "Ignoré" model appears in their table.
-  fellBackFrom?: string;
 }
 
 export interface MarineHourly {

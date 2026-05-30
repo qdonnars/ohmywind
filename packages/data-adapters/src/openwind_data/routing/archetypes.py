@@ -28,16 +28,6 @@ class BoatPolar:
     tws_kn: tuple[float, ...]  # ascending
     twa_deg: tuple[float, ...]  # ascending, in [0, 180]
     boat_speed_kn: tuple[tuple[float, ...], ...]  # [tws_idx][twa_idx]
-    # Optional motor configuration. When ``motor_threshold_kn`` is set AND
-    # ``motor_speed_kn`` is set, segments where the polar speed falls under
-    # the threshold are computed at ``motor_speed_kn`` instead. Both ``None``
-    # by default = no motor, pure-sail behaviour. Either alone is ignored
-    # (frontend validation enforces "both or neither"; backend stays
-    # tolerant). Motivated by user feedback: in the Mediterranean, when the
-    # polar produces 1.5 kn in light wind / wrong chop, real sailors fire
-    # up the engine rather than wait hours for the mistral.
-    motor_threshold_kn: float | None = None
-    motor_speed_kn: float | None = None
 
 
 def _load_one(name: str) -> BoatPolar:

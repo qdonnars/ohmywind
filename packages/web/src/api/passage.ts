@@ -19,10 +19,8 @@ export function friendlyError(raw: string): string {
   if (/forecast horizon exceeded/i.test(raw)) {
     // Cause la plus fréquente : date > today+15 (cap Open-Meteo). Mais peut
     // aussi survenir transitoirement quand un modèle de la chaîne tombe ;
-    // d'où la formulation prudente. On rappelle l'horizon approximatif et on
-    // demande explicitement de ne pas recharger la page (sinon la
-    // planification en cours est perdue).
-    return "Le service météo n'a pas pu couvrir cette période. Choisissez une date plus proche (jusqu'à environ 10 jours selon le modèle). Pour préserver votre planification, ne rechargez pas la page tant que vous n'avez pas ajusté la date.";
+    // d'où la formulation prudente.
+    return "Le service météo n'a pas pu couvrir cette période. Essayez une date plus proche, ou réessayez dans quelques instants.";
   }
   if (/at least 2 waypoints/i.test(raw)) {
     return "Placez au moins 2 waypoints sur la carte pour calculer une route.";
