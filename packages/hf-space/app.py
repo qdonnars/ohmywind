@@ -20,6 +20,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import logging
+import math
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -35,6 +36,7 @@ from openwind_data.routing.archetypes import BoatPolar, list_archetypes_metadata
 from openwind_data.routing.complexity import score_complexity
 from openwind_data.routing.geometry import Point
 from openwind_data.routing.passage import (
+    NoModelCoveredError,
     _build_conditions_summary,
     estimate_passage,
     estimate_passage_for_arrival,
@@ -367,6 +369,14 @@ def _parse_polar(raw: Any) -> BoatPolar | None:
                 raise ValueError(
                     f"polar boat_speed_kn[{i}][{j}]={v} out of range [0, 30]"
                 )
+    # Optional motor config. Both fields must be set together; either alone
+    # is dropped silently so a half-filled web form never silently changes
+    # the simulation (matches the frontend / backend "both or neither" rule).
+    motor_threshold = _parse_optional_kn(raw.get("motor_threshold_kn"), max_kn=10.0)
+    motor_speed = _parse_optional_kn(raw.get("motor_speed_kn"), max_kn=12.0)
+    if motor_threshold is None or motor_speed is None:
+        motor_threshold = None
+        motor_speed = None
     return BoatPolar(
         name=str(raw.get("name", "custom")),
         length_ft=int(raw.get("length_ft", 0) or 0),
@@ -377,7 +387,27 @@ def _parse_polar(raw: Any) -> BoatPolar | None:
         tws_kn=tuple(tws),
         twa_deg=tuple(twa),
         boat_speed_kn=tuple(tuple(row) for row in matrix),
+        motor_threshold_kn=motor_threshold,
+        motor_speed_kn=motor_speed,
     )
+
+
+def _parse_optional_kn(raw: Any, *, max_kn: float) -> float | None:
+    """Coerce a numeric field to a positive bounded float, or None.
+
+    Tolerant: any non-number, NaN, ``<= 0``, or ``> max_kn`` becomes None
+    rather than raising. The motor config is opt-in UX so we'd rather drop
+    a malformed value than 422 the whole passage.
+    """
+    if raw is None:
+        return None
+    try:
+        v = float(raw)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(v) or v <= 0 or v > max_kn:
+        return None
+    return v
 
 
 async def _index(_request) -> HTMLResponse:
@@ -476,6 +506,8 @@ async def _api_passage(request: Request) -> JSONResponse:
             return JSONResponse({"error": str(exc)}, status_code=422)
         except ForecastHorizonError as exc:
             return JSONResponse({"error": str(exc)}, status_code=422)
+        except NoModelCoveredError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
         except httpx.TimeoutException:
             return JSONResponse(
                 {"error": "upstream weather service did not respond in time"},
@@ -561,6 +593,8 @@ async def _api_passage(request: Request) -> JSONResponse:
         return JSONResponse({"error": str(exc)}, status_code=422)
     except ForecastHorizonError as exc:
         return JSONResponse({"error": str(exc)}, status_code=422)
+    except NoModelCoveredError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
     except httpx.TimeoutException:
         return JSONResponse(
             {"error": "upstream weather service did not respond in time"},
@@ -634,6 +668,8 @@ async def _api_passage_by_eta(request: Request) -> JSONResponse:
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=422)
     except ForecastHorizonError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
+    except NoModelCoveredError as exc:
         return JSONResponse({"error": str(exc)}, status_code=422)
     except httpx.TimeoutException:
         return JSONResponse(

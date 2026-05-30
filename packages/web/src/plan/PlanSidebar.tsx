@@ -6,8 +6,7 @@ import { cxLevel, CX_COLORS } from "./types";
 import { WindowsTable } from "./WindowsTable";
 import { ModeToggle, TimeAnchorToggle, type PlanMode, type TimeAnchor } from "./ModeToggle";
 import { LegDetailCard } from "./LegDetailCard";
-import { EmptyState, ModePicker, Warn, RecapButton } from "./PlanStates";
-import { useHasChosenMode } from "./useChosenMode";
+import { EmptyState, Warn, RecapButton } from "./PlanStates";
 import {
   ARCHETYPE_LABELS,
   defaultPolarConfig,
@@ -802,11 +801,12 @@ interface PlanSidebarProps {
   /** Selected leg index in the filled view (drives the map highlight). */
   selectedLegIdx: number | null;
   onSelectedLegChange: (idx: number | null) => void;
-  /** Mobile-only: pop the bottom drawer up to a readable height when the
-   *  user picks a mode (no-op on desktop). */
-  onExpandDrawer?: () => void;
   /** Discard the current plan: clears waypoints, results, cache, URL. */
   onReset?: () => void;
+  /** True once the user has interacted with the mode pills after placing
+   *  2+ waypoints. While false, the sidebar collapses to just the toggle +
+   *  reset button (compact "pick a mode" view). Set on first pill click. */
+  actionTaken?: boolean;
 }
 
 // Header row: ModeToggle + an optional trash button to discard the plan.
@@ -887,8 +887,8 @@ export function PlanSidebar({
   onWindowSelect,
   selectedLegIdx,
   onSelectedLegChange,
-  onExpandDrawer,
   onReset,
+  actionTaken = true,
 }: PlanSidebarProps) {
   // Show the trash button only when the user has placed enough to have
   // something to clear — nothing to reset on a fully-empty form.
@@ -898,21 +898,14 @@ export function PlanSidebar({
     ? validateSweep(sweepEarliest, sweepLatest, sweepIntervalHours)
     : { ok: true } as SweepValidation;
   const canCalculate = waypointCount >= 2 && (mode === "single" || sweepValid.ok);
-  const [hasChosenMode, markChosen] = useHasChosenMode();
   const [isEditingParams, setIsEditingParams] = useState(false);
 
-  // Wrap the parent handler so picking via tabs ALSO dismisses the picker on
-  // future visits. Same effect when the user clicks one of the big cards.
-  const handleModeChange = (m: PlanMode) => {
-    markChosen();
-    onModeChange(m);
-  };
-
-  // Show the mode picker when: 2+ waypoints placed, user has never chosen a
-  // mode in this browser, and no result is showing yet (single passage or
-  // compare windows). After first choice it gets out of the way for good.
-  const showModePicker =
-    waypointCount >= 2 && !hasChosenMode && !passage && !(windows && windows.length > 0);
+  // Mode selection now lives entirely in the PlanHeaderRow pills at the top
+  // of the sidebar (which always show both options and let the user toggle
+  // freely). The intermediate "Que voulez-vous faire ?" picker that used to
+  // appear once after the second waypoint was redundant once the toggle
+  // became permanent, so it was removed.
+  const handleModeChange = onModeChange;
 
   if (isLoading) {
     return (
@@ -950,17 +943,14 @@ export function PlanSidebar({
     );
   }
 
-  // ── Mode picker: 2+ waypoints, no choice yet ──────────────────────────────
-  if (showModePicker) {
+  // ── Compact picker: 2+ waypoints but user hasn't picked a mode yet.
+  //    Show only the pills + trash; clicking a pill flips ``actionTaken``
+  //    upstream and unlocks the full sidebar (and on mobile, slides the
+  //    drawer up).
+  if (!actionTaken) {
     return (
-      <div className="p-4 space-y-4 animate-fade-in">
-        <PlanHeaderRow mode={mode} onModeChange={handleModeChange} locked onReset={resetHandler} />
-        <ModePicker
-          onPick={(m) => {
-            handleModeChange(m);
-            onExpandDrawer?.();
-          }}
-        />
+      <div className="p-4 animate-fade-in">
+        <PlanHeaderRow mode={mode} onModeChange={handleModeChange} onReset={resetHandler} />
       </div>
     );
   }
@@ -1162,17 +1152,31 @@ export function PlanSidebar({
         </div>
       )}
 
-      {/* Legs — click any row to see the build-up */}
-      {(() => {
-        const legs = aggregateLegs(passage.segments, waypoints, passage.efficiency);
-        return (
-          <LegList
-            legs={legs}
-            openIdx={selectedLegIdx}
-            onOpenChange={onSelectedLegChange}
-          />
-        );
-      })()}
+      {/* Legs — click any row to see the build-up.
+          Hidden while the plan is stale: re-mapping old segments to a freshly
+          edited waypoint list is unsafe (cf. aggregateLegs's index juggling)
+          and a silent gray-out could be missed on a quick glance. Showing a
+          placeholder is plainer and forces a recompute before the user reads
+          numbers that no longer match the route on the map. */}
+      {isStale ? (
+        <div
+          className="px-4 py-6 text-center text-xs"
+          style={{ color: "var(--ow-fg-2)", borderBottom: "1px solid var(--ow-line)" }}
+        >
+          Itinéraire modifié. Cliquez sur Recalculer pour mettre à jour les détails.
+        </div>
+      ) : (
+        (() => {
+          const legs = aggregateLegs(passage.segments, waypoints, passage.efficiency);
+          return (
+            <LegList
+              legs={legs}
+              openIdx={selectedLegIdx}
+              onOpenChange={onSelectedLegChange}
+            />
+          );
+        })()
+      )}
 
       {/* Footer */}
       {forecastUpdatedAt && (
