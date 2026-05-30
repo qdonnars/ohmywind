@@ -62,11 +62,24 @@ function App() {
         setForecasts(data);
         setMarine(marineData);
         setIsLoading(false);
-        // Auto-select current hour so wind arrows show by default
-        const nowHour = nowParisHourPrefix();
+        // Preserve the previously-selected hour across spot changes so users
+        // don't have to scroll the timeline back to e.g. "tomorrow 14h" every
+        // time they switch favourites. Fall back to "now" only when:
+        //   - nothing has been selected yet (first load), or
+        //   - the previously-selected hour is missing from the new timeline
+        //     (e.g. it slid into the past after a long session).
         const timeline = data[0]?.hourly.time ?? [];
-        const match = timeline.find((t) => t.startsWith(nowHour)) ?? timeline.find((t) => t > nowHour) ?? null;
-        setSelectedHour(match);
+        const nowHour = nowParisHourPrefix();
+        setSelectedHour((prev) => {
+          if (prev && timeline.includes(prev) && prev.slice(0, 13) >= nowHour) {
+            return prev;
+          }
+          return (
+            timeline.find((t) => t.startsWith(nowHour)) ??
+            timeline.find((t) => t > nowHour) ??
+            null
+          );
+        });
       }
     });
     return () => {
@@ -139,9 +152,12 @@ function App() {
           metric={view}
           selectedHour={selectedHour}
         />
-        {/* Plan FAB — after SpotMap so it renders on top */}
+        {/* Plan FAB — after SpotMap so it renders on top.
+            When a spot is active, propagate its lat/lon to /plan via `?center`
+            so the planner map opens centered on the spot the user was just
+            looking at, rather than a hardcoded default region. */}
         <a
-          href="/plan"
+          href={spot ? `/plan?center=${spot.latitude.toFixed(5)},${spot.longitude.toFixed(5)}` : "/plan"}
           className="absolute top-3 left-3 z-[400] w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
           style={{ background: "var(--ow-accent)", color: "#fff" }}
           title="Planifier un passage"
@@ -151,9 +167,11 @@ function App() {
 
         {/* Bottom overlay: pills (fixed at top of overlay) + scrollable table
             below. Pills sit in a ``shrink-0`` band so vertical scroll inside
-            the data area never sweeps them away. The data area owns its own
-            ``overflow-y-auto`` and clips horizontal so the inner table-scroll
-            fully owns horizontal swipes. */}
+            the data area never sweeps them away. The data area provides a
+            bounded height; each child table owns its own vertical scroll so
+            ``thead.sticky top-0`` collides with the same container that
+            scrolls (otherwise the hour row drifts away when the user scrolls
+            down through GFS/ECMWF rows). */}
         <div
           className="absolute left-0 right-0 bottom-0 max-h-[44vh] md:max-h-[46vh] z-[400] flex flex-col"
         >
@@ -168,7 +186,7 @@ function App() {
                   showCurrents={showCurrents}
                 />
               </div>
-              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+              <div className="flex-1 min-h-0 overflow-hidden">
                 {view === "wind" || !marine ? (
                   <WindTable
                     forecasts={forecasts}
