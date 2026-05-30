@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { nowParisHourPrefix } from "./utils/format";
 import type { Spot, ModelForecast, MarineHourly, MetricView } from "./types";
 import { fetchAllModels } from "./api/openmeteo";
@@ -15,6 +15,7 @@ import { MarineTable } from "./components/MarineTable";
 import { MetricPills } from "./components/MetricPills";
 import { TideChart } from "./components/TideChart";
 import { SpotMap } from "./components/SpotMap";
+import { Onboarding } from "./components/Onboarding";
 
 const RADE_MARSEILLE: Spot = { name: "Rade de Marseille", latitude: 43.3, longitude: 5.35 };
 
@@ -125,6 +126,10 @@ function App() {
   const isDefault = spot != null && spot.latitude === RADE_MARSEILLE.latitude && spot.longitude === RADE_MARSEILLE.longitude && !isCustom(spot);
   const canSave = spot != null && !isCustom(spot) && !isDefault;
 
+  const mapRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
+  const fabRef = useRef<HTMLAnchorElement>(null);
+
   return (
     <div
       className="h-screen flex flex-col overflow-hidden"
@@ -139,7 +144,7 @@ function App() {
       {/* Map fills the entire space; pills + table are an overlay floating
           above its bottom edge so the map keeps showing through the gaps
           around the data cells. */}
-      <div className="flex-1 min-h-0 relative">
+      <div ref={mapRef} className="flex-1 min-h-0 relative">
         <SpotMap
           current={spot}
           customSpots={customSpots}
@@ -157,6 +162,7 @@ function App() {
             so the planner map opens centered on the spot the user was just
             looking at, rather than a hardcoded default region. */}
         <a
+          ref={fabRef}
           href={spot ? `/plan?center=${spot.latitude.toFixed(5)},${spot.longitude.toFixed(5)}` : "/plan"}
           className="absolute top-3 left-3 z-[400] w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
           style={{ background: "var(--ow-accent)", color: "#fff" }}
@@ -173,6 +179,7 @@ function App() {
             scrolls (otherwise the hour row drifts away when the user scrolls
             down through GFS/ECMWF rows). */}
         <div
+          ref={tableRef}
           className="absolute left-0 right-0 bottom-0 max-h-[44vh] md:max-h-[46vh] z-[400] flex flex-col"
         >
           {spot ? (
@@ -217,6 +224,13 @@ function App() {
           )}
         </div>
       </div>
+
+      <Onboarding
+        mapRef={mapRef}
+        tableRef={tableRef}
+        fabRef={fabRef}
+        ready={forecasts.length > 0 && spot != null}
+      />
     </div>
   );
 }
