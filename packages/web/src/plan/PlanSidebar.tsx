@@ -6,7 +6,7 @@ import { cxLevel, CX_COLORS } from "./types";
 import { WindowsTable } from "./WindowsTable";
 import { ModeToggle, TimeAnchorToggle, type PlanMode, type TimeAnchor } from "./ModeToggle";
 import { LegDetailCard } from "./LegDetailCard";
-import { EmptyState, Warn, RecapButton } from "./PlanStates";
+import { EmptyState, ModePicker, Warn, RecapButton } from "./PlanStates";
 import {
   ARCHETYPE_LABELS,
   defaultPolarConfig,
@@ -944,13 +944,19 @@ export function PlanSidebar({
   }
 
   // ── Compact picker: 2+ waypoints but user hasn't picked a mode yet.
-  //    Show only the pills + trash; clicking a pill flips ``actionTaken``
-  //    upstream and unlocks the full sidebar (and on mobile, slides the
-  //    drawer up).
+  //    Mobile: pills + trash only (vertical real-estate is precious — the
+  //    drawer animates up just enough for the toggle).
+  //    Desktop: pills + trash + the larger "narrative" cards underneath,
+  //    which reassure first-time users with example phrasings.
+  //    In both cases, clicking any pill or card flips ``actionTaken``
+  //    upstream and unlocks the full sidebar.
   if (!actionTaken) {
     return (
-      <div className="p-4 animate-fade-in">
+      <div className="p-4 space-y-4 animate-fade-in">
         <PlanHeaderRow mode={mode} onModeChange={handleModeChange} onReset={resetHandler} />
+        <div className="hidden lg:block">
+          <ModePicker onPick={(m) => handleModeChange(m)} />
+        </div>
       </div>
     );
   }
