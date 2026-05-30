@@ -1,14 +1,13 @@
-// Static ordering of the wind models the app fetches from Open-Meteo.
-// The top `ACTIVE_LIMIT` models in DEFAULT_ORDER are the ones fetched and
-// shown as rows in the forecast table; the rest seed the per-slot fallback
-// chain when a primary model has no coverage on a point.
+// Persisted ordering of the wind models the app fetches from Open-Meteo.
+// The top `ACTIVE_LIMIT` models in the order are the ones actually fetched
+// and shown as rows in the forecast table; the rest are kept in the catalog
+// (visible in /config, greyed out) so the user can promote them later
+// without losing their place.
 //
 // Only affects the web client. Server-side `plan_passage` still uses its own
 // `model="auto"` chain.
 
-// Old localStorage key from the dropped user-customisable reorder UI. Kept
-// here so loadModelConfig() can evict stale entries on first call.
-const LEGACY_STORAGE_KEY = "ow_model_config_v1";
+const STORAGE_KEY = "ow_model_config_v1";
 
 export const ACTIVE_LIMIT = 4;
 
@@ -66,6 +65,11 @@ export const DEFAULT_ORDER: readonly ModelName[] = [
 
 export interface ModelConfig {
   order: ModelName[];
+}
+
+interface PersistedConfig {
+  v: 1;
+  order: string[];
 }
 
 export interface ModelMeta {
@@ -208,20 +212,52 @@ export const MODEL_META: Record<ModelName, ModelMeta> = {
   },
 };
 
+function isModelName(x: unknown): x is ModelName {
+  return typeof x === "string" && (ALL_MODELS as readonly string[]).includes(x);
+}
+
+function normalize(order: ModelName[]): ModelConfig {
+  // Dedupe while preserving order, then append any missing models so the
+  // config always contains every known model (new models added later show up
+  // at the end, greyed out, until the user promotes them).
+  const seen = new Set<ModelName>();
+  const deduped: ModelName[] = [];
+  for (const m of order) {
+    if (isModelName(m) && !seen.has(m)) {
+      deduped.push(m);
+      seen.add(m);
+    }
+  }
+  for (const m of ALL_MODELS) {
+    if (!seen.has(m)) deduped.push(m);
+  }
+  return { order: deduped };
+}
+
 export function defaultConfig(): ModelConfig {
-  return { order: [...DEFAULT_ORDER] };
+  return normalize([...DEFAULT_ORDER]);
 }
 
 export function loadModelConfig(): ModelConfig {
-  // The user-customisable reorder UI was dropped; evict the now-stale entry
-  // so users who had a custom order from the previous version don't keep
-  // seeing it persisted across sessions.
   try {
-    localStorage.removeItem(LEGACY_STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultConfig();
+    const parsed = JSON.parse(raw) as PersistedConfig;
+    if (parsed.v !== 1) return defaultConfig();
+    const order = (parsed.order ?? []).filter(isModelName);
+    return normalize(order);
   } catch {
-    // localStorage unavailable — nothing to clean up.
+    return defaultConfig();
   }
-  return defaultConfig();
+}
+
+export function saveModelConfig(cfg: ModelConfig): void {
+  try {
+    const payload: PersistedConfig = { v: 1, order: cfg.order };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    // localStorage unavailable / full — fail silently; next load returns default.
+  }
 }
 
 export function activeModels(cfg: ModelConfig): ModelName[] {

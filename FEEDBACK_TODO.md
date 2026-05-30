@@ -22,6 +22,7 @@ Légende : @pseudo = auteur du retour sur H&O.
 
 ## Mobile
 
+- [ ] Réorganiser les modèles dans `/config` sur mobile : le drag HTML5 ne fonctionne pas en tactile, le tap-to-swap est masqué par `draggable=true`. La tentative `matchMedia` (commit 8958c79) a été revertée car non concluante. À reprendre proprement (peut-être avec une lib drag tactile dédiée, ou un autre paradigme genre boutons ↑↓ sur chaque ligne).
 - [ ] Slider d'intervalle multi-routages → stepper/chips/input direct (trop fin au doigt) — @f_blc
 - [ ] PWA installable (raccourci écran d'accueil sans appli native) — @Lex34
 
@@ -43,7 +44,6 @@ Légende : @pseudo = auteur du retour sur H&O.
 - [ ] Visualisation des champs de vent — @yvesb → **écarté** (rester léger)
 - [ ] Mode offline — @yvesb → **écarté** (pas de DB serveur)
 - [ ] Défilement auto du temps style Windy — @delices2 → **à arbitrer** (utile mais charge cognitive)
-- [ ] Réordonner les modèles dans `/config` → **retiré** (drag tactile cassé, tap-to-swap masqué, complexité non justifiée — l'ordre est figé sur le défaut, à reconsidérer si retour utilisateur)
 
 ---
 
