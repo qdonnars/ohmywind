@@ -406,12 +406,18 @@ export function MarineTable({
 
   const nowHour = nowParisHourPrefix();
 
+  // Persisted across spot switches: see WindTable for the same pattern.
+  const leftmostHourRef = useRef<string | null>(null);
+
   const updateVisibleDay = useCallback(() => {
     const el = scrollRef.current;
     if (!el || masterTimeline.length === 0) return;
     const leftmostIdx = Math.max(0, Math.floor(el.scrollLeft / CELL_W));
     const t = masterTimeline[Math.min(leftmostIdx, masterTimeline.length - 1)];
-    if (t) setVisibleDay(t.slice(0, 10));
+    if (t) {
+      setVisibleDay(t.slice(0, 10));
+      leftmostHourRef.current = t;
+    }
   }, [masterTimeline]);
 
   const checkScrollEnd = useCallback(() => {
@@ -424,16 +430,17 @@ export function MarineTable({
 
   useEffect(() => {
     if (!scrollRef.current || masterTimeline.length === 0) return;
-    // Prefer the selected hour so the visible range survives spot switches.
-    const target = selectedHour && masterTimeline.includes(selectedHour) ? selectedHour : nowHour;
-    const idx = masterTimeline.findIndex((t) => t.startsWith(target.slice(0, 13)));
+    // Preserve the previously visible window across spot switches via the
+    // leftmostHourRef updated on scroll. Independent of selectedHour.
+    const anchor = leftmostHourRef.current ?? nowHour;
+    const idx = masterTimeline.findIndex((t) => t.startsWith(anchor.slice(0, 13)));
     const nearestIdx =
-      idx >= 0 ? idx : masterTimeline.findIndex((t) => t > target.slice(0, 13));
+      idx >= 0 ? idx : masterTimeline.findIndex((t) => t > anchor.slice(0, 13));
     if (nearestIdx > 0) {
       scrollRef.current.scrollLeft = Math.max(0, nearestIdx * CELL_W - 60);
     }
     checkScrollEnd();
-  }, [masterTimeline, nowHour, selectedHour, checkScrollEnd]);
+  }, [masterTimeline, nowHour, checkScrollEnd]);
 
   useEffect(() => {
     const el = scrollRef.current;
