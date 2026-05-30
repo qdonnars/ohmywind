@@ -124,13 +124,18 @@ export function WindTable({
 
   useEffect(() => {
     if (!scrollRef.current || masterTimeline.length === 0) return;
-    const idx = masterTimeline.findIndex((t) => t.startsWith(nowHour));
-    const nearestIdx = idx >= 0 ? idx : masterTimeline.findIndex((t) => t > nowHour.slice(0, 13));
+    // Prefer the user-selected hour so switching spots keeps the same
+    // time window in view (alongside ``selectedHour`` itself which is
+    // preserved in App.tsx state). Falls back to "now" on first render
+    // or when the selection has slid out of the new timeline.
+    const target = selectedHour && masterTimeline.includes(selectedHour) ? selectedHour : nowHour;
+    const idx = masterTimeline.findIndex((t) => t.startsWith(target.slice(0, 13)));
+    const nearestIdx = idx >= 0 ? idx : masterTimeline.findIndex((t) => t > target.slice(0, 13));
     if (nearestIdx > 0) {
       scrollRef.current.scrollLeft = Math.max(0, nearestIdx * CELL_W - 60);
     }
     checkScrollEnd();
-  }, [masterTimeline, nowHour, checkScrollEnd]);
+  }, [masterTimeline, nowHour, selectedHour, checkScrollEnd]);
 
   useEffect(() => {
     const el = scrollRef.current;

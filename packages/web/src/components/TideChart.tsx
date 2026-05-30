@@ -89,14 +89,16 @@ export function TideChart({
 
   useEffect(() => {
     if (!scrollRef.current || masterTimeline.length === 0) return;
-    const idx = masterTimeline.findIndex((t) => t.startsWith(nowHour));
+    // Prefer the selected hour so the visible range survives spot switches.
+    const target = selectedHour && masterTimeline.includes(selectedHour) ? selectedHour : nowHour;
+    const idx = masterTimeline.findIndex((t) => t.startsWith(target.slice(0, 13)));
     const nearestIdx =
-      idx >= 0 ? idx : masterTimeline.findIndex((t) => t > nowHour.slice(0, 13));
+      idx >= 0 ? idx : masterTimeline.findIndex((t) => t > target.slice(0, 13));
     if (nearestIdx > 0) {
       scrollRef.current.scrollLeft = Math.max(0, nearestIdx * CELL_W - 60);
     }
     checkScrollEnd();
-  }, [masterTimeline, nowHour, checkScrollEnd]);
+  }, [masterTimeline, nowHour, selectedHour, checkScrollEnd]);
 
   useEffect(() => {
     const el = scrollRef.current;
