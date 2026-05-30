@@ -153,9 +153,9 @@ export function TideChart({
   const selectedIdx = selectedHour ? masterTimeline.indexOf(selectedHour) : -1;
 
   return (
-    <div className="animate-fade-in">
-      <div className={`scroll-container ${scrolledEnd ? "scrolled-end" : ""}`}>
-        <div ref={scrollRef} className="overflow-x-auto wind-table-scroll">
+    <div className="animate-fade-in h-full">
+      <div className={`scroll-container h-full ${scrolledEnd ? "scrolled-end" : ""}`}>
+        <div ref={scrollRef} className="h-full overflow-auto wind-table-scroll">
           <table className="border-collapse" role="table">
             <colgroup>
               <col style={{ width: STICKY_W }} />

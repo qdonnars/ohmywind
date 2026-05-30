@@ -447,9 +447,9 @@ export function MarineTable({
   const tideSeries = marine.tide_height_zh_m ?? marine.tide_height_m;
 
   return (
-    <div className="animate-fade-in">
-      <div className={`scroll-container ${scrolledEnd ? "scrolled-end" : ""}`}>
-        <div ref={scrollRef} className="overflow-x-auto wind-table-scroll">
+    <div className="animate-fade-in h-full">
+      <div className={`scroll-container h-full ${scrolledEnd ? "scrolled-end" : ""}`}>
+        <div ref={scrollRef} className="h-full overflow-auto wind-table-scroll">
           <table className="border-collapse" role="table">
             <thead className="sticky top-0 z-20">
               <TimelineHeader
