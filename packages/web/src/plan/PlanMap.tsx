@@ -19,6 +19,9 @@ interface PlanMapProps {
   onMapClick?: (lat: number, lon: number) => void;
   /** Inclusive-exclusive range of segment indices to highlight (selected leg). */
   highlightedSegmentRange?: [number, number] | null;
+  /** Optional hint for the initial view when there are no waypoints yet
+      (typically propagated from the home spot via `?center=lat,lon`). */
+  initialCenter?: [number, number] | null;
 }
 
 function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon {
@@ -34,7 +37,7 @@ function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon 
 }
 
 export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
-  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange }: PlanMapProps,
+  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, initialCenter }: PlanMapProps,
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -49,6 +52,11 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   const onWptAddRef = useRef(onWptAdd);
   const onWptDeleteRef = useRef(onWptDelete);
   const onMapClickRef = useRef(onMapClick);
+  // Track waypoint count across renders so the bounds-fit effect can tell an
+  // "added waypoint" from a "moved waypoint" — we re-fit only on adds, never
+  // on drags (drags already happen near the visible area, and re-fitting
+  // would yank the camera away from the user's pinch/zoom).
+  const prevWaypointCountRef = useRef<number>(waypoints.length);
   const { resolvedTheme } = useTheme();
 
   useEffect(() => { onWptAddRef.current = onWptAdd; }, [onWptAdd]);
@@ -90,13 +98,18 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
 
     L.control.zoom({ position: "bottomright" }).addTo(map);
 
-    // Initial view: fit bounds if ≥2 waypoints, else Marseille/Riviera area
+    // Initial view: fit bounds if ≥2 waypoints, else center on the single
+    // waypoint, else honor the ?center hint propagated from the home compass
+    // FAB. Falls back to a France-wide view rather than the Riviera so users
+    // landing on /plan from anywhere on the coast aren't whisked to the Med.
     if (waypoints.length >= 2) {
       map.fitBounds(L.latLngBounds(waypoints.map(([lat, lon]) => L.latLng(lat, lon))), { padding: [40, 40] });
     } else if (waypoints.length === 1) {
       map.setView([waypoints[0][0], waypoints[0][1]], 10);
+    } else if (initialCenter) {
+      map.setView([initialCenter[0], initialCenter[1]], 8);
     } else {
-      map.setView([43.1, 5.9], 8);
+      map.setView([46.5, 2.5], 5);
     }
 
     mapRef.current = map;
@@ -215,6 +228,26 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
       markersRef.current.push(marker);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waypoints]);
+
+  // Re-fit the map bounds when the user *adds* a waypoint after the initial
+  // render — without this, clicking outside the current viewport (e.g. to
+  // place wpt 3 in Corsica when the map is panned to Marseille) leaves the
+  // new marker off-screen. We deliberately skip re-fitting on drags (count
+  // stays the same) and deletes (count shrinks → fitBounds on a single
+  // waypoint would over-zoom).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const prev = prevWaypointCountRef.current;
+    const curr = waypoints.length;
+    prevWaypointCountRef.current = curr;
+    if (curr > prev && curr >= 2) {
+      map.fitBounds(
+        L.latLngBounds(waypoints.map(([lat, lon]) => L.latLng(lat, lon))),
+        { padding: [40, 40] },
+      );
+    }
   }, [waypoints]);
 
   // Draw polyline — gray while loading/stale, colored per segment when fresh

@@ -20,6 +20,7 @@ from openwind_data.routing.geometry import (
 )
 from openwind_data.routing.passage import (
     EtaPassagePlan,
+    NoModelCoveredError,
     PassageReport,
     SegmentReport,
     _build_conditions_summary,
@@ -34,6 +35,7 @@ __all__ = [
     "BoatPolar",
     "ComplexityScore",
     "EtaPassagePlan",
+    "NoModelCoveredError",
     "PassageReport",
     "Point",
     "Segment",

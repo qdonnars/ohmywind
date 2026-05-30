@@ -201,6 +201,17 @@ Trois mécanismes derrière cette équation :
 
 Exemple numérique : $H_s = 2\text{ m}$ au près strict ($\text{TWA} = 40\degree$) donne $k_{\text{vagues}} = 1 - 0{,}05 \cdot 2^{1{,}75} \cdot \cos^2(20\degree) \approx 1 - 0{,}05 \cdot 3{,}36 \cdot 0{,}883 \approx 0{,}85$, soit environ 15 % de vitesse en moins.
 
+**Cas du moteur (optionnel).** Depuis la page **Config**, l'utilisateur peut renseigner deux valeurs pour son bateau :
+
+- une **vitesse seuil d'allumage** (par exemple $2$ nœuds), sous laquelle on bascule au moteur ;
+- une **vitesse au moteur** (par exemple $5$ nœuds), la vitesse appliquée tant que le moteur tourne.
+
+Les deux champs doivent être remplis ensemble pour que la bascule s'active ; sinon la simulation reste 100 % voile (comportement par défaut). À chaque sous-segment, on calcule d'abord la STW à la voile avec la formule ci-dessus ; si cette STW tombe sous le seuil, on remplace la vitesse à l'eau par la vitesse au moteur. Dans ce cas, l'efficacité $\eta$ et le facteur de vagues $k_{\text{vagues}}$ ne s'appliquent plus : ce sont des proxys de réglage voile et de gîte/tapage qui n'ont pas de sens pour un moteur qui tourne à régime constant. **En revanche le courant continue d'être pris en compte** dans l'étape suivante (SOG) : un courant contraire annule la vitesse moteur tout autant qu'il annulerait la vitesse voile.
+
+Côté affichage, l'allure du leg (Près / Travers / Largue / Arrière) est remplacée par **Moteur** dès que plus de la moitié de la distance du leg a été parcourue moteur en route. Sous ce seuil, l'allure voile prévaut même si quelques sous-segments ont basculé.
+
+Cette modélisation est volontairement simple : pas de gestion de carburant, pas de seuil par angle au vent, pas de modulation du moteur par la mer. L'objectif est de rendre les estimations réalistes en zone de vent faible (typiquement Méditerranée d'été) sans transformer OpenWind en gestionnaire de bord.
+
 ### 6. Vitesse au sol (SOG), courant et durée
 
 La vitesse au sol (**SOG** = Speed Over Ground, vitesse par rapport au fond) ajoute la projection du courant sur le cap :

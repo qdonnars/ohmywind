@@ -106,12 +106,22 @@ export function WindTable({
 
   const nowHour = nowParisHourPrefix();
 
+  // Remember the leftmost visible hour across spot switches so the table's
+  // horizontal scroll position is preserved. Independent from ``selectedHour``
+  // (which only drives the arrow on the map and the highlighted cell):
+  // dragging the slider scrolls the table without selecting an hour, and the
+  // user expects the same "+3 days" window to come back on the next spot.
+  const leftmostHourRef = useRef<string | null>(null);
+
   const updateVisibleDay = useCallback(() => {
     const el = scrollRef.current;
     if (!el || masterTimeline.length === 0) return;
     const leftmostIdx = Math.max(0, Math.floor(el.scrollLeft / CELL_W));
     const t = masterTimeline[Math.min(leftmostIdx, masterTimeline.length - 1)];
-    if (t) setVisibleDay(t.slice(0, 10));
+    if (t) {
+      setVisibleDay(t.slice(0, 10));
+      leftmostHourRef.current = t;
+    }
   }, [masterTimeline]);
 
   const checkScrollEnd = useCallback(() => {
@@ -124,10 +134,20 @@ export function WindTable({
 
   useEffect(() => {
     if (!scrollRef.current || masterTimeline.length === 0) return;
-    const idx = masterTimeline.findIndex((t) => t.startsWith(nowHour));
-    const nearestIdx = idx >= 0 ? idx : masterTimeline.findIndex((t) => t > nowHour.slice(0, 13));
+    // Restore the previously visible window when the timeline changes
+    // (typical case: user switched spots). On the very first render of a
+    // session the ref is null, fall back to "now" with a small context
+    // offset so the user sees one cell of "past" on the left. When
+    // restoring an anchor, we DON'T apply that offset: the anchor hour
+    // already IS the leftmost cell we want to land on, so subtracting 60
+    // would drift the table to the left a few pixels every switch.
+    const hasAnchor = leftmostHourRef.current != null;
+    const anchor = leftmostHourRef.current ?? nowHour;
+    const idx = masterTimeline.findIndex((t) => t.startsWith(anchor.slice(0, 13)));
+    const nearestIdx = idx >= 0 ? idx : masterTimeline.findIndex((t) => t > anchor.slice(0, 13));
     if (nearestIdx > 0) {
-      scrollRef.current.scrollLeft = Math.max(0, nearestIdx * CELL_W - 60);
+      const offset = hasAnchor ? 0 : 60;
+      scrollRef.current.scrollLeft = Math.max(0, nearestIdx * CELL_W - offset);
     }
     checkScrollEnd();
   }, [masterTimeline, nowHour, checkScrollEnd]);
@@ -152,9 +172,9 @@ export function WindTable({
   }
 
   return (
-    <div className="animate-fade-in">
-      <div className={`scroll-container ${scrolledEnd ? "scrolled-end" : ""}`}>
-        <div ref={scrollRef} className="overflow-x-auto wind-table-scroll">
+    <div className="animate-fade-in h-full">
+      <div className={`scroll-container h-full ${scrolledEnd ? "scrolled-end" : ""}`}>
+        <div ref={scrollRef} className="h-full overflow-auto wind-table-scroll">
           <table className="border-collapse" role="table">
             <thead className="sticky top-0 z-20">
               <TimelineHeader
@@ -179,11 +199,24 @@ export function WindTable({
                     >
                       <div className="flex flex-col items-center leading-none gap-[2px]">
                         <span
-                          className="text-[11px] lg:text-[12px] font-bold tracking-wide"
+                          className="text-[11px] lg:text-[12px] font-bold tracking-wide flex items-center gap-[2px]"
                           style={{ color: 'var(--ow-fg-0)' }}
-                          title={modelDescription(forecast.modelName)}
+                          title={
+                            forecast.fellBackFrom
+                              ? `${modelDescription(forecast.modelName)} — affiché à la place de ${modelLabel(forecast.fellBackFrom)} qui ne couvre pas ce point.`
+                              : modelDescription(forecast.modelName)
+                          }
                         >
                           {modelLabel(forecast.modelName)}
+                          {forecast.fellBackFrom && (
+                            <span
+                              aria-label={`fallback depuis ${modelLabel(forecast.fellBackFrom)}`}
+                              className="text-[9px] font-normal opacity-60"
+                              style={{ color: 'var(--ow-fg-2)' }}
+                            >
+                              ↳
+                            </span>
+                          )}
                         </span>
                         <span className="text-[8px] font-medium" style={{ color: 'var(--ow-fg-2)' }}>kn</span>
                       </div>

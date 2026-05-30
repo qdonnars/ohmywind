@@ -52,8 +52,11 @@ export function EmptyState() {
 }
 
 // ── ModePicker ────────────────────────────────────────────────────────────────
-// Once 2 waypoints are placed and no mode has been chosen yet (first-time
-// flow), surface the 2 big "narrative" cards rather than the bare tab toggle.
+// Desktop-only "narrative" cards rendered alongside the compact pills+trash
+// once the user has placed 2 waypoints. Mobile keeps the compact pills-only
+// view (handled in PlanSidebar via responsive classes) because vertical
+// real-estate is precious on phones; on desktop the extra context fits and
+// reassures first-time users.
 
 function PickerIcon({ name, color }: { name: "route" | "clock"; color: string }) {
   if (name === "clock") {
@@ -142,7 +145,7 @@ export function ModePicker({
         accent="var(--ow-accent)"
         title="Simuler ma route"
         body="Vous savez quand partir. OpenWind calcule le temps du trajet, l'ETA et les conditions sur chaque segment."
-        example="Ex. — « Si je pars samedi 17:00, j'arrive quand ? »"
+        example="Ex. : « Si je pars samedi 17:00, j'arrive quand ? »"
         onClick={() => onPick("single")}
       />
       <BigCard
@@ -150,7 +153,7 @@ export function ModePicker({
         accent="#F4C25C"
         title="Comparer les fenêtres"
         body="Vous savez où aller. OpenWind teste plusieurs heures de départ et classe les créneaux par confort."
-        example="Ex. — « Quel est le meilleur départ entre samedi et lundi ? »"
+        example="Ex. : « Quel est le meilleur départ entre samedi et lundi ? »"
         onClick={() => onPick("compare")}
       />
     </div>

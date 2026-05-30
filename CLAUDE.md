@@ -72,3 +72,9 @@ We could re-deploy on Fly.io, Modal, or self-hosted by writing a different wrapp
 
 - Local `plan/` files (gitignored) are the source of truth for scope and decisions
 - Tests must pass before commit
+- **Isolation par worktree** : au début de toute session qui va modifier du code, créer un worktree dédié pour éviter qu'une autre session Claude qui tournerait en parallèle sur une autre branche te marche dessus (cf. incident où un commit a atterri sur la mauvaise branche parce que `git checkout` avait été fait par l'autre session).
+  - Naming : `../open_wind-<topic>` (kebab-case, court, descriptif).
+  - Création : `git worktree add ../open_wind-<topic> <branche-existante>` ou `git worktree add ../open_wind-<topic> -b feat/<topic>` pour une nouvelle branche.
+  - `cd` dans le worktree, `npm ci` côté web si besoin (node_modules n'est pas partagé entre worktrees), travailler.
+  - À la fin de la session (après push), **proposer explicitement** à l'utilisateur : « Worktree `../open_wind-<topic>` peut être supprimé via `git worktree remove ../open_wind-<topic>`, je le fais ? » Ne JAMAIS supprimer sans confirmation.
+  - Exceptions où le worktree n'est pas requis : tâches purement read-only (exploration, Q&A, lecture de doc) ou fix ultra-rapide single-file quand on est déjà sur la bonne branche (à vérifier via `git branch --show-current` avant le premier edit).
