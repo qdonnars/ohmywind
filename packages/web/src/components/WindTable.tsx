@@ -179,11 +179,24 @@ export function WindTable({
                     >
                       <div className="flex flex-col items-center leading-none gap-[2px]">
                         <span
-                          className="text-[11px] lg:text-[12px] font-bold tracking-wide"
+                          className="text-[11px] lg:text-[12px] font-bold tracking-wide flex items-center gap-[2px]"
                           style={{ color: 'var(--ow-fg-0)' }}
-                          title={modelDescription(forecast.modelName)}
+                          title={
+                            forecast.fellBackFrom
+                              ? `${modelDescription(forecast.modelName)} — affiché à la place de ${modelLabel(forecast.fellBackFrom)} qui ne couvre pas ce point.`
+                              : modelDescription(forecast.modelName)
+                          }
                         >
                           {modelLabel(forecast.modelName)}
+                          {forecast.fellBackFrom && (
+                            <span
+                              aria-label={`fallback depuis ${modelLabel(forecast.fellBackFrom)}`}
+                              className="text-[9px] font-normal opacity-60"
+                              style={{ color: 'var(--ow-fg-2)' }}
+                            >
+                              ↳
+                            </span>
+                          )}
                         </span>
                         <span className="text-[8px] font-medium" style={{ color: 'var(--ow-fg-2)' }}>kn</span>
                       </div>
