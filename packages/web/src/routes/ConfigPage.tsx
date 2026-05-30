@@ -35,16 +35,6 @@ export function ConfigPage() {
   // Tap-to-swap fallback for touch devices where HTML5 drag-and-drop doesn't
   // work. Tracks the index of the row whose position the user wants to swap.
   const [swapFromIdx, setSwapFromIdx] = useState<number | null>(null);
-  // Touch-only devices need ``draggable={false}`` so the tap registers as a
-  // normal click that opens the swap modal. With ``draggable=true``, iOS
-  // Safari and several Android browsers intercept the touch as a (broken)
-  // drag attempt and swallow the click. Resolved once at mount because the
-  // input modality rarely changes mid-session.
-  const [isTouchOnly] = useState<boolean>(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia("(hover: none) and (pointer: coarse)").matches,
-  );
 
   function update(next: ModelConfig) {
     setConfig(next);
@@ -166,11 +156,9 @@ export function ConfigPage() {
         <h1 className="text-3xl font-bold mb-2">Modèles météo</h1>
         <p className="text-sm opacity-80 mb-8 leading-relaxed">
           Les {ACTIVE_LIMIT} premiers modèles sont affichés dans la table de
-          prévision, dans cet ordre.{" "}
-          {isTouchOnly
-            ? "Tape une ligne pour l'échanger avec une autre."
-            : "Glisse-dépose pour réordonner, ou tape une ligne pour l'échanger avec une autre."}{" "}
-          Cette configuration ne touche pas les plans de passage.
+          prévision, dans cet ordre. Glisse-dépose pour réordonner, ou tape
+          une ligne pour l'échanger avec une autre. Cette configuration ne
+          touche pas les plans de passage.
         </p>
 
         <div className="config-list-with-zones">
@@ -182,11 +170,11 @@ export function ConfigPage() {
               return (
                 <li
                   key={model}
-                  draggable={!isTouchOnly}
-                  onDragStart={isTouchOnly ? undefined : (e) => onDragStart(e, model, idx)}
-                  onDragOver={isTouchOnly ? undefined : (e) => onDragOver(e, idx)}
-                  onDrop={isTouchOnly ? undefined : onDrop}
-                  onDragEnd={isTouchOnly ? undefined : onDragEnd}
+                  draggable
+                  onDragStart={(e) => onDragStart(e, model, idx)}
+                  onDragOver={(e) => onDragOver(e, idx)}
+                  onDrop={onDrop}
+                  onDragEnd={onDragEnd}
                   onClick={() => setSwapFromIdx(idx)}
                   className={`config-row flex items-stretch gap-3 rounded-xl border p-3 select-none ${
                     isActive ? "is-active" : "is-inactive"
