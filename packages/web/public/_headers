@@ -1,0 +1,8 @@
+https://dev.openwind.fr/*
+  X-Robots-Tag: noindex, nofollow
+
+https://openwind.pages.dev/*
+  X-Robots-Tag: noindex, nofollow
+
+https://*.openwind.pages.dev/*
+  X-Robots-Tag: noindex, nofollow
