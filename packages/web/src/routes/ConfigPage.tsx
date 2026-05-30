@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
 import {
   ACTIVE_LIMIT,
   MODEL_META,
@@ -32,19 +31,6 @@ export function ConfigPage() {
   // losing track of which row is being moved.
   const [dragModel, setDragModel] = useState<ModelName | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
-  // Tap-to-swap fallback for touch devices where HTML5 drag-and-drop doesn't
-  // work. Tracks the index of the row whose position the user wants to swap.
-  const [swapFromIdx, setSwapFromIdx] = useState<number | null>(null);
-  // Touch-only devices need ``draggable={false}`` so the tap registers as a
-  // normal click that opens the swap modal. With ``draggable=true``, iOS
-  // Safari and several Android browsers intercept the touch as a (broken)
-  // drag attempt and swallow the click. Resolved once at mount because the
-  // input modality rarely changes mid-session.
-  const [isTouchOnly] = useState<boolean>(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia("(hover: none) and (pointer: coarse)").matches,
-  );
 
   function update(next: ModelConfig) {
     setConfig(next);
@@ -100,31 +86,6 @@ export function ConfigPage() {
     setOverIdx(null);
   }
 
-  function commitSwap(targetIdx: number) {
-    if (swapFromIdx == null || swapFromIdx === targetIdx) {
-      setSwapFromIdx(null);
-      return;
-    }
-    const next = [...config.order];
-    [next[swapFromIdx], next[targetIdx]] = [next[targetIdx], next[swapFromIdx]];
-    update({ ...config, order: next });
-    setSwapFromIdx(null);
-  }
-
-  useEffect(() => {
-    if (swapFromIdx == null) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSwapFromIdx(null);
-    };
-    document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [swapFromIdx]);
-
   const totalRows = previewOrder.length;
   const ignoredRows = totalRows - ACTIVE_LIMIT;
 
@@ -166,11 +127,8 @@ export function ConfigPage() {
         <h1 className="text-3xl font-bold mb-2">Modèles météo</h1>
         <p className="text-sm opacity-80 mb-8 leading-relaxed">
           Les {ACTIVE_LIMIT} premiers modèles sont affichés dans la table de
-          prévision, dans cet ordre.{" "}
-          {isTouchOnly
-            ? "Tape une ligne pour l'échanger avec une autre."
-            : "Glisse-dépose pour réordonner, ou tape une ligne pour l'échanger avec une autre."}{" "}
-          Cette configuration ne touche pas les plans de passage.
+          prévision, dans cet ordre. Glisse-dépose pour réordonner. Cette
+          configuration ne touche pas les plans de passage.
         </p>
 
         <div className="config-list-with-zones">
@@ -182,12 +140,11 @@ export function ConfigPage() {
               return (
                 <li
                   key={model}
-                  draggable={!isTouchOnly}
-                  onDragStart={isTouchOnly ? undefined : (e) => onDragStart(e, model, idx)}
-                  onDragOver={isTouchOnly ? undefined : (e) => onDragOver(e, idx)}
-                  onDrop={isTouchOnly ? undefined : onDrop}
-                  onDragEnd={isTouchOnly ? undefined : onDragEnd}
-                  onClick={() => setSwapFromIdx(idx)}
+                  draggable
+                  onDragStart={(e) => onDragStart(e, model, idx)}
+                  onDragOver={(e) => onDragOver(e, idx)}
+                  onDrop={onDrop}
+                  onDragEnd={onDragEnd}
                   className={`config-row flex items-stretch gap-3 rounded-xl border p-3 select-none ${
                     isActive ? "is-active" : "is-inactive"
                   } ${isDragging ? "is-dragging" : ""}`}
@@ -269,85 +226,6 @@ export function ConfigPage() {
             <PolarEditor />
           </>
         )}
-
-        {swapFromIdx !== null &&
-          createPortal(
-            <div
-              className="fixed inset-0 z-[1000] flex items-end lg:items-center justify-center animate-fade-in"
-              style={{ background: "rgba(0,0,0,0.6)" }}
-              onClick={() => setSwapFromIdx(null)}
-              role="dialog"
-              aria-modal="true"
-              aria-label="Échanger un modèle"
-            >
-              <div
-                className="config-swap-sheet relative w-full lg:max-w-md max-h-[88vh] overflow-y-auto rounded-t-2xl lg:rounded-2xl shadow-2xl"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <button
-                  onClick={() => setSwapFromIdx(null)}
-                  aria-label="Fermer"
-                  className="config-swap-close"
-                >
-                  ✕
-                </button>
-                <div className="p-5 pr-12">
-                  <p className="text-xs opacity-60 mb-1">Échanger</p>
-                  <h2 className="text-lg font-semibold mb-3">
-                    {MODEL_META[previewOrder[swapFromIdx]].label}
-                    <span className="ml-2 text-sm opacity-60">
-                      (position {swapFromIdx + 1})
-                    </span>
-                  </h2>
-                  <p className="text-sm opacity-80 mb-4">
-                    Sélectionne le modèle avec lequel échanger sa position.
-                  </p>
-
-                  <div className="config-swap-tip">
-                    On recommande de garder GFS parmi les {ACTIVE_LIMIT}{" "}
-                    modèles actifs. C'est le seul à couvrir les prévisions à
-                    plus d'une semaine, jusqu'à 16 jours.
-                  </div>
-
-                  <ul className="flex flex-col gap-2 mt-4">
-                    {previewOrder.map((m, i) => {
-                      if (i === swapFromIdx) return null;
-                      const meta = MODEL_META[m];
-                      const isActive = i < ACTIVE_LIMIT;
-                      return (
-                        <li key={m}>
-                          <button
-                            type="button"
-                            onClick={() => commitSwap(i)}
-                            className={`config-swap-option ${
-                              isActive ? "" : "is-inactive"
-                            }`}
-                          >
-                            <span
-                              className={`config-rank ${
-                                isActive ? "" : "config-rank-off"
-                              }`}
-                            >
-                              {i + 1}
-                            </span>
-                            <span className="config-swap-option-body">
-                              <span className="config-swap-option-label">
-                                {meta.label}
-                              </span>
-                              <span className="config-swap-option-meta">
-                                {meta.provider} · ~{formatHorizon(meta.horizonHours)}
-                              </span>
-                            </span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              </div>
-            </div>,
-            document.body,
-          )}
 
         <footer className="config-storage-note mt-10">
           OpenWind ne propose volontairement pas de comptes utilisateurs :
@@ -540,72 +418,6 @@ export function ConfigPage() {
             font-size: 10px;
             letter-spacing: 0.08em;
           }
-        }
-        .config-swap-sheet {
-          background: var(--ow-bg-0, #0b1220);
-          border: 1px solid var(--ow-line-2, rgba(255,255,255,0.10));
-          color: var(--ow-fg-0, #e2e8f0);
-        }
-        .config-swap-close {
-          position: absolute;
-          top: 12px;
-          right: 12px;
-          width: 32px;
-          height: 32px;
-          border-radius: 9999px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 14px;
-          font-weight: 600;
-          background: var(--ow-bg-1, rgba(255,255,255,0.04));
-          color: var(--ow-fg-1, #cbd5e1);
-          border: 1px solid var(--ow-line-2, rgba(255,255,255,0.10));
-        }
-        .config-swap-tip {
-          font-size: 12.5px;
-          line-height: 1.5;
-          color: var(--ow-fg-1, #cbd5e1);
-          padding: 10px 12px;
-          border-radius: 8px;
-          background: var(--ow-accent-soft, rgba(20, 184, 166, 0.08));
-          border: 1px solid var(--ow-accent-line, rgba(20, 184, 166, 0.25));
-          border-left-width: 3px;
-          border-left-color: var(--ow-accent, #14b8a6);
-        }
-        .config-swap-option {
-          width: 100%;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 12px 14px;
-          border-radius: 10px;
-          background: var(--ow-bg-1, rgba(255,255,255,0.04));
-          border: 1px solid var(--ow-line-2, rgba(255,255,255,0.08));
-          color: var(--ow-fg-0, #e2e8f0);
-          text-align: left;
-          transition: background 120ms ease, border-color 120ms ease;
-        }
-        .config-swap-option:hover {
-          background: var(--ow-bg-2, rgba(255,255,255,0.08));
-          border-color: var(--ow-accent-line, rgba(20, 184, 166, 0.35));
-        }
-        .config-swap-option.is-inactive {
-          opacity: 0.6;
-        }
-        .config-swap-option-body {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          min-width: 0;
-        }
-        .config-swap-option-label {
-          font-size: 14px;
-          font-weight: 600;
-        }
-        .config-swap-option-meta {
-          font-size: 11.5px;
-          opacity: 0.65;
         }
       `}</style>
     </div>

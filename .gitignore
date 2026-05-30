@@ -34,6 +34,9 @@ dist-ssr
 # Internal scoping/decision docs (not part of the public repo)
 /plan/
 
+# Local scratch / browser exports / non-tracked working files
+/tmp/
+
 # Test artifacts
 test-results/
 eval_screenshots.ts
