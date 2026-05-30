@@ -1162,17 +1162,31 @@ export function PlanSidebar({
         </div>
       )}
 
-      {/* Legs — click any row to see the build-up */}
-      {(() => {
-        const legs = aggregateLegs(passage.segments, waypoints, passage.efficiency);
-        return (
-          <LegList
-            legs={legs}
-            openIdx={selectedLegIdx}
-            onOpenChange={onSelectedLegChange}
-          />
-        );
-      })()}
+      {/* Legs — click any row to see the build-up.
+          Hidden while the plan is stale: re-mapping old segments to a freshly
+          edited waypoint list is unsafe (cf. aggregateLegs's index juggling)
+          and a silent gray-out could be missed on a quick glance. Showing a
+          placeholder is plainer and forces a recompute before the user reads
+          numbers that no longer match the route on the map. */}
+      {isStale ? (
+        <div
+          className="px-4 py-6 text-center text-xs"
+          style={{ color: "var(--ow-fg-2)", borderBottom: "1px solid var(--ow-line)" }}
+        >
+          Itinéraire modifié. Cliquez sur Recalculer pour mettre à jour les détails.
+        </div>
+      ) : (
+        (() => {
+          const legs = aggregateLegs(passage.segments, waypoints, passage.efficiency);
+          return (
+            <LegList
+              legs={legs}
+              openIdx={selectedLegIdx}
+              onOpenChange={onSelectedLegChange}
+            />
+          );
+        })()
+      )}
 
       {/* Footer */}
       {forecastUpdatedAt && (
