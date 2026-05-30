@@ -95,14 +95,16 @@ export function TideChart({
 
   useEffect(() => {
     if (!scrollRef.current || masterTimeline.length === 0) return;
-    // Preserve the previously visible window across spot switches via the
-    // leftmostHourRef updated on scroll. Independent of selectedHour.
+    // Same anchor restoration as WindTable; see comment there for the
+    // hasAnchor offset rationale.
+    const hasAnchor = leftmostHourRef.current != null;
     const anchor = leftmostHourRef.current ?? nowHour;
     const idx = masterTimeline.findIndex((t) => t.startsWith(anchor.slice(0, 13)));
     const nearestIdx =
       idx >= 0 ? idx : masterTimeline.findIndex((t) => t > anchor.slice(0, 13));
     if (nearestIdx > 0) {
-      scrollRef.current.scrollLeft = Math.max(0, nearestIdx * CELL_W - 60);
+      const offset = hasAnchor ? 0 : 60;
+      scrollRef.current.scrollLeft = Math.max(0, nearestIdx * CELL_W - offset);
     }
     checkScrollEnd();
   }, [masterTimeline, nowHour, checkScrollEnd]);
