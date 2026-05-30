@@ -43,8 +43,10 @@ from openwind_data.currents.marc_atlas import MarcAtlasRegistry
 from openwind_data.currents.router import CompositeMarineAdapter
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
 from openwind_data.routing import (
+    BoatPolar,
     Point,
     _build_conditions_summary,
+    get_polar,
     list_archetypes,
 )
 from openwind_data.routing import (
@@ -717,6 +719,8 @@ def build_server(
         latest_departure: str | None = None,
         sweep_interval_hours: int = 1,
         target_eta: str | None = None,
+        motor_threshold_kn: float | None = None,
+        motor_speed_kn: float | None = None,
     ) -> dict[str, Any]:
         """Plan an A→B passage. Compare departure windows by default; pin a
         single departure only when the user gives an explicit time.
@@ -824,6 +828,15 @@ def build_server(
                 route — pass it if you have a sea-state estimate from
                 ``get_marine_forecast`` and want it factored into the score.
                 Defaults to wind-only scoring.
+            motor_threshold_kn: optional sail-speed floor (knots) under which
+                the simulator switches to engine power. Must be paired with
+                ``motor_speed_kn`` (either alone is ignored). Typical value
+                2 kn — sailors fire up the engine rather than crawl in light
+                wind. Leave unset for 100% sail. Range (0, 10].
+            motor_speed_kn: optional speed under engine (knots) applied to
+                segments where the sail estimate falls under
+                ``motor_threshold_kn``. Typical 5-6 kn for a cruising boat.
+                Range (0, 12].
 
         ## Compare-windows mode (latest_departure set)
 
@@ -857,6 +870,29 @@ def build_server(
         pts = [Point(w["lat"], w["lon"]) for w in waypoints]
         dep = datetime.fromisoformat(departure)
 
+        # Motor override: clone the archetype polar with motor knobs set when
+        # the caller supplied BOTH values. Either alone is a no-op (same rule
+        # as ``_apply_motor``) so a half-filled call never silently changes
+        # the result. ``get_polar`` raises KeyError on an unknown archetype,
+        # which the runtime turns into a 422 — preferable to silently using
+        # the default.
+        polar_override: BoatPolar | None = None
+        if motor_threshold_kn is not None and motor_speed_kn is not None:
+            base_polar = get_polar(archetype)
+            polar_override = BoatPolar(
+                name=base_polar.name,
+                length_ft=base_polar.length_ft,
+                type=base_polar.type,
+                category=base_polar.category,
+                examples=base_polar.examples,
+                performance_class=base_polar.performance_class,
+                tws_kn=base_polar.tws_kn,
+                twa_deg=base_polar.twa_deg,
+                boat_speed_kn=base_polar.boat_speed_kn,
+                motor_threshold_kn=float(motor_threshold_kn),
+                motor_speed_kn=float(motor_speed_kn),
+            )
+
         # --- SWEEP MODE ---
         if latest_departure is not None:
             latest_dep = datetime.fromisoformat(latest_departure)
@@ -870,6 +906,7 @@ def build_server(
                 segment_length_nm=segment_length_nm,
                 adapter=fetch_adapter,
                 model=model,
+                polar_override=polar_override,
             )
             windows = [
                 _build_window_dict(r, _score_complexity(r, max_hs_m=max_hs_m), waypoints)
@@ -915,6 +952,7 @@ def build_server(
             segment_length_nm=segment_length_nm,
             adapter=fetch_adapter,
             model=model,
+            polar_override=polar_override,
         )
         score = _score_complexity(report, max_hs_m=max_hs_m)
 
