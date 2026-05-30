@@ -134,14 +134,20 @@ export function WindTable({
 
   useEffect(() => {
     if (!scrollRef.current || masterTimeline.length === 0) return;
-    // Restore the previously visible window when the timeline changes (typical
-    // case: user switched spots). On the very first render of a session the
-    // ref is null, fall back to "now".
+    // Restore the previously visible window when the timeline changes
+    // (typical case: user switched spots). On the very first render of a
+    // session the ref is null, fall back to "now" with a small context
+    // offset so the user sees one cell of "past" on the left. When
+    // restoring an anchor, we DON'T apply that offset: the anchor hour
+    // already IS the leftmost cell we want to land on, so subtracting 60
+    // would drift the table to the left a few pixels every switch.
+    const hasAnchor = leftmostHourRef.current != null;
     const anchor = leftmostHourRef.current ?? nowHour;
     const idx = masterTimeline.findIndex((t) => t.startsWith(anchor.slice(0, 13)));
     const nearestIdx = idx >= 0 ? idx : masterTimeline.findIndex((t) => t > anchor.slice(0, 13));
     if (nearestIdx > 0) {
-      scrollRef.current.scrollLeft = Math.max(0, nearestIdx * CELL_W - 60);
+      const offset = hasAnchor ? 0 : 60;
+      scrollRef.current.scrollLeft = Math.max(0, nearestIdx * CELL_W - offset);
     }
     checkScrollEnd();
   }, [masterTimeline, nowHour, checkScrollEnd]);
