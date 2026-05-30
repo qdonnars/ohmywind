@@ -1,7 +1,7 @@
 # OpenWind — TODO retours Hisse & Oh
 
-Synthèse des retours du fil H&O (9–19 mai 2026) qui ne sont pas encore traités.
-Croisé avec le récap du 14/05 et les commits récents (`leg distance`, `mobile UX waypoint/model reorder`, `polar + model priority`, `clapot court/suiveur`).
+Synthèse des retours du fil H&O (9–19 mai 2026).
+Croisé avec les commits récents et la PR #142 (UX polish, mai 2026).
 
 Légende : @pseudo = auteur du retour sur H&O.
 
@@ -10,26 +10,23 @@ Légende : @pseudo = auteur du retour sur H&O.
 ## UI / repères (gros chantier identifié)
 
 - [ ] Tuto / point d'interrogation contextuel à l'arrivée — @Weborg, @ledide, @Maindo, @Flora
+  - WIP existant sur `feat/onboarding-tour-wip` (3-step tour, 269 lignes) à reprendre
 - [ ] Distinction visible entre "favoris météo" (Save) et "route" (compas) — @ledide
 - [ ] Contraste des icônes météo en **mode jour** (mode nuit OK) — @phil_972
-- [ ] Message d'erreur "horizon dépassé" : ajouter "rafraîchissez la page / choisissez une date à < 10 j" pour éviter de perdre la planif — @Weborg
 - [ ] Afficher l'heure de mise à jour du run par modèle (tooltip desktop / chip mobile) — @Theeoo
 
 ## Tableaux modèles
 
-- [ ] Figer la ligne des heures au scroll (notamment GFS) — @Seter
 - [ ] Sélection auto du modèle régional selon la zone du waypoint de départ (Harmonie NL/DMI, ICON D2) — @f_blc
-  - alternative : rendre le drag & drop d'activation des modèles évident sur mobile (Android/Firefox)
+  - (le fallback par segment livré en PR #142 traite déjà 80 % du besoin)
 
 ## Mobile
 
-- [ ] Conserver la date/heure sélectionnée quand on change de waypoint (Android) — @thierry0809
 - [ ] Slider d'intervalle multi-routages → stepper/chips/input direct (trop fin au doigt) — @f_blc
 - [ ] PWA installable (raccourci écran d'accueil sans appli native) — @Lex34
 
 ## Routage / polaires
 
-- [ ] Vitesse moteur configurable dans `/config` polaire (vitesse seuil d'allumage + vitesse au moteur) — @Domde, @yvesb
 - [ ] Plusieurs flèches de vent simultanées sur la carte météo (visualiser une zone) — @f_blc
 - [ ] Export GPX / KML de la route + rejouer une planif — @Weborg
 - [ ] Mode simulation segment par segment avec champ de vent au fil de la nav — @yvesb
@@ -37,8 +34,7 @@ Légende : @pseudo = auteur du retour sur H&O.
 
 ## Bugs résiduels
 
-- [ ] Bugs d'affichage waypoints après planification — @Seter, @Tinqueen
-- [ ] Reproduire : Cherbourg → carte qui part sur Marseille après "Save" puis compas — @ledide
+(aucun reproduit en attente — les bugs Cherbourg et waypoints corrigés en PR #142)
 
 ---
 
@@ -47,10 +43,35 @@ Légende : @pseudo = auteur du retour sur H&O.
 - [ ] Visualisation des champs de vent — @yvesb → **écarté** (rester léger)
 - [ ] Mode offline — @yvesb → **écarté** (pas de DB serveur)
 - [ ] Défilement auto du temps style Windy — @delices2 → **à arbitrer** (utile mais charge cognitive)
+- [ ] Réordonner les modèles dans `/config` → **retiré** (drag tactile cassé, tap-to-swap masqué, complexité non justifiée — l'ordre est figé sur le défaut, à reconsidérer si retour utilisateur)
 
 ---
 
-## Pour mémoire — déjà livré (récap 14/05 + commits récents)
+## Outillage / plomberie (chantiers techniques)
+
+- [ ] Re-sync HF Space (mcp.openwind.fr) après merge PR #142 — sinon le motor/fallback ne tourne pas en prod
+- [ ] Staging HF Space (preview backend) pour tester les branches Cloudflare Pages bout en bout
+- [ ] Analytics : Plausible / Cloudflare Web Analytics + Sentry (suggestion Tinqueen)
+
+---
+
+## Pour mémoire — déjà livré
+
+### PR #142 (mai 2026, ce sprint)
+
+- Message d'erreur "horizon dépassé" enrichi (@Weborg)
+- Ligne des heures figée au scroll horizontal sur tous les tableaux modèles (@Seter)
+- Fallback modèle par segment quand un point est non couvert (@f_blc)
+- Date/heure et position du scroll conservées au changement de spot favori (@thierry0809)
+- Vitesse moteur configurable dans `/config` polaire — seuil + vitesse, opt-in (@Domde, @yvesb)
+- Allure "Moteur" affichée quand >50 % de la distance du tronçon est sous moteur
+- Section §5 méthodologie : explication du moteur (bypass η et k_vagues, courant gardé)
+- Bug Cherbourg → carte qui part sur Marseille après Save + compas (@ledide)
+- Bug waypoints périmés affichés après modification de la route (@Seter)
+- Drawer /plan dynamique mobile : 3 hauteurs adaptées à l'avancement
+- Compass FAB propage `?center=lat,lon` du spot courant
+
+### Sprints précédents (récap 14/05 + commits antérieurs)
 
 - Archétypes 20 et 25 pieds (@Lex34)
 - Barre de recherche réparée
