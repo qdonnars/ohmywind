@@ -2,18 +2,32 @@ export interface ParsedPlanParams {
   waypoints: [number, number][];
   departure: string;
   archetype: string;
+  /** Optional map center hint, propagated from the home compass FAB when the
+      user had a spot selected. Used only when the plan has no waypoints yet. */
+  center: [number, number] | null;
 }
 
 export type ParseResult = ParsedPlanParams | { error: string };
+
+function parseCenter(raw: string | null): [number, number] | null {
+  if (!raw) return null;
+  const [latStr, lonStr] = raw.split(",");
+  const lat = parseFloat(latStr);
+  const lon = parseFloat(lonStr);
+  if (isNaN(lat) || isNaN(lon)) return null;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  return [lat, lon];
+}
 
 export function parsePlanUrl(search: string): ParseResult {
   const p = new URLSearchParams(search);
   const wpts = p.get("wpts");
   const departure = p.get("departure") ?? "";
   const archetype = p.get("archetype") ?? "";
+  const center = parseCenter(p.get("center"));
 
   // No wpts at all → fresh empty plan (valid, not an error)
-  if (!wpts) return { waypoints: [], departure, archetype };
+  if (!wpts) return { waypoints: [], departure, archetype, center };
 
   try {
     const parts = wpts.split(";").filter(Boolean);
@@ -27,7 +41,7 @@ export function parsePlanUrl(search: string): ParseResult {
       if (lon < -180 || lon > 180) throw new Error(`longitude hors plage: ${lon}`);
       return [lat, lon];
     });
-    return { waypoints, departure, archetype };
+    return { waypoints, departure, archetype, center };
   } catch (e) {
     return { error: `Waypoints invalides: ${e instanceof Error ? e.message : e}` };
   }
