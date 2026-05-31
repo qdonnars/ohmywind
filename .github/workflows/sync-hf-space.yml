@@ -2,7 +2,7 @@ name: Sync HF Space
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - "packages/hf-space/**"
       - "packages/mcp-core/**"
@@ -10,17 +10,31 @@ on:
       - ".github/workflows/sync-hf-space.yml"
   workflow_dispatch:
 
-# Single source of truth = this repo. The HF Space repo is treated as a mirror;
+# Single source of truth = this repo. The HF Space repos are treated as mirrors;
 # any direct commit there will be overwritten on the next sync.
+# main -> prod Space, dev -> dev Space (resolved per-branch below). The HF_TOKEN
+# secret must have write access to BOTH Spaces (a single qdonnars user token does).
 jobs:
   sync:
     runs-on: ubuntu-latest
     env:
-      # Override via repo Variables → Actions if you renamed the Space.
-      HF_SPACE_ID: ${{ vars.HF_SPACE_ID || 'qdonnars/openwind-mcp' }}
+      # Override via repo Variables → Actions if you renamed a Space.
+      HF_SPACE_ID_PROD: ${{ vars.HF_SPACE_ID || 'qdonnars/openwind-mcp' }}
+      HF_SPACE_ID_DEV: ${{ vars.HF_SPACE_ID_DEV || 'qdonnars/openwind-mcp-dev' }}
     steps:
       - name: Checkout source repo
         uses: actions/checkout@v4
+
+      - name: Resolve target Space
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            TARGET="${HF_SPACE_ID_PROD}"
+          else
+            TARGET="${HF_SPACE_ID_DEV}"
+          fi
+          echo "HF_SPACE_ID=${TARGET}" >> "$GITHUB_ENV"
+          echo "Branch ${GITHUB_REF_NAME} -> Space ${TARGET}"
 
       - name: Assemble Space build context
         run: |

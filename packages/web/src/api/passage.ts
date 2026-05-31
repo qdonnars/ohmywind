@@ -1,6 +1,7 @@
 import type { PassageResponse, PassageByEtaResponse, MultiWindowResponse, Archetype } from "../plan/types";
 import type { ModelName } from "../config/modelConfig";
 import type { PolarData } from "../config/polarConfig";
+import { API_BASE } from "./config";
 
 // Plan-time overrides driven by the user's /config preferences. Both are
 // optional — when omitted, the server falls back to its bundled archetype
@@ -10,8 +11,6 @@ export interface PlanOverrides {
   models?: ModelName[];
   polar?: PolarData;
 }
-
-const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? "https://qdonnars-openwind-mcp.hf.space";
 
 // Translate known backend error messages to actionable French. Returns the
 // original string if no rule matches, so unknown errors stay debuggable.
