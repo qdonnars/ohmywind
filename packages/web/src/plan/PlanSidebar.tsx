@@ -1028,11 +1028,27 @@ export function PlanSidebar({
           </div>
         )}
 
-        <WindowsTable windows={windows} onSelect={onWindowSelect} />
+        {/* When the route has been edited since the sweep, the cached windows
+            (and the per-window passages they'd drill into) describe the *old*
+            itinerary — opening one would render a route that no longer matches
+            the map. Hide the table behind a recompute prompt, mirroring single
+            mode (#152). */}
+        {isStale ? (
+          <div
+            className="px-4 py-6 text-center text-xs"
+            style={{ color: "var(--ow-fg-2)", borderBottom: "1px solid var(--ow-line)" }}
+          >
+            Itinéraire modifié. Cliquez sur Recalculer pour comparer les créneaux du nouveau trajet.
+          </div>
+        ) : (
+          <>
+            <WindowsTable windows={windows} onSelect={onWindowSelect} />
 
-        <p className="px-4 py-2 text-[10px]" style={{ color: "var(--ow-fg-3)", borderTop: "1px solid var(--ow-line)" }}>
-          {windows.length} fenêtre{windows.length > 1 ? "s" : ""} comparée{windows.length > 1 ? "s" : ""} · cliquez sur une ligne pour ouvrir la simulation détaillée
-        </p>
+            <p className="px-4 py-2 text-[10px]" style={{ color: "var(--ow-fg-3)", borderTop: "1px solid var(--ow-line)" }}>
+              {windows.length} fenêtre{windows.length > 1 ? "s" : ""} comparée{windows.length > 1 ? "s" : ""} · cliquez sur une ligne pour ouvrir la simulation détaillée
+            </p>
+          </>
+        )}
       </div>
     );
   }

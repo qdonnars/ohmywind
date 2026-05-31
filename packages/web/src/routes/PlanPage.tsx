@@ -521,6 +521,10 @@ export function PlanPage() {
   // Functional updaters avoid stale closure when clicks happen fast
   function handleMapClick(lat: number, lon: number) {
     setWaypoints((prev) => [...prev, [lat, lon]]);
+    // Appending a point edits the route just like a drag/insert — mark results
+    // stale so a prior single/compare run can't linger as if it still matched.
+    // (No-op visually before the first computation, when there's nothing yet.)
+    setIsStale(true);
   }
 
   function handleWptMove(idx: number, lat: number, lon: number) {
@@ -553,6 +557,9 @@ export function PlanPage() {
   }
 
   function handleRefetch() {
+    // Re-frame the camera on the route only now, at the user's explicit
+    // request — the map no longer auto-fits on each waypoint placement.
+    mapRef.current?.fitToWaypoints();
     doFetch(waypoints, archetype, departure, timeAnchor);
   }
 
@@ -563,6 +570,7 @@ export function PlanPage() {
   }
 
   function doFetchWindows() {
+    mapRef.current?.fitToWaypoints();
     setIsLoading(true);
     setApiError(null);
     const earliestIso = toTzAware(sweepEarliest);
@@ -787,7 +795,14 @@ export function PlanPage() {
           <PlanMap
             ref={mapRef}
             waypoints={waypoints}
-            segments={passage?.segments}
+            // Only feed the condition-colored segments in single mode. In
+            // compare mode there's no single "the conditions" to color by (each
+            // window differs), and `passage` lags the route once it's edited
+            // there — drawing its stale segments left earlier waypoints floating
+            // off a route that no longer matched the markers (#152 follow-up).
+            // Compare mode falls back to a neutral line through the live
+            // waypoints, so the drawn route always matches what's computed.
+            segments={planMode === "single" ? passage?.segments : undefined}
             isStale={isStale}
             onWptMove={handleWptMove}
             onWptAdd={waypoints.length >= 2 ? handleWptAdd : undefined}
