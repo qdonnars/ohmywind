@@ -5,6 +5,7 @@ import {
   CURRENT_RELEVANCE_THRESHOLD_KN,
   TIDE_RANGE_RELEVANCE_THRESHOLD_M,
 } from "../types";
+import { API_BASE } from "./config";
 
 const MARINE_URL = "https://marine-api.open-meteo.com/v1/marine";
 
@@ -23,8 +24,7 @@ const KMH_TO_KN = 1 / 1.852;
 // of the 7 published atlases (ATLNE, MANGA, FINIS, MANW, MANE, SUDBZH, AQUI).
 // Outside coverage the response carries ``covered: false`` and we keep the
 // Open-Meteo SMOC values.
-const MARC_URL =
-  "https://qdonnars-openwind-mcp.hf.space/api/v1/marine/marc";
+const MARC_URL = `${API_BASE}/api/v1/marine/marc`;
 
 const cache = new Map<string, { data: MarineHourly; fetchedAt: number }>();
 const CACHE_TTL = 30 * 60 * 1000;
