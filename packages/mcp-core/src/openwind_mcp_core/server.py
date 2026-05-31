@@ -639,7 +639,7 @@ def build_server(
 
     @server.tool()
     def list_boat_archetypes() -> list[dict[str, Any]]:
-        """List the 5 boat archetypes with descriptive metadata.
+        """List the 7 boat archetypes with descriptive metadata.
 
         The LLM (or user) maps a commercial model (e.g. "Sun Odyssey 32") to one
         of these archetypes from the metadata — there is no server-side mapping.
