@@ -261,6 +261,162 @@ class OpenMeteoAdapter:
             return SeaSeries(points=())
         return _parse_sea(resp.json(), start, end)
 
+    # ---- batched multi-coordinate prewarm --------------------------------
+    # A passage samples one (lat, lon) per segment; the per-segment ``fetch``
+    # path therefore issues ~2*N HTTP calls (wind + sea per point), paced by
+    # the single-IP throttle. Open-Meteo accepts comma-separated coordinates
+    # and returns an array aligned to the inputs, so ``prewarm_batch`` fetches
+    # ALL points in ``len(models)+1`` calls and writes the per-point bundles
+    # into the same cache the per-segment ``fetch`` reads — turning those N
+    # fetches into cache hits. Pure optimization: it never changes results, and
+    # on any upstream error it simply caches nothing so the per-point path runs
+    # unchanged. Matters most on the MCP/server path (the one IP Open-Meteo
+    # rate-limits); the web path already fetches client-side.
+
+    def _fresh_cached(
+        self, key: _CacheKey, start_utc: datetime, end_utc: datetime, now: datetime
+    ) -> bool:
+        cached = self._cache.get(key)
+        return (
+            cached is not None
+            and (now - cached.fetched_at) < CACHE_TTL
+            and cached.bundle.start <= start_utc
+            and cached.bundle.end >= end_utc
+        )
+
+    def _cache_put(self, key: _CacheKey, now: datetime, bundle: ForecastBundle) -> None:
+        if len(self._cache) >= CACHE_MAX_ENTRIES and key not in self._cache:
+            self._cache.pop(next(iter(self._cache)))  # FIFO eviction, mirrors fetch()
+        self._cache[key] = _CacheEntry(fetched_at=now, bundle=bundle)
+
+    async def prewarm_batch(
+        self,
+        points: list[tuple[float, float]],
+        start: datetime,
+        end: datetime,
+        models: list[str] | None = None,
+    ) -> None:
+        """Warm the cache for many ``(lat, lon)`` points in as few HTTP calls as
+        possible (Open-Meteo multi-coordinate), so subsequent per-point
+        ``fetch`` calls for ``[start, end]`` are served without HTTP.
+
+        Best-effort and cache-aware: points already covered are skipped, and any
+        horizon/HTTP error aborts silently (the per-point path then runs as
+        before). Caches wind + sea together per point, exactly like ``fetch``.
+        """
+        if not points:
+            return
+        if start.tzinfo is None or end.tzinfo is None:
+            raise ValueError("start and end must be timezone-aware datetimes")
+        start_utc = start.astimezone(UTC)
+        end_utc = end.astimezone(UTC)
+        if end_utc <= start_utc:
+            raise ValueError("end must be strictly after start")
+        models = models or [DEFAULT_MODEL]
+        now = datetime.now(UTC)
+        api_max_end = now + timedelta(days=API_MAX_FUTURE_DAYS)
+        if start_utc > api_max_end:
+            return  # out of horizon — let per-point fetch raise the proper error
+
+        # Only fetch points missing a covering entry for at least one model.
+        def _key(pt: tuple[float, float], model: str) -> _CacheKey:
+            return _CacheKey(round(pt[0], GRID_DECIMALS), round(pt[1], GRID_DECIMALS), (model,))
+
+        todo = [
+            pt
+            for pt in points
+            if any(not self._fresh_cached(_key(pt, m), start_utc, end_utc, now) for m in models)
+        ]
+        if not todo:
+            return
+
+        # Widen like fetch() so later calls with shifted windows still hit.
+        fetch_start = start_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+        fetch_end = min(max(end_utc, start_utc + timedelta(days=FETCH_HORIZON_DAYS)), api_max_end)
+
+        owns_client = self._client is None
+        client = self._client or httpx.AsyncClient(timeout=self._timeout)
+        try:
+            wind_per_model = await asyncio.gather(
+                *[self._fetch_wind_batch(client, todo, fetch_start, fetch_end, m) for m in models]
+            )
+            sea_per_point = await self._fetch_sea_batch(client, todo, fetch_start, fetch_end)
+        except (ForecastHorizonError, httpx.HTTPError):
+            return  # abort the optimization; per-point fetch path stays correct
+        finally:
+            if owns_client:
+                await client.aclose()
+
+        # Defensive: only cache when array shapes line up with the request.
+        if len(sea_per_point) != len(todo) or any(len(w) != len(todo) for w in wind_per_model):
+            return
+        for mi, model in enumerate(models):
+            winds = wind_per_model[mi]
+            for pi, pt in enumerate(todo):
+                bundle = ForecastBundle(
+                    lat=pt[0],
+                    lon=pt[1],
+                    start=fetch_start,
+                    end=fetch_end,
+                    wind_by_model={model: winds[pi]},
+                    sea=sea_per_point[pi],
+                    requested_at=now,
+                )
+                self._cache_put(_key(pt, model), now, bundle)
+
+    async def _fetch_wind_batch(
+        self,
+        client: httpx.AsyncClient,
+        points: list[tuple[float, float]],
+        start: datetime,
+        end: datetime,
+        model: str,
+    ) -> list[WindSeries]:
+        params = {
+            "latitude": ",".join(str(p[0]) for p in points),
+            "longitude": ",".join(str(p[1]) for p in points),
+            "hourly": _WIND_VARS,
+            "wind_speed_unit": "kn",
+            "models": model,
+            "timezone": "UTC",
+            "start_date": start.date().isoformat(),
+            "end_date": end.date().isoformat(),
+        }
+        await self._pace_http()
+        resp = await client.get(FORECAST_URL, params=params)
+        try:
+            _raise_for_status_with_horizon(resp, model, start)
+        except _OffCoverageError:
+            # Whole batch off-coverage: empty series per point → per-segment
+            # fallback chain advances, same as the single-point path.
+            return [WindSeries(model=model, points=()) for _ in points]
+        elems = _as_coord_list(resp.json(), len(points))
+        return [_parse_wind(el, model, start, end) for el in elems]
+
+    async def _fetch_sea_batch(
+        self,
+        client: httpx.AsyncClient,
+        points: list[tuple[float, float]],
+        start: datetime,
+        end: datetime,
+    ) -> list[SeaSeries]:
+        params = {
+            "latitude": ",".join(str(p[0]) for p in points),
+            "longitude": ",".join(str(p[1]) for p in points),
+            "hourly": _MARINE_VARS,
+            "timezone": "UTC",
+            "start_date": start.date().isoformat(),
+            "end_date": end.date().isoformat(),
+        }
+        await self._pace_http()
+        resp = await client.get(MARINE_URL, params=params)
+        try:
+            _raise_for_status_with_horizon(resp, "open-meteo-marine", start)
+        except _OffCoverageError:
+            return [SeaSeries(points=()) for _ in points]
+        elems = _as_coord_list(resp.json(), len(points))
+        return [_parse_sea(el, start, end) for el in elems]
+
 
 def _raise_for_status_with_horizon(
     resp: httpx.Response, model: str, requested_time: datetime
@@ -329,6 +485,20 @@ def _slice_bundle(bundle: ForecastBundle, start: datetime, end: datetime) -> For
         sea=sliced_sea,
         requested_at=bundle.requested_at,
     )
+
+
+def _as_coord_list(data: Any, n: int) -> list[dict[str, Any]]:
+    """Normalize an Open-Meteo response to a list of ``n`` per-coordinate objects.
+
+    Multi-coordinate requests return a JSON array (one object per input
+    coordinate, order preserved); a single coordinate may come back as a bare
+    object. Short arrays are padded with empty dicts so callers can index by
+    position without bounds checks (a missing element parses to an empty series).
+    """
+    elems = data if isinstance(data, list) else [data]
+    if len(elems) < n:
+        elems = list(elems) + [{}] * (n - len(elems))
+    return elems[:n]
 
 
 def _parse_wind(data: dict[str, Any], model: str, start: datetime, end: datetime) -> WindSeries:
