@@ -7,6 +7,10 @@ import { cxLevel, CX_COLORS } from "./types";
 
 export interface PlanMapHandle {
   recenter: (lat: number, lon: number) => void;
+  /** Fit the camera to the current waypoints. Called explicitly when the user
+      asks for a computation (Calculer / Comparer) — never automatically on
+      waypoint placement, so the map stays where the user left it. */
+  fitToWaypoints: () => void;
 }
 
 interface PlanMapProps {
@@ -52,11 +56,6 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   const onWptAddRef = useRef(onWptAdd);
   const onWptDeleteRef = useRef(onWptDelete);
   const onMapClickRef = useRef(onMapClick);
-  // Track waypoint count across renders so the bounds-fit effect can tell an
-  // "added waypoint" from a "moved waypoint" — we re-fit only on adds, never
-  // on drags (drags already happen near the visible area, and re-fitting
-  // would yank the camera away from the user's pinch/zoom).
-  const prevWaypointCountRef = useRef<number>(waypoints.length);
   const { resolvedTheme } = useTheme();
 
   useEffect(() => { onWptAddRef.current = onWptAdd; }, [onWptAdd]);
@@ -66,6 +65,18 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   useImperativeHandle(ref, () => ({
     recenter(lat, lon) {
       mapRef.current?.setView([lat, lon], 12, { animate: true });
+    },
+    fitToWaypoints() {
+      const map = mapRef.current;
+      if (!map) return;
+      if (waypoints.length >= 2) {
+        map.fitBounds(
+          L.latLngBounds(waypoints.map(([lat, lon]) => L.latLng(lat, lon))),
+          { padding: [40, 40] },
+        );
+      } else if (waypoints.length === 1) {
+        map.setView([waypoints[0][0], waypoints[0][1]], 10);
+      }
     },
   }));
 
@@ -230,25 +241,10 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [waypoints]);
 
-  // Re-fit the map bounds when the user *adds* a waypoint after the initial
-  // render — without this, clicking outside the current viewport (e.g. to
-  // place wpt 3 in Corsica when the map is panned to Marseille) leaves the
-  // new marker off-screen. We deliberately skip re-fitting on drags (count
-  // stays the same) and deletes (count shrinks → fitBounds on a single
-  // waypoint would over-zoom).
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const prev = prevWaypointCountRef.current;
-    const curr = waypoints.length;
-    prevWaypointCountRef.current = curr;
-    if (curr > prev && curr >= 2) {
-      map.fitBounds(
-        L.latLngBounds(waypoints.map(([lat, lon]) => L.latLng(lat, lon))),
-        { padding: [40, 40] },
-      );
-    }
-  }, [waypoints]);
+  // NB: no auto fit-bounds on waypoint changes. Re-fitting on every placement
+  // yanked the camera away while the user was still composing their route.
+  // The camera now only re-frames on explicit Calculer / Comparer, via the
+  // imperative `fitToWaypoints()` handle above.
 
   // Draw polyline — gray while loading/stale, colored per segment when fresh
   useEffect(() => {
@@ -261,11 +257,14 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     if (waypoints.length < 2) return;
 
     if (!segments || isStale) {
+      // Dashed + faded only when the line is provisional (loading or stale).
+      // A fresh route without per-segment colors (e.g. compare mode) draws as
+      // a solid neutral line so it doesn't read as "not computed yet".
       const line = L.polyline(waypoints.map(([lat, lon]) => L.latLng(lat, lon)), {
         color: "#6b7280",
         weight: 5,
-        dashArray: "6 4",
-        opacity: 0.7,
+        dashArray: isStale ? "6 4" : undefined,
+        opacity: isStale ? 0.7 : 0.85,
       }).addTo(map);
       line.on("click", (e: L.LeafletMouseEvent) => {
         if (isDraggingRef.current || !onWptAddRef.current) return;

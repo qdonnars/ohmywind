@@ -3,6 +3,7 @@ import { parsePlanUrl, isParsedOk, buildPlanUrl } from "../plan/parseUrl";
 import { PlanMap, type PlanMapHandle } from "../plan/PlanMap";
 import { PlanSidebar } from "../plan/PlanSidebar";
 import { fetchPassage, fetchPassageByEta, fetchPassageWindows, fetchArchetypes, friendlyError, type PlanOverrides } from "../api/passage";
+import { buildForecastCacheSafe, singleWindowMs, sweepWindowMs, etaWindowMs } from "../api/forecastCache";
 import { Header } from "../components/Header";
 import type { PassageReport, ComplexityScore, Archetype, PassageWindow } from "../plan/types";
 import {
@@ -401,9 +402,20 @@ export function PlanPage() {
     setIsLoading(true);
     setApiError(null);
     const overrides = resolveOverrides(arch);
-    const promise = anchor === "arrival"
-      ? fetchPassageByEta({ waypoints: wpts, targetArrival: toTzAware(dep), archetype: arch, overrides })
-      : fetchPassage({ waypoints: wpts, departure: toTzAware(dep), archetype: arch, overrides });
+    const depIso = toTzAware(dep);
+    const anchorMs = Date.parse(depIso);
+    // Sample the route corridor in the browser and attach it so the server
+    // reads weather from this payload instead of calling Open-Meteo itself
+    // (distributes the upstream load off the Space's single IP). On any
+    // failure the cache is undefined and the server fetches live.
+    const cacheWindow = anchor === "arrival"
+      ? etaWindowMs(wpts, anchorMs)
+      : singleWindowMs(wpts, anchorMs);
+    const promise = buildForecastCacheSafe(wpts, { window: cacheWindow }).then((forecastCache) =>
+      anchor === "arrival"
+        ? fetchPassageByEta({ waypoints: wpts, targetArrival: depIso, archetype: arch, overrides, forecastCache })
+        : fetchPassage({ waypoints: wpts, departure: depIso, archetype: arch, overrides, forecastCache })
+    );
     promise
       .then((res) => {
         setPassage(res.passage);
@@ -509,6 +521,10 @@ export function PlanPage() {
   // Functional updaters avoid stale closure when clicks happen fast
   function handleMapClick(lat: number, lon: number) {
     setWaypoints((prev) => [...prev, [lat, lon]]);
+    // Appending a point edits the route just like a drag/insert — mark results
+    // stale so a prior single/compare run can't linger as if it still matched.
+    // (No-op visually before the first computation, when there's nothing yet.)
+    setIsStale(true);
   }
 
   function handleWptMove(idx: number, lat: number, lon: number) {
@@ -541,6 +557,9 @@ export function PlanPage() {
   }
 
   function handleRefetch() {
+    // Re-frame the camera on the route only now, at the user's explicit
+    // request — the map no longer auto-fits on each waypoint placement.
+    mapRef.current?.fitToWaypoints();
     doFetch(waypoints, archetype, departure, timeAnchor);
   }
 
@@ -551,16 +570,24 @@ export function PlanPage() {
   }
 
   function doFetchWindows() {
+    mapRef.current?.fitToWaypoints();
     setIsLoading(true);
     setApiError(null);
-    fetchPassageWindows({
-      waypoints,
-      earliest: toTzAware(sweepEarliest),
-      latest: toTzAware(sweepLatest),
-      archetype,
-      intervalHours: sweepInterval,
-      overrides: resolveOverrides(archetype),
-    })
+    const earliestIso = toTzAware(sweepEarliest);
+    const latestIso = toTzAware(sweepLatest);
+    const cacheWindow = sweepWindowMs(waypoints, Date.parse(earliestIso), Date.parse(latestIso));
+    buildForecastCacheSafe(waypoints, { window: cacheWindow })
+      .then((forecastCache) =>
+        fetchPassageWindows({
+          waypoints,
+          earliest: earliestIso,
+          latest: latestIso,
+          archetype,
+          intervalHours: sweepInterval,
+          overrides: resolveOverrides(archetype),
+          forecastCache,
+        }),
+      )
       .then((res) => {
         setWindows(res.windows);
         setMetaWarnings(res.meta_warnings);
@@ -768,7 +795,14 @@ export function PlanPage() {
           <PlanMap
             ref={mapRef}
             waypoints={waypoints}
-            segments={passage?.segments}
+            // Only feed the condition-colored segments in single mode. In
+            // compare mode there's no single "the conditions" to color by (each
+            // window differs), and `passage` lags the route once it's edited
+            // there — drawing its stale segments left earlier waypoints floating
+            // off a route that no longer matched the markers (#152 follow-up).
+            // Compare mode falls back to a neutral line through the live
+            // waypoints, so the drawn route always matches what's computed.
+            segments={planMode === "single" ? passage?.segments : undefined}
             isStale={isStale}
             onWptMove={handleWptMove}
             onWptAdd={waypoints.length >= 2 ? handleWptAdd : undefined}
