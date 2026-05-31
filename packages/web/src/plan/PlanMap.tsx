@@ -257,11 +257,14 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     if (waypoints.length < 2) return;
 
     if (!segments || isStale) {
+      // Dashed + faded only when the line is provisional (loading or stale).
+      // A fresh route without per-segment colors (e.g. compare mode) draws as
+      // a solid neutral line so it doesn't read as "not computed yet".
       const line = L.polyline(waypoints.map(([lat, lon]) => L.latLng(lat, lon)), {
         color: "#6b7280",
         weight: 5,
-        dashArray: "6 4",
-        opacity: 0.7,
+        dashArray: isStale ? "6 4" : undefined,
+        opacity: isStale ? 0.7 : 0.85,
       }).addTo(map);
       line.on("click", (e: L.LeafletMouseEvent) => {
         if (isDraggingRef.current || !onWptAddRef.current) return;
