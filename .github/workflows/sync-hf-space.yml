@@ -64,7 +64,7 @@ jobs:
             -e 's/^title: OpenWind MCP$/title: OpenWind MCP (dev)/' \
             -e 's/^colorFrom: blue$/colorFrom: gray/' \
             -e 's/^colorTo: indigo$/colorTo: yellow/' \
-            -e 's/^short_description: /short_description: (dev) /' \
+            -e 's/^short_description: .*/short_description: (dev) French Atlantic + Med sailing planner via MCP./' \
             -e 's/^# OpenWind MCP ⛵$/# OpenWind MCP (dev) ⛵/' \
             -e 's#qdonnars-openwind-mcp\.hf\.space#qdonnars-openwind-mcp-dev.hf.space#g' \
             -e 's/on `main`/on `dev`/g' \
