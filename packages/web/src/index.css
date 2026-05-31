@@ -292,6 +292,31 @@ body {
   }
 }
 
+/* Datetime-local input — polishes the native picker to match the
+   sidebar's design tokens: accent focus ring, hover lift, and a calendar
+   icon that picks up the accent on hover instead of staying browser-grey. */
+.ow-datetime-input {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.ow-datetime-input:hover {
+  border-color: var(--ow-accent-line);
+}
+.ow-datetime-input:focus,
+.ow-datetime-input:focus-visible {
+  outline: none;
+  border-color: var(--ow-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ow-accent) 18%, transparent);
+}
+.ow-datetime-input::-webkit-calendar-picker-indicator {
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.ow-datetime-input:hover::-webkit-calendar-picker-indicator,
+.ow-datetime-input:focus::-webkit-calendar-picker-indicator {
+  opacity: 1;
+}
+
 /* Departure slider */
 .ow-departure-slider {
   -webkit-appearance: none;

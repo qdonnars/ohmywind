@@ -106,11 +106,11 @@ function DepartureSlider({
           type="datetime-local"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full rounded-lg px-3 py-1.5 text-sm font-semibold tabular-nums"
+          className="ow-datetime-input w-full rounded-lg px-3 py-2 text-sm font-semibold tabular-nums"
           style={{
             background: "var(--ow-bg-2)",
             color: "var(--ow-fg-0)",
-            border: "1px solid var(--ow-line-2)",
+            border: "1px solid var(--ow-line)",
             fontFamily: "var(--ow-font-mono)",
             colorScheme: resolvedTheme === "light" ? "light" : "dark",
           }}

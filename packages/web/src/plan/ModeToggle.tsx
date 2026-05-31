@@ -14,7 +14,7 @@ const MODE_ACCENT: Record<PlanMode, string> = {
 
 const MODE_META: Record<PlanMode, { title: string; sub: string; icon: "route" | "clock" }> = {
   single: { title: "Simuler ma route", sub: "Combien de temps pour ce trajet ?", icon: "route" },
-  compare: { title: "Comparer les fenêtres", sub: "Quand partir ?", icon: "clock" },
+  compare: { title: "Comparer les fenêtres", sub: "Le meilleur créneau pour partir ?", icon: "clock" },
 };
 
 function ModeIcon({ name, size = 12, color }: { name: "route" | "clock"; size?: number; color: string }) {
@@ -122,7 +122,7 @@ export function ModeToggle({
 
 const TIME_ANCHOR_META: Record<TimeAnchor, { title: string; sub: string }> = {
   departure: { title: "Heure de départ", sub: "Comprendre le temps de trajet" },
-  arrival: { title: "Heure d'arrivée", sub: "Savoir quand partir" },
+  arrival: { title: "Heure d'arrivée", sub: "Quand partir au plus tard ?" },
 };
 
 export function TimeAnchorToggle({
