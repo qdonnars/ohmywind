@@ -526,6 +526,17 @@ async def _estimate_with_model(
     own_adapter = adapter is None
     fetch_adapter: MarineDataAdapter = adapter or OpenMeteoAdapter()
     try:
+        # Warm the cache for every segment point in one batched multi-coordinate
+        # call (adapters that support it), so the per-segment gather below is
+        # served from cache instead of one HTTP call per point. Pure speedup;
+        # adapters without prewarm_batch (cache-backed, stubs) skip it.
+        if hasattr(fetch_adapter, "prewarm_batch"):
+            await fetch_adapter.prewarm_batch(
+                [(pt.lat, pt.lon) for pt in seg_mid_points],
+                min(seg_mid_times) - WIND_FETCH_WINDOW / 2,
+                max(seg_mid_times) + WIND_FETCH_WINDOW / 2,
+                [model],
+            )
         # First pass: batch-fetch all segments with the primary model. Same
         # request shape as before — routes 100% covered by the primary see
         # exactly one batched gather (preserves cache prewarm behaviour).
@@ -753,6 +764,15 @@ async def _estimate_backward_with_model(
     own_adapter = adapter is None
     fetch_adapter: MarineDataAdapter = adapter or OpenMeteoAdapter()
     try:
+        # Batched multi-coordinate prewarm so the per-segment gather is cache-
+        # served (one HTTP call for all points instead of one per point).
+        if hasattr(fetch_adapter, "prewarm_batch"):
+            await fetch_adapter.prewarm_batch(
+                [(pt.lat, pt.lon) for pt in seg_mid_points],
+                min(seg_mid_times) - WIND_FETCH_WINDOW / 2,
+                max(seg_mid_times) + WIND_FETCH_WINDOW / 2,
+                [model],
+            )
         bundles = await asyncio.gather(
             *[
                 fetch_adapter.fetch(
@@ -994,18 +1014,28 @@ async def estimate_passage_windows(
         resolved_model = first.model
         reports: list[PassageReport] = [first]
 
-        # Prewarm cache for the entire sweep horizon so all remaining calls are hits.
+        # Prewarm cache for the entire sweep horizon so all remaining calls are
+        # hits. One batched multi-coordinate call when the adapter supports it
+        # (all points in ~2 HTTP requests), else the per-point gather.
         prewarm_end = (
             latest_utc + timedelta(hours=route_nm / PREWARM_MIN_SPEED_KN) + WIND_FETCH_WINDOW
         )
-        await asyncio.gather(
-            *[
-                fetch_adapter.fetch(
-                    pt.lat, pt.lon, earliest_utc, prewarm_end, models=[resolved_model]
-                )
-                for pt in seg_mid_points
-            ]
-        )
+        if hasattr(fetch_adapter, "prewarm_batch"):
+            await fetch_adapter.prewarm_batch(
+                [(pt.lat, pt.lon) for pt in seg_mid_points],
+                earliest_utc,
+                prewarm_end,
+                [resolved_model],
+            )
+        else:
+            await asyncio.gather(
+                *[
+                    fetch_adapter.fetch(
+                        pt.lat, pt.lon, earliest_utc, prewarm_end, models=[resolved_model]
+                    )
+                    for pt in seg_mid_points
+                ]
+            )
 
         # Sweep remaining departure windows sequentially. The first window's
         # resolved model is the cache-warmed default; later windows that fall
