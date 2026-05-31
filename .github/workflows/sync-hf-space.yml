@@ -52,6 +52,26 @@ jobs:
           ls -la "$BUILD_DIR"
           ls -la "$BUILD_DIR/vendor"
 
+      - name: Variabilize README for the dev Space
+        if: ${{ github.ref_name != 'main' }}
+        run: |
+          set -euo pipefail
+          # The committed README carries the prod Space's metadata. On the dev
+          # Space, rewrite the HF card frontmatter and the advertised endpoint so
+          # the two Spaces are visually distinct on the dashboard and demos hit dev.
+          README=/tmp/hf-build/README.md
+          sed -i \
+            -e 's/^title: OpenWind MCP$/title: OpenWind MCP (dev)/' \
+            -e 's/^colorFrom: blue$/colorFrom: gray/' \
+            -e 's/^colorTo: indigo$/colorTo: yellow/' \
+            -e 's/^short_description: /short_description: (dev) /' \
+            -e 's/^# OpenWind MCP ⛵$/# OpenWind MCP (dev) ⛵/' \
+            -e 's#qdonnars-openwind-mcp\.hf\.space#qdonnars-openwind-mcp-dev.hf.space#g' \
+            -e 's/on `main`/on `dev`/g' \
+            "$README"
+          echo "Patched dev README frontmatter:"
+          sed -n '1,13p' "$README"
+
       - name: Push to HF Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
