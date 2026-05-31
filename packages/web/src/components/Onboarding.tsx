@@ -1,21 +1,35 @@
 import { useCallback, useEffect, useState, type RefObject } from "react";
 
 const STORAGE_KEY = "openwind:onboarding-v1";
-// Delay between the user dropping their first spot and the planner hint
-// surfacing. Long enough that the user has time to look around the spot's
-// forecast, short enough that the cue still feels related to the action.
-const SHOW_DELAY_AFTER_SPOT_MS = 30_000;
+const CUSTOM_SPOTS_KEY = "openwind_custom_spots";
+const LAST_SIMULATION_KEY = "ow_last_simulation_v1";
+// Time between page load and the planner hint surfacing — for first-time
+// users only. The check is a snapshot at mount; subsequent state changes
+// (adding/removing spots during the 15 s) don't cancel the popup.
+const SHOW_DELAY_MS = 15_000;
 const AUTO_DISMISS_MS = 8_000;
 const CARD_WIDTH = 288;
 
 const TITLE = "Planifier une route ?";
 const BODY = "Pour tracer un trajet entre deux spots et estimer la durée, cliquez sur la boussole.";
 
-function hasCompleted(): boolean {
+// "First-time user" snapshot read once at mount. The popup fires only if all
+// three storage signals say "no prior engagement": no saved spots, no
+// previously-run plan in cache, and the onboarding flag itself unset. Any
+// storage access failure (private browsing strict mode, blocked) falls
+// through to false — better silently skip the hint than crash the home page.
+function isFirstTimeUser(): boolean {
   try {
-    return localStorage.getItem(STORAGE_KEY) === "done";
-  } catch {
+    if (localStorage.getItem(STORAGE_KEY) === "done") return false;
+    const spotsRaw = localStorage.getItem(CUSTOM_SPOTS_KEY);
+    if (spotsRaw) {
+      const parsed = JSON.parse(spotsRaw);
+      if (Array.isArray(parsed) && parsed.length > 0) return false;
+    }
+    if (localStorage.getItem(LAST_SIMULATION_KEY)) return false;
     return true;
+  } catch {
+    return false;
   }
 }
 
@@ -29,7 +43,6 @@ function markCompleted(): void {
 
 interface OnboardingProps {
   fabRef: RefObject<HTMLElement | null>;
-  hasSpot: boolean;
 }
 
 interface CardPosition {
@@ -54,7 +67,7 @@ function computeCardPosition(rect: DOMRect | null): CardPosition {
   return { top, left, caret: "left", caretOffset };
 }
 
-export function Onboarding({ fabRef, hasSpot }: OnboardingProps) {
+export function Onboarding({ fabRef }: OnboardingProps) {
   const [active, setActive] = useState(false);
   const [position, setPosition] = useState<CardPosition | null>(null);
   const [haloRect, setHaloRect] = useState<DOMRect | null>(null);
@@ -64,15 +77,16 @@ export function Onboarding({ fabRef, hasSpot }: OnboardingProps) {
     setActive(false);
   }, []);
 
-  // Surface the planner hint 30 s after the user drops their first spot.
-  // Reading the localStorage flag inside the effect (not at module load)
-  // means a user who clears it during the same session can re-trigger.
+  // Eligibility is decided once, at mount. Snapshot semantics: a user who
+  // qualifies as "first-time" sees the popup 15 s later no matter what they
+  // do in the meantime — even if they drop and remove a spot during those
+  // 15 s. Returning users (any saved spot OR any past simulation OR the
+  // onboarding flag already set) never see it.
   useEffect(() => {
-    if (!hasSpot) return;
-    if (hasCompleted()) return;
-    const t = window.setTimeout(() => setActive(true), SHOW_DELAY_AFTER_SPOT_MS);
+    if (!isFirstTimeUser()) return;
+    const t = window.setTimeout(() => setActive(true), SHOW_DELAY_MS);
     return () => clearTimeout(t);
-  }, [hasSpot]);
+  }, []);
 
   useEffect(() => {
     if (!active) return;

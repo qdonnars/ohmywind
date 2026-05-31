@@ -52,15 +52,19 @@ export function ModeToggle({
    *  is already active". Overridden by `locked`. */
   pristine?: boolean;
 }) {
-  // In pristine mode, never highlight a pill as active — both should feel
-  // equally up-for-grabs. The icon colour stays at the mode's accent so the
-  // pill still reads as a meaningful choice, not a disabled control.
+  // Pristine mode lifts each pill into its own button-shaped surface (own
+  // border, own shadow, larger gap) so the control reads as "two choices to
+  // pick from" rather than "one box with an internal divider". Both pills
+  // pulse in sync to invite a tap.
+  const pristineActive = !locked && pristine;
+  const gridGap = pristineActive ? "gap-2" : "gap-0.5";
+  const padding = pristineActive ? "p-0" : "p-[3px]";
   return (
     <div
-      className={`grid grid-cols-2 gap-0.5 p-[3px] rounded-lg ${!locked && pristine ? "mode-toggle-pristine" : ""}`}
+      className={`grid grid-cols-2 ${gridGap} ${padding} rounded-lg`}
       style={{
-        background: "var(--ow-bg-2)",
-        border: `1px solid ${!locked && pristine ? "var(--ow-accent-line)" : "var(--ow-line)"}`,
+        background: pristineActive ? "transparent" : "var(--ow-bg-2)",
+        border: `1px solid ${pristineActive ? "transparent" : "var(--ow-line)"}`,
       }}
       role="tablist"
       aria-label="Mode de planification"
@@ -69,7 +73,7 @@ export function ModeToggle({
         const meta = MODE_META[m];
         const active = !locked && !pristine && value === m;
         const dim = locked;
-        const showAccentIcon = active || (!locked && pristine);
+        const showAccentIcon = active || pristineActive;
         return (
           <button
             key={m}
@@ -78,13 +82,21 @@ export function ModeToggle({
             aria-selected={active}
             onClick={() => !locked && onChange(m)}
             disabled={locked}
-            className="text-left transition-all"
+            className={`text-left transition-all ${pristineActive ? "mode-toggle-pristine-pill" : ""}`}
             style={{
-              padding: "8px 10px",
-              background: active ? "var(--ow-bg-1)" : "transparent",
-              border: active ? "1px solid var(--ow-line-2)" : "1px solid transparent",
-              borderRadius: 6,
-              boxShadow: active ? "var(--ow-shadow-sm)" : "none",
+              padding: pristineActive ? "10px 12px" : "8px 10px",
+              background: pristineActive
+                ? "var(--ow-bg-1)"
+                : active
+                  ? "var(--ow-bg-1)"
+                  : "transparent",
+              border: pristineActive
+                ? "1px solid var(--ow-accent-line)"
+                : active
+                  ? "1px solid var(--ow-line-2)"
+                  : "1px solid transparent",
+              borderRadius: pristineActive ? 8 : 6,
+              boxShadow: pristineActive || active ? "var(--ow-shadow-sm)" : "none",
               opacity: dim ? 0.4 : 1,
               cursor: locked ? "default" : "pointer",
             }}
@@ -93,7 +105,7 @@ export function ModeToggle({
               <ModeIcon name={meta.icon} size={11} color={showAccentIcon ? MODE_ACCENT[m] : "var(--ow-fg-2)"} />
               <span
                 className="text-xs font-semibold"
-                style={{ color: active || (!locked && pristine) ? "var(--ow-fg-0)" : "var(--ow-fg-1)" }}
+                style={{ color: active || pristineActive ? "var(--ow-fg-0)" : "var(--ow-fg-1)" }}
               >
                 {meta.title}
               </span>

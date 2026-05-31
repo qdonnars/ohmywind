@@ -219,7 +219,7 @@ function App() {
         </div>
       </div>
 
-      <Onboarding fabRef={fabRef} hasSpot={spot != null} />
+      <Onboarding fabRef={fabRef} />
     </div>
   );
 }

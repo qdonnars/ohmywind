@@ -206,17 +206,21 @@ body {
   border-right: 8px solid var(--ow-accent-line);
 }
 
-/* "Pick a mode" pristine state for ModeToggle: a soft pulsing accent ring
-   that says "tap one" without pre-picking either pill. */
+/* "Pick a mode" pristine state for ModeToggle: each pill is lifted into its
+   own button-shaped surface with a soft pulsing accent ring, so the control
+   reads as "two distinct buttons to choose from" rather than "one box with a
+   divider". Both pills pulse in sync. */
 @keyframes modeTogglePristinePulse {
   0%, 100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ow-accent) 0%, transparent);
+    box-shadow: var(--ow-shadow-sm),
+                0 0 0 0 color-mix(in srgb, var(--ow-accent) 0%, transparent);
   }
   50% {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ow-accent) 22%, transparent);
+    box-shadow: var(--ow-shadow-sm),
+                0 0 0 3px color-mix(in srgb, var(--ow-accent) 25%, transparent);
   }
 }
-.mode-toggle-pristine {
+.mode-toggle-pristine-pill {
   animation: modeTogglePristinePulse 2.2s ease-in-out infinite;
 }
 
