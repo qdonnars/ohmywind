@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { nowParisHourPrefix } from "./utils/format";
 import type { Spot, ModelForecast, MarineHourly, MetricView } from "./types";
 import { fetchAllModels } from "./api/openmeteo";
@@ -15,8 +15,9 @@ import { MarineTable } from "./components/MarineTable";
 import { MetricPills } from "./components/MetricPills";
 import { TideChart } from "./components/TideChart";
 import { SpotMap } from "./components/SpotMap";
+import { Onboarding } from "./components/Onboarding";
 
-const RADE_MARSEILLE: Spot = { name: "Rade de Marseille", latitude: 43.3, longitude: 5.35 };
+const DEFAULT_MAP_CENTER: { lat: number; lon: number } = { lat: 43.3, lon: 5.35 };
 
 function EmptyState() {
   return (
@@ -30,11 +31,11 @@ function EmptyState() {
           </svg>
         </div>
         <p className="text-base font-semibold mb-1.5" style={{ color: 'var(--ow-fg-0)' }}>
-          Add a spot
+          Posez votre premier spot
         </p>
         <p className="text-sm leading-relaxed" style={{ color: 'var(--ow-fg-1)' }}>
-          <span className="lg:hidden">Long press on the map to place a wind spot</span>
-          <span className="hidden lg:inline">Right-click on the map to place a wind spot</span>
+          <span className="lg:hidden">Appui long sur la carte pour créer votre premier spot.</span>
+          <span className="hidden lg:inline">Clic droit sur la carte pour créer votre premier spot.</span>
         </p>
       </div>
     </div>
@@ -43,8 +44,13 @@ function EmptyState() {
 
 
 function App() {
-  const { customSpots, addSpot, removeSpot, renameSpot, isCustom } = useCustomSpots();
-  const [spot, setSpot] = useState<Spot | null>(() => customSpots[0] ?? RADE_MARSEILLE);
+  const { customSpots, addSpot, removeSpot, renameSpot } = useCustomSpots();
+  // New users (no saved spots) land with no active spot — no auto-loaded
+  // forecasts, no wind arrows on the map. The onboarding tour invites them
+  // to drop their first one. Returning users with saved spots resume on
+  // their first favorite.
+  const [spot, setSpot] = useState<Spot | null>(() => customSpots[0] ?? null);
+  const [geolocCenter, setGeolocCenter] = useState<{ lat: number; lon: number } | null>(null);
   const [forecasts, setForecasts] = useState<ModelForecast[]>([]);
   const [marine, setMarine] = useState<MarineHourly | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -87,23 +93,20 @@ function App() {
     };
   }, [spot]);
 
-  // First-visit geolocation: if the user has no saved spots and we landed on
-  // the Marseille fallback, ask the browser for their position. Granted →
-  // center on them and load forecasts there. Denied / error → silent, keep
-  // the default. Returning users with custom spots keep their chosen spot.
+  // First-visit geolocation: if the user has no saved spots, ask the browser
+  // for their position and recenter the MAP — without auto-picking it as a
+  // spot. That way the canvas frames their region but stays empty (no
+  // arrows, no forecasts) until they actively drop their first spot.
+  // Denied / error → silent, the SpotMap falls back to its default center.
   useEffect(() => {
     if (customSpots.length > 0) return;
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setSpot({
-          name: "Ma position",
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        });
+        setGeolocCenter({ lat: pos.coords.latitude, lon: pos.coords.longitude });
       },
       () => {
-        // Permission denied or unavailable — keep RADE_MARSEILLE.
+        /* permission denied or unavailable — keep SpotMap default center */
       },
       { timeout: 8000, maximumAge: 5 * 60 * 1000 },
     );
@@ -122,27 +125,26 @@ function App() {
     if (view === "currents" && !showCurrents) setView("wind");
   }, [view, showWaves, showTides, showCurrents]);
 
-  const isDefault = spot != null && spot.latitude === RADE_MARSEILLE.latitude && spot.longitude === RADE_MARSEILLE.longitude && !isCustom(spot);
-  const canSave = spot != null && !isCustom(spot) && !isDefault;
+  const mapRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
+  const fabRef = useRef<HTMLAnchorElement>(null);
 
   return (
     <div
       className="h-screen flex flex-col overflow-hidden"
       style={{ background: 'var(--ow-bg-0)', color: 'var(--ow-fg-0)' }}
     >
-      <Header
-        onSelectSpot={setSpot}
-        canSave={canSave}
-        onSave={() => spot && addSpot(spot)}
-      />
+      <Header onSelectSpot={setSpot} />
 
       {/* Map fills the entire space; pills + table are an overlay floating
           above its bottom edge so the map keeps showing through the gaps
           around the data cells. */}
-      <div className="flex-1 min-h-0 relative">
+      <div ref={mapRef} className="flex-1 min-h-0 relative">
         <SpotMap
           current={spot}
           customSpots={customSpots}
+          geolocCenter={geolocCenter}
+          defaultCenter={DEFAULT_MAP_CENTER}
           onSelectSpot={setSpot}
           onAddSpot={(s) => { addSpot(s); setSpot(s); }}
           onRemoveSpot={(s) => { removeSpot(s); if (spot?.latitude === s.latitude && spot?.longitude === s.longitude) { setSpot(null); setForecasts([]); setSelectedHour(null); } }}
@@ -157,6 +159,7 @@ function App() {
             so the planner map opens centered on the spot the user was just
             looking at, rather than a hardcoded default region. */}
         <a
+          ref={fabRef}
           href={spot ? `/plan?center=${spot.latitude.toFixed(5)},${spot.longitude.toFixed(5)}` : "/plan"}
           className="absolute top-3 left-3 z-[400] w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
           style={{ background: "var(--ow-accent)", color: "#fff" }}
@@ -173,6 +176,7 @@ function App() {
             scrolls (otherwise the hour row drifts away when the user scrolls
             down through GFS/ECMWF rows). */}
         <div
+          ref={tableRef}
           className="absolute left-0 right-0 bottom-0 max-h-[44vh] md:max-h-[46vh] z-[400] flex flex-col"
         >
           {spot ? (
@@ -217,6 +221,14 @@ function App() {
           )}
         </div>
       </div>
+
+      <Onboarding
+        mapRef={mapRef}
+        tableRef={tableRef}
+        fabRef={fabRef}
+        hasSpot={spot != null}
+        hasForecasts={forecasts.length > 0}
+      />
     </div>
   );
 }
