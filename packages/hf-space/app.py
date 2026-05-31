@@ -30,6 +30,7 @@ import httpx
 import uvicorn
 from mcp.server.transport_security import TransportSecuritySettings
 from openwind_data.adapters.base import ForecastHorizonError
+from openwind_data.adapters.cache_backed import CacheBackedAdapter
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
 from openwind_data.routing.archetypes import BoatPolar, list_archetypes_metadata
@@ -331,6 +332,23 @@ def _translate_models(raw: Any) -> tuple[str, ...] | None:
     return tuple(translated)
 
 
+def _build_cache_adapter(raw: Any) -> CacheBackedAdapter | None:
+    """Build a CacheBackedAdapter from the request's ``forecast_cache``, or None.
+
+    When the web client has sampled the route corridor in the browser it posts
+    a ``forecast_cache`` object; we read weather from it instead of calling
+    Open-Meteo (distributes the upstream load off the single Space IP). When
+    absent (every MCP client, and web clients that fell back), returns None so
+    the planner uses the default live OpenMeteoAdapter — the MCP path in
+    ``mcp-core`` never reaches this and is unaffected.
+
+    Raises ``ValueError`` on a malformed payload so the caller returns 422.
+    """
+    if raw is None:
+        return None
+    return CacheBackedAdapter.from_payload(raw)
+
+
 def _parse_polar(raw: Any) -> BoatPolar | None:
     """Build a BoatPolar from the web client's `polar` payload. Returns None
     when no payload is provided. Raises ValueError on shape mismatch / invalid
@@ -474,6 +492,15 @@ async def _api_passage(request: Request) -> JSONResponse:
         return JSONResponse({"error": f"invalid polar: {exc}"}, status_code=422)
     model_chain = _translate_models(body.get("models"))
 
+    try:
+        cache_adapter = _build_cache_adapter(body.get("forecast_cache"))
+    except ValueError as exc:
+        return JSONResponse({"error": f"invalid forecast_cache: {exc}"}, status_code=422)
+    if cache_adapter is not None:
+        # The cache's models are already backend slugs in priority order; use
+        # them as the chain so AUTO only walks models actually sampled client-side.
+        model_chain = cache_adapter.models
+
     # Sweep mode — triggered when ``latest_departure`` is provided.
     latest_raw = body.get("latest_departure")
     if latest_raw is not None:
@@ -499,6 +526,7 @@ async def _api_passage(request: Request) -> JSONResponse:
                 waypoints, departure, latest_departure, body["archetype"],
                 sweep_interval_hours=sweep_interval, efficiency=efficiency, model="auto",
                 polar_override=polar_override, model_chain=model_chain,
+                adapter=cache_adapter,
             )
         except KeyError as exc:
             return JSONResponse({"error": f"unknown archetype: {exc}"}, status_code=422)
@@ -586,6 +614,7 @@ async def _api_passage(request: Request) -> JSONResponse:
         passage = await estimate_passage(
             waypoints, departure, body["archetype"], efficiency=efficiency, model="auto",
             polar_override=polar_override, model_chain=model_chain,
+            adapter=cache_adapter,
         )
     except KeyError as exc:
         return JSONResponse({"error": f"unknown archetype: {exc}"}, status_code=422)
@@ -654,6 +683,13 @@ async def _api_passage_by_eta(request: Request) -> JSONResponse:
     model_chain = _translate_models(body.get("models"))
 
     try:
+        cache_adapter = _build_cache_adapter(body.get("forecast_cache"))
+    except ValueError as exc:
+        return JSONResponse({"error": f"invalid forecast_cache: {exc}"}, status_code=422)
+    if cache_adapter is not None:
+        model_chain = cache_adapter.models
+
+    try:
         plan = await estimate_passage_for_arrival(
             waypoints,
             target_arrival,
@@ -662,6 +698,7 @@ async def _api_passage_by_eta(request: Request) -> JSONResponse:
             model="auto",
             polar_override=polar_override,
             model_chain=model_chain,
+            adapter=cache_adapter,
         )
     except KeyError as exc:
         return JSONResponse({"error": f"unknown archetype: {exc}"}, status_code=422)
