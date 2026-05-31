@@ -160,6 +160,70 @@ body {
   animation: emptyPulse 3s ease-in-out infinite;
 }
 
+/* Planner-hint popup: halo around the compass FAB, card entry animation,
+   and caret arrows pointing from the card back to the FAB. */
+@keyframes onboardHalo {
+  0%, 100% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ow-accent) 70%, transparent),
+                0 0 0 10px color-mix(in srgb, var(--ow-accent) 20%, transparent),
+                0 0 28px 4px color-mix(in srgb, var(--ow-accent) 35%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--ow-accent) 85%, transparent),
+                0 0 0 18px color-mix(in srgb, var(--ow-accent) 8%, transparent),
+                0 0 40px 8px color-mix(in srgb, var(--ow-accent) 55%, transparent);
+  }
+}
+.onboard-halo {
+  animation: onboardHalo 1.8s ease-in-out infinite;
+}
+
+@keyframes onboardCardIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.onboard-card-enter {
+  animation: onboardCardIn 0.28s ease-out;
+}
+
+.onboard-caret-up,
+.onboard-caret-left {
+  width: 0;
+  height: 0;
+}
+.onboard-caret-up {
+  top: -8px;
+  left: 50%;
+  margin-left: -8px;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 8px solid var(--ow-accent-line);
+}
+.onboard-caret-left {
+  left: -8px;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-right: 8px solid var(--ow-accent-line);
+}
+
+/* "Pick a mode" pristine state for ModeToggle: each pill is lifted into its
+   own button-shaped surface with a soft pulsing accent ring, so the control
+   reads as "two distinct buttons to choose from" rather than "one box with a
+   divider". Both pills pulse in sync. */
+@keyframes modeTogglePristinePulse {
+  0%, 100% {
+    box-shadow: var(--ow-shadow-sm),
+                0 0 0 0 color-mix(in srgb, var(--ow-accent) 0%, transparent);
+  }
+  50% {
+    box-shadow: var(--ow-shadow-sm),
+                0 0 0 3px color-mix(in srgb, var(--ow-accent) 25%, transparent);
+  }
+}
+.mode-toggle-pristine-pill {
+  animation: modeTogglePristinePulse 2.2s ease-in-out infinite;
+}
+
 /* Plan waypoint marker + hover delete badge */
 .ow-wpt {
   position: relative;
@@ -226,6 +290,31 @@ body {
     position: absolute;
     inset: -8px;
   }
+}
+
+/* Datetime-local input — polishes the native picker to match the
+   sidebar's design tokens: accent focus ring, hover lift, and a calendar
+   icon that picks up the accent on hover instead of staying browser-grey. */
+.ow-datetime-input {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.ow-datetime-input:hover {
+  border-color: var(--ow-accent-line);
+}
+.ow-datetime-input:focus,
+.ow-datetime-input:focus-visible {
+  outline: none;
+  border-color: var(--ow-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ow-accent) 18%, transparent);
+}
+.ow-datetime-input::-webkit-calendar-picker-indicator {
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.ow-datetime-input:hover::-webkit-calendar-picker-indicator,
+.ow-datetime-input:focus::-webkit-calendar-picker-indicator {
+  opacity: 1;
 }
 
 /* Departure slider */

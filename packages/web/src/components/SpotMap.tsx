@@ -146,6 +146,11 @@ interface SpotMapProps {
   // viewport where it is rather than yanking back to a default center.
   current: Spot | null;
   customSpots: Spot[];
+  // First-visit hint: user position once the browser grants geolocation.
+  // The map recenters to it without auto-creating a spot, so new users
+  // see their region without arrows until they drop their first pin.
+  geolocCenter?: { lat: number; lon: number } | null;
+  defaultCenter?: { lat: number; lon: number };
   onSelectSpot: (spot: Spot) => void;
   onAddSpot: (spot: Spot) => void;
   onRemoveSpot: (spot: Spot) => void;
@@ -163,6 +168,8 @@ function spotKey(s: Spot) {
 export function SpotMap({
   current,
   customSpots,
+  geolocCenter,
+  defaultCenter,
   onSelectSpot,
   onAddSpot,
   onRemoveSpot,
@@ -218,17 +225,37 @@ export function SpotMap({
     }
   }, [resolvedTheme]);
 
+  // Geolocation arrives async after init. When it lands AND the user has no
+  // active spot yet (typical first-visit case), smoothly fly to it so the map
+  // frames their region. If a spot is selected, the user has already chosen
+  // their focus — don't yank the viewport away.
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (!geolocCenter) return;
+    if (current) return;
+    mapRef.current.flyTo([geolocCenter.lat, geolocCenter.lon], 10, { duration: 1.2 });
+  }, [geolocCenter, current]);
+
   // Init map once
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
     const initialCenter: [number, number] = current
       ? [current.latitude, current.longitude]
-      : [43.3, 5.35];
+      : geolocCenter
+        ? [geolocCenter.lat, geolocCenter.lon]
+        : defaultCenter
+          ? [defaultCenter.lat, defaultCenter.lon]
+          : [43.3, 5.35];
+    // When neither a current spot nor a granted geolocation is available
+    // (typical first-visit + denied case), open wide enough to show OpenWind's
+    // full scope — Atlantic + Mediterranean French coast — so the user
+    // understands the geographic reach before zooming into their region.
+    const initialZoom = current || geolocCenter ? 10 : 6;
     const map = L.map(containerRef.current, {
       zoomControl: false,
       attributionControl: false,
-    }).setView(initialCenter, 10);
+    }).setView(initialCenter, initialZoom);
 
     const variant = resolvedTheme === "light" ? "light_all" : "dark_all";
     const tile = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{r}.png`, {
