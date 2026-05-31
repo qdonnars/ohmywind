@@ -816,17 +816,19 @@ function PlanHeaderRow({
   mode,
   onModeChange,
   locked,
+  pristine,
   onReset,
 }: {
   mode: PlanMode;
   onModeChange: (m: PlanMode) => void;
   locked?: boolean;
+  pristine?: boolean;
   onReset?: () => void;
 }) {
   return (
     <div className="flex items-stretch gap-2">
       <div className="flex-1 min-w-0">
-        <ModeToggle value={mode} onChange={onModeChange} locked={locked} />
+        <ModeToggle value={mode} onChange={onModeChange} locked={locked} pristine={pristine} />
       </div>
       {onReset && (
         <button
@@ -953,7 +955,12 @@ export function PlanSidebar({
   if (!actionTaken) {
     return (
       <div className="p-4 space-y-4 animate-fade-in">
-        <PlanHeaderRow mode={mode} onModeChange={handleModeChange} onReset={resetHandler} />
+        <PlanHeaderRow
+          mode={mode}
+          onModeChange={handleModeChange}
+          pristine
+          onReset={resetHandler}
+        />
         <div className="hidden lg:block">
           <ModePicker onPick={(m) => handleModeChange(m)} />
         </div>

@@ -160,7 +160,8 @@ body {
   animation: emptyPulse 3s ease-in-out infinite;
 }
 
-/* Onboarding tour: halo on target, card entry, caret arrows, progress bar */
+/* Planner-hint popup: halo around the compass FAB, card entry animation,
+   and caret arrows pointing from the card back to the FAB. */
 @keyframes onboardHalo {
   0%, 100% {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--ow-accent) 70%, transparent),
@@ -186,7 +187,6 @@ body {
 }
 
 .onboard-caret-up,
-.onboard-caret-down,
 .onboard-caret-left {
   width: 0;
   height: 0;
@@ -199,14 +199,6 @@ body {
   border-right: 8px solid transparent;
   border-bottom: 8px solid var(--ow-accent-line);
 }
-.onboard-caret-down {
-  bottom: -8px;
-  left: 50%;
-  margin-left: -8px;
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  border-top: 8px solid var(--ow-accent-line);
-}
 .onboard-caret-left {
   left: -8px;
   border-top: 8px solid transparent;
@@ -214,29 +206,18 @@ body {
   border-right: 8px solid var(--ow-accent-line);
 }
 
-@keyframes onboardProgress {
-  from { width: 0%; }
-  to   { width: 100%; }
+/* "Pick a mode" pristine state for ModeToggle: a soft pulsing accent ring
+   that says "tap one" without pre-picking either pill. */
+@keyframes modeTogglePristinePulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ow-accent) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ow-accent) 22%, transparent);
+  }
 }
-.onboard-progress {
-  animation: onboardProgress 6.5s linear forwards;
-}
-
-@keyframes onboardIndeterminate {
-  0%   { transform: translateX(-100%); }
-  100% { transform: translateX(250%); }
-}
-.onboard-indeterminate {
-  width: 40%;
-  animation: onboardIndeterminate 1.6s ease-in-out infinite;
-}
-
-@keyframes onboardPulseDot {
-  0%, 100% { opacity: 0.45; transform: scale(0.85); }
-  50%      { opacity: 1;    transform: scale(1.15); }
-}
-.onboard-pulse-dot {
-  animation: onboardPulseDot 1.2s ease-in-out infinite;
+.mode-toggle-pristine {
+  animation: modeTogglePristinePulse 2.2s ease-in-out infinite;
 }
 
 /* Plan waypoint marker + hover delete badge */

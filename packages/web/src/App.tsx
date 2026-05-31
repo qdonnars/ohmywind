@@ -21,22 +21,24 @@ const DEFAULT_MAP_CENTER: { lat: number; lon: number } = { lat: 43.3, lon: 5.35 
 
 function EmptyState() {
   return (
-    <div className="flex items-center justify-center h-full px-6">
-      <div className="text-center py-10 max-w-xs mx-auto">
-        <div className="mb-4 inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-teal-500/10 animate-empty-pulse">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400">
-            <path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2" />
-            <path d="M9.6 4.6A2 2 0 1 1 11 8H2" />
-            <path d="M12.6 19.4A2 2 0 1 0 14 16H2" />
-          </svg>
-        </div>
-        <p className="text-base font-semibold mb-1.5" style={{ color: 'var(--ow-fg-0)' }}>
-          Posez votre premier spot
-        </p>
-        <p className="text-sm leading-relaxed" style={{ color: 'var(--ow-fg-1)' }}>
-          <span className="lg:hidden">Appui long sur la carte pour créer votre premier spot.</span>
-          <span className="hidden lg:inline">Clic droit sur la carte pour créer votre premier spot.</span>
-        </p>
+    <div className="flex items-end justify-center pb-6 px-4">
+      <div
+        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full shadow-lg"
+        style={{
+          background: 'var(--ow-surface-pop)',
+          border: '1px solid var(--ow-accent-line)',
+          backdropFilter: 'blur(8px)',
+        }}
+      >
+        <span
+          aria-hidden="true"
+          className="inline-block w-1.5 h-1.5 rounded-full animate-empty-pulse"
+          style={{ background: 'var(--ow-accent)' }}
+        />
+        <span className="text-[12px] font-medium" style={{ color: 'var(--ow-fg-0)' }}>
+          <span className="lg:hidden">Appui long pour placer votre premier spot</span>
+          <span className="hidden lg:inline">Clic droit pour placer votre premier spot</span>
+        </span>
       </div>
     </div>
   );
@@ -125,8 +127,6 @@ function App() {
     if (view === "currents" && !showCurrents) setView("wind");
   }, [view, showWaves, showTides, showCurrents]);
 
-  const mapRef = useRef<HTMLDivElement>(null);
-  const tableRef = useRef<HTMLDivElement>(null);
   const fabRef = useRef<HTMLAnchorElement>(null);
 
   return (
@@ -139,7 +139,7 @@ function App() {
       {/* Map fills the entire space; pills + table are an overlay floating
           above its bottom edge so the map keeps showing through the gaps
           around the data cells. */}
-      <div ref={mapRef} className="flex-1 min-h-0 relative">
+      <div className="flex-1 min-h-0 relative">
         <SpotMap
           current={spot}
           customSpots={customSpots}
@@ -175,10 +175,7 @@ function App() {
             ``thead.sticky top-0`` collides with the same container that
             scrolls (otherwise the hour row drifts away when the user scrolls
             down through GFS/ECMWF rows). */}
-        <div
-          ref={tableRef}
-          className="absolute left-0 right-0 bottom-0 max-h-[44vh] md:max-h-[46vh] z-[400] flex flex-col"
-        >
+        <div className="absolute left-0 right-0 bottom-0 max-h-[44vh] md:max-h-[46vh] z-[400] flex flex-col">
           {spot ? (
             <>
               <div className="shrink-0">
@@ -222,13 +219,7 @@ function App() {
         </div>
       </div>
 
-      <Onboarding
-        mapRef={mapRef}
-        tableRef={tableRef}
-        fabRef={fabRef}
-        hasSpot={spot != null}
-        hasForecasts={forecasts.length > 0}
-      />
+      <Onboarding fabRef={fabRef} hasSpot={spot != null} />
     </div>
   );
 }

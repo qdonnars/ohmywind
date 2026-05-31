@@ -40,23 +40,36 @@ export function ModeToggle({
   value,
   onChange,
   locked = false,
+  pristine = false,
 }: {
   value: PlanMode;
   onChange: (m: PlanMode) => void;
   /** When true, shows both tabs dimmed and inactive (used for the empty state). */
   locked?: boolean;
+  /** When true (typical first arrival with 2+ waypoints but no mode chosen
+   *  yet), render BOTH tabs as un-selected with a soft pulsing accent outline
+   *  on the container — so the user reads it as "pick one" rather than "one
+   *  is already active". Overridden by `locked`. */
+  pristine?: boolean;
 }) {
+  // In pristine mode, never highlight a pill as active — both should feel
+  // equally up-for-grabs. The icon colour stays at the mode's accent so the
+  // pill still reads as a meaningful choice, not a disabled control.
   return (
     <div
-      className="grid grid-cols-2 gap-0.5 p-[3px] rounded-lg"
-      style={{ background: "var(--ow-bg-2)", border: "1px solid var(--ow-line)" }}
+      className={`grid grid-cols-2 gap-0.5 p-[3px] rounded-lg ${!locked && pristine ? "mode-toggle-pristine" : ""}`}
+      style={{
+        background: "var(--ow-bg-2)",
+        border: `1px solid ${!locked && pristine ? "var(--ow-accent-line)" : "var(--ow-line)"}`,
+      }}
       role="tablist"
       aria-label="Mode de planification"
     >
       {(["single", "compare"] as const).map((m) => {
         const meta = MODE_META[m];
-        const active = !locked && value === m;
+        const active = !locked && !pristine && value === m;
         const dim = locked;
+        const showAccentIcon = active || (!locked && pristine);
         return (
           <button
             key={m}
@@ -77,8 +90,11 @@ export function ModeToggle({
             }}
           >
             <div className="flex items-center gap-1.5 mb-0.5">
-              <ModeIcon name={meta.icon} size={11} color={active ? MODE_ACCENT[m] : "var(--ow-fg-2)"} />
-              <span className="text-xs font-semibold" style={{ color: active ? "var(--ow-fg-0)" : "var(--ow-fg-1)" }}>
+              <ModeIcon name={meta.icon} size={11} color={showAccentIcon ? MODE_ACCENT[m] : "var(--ow-fg-2)"} />
+              <span
+                className="text-xs font-semibold"
+                style={{ color: active || (!locked && pristine) ? "var(--ow-fg-0)" : "var(--ow-fg-1)" }}
+              >
                 {meta.title}
               </span>
             </div>
