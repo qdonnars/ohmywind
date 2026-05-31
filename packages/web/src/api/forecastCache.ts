@@ -8,7 +8,8 @@
 
 import type { ModelForecast, MarineHourly } from "../types";
 import type { ModelName } from "../config/modelConfig";
-import { fetchAllModels } from "./openmeteo";
+import { activeModels, loadModelConfig } from "../config/modelConfig";
+import { fetchWindCorridor } from "./openmeteo";
 import { fetchMarine, parisIsoToUtcMs } from "./marine";
 import { haversineNm, interpolateGreatCircle, type GeoPoint } from "../plan/geo";
 
@@ -262,6 +263,14 @@ function buildSea(
 // fetchAllModels (multi-model wind, kn, 30-min cache, fallback chain) and
 // fetchMarine (waves + SMOC currents + MARC overlay) — both already per-point
 // cached and deduped. Throws on no mappable model so the caller can fall back.
+// Backend-mappable models among the user's active set, in priority order. The
+// cache only carries models the server can route on; an empty result means the
+// user disabled every mappable model, so buildForecastCache yields no usable
+// cache and the caller falls back to the live server fetch.
+function mappableActiveModels(): ModelName[] {
+  return activeModels(loadModelConfig()).filter((m) => CACHE_MODEL_SLUGS[m] !== undefined);
+}
+
 export async function buildForecastCache(
   waypoints: [number, number][],
   opts: { spacingNm?: number; window?: CacheWindow } = {},
@@ -269,15 +278,21 @@ export async function buildForecastCache(
   const totalNm = routeLengthNm(waypoints);
   const spacing = Math.max(opts.spacingNm ?? DEFAULT_SPACING_NM, totalNm / MAX_CORRIDOR_POINTS);
   const corridor = interpolateCorridor(waypoints, spacing);
-  const samples: SampledPoint[] = await Promise.all(
-    corridor.map(async (p) => {
-      const [models, marine] = await Promise.all([
-        fetchAllModels(p.lat, p.lon),
-        fetchMarine(p.lat, p.lon),
-      ]);
-      return { lat: p.lat, lon: p.lon, models, marine };
-    }),
-  );
+  const models = mappableActiveModels();
+  // Wind: ONE request per model for the whole corridor (multi-coordinate).
+  // Marine: kept per-point because fetchMarine merges the per-location MARC/SHOM
+  // overlay; both are already 30-min cached and run in parallel. Far fewer
+  // requests than models×points → fewer browser connection waves → faster.
+  const [windByCoord, marineByCoord] = await Promise.all([
+    fetchWindCorridor(corridor, models),
+    Promise.all(corridor.map((p) => fetchMarine(p.lat, p.lon))),
+  ]);
+  const samples: SampledPoint[] = corridor.map((p, i) => ({
+    lat: p.lat,
+    lon: p.lon,
+    models: windByCoord[i],
+    marine: marineByCoord[i],
+  }));
   return assembleForecastCache(samples, opts.window);
 }
 
