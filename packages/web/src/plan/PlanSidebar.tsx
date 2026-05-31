@@ -1147,7 +1147,7 @@ export function PlanSidebar({
 
       {/* Récap compact: click to edit departure / archetype inline */}
       <RecapButton
-        primary={`${recapDate.charAt(0).toUpperCase() + recapDate.slice(1)} · ${recapTime}`}
+        primary={`${timeAnchor === "arrival" ? "Arrivée" : "Départ"} : ${recapDate.charAt(0).toUpperCase() + recapDate.slice(1)} · ${recapTime}`}
         secondary={archetypeLabel}
         isOpen={isEditingParams}
         onClick={() => setIsEditingParams((v) => !v)}
