@@ -2,6 +2,7 @@ import type { PassageResponse, PassageByEtaResponse, MultiWindowResponse, Archet
 import type { ModelName } from "../config/modelConfig";
 import type { PolarData } from "../config/polarConfig";
 import { API_BASE } from "./config";
+import type { ForecastCache } from "./forecastCache";
 
 // Plan-time overrides driven by the user's /config preferences. Both are
 // optional — when omitted, the server falls back to its bundled archetype
@@ -55,6 +56,7 @@ export async function fetchPassage(params: {
   archetype: string;
   efficiency?: number;
   overrides?: PlanOverrides;
+  forecastCache?: ForecastCache;
 }): Promise<PassageResponse> {
   const body: Record<string, unknown> = {
     waypoints: params.waypoints,
@@ -64,6 +66,7 @@ export async function fetchPassage(params: {
   };
   if (params.overrides?.models?.length) body["models"] = params.overrides.models;
   if (params.overrides?.polar) body["polar"] = params.overrides.polar;
+  if (params.forecastCache) body["forecast_cache"] = params.forecastCache;
   const res = await fetch(`${API_BASE}/api/v1/passage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -85,6 +88,7 @@ export async function fetchPassageWindows(params: {
   targetEta?: string;
   efficiency?: number;
   overrides?: PlanOverrides;
+  forecastCache?: ForecastCache;
 }): Promise<MultiWindowResponse> {
   const body: Record<string, unknown> = {
     waypoints: params.waypoints,
@@ -97,6 +101,7 @@ export async function fetchPassageWindows(params: {
   if (params.targetEta) body["target_eta"] = params.targetEta;
   if (params.overrides?.models?.length) body["models"] = params.overrides.models;
   if (params.overrides?.polar) body["polar"] = params.overrides.polar;
+  if (params.forecastCache) body["forecast_cache"] = params.forecastCache;
 
   const res = await fetch(`${API_BASE}/api/v1/passage`, {
     method: "POST",
@@ -116,6 +121,7 @@ export async function fetchPassageByEta(params: {
   archetype: string;
   efficiency?: number;
   overrides?: PlanOverrides;
+  forecastCache?: ForecastCache;
 }): Promise<PassageByEtaResponse> {
   const body: Record<string, unknown> = {
     waypoints: params.waypoints,
@@ -125,6 +131,7 @@ export async function fetchPassageByEta(params: {
   };
   if (params.overrides?.models?.length) body["models"] = params.overrides.models;
   if (params.overrides?.polar) body["polar"] = params.overrides.polar;
+  if (params.forecastCache) body["forecast_cache"] = params.forecastCache;
 
   const res = await fetch(`${API_BASE}/api/v1/passage-by-eta`, {
     method: "POST",
