@@ -121,8 +121,8 @@ export function ModeToggle({
 }
 
 const TIME_ANCHOR_META: Record<TimeAnchor, { title: string; sub: string }> = {
-  departure: { title: "Heure de départ", sub: "Comprendre le temps de trajet" },
-  arrival: { title: "Heure d'arrivée", sub: "Quand partir au plus tard ?" },
+  departure: { title: "Définir le départ", sub: "Comprendre le temps de trajet" },
+  arrival: { title: "Définir l'arrivée", sub: "Quand partir au plus tard ?" },
 };
 
 export function TimeAnchorToggle({
