@@ -553,6 +553,9 @@ export function PlanPage() {
   }
 
   function handleRefetch() {
+    // Re-frame the camera on the route only now, at the user's explicit
+    // request — the map no longer auto-fits on each waypoint placement.
+    mapRef.current?.fitToWaypoints();
     doFetch(waypoints, archetype, departure, timeAnchor);
   }
 
@@ -563,6 +566,7 @@ export function PlanPage() {
   }
 
   function doFetchWindows() {
+    mapRef.current?.fitToWaypoints();
     setIsLoading(true);
     setApiError(null);
     const earliestIso = toTzAware(sweepEarliest);
