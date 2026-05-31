@@ -13,12 +13,22 @@ The web app is **strictly standalone** — it never proposes "talk to an assista
 
 ## Architecture (cible)
 
-- `packages/web/` — React 19 + TypeScript + Vite, deployed to GitHub Pages on **openwind.fr**
+- `packages/web/` — React 19 + TypeScript + Vite, deployed to **Cloudflare Pages** on **openwind.fr** (preview `dev` → **dev.openwind.fr**)
 - `packages/data-adapters/` — Python lib, pure domain logic (marine data adapters, polars, routing, complexity)
 - `packages/mcp-core/` — Python lib, FastMCP server definition (cloud-agnostic, redeployable anywhere)
 - `packages/hf-space/` — Thin Gradio wrapper for Hugging Face Spaces deployment, served at **mcp.openwind.fr**
 
 Plan d'exécution détaillé : `plan/` (local, non-tracké).
+
+## Déploiement & règles de push (à respecter)
+
+Deux environnements auto-déployés. **Un push détermine où ça ship** :
+
+- **`main` = PROD.** Un merge/push sur `main` expédie la prod : build Cloudflare sur `openwind.fr` **et** `sync-hf-space.yml` resynchronise le Space prod `qdonnars/openwind-mcp`. Ne jamais pousser directement sur `main` sans intention de shipper ; **toujours passer par une PR**.
+- **`dev` = PREVIEW.** Un push sur `dev` déploie `dev.openwind.fr` (preview Cloudflare) et synchronise le Space dev `qdonnars/openwind-mcp-dev`. C'est le bac à sable d'intégration, **isolé de la prod**. Pour tester un changement live avant prod, le faire passer par `dev` d'abord.
+- Le workflow `.github/workflows/sync-hf-space.yml` mappe la branche → Space (`main` → prod, `dev` → dev ; overridable via vars repo `HF_SPACE_ID` / `HF_SPACE_ID_DEV`). Il se déclenche sur push touchant `hf-space/`, `mcp-core/`, `data-adapters/` ou le workflow lui-même.
+- Toujours bosser sur une branche feature → PR vers `main`. `delete_branch_on_merge` est activé (les branches mergées sont supprimées auto côté GitHub).
+- **Web** : l'URL backend est variabilisée via `VITE_API_BASE`, source unique `packages/web/src/api/config.ts`. Ne JAMAIS re-hardcoder l'URL du Space ailleurs. Cloudflare pose `VITE_API_BASE` par environnement (Production → Space prod, Preview → Space dev).
 
 ## Cloud-agnostic principle (non-négociable)
 
