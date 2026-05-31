@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { sanitizeHourly } from "./openmeteo";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { sanitizeHourly, fetchWindCorridor } from "./openmeteo";
 import type { HourlyData } from "../types";
 
 function makeHourly(
@@ -95,5 +95,58 @@ describe("sanitizeHourly", () => {
     const out = sanitizeHourly(h);
     // 0..3: gust < wind → null. 4..7: gust >= wind → kept.
     expect(out.wind_gusts_10m).toEqual([null, null, null, null, 5.1, 5.1, 3.3, 1.6]);
+  });
+});
+
+describe("fetchWindCorridor", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function elementWithHourly(speed: number): { hourly: HourlyData } {
+    return {
+      hourly: {
+        time: ["2026-05-01T00:00", "2026-05-01T01:00"],
+        wind_speed_10m: [speed, speed],
+        wind_direction_10m: [180, 180],
+        wind_gusts_10m: [speed + 2, speed + 2],
+        weather_code: [1, 1],
+      },
+    };
+  }
+
+  it("returns one ModelForecast list per coordinate from a multi-coord array", async () => {
+    // 2 coords; AROME covers coord 0 only (coord 1 has no `hourly`).
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => [elementWithHourly(10), {}],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const out = await fetchWindCorridor(
+      [
+        { lat: 43.3, lon: 5.35 },
+        { lat: 43.0, lon: 6.2 },
+      ],
+      ["AROME"],
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1); // one request per model, not per point
+    expect(out[0].map((m) => m.modelName)).toEqual(["AROME"]);
+    expect(out[0][0].hourly.wind_speed_10m).toEqual([10, 10]);
+    expect(out[1]).toEqual([]); // coord outside grid → omitted, server falls back
+  });
+
+  it("normalizes a single-coordinate object response into an array", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      json: async () => elementWithHourly(7), // bare object, not an array
+    }));
+    const out = await fetchWindCorridor([{ lat: 43.3, lon: 5.35 }], ["ICON"]);
+    expect(out[0].map((m) => m.modelName)).toEqual(["ICON"]);
+  });
+
+  it("short-circuits with empty coords or models (no fetch)", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await fetchWindCorridor([], ["AROME"])).toEqual([]);
+    expect(await fetchWindCorridor([{ lat: 1, lon: 2 }], [])).toEqual([[]]);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

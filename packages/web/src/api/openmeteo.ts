@@ -175,6 +175,57 @@ export async function fetchAllModels(
   return models;
 }
 
+// Fetch wind for a whole route corridor in one request PER MODEL, using
+// Open-Meteo's multi-coordinate support (comma-separated latitude/longitude →
+// a JSON array, one element per coordinate, order preserved). This collapses
+// the corridor's wind fetch from models×points requests down to `models`
+// requests, which matters because the browser caps ~6 concurrent connections
+// per host: fewer requests = fewer serialized waves = lower wall-clock.
+//
+// Returns, per coordinate (same order as `coords`), the list of ModelForecast
+// that returned data there. A model with no `hourly` at a coordinate (point
+// outside its grid) is simply omitted for that coordinate; the server's
+// per-segment fallback chain handles the gap. No per-slot substitution here
+// (unlike fetchAllModels) — the corridor cache carries the full model chain,
+// so coverage falls back server-side instead.
+export async function fetchWindCorridor(
+  coords: { lat: number; lon: number }[],
+  models: ModelName[],
+): Promise<ModelForecast[][]> {
+  const out: ModelForecast[][] = coords.map(() => []);
+  if (coords.length === 0 || models.length === 0) return out;
+
+  const lats = coords.map((c) => c.lat).join(",");
+  const lons = coords.map((c) => c.lon).join(",");
+  const base = `?latitude=${lats}&longitude=${lons}&${PARAMS}`;
+
+  const perModel = await Promise.all(
+    models.map(async (name) => {
+      const endpoint = MODEL_ENDPOINTS[name];
+      try {
+        const resp = await fetch(`${endpoint.endpoint}${base}${endpoint.extraParams || ""}`);
+        const data = await resp.json();
+        // Multi-coordinate → array; a 1-coord request may come back as a bare
+        // object, so normalize to an array aligned to `coords`.
+        const arr: unknown[] = Array.isArray(data) ? data : [data];
+        return { name, arr };
+      } catch {
+        return { name, arr: [] as unknown[] };
+      }
+    }),
+  );
+
+  for (const { name, arr } of perModel) {
+    for (let i = 0; i < coords.length; i++) {
+      const el = arr[i] as { hourly?: HourlyData } | undefined;
+      if (el && el.hourly) {
+        out[i].push({ modelName: name, hourly: sanitizeHourly(el.hourly) });
+      }
+    }
+  }
+  return out;
+}
+
 export async function searchSpots(
   query: string
 ): Promise<GeocodingResult[]> {
