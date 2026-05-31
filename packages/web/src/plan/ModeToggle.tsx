@@ -120,6 +120,11 @@ export function ModeToggle({
   );
 }
 
+const TIME_ANCHOR_META: Record<TimeAnchor, { title: string; sub: string }> = {
+  departure: { title: "Heure de départ", sub: "Comprendre le temps de trajet" },
+  arrival: { title: "Heure d'arrivée", sub: "Savoir quand partir" },
+};
+
 export function TimeAnchorToggle({
   value,
   onChange,
@@ -127,19 +132,18 @@ export function TimeAnchorToggle({
   value: TimeAnchor;
   onChange: (a: TimeAnchor) => void;
 }) {
+  // Secondary tabs nested under the chosen mode: light accent-soft pill on
+  // the active option, no border / no shadow / no enclosing surface — so the
+  // visual weight stays clearly below ModeToggle's bordered pills. Reads as
+  // "sub-option within the picked mode" rather than a parallel choice.
   return (
     <div
-      className="flex p-1 rounded-xl text-xs font-semibold"
-      style={{ background: "var(--ow-bg-2)", border: "1px solid var(--ow-line-2)" }}
+      className="grid grid-cols-2 gap-0.5"
       role="tablist"
       aria-label="Ancrage horaire"
     >
-      {(
-        [
-          ["departure", "Heure de départ"],
-          ["arrival", "Heure d'arrivée"],
-        ] as const
-      ).map(([m, label]) => {
+      {(["departure", "arrival"] as const).map((m) => {
+        const meta = TIME_ANCHOR_META[m];
         const active = value === m;
         return (
           <button
@@ -148,14 +152,22 @@ export function TimeAnchorToggle({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(m)}
-            className="flex-1 px-3 py-1.5 rounded-lg transition-colors"
+            className="text-left transition-colors"
             style={{
-              background: active ? "var(--ow-bg-1)" : "transparent",
-              color: active ? "var(--ow-fg-0)" : "var(--ow-fg-2)",
-              boxShadow: active ? "var(--ow-shadow-soft)" : "none",
+              padding: "8px 10px",
+              background: active ? "var(--ow-accent-soft)" : "transparent",
+              borderRadius: 6,
             }}
           >
-            {label}
+            <div
+              className="text-xs font-semibold mb-0.5"
+              style={{ color: active ? "var(--ow-fg-0)" : "var(--ow-fg-1)" }}
+            >
+              {meta.title}
+            </div>
+            <div className="text-[10px] leading-tight" style={{ color: "var(--ow-fg-2)" }}>
+              {meta.sub}
+            </div>
           </button>
         );
       })}
