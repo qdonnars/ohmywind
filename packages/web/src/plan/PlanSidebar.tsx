@@ -106,11 +106,11 @@ function DepartureSlider({
           type="datetime-local"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full rounded-lg px-3 py-1.5 text-sm font-semibold tabular-nums"
+          className="ow-datetime-input w-full rounded-lg px-3 py-2 text-sm font-semibold tabular-nums"
           style={{
             background: "var(--ow-bg-2)",
             color: "var(--ow-fg-0)",
-            border: "1px solid var(--ow-line-2)",
+            border: "1px solid var(--ow-line)",
             fontFamily: "var(--ow-font-mono)",
             colorScheme: resolvedTheme === "light" ? "light" : "dark",
           }}
@@ -816,17 +816,19 @@ function PlanHeaderRow({
   mode,
   onModeChange,
   locked,
+  pristine,
   onReset,
 }: {
   mode: PlanMode;
   onModeChange: (m: PlanMode) => void;
   locked?: boolean;
+  pristine?: boolean;
   onReset?: () => void;
 }) {
   return (
     <div className="flex items-stretch gap-2">
       <div className="flex-1 min-w-0">
-        <ModeToggle value={mode} onChange={onModeChange} locked={locked} />
+        <ModeToggle value={mode} onChange={onModeChange} locked={locked} pristine={pristine} />
       </div>
       {onReset && (
         <button
@@ -953,7 +955,12 @@ export function PlanSidebar({
   if (!actionTaken) {
     return (
       <div className="p-4 space-y-4 animate-fade-in">
-        <PlanHeaderRow mode={mode} onModeChange={handleModeChange} onReset={resetHandler} />
+        <PlanHeaderRow
+          mode={mode}
+          onModeChange={handleModeChange}
+          pristine
+          onReset={resetHandler}
+        />
         <div className="hidden lg:block">
           <ModePicker onPick={(m) => handleModeChange(m)} />
         </div>
@@ -1058,55 +1065,68 @@ export function PlanSidebar({
     const accent = mode === "compare" ? "#F4C25C" : "var(--ow-accent)";
     const ctaInk = mode === "compare" ? "#3a2a08" : "#fff";
     return (
-      <div className="p-4 space-y-4 animate-fade-in">
+      <div className="p-4 space-y-3 animate-fade-in">
         <PlanHeaderRow mode={mode} onModeChange={handleModeChange} onReset={resetHandler} />
 
-        {mode === "single" ? (
-          <div className="space-y-2">
-            <TimeAnchorToggle value={timeAnchor} onChange={onTimeAnchorChange} />
-            <DepartureSlider
-              value={departure}
-              onChange={onDepartureChange}
-              resolvedTheme={resolvedTheme}
-              anchor={timeAnchor}
-            />
-          </div>
-        ) : (
-          <SweepForm
-            earliest={sweepEarliest}
-            latest={sweepLatest}
-            intervalHours={sweepIntervalHours}
-            onEarliestChange={onSweepEarliestChange}
-            onLatestChange={onSweepLatestChange}
-            onIntervalChange={onSweepIntervalChange}
-          />
-        )}
-
-        <ArchetypeSelector
-          currentSlug={currentArchetypeSlug}
-          archetypes={archetypes}
-          onChange={onArchetypeChange}
-          onCustomCleared={onRefetch}
-        />
-
-        <button
-          onClick={mode === "single" ? onRefetch : onCompareFetch}
-          disabled={!canCalculate}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all"
+        {/* Tab-panel: everything below is "the contents" of the picked mode.
+            The 2 px accent stripe at the top picks up the mode's color
+            (cyan for Simuler, amber for Comparer) so the panel reads as the
+            payload of the active pill above. */}
+        <div
+          className="rounded-xl p-4 space-y-3"
           style={{
-            background: canCalculate ? accent : "var(--ow-bg-2)",
-            color: canCalculate ? ctaInk : "var(--ow-fg-3)",
-            border: `1px solid ${canCalculate ? "transparent" : "var(--ow-line-2)"}`,
-            cursor: canCalculate ? "pointer" : "not-allowed",
+            background: "var(--ow-bg-1)",
+            border: "1px solid var(--ow-line)",
+            borderTop: `2px solid ${accent}`,
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M13.5 2.5A7 7 0 1 0 14.5 9"/><path d="M14 1v4h-4"/>
-          </svg>
-          {canCalculate
-            ? mode === "single" ? "Calculer le passage" : "Comparer les créneaux"
-            : `${waypointCount}/2 waypoints`}
-        </button>
+          {mode === "single" ? (
+            <div className="space-y-3">
+              <TimeAnchorToggle value={timeAnchor} onChange={onTimeAnchorChange} />
+              <DepartureSlider
+                value={departure}
+                onChange={onDepartureChange}
+                resolvedTheme={resolvedTheme}
+                anchor={timeAnchor}
+              />
+            </div>
+          ) : (
+            <SweepForm
+              earliest={sweepEarliest}
+              latest={sweepLatest}
+              intervalHours={sweepIntervalHours}
+              onEarliestChange={onSweepEarliestChange}
+              onLatestChange={onSweepLatestChange}
+              onIntervalChange={onSweepIntervalChange}
+            />
+          )}
+
+          <ArchetypeSelector
+            currentSlug={currentArchetypeSlug}
+            archetypes={archetypes}
+            onChange={onArchetypeChange}
+            onCustomCleared={onRefetch}
+          />
+
+          <button
+            onClick={mode === "single" ? onRefetch : onCompareFetch}
+            disabled={!canCalculate}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all"
+            style={{
+              background: canCalculate ? accent : "var(--ow-bg-2)",
+              color: canCalculate ? ctaInk : "var(--ow-fg-3)",
+              border: `1px solid ${canCalculate ? "transparent" : "var(--ow-line-2)"}`,
+              cursor: canCalculate ? "pointer" : "not-allowed",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M13.5 2.5A7 7 0 1 0 14.5 9"/><path d="M14 1v4h-4"/>
+            </svg>
+            {canCalculate
+              ? mode === "single" ? "Calculer le passage" : "Comparer les créneaux"
+              : `${waypointCount}/2 waypoints`}
+          </button>
+        </div>
       </div>
     );
   }
@@ -1143,7 +1163,7 @@ export function PlanSidebar({
 
       {/* Récap compact: click to edit departure / archetype inline */}
       <RecapButton
-        primary={`${recapDate.charAt(0).toUpperCase() + recapDate.slice(1)} · ${recapTime}`}
+        primary={`${timeAnchor === "arrival" ? "Arrivée" : "Départ"} : ${recapDate.charAt(0).toUpperCase() + recapDate.slice(1)} · ${recapTime}`}
         secondary={archetypeLabel}
         isOpen={isEditingParams}
         onClick={() => setIsEditingParams((v) => !v)}

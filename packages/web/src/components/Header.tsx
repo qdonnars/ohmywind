@@ -7,8 +7,6 @@ import { rememberReturnPath } from "../config/returnPath";
 
 interface HeaderProps {
   onSelectSpot: (spot: Spot) => void;
-  canSave?: boolean;
-  onSave?: () => void;
 }
 
 function WindIcon() {
@@ -45,7 +43,7 @@ function SettingsButton() {
   );
 }
 
-export function Header({ onSelectSpot, canSave = false, onSave }: HeaderProps) {
+export function Header({ onSelectSpot }: HeaderProps) {
   return (
     <header
       className="sticky top-0 z-30 backdrop-blur-lg px-3 py-2 lg:px-6"
@@ -62,14 +60,6 @@ export function Header({ onSelectSpot, canSave = false, onSave }: HeaderProps) {
         <div className="flex-1 flex justify-center">
           <SpotSearch onSelect={onSelectSpot} />
         </div>
-        {canSave && (
-          <button
-            onClick={onSave}
-            className="shrink-0 min-h-[44px] px-4 rounded-xl bg-teal-500/15 text-teal-300 text-sm font-semibold hover:bg-teal-500/25 active:bg-teal-500/35 active:scale-95 transition-all whitespace-nowrap border border-teal-500/30"
-          >
-            + Save
-          </button>
-        )}
         <InfoButton />
         <SettingsButton />
         <ThemeToggle />

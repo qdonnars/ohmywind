@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { nowParisHourPrefix } from "./utils/format";
 import type { Spot, ModelForecast, MarineHourly, MetricView } from "./types";
 import { fetchAllModels } from "./api/openmeteo";
@@ -15,27 +15,30 @@ import { MarineTable } from "./components/MarineTable";
 import { MetricPills } from "./components/MetricPills";
 import { TideChart } from "./components/TideChart";
 import { SpotMap } from "./components/SpotMap";
+import { Onboarding } from "./components/Onboarding";
 
-const RADE_MARSEILLE: Spot = { name: "Rade de Marseille", latitude: 43.3, longitude: 5.35 };
+const DEFAULT_MAP_CENTER: { lat: number; lon: number } = { lat: 43.3, lon: 5.35 };
 
 function EmptyState() {
   return (
-    <div className="flex items-center justify-center h-full px-6">
-      <div className="text-center py-10 max-w-xs mx-auto">
-        <div className="mb-4 inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-teal-500/10 animate-empty-pulse">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-teal-400">
-            <path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2" />
-            <path d="M9.6 4.6A2 2 0 1 1 11 8H2" />
-            <path d="M12.6 19.4A2 2 0 1 0 14 16H2" />
-          </svg>
-        </div>
-        <p className="text-base font-semibold mb-1.5" style={{ color: 'var(--ow-fg-0)' }}>
-          Add a spot
-        </p>
-        <p className="text-sm leading-relaxed" style={{ color: 'var(--ow-fg-1)' }}>
-          <span className="lg:hidden">Long press on the map to place a wind spot</span>
-          <span className="hidden lg:inline">Right-click on the map to place a wind spot</span>
-        </p>
+    <div className="flex items-end justify-center pb-6 px-4">
+      <div
+        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full shadow-lg"
+        style={{
+          background: 'var(--ow-surface-pop)',
+          border: '1px solid var(--ow-accent-line)',
+          backdropFilter: 'blur(8px)',
+        }}
+      >
+        <span
+          aria-hidden="true"
+          className="inline-block w-1.5 h-1.5 rounded-full animate-empty-pulse"
+          style={{ background: 'var(--ow-accent)' }}
+        />
+        <span className="text-[12px] font-medium" style={{ color: 'var(--ow-fg-0)' }}>
+          <span className="lg:hidden">Appui long pour placer votre premier spot</span>
+          <span className="hidden lg:inline">Clic droit pour placer votre premier spot</span>
+        </span>
       </div>
     </div>
   );
@@ -43,8 +46,13 @@ function EmptyState() {
 
 
 function App() {
-  const { customSpots, addSpot, removeSpot, renameSpot, isCustom } = useCustomSpots();
-  const [spot, setSpot] = useState<Spot | null>(() => customSpots[0] ?? RADE_MARSEILLE);
+  const { customSpots, addSpot, removeSpot, renameSpot } = useCustomSpots();
+  // New users (no saved spots) land with no active spot — no auto-loaded
+  // forecasts, no wind arrows on the map. The onboarding tour invites them
+  // to drop their first one. Returning users with saved spots resume on
+  // their first favorite.
+  const [spot, setSpot] = useState<Spot | null>(() => customSpots[0] ?? null);
+  const [geolocCenter, setGeolocCenter] = useState<{ lat: number; lon: number } | null>(null);
   const [forecasts, setForecasts] = useState<ModelForecast[]>([]);
   const [marine, setMarine] = useState<MarineHourly | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -87,23 +95,20 @@ function App() {
     };
   }, [spot]);
 
-  // First-visit geolocation: if the user has no saved spots and we landed on
-  // the Marseille fallback, ask the browser for their position. Granted →
-  // center on them and load forecasts there. Denied / error → silent, keep
-  // the default. Returning users with custom spots keep their chosen spot.
+  // First-visit geolocation: if the user has no saved spots, ask the browser
+  // for their position and recenter the MAP — without auto-picking it as a
+  // spot. That way the canvas frames their region but stays empty (no
+  // arrows, no forecasts) until they actively drop their first spot.
+  // Denied / error → silent, the SpotMap falls back to its default center.
   useEffect(() => {
     if (customSpots.length > 0) return;
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setSpot({
-          name: "Ma position",
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        });
+        setGeolocCenter({ lat: pos.coords.latitude, lon: pos.coords.longitude });
       },
       () => {
-        // Permission denied or unavailable — keep RADE_MARSEILLE.
+        /* permission denied or unavailable — keep SpotMap default center */
       },
       { timeout: 8000, maximumAge: 5 * 60 * 1000 },
     );
@@ -122,19 +127,14 @@ function App() {
     if (view === "currents" && !showCurrents) setView("wind");
   }, [view, showWaves, showTides, showCurrents]);
 
-  const isDefault = spot != null && spot.latitude === RADE_MARSEILLE.latitude && spot.longitude === RADE_MARSEILLE.longitude && !isCustom(spot);
-  const canSave = spot != null && !isCustom(spot) && !isDefault;
+  const fabRef = useRef<HTMLAnchorElement>(null);
 
   return (
     <div
       className="h-screen flex flex-col overflow-hidden"
       style={{ background: 'var(--ow-bg-0)', color: 'var(--ow-fg-0)' }}
     >
-      <Header
-        onSelectSpot={setSpot}
-        canSave={canSave}
-        onSave={() => spot && addSpot(spot)}
-      />
+      <Header onSelectSpot={setSpot} />
 
       {/* Map fills the entire space; pills + table are an overlay floating
           above its bottom edge so the map keeps showing through the gaps
@@ -143,6 +143,8 @@ function App() {
         <SpotMap
           current={spot}
           customSpots={customSpots}
+          geolocCenter={geolocCenter}
+          defaultCenter={DEFAULT_MAP_CENTER}
           onSelectSpot={setSpot}
           onAddSpot={(s) => { addSpot(s); setSpot(s); }}
           onRemoveSpot={(s) => { removeSpot(s); if (spot?.latitude === s.latitude && spot?.longitude === s.longitude) { setSpot(null); setForecasts([]); setSelectedHour(null); } }}
@@ -157,6 +159,7 @@ function App() {
             so the planner map opens centered on the spot the user was just
             looking at, rather than a hardcoded default region. */}
         <a
+          ref={fabRef}
           href={spot ? `/plan?center=${spot.latitude.toFixed(5)},${spot.longitude.toFixed(5)}` : "/plan"}
           className="absolute top-3 left-3 z-[400] w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
           style={{ background: "var(--ow-accent)", color: "#fff" }}
@@ -172,9 +175,7 @@ function App() {
             ``thead.sticky top-0`` collides with the same container that
             scrolls (otherwise the hour row drifts away when the user scrolls
             down through GFS/ECMWF rows). */}
-        <div
-          className="absolute left-0 right-0 bottom-0 max-h-[44vh] md:max-h-[46vh] z-[400] flex flex-col"
-        >
+        <div className="absolute left-0 right-0 bottom-0 max-h-[44vh] md:max-h-[46vh] z-[400] flex flex-col">
           {spot ? (
             <>
               <div className="shrink-0">
@@ -217,6 +218,8 @@ function App() {
           )}
         </div>
       </div>
+
+      <Onboarding fabRef={fabRef} />
     </div>
   );
 }
