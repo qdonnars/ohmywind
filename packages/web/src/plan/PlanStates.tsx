@@ -169,7 +169,7 @@ function fmtTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 }
 
-function HeroCell({
+export function HeroCell({
   label,
   value,
   unit,

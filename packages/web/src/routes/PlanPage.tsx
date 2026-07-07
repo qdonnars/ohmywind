@@ -8,6 +8,7 @@ import { Header } from "../components/Header";
 import { RebrandBanner } from "../components/RebrandBanner";
 import type { PassageReport, ComplexityScore, Archetype, PassageWindow } from "../plan/types";
 import { fmtDuration, fr1 } from "../plan/format";
+import { HeroCell } from "../plan/PlanStates";
 import {
   loadLastSimulation,
   saveLastSimulation,
@@ -82,26 +83,18 @@ function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 }
 // Hero stats overlay — absolute, bottom of map, mobile only.
-// Same tiles, labels and formats as the desktop HeroStats block in the
-// sidebar (Distance / Durée / Arrivée) so both surfaces read identically.
+// Renders the exact same HeroCell as the desktop sidebar block
+// (Distance / Durée / Arrivée) inside a single glass strip, so both
+// surfaces are visually and structurally identical.
 function PlanHeroStats({ passage }: { passage: PassageReport }) {
-  const stats = [
-    { label: "Distance", value: `${fr1(passage.distance_nm)} nm` },
-    { label: "Durée", value: fmtDuration(passage.duration_h) },
-    { label: "Arrivée", value: fmtTime(passage.arrival_time) },
-  ];
   return (
-    <div className="flex gap-1.5">
-      {stats.map(({ label, value }) => (
-        <div
-          key={label}
-          className="flex-1 rounded-xl px-2 py-1.5 text-center"
-          style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)" }}
-        >
-          <div className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: "var(--ow-fg-2)" }}>{label}</div>
-          <div className="text-xs font-bold tabular-nums leading-tight mt-0.5" style={{ color: "var(--ow-fg-0)", fontFamily: "var(--ow-font-mono)" }}>{value}</div>
-        </div>
-      ))}
+    <div
+      className="rounded-xl px-3.5 py-2.5 grid grid-cols-3 gap-3"
+      style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)" }}
+    >
+      <HeroCell label="Distance" value={fr1(passage.distance_nm)} unit="nm" />
+      <HeroCell label="Durée" value={fmtDuration(passage.duration_h)} />
+      <HeroCell label="Arrivée" value={fmtTime(passage.arrival_time)} />
     </div>
   );
 }
