@@ -3,6 +3,7 @@
 
 import type { PassageReport, SegmentReport } from "./types";
 import { CX_COLORS, cxLevel } from "./types";
+import { fmtDuration, fr1 } from "./format";
 
 // ── EmptyState ────────────────────────────────────────────────────────────────
 // Shown when fewer than 2 waypoints are placed: invites the user to draw a
@@ -164,14 +165,6 @@ export function ModePicker({
 // 4-cell stats row with a segmented complexity bar underneath; matches the
 // design's "Sim filled" header block.
 
-function fmtDuration(h: number): string {
-  const hrs = Math.floor(h);
-  const mins = Math.round((h - hrs) * 60);
-  if (hrs === 0) return `${mins}m`;
-  if (mins === 0) return `${hrs}h`;
-  return `${hrs}h${String(mins).padStart(2, "0")}`;
-}
-
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 }
@@ -241,7 +234,7 @@ export function HeroStats({
   return (
     <div>
       <div className="grid grid-cols-3 gap-3 mb-3">
-        <HeroCell label="Distance" value={passage.distance_nm.toFixed(1)} unit="nm" />
+        <HeroCell label="Distance" value={fr1(passage.distance_nm)} unit="nm" />
         <HeroCell label="Durée" value={fmtDuration(passage.duration_h)} />
         <HeroCell label="Arrivée" value={fmtTime(passage.arrival_time)} />
       </div>
