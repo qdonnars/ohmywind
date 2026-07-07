@@ -7,6 +7,7 @@ import { buildForecastCacheSafe, singleWindowMs, sweepWindowMs, etaWindowMs } fr
 import { Header } from "../components/Header";
 import { RebrandBanner } from "../components/RebrandBanner";
 import type { PassageReport, ComplexityScore, Archetype, PassageWindow } from "../plan/types";
+import { fmtDuration, fr1 } from "../plan/format";
 import {
   loadLastSimulation,
   saveLastSimulation,
@@ -80,20 +81,14 @@ function toTzAware(iso: string): string {
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 }
-function fmtDuration(h: number) {
-  const hrs = Math.floor(h);
-  const mins = Math.round((h - hrs) * 60);
-  return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
-}
-
 // Hero stats overlay — absolute, bottom of map, mobile only.
-// 3 tiles (ETA / Durée / Dist) — complexity is conveyed by the segment color
-// of the route on the map itself.
+// Same tiles, labels and formats as the desktop HeroStats block in the
+// sidebar (Distance / Durée / Arrivée) so both surfaces read identically.
 function PlanHeroStats({ passage }: { passage: PassageReport }) {
   const stats = [
-    { label: "ETA", value: fmtTime(passage.arrival_time) },
+    { label: "Distance", value: `${fr1(passage.distance_nm)} nm` },
     { label: "Durée", value: fmtDuration(passage.duration_h) },
-    { label: "Dist", value: `${passage.distance_nm.toFixed(1)} nm` },
+    { label: "Arrivée", value: fmtTime(passage.arrival_time) },
   ];
   return (
     <div className="flex gap-1.5">
@@ -838,9 +833,10 @@ export function PlanPage() {
             </div>
           )}
           {/* Hero stats overlay — mobile only, single-mode results.
-              3 tiles (ETA / Durée / Dist). Complexity is read from the
-              colored route on the map itself. */}
-          {passage && planMode === "single" && (
+              Hidden as soon as the route was edited without recalculating:
+              stale totals would contradict the "Recalculer" hint in the
+              drawer. Complexity is read from the colored route itself. */}
+          {passage && planMode === "single" && !isStale && (
             <div className="lg:hidden absolute bottom-2 left-2 right-2 z-[400] pointer-events-none">
               <PlanHeroStats passage={passage} />
             </div>
