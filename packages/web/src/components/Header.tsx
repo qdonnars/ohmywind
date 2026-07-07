@@ -53,7 +53,7 @@ export function Header({ onSelectSpot }: HeaderProps) {
         <div className="flex items-center gap-2 shrink-0">
           <WindIcon />
           <h1 className="hidden sm:block text-xl font-extrabold tracking-tight">
-            <span style={{ color: 'var(--ow-fg-0)' }}>Open</span>
+            <span style={{ color: 'var(--ow-fg-0)' }}>OhMy</span>
             <span style={{ color: 'var(--ow-accent)' }}>Wind</span>
           </h1>
         </div>

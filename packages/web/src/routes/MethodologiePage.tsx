@@ -20,7 +20,7 @@ export function MethodologiePage() {
       <header className="methodo-header sticky top-0 z-10 border-b backdrop-blur">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
           <a href="/" className="text-sm font-medium opacity-80 hover:opacity-100 transition">
-            ← OpenWind
+            ← OhMyWind
           </a>
           <span className="text-xs opacity-60">Méthodologie</span>
         </div>

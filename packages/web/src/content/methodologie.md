@@ -1,6 +1,6 @@
 # Méthodologie
 
-OpenWind est un planificateur de navigation à la voile open source pour les côtes françaises. Cette page explique d'où viennent les données, comment on estime un passage, et ce que l'outil ne sait volontairement pas faire.
+OhMyWind est un planificateur de navigation à la voile open source pour les côtes françaises. Cette page explique d'où viennent les données, comment on estime un passage, et ce que l'outil ne sait volontairement pas faire.
 
 ## Sommaire
 
@@ -19,7 +19,7 @@ OpenWind est un planificateur de navigation à la voile open source pour les cô
 - [Comment on déduit le courant en un point MARC](#comment-on-déduit-le-courant-en-un-point-marc)
 - [Comment on note la complexité](#comment-on-note-la-complexité)
 - [Les conventions du domaine](#les-conventions-du-domaine)
-- [Ce qu'OpenWind ne fait pas](#ce-quopenwind-ne-fait-pas)
+- [Ce qu'OhMyWind ne fait pas](#ce-quohmywind-ne-fait-pas)
 - [Sources et licences](#sources-et-licences)
 - [Hébergement](#hébergement)
 - [Code et contributions](#code-et-contributions)
@@ -60,7 +60,7 @@ Limite assumée : 8 km est suffisant au large mais reste trop grossier pour les 
 
 ### Courants côtiers haute précision : SHOM Atlas C2D et MARC PREVIMER
 
-Pour les passes critiques de la façade Atlantique, OpenWind ne se contente pas du SMOC à 8 km. La cascade de courants empile trois sources, du plus fin au plus large :
+Pour les passes critiques de la façade Atlantique, OhMyWind ne se contente pas du SMOC à 8 km. La cascade de courants empile trois sources, du plus fin au plus large :
 
 **1. SHOM Atlas C2D — la référence du SHOM (Service Hydrographique et Océanographique de la Marine).** Les atlas C2D rassemblent les courants de marée des côtes de France (Manche et Atlantique) sous forme de points scattered placés à la main par les hydrographes sur les axes de flux des passes navigationnelles. Édition 2005, 9 atlas (557 Pas de Calais, 558 Bretagne sud, 559 Vendée-Gironde, 560 Iroise / Brest, 561 Baie de Seine, 562 Golfe Normand-Breton, 563 Bretagne nord, 564 Manche, 565 Gascogne), environ 13 000 points au total. La couverture n'est pas continue : ce sont des cartouches centrés sur les zones d'intérêt nautique (Goulet de Brest, Rade de Brest, Raz de Sein, Goulet du Morbihan, Quiberon, Saint-Malo, Hague, etc.). Distribué par data.gouv.fr sous Licence Ouverte v2.0 Etalab. À chaque point, deux séries horaires de 13 valeurs U/V (composantes est-ouest et nord-sud) sont stockées, l'une pour les vives-eaux (coefficient 95), l'autre pour les mortes-eaux (coefficient 45), heures de -6 h à +6 h relatives à la pleine mer (ou basse mer) du port de référence de la zone (Port-Navalo, Brest, Saint-Malo…).
 
@@ -68,7 +68,7 @@ Pour les passes critiques de la façade Atlantique, OpenWind ne se contente pas 
 
 **3. Open-Meteo SMOC — fallback global** (déjà décrit ci-dessus, 8 km).
 
-À chaque point de route, OpenWind applique la cascade :
+À chaque point de route, OhMyWind applique la cascade :
 
 ```
 si point ∈ emprise SHOM C2D (≤ 5 km du point le plus proche)  →  SHOM (référence française)
@@ -84,15 +84,15 @@ Le champ `current_source` exposé sur chaque tronçon de route indique la source
 
 ## Comment on estime un passage
 
-Quand on demande "combien de temps pour aller de Marseille à Porquerolles avec un croiseur de 40 pieds", OpenWind procède en six temps.
+Quand on demande "combien de temps pour aller de Marseille à Porquerolles avec un croiseur de 40 pieds", OhMyWind procède en six temps.
 
 ### 1. Choix du voilier-type
 
-On commence par associer le bateau à un **archétype** standard. Chaque archétype porte un polaire **ORC** (Offshore Racing Congress, l'organisme international de jauge) théorique, c'est-à-dire la vitesse du bateau pour chaque combinaison de **TWS** (True Wind Speed, vitesse réelle du vent) et **TWA** (True Wind Angle, angle entre le vent réel et le cap du bateau). OpenWind n'associe pas un modèle commercial à un archétype côté serveur : la correspondance se fait à partir des descriptions textuelles publiées pour chaque archétype.
+On commence par associer le bateau à un **archétype** standard. Chaque archétype porte un polaire **ORC** (Offshore Racing Congress, l'organisme international de jauge) théorique, c'est-à-dire la vitesse du bateau pour chaque combinaison de **TWS** (True Wind Speed, vitesse réelle du vent) et **TWA** (True Wind Angle, angle entre le vent réel et le cap du bateau). OhMyWind n'associe pas un modèle commercial à un archétype côté serveur : la correspondance se fait à partir des descriptions textuelles publiées pour chaque archétype.
 
 Les polaires utilisées sont consultables ci-dessous (cliquez pour ouvrir). Chaque diagramme est tracé en demi-cercle (côté droit) : la vitesse du bateau est la distance au centre (en nœuds), l'angle au vent TWA est lu autour de la circonférence (0° = vent debout en haut, 90° = travers à droite, 180° = vent arrière en bas). Une courbe par valeur de TWS, du bleu clair (vent faible) au magenta (vent fort).
 
-> **Note de lecture.** Les polaires ne descendent pas jusqu'à TWA = 0°. Par convention, les tableaux ORC ne définissent la vitesse qu'à partir de l'angle minimal de remontée du bateau (typiquement 40° à 45°). Dans la zone "interdite" plus serrée que cet angle, OpenWind ne lit pas un zéro dans la polaire (qui annulerait la vitesse de planification) : on bascule sur le calcul de louvoyage par projection VMG décrit à l'[étape 4 ci-dessous](#4-polaire-angle-au-vent-et-tactique-au-près). C'est pour cette raison que les courbes apparaissent ouvertes en haut.
+> **Note de lecture.** Les polaires ne descendent pas jusqu'à TWA = 0°. Par convention, les tableaux ORC ne définissent la vitesse qu'à partir de l'angle minimal de remontée du bateau (typiquement 40° à 45°). Dans la zone "interdite" plus serrée que cet angle, OhMyWind ne lit pas un zéro dans la polaire (qui annulerait la vitesse de planification) : on bascule sur le calcul de louvoyage par projection VMG décrit à l'[étape 4 ci-dessous](#4-polaire-angle-au-vent-et-tactique-au-près). C'est pour cette raison que les courbes apparaissent ouvertes en haut.
 
 <details>
 <summary>Polaire — croiseur 20 pieds (Beneteau First 210, Catalina 22, Jeanneau Tonic 23, Jeanneau Sun 2000)</summary>
@@ -133,7 +133,7 @@ Les fichiers source (JSON) sont dans le dépôt sous [`packages/data-adapters/sr
 
 ### 2. Découpage de la route
 
-La route est une polyligne de points de route (point de départ, escales, arrivée). Pour chaque **tronçon** (paire de points de route consécutifs) de longueur $d$, OpenWind calcule un nombre de sous-segments :
+La route est une polyligne de points de route (point de départ, escales, arrivée). Pour chaque **tronçon** (paire de points de route consécutifs) de longueur $d$, OhMyWind calcule un nombre de sous-segments :
 
 $$
 n = \max\bigl(1,\ \lceil d / L \rceil\bigr)
@@ -163,7 +163,7 @@ soit la valeur absolue de l'écart angulaire ramenée dans $[0,\ 180]$. Les pola
 
 On lit ensuite la vitesse polaire $v_{\text{polaire}} = \text{polar}(\text{TWS},\ \text{TWA})$ par interpolation bilinéaire dans le tableau JSON de l'archétype.
 
-**Cas du près serré.** Si l'angle au vent demandé est plus serré que l'angle optimal de remontée du polaire (typiquement $\text{TWA} < 40\degree$ à $45\degree$), le bateau ne peut pas tenir directement le cap : il faut tirer des bords. OpenWind balaye TWA dans $[30\degree,\ 90\degree]$ pour trouver l'angle qui maximise le **VMG** (Velocity Made Good, projection de la vitesse polaire sur l'axe du vent : $v \cdot \cos(\text{TWA})$), puis projette la vitesse polaire à cet angle optimal sur le cap réel :
+**Cas du près serré.** Si l'angle au vent demandé est plus serré que l'angle optimal de remontée du polaire (typiquement $\text{TWA} < 40\degree$ à $45\degree$), le bateau ne peut pas tenir directement le cap : il faut tirer des bords. OhMyWind balaye TWA dans $[30\degree,\ 90\degree]$ pour trouver l'angle qui maximise le **VMG** (Velocity Made Good, projection de la vitesse polaire sur l'axe du vent : $v \cdot \cos(\text{TWA})$), puis projette la vitesse polaire à cet angle optimal sur le cap réel :
 
 $$
 v_{\text{eff}} = v_{\text{polaire}}(\text{TWA}_{\text{opt}}) \cdot \cos(\text{TWA}_{\text{opt}} - \text{TWA})
@@ -181,9 +181,9 @@ $$
 
 avec :
 
-- **`η` (efficacité)** : facteur multiplicatif qui ramène le polaire ORC théorique à la voile réelle. **OpenWind utilise actuellement la valeur 0.75 par défaut, et cette valeur n'est pas modifiable depuis l'interface web.** Le paramètre existe côté serveur (un client expert peut le surcharger) mais aucun champ utilisateur ne l'expose pour l'instant. Valeurs de référence si on devait l'ajuster :
+- **`η` (efficacité)** : facteur multiplicatif qui ramène le polaire ORC théorique à la voile réelle. **OhMyWind utilise actuellement la valeur 0.75 par défaut, et cette valeur n'est pas modifiable depuis l'interface web.** Le paramètre existe côté serveur (un client expert peut le surcharger) mais aucun champ utilisateur ne l'expose pour l'instant. Valeurs de référence si on devait l'ajuster :
   - `0.85` régate (carène propre, voiles fraîches, équipage attentif)
-  - `0.75` croisière (réglages standards, marges de confort, défaut OpenWind)
+  - `0.75` croisière (réglages standards, marges de confort, défaut OhMyWind)
   - `0.65` croisière chargée en famille (eau, gasoil, équipement, carène salie)
   - `0.55` mer formée, carène négligée, équipage réduit
 
@@ -210,7 +210,7 @@ Les deux champs doivent être remplis ensemble pour que la bascule s'active ; si
 
 Côté affichage, l'allure du leg (Près / Travers / Largue / Arrière) est remplacée par **Moteur** dès que plus de la moitié de la distance du leg a été parcourue moteur en route. Sous ce seuil, l'allure voile prévaut même si quelques sous-segments ont basculé.
 
-Cette modélisation est volontairement simple : pas de gestion de carburant, pas de seuil par angle au vent, pas de modulation du moteur par la mer. L'objectif est de rendre les estimations réalistes en zone de vent faible (typiquement Méditerranée d'été) sans transformer OpenWind en gestionnaire de bord.
+Cette modélisation est volontairement simple : pas de gestion de carburant, pas de seuil par angle au vent, pas de modulation du moteur par la mer. L'objectif est de rendre les estimations réalistes en zone de vent faible (typiquement Méditerranée d'été) sans transformer OhMyWind en gestionnaire de bord.
 
 ### 6. Vitesse au sol (SOG), courant et durée
 
@@ -232,7 +232,7 @@ et la durée totale du passage est la somme des durées des sous-segments.
 
 ## Comment on déduit le courant en un point MARC
 
-À l'intérieur d'une emprise MARC, les amplitudes et phases harmoniques des composantes **U** (est-ouest) et **V** (nord-sud) du courant sont stockées par cellule (250 m à 2 km selon l'atlas), une valeur par constituant astronomique. Pour évaluer le courant à un instant $t$ et une position donnée, OpenWind exécute le prédicteur Schureman/Cartwright séparément sur U et V :
+À l'intérieur d'une emprise MARC, les amplitudes et phases harmoniques des composantes **U** (est-ouest) et **V** (nord-sud) du courant sont stockées par cellule (250 m à 2 km selon l'atlas), une valeur par constituant astronomique. Pour évaluer le courant à un instant $t$ et une position donnée, OhMyWind exécute le prédicteur Schureman/Cartwright séparément sur U et V :
 
 $$
 U(t) = U_0 + \sum_{i=1}^{N} H_i^U \cdot f_i(t) \cdot \cos\bigl(\sigma_i \cdot (t - t_0) + V_{0,i}(t_0) + u_i(t) - G_i^U\bigr)
@@ -246,7 +246,7 @@ et symétriquement pour $V(t)$, avec :
 - $f_i(t),\ u_i(t)$ : corrections nodales (variation lente sur 18,6 ans liées aux mouvements de la lune) ;
 - $U_0,\ V_0$ : résiduel moyen non-tidal 2008-2009 inclus dans l'atlas (capture la circulation moyenne, mais pas la variabilité météo court-terme).
 
-OpenWind reconstruit ainsi $U$ et $V$ pour chaque sondage, puis en déduit la **vitesse** et la **direction** du courant total :
+OhMyWind reconstruit ainsi $U$ et $V$ pour chaque sondage, puis en déduit la **vitesse** et la **direction** du courant total :
 
 $$
 V_{\text{courant}} = \sqrt{U^2 + V^2}, \qquad \theta_{\text{courant}} = \operatorname{atan2}(U,\ V)
@@ -296,11 +296,11 @@ Côté niveaux de mer :
 - En Méditerranée et au large, l'affichage reste en MSL.
 - En zone MARC (Atlantique), on calcule un **zéro hydrographique** local (minimum de prédiction sur 19 ans par cellule) pour s'aligner sur la convention française.
 
-## Ce qu'OpenWind ne fait pas
+## Ce qu'OhMyWind ne fait pas
 
 Par choix de conception :
 
-- **Pas de routeur d'optimisation**. OpenWind ne cherche pas la "meilleure route" ni la "meilleure fenêtre". Il restitue les données brutes ; l'interprétation revient au marin.
+- **Pas de routeur d'optimisation**. OhMyWind ne cherche pas la "meilleure route" ni la "meilleure fenêtre". Il restitue les données brutes ; l'interprétation revient au marin.
 - **Pas un substitut à un atlas SHOM ou à une carte papier** dans une passe étroite. C'est un outil de planification, pas de pilotage.
 
 Limites assumées des données :
@@ -322,13 +322,13 @@ Référence académique pour MARC : Pineau-Guillou Lucia (2013). PREVIMER, Valid
 
 ## Hébergement
 
-OpenWind tourne intégralement sur des plateformes ouvertes et gratuites.
+OhMyWind tourne intégralement sur des plateformes ouvertes et gratuites.
 
-- L'application web statique [openwind.fr](https://openwind.fr) est servie par **GitHub Pages**, qui héberge gratuitement les pages publiques de tout dépôt open source, avec HTTPS et domaine personnalisé inclus.
+- L'application web statique [ohmywind.fr](https://ohmywind.fr) est servie par **Cloudflare Pages**, qui héberge gratuitement les pages publiques d'un dépôt open source, avec HTTPS et domaine personnalisé inclus.
 - Le serveur MCP tourne sur **Hugging Face Spaces** en Docker SDK, qui fournit gratuitement un conteneur public Linux, le HTTPS, et un service de Dataset privé pour héberger les atlas harmoniques MARC pré-calculés (5 GB, tirés au moment du build de l'image).
 
-Faire vivre un planificateur météo-marine open source et sans publicité serait significativement plus coûteux sans ces deux infrastructures. Merci à GitHub et à Hugging Face de les rendre accessibles à tous.
+Faire vivre un planificateur météo-marine open source et sans publicité serait significativement plus coûteux sans ces deux infrastructures. Merci à Cloudflare et à Hugging Face de les rendre accessibles à tous.
 
 ## Code et contributions
 
-OpenWind est intégralement open source. Le code, les polaires, le prédicteur harmonique et la cascade de routage sont sur le dépôt GitHub. Les contributions sont bienvenues, en particulier sur les polaires de nouveaux archétypes et sur l'extension de la couverture MARC.
+OhMyWind est intégralement open source. Le code, les polaires, le prédicteur harmonique et la cascade de routage sont sur le dépôt GitHub. Les contributions sont bienvenues, en particulier sur les polaires de nouveaux archétypes et sur l'extension de la couverture MARC.

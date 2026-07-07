@@ -1,6 +1,6 @@
 {
-  "name": "OpenWind",
-  "short_name": "OpenWind",
+  "name": "OhMyWind",
+  "short_name": "OhMyWind",
   "description": "French Atlantic and Mediterranean sailing planner. Wind forecasts, passage estimates and SHOM-grade tidal currents.",
   "start_url": "/",
   "display": "standalone",

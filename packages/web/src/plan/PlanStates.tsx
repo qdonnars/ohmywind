@@ -144,7 +144,7 @@ export function ModePicker({
         icon="route"
         accent="var(--ow-accent)"
         title="Simuler ma route"
-        body="Vous savez quand partir. OpenWind calcule le temps du trajet, l'ETA et les conditions sur chaque segment."
+        body="Vous savez quand partir. OhMyWind calcule le temps du trajet, l'ETA et les conditions sur chaque segment."
         example="Ex. : « Si je pars samedi 17:00, j'arrive quand ? »"
         onClick={() => onPick("single")}
       />
@@ -152,7 +152,7 @@ export function ModePicker({
         icon="clock"
         accent="#F4C25C"
         title="Comparer les fenêtres"
-        body="Vous savez où aller. OpenWind teste plusieurs heures de départ et classe les créneaux par confort."
+        body="Vous savez où aller. OhMyWind teste plusieurs heures de départ et classe les créneaux par confort."
         example="Ex. : « Quel est le meilleur départ entre samedi et lundi ? »"
         onClick={() => onPick("compare")}
       />
