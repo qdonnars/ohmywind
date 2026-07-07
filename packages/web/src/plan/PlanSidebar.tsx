@@ -1189,13 +1189,13 @@ export function PlanSidebar({
       {/* Total route stats (Distance / Durée / Arrivée + segment bar).
           Desktop only: on mobile the floating overlay (PlanHeroStats) stays
           the single source of truth for these totals, per the b90a5bf
-          decision. Dimmed when the route was edited without recalculating so
-          the numbers read as stale. */}
-      <div className="hidden lg:block px-4 py-3.5" style={{ borderBottom: "1px solid var(--ow-line)" }}>
-        <div style={{ opacity: isStale ? 0.45 : 1 }}>
+          decision. Hidden entirely when the route was edited without
+          recalculating, same rule as the mobile overlay. */}
+      {!isStale && (
+        <div className="hidden lg:block px-4 py-3.5" style={{ borderBottom: "1px solid var(--ow-line)" }}>
           <HeroStats passage={passage} />
         </div>
-      </div>
+      )}
 
       {/* Warnings */}
       {hasWarnings && (
