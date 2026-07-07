@@ -7,9 +7,9 @@ import { cxLevel, CX_COLORS } from "./types";
 import { haversineNm, fmtNm } from "../utils/geo";
 
 /** Hide a segment label when the leg is shorter than this on screen (px).
-    Below it the chips overlap and clutter the map, so we let them fade out
+    Below it the labels crowd the waypoint markers, so we let them fade out
     as the user zooms out. */
-const SEG_LABEL_MIN_PX = 48;
+const SEG_LABEL_MIN_PX = 90;
 
 export interface PlanMapHandle {
   recenter: (lat: number, lon: number) => void;
