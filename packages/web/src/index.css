@@ -292,6 +292,29 @@ body {
   }
 }
 
+/* Live segment-length label at each leg midpoint while tracing a route.
+   A permanent Leaflet tooltip styled as a small glass chip; tokens are
+   theme-aware so it stays legible in both light and dark maps. The
+   tooltip arrow is removed since the chip sits centered on the segment. */
+.ow-seg-label {
+  font-family: var(--ow-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 5px;
+  color: var(--ow-fg-0);
+  background: var(--ow-surface-glass);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--ow-line-2);
+  border-radius: var(--ow-r-sm);
+  box-shadow: none;
+  white-space: nowrap;
+}
+.ow-seg-label::before {
+  display: none;
+}
+
 /* Datetime-local input — polishes the native picker to match the
    sidebar's design tokens: accent focus ring, hover lift, and a calendar
    icon that picks up the accent on hover instead of staying browser-grey. */
