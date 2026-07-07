@@ -6,6 +6,7 @@ import { PlanPage } from "./routes/PlanPage";
 import { MethodologiePage } from "./routes/MethodologiePage";
 import { ConfigPage } from "./routes/ConfigPage";
 import { ThemeProvider } from "./design/theme";
+import { registerSW } from "virtual:pwa-register";
 
 // GitHub Pages 404.html redirect: restore original path stored in sessionStorage
 const spaRedirect = sessionStorage.getItem("spa_redirect");
@@ -40,3 +41,8 @@ createRoot(document.getElementById("root")!).render(
     </ThemeProvider>
   </StrictMode>
 );
+
+// Register the service worker so the app shell is installable and offline-
+// resilient. Silent by design: `registerType: 'autoUpdate'` swaps in the new
+// SW on the next load, and we intentionally render no update-toast today.
+registerSW({ immediate: true });
