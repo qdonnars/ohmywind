@@ -5,6 +5,7 @@ import { PlanSidebar } from "../plan/PlanSidebar";
 import { fetchPassage, fetchPassageByEta, fetchPassageWindows, fetchArchetypes, friendlyError, type PlanOverrides } from "../api/passage";
 import { buildForecastCacheSafe, singleWindowMs, sweepWindowMs, etaWindowMs } from "../api/forecastCache";
 import { Header } from "../components/Header";
+import { RebrandBanner } from "../components/RebrandBanner";
 import type { PassageReport, ComplexityScore, Archetype, PassageWindow } from "../plan/types";
 import {
   loadLastSimulation,
@@ -787,6 +788,7 @@ export function PlanPage() {
       <Header
         onSelectSpot={(spot) => mapRef.current?.recenter(spot.latitude, spot.longitude)}
       />
+      <RebrandBanner />
 
       {/* Body */}
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">

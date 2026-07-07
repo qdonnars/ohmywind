@@ -35,7 +35,7 @@ function InfoModal({ onClose }: { onClose: () => void }) {
       style={{ background: "rgba(0,0,0,0.6)" }}
       role="dialog"
       aria-modal="true"
-      aria-label="À propos d'OpenWind"
+      aria-label="À propos d'OhMyWind"
     >
       <div
         className="relative w-full lg:max-w-2xl max-h-[92vh] overflow-y-auto rounded-t-2xl lg:rounded-2xl shadow-2xl"
@@ -70,7 +70,7 @@ export function InfoButton() {
     <>
       <button
         onClick={() => setOpen(true)}
-        aria-label="À propos d'OpenWind"
+        aria-label="À propos d'OhMyWind"
         title="À propos"
         className="shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg transition-colors"
         style={{ color: "var(--ow-fg-1)", background: "transparent" }}

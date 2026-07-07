@@ -8,7 +8,7 @@ export function InfoPanel() {
         className="text-lg lg:text-xl font-bold tracking-tight mb-4"
         style={{ color: "var(--ow-fg-0)" }}
       >
-        À propos d'OpenWind
+        À propos d'OhMyWind
       </h2>
 
       <section className="mb-5">
@@ -19,7 +19,7 @@ export function InfoPanel() {
           Le projet
         </h3>
         <p className="text-sm leading-relaxed" style={{ color: "var(--ow-fg-1)" }}>
-          OpenWind rend accessible une météo marine de qualité aux voileux. Les
+          OhMyWind rend accessible une météo marine de qualité aux voileux. Les
           modèles AROME, ICON, GFS, ECMWF et les données de vagues, courants et
           marées sont publics et gratuits. Cette app les rassemble dans une vue
           lisible, sans compte ni installation.
