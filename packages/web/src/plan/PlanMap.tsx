@@ -4,6 +4,12 @@ import "leaflet/dist/leaflet.css";
 import { useTheme } from "../design/theme";
 import type { SegmentReport } from "./types";
 import { cxLevel, CX_COLORS } from "./types";
+import { haversineNm, fmtNm } from "../utils/geo";
+
+/** Hide a segment label when the leg is shorter than this on screen (px).
+    Below it the labels crowd the waypoint markers, so we let them fade out
+    as the user zooms out. */
+const SEG_LABEL_MIN_PX = 90;
 
 export interface PlanMapHandle {
   recenter: (lat: number, lon: number) => void;
@@ -51,6 +57,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   const highlightLineRef = useRef<L.Polyline | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
   const dragLineRef = useRef<L.Polyline | null>(null);
+  const segLabelsRef = useRef<L.Tooltip[]>([]);
   const livePositionsRef = useRef<[number, number][]>(waypoints);
   const isDraggingRef = useRef(false);
   const onWptAddRef = useRef(onWptAdd);
@@ -83,6 +90,34 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   useEffect(() => {
     livePositionsRef.current = waypoints;
   }, [waypoints]);
+
+  // Draw the live per-segment length labels: one permanent tooltip at each
+  // leg midpoint, showing the great-circle distance in nm. Auto-hides legs
+  // that render shorter than SEG_LABEL_MIN_PX on screen so the chips don't
+  // pile up at low zoom. Idempotent — clears the previous batch each call.
+  function drawSegLabels(map: L.Map, positions: [number, number][]) {
+    for (const t of segLabelsRef.current) t.remove();
+    segLabelsRef.current = [];
+    if (positions.length < 2) return;
+    for (let i = 0; i < positions.length - 1; i++) {
+      const [aLat, aLon] = positions[i];
+      const [bLat, bLon] = positions[i + 1];
+      const pa = map.latLngToContainerPoint([aLat, aLon]);
+      const pb = map.latLngToContainerPoint([bLat, bLon]);
+      if (pa.distanceTo(pb) < SEG_LABEL_MIN_PX) continue;
+      const mid = L.latLng((aLat + bLat) / 2, (aLon + bLon) / 2);
+      const tip = L.tooltip({
+        permanent: true,
+        direction: "center",
+        className: "ow-seg-label",
+        opacity: 1,
+      })
+        .setLatLng(mid)
+        .setContent(fmtNm(haversineNm(aLat, aLon, bLat, bLon)))
+        .addTo(map);
+      segLabelsRef.current.push(tip);
+    }
+  }
 
   // Switch tiles on theme change
   useEffect(() => {
@@ -131,12 +166,19 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
       onMapClickRef.current(e.latlng.lat, e.latlng.lng);
     });
 
+    // Re-evaluate the segment labels on zoom: the screen-length auto-hide
+    // threshold means legs appear/disappear as the scale changes.
+    const onZoomEnd = () => drawSegLabels(map, livePositionsRef.current);
+    map.on("zoomend", onZoomEnd);
+
     const ro = new ResizeObserver(() => map.invalidateSize());
     ro.observe(containerRef.current!);
     setTimeout(() => map.invalidateSize(), 100);
 
     return () => {
       ro.disconnect();
+      map.off("zoomend", onZoomEnd);
+      segLabelsRef.current = [];
       map.remove();
       mapRef.current = null;
     };
@@ -224,6 +266,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
         } else {
           dragLineRef.current.setLatLngs(lls);
         }
+        drawSegLabels(map, positions);
       });
 
       marker.on("dragend", () => {
@@ -254,7 +297,10 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     for (const p of polylinesRef.current) p.remove();
     polylinesRef.current = [];
 
-    if (waypoints.length < 2) return;
+    if (waypoints.length < 2) {
+      drawSegLabels(map, waypoints);
+      return;
+    }
 
     if (!segments || isStale) {
       // Dashed + faded only when the line is provisional (loading or stale).
@@ -283,8 +329,14 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
         onWptAddRef.current(bestIdx, click.lat, click.lng);
       });
       polylinesRef.current = [line];
+      // Live leg lengths while the route is being traced / not yet computed.
+      drawSegLabels(map, waypoints);
       return;
     }
+
+    // Route is computed: per-leg distance now lives in the sidebar, so drop
+    // the on-map tracing labels to keep the colored segments uncluttered.
+    drawSegLabels(map, []);
 
     segments.forEach((seg, i) => {
       const color = CX_COLORS[cxLevel(seg.tws_kn)];

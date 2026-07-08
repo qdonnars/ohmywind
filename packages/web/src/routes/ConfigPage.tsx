@@ -94,7 +94,7 @@ export function ConfigPage() {
       <header className="config-header sticky top-0 z-10 border-b backdrop-blur">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
           <a href={returnPath} className="text-sm font-medium opacity-80 hover:opacity-100 transition">
-            ← OpenWind
+            ← OhMyWind
           </a>
           <span className="text-xs opacity-60">Configuration</span>
         </div>
@@ -228,7 +228,7 @@ export function ConfigPage() {
         )}
 
         <footer className="config-storage-note mt-10">
-          OpenWind ne propose volontairement pas de comptes utilisateurs :
+          OhMyWind ne propose volontairement pas de comptes utilisateurs :
           aucune donnée n'est envoyée sur un serveur pour identifier qui tu es.
           Tes préférences (modèles, polaire perso) sont stockées localement
           dans ton navigateur. Si tu changes d'appareil, de navigateur ou si

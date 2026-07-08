@@ -6,7 +6,7 @@ import { cxLevel, CX_COLORS } from "./types";
 import { WindowsTable } from "./WindowsTable";
 import { ModeToggle, TimeAnchorToggle, type PlanMode, type TimeAnchor } from "./ModeToggle";
 import { LegDetailCard } from "./LegDetailCard";
-import { EmptyState, ModePicker, Warn, RecapButton } from "./PlanStates";
+import { EmptyState, ModePicker, Warn, RecapButton, HeroStats } from "./PlanStates";
 import {
   ARCHETYPE_LABELS,
   defaultPolarConfig,
@@ -1183,6 +1183,17 @@ export function PlanSidebar({
             onChange={onArchetypeChange}
             onCustomCleared={onRefetch}
           />
+        </div>
+      )}
+
+      {/* Total route stats (Distance / Durée / Arrivée + segment bar).
+          Desktop only: on mobile the floating overlay (PlanHeroStats) stays
+          the single source of truth for these totals, per the b90a5bf
+          decision. Hidden entirely when the route was edited without
+          recalculating, same rule as the mobile overlay. */}
+      {!isStale && (
+        <div className="hidden lg:block px-4 py-3.5" style={{ borderBottom: "1px solid var(--ow-line)" }}>
+          <HeroStats passage={passage} />
         </div>
       )}
 

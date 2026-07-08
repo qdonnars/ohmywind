@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { PassageWindow } from "./types";
 import { CX_COLORS } from "./types";
+import { fmtDurationSafe } from "./format";
 
 type SortKey = "departure" | "duration" | "complexity";
 
@@ -16,12 +17,6 @@ function fmtDeparture(iso: string): string {
   const day = d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
   const hh = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   return `${day} · ${hh}`;
-}
-
-function fmtDuration(h: number): string {
-  const hrs = Math.floor(h);
-  const mins = Math.round((h - hrs) * 60);
-  return mins > 0 ? `${hrs}h${String(mins).padStart(2, "0")}` : `${hrs}h`;
 }
 
 function fmtTime(iso: string): string {
@@ -43,11 +38,6 @@ function fmtRange(min: number | null | undefined, max: number | null | undefined
 function fmtHsRange(min: number | null | undefined, max: number | null | undefined): string {
   if (min == null && max == null) return "—";
   return fmtRange(min, max, "m", 1);
-}
-
-function fmtDurationSafe(h: number | null | undefined): string {
-  if (h == null || !Number.isFinite(h)) return "—";
-  return fmtDuration(h);
 }
 
 function fmtTimeSafe(iso: string | null | undefined): string {

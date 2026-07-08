@@ -5,7 +5,10 @@ import { PlanSidebar } from "../plan/PlanSidebar";
 import { fetchPassage, fetchPassageByEta, fetchPassageWindows, fetchArchetypes, friendlyError, type PlanOverrides } from "../api/passage";
 import { buildForecastCacheSafe, singleWindowMs, sweepWindowMs, etaWindowMs } from "../api/forecastCache";
 import { Header } from "../components/Header";
+import { RebrandBanner } from "../components/RebrandBanner";
 import type { PassageReport, ComplexityScore, Archetype, PassageWindow } from "../plan/types";
+import { fmtDuration, fr1 } from "../plan/format";
+import { HeroCell } from "../plan/PlanStates";
 import {
   loadLastSimulation,
   saveLastSimulation,
@@ -79,33 +82,19 @@ function toTzAware(iso: string): string {
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 }
-function fmtDuration(h: number) {
-  const hrs = Math.floor(h);
-  const mins = Math.round((h - hrs) * 60);
-  return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
-}
-
 // Hero stats overlay — absolute, bottom of map, mobile only.
-// 3 tiles (ETA / Durée / Dist) — complexity is conveyed by the segment color
-// of the route on the map itself.
+// Renders the exact same HeroCell as the desktop sidebar block
+// (Distance / Durée / Arrivée) inside a single glass strip, so both
+// surfaces are visually and structurally identical.
 function PlanHeroStats({ passage }: { passage: PassageReport }) {
-  const stats = [
-    { label: "ETA", value: fmtTime(passage.arrival_time) },
-    { label: "Durée", value: fmtDuration(passage.duration_h) },
-    { label: "Dist", value: `${passage.distance_nm.toFixed(1)} nm` },
-  ];
   return (
-    <div className="flex gap-1.5">
-      {stats.map(({ label, value }) => (
-        <div
-          key={label}
-          className="flex-1 rounded-xl px-2 py-1.5 text-center"
-          style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)" }}
-        >
-          <div className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: "var(--ow-fg-2)" }}>{label}</div>
-          <div className="text-xs font-bold tabular-nums leading-tight mt-0.5" style={{ color: "var(--ow-fg-0)", fontFamily: "var(--ow-font-mono)" }}>{value}</div>
-        </div>
-      ))}
+    <div
+      className="rounded-xl px-3.5 py-2.5 grid grid-cols-3 gap-3"
+      style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)" }}
+    >
+      <HeroCell label="Distance" value={fr1(passage.distance_nm)} unit="nm" />
+      <HeroCell label="Durée" value={fmtDuration(passage.duration_h)} />
+      <HeroCell label="Arrivée" value={fmtTime(passage.arrival_time)} />
     </div>
   );
 }
@@ -787,6 +776,7 @@ export function PlanPage() {
       <Header
         onSelectSpot={(spot) => mapRef.current?.recenter(spot.latitude, spot.longitude)}
       />
+      <RebrandBanner />
 
       {/* Body */}
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
@@ -836,9 +826,10 @@ export function PlanPage() {
             </div>
           )}
           {/* Hero stats overlay — mobile only, single-mode results.
-              3 tiles (ETA / Durée / Dist). Complexity is read from the
-              colored route on the map itself. */}
-          {passage && planMode === "single" && (
+              Hidden as soon as the route was edited without recalculating:
+              stale totals would contradict the "Recalculer" hint in the
+              drawer. Complexity is read from the colored route itself. */}
+          {passage && planMode === "single" && !isStale && (
             <div className="lg:hidden absolute bottom-2 left-2 right-2 z-[400] pointer-events-none">
               <PlanHeroStats passage={passage} />
             </div>
