@@ -296,8 +296,13 @@ body {
    A permanent Leaflet tooltip rendered as bare text with a theme-aware
    halo (no chip background) so it never hides the waypoints or the
    polyline underneath. The tooltip arrow is removed since the label
-   sits centered on the segment. */
-.ow-seg-label {
+   sits centered on the segment.
+   The selector doubles up with .leaflet-tooltip on purpose: in the
+   production bundle leaflet.css is emitted AFTER this file, so a bare
+   .ow-seg-label loses to Leaflet's white default tooltip at equal
+   specificity (white chips + #222 text in prod, correct style on the
+   Vite dev server). Two classes beat it regardless of bundle order. */
+.leaflet-tooltip.ow-seg-label {
   font-family: var(--ow-font-mono);
   font-size: 10px;
   font-weight: 600;
@@ -314,7 +319,7 @@ body {
     0 0 3px var(--ow-bg-1),
     0 1px 2px var(--ow-bg-1);
 }
-.ow-seg-label::before {
+.leaflet-tooltip.ow-seg-label::before {
   display: none;
 }
 
