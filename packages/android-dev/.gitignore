@@ -1,0 +1,4 @@
+# Whitelist: only the TWA config is versioned (see ../android/README.md).
+*
+!.gitignore
+!twa-manifest.json
