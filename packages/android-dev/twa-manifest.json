@@ -13,8 +13,8 @@
   "backgroundColor": "#030712",
   "enableNotifications": false,
   "startUrl": "/",
-  "iconUrl": "https://dev.ohmywind.fr/icon-512.png",
-  "maskableIconUrl": "https://dev.ohmywind.fr/icon-512.png",
+  "iconUrl": "https://ohmywind.fr/icon-512.png",
+  "maskableIconUrl": "https://ohmywind.fr/icon-512.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "../android/android.keystore",
