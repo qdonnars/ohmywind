@@ -4,6 +4,8 @@ import "leaflet/dist/leaflet.css";
 import type { Spot, ModelForecast, MarineHourly, MetricView } from "../types";
 import { QUICK_SPOTS } from "../spots";
 import { useTheme } from "../design/theme";
+import type { UserPosition } from "../hooks/useGeolocation";
+import { syncUserPositionLayer } from "../utils/userPositionLayer";
 
 // Spot-map arrows are drawn into a single 300×300 SVG anchored at the spot
 // (centre = 150,150). For ``wind``, each forecast contributes one arrow + label.
@@ -146,10 +148,15 @@ interface SpotMapProps {
   // viewport where it is rather than yanking back to a default center.
   current: Spot | null;
   customSpots: Spot[];
-  // First-visit hint: user position once the browser grants geolocation.
-  // The map recenters to it without auto-creating a spot, so new users
-  // see their region without arrows until they drop their first pin.
-  geolocCenter?: { lat: number; lon: number } | null;
+  // User position once the browser grants geolocation. Drawn as a dot with
+  // an accuracy halo, and used as the initial center when it is already
+  // known at mount. Never auto-creates a spot: new users see their region
+  // without arrows until they drop their first pin.
+  userPosition?: UserPosition | null;
+  // Bumped by the page when it wants the camera moved onto the user. Kept
+  // separate from `userPosition` so the map draws the dot without deciding
+  // when the viewport may be taken over: that policy lives in the page.
+  flyToStamp?: number | null;
   defaultCenter?: { lat: number; lon: number };
   onSelectSpot: (spot: Spot) => void;
   onAddSpot: (spot: Spot) => void;
@@ -168,7 +175,8 @@ function spotKey(s: Spot) {
 export function SpotMap({
   current,
   customSpots,
-  geolocCenter,
+  userPosition,
+  flyToStamp,
   defaultCenter,
   onSelectSpot,
   onAddSpot,
@@ -183,6 +191,7 @@ export function SpotMap({
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<Map<string, L.CircleMarker>>(new Map());
   const arrowLayerRef = useRef<L.Marker | null>(null);
+  const userLayerRef = useRef<L.LayerGroup | null>(null);
   const onSelectRef = useRef(onSelectSpot);
   onSelectRef.current = onSelectSpot;
   const onAddRef = useRef(onAddSpot);
@@ -225,16 +234,25 @@ export function SpotMap({
     }
   }, [resolvedTheme]);
 
-  // Geolocation arrives async after init. When it lands AND the user has no
-  // active spot yet (typical first-visit case), smoothly fly to it so the map
-  // frames their region. If a spot is selected, the user has already chosen
-  // their focus — don't yank the viewport away.
+  // Draw the "you are here" dot whenever a fix is known.
   useEffect(() => {
     if (!mapRef.current) return;
-    if (!geolocCenter) return;
-    if (current) return;
-    mapRef.current.flyTo([geolocCenter.lat, geolocCenter.lon], 10, { duration: 1.2 });
-  }, [geolocCenter, current]);
+    syncUserPositionLayer(mapRef.current, userLayerRef, userPosition ?? null);
+  }, [userPosition]);
+
+  // Fly to the user only when the page asks for it (first visit with no
+  // saved spot, or an explicit tap on the locate button). Keying on the
+  // stamp rather than the coordinates means a second tap still recenters
+  // after the user has panned away, even though the fix is unchanged.
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (!flyToStamp || !userPosition) return;
+    mapRef.current.flyTo([userPosition.lat, userPosition.lon], 10, { duration: 1.2 });
+    // userPosition is intentionally not a dependency: the stamp is what
+    // expresses "a move was requested", and a fresh fix alone must not
+    // steal the viewport.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flyToStamp]);
 
   // Init map once
   useEffect(() => {
@@ -242,8 +260,8 @@ export function SpotMap({
 
     const initialCenter: [number, number] = current
       ? [current.latitude, current.longitude]
-      : geolocCenter
-        ? [geolocCenter.lat, geolocCenter.lon]
+      : userPosition
+        ? [userPosition.lat, userPosition.lon]
         : defaultCenter
           ? [defaultCenter.lat, defaultCenter.lon]
           : [43.3, 5.35];
@@ -251,7 +269,7 @@ export function SpotMap({
     // (typical first-visit + denied case), open wide enough to show OpenWind's
     // full scope — Atlantic + Mediterranean French coast — so the user
     // understands the geographic reach before zooming into their region.
-    const initialZoom = current || geolocCenter ? 10 : 6;
+    const initialZoom = current || userPosition ? 10 : 6;
     const map = L.map(containerRef.current, {
       zoomControl: false,
       attributionControl: false,

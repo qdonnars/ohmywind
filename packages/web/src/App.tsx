@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { nowParisHourPrefix } from "./utils/format";
 import type { Spot, ModelForecast, MarineHourly, MetricView } from "./types";
 import { fetchAllModels } from "./api/openmeteo";
@@ -17,6 +17,8 @@ import { MetricPills } from "./components/MetricPills";
 import { TideChart } from "./components/TideChart";
 import { SpotMap } from "./components/SpotMap";
 import { Onboarding } from "./components/Onboarding";
+import { LocateButton } from "./components/LocateButton";
+import { useGeolocation } from "./hooks/useGeolocation";
 
 const DEFAULT_MAP_CENTER: { lat: number; lon: number } = { lat: 43.3, lon: 5.35 };
 
@@ -53,7 +55,17 @@ function App() {
   // to drop their first one. Returning users with saved spots resume on
   // their first favorite.
   const [spot, setSpot] = useState<Spot | null>(() => customSpots[0] ?? null);
-  const [geolocCenter, setGeolocCenter] = useState<{ lat: number; lon: number } | null>(null);
+  const { position: userPosition, status: geolocStatus, locate } = useGeolocation();
+  // Which fix the map is allowed to fly to. Set only on an explicit request
+  // (first visit, or a tap on the locate button) so an incoming fix never
+  // steals the viewport on its own.
+  const [flyToStamp, setFlyToStamp] = useState<number | null>(null);
+  // Read inside the mount-time geolocation callback, which must not re-run
+  // when the spot changes.
+  const spotRef = useRef<Spot | null>(spot);
+  useEffect(() => {
+    spotRef.current = spot;
+  }, [spot]);
   const [forecasts, setForecasts] = useState<ModelForecast[]>([]);
   const [marine, setMarine] = useState<MarineHourly | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -101,21 +113,25 @@ function App() {
   // spot. That way the canvas frames their region but stays empty (no
   // arrows, no forecasts) until they actively drop their first spot.
   // Denied / error → silent, the SpotMap falls back to its default center.
+  // High accuracy is off here: framing a region needs a city-level fix, and
+  // waking the GPS unprompted on a first visit is a poor trade.
   useEffect(() => {
     if (customSpots.length > 0) return;
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setGeolocCenter({ lat: pos.coords.latitude, lon: pos.coords.longitude });
-      },
-      () => {
-        /* permission denied or unavailable — keep SpotMap default center */
-      },
-      { timeout: 8000, maximumAge: 5 * 60 * 1000 },
-    );
+    locate({ enableHighAccuracy: false, maximumAge: 5 * 60 * 1000 }).then((fix) => {
+      // A spot picked while the fix was in flight means the user already
+      // chose their focus — leave the viewport alone.
+      if (fix && !spotRef.current) setFlyToStamp(fix.stamp);
+    });
   // Run once on mount; the customSpots check covers the returning-user case.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Explicit "centre sur moi": always honor it, spot selected or not.
+  const handleLocate = useCallback(() => {
+    locate().then((fix) => {
+      if (fix) setFlyToStamp(fix.stamp);
+    });
+  }, [locate]);
 
   // If the active view's data becomes irrelevant for the new spot (e.g. moving
   // from Atlantic to Med drops Tides/Currents below threshold), fall back to Wind.
@@ -145,7 +161,8 @@ function App() {
         <SpotMap
           current={spot}
           customSpots={customSpots}
-          geolocCenter={geolocCenter}
+          userPosition={userPosition}
+          flyToStamp={flyToStamp}
           defaultCenter={DEFAULT_MAP_CENTER}
           onSelectSpot={setSpot}
           onAddSpot={(s) => { addSpot(s); setSpot(s); }}
@@ -169,6 +186,10 @@ function App() {
         >
           <img src="/compass.png" alt="" width="88" height="88" className="select-none" draggable={false} />
         </a>
+
+        {/* Locate FAB — top right, opposite the compass, clear of the
+            bottom data overlay. */}
+        <LocateButton status={geolocStatus} onClick={handleLocate} className="top-3 right-3" />
 
         {/* Bottom overlay: pills (fixed at top of overlay) + scrollable table
             below. Pills sit in a ``shrink-0`` band so vertical scroll inside

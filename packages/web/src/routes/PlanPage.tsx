@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 import { parsePlanUrl, isParsedOk, buildPlanUrl } from "../plan/parseUrl";
 import { PlanMap, type PlanMapHandle } from "../plan/PlanMap";
 import { PlanSidebar } from "../plan/PlanSidebar";
@@ -20,6 +20,8 @@ import { type TimeAnchor } from "../plan/ModeToggle";
 import { computeLegSegmentRanges } from "../plan/aggregateLegs";
 import { activeModels, loadModelConfig } from "../config/modelConfig";
 import { effectivePolar, isPolarCustomized, loadPolarConfig, polarFingerprint } from "../config/polarConfig";
+import { LocateButton } from "../components/LocateButton";
+import { useGeolocation } from "../hooks/useGeolocation";
 
 // Build the plan-time overrides payload from current /config preferences.
 // Read at request time (not at mount) so a /config tweak takes effect on the
@@ -304,6 +306,15 @@ function ResizableDesktopSidebar({
 
 export function PlanPage() {
   const mapRef = useRef<PlanMapHandle>(null);
+
+  const { position: userPosition, status: geolocStatus, locate } = useGeolocation();
+  // On /plan the user is building a route, so a locate request is always
+  // explicit: no first-visit auto-centering here.
+  const handleLocate = useCallback(() => {
+    locate().then((fix) => {
+      if (fix) mapRef.current?.recenter(fix.lat, fix.lon);
+    });
+  }, [locate]);
   const drawerRef = useRef<DrawerHandle>(null);
   const initialParsed = parsePlanUrl(window.location.search);
 
@@ -799,6 +810,7 @@ export function PlanPage() {
             onWptDelete={handleWptDelete}
             onMapClick={handleMapClick}
             initialCenter={isParsedOk(initialParsed) ? initialParsed.center : null}
+            userPosition={userPosition}
             highlightedSegmentRange={
               selectedLegIdx != null && passage
                 ? computeLegSegmentRanges(passage.segments as { start: { lat: number; lon: number } }[], waypoints)[selectedLegIdx] ?? null
@@ -814,6 +826,9 @@ export function PlanPage() {
           >
             <img src="/wind-icon.png" alt="" width="88" height="88" className="select-none" draggable={false} />
           </a>
+          {/* Locate FAB — top right, clear of the bottom-right zoom control
+              and of the mobile hero stats overlay. */}
+          <LocateButton status={geolocStatus} onClick={handleLocate} className="top-3 right-3" />
           {/* Hint overlay while building the route */}
           {waypoints.length < 2 && (
             <div className="absolute inset-x-4 bottom-4 z-[400] flex justify-center pointer-events-none">
