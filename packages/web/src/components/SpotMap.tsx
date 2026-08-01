@@ -157,8 +157,15 @@ interface SpotMapProps {
   // separate from `userPosition` so the map draws the dot without deciding
   // when the viewport may be taken over: that policy lives in the page.
   flyToStamp?: number | null;
+  /** Fired when the user finishes panning or zooming. Feeds the search
+      proximity bias: where someone is looking is a statement of intent. */
+  onCenterChange?: (center: { lat: number; lon: number }) => void;
   defaultCenter?: { lat: number; lon: number };
   onSelectSpot: (spot: Spot) => void;
+  /** Plain tap or left click on the water: show the forecast there without
+      saving anything. Looking up conditions at a point should not oblige
+      the user to commit it to their favourites. */
+  onPreviewSpot?: (lat: number, lon: number) => void;
   onAddSpot: (spot: Spot) => void;
   onRemoveSpot: (spot: Spot) => void;
   onRenameSpot: (spot: Spot, name: string) => void;
@@ -177,8 +184,10 @@ export function SpotMap({
   customSpots,
   userPosition,
   flyToStamp,
+  onCenterChange,
   defaultCenter,
   onSelectSpot,
+  onPreviewSpot,
   onAddSpot,
   onRemoveSpot,
   onRenameSpot,
@@ -192,8 +201,21 @@ export function SpotMap({
   const markersRef = useRef<Map<string, L.CircleMarker>>(new Map());
   const arrowLayerRef = useRef<L.Marker | null>(null);
   const userLayerRef = useRef<L.LayerGroup | null>(null);
+  const previewLayerRef = useRef<L.CircleMarker | null>(null);
+  const onCenterChangeRef = useRef(onCenterChange);
+  useEffect(() => {
+    onCenterChangeRef.current = onCenterChange;
+  }, [onCenterChange]);
   const onSelectRef = useRef(onSelectSpot);
   onSelectRef.current = onSelectSpot;
+  const onPreviewRef = useRef(onPreviewSpot);
+  useEffect(() => {
+    onPreviewRef.current = onPreviewSpot;
+  }, [onPreviewSpot]);
+  /** A long press ends with a pointerup, which the browser follows with a
+      click. Without this the press that opened the "new spot" dialog would
+      also drop a preview underneath it. */
+  const suppressClickRef = useRef(false);
   const onAddRef = useRef(onAddSpot);
   onAddRef.current = onAddSpot;
   const onRemoveRef = useRef(onRemoveSpot);
@@ -233,6 +255,31 @@ export function SpotMap({
       tileLayerRef.current.setUrl(url);
     }
   }, [resolvedTheme]);
+
+  // A previewed point is not in customSpots, so the saved-spot markers never
+  // draw it. Without its own marker the panel would switch to a location the
+  // map does not show. Dashed and hollow, to read as provisional next to the
+  // solid saved spots.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    previewLayerRef.current?.remove();
+    previewLayerRef.current = null;
+    if (!current) return;
+    const saved = customSpots.some(
+      (s) => s.latitude === current.latitude && s.longitude === current.longitude,
+    );
+    if (saved) return;
+    previewLayerRef.current = L.circleMarker([current.latitude, current.longitude], {
+      radius: 9,
+      color: "#2dd4bf",
+      weight: 2.5,
+      dashArray: "4 3",
+      fillColor: "#2dd4bf",
+      fillOpacity: 0.25,
+      interactive: false,
+    }).addTo(map);
+  }, [current, customSpots]);
 
   // Draw the "you are here" dot whenever a fix is known.
   useEffect(() => {
@@ -291,6 +338,26 @@ export function SpotMap({
 
     mapRef.current = map;
 
+    // Plain click on the map background → preview the forecast there. Marker
+    // clicks never reach this handler: Leaflet paths default to
+    // bubblingMouseEvents: false, so selecting a saved spot stays distinct
+    // from previewing open water.
+    map.on("click", (e: L.LeafletMouseEvent) => {
+      if (suppressClickRef.current) {
+        suppressClickRef.current = false;
+        return;
+      }
+      onPreviewRef.current?.(e.latlng.lat, e.latlng.lng);
+    });
+
+    // Report the viewport once settled. `moveend` fires per gesture, not per
+    // frame, and the consumer rounds before storing, so panning does not
+    // churn React state.
+    map.on("moveend", () => {
+      const c = map.getCenter();
+      onCenterChangeRef.current?.({ lat: c.lat, lon: c.lng });
+    });
+
     // Long press detection via Pointer Events (covers mouse + touch, one event stream)
     const el = containerRef.current!;
     let startX = 0;
@@ -316,6 +383,7 @@ export function SpotMap({
       const editSpot = elementToSpotRef.current.get(target);
       if (editSpot) {
         pressTimerRef.current = setTimeout(() => {
+          suppressClickRef.current = true;
           setPendingEditRef.current(editSpot);
         }, 400);
         return;
@@ -327,6 +395,7 @@ export function SpotMap({
 
       // Press on the map background → add new spot
       pressTimerRef.current = setTimeout(async () => {
+        suppressClickRef.current = true;
         const rect = el.getBoundingClientRect();
         const point = L.point(startX - rect.left, startY - rect.top);
         const latlng = map.containerPointToLatLng(point);
@@ -338,6 +407,12 @@ export function SpotMap({
     const handlePointerUp = () => {
       activePointers = Math.max(0, activePointers - 1);
       cancelPress();
+      // The click that follows this pointerup runs first; clearing on the
+      // next tick means one press swallows exactly one click, and a later
+      // tap on the map is honoured normally.
+      setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 0);
     };
 
     const handlePointerMove = (e: PointerEvent) => {
