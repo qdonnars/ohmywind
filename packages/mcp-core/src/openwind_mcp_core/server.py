@@ -37,6 +37,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 from openwind_data.adapters.base import MarineDataAdapter
 from openwind_data.adapters.openmeteo import AUTO_MODEL, OpenMeteoAdapter
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
@@ -61,14 +62,6 @@ from openwind_data.routing import (
     score_complexity as _score_complexity,
 )
 
-from .feedback import (
-    FeedbackCategory,
-    FeedbackSeverity,
-    FeedbackSink,
-    FeedbackToolName,
-    build_feedback_entry,
-    stderr_sink,
-)
 from .render import WEB_BASE, WEB_HOST, build_ohmywind_url
 
 # MCP Apps UI resource URI for plan_passage. The host fetches this resource
@@ -537,7 +530,6 @@ def _build_window_dict(
 def build_server(
     *,
     adapter: MarineDataAdapter | None = None,
-    feedback_sink: FeedbackSink | None = None,
 ) -> FastMCP:
     """Build a FastMCP server with all OhMyWind tools registered.
 
@@ -550,13 +542,7 @@ def build_server(
             ``MARC_ATLAS_DIR``. Either or both can be absent; the cascade
             degrades gracefully (SHOM > MARC > SMOC). Override the whole
             adapter in tests.
-        feedback_sink: optional callable invoked by the ``feedback`` tool
-            with the normalized entry dict. ``mcp-core`` stays cloud-agnostic
-            (no ``huggingface_hub`` import); the HF Spaces wrapper plugs in
-            a ``CommitScheduler``-backed sink that pushes to a private
-            dataset. Defaults to ``stderr_sink`` for local dev.
     """
-    sink: FeedbackSink = feedback_sink or stderr_sink
     # ``stateless_http=True`` disables the in-memory session table that
     # otherwise tracks an ``mcp-session-id`` per client across requests.
     # All OhMyWind tools are idempotent point-in-time fetches with no
@@ -637,7 +623,13 @@ def build_server(
         # would hand the tester a link to production.
         return _PLAN_WIDGET_HTML.replace("__WEB_BASE__", WEB_BASE).replace("__WEB_HOST__", WEB_HOST)
 
-    @server.tool()
+    @server.tool(
+        annotations=ToolAnnotations(
+            title="Calculation method",
+            readOnlyHint=True,
+            openWorldHint=False,
+        ),
+    )
     def read_me() -> str:
         """Return OhMyWind's calculation methodology as Markdown.
 
@@ -652,7 +644,13 @@ def build_server(
         """
         return _METHODOLOGY
 
-    @server.tool()
+    @server.tool(
+        annotations=ToolAnnotations(
+            title="Boat archetypes",
+            readOnlyHint=True,
+            openWorldHint=False,
+        ),
+    )
     def list_boat_archetypes() -> list[dict[str, Any]]:
         """List the 7 boat archetypes with descriptive metadata.
 
@@ -661,7 +659,13 @@ def build_server(
         """
         return [_archetype_summary(p) for p in list_archetypes()]
 
-    @server.tool()
+    @server.tool(
+        annotations=ToolAnnotations(
+            title="Marine forecast",
+            readOnlyHint=True,
+            openWorldHint=True,
+        ),
+    )
     async def get_marine_forecast(
         lat: float,
         lon: float,
@@ -680,13 +684,6 @@ def build_server(
 
         Note: the first request after inactivity may incur ~5s of cold-start.
 
-        ## Feedback channel
-
-        If the user asks you to send feedback to OhMyWind ("fais
-        remonter aux dev", "feedback", "signale ça", "remonte ça",
-        "tell them", "let the team know"), call the ``feedback`` tool.
-        Do NOT write a free-text reply about the feedback in chat: the
-        tool is the channel.
         """
         validate_point(lat, lon)
         start_dt = datetime.fromisoformat(start)
@@ -722,6 +719,11 @@ def build_server(
         }
 
     @server.tool(
+        annotations=ToolAnnotations(
+            title="Plan a passage",
+            readOnlyHint=True,
+            openWorldHint=True,
+        ),
         meta={"ui": {"resourceUri": PLAN_UI_RESOURCE_URI}},
     )
     async def plan_passage(
@@ -878,13 +880,6 @@ def build_server(
         cover the passage and ``model != "auto"``. The error message names the
         failing model and suggests longer-range alternatives.
 
-        ## Feedback channel
-
-        If the user asks you to send feedback to OhMyWind ("fais
-        remonter aux dev", "feedback", "signale ça", "remonte ça",
-        "tell them", "let the team know"), call the ``feedback`` tool.
-        Do NOT write a free-text reply about the feedback in chat: the
-        tool is the channel.
         """
         # Same guards, same wording as the REST layer. FastMCP turns any
         # exception raised in a tool into an isError result carrying str(exc),
@@ -996,104 +991,6 @@ def build_server(
             "passage": _passage_to_dict(report),
             "complexity": asdict(score),
             "openwind_url": build_ohmywind_url(waypoints, departure, archetype),
-        }
-
-    @server.tool()
-    def feedback(
-        category: FeedbackCategory,
-        tool_name: FeedbackToolName,
-        severity: FeedbackSeverity,
-        message: str,
-        context_json: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Log a structured note about an OhMyWind tool interaction.
-
-        ## Direct user trigger — call this immediately, no chat reply
-
-        When the user EXPLICITLY asks you to send feedback / file a
-        report / signal something to the OhMyWind team, call this tool
-        right away. Do NOT draft a free-text reply in chat asking the
-        user what they want to say: their phrasing IS the message.
-        Pass it (translated or summarised as needed) as the ``message``.
-
-        Trigger phrases (non-exhaustive, French + English):
-        ``"fais un feedback"``, ``"fais remonter aux dev"``,
-        ``"signale ça"``, ``"remonte ça"``, ``"file a feedback"``,
-        ``"send feedback"``, ``"tell them"``, ``"let the team know"``,
-        ``"fais un retour à OhMyWind"``.
-
-        ## Also call when
-
-        - A previous tool call returned an error you couldn't recover from,
-          or a result that contradicts what the user asked
-          (``category="wrong_result"``).
-        - A parameter description was unclear and you had to guess
-          (``category="unclear_param"``).
-        - You needed data that no current tool exposes
-          (``category="missing_data"`` — for example, official BMS
-          bulletins, port closures, fuel stops).
-        - The user explicitly asked for a feature that doesn't exist yet
-          (``category="feature_request"``).
-        - The user expresses dissatisfaction in chat ("c'est faux",
-          "ce n'est pas ce que je voulais") about an OhMyWind result.
-
-        ## Do NOT call this tool
-
-        - On routine successful calls. Silence is the right answer when
-          things work.
-        - As a chat acknowledgement. The user does not see your call.
-        - Multiple times for the same incident. One feedback per turn,
-          per distinct issue.
-        - For errors that are clearly the user's input fault (typo in a
-          city name, impossible date) — only call when the issue is on
-          OhMyWind's side or in the tool surface.
-
-        ## Args
-
-            category: nature of the feedback (see triggers above).
-            tool_name: which OhMyWind tool the feedback is about. Use
-                ``"general"`` for cross-cutting feedback, ``"feedback"``
-                for meta-feedback about this tool itself.
-            severity: ``"low"`` (nice-to-have, doesn't block the user),
-                ``"medium"`` (degrades the experience), ``"high"`` (broke
-                the user's workflow or returned a misleading result).
-            message: short free-text description, max ~2000 chars. Be
-                concrete: name the symptom, not the fix. Good: "passage
-                from Marseille to Calvi returned distance_nm=0 even
-                though waypoints are >100nm apart". Bad: "should fix
-                the distance bug".
-            context_json: optional dict with reproducer hints — the
-                input args you passed, the offending excerpt of the
-                response, the user's original phrasing. Capped at ~4000
-                chars after JSON serialisation.
-
-        ## Returns
-
-        ``{"feedback_id": <uuid hex>, "received_at": <iso8601>,
-        "ack": "thanks"}`` — never raises. If persistence fails on the
-        server side it is logged and ``ack`` reflects ``"buffered"``.
-        Do not surface the ack to the user; just continue the
-        conversation.
-        """
-        entry = build_feedback_entry(
-            category=category,
-            tool_name=tool_name,
-            severity=severity,
-            message=message,
-            context_json=context_json,
-        )
-        ack = "thanks"
-        try:
-            sink(entry)
-        except Exception as exc:
-            import logging as _logging
-
-            _logging.getLogger(__name__).warning("ohmywind.feedback sink failed: %s", exc)
-            ack = "buffered"
-        return {
-            "feedback_id": entry["feedback_id"],
-            "received_at": entry["received_at"],
-            "ack": ack,
         }
 
     return server

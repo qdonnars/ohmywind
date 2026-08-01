@@ -45,6 +45,39 @@ deep-link. No account. No API key. No credit card.
 > add it under **Connectors → Add connector → Custom MCP connector** and paste
 > the endpoint above.
 
+### If your client only speaks stdio
+
+Some hosts cannot reach a remote MCP server directly yet. Bridge it with
+[`mcp-remote`](https://www.npmjs.com/package/mcp-remote), which runs locally
+and forwards to the endpoint:
+
+```json
+{
+  "mcpServers": {
+    "ohmywind": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.ohmywind.fr/mcp"]
+    }
+  }
+}
+```
+
+Nothing else to configure: **no account, no API key, no OAuth, no credit
+card.** A client that asks you for credentials is guessing rather than reading
+the server, and you can leave those fields empty.
+
+### Ask it something real
+
+Three prompts, each exercising a different tool:
+
+- *"Quels bateaux tu connais ? J'ai un First 27."* maps your boat to a polar
+  archetype. The assistant chooses from the descriptions; there is no
+  server-side lookup table.
+- *"Le vent au cap Sicié samedi après-midi ?"* returns wind and sea at one
+  point, AROME first, in knots.
+- *"Meilleur créneau cette semaine pour Marseille → Porquerolles ?"* walks
+  every hourly departure up to 14 days out and compares them in one call.
+
 ## Why OhMyWind
 
 |                              |                                                                                              |

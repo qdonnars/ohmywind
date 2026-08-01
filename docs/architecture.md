@@ -23,9 +23,10 @@ on the server.
         │   ├── plan_passage    (single + compare-      │
         │   │                    windows mode; declares │
         │   │                    MCP Apps UI resource)  │
-        │   ├── read_me                                 │
-        │   └── feedback        (sink injected by the   │
-        │                        deployment wrapper)    │
+        │   └── read_me                                 │
+        │                                               │
+        │   All four are read-only. Nothing on the      │
+        │   public surface writes.                      │
         └────────────┬─────────────────────────────────┘
                      │ pure Python calls
         ┌────────────▼─────────────────────────────────┐
@@ -83,7 +84,7 @@ LLM produces the verdict.
 
 The wrapper does **not** use Gradio: it is a plain Starlette app served by
 uvicorn in a Docker Space. `huggingface_hub` appears only there, to pull the
-tidal atlas at build time and to push feedback.
+tidal atlas at build time.
 
 `build_server()` in `openwind_mcp_core.server` is the single factory used by:
 
