@@ -784,8 +784,13 @@ export function PlanPage() {
       className="h-screen flex flex-col overflow-hidden"
       style={{ background: "var(--ow-bg-0)", color: "var(--ow-fg-0)" }}
     >
+      {/* On the planner the route being drawn is the strongest statement of
+          where the user is working, so the first waypoint outranks the GPS
+          fix as the search reference. */}
       <Header
         onSelectSpot={(spot) => mapRef.current?.recenter(spot.latitude, spot.longitude)}
+        nearLat={waypoints[0]?.[0] ?? userPosition?.lat ?? null}
+        nearLon={waypoints[0]?.[1] ?? userPosition?.lon ?? null}
       />
       <RebrandBanner />
 
@@ -826,9 +831,11 @@ export function PlanPage() {
           >
             <img src="/wind-icon.png" alt="" width="88" height="88" className="select-none" draggable={false} />
           </a>
-          {/* Locate FAB — top right, clear of the bottom-right zoom control
-              and of the mobile hero stats overlay. */}
-          <LocateButton status={geolocStatus} onClick={handleLocate} className="top-3 right-3" />
+          {/* Locate FAB — bottom right of the map container, which shrinks as
+              the mobile drawer is dragged up, so the button follows it. The
+              80 px offset clears both the Leaflet zoom control and the mobile
+              hero stats, which share that corner. */}
+          <LocateButton status={geolocStatus} onClick={handleLocate} className="bottom-20 right-3" />
           {/* Hint overlay while building the route */}
           {waypoints.length < 2 && (
             <div className="absolute inset-x-4 bottom-4 z-[400] flex justify-center pointer-events-none">
