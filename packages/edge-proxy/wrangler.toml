@@ -1,0 +1,12 @@
+name = "ohmywind-mcp-proxy"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+# Both public hostnames hit the same script; the origin is picked from the
+# incoming Host in src/index.js. The DNS records they need are AAAA 100::,
+# proxied (orange cloud): the address is a discard prefix, only there to give
+# Cloudflare something to attach the route to.
+routes = [
+  { pattern = "mcp.ohmywind.fr/*", zone_name = "ohmywind.fr" },
+  { pattern = "mcp-dev.ohmywind.fr/*", zone_name = "ohmywind.fr" },
+]

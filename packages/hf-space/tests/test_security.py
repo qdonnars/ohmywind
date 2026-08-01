@@ -234,12 +234,31 @@ def test_cors_is_deliberately_open(client) -> None:
 def test_security_headers_present(client) -> None:
     resp = client.get("/api/v1/archetypes")
     assert resp.headers["x-content-type-options"] == "nosniff"
-    assert resp.headers["x-frame-options"] == "DENY"
     assert resp.headers["referrer-policy"] == "strict-origin-when-cross-origin"
+    assert "frame-ancestors" in resp.headers["content-security-policy"]
 
 
 def test_security_headers_on_the_landing_page(client) -> None:
     assert client.get("/").headers["x-content-type-options"] == "nosniff"
+
+
+def test_the_hf_space_page_can_still_frame_the_landing_page(client) -> None:
+    """Regression guard for the outage of 2026-08-01.
+
+    A Space's page on huggingface.co renders the app in an iframe pointing at
+    <slug>.hf.space. Shipping `X-Frame-Options: DENY` blanked the project's
+    own landing page on the HF catalogue. If this ever tightens back to a
+    blanket deny, that page breaks again with no error anywhere in our logs.
+    """
+    csp = client.get("/").headers["content-security-policy"]
+    assert "https://huggingface.co" in csp
+    assert "'none'" not in csp
+
+
+def test_x_frame_options_is_not_sent(client) -> None:
+    # frame-ancestors is the single source of truth. Sending both risks a
+    # browser honouring the stricter X-Frame-Options and re-breaking framing.
+    assert "x-frame-options" not in client.get("/").headers
 
 
 def test_rate_limit_triggers_on_repeated_posts(monkeypatch) -> None:
@@ -393,3 +412,87 @@ def test_client_debug_route_reports_hops_without_leaking_the_address(client) -> 
     # bucket; the whole point of the route is to make that visible.
     assert "203.0.113.7" not in resp.text
     assert "9.9.9.9" not in resp.text
+
+
+# --------------------------------------------------- edge proxy attestation
+
+
+def _edge_scope(secret: str | None, xff: str) -> dict:
+    headers = {"x-forwarded-for": xff}
+    if secret is not None:
+        headers["x-ohmywind-edge"] = secret
+    return _scope(**headers)
+
+
+def test_direct_caller_cannot_buy_extra_hops(monkeypatch) -> None:
+    """The live bypass of 2026-08-01, as a test.
+
+    With TRUSTED_PROXY_HOPS=2 and no attestation, a caller reaching the Space
+    directly could send any X-Forwarded-For and land on `<forged>, <real>`,
+    where counting two from the right reads the forged entry. One header, one
+    fresh rate-limit bucket per request.
+    """
+    monkeypatch.setattr(security, "EDGE_SECRET", "s3cret")
+    monkeypatch.setattr(security, "TRUSTED_PROXY_HOPS", 2)
+
+    keys = {
+        security.resolve_client_ip(_edge_scope(None, f"{spoof}, 203.0.113.7"))
+        for spoof in ("1.1.1.1", "2.2.2.2", "3.3.3.3")
+    }
+    assert keys == {"203.0.113.7"}
+
+
+def test_edge_traffic_still_reads_the_real_client(monkeypatch) -> None:
+    monkeypatch.setattr(security, "EDGE_SECRET", "s3cret")
+    monkeypatch.setattr(security, "TRUSTED_PROXY_HOPS", 2)
+    scope = _edge_scope("s3cret", "203.0.113.7, 10.0.0.9")
+    assert security.resolve_client_ip(scope) == "203.0.113.7"
+
+
+def test_wrong_secret_is_treated_as_direct(monkeypatch) -> None:
+    monkeypatch.setattr(security, "EDGE_SECRET", "s3cret")
+    monkeypatch.setattr(security, "TRUSTED_PROXY_HOPS", 2)
+    scope = _edge_scope("not-the-secret", "1.1.1.1, 203.0.113.7")
+    assert security.resolve_client_ip(scope) == "203.0.113.7"
+    assert security.came_through_edge(scope) is False
+
+
+def test_unconfigured_secret_never_attests(monkeypatch) -> None:
+    monkeypatch.setattr(security, "EDGE_SECRET", "")
+    assert security.came_through_edge(_edge_scope("anything", "1.1.1.1")) is False
+
+
+def test_unconfigured_secret_fails_open(monkeypatch) -> None:
+    """A rate limiter is an availability control, so it fails open.
+
+    Failing closed would key every proxied request on the edge's egress
+    address, collapsing all users into one bucket: an outage, traded for a
+    hardening gap. The startup warning covers the gap instead.
+    """
+    monkeypatch.setattr(security, "EDGE_SECRET", "")
+    monkeypatch.setattr(security, "TRUSTED_PROXY_HOPS", 2)
+    assert security.trusted_hops_for(_edge_scope(None, "1.1.1.1, 2.2.2.2")) == 2
+
+
+def test_startup_warns_when_hops_are_trusted_without_proof(monkeypatch, caplog) -> None:
+    monkeypatch.setattr(security, "EDGE_SECRET", "")
+    monkeypatch.setattr(security, "TRUSTED_PROXY_HOPS", 2)
+    with caplog.at_level("WARNING"):
+        security.warn_if_edge_secret_missing()
+    assert "OPENWIND_EDGE_SECRET" in caplog.text
+
+
+def test_no_warning_when_correctly_configured(monkeypatch, caplog) -> None:
+    monkeypatch.setattr(security, "EDGE_SECRET", "s3cret")
+    monkeypatch.setattr(security, "TRUSTED_PROXY_HOPS", 2)
+    with caplog.at_level("WARNING"):
+        security.warn_if_edge_secret_missing()
+    assert caplog.text == ""
+
+
+def test_single_hop_deployment_is_unaffected(monkeypatch) -> None:
+    # Default posture: no proxy in front, nothing to attest, rightmost wins.
+    monkeypatch.setattr(security, "EDGE_SECRET", "")
+    monkeypatch.setattr(security, "TRUSTED_PROXY_HOPS", 1)
+    scope = _edge_scope(None, "1.1.1.1, 203.0.113.7")
+    assert security.resolve_client_ip(scope) == "203.0.113.7"

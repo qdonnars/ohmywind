@@ -28,7 +28,7 @@ from typing import Any
 import httpx
 import uvicorn
 from mcp.server.transport_security import TransportSecuritySettings
-from openwind_data.adapters.base import ForecastHorizonError
+from openwind_data.adapters.base import ForecastHorizonError, UpstreamRateLimitError
 from openwind_data.adapters.cache_backed import CacheBackedAdapter
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
@@ -56,7 +56,10 @@ from security import (
     RateLimitMiddleware,
     SecurityHeadersMiddleware,
     bucket_id,
+    came_through_edge,
     forwarded_hop_count,
+    trusted_hops_for,
+    warn_if_edge_secret_missing,
 )
 
 _logger = logging.getLogger(__name__)
@@ -70,7 +73,10 @@ PORT = 7860
 # ``proxy_headers``, so we extend the allowed-hosts list to include the
 # Space hostname (overridable via env for future custom domains / migrations).
 DEFAULT_ALLOWED_HOSTS = [
+    # The Host the Worker presents upstream, and the public one a direct
+    # caller sends. Both must pass or one of the two paths 421s.
     "qdonnars-openwind-mcp.hf.space",
+    "mcp.ohmywind.fr",
 ]
 ALLOWED_HOSTS = [
     h.strip()
@@ -199,7 +205,7 @@ LANDING_HTML = """<!doctype html>
       <li>Scroll to the bottom and click <strong>Add custom connector</strong>.</li>
       <li>Set <strong>Name</strong>: <code>OhMyWind</code>.</li>
       <li>Paste this in <strong>Remote MCP server URL</strong>:
-        <pre><code>https://qdonnars-openwind-mcp.hf.space/mcp</code></pre></li>
+        <pre><code>https://mcp.ohmywind.fr/mcp</code></pre></li>
       <li>Click <strong>Add</strong>. In any new chat, OhMyWind shows up in the
         <strong>Search and tools</strong> menu — toggle it on.</li>
     </ol>
@@ -215,7 +221,7 @@ LANDING_HTML = """<!doctype html>
         then click <strong>Add MCP server</strong>.</li>
       <li>Set <strong>Name</strong>: <code>OhMyWind</code> &middot; <strong>Auth</strong>: <code>None</code>.</li>
       <li>Paste this in <strong>URL</strong>:
-        <pre><code>https://qdonnars-openwind-mcp.hf.space/mcp</code></pre></li>
+        <pre><code>https://mcp.ohmywind.fr/mcp</code></pre></li>
       <li>Save, then enable the OhMyWind toggle inside any conversation.</li>
       <li>Le Chat doesn&rsquo;t (yet) support the MCP Apps spec, so the
         widget won&rsquo;t render inline &mdash; the assistant will hand you
@@ -232,7 +238,7 @@ LANDING_HTML = """<!doctype html>
       <li>Back in <strong>Connectors</strong>, click <strong>Create</strong>.</li>
       <li>Set <strong>Name</strong>: <code>OhMyWind</code> · <strong>Authentication</strong>: <code>No authentication</code>.</li>
       <li>Paste this in <strong>MCP server URL</strong>:
-        <pre><code>https://qdonnars-openwind-mcp.hf.space/mcp</code></pre></li>
+        <pre><code>https://mcp.ohmywind.fr/mcp</code></pre></li>
       <li>Trust the connector and save. Activate it in a chat via
         <strong>+ → Developer connectors → OhMyWind</strong>.</li>
     </ol>
@@ -482,7 +488,13 @@ async def _api_client_debug(request: Request) -> JSONResponse:
         {
             "bucket": bucket_id(request.scope),
             "forwarded_hops": forwarded_hop_count(request.scope),
+            # What the deployment is configured for, versus what this request
+            # actually earned. They diverge when the caller reached the Space
+            # directly instead of through the edge proxy, which is exactly the
+            # case that must not get the longer hop count.
             "trusted_hops": TRUSTED_PROXY_HOPS,
+            "hops_applied": trusted_hops_for(request.scope),
+            "via_edge": came_through_edge(request.scope),
         },
         headers={"Cache-Control": "no-store"},
     )
@@ -584,6 +596,8 @@ async def _api_passage(request: Request) -> JSONResponse:
                 {"error": "upstream weather service did not respond in time"},
                 status_code=503,
             )
+        except UpstreamRateLimitError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=503)
 
         # Sweep is partial-tolerant: estimate_passage_windows skips windows
         # that hit ForecastHorizonError. Compute the expected count to surface
@@ -681,6 +695,8 @@ async def _api_passage(request: Request) -> JSONResponse:
             {"error": "upstream weather service did not respond in time"},
             status_code=503,
         )
+    except UpstreamRateLimitError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=503)
 
     complexity = score_complexity(passage)
 
@@ -773,6 +789,8 @@ async def _api_passage_by_eta(request: Request) -> JSONResponse:
             {"error": "upstream weather service did not respond in time"},
             status_code=503,
         )
+    except UpstreamRateLimitError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=503)
 
     complexity = score_complexity(plan.report)
 
@@ -830,14 +848,14 @@ def _build_feedback_scheduler() -> Any | None:
     """
     if not _FEEDBACK_REPO:
         _logger.info(
-            "openwind.feedback: OPENWIND_FEEDBACK_DATASET_REPO unset, "
+            "ohmywind.feedback: OPENWIND_FEEDBACK_DATASET_REPO unset, "
             "feedback will only log to stderr"
         )
         return None
     token = os.environ.get("HF_TOKEN_FEEDBACK") or os.environ.get("HF_TOKEN")
     if not token:
         _logger.warning(
-            "openwind.feedback: HF_TOKEN_FEEDBACK / HF_TOKEN unset, "
+            "ohmywind.feedback: HF_TOKEN_FEEDBACK / HF_TOKEN unset, "
             "cannot push to %s — feedback will only log to stderr",
             _FEEDBACK_REPO,
         )
@@ -856,13 +874,13 @@ def _build_feedback_scheduler() -> Any | None:
             token=token,
         )
         _logger.info(
-            "openwind.feedback: CommitScheduler attached to %s (every=%d min)",
+            "ohmywind.feedback: CommitScheduler attached to %s (every=%d min)",
             _FEEDBACK_REPO,
             _FEEDBACK_EVERY_MIN,
         )
         return scheduler
     except Exception as exc:
-        _logger.warning("openwind.feedback: scheduler init failed: %s", exc)
+        _logger.warning("ohmywind.feedback: scheduler init failed: %s", exc)
         return None
 
 
@@ -875,7 +893,7 @@ def _hf_feedback_sink(entry: dict[str, Any]) -> None:
     append-only contract that CommitScheduler requires.
     """
     if _feedback_scheduler is None:
-        _logger.info("openwind.feedback (no sink): %s", entry)
+        _logger.info("ohmywind.feedback (no sink): %s", entry)
         return
     with _feedback_scheduler.lock:
         with _FEEDBACK_FILE.open("a", encoding="utf-8") as f:
@@ -1063,6 +1081,8 @@ def build_app(mcp_app: Any) -> Starlette:
 
 def main() -> None:
     global _feedback_scheduler
+    logging.basicConfig(level=logging.INFO)
+    warn_if_edge_secret_missing()
     _feedback_scheduler = _build_feedback_scheduler()
     server = build_server(feedback_sink=_hf_feedback_sink)
     server.settings.transport_security = TransportSecuritySettings(

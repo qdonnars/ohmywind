@@ -1,0 +1,100 @@
+name: CI
+
+# Until this workflow existed, the only automation in the repo mirrored code
+# to the Hugging Face Space. Nothing ran the test suites, so any push to main
+# could break the Space with no signal at all.
+#
+# `workflow_call` is what lets sync-hf-space.yml depend on this run instead of
+# duplicating the steps: the Space is only updated once the suites are green.
+on:
+  pull_request:
+  push:
+    branches: [main, dev]
+  workflow_call:
+
+# A branch pushed twice in a row only needs its latest state verified.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python (data-adapters, mcp-core, hf-space)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Pinned to an exact version: setup-uv only publishes a floating major
+      # tag up to v7, so `@v9` does not resolve at all.
+      - name: Install uv
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+
+      # Each package is its own uv project with its own lockfile, so they are
+      # synced and run separately rather than from a workspace root.
+      # `--frozen` makes a stale lockfile a failure instead of a silent
+      # resolution, which is the whole point of committing them.
+      - name: Sync data-adapters
+        working-directory: packages/data-adapters
+        run: uv sync --extra dev --frozen
+
+      - name: Sync mcp-core
+        working-directory: packages/mcp-core
+        run: uv sync --extra dev --frozen
+
+      - name: Sync hf-space
+        working-directory: packages/hf-space
+        run: uv sync --extra dev --frozen
+
+      - name: Lint
+        run: |
+          uvx ruff check packages/data-adapters packages/mcp-core packages/hf-space
+          uvx ruff format --check packages/data-adapters packages/mcp-core packages/hf-space
+
+      - name: Test data-adapters
+        working-directory: packages/data-adapters
+        run: uv run pytest -q
+
+      - name: Test mcp-core
+        working-directory: packages/mcp-core
+        run: uv run pytest -q
+
+      - name: Test hf-space
+        working-directory: packages/hf-space
+        run: uv run pytest -q
+
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      # npm workspaces hoist to the repository root, so the install happens
+      # there while the scripts run from the package.
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: packages/web
+        run: npm run typecheck
+
+      - name: Lint budget
+        working-directory: packages/web
+        run: npm run lint:budget
+
+      - name: Test
+        working-directory: packages/web
+        run: npm run test
+
+      # The build is a test in its own right here: the prod bundle orders CSS
+      # differently from the dev server, which has already shipped a visual
+      # regression that only appeared once built.
+      - name: Build
+        working-directory: packages/web
+        run: npm run build

@@ -65,6 +65,29 @@ class ForecastHorizonError(RuntimeError):
         )
 
 
+class UpstreamRateLimitError(RuntimeError):
+    """Raised when Open-Meteo answers 429.
+
+    Distinct from *our own* rate limiter, which protects this service from its
+    callers. This one means the weather API is refusing *us*, and the caller
+    can do nothing beyond waiting. Conflating the two produces the worst
+    possible message: telling users to slow down when the bottleneck is
+    upstream and unrelated to anything they did.
+
+    Open-Meteo counts against the caller's IP rather than an account, so on
+    shared egress (Hugging Face Spaces, cloud NAT) the quota can be consumed
+    by an unrelated tenant. That is why ``reason`` is surfaced verbatim: it
+    names which counter tripped, which is the only way to tell "wait a moment"
+    apart from "this address is done for the day".
+    """
+
+    def __init__(self, reason: str = "", retry_after_s: float | None = None) -> None:
+        self.reason = reason
+        self.retry_after_s = retry_after_s
+        detail = f" ({reason})" if reason else ""
+        super().__init__(f"upstream weather service rate limit reached{detail}")
+
+
 @dataclass(frozen=True, slots=True)
 class WindPoint:
     time: datetime

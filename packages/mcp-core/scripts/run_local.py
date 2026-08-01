@@ -4,7 +4,7 @@ Usage (in claude_desktop_config.json):
 
     {
       "mcpServers": {
-        "openwind": {
+        "ohmywind": {
           "command": "uv",
           "args": ["--directory", "/abs/path/to/packages/mcp-core",
                    "run", "python", "scripts/run_local.py"]

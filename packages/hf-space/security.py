@@ -14,6 +14,8 @@ Space can diverge without a code change.
 from __future__ import annotations
 
 import hashlib
+import hmac
+import logging
 import math
 import os
 import time
@@ -22,6 +24,8 @@ from collections.abc import Iterable
 
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+_logger = logging.getLogger(__name__)
 
 # --------------------------------------------------------------------- CORS
 
@@ -76,13 +80,71 @@ ALLOWED_ORIGINS = ["*"]
 # stacked ahead of HF (each extra hop shifts the real client one place left).
 TRUSTED_PROXY_HOPS = max(1, int(os.environ.get("OPENWIND_TRUSTED_PROXY_HOPS", "1")))
 
+# Counting from the right is only safe while the chain length is what we think
+# it is. The Cloudflare Worker in ``packages/edge-proxy`` rewrites
+# X-Forwarded-For to the address Cloudflare vouches for, which is what pins
+# TRUSTED_PROXY_HOPS to 2 in production.
+#
+# But the Space stays directly reachable on its ``*.hf.space`` hostname, and
+# that path bypasses the Worker's sanitising. With hops=2 and a hand-written
+# ``X-Forwarded-For``, the chain becomes ``<forged>, <real>`` and the app reads
+# the forged entry — a fresh rate-limit bucket per request, measured live on
+# 2026-08-01.
+#
+# So the hop count is not a property of the deployment, it is a property of
+# each request: only traffic carrying the shared secret the Worker injects has
+# earned the extra hop. Everything else is treated as direct, where the
+# rightmost entry is the one HF appended and cannot be forged.
+EDGE_SECRET = os.environ.get("OPENWIND_EDGE_SECRET", "")
+_EDGE_HEADER = b"x-ohmywind-edge"
 
-def resolve_client_ip(scope: Scope, *, hops: int = TRUSTED_PROXY_HOPS) -> str:
+
+def came_through_edge(scope: Scope) -> bool:
+    """True when this request carries our edge proxy's shared secret."""
+    if not EDGE_SECRET:
+        return False
+    for name, value in scope.get("headers", ()):
+        if name == _EDGE_HEADER:
+            return hmac.compare_digest(value.decode("latin-1"), EDGE_SECRET)
+    return False
+
+
+def trusted_hops_for(scope: Scope) -> int:
+    """How many proxy hops to trust for this particular request."""
+    if not EDGE_SECRET:
+        # Unconfigured: keep the deployment-wide setting. A rate limiter is an
+        # availability control, and the convention for those is to fail open.
+        # Failing closed here would mean every request behind the proxy keys on
+        # Cloudflare's egress address, collapsing all users into one bucket:
+        # that turns a hardening gap into an outage. The startup warning below
+        # makes the gap loud instead of silent.
+        return TRUSTED_PROXY_HOPS
+    return TRUSTED_PROXY_HOPS if came_through_edge(scope) else 1
+
+
+def warn_if_edge_secret_missing() -> None:
+    """Log once at startup when the hop count is trusted without proof."""
+    if TRUSTED_PROXY_HOPS > 1 and not EDGE_SECRET:
+        _logger.warning(
+            "OPENWIND_TRUSTED_PROXY_HOPS=%d but OPENWIND_EDGE_SECRET is unset: "
+            "the rate-limit key can be forged by calling this host directly "
+            "with an X-Forwarded-For header. Set the secret on both this "
+            "deployment and the edge proxy.",
+            TRUSTED_PROXY_HOPS,
+        )
+
+
+def resolve_client_ip(scope: Scope, *, hops: int | None = None) -> str:
     """Best-effort real client IP, resistant to X-Forwarded-For spoofing.
 
     Reads the raw header rather than ``scope["client"]`` because uvicorn has
     already rewritten the latter to the spoofable leftmost entry.
+
+    ``hops`` defaults to what this request has earned (see
+    ``trusted_hops_for``); pass it explicitly only in tests.
     """
+    if hops is None:
+        hops = trusted_hops_for(scope)
     forwarded = ""
     for name, value in scope.get("headers", ()):
         if name == b"x-forwarded-for":
@@ -283,16 +345,36 @@ class RateLimitMiddleware:
 class SecurityHeadersMiddleware:
     """Add the baseline response headers to every route.
 
-    ``X-Frame-Options: DENY`` is safe here: nothing this app serves over HTTP
-    is meant to be framed. The MCP Apps widget is delivered as an MCP resource
-    (``text/html;profile=mcp-app``) that the host inlines into its own
-    sandboxed iframe — it is never fetched from this origin.
+    Framing is restricted with CSP ``frame-ancestors`` rather than
+    ``X-Frame-Options``, and it is NOT a blanket deny. A Hugging Face Space
+    page (``huggingface.co/spaces/<owner>/<name>``) renders the Space inside
+    an iframe pointing at ``<slug>.hf.space``: that *is* the Space UI. A
+    ``DENY`` shipped here blanks the project's own landing page on the HF
+    catalogue, which is exactly what happened on 2026-08-01.
+
+    ``X-Frame-Options`` is deliberately absent. It cannot express an
+    allowlist (``ALLOW-FROM`` is dead), and while the CSP spec says
+    ``frame-ancestors`` supersedes it, sending both invites a browser that
+    honours the stricter one to break the page again. One header, one source
+    of truth.
+
+    The MCP Apps widget is unaffected either way: it travels as an MCP
+    resource (``text/html;profile=mcp-app``) that the host inlines into its
+    own sandboxed iframe, never fetched from this origin.
     """
+
+    # Overridable so a non-HF deployment can tighten this back to 'none'.
+    FRAME_ANCESTORS = os.environ.get(
+        "OPENWIND_FRAME_ANCESTORS", "'self' https://huggingface.co https://*.hf.space"
+    )
 
     HEADERS = (
         (b"x-content-type-options", b"nosniff"),
-        (b"x-frame-options", b"DENY"),
         (b"referrer-policy", b"strict-origin-when-cross-origin"),
+        (
+            b"content-security-policy",
+            f"frame-ancestors {FRAME_ANCESTORS}".encode("latin-1"),
+        ),
     )
 
     def __init__(self, app: ASGIApp) -> None:

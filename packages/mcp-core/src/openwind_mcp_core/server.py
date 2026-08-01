@@ -69,7 +69,7 @@ from .feedback import (
     build_feedback_entry,
     stderr_sink,
 )
-from .render import build_ohmywind_url
+from .render import WEB_BASE, WEB_HOST, build_ohmywind_url
 
 # MCP Apps UI resource URI for plan_passage. The host fetches this resource
 # and renders it in a sandboxed iframe; the resource itself iframes
@@ -81,6 +81,12 @@ from .render import build_ohmywind_url
 # module renames rather than with this cosmetic pass.
 PLAN_UI_RESOURCE_URI = "ui://openwind/plan-passage"
 PLAN_UI_MIME = "text/html;profile=mcp-app"
+
+# The name clients display for this server. Named rather than inlined into the
+# FastMCP() call so a test can assert it: the cosmetic rebrand shipped with this
+# value still on the old brand, because the sweep that renamed everything else
+# matched "OpenWind" and "openwind.fr" and this one is lowercase and bare.
+SERVER_NAME = "ohmywind"
 # unpkg serves the official @modelcontextprotocol/ext-apps SDK bundle that
 # implements the ui/initialize -> ui/notifications/initialized handshake and
 # the ui/notifications/tool-result listener. Same CDN as the official
@@ -207,7 +213,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       const cx = sc.complexity || {};
       const segs = p.segments || [];
       const warnings = (p.warnings||[]).concat((cx.warnings||[]).map(w=>w.message||w));
-      const url = sc.openwind_url || "https://ohmywind.fr/plan";
+      const url = sc.openwind_url || "__WEB_BASE__/plan";
       const stats = [
         ["Distance", (p.distance_nm||0).toFixed(1)+" nm"],
         ["Durée",    fmtDur(p.duration_h)],
@@ -241,7 +247,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
           <thead><tr><th>#</th><th>Heure</th><th>Allure</th><th>Vent</th><th>Mer</th><th>Vitesse</th></tr></thead>
           <tbody>${legRows}</tbody>
         </table>` : ""}
-        <a class="cta" href="${escapeHtml(url)}" rel="noopener">Voir le plan complet sur ohmywind.fr →</a>
+        <a class="cta" href="${escapeHtml(url)}" rel="noopener">Voir le plan complet sur __WEB_HOST__ →</a>
       `;
     }
 
@@ -340,10 +346,10 @@ _PLAN_WIDGET_HTML = """<!doctype html>
         wireClicks();
       } catch(e) {
         console.error('[ohmywind] render failed', e);
-        const url = (sc.openwind_url || (sc.windows && sc.windows[0] && sc.windows[0].openwind_url) || "https://ohmywind.fr/plan");
+        const url = (sc.openwind_url || (sc.windows && sc.windows[0] && sc.windows[0].openwind_url) || "__WEB_BASE__/plan");
         root.innerHTML = `<div class="placeholder">
           Impossible d'afficher le plan ici.
-          <br><a class="cta" href="${escapeHtml(url)}" rel="noopener">Ouvrir sur ohmywind.fr →</a>
+          <br><a class="cta" href="${escapeHtml(url)}" rel="noopener">Ouvrir sur __WEB_HOST__ →</a>
         </div>`;
         wireClicks();
       }
@@ -351,7 +357,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
 
     app.ontoolresult = render;
     try { await app.connect(); }
-    catch (e) { console.error('[openwind] MCP App connect failed', e); }
+    catch (e) { console.error('[ohmywind] MCP App connect failed', e); }
   </script>
 </body>
 </html>
@@ -569,7 +575,7 @@ def build_server(
     # Per the official MCP Python SDK README, this combo is the
     # recommended config for production deployments.
     server: FastMCP = FastMCP(
-        "openwind",
+        SERVER_NAME,
         stateless_http=True,
         json_response=True,
     )
@@ -626,7 +632,10 @@ def build_server(
         different framings, and the spec is young — and falls back to a
         deep-link CTA if no result arrives within 6 s.
         """
-        return _PLAN_WIDGET_HTML
+        # Substituted at serve time: the widget's fallback CTA has to name the
+        # same environment the deep-links point at, or a plan rendered on dev
+        # would hand the tester a link to production.
+        return _PLAN_WIDGET_HTML.replace("__WEB_BASE__", WEB_BASE).replace("__WEB_HOST__", WEB_HOST)
 
     @server.tool()
     def read_me() -> str:
@@ -804,8 +813,11 @@ def build_server(
         out so they can open the full app, share it, or bookmark it. Treat
         this as a hard requirement, not a fallback:
 
-        - **Single mode**: end your reply with a Markdown link, e.g.
-          ``[Voir le plan détaillé →](https://ohmywind.fr/plan?…)``.
+        - **Single mode**: end your reply with a Markdown link built from the
+          ``openwind_url`` field, e.g. ``[Voir le plan détaillé →](<openwind_url>)``.
+          Always use that value verbatim, never a URL you compose yourself: it
+          points at the environment this server is configured for, which is not
+          always the production site.
         - **Compare-windows mode**: list 2-4 of the most relevant windows
           and give each its own link, e.g.
           ``- Sam 2 mai 09h · 11h12 · ⚡2/5 — [voir →](url)``.
@@ -1076,7 +1088,7 @@ def build_server(
         except Exception as exc:
             import logging as _logging
 
-            _logging.getLogger(__name__).warning("openwind.feedback sink failed: %s", exc)
+            _logging.getLogger(__name__).warning("ohmywind.feedback sink failed: %s", exc)
             ack = "buffered"
         return {
             "feedback_id": entry["feedback_id"],
