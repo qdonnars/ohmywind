@@ -5,6 +5,9 @@ import { useTheme } from "../design/theme";
 import type { SegmentReport } from "./types";
 import { cxLevel, CX_COLORS } from "./types";
 import { haversineNm, fmtNm } from "../utils/geo";
+import type { UserPosition } from "../hooks/useGeolocation";
+import { syncUserPositionLayer } from "../utils/userPositionLayer";
+import type { MapView } from "../utils/mapViewParams";
 
 /** Hide a segment label when the leg is shorter than this on screen (px).
     Below it the labels crowd the waypoint markers, so we let them fade out
@@ -32,6 +35,15 @@ interface PlanMapProps {
   /** Optional hint for the initial view when there are no waypoints yet
       (typically propagated from the home spot via `?center=lat,lon`). */
   initialCenter?: [number, number] | null;
+  /** Drawn as a dot with an accuracy halo. Recentering stays the page's
+      call, through the `recenter` imperative handle. */
+  userPosition?: UserPosition | null;
+  /** Fired when the user finishes panning or zooming. Feeds the search
+      proximity bias, and the view handed back to the explore map. */
+  onViewChange?: (view: MapView) => void;
+  /** Zoom that goes with `initialCenter`, when the explore map handed one
+      over. Ignored as soon as there are waypoints to frame. */
+  initialZoom?: number | null;
 }
 
 function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon {
@@ -47,7 +59,7 @@ function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon 
 }
 
 export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
-  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, initialCenter }: PlanMapProps,
+  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, initialCenter, userPosition, onViewChange, initialZoom }: PlanMapProps,
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -58,6 +70,10 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   const markersRef = useRef<L.Marker[]>([]);
   const dragLineRef = useRef<L.Polyline | null>(null);
   const segLabelsRef = useRef<L.Tooltip[]>([]);
+  const userLayerRef = useRef<L.LayerGroup | null>(null);
+  const flyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onViewChangeRef = useRef(onViewChange);
+  useEffect(() => { onViewChangeRef.current = onViewChange; }, [onViewChange]);
   const livePositionsRef = useRef<[number, number][]>(waypoints);
   const isDraggingRef = useRef(false);
   const onWptAddRef = useRef(onWptAdd);
@@ -90,6 +106,11 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   useEffect(() => {
     livePositionsRef.current = waypoints;
   }, [waypoints]);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    syncUserPositionLayer(mapRef.current, userLayerRef, userPosition ?? null);
+  }, [userPosition]);
 
   // Draw the live per-segment length labels: one permanent tooltip at each
   // leg midpoint, showing the great-circle distance in nm. Auto-hides legs
@@ -132,28 +153,57 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
 
     const map = L.map(containerRef.current, { zoomControl: false, attributionControl: false });
 
+
     const variant = resolvedTheme === "light" ? "light_all" : "dark_all";
     const tile = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{r}.png`, {
       maxZoom: 19,
     }).addTo(map);
     tileLayerRef.current = tile;
 
-    L.control.attribution({ position: "bottomright", prefix: false })
-      .addAttribution('&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>')
-      .addTo(map);
+    // Map credits live in the info panel rather than in the corner. The OSM
+    // Foundation allows this as long as they stay findable through an info
+    // button, which is where they now are, alongside the other sources.
 
-    L.control.zoom({ position: "bottomright" }).addTo(map);
+    // No zoom buttons: they crowded the bottom-right corner against the
+    // locate control, and the explore map has done without them since day
+    // one. Wheel and pinch zoom stay enabled.
 
-    // Initial view: fit bounds if ≥2 waypoints, else center on the single
-    // waypoint, else honor the ?center hint propagated from the home compass
-    // FAB. Falls back to a France-wide view rather than the Riviera so users
-    // landing on /plan from anywhere on the coast aren't whisked to the Med.
-    if (waypoints.length >= 2) {
-      map.fitBounds(L.latLngBounds(waypoints.map(([lat, lon]) => L.latLng(lat, lon))), { padding: [40, 40] });
+    // Initial view. Falls back to a France-wide view rather than the Riviera
+    // so users landing on /plan from anywhere on the coast aren't whisked to
+    // the Med.
+    //
+    // When the explore map handed a camera over AND a route is waiting, we
+    // open on the handed camera and animate to the route rather than cutting
+    // straight to it. The move is what tells the user the map travelled
+    // somewhere, instead of leaving them to work out that the coastline
+    // changed under them.
+    const routeBounds =
+      waypoints.length >= 2
+        ? L.latLngBounds(waypoints.map(([lat, lon]) => L.latLng(lat, lon)))
+        : null;
+
+    if (initialCenter && waypoints.length >= 1) {
+      map.setView([initialCenter[0], initialCenter[1]], initialZoom ?? 8);
+      // Deferred by a frame: flying before the container has its final size
+      // lands on the wrong bounds, and PlanMap is mounted inside a flex row
+      // that settles just after.
+      const flyTimer = setTimeout(() => {
+        map.invalidateSize();
+        if (routeBounds) {
+          map.flyToBounds(routeBounds, { padding: [40, 40], duration: 1.2 });
+        } else {
+          map.flyTo([waypoints[0][0], waypoints[0][1]], 10, { duration: 1.2 });
+        }
+      }, 80);
+      flyTimerRef.current = flyTimer;
+    } else if (routeBounds) {
+      map.fitBounds(routeBounds, { padding: [40, 40] });
     } else if (waypoints.length === 1) {
       map.setView([waypoints[0][0], waypoints[0][1]], 10);
     } else if (initialCenter) {
-      map.setView([initialCenter[0], initialCenter[1]], 8);
+      // Honour the zoom the explore map was at, so arriving with no route
+      // yet does not jump the camera.
+      map.setView([initialCenter[0], initialCenter[1]], initialZoom ?? 8);
     } else {
       map.setView([46.5, 2.5], 5);
     }
@@ -171,11 +221,18 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     const onZoomEnd = () => drawSegLabels(map, livePositionsRef.current);
     map.on("zoomend", onZoomEnd);
 
+    // Report the settled viewport for the search proximity bias.
+    map.on("moveend", () => {
+      const c = map.getCenter();
+      onViewChangeRef.current?.({ lat: c.lat, lon: c.lng, zoom: map.getZoom() });
+    });
+
     const ro = new ResizeObserver(() => map.invalidateSize());
     ro.observe(containerRef.current!);
     setTimeout(() => map.invalidateSize(), 100);
 
     return () => {
+      if (flyTimerRef.current) clearTimeout(flyTimerRef.current);
       ro.disconnect();
       map.off("zoomend", onZoomEnd);
       segLabelsRef.current = [];

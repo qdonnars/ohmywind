@@ -32,6 +32,10 @@ Le contenu web, lui, se met à jour tout seul (c'est le site). Un rebuild n'est 
 
 `packages/web/public/.well-known/assetlinks.json` doit contenir l'empreinte SHA256 du certificat de signature, sinon l'app s'ouvre avec la barre Chrome au lieu du plein écran. Il est servi sur https://ohmywind.fr/.well-known/assetlinks.json. Si le keystore change (jamais, en principe), régénérer via `bubblewrap fingerprint` et redéployer le site.
 
+## Variante dev
+
+`packages/android-dev/` contient la même app pointée sur https://dev.ohmywind.fr, package `fr.ohmywind.app.dev`, installable à côté de la prod. Même keystore (chemin relatif `../android/android.keystore`), même procédure de build depuis `packages/android-dev/`. Elle ne se publie jamais sur le Play Store: usage interne pour tester la branche `dev` dans la coquille TWA. Son empreinte est déclarée dans le même `assetlinks.json`.
+
 ## Test sur device
 
 ```bash

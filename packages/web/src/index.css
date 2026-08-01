@@ -470,17 +470,6 @@ body {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--ow-accent) 35%, transparent);
 }
 
-/* Leaflet attribution smaller on mobile */
-.leaflet-control-attribution {
-  font-size: 9px !important;
-  background: rgba(0,0,0,0.5) !important;
-  color: #9ca3af !important;
-  padding: 1px 5px !important;
-}
-.leaflet-control-attribution a {
-  color: #9ca3af !important;
-}
-
 /* ── Theme-aware table header ────────────────────────────────── */
 .ow-tbl-bg {
   background: var(--ow-bg-1);

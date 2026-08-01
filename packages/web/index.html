@@ -28,6 +28,11 @@
     <!-- Canonical -->
     <link rel="canonical" href="https://ohmywind.fr/">
 
+    <!-- Geocoders used by the search box. Opening the TLS connection at page
+         load removes the ~200 ms handshake from the first keystroke. -->
+    <link rel="preconnect" href="https://photon.komoot.io" crossorigin>
+    <link rel="preconnect" href="https://geocoding-api.open-meteo.com" crossorigin>
+
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png">

@@ -1,0 +1,51 @@
+{
+  "packageId": "fr.ohmywind.app.dev",
+  "host": "dev.ohmywind.fr",
+  "name": "OhMyWind Dev",
+  "launcherName": "OhMyWind Dev",
+  "display": "standalone",
+  "themeColor": "#030712",
+  "themeColorDark": "#030712",
+  "navigationColor": "#030712",
+  "navigationColorDark": "#030712",
+  "navigationDividerColor": "#030712",
+  "navigationDividerColorDark": "#030712",
+  "backgroundColor": "#030712",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://ohmywind.fr/icon-512.png",
+  "maskableIconUrl": "https://ohmywind.fr/icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "../android/android.keystore",
+    "alias": "android"
+  },
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://dev.ohmywind.fr/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": {
+      "enabled": true
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://dev.ohmywind.fr/",
+  "minSdkVersion": 21,
+  "orientation": "default",
+  "fingerprints": [
+    {
+      "value": "91:53:D9:7A:BA:E2:F2:E0:6F:CD:A7:75:92:A5:D0:8D:F3:7B:8C:80:3C:05:9C:4E:02:78:D0:F8:60:E2:A6:19"
+    }
+  ],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "displayOverride": [],
+  "appVersion": "1.0.0"
+}

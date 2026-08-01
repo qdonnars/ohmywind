@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { nowParisHourPrefix } from "./utils/format";
 import type { Spot, ModelForecast, MarineHourly, MetricView } from "./types";
 import { fetchAllModels } from "./api/openmeteo";
@@ -17,6 +17,11 @@ import { MetricPills } from "./components/MetricPills";
 import { TideChart } from "./components/TideChart";
 import { SpotMap } from "./components/SpotMap";
 import { Onboarding } from "./components/Onboarding";
+import { LocateButton } from "./components/LocateButton";
+import { useGeolocation } from "./hooks/useGeolocation";
+import { useMapView } from "./hooks/useMapView";
+import { parseMapView, mapViewQuery } from "./utils/mapViewParams";
+import { hasDeclinedGeolocation } from "./config/geolocPreference";
 
 const DEFAULT_MAP_CENTER: { lat: number; lon: number } = { lat: 43.3, lon: 5.35 };
 
@@ -37,8 +42,8 @@ function EmptyState() {
           style={{ background: 'var(--ow-accent)' }}
         />
         <span className="text-[12px] font-medium" style={{ color: 'var(--ow-fg-0)' }}>
-          <span className="lg:hidden">Appui long pour placer votre premier spot</span>
-          <span className="hidden lg:inline">Clic droit pour placer votre premier spot</span>
+          <span className="lg:hidden">Touchez la carte pour la météo, appui long pour enregistrer un spot</span>
+          <span className="hidden lg:inline">Cliquez la carte pour la météo, clic droit pour enregistrer un spot</span>
         </span>
       </div>
     </div>
@@ -53,7 +58,20 @@ function App() {
   // to drop their first one. Returning users with saved spots resume on
   // their first favorite.
   const [spot, setSpot] = useState<Spot | null>(() => customSpots[0] ?? null);
-  const [geolocCenter, setGeolocCenter] = useState<{ lat: number; lon: number } | null>(null);
+  const { position: userPosition, status: geolocStatus, attempt: geolocAttempt, locate } = useGeolocation();
+  const { view: mapView, onViewChange } = useMapView();
+  // Camera handed over by /plan. Read once: later navigations remount.
+  const [initialView] = useState(() => parseMapView(window.location.search));
+  // Which fix the map is allowed to fly to. Set only on an explicit request
+  // (first visit, or a tap on the locate button) so an incoming fix never
+  // steals the viewport on its own.
+  const [flyToStamp, setFlyToStamp] = useState<number | null>(null);
+  // Read inside the mount-time geolocation callback, which must not re-run
+  // when the spot changes.
+  const spotRef = useRef<Spot | null>(spot);
+  useEffect(() => {
+    spotRef.current = spot;
+  }, [spot]);
   const [forecasts, setForecasts] = useState<ModelForecast[]>([]);
   const [marine, setMarine] = useState<MarineHourly | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -101,21 +119,44 @@ function App() {
   // spot. That way the canvas frames their region but stays empty (no
   // arrows, no forecasts) until they actively drop their first spot.
   // Denied / error → silent, the SpotMap falls back to its default center.
+  // High accuracy is off here: framing a region needs a city-level fix, and
+  // waking the GPS unprompted on a first visit is a poor trade.
   useEffect(() => {
     if (customSpots.length > 0) return;
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setGeolocCenter({ lat: pos.coords.latitude, lon: pos.coords.longitude });
-      },
-      () => {
-        /* permission denied or unavailable — keep SpotMap default center */
-      },
-      { timeout: 8000, maximumAge: 5 * 60 * 1000 },
-    );
+    // Arriving with a camera handed over by /plan: honour it. Flying to the
+    // user would defeat the point of carrying the view across.
+    if (initialView) return;
+    // Someone who already refused should not be asked again, nor shown the
+    // same error bubble on every visit. The locate button still retries on
+    // demand, so changing one's mind in the browser settings is enough.
+    if (hasDeclinedGeolocation()) return;
+    locate({ enableHighAccuracy: false, maximumAge: 5 * 60 * 1000 }).then((fix) => {
+      // A spot picked while the fix was in flight means the user already
+      // chose their focus — leave the viewport alone.
+      if (fix && !spotRef.current) setFlyToStamp(fix.stamp);
+    });
   // Run once on mount; the customSpots check covers the returning-user case.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Tap or left click on the map: show the forecast there without saving.
+  // Named by its coordinates rather than reverse-geocoded: the lookup is
+  // instant and offline, and a position is meaningful information at sea.
+  // Creating a spot stays a deliberate act (long press, or right click).
+  const handlePreviewSpot = useCallback((lat: number, lon: number) => {
+    setSpot({
+      name: `${lat.toFixed(3)}, ${lon.toFixed(3)}`,
+      latitude: lat,
+      longitude: lon,
+    });
+  }, []);
+
+  // Explicit "centre sur moi": always honor it, spot selected or not.
+  const handleLocate = useCallback(() => {
+    locate().then((fix) => {
+      if (fix) setFlyToStamp(fix.stamp);
+    });
+  }, [locate]);
 
   // If the active view's data becomes irrelevant for the new spot (e.g. moving
   // from Atlantic to Med drops Tides/Currents below threshold), fall back to Wind.
@@ -135,7 +176,17 @@ function App() {
       className="h-screen flex flex-col overflow-hidden"
       style={{ background: 'var(--ow-bg-0)', color: 'var(--ow-fg-0)' }}
     >
-      <Header onSelectSpot={setSpot} />
+      {/* Search proximity reference: the granted position first, else where
+          the map is currently looking, else the active spot. The viewport
+          matters because without it a search for "Brest" from a phone with
+          no position granted ranks Brest in Belarus and Brest in Croatia
+          alongside the Finistère one. */}
+      <Header
+        onSelectSpot={setSpot}
+        nearLat={userPosition?.lat ?? mapView?.lat ?? spot?.latitude ?? null}
+        nearLon={userPosition?.lon ?? mapView?.lon ?? spot?.longitude ?? null}
+        savedSpots={customSpots}
+      />
       <RebrandBanner />
 
       {/* Map fills the entire space; pills + table are an overlay floating
@@ -145,9 +196,13 @@ function App() {
         <SpotMap
           current={spot}
           customSpots={customSpots}
-          geolocCenter={geolocCenter}
+          userPosition={userPosition}
+          flyToStamp={flyToStamp}
+          onViewChange={onViewChange}
+          initialView={initialView}
           defaultCenter={DEFAULT_MAP_CENTER}
           onSelectSpot={setSpot}
+          onPreviewSpot={handlePreviewSpot}
           onAddSpot={(s) => { addSpot(s); setSpot(s); }}
           onRemoveSpot={(s) => { removeSpot(s); if (spot?.latitude === s.latitude && spot?.longitude === s.longitude) { setSpot(null); setForecasts([]); setSelectedHour(null); } }}
           onRenameSpot={(s, name) => { renameSpot(s, name); if (spot?.latitude === s.latitude && spot?.longitude === s.longitude) setSpot({ ...s, name }); }}
@@ -162,7 +217,7 @@ function App() {
             looking at, rather than a hardcoded default region. */}
         <a
           ref={fabRef}
-          href={spot ? `/plan?center=${spot.latitude.toFixed(5)},${spot.longitude.toFixed(5)}` : "/plan"}
+          href={`/plan${mapViewQuery(mapView)}`}
           className="absolute top-3 left-3 z-[400] w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
           style={{ background: "var(--ow-accent)", color: "#fff" }}
           title="Planifier un passage"
@@ -178,6 +233,14 @@ function App() {
             scrolls (otherwise the hour row drifts away when the user scrolls
             down through GFS/ECMWF rows). */}
         <div className="absolute left-0 right-0 bottom-0 max-h-[44vh] md:max-h-[46vh] z-[400] flex flex-col">
+          {/* Locate FAB — anchored to the overlay rather than to the map, so
+              it rides up and down as the data panel grows and shrinks
+              instead of ending up buried under it. The 16 px offset is
+              measured from the solid table below, not from the pills band,
+              which is transparent over the map: the button straddles the
+              pills and keeps the same gap to the panel as on /plan. Out of
+              flow, so it does not push the pills around. */}
+          <LocateButton status={geolocStatus} attempt={geolocAttempt} onClick={handleLocate} className="-top-4 right-3" />
           {spot ? (
             <>
               <div className="shrink-0">

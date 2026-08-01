@@ -4,6 +4,9 @@ import "leaflet/dist/leaflet.css";
 import type { Spot, ModelForecast, MarineHourly, MetricView } from "../types";
 import { QUICK_SPOTS } from "../spots";
 import { useTheme } from "../design/theme";
+import type { UserPosition } from "../hooks/useGeolocation";
+import { syncUserPositionLayer } from "../utils/userPositionLayer";
+import type { MapView } from "../utils/mapViewParams";
 
 // Spot-map arrows are drawn into a single 300×300 SVG anchored at the spot
 // (centre = 150,150). For ``wind``, each forecast contributes one arrow + label.
@@ -146,12 +149,28 @@ interface SpotMapProps {
   // viewport where it is rather than yanking back to a default center.
   current: Spot | null;
   customSpots: Spot[];
-  // First-visit hint: user position once the browser grants geolocation.
-  // The map recenters to it without auto-creating a spot, so new users
-  // see their region without arrows until they drop their first pin.
-  geolocCenter?: { lat: number; lon: number } | null;
+  // User position once the browser grants geolocation. Drawn as a dot with
+  // an accuracy halo, and used as the initial center when it is already
+  // known at mount. Never auto-creates a spot: new users see their region
+  // without arrows until they drop their first pin.
+  userPosition?: UserPosition | null;
+  // Bumped by the page when it wants the camera moved onto the user. Kept
+  // separate from `userPosition` so the map draws the dot without deciding
+  // when the viewport may be taken over: that policy lives in the page.
+  flyToStamp?: number | null;
+  /** Fired when the user finishes panning or zooming. Feeds the search
+      proximity bias, and the view handed to /plan so switching mode leaves
+      the camera still. */
+  onViewChange?: (view: MapView) => void;
+  /** Restores the camera handed over by /plan. Wins over the active spot:
+      coming back from the planner must not move the map. */
+  initialView?: MapView | null;
   defaultCenter?: { lat: number; lon: number };
   onSelectSpot: (spot: Spot) => void;
+  /** Plain tap or left click on the water: show the forecast there without
+      saving anything. Looking up conditions at a point should not oblige
+      the user to commit it to their favourites. */
+  onPreviewSpot?: (lat: number, lon: number) => void;
   onAddSpot: (spot: Spot) => void;
   onRemoveSpot: (spot: Spot) => void;
   onRenameSpot: (spot: Spot, name: string) => void;
@@ -168,9 +187,13 @@ function spotKey(s: Spot) {
 export function SpotMap({
   current,
   customSpots,
-  geolocCenter,
+  userPosition,
+  flyToStamp,
+  onViewChange,
+  initialView,
   defaultCenter,
   onSelectSpot,
+  onPreviewSpot,
   onAddSpot,
   onRemoveSpot,
   onRenameSpot,
@@ -183,8 +206,22 @@ export function SpotMap({
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<Map<string, L.CircleMarker>>(new Map());
   const arrowLayerRef = useRef<L.Marker | null>(null);
+  const userLayerRef = useRef<L.LayerGroup | null>(null);
+  const previewLayerRef = useRef<L.CircleMarker | null>(null);
+  const onViewChangeRef = useRef(onViewChange);
+  useEffect(() => {
+    onViewChangeRef.current = onViewChange;
+  }, [onViewChange]);
   const onSelectRef = useRef(onSelectSpot);
   onSelectRef.current = onSelectSpot;
+  const onPreviewRef = useRef(onPreviewSpot);
+  useEffect(() => {
+    onPreviewRef.current = onPreviewSpot;
+  }, [onPreviewSpot]);
+  /** A long press ends with a pointerup, which the browser follows with a
+      click. Without this the press that opened the "new spot" dialog would
+      also drop a preview underneath it. */
+  const suppressClickRef = useRef(false);
   const onAddRef = useRef(onAddSpot);
   onAddRef.current = onAddSpot;
   const onRemoveRef = useRef(onRemoveSpot);
@@ -225,25 +262,61 @@ export function SpotMap({
     }
   }, [resolvedTheme]);
 
-  // Geolocation arrives async after init. When it lands AND the user has no
-  // active spot yet (typical first-visit case), smoothly fly to it so the map
-  // frames their region. If a spot is selected, the user has already chosen
-  // their focus — don't yank the viewport away.
+  // A previewed point is not in customSpots, so the saved-spot markers never
+  // draw it. Without its own marker the panel would switch to a location the
+  // map does not show. Dashed and hollow, to read as provisional next to the
+  // solid saved spots.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    previewLayerRef.current?.remove();
+    previewLayerRef.current = null;
+    if (!current) return;
+    const saved = customSpots.some(
+      (s) => s.latitude === current.latitude && s.longitude === current.longitude,
+    );
+    if (saved) return;
+    previewLayerRef.current = L.circleMarker([current.latitude, current.longitude], {
+      radius: 9,
+      color: "#2dd4bf",
+      weight: 2.5,
+      dashArray: "4 3",
+      fillColor: "#2dd4bf",
+      fillOpacity: 0.25,
+      interactive: false,
+    }).addTo(map);
+  }, [current, customSpots]);
+
+  // Draw the "you are here" dot whenever a fix is known.
   useEffect(() => {
     if (!mapRef.current) return;
-    if (!geolocCenter) return;
-    if (current) return;
-    mapRef.current.flyTo([geolocCenter.lat, geolocCenter.lon], 10, { duration: 1.2 });
-  }, [geolocCenter, current]);
+    syncUserPositionLayer(mapRef.current, userLayerRef, userPosition ?? null);
+  }, [userPosition]);
+
+  // Fly to the user only when the page asks for it (first visit with no
+  // saved spot, or an explicit tap on the locate button). Keying on the
+  // stamp rather than the coordinates means a second tap still recenters
+  // after the user has panned away, even though the fix is unchanged.
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (!flyToStamp || !userPosition) return;
+    mapRef.current.flyTo([userPosition.lat, userPosition.lon], 10, { duration: 1.2 });
+    // userPosition is intentionally not a dependency: the stamp is what
+    // expresses "a move was requested", and a fresh fix alone must not
+    // steal the viewport.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flyToStamp]);
 
   // Init map once
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    const initialCenter: [number, number] = current
+    const initialCenter: [number, number] = initialView
+      ? [initialView.lat, initialView.lon]
+      : current
       ? [current.latitude, current.longitude]
-      : geolocCenter
-        ? [geolocCenter.lat, geolocCenter.lon]
+      : userPosition
+        ? [userPosition.lat, userPosition.lon]
         : defaultCenter
           ? [defaultCenter.lat, defaultCenter.lon]
           : [43.3, 5.35];
@@ -251,7 +324,7 @@ export function SpotMap({
     // (typical first-visit + denied case), open wide enough to show OpenWind's
     // full scope — Atlantic + Mediterranean French coast — so the user
     // understands the geographic reach before zooming into their region.
-    const initialZoom = current || geolocCenter ? 10 : 6;
+    const initialZoom = initialView ? initialView.zoom : current || userPosition ? 10 : 6;
     const map = L.map(containerRef.current, {
       zoomControl: false,
       attributionControl: false,
@@ -263,15 +336,35 @@ export function SpotMap({
     }).addTo(map);
     tileLayerRef.current = tile;
 
-    L.control.attribution({ position: "bottomright", prefix: false })
-      .addAttribution('&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>')
-      .addTo(map);
+    // Map credits live in the info panel rather than in the corner. The OSM
+    // Foundation allows this as long as they stay findable through an info
+    // button, which is where they now are, alongside the other sources.
 
     // Custom pane for wind arrows (below markers)
     map.createPane("windArrows");
     map.getPane("windArrows")!.style.zIndex = "450";
 
     mapRef.current = map;
+
+    // Plain click on the map background → preview the forecast there. Marker
+    // clicks never reach this handler: Leaflet paths default to
+    // bubblingMouseEvents: false, so selecting a saved spot stays distinct
+    // from previewing open water.
+    map.on("click", (e: L.LeafletMouseEvent) => {
+      if (suppressClickRef.current) {
+        suppressClickRef.current = false;
+        return;
+      }
+      onPreviewRef.current?.(e.latlng.lat, e.latlng.lng);
+    });
+
+    // Report the viewport once settled. `moveend` fires per gesture, not per
+    // frame, and the consumer rounds before storing, so panning does not
+    // churn React state.
+    map.on("moveend", () => {
+      const c = map.getCenter();
+      onViewChangeRef.current?.({ lat: c.lat, lon: c.lng, zoom: map.getZoom() });
+    });
 
     // Long press detection via Pointer Events (covers mouse + touch, one event stream)
     const el = containerRef.current!;
@@ -298,6 +391,7 @@ export function SpotMap({
       const editSpot = elementToSpotRef.current.get(target);
       if (editSpot) {
         pressTimerRef.current = setTimeout(() => {
+          suppressClickRef.current = true;
           setPendingEditRef.current(editSpot);
         }, 400);
         return;
@@ -309,6 +403,7 @@ export function SpotMap({
 
       // Press on the map background → add new spot
       pressTimerRef.current = setTimeout(async () => {
+        suppressClickRef.current = true;
         const rect = el.getBoundingClientRect();
         const point = L.point(startX - rect.left, startY - rect.top);
         const latlng = map.containerPointToLatLng(point);
@@ -320,6 +415,12 @@ export function SpotMap({
     const handlePointerUp = () => {
       activePointers = Math.max(0, activePointers - 1);
       cancelPress();
+      // The click that follows this pointerup runs first; clearing on the
+      // next tick means one press swallows exactly one click, and a later
+      // tap on the map is honoured normally.
+      setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 0);
     };
 
     const handlePointerMove = (e: PointerEvent) => {
