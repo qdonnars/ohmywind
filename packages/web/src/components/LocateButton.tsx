@@ -1,11 +1,15 @@
+import { useState } from "react";
 import type { GeolocStatus } from "../hooks/useGeolocation";
 import { geolocMessage } from "../hooks/useGeolocation";
 
 interface LocateButtonProps {
   status: GeolocStatus;
+  /** Number of requests started so far. A dismissal applies to one attempt
+      only, so pressing the button again re-shows a message the user closed. */
+  attempt: number;
   onClick: () => void;
   /** Positioning is left to the host map so each page can dodge its own
-      overlays (drawer, hero stats, zoom control). */
+      overlays (drawer, hero stats, data table). */
   className?: string;
 }
 
@@ -13,12 +17,14 @@ interface LocateButtonProps {
  * "Centrer sur ma position" control, shared by the explore map and the
  * planner map. Failures surface as a bubble next to the button rather than
  * a blocking dialog: a refused permission should not interrupt someone who
- * is mid-route. The bubble is a pure function of the status, so it clears
- * itself as soon as the user retries rather than on a timer the user
- * cannot see.
+ * is mid-route, and it must be dismissable, since the user who just said no
+ * does not need the consequence spelled out at them until they act again.
  */
-export function LocateButton({ status, onClick, className = "" }: LocateButtonProps) {
+export function LocateButton({ status, attempt, onClick, className = "" }: LocateButtonProps) {
+  const [dismissedAttempt, setDismissedAttempt] = useState<number | null>(null);
+
   const message = geolocMessage(status);
+  const showMessage = message !== null && dismissedAttempt !== attempt;
   const locating = status === "locating";
 
   return (
@@ -54,10 +60,10 @@ export function LocateButton({ status, onClick, className = "" }: LocateButtonPr
         )}
       </button>
 
-      {message && (
-        <p
+      {showMessage && (
+        <div
           role="status"
-          className="max-w-[15rem] px-3 py-2 rounded-xl text-xs animate-fade-in"
+          className="max-w-[15rem] flex items-start gap-2 pl-3 pr-2 py-2 rounded-xl text-xs animate-fade-in"
           style={{
             background: "var(--ow-surface-glass)",
             backdropFilter: "blur(8px)",
@@ -65,8 +71,19 @@ export function LocateButton({ status, onClick, className = "" }: LocateButtonPr
             color: "var(--ow-fg-1)",
           }}
         >
-          {message}
-        </p>
+          <p className="flex-1">{message}</p>
+          <button
+            type="button"
+            onClick={() => setDismissedAttempt(attempt)}
+            aria-label="Fermer ce message"
+            className="shrink-0 w-6 h-6 -mt-0.5 flex items-center justify-center rounded-md transition-opacity hover:opacity-70"
+            style={{ color: "var(--ow-fg-2)" }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M5 5l14 14M19 5L5 19" />
+            </svg>
+          </button>
+        </div>
       )}
     </div>
   );

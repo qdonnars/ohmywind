@@ -19,6 +19,8 @@ import { SpotMap } from "./components/SpotMap";
 import { Onboarding } from "./components/Onboarding";
 import { LocateButton } from "./components/LocateButton";
 import { useGeolocation } from "./hooks/useGeolocation";
+import { useMapCenter } from "./hooks/useMapCenter";
+import { hasDeclinedGeolocation } from "./config/geolocPreference";
 
 const DEFAULT_MAP_CENTER: { lat: number; lon: number } = { lat: 43.3, lon: 5.35 };
 
@@ -55,7 +57,8 @@ function App() {
   // to drop their first one. Returning users with saved spots resume on
   // their first favorite.
   const [spot, setSpot] = useState<Spot | null>(() => customSpots[0] ?? null);
-  const { position: userPosition, status: geolocStatus, locate } = useGeolocation();
+  const { position: userPosition, status: geolocStatus, attempt: geolocAttempt, locate } = useGeolocation();
+  const { center: mapCenter, onCenterChange } = useMapCenter();
   // Which fix the map is allowed to fly to. Set only on an explicit request
   // (first visit, or a tap on the locate button) so an incoming fix never
   // steals the viewport on its own.
@@ -117,6 +120,10 @@ function App() {
   // waking the GPS unprompted on a first visit is a poor trade.
   useEffect(() => {
     if (customSpots.length > 0) return;
+    // Someone who already refused should not be asked again, nor shown the
+    // same error bubble on every visit. The locate button still retries on
+    // demand, so changing one's mind in the browser settings is enough.
+    if (hasDeclinedGeolocation()) return;
     locate({ enableHighAccuracy: false, maximumAge: 5 * 60 * 1000 }).then((fix) => {
       // A spot picked while the fix was in flight means the user already
       // chose their focus — leave the viewport alone.
@@ -151,14 +158,15 @@ function App() {
       className="h-screen flex flex-col overflow-hidden"
       style={{ background: 'var(--ow-bg-0)', color: 'var(--ow-fg-0)' }}
     >
-      {/* Search proximity reference: the granted position first, else the
-          spot the user is looking at. When neither is known we send no bias
-          at all rather than defaulting to the Med, which would sink Atlantic
-          results for a first-time visitor on the Channel. */}
+      {/* Search proximity reference: the granted position first, else where
+          the map is currently looking, else the active spot. The viewport
+          matters because without it a search for "Brest" from a phone with
+          no position granted ranks Brest in Belarus and Brest in Croatia
+          alongside the Finistère one. */}
       <Header
         onSelectSpot={setSpot}
-        nearLat={userPosition?.lat ?? spot?.latitude ?? null}
-        nearLon={userPosition?.lon ?? spot?.longitude ?? null}
+        nearLat={userPosition?.lat ?? mapCenter?.lat ?? spot?.latitude ?? null}
+        nearLon={userPosition?.lon ?? mapCenter?.lon ?? spot?.longitude ?? null}
         savedSpots={customSpots}
       />
       <RebrandBanner />
@@ -172,6 +180,7 @@ function App() {
           customSpots={customSpots}
           userPosition={userPosition}
           flyToStamp={flyToStamp}
+          onCenterChange={onCenterChange}
           defaultCenter={DEFAULT_MAP_CENTER}
           onSelectSpot={setSpot}
           onAddSpot={(s) => { addSpot(s); setSpot(s); }}
@@ -211,7 +220,7 @@ function App() {
               which is transparent over the map: the button straddles the
               pills and keeps the same gap to the panel as on /plan. Out of
               flow, so it does not push the pills around. */}
-          <LocateButton status={geolocStatus} onClick={handleLocate} className="-top-4 right-3" />
+          <LocateButton status={geolocStatus} attempt={geolocAttempt} onClick={handleLocate} className="-top-4 right-3" />
           {spot ? (
             <>
               <div className="shrink-0">

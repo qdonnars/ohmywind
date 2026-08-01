@@ -22,6 +22,7 @@ import { activeModels, loadModelConfig } from "../config/modelConfig";
 import { effectivePolar, isPolarCustomized, loadPolarConfig, polarFingerprint } from "../config/polarConfig";
 import { LocateButton } from "../components/LocateButton";
 import { useGeolocation } from "../hooks/useGeolocation";
+import { useMapCenter } from "../hooks/useMapCenter";
 
 // Build the plan-time overrides payload from current /config preferences.
 // Read at request time (not at mount) so a /config tweak takes effect on the
@@ -307,7 +308,8 @@ function ResizableDesktopSidebar({
 export function PlanPage() {
   const mapRef = useRef<PlanMapHandle>(null);
 
-  const { position: userPosition, status: geolocStatus, locate } = useGeolocation();
+  const { position: userPosition, status: geolocStatus, attempt: geolocAttempt, locate } = useGeolocation();
+  const { center: mapCenter, onCenterChange } = useMapCenter();
   // On /plan the user is building a route, so a locate request is always
   // explicit: no first-visit auto-centering here.
   const handleLocate = useCallback(() => {
@@ -789,8 +791,8 @@ export function PlanPage() {
           fix as the search reference. */}
       <Header
         onSelectSpot={(spot) => mapRef.current?.recenter(spot.latitude, spot.longitude)}
-        nearLat={waypoints[0]?.[0] ?? userPosition?.lat ?? null}
-        nearLon={waypoints[0]?.[1] ?? userPosition?.lon ?? null}
+        nearLat={waypoints[0]?.[0] ?? userPosition?.lat ?? mapCenter?.lat ?? null}
+        nearLon={waypoints[0]?.[1] ?? userPosition?.lon ?? mapCenter?.lon ?? null}
       />
       <RebrandBanner />
 
@@ -816,6 +818,7 @@ export function PlanPage() {
             onMapClick={handleMapClick}
             initialCenter={isParsedOk(initialParsed) ? initialParsed.center : null}
             userPosition={userPosition}
+            onCenterChange={onCenterChange}
             highlightedSegmentRange={
               selectedLegIdx != null && passage
                 ? computeLegSegmentRanges(passage.segments as { start: { lat: number; lon: number } }[], waypoints)[selectedLegIdx] ?? null
@@ -839,6 +842,7 @@ export function PlanPage() {
               them rather than sitting on the arrival time. */}
           <LocateButton
             status={geolocStatus}
+            attempt={geolocAttempt}
             onClick={handleLocate}
             className={
               passage && planMode === "single" && !isStale

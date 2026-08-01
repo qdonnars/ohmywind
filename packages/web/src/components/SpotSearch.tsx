@@ -238,13 +238,21 @@ export function SpotSearch({ onSelect, nearLat, nearLon, savedSpots = [] }: Spot
                     <path d="M12 17.3l-6.2 3.7 1.6-7L2 9.2l7.1-.6L12 2l2.9 6.6 7.1.6-5.4 4.8 1.6 7z" />
                   </svg>
                 )}
-                <span className="font-medium truncate" style={{ color: 'var(--ow-fg-0)' }}>{r.name}</span>
-                {r.context && (
-                  <span className="truncate" style={{ color: 'var(--ow-fg-2)' }}>{r.context}</span>
-                )}
-                {distance && (
-                  <span className="ml-auto shrink-0 text-xs" style={{ color: 'var(--ow-fg-2)' }}>{distance}</span>
-                )}
+                {/* Two lines rather than one: on a phone the single row left
+                    the name as "Br..." while the distance kept its full
+                    width. The name owns the first line outright, the region
+                    and the distance share the second, and min-w-0 is what
+                    actually lets truncate work inside a flex child. */}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium" style={{ color: 'var(--ow-fg-0)' }}>{r.name}</div>
+                  {(r.context || distance) && (
+                    <div className="flex items-baseline gap-1.5 text-xs" style={{ color: 'var(--ow-fg-2)' }}>
+                      {r.context && <span className="truncate">{r.context}</span>}
+                      {r.context && distance && <span className="shrink-0">·</span>}
+                      {distance && <span className="shrink-0">{distance}</span>}
+                    </div>
+                  )}
+                </div>
               </li>
             );
           })}

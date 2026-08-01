@@ -1,4 +1,8 @@
 import { useCallback, useRef, useState } from "react";
+import {
+  clearGeolocationDecline,
+  rememberGeolocationDecline,
+} from "../config/geolocPreference";
 
 export interface UserPosition {
   lat: number;
@@ -71,6 +75,9 @@ const DEFAULT_OPTIONS: PositionOptions = {
 export function useGeolocation() {
   const [position, setPosition] = useState<UserPosition | null>(null);
   const [status, setStatus] = useState<GeolocStatus>("idle");
+  /** Counts started requests. Lets the UI tell a dismissed failure from a
+      fresh one, so retrying re-shows a message the user had closed. */
+  const [attempt, setAttempt] = useState(0);
   const stampRef = useRef(0);
   const inFlightRef = useRef<Promise<UserPosition | null> | null>(null);
 
@@ -85,6 +92,7 @@ export function useGeolocation() {
       if (inFlightRef.current) return inFlightRef.current;
 
       setStatus("locating");
+      setAttempt((n) => n + 1);
       const request = new Promise<UserPosition | null>((resolve) => {
         navigator.geolocation.getCurrentPosition(
           (pos) => {
@@ -97,10 +105,18 @@ export function useGeolocation() {
             };
             setPosition(next);
             setStatus("ready");
+            // The user granted it, possibly after changing their mind in the
+            // browser settings: a past refusal must not keep haunting them.
+            clearGeolocationDecline();
             resolve(next);
           },
           (err) => {
-            setStatus(statusFromErrorCode(err.code));
+            const failure = statusFromErrorCode(err.code);
+            setStatus(failure);
+            // Only an outright refusal is remembered. A timeout or a
+            // temporarily unavailable fix says nothing about consent and
+            // must not silence the automatic request forever.
+            if (failure === "denied") rememberGeolocationDecline();
             resolve(null);
           },
           { ...DEFAULT_OPTIONS, ...options },
@@ -115,5 +131,5 @@ export function useGeolocation() {
     [],
   );
 
-  return { position, status, locate };
+  return { position, status, attempt, locate };
 }

@@ -37,6 +37,9 @@ interface PlanMapProps {
   /** Drawn as a dot with an accuracy halo. Recentering stays the page's
       call, through the `recenter` imperative handle. */
   userPosition?: UserPosition | null;
+  /** Fired when the user finishes panning or zooming. Feeds the search
+      proximity bias: where someone is looking is a statement of intent. */
+  onCenterChange?: (center: { lat: number; lon: number }) => void;
 }
 
 function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon {
@@ -52,7 +55,7 @@ function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon 
 }
 
 export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
-  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, initialCenter, userPosition }: PlanMapProps,
+  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, initialCenter, userPosition, onCenterChange }: PlanMapProps,
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -64,6 +67,8 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   const dragLineRef = useRef<L.Polyline | null>(null);
   const segLabelsRef = useRef<L.Tooltip[]>([]);
   const userLayerRef = useRef<L.LayerGroup | null>(null);
+  const onCenterChangeRef = useRef(onCenterChange);
+  useEffect(() => { onCenterChangeRef.current = onCenterChange; }, [onCenterChange]);
   const livePositionsRef = useRef<[number, number][]>(waypoints);
   const isDraggingRef = useRef(false);
   const onWptAddRef = useRef(onWptAdd);
@@ -184,6 +189,12 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     // threshold means legs appear/disappear as the scale changes.
     const onZoomEnd = () => drawSegLabels(map, livePositionsRef.current);
     map.on("zoomend", onZoomEnd);
+
+    // Report the settled viewport for the search proximity bias.
+    map.on("moveend", () => {
+      const c = map.getCenter();
+      onCenterChangeRef.current?.({ lat: c.lat, lon: c.lng });
+    });
 
     const ro = new ResizeObserver(() => map.invalidateSize());
     ro.observe(containerRef.current!);

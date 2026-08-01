@@ -157,6 +157,9 @@ interface SpotMapProps {
   // separate from `userPosition` so the map draws the dot without deciding
   // when the viewport may be taken over: that policy lives in the page.
   flyToStamp?: number | null;
+  /** Fired when the user finishes panning or zooming. Feeds the search
+      proximity bias: where someone is looking is a statement of intent. */
+  onCenterChange?: (center: { lat: number; lon: number }) => void;
   defaultCenter?: { lat: number; lon: number };
   onSelectSpot: (spot: Spot) => void;
   onAddSpot: (spot: Spot) => void;
@@ -177,6 +180,7 @@ export function SpotMap({
   customSpots,
   userPosition,
   flyToStamp,
+  onCenterChange,
   defaultCenter,
   onSelectSpot,
   onAddSpot,
@@ -192,6 +196,10 @@ export function SpotMap({
   const markersRef = useRef<Map<string, L.CircleMarker>>(new Map());
   const arrowLayerRef = useRef<L.Marker | null>(null);
   const userLayerRef = useRef<L.LayerGroup | null>(null);
+  const onCenterChangeRef = useRef(onCenterChange);
+  useEffect(() => {
+    onCenterChangeRef.current = onCenterChange;
+  }, [onCenterChange]);
   const onSelectRef = useRef(onSelectSpot);
   onSelectRef.current = onSelectSpot;
   const onAddRef = useRef(onAddSpot);
@@ -290,6 +298,14 @@ export function SpotMap({
     map.getPane("windArrows")!.style.zIndex = "450";
 
     mapRef.current = map;
+
+    // Report the viewport once settled. `moveend` fires per gesture, not per
+    // frame, and the consumer rounds before storing, so panning does not
+    // churn React state.
+    map.on("moveend", () => {
+      const c = map.getCenter();
+      onCenterChangeRef.current?.({ lat: c.lat, lon: c.lng });
+    });
 
     // Long press detection via Pointer Events (covers mouse + touch, one event stream)
     const el = containerRef.current!;
