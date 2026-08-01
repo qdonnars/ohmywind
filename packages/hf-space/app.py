@@ -73,7 +73,10 @@ PORT = 7860
 # ``proxy_headers``, so we extend the allowed-hosts list to include the
 # Space hostname (overridable via env for future custom domains / migrations).
 DEFAULT_ALLOWED_HOSTS = [
+    # The Host the Worker presents upstream, and the public one a direct
+    # caller sends. Both must pass or one of the two paths 421s.
     "qdonnars-openwind-mcp.hf.space",
+    "mcp.ohmywind.fr",
 ]
 ALLOWED_HOSTS = [
     h.strip()
@@ -202,7 +205,7 @@ LANDING_HTML = """<!doctype html>
       <li>Scroll to the bottom and click <strong>Add custom connector</strong>.</li>
       <li>Set <strong>Name</strong>: <code>OhMyWind</code>.</li>
       <li>Paste this in <strong>Remote MCP server URL</strong>:
-        <pre><code>https://qdonnars-openwind-mcp.hf.space/mcp</code></pre></li>
+        <pre><code>https://mcp.ohmywind.fr/mcp</code></pre></li>
       <li>Click <strong>Add</strong>. In any new chat, OhMyWind shows up in the
         <strong>Search and tools</strong> menu — toggle it on.</li>
     </ol>
@@ -218,7 +221,7 @@ LANDING_HTML = """<!doctype html>
         then click <strong>Add MCP server</strong>.</li>
       <li>Set <strong>Name</strong>: <code>OhMyWind</code> &middot; <strong>Auth</strong>: <code>None</code>.</li>
       <li>Paste this in <strong>URL</strong>:
-        <pre><code>https://qdonnars-openwind-mcp.hf.space/mcp</code></pre></li>
+        <pre><code>https://mcp.ohmywind.fr/mcp</code></pre></li>
       <li>Save, then enable the OhMyWind toggle inside any conversation.</li>
       <li>Le Chat doesn&rsquo;t (yet) support the MCP Apps spec, so the
         widget won&rsquo;t render inline &mdash; the assistant will hand you
@@ -235,7 +238,7 @@ LANDING_HTML = """<!doctype html>
       <li>Back in <strong>Connectors</strong>, click <strong>Create</strong>.</li>
       <li>Set <strong>Name</strong>: <code>OhMyWind</code> · <strong>Authentication</strong>: <code>No authentication</code>.</li>
       <li>Paste this in <strong>MCP server URL</strong>:
-        <pre><code>https://qdonnars-openwind-mcp.hf.space/mcp</code></pre></li>
+        <pre><code>https://mcp.ohmywind.fr/mcp</code></pre></li>
       <li>Trust the connector and save. Activate it in a chat via
         <strong>+ → Developer connectors → OhMyWind</strong>.</li>
     </ol>

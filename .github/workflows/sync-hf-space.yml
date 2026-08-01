@@ -84,7 +84,7 @@ jobs:
             -e 's/^colorTo: indigo$/colorTo: yellow/' \
             -e 's/^short_description: .*/short_description: (dev) French Atlantic + Med sailing planner via MCP./' \
             -e 's/^# OhMyWind MCP ⛵$/# OhMyWind MCP (dev) ⛵/' \
-            -e 's#qdonnars-openwind-mcp\.hf\.space#qdonnars-openwind-mcp-dev.hf.space#g' \
+            -e 's#mcp\.ohmywind\.fr#mcp-dev.ohmywind.fr#g' \
             -e 's/on `main`/on `dev`/g' \
             "$README"
           echo "Patched dev README frontmatter:"
