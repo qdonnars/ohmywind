@@ -23,14 +23,16 @@ on the server.
         │   ├── plan_passage    (single + compare-      │
         │   │                    windows mode; declares │
         │   │                    MCP Apps UI resource)  │
-        │   └── read_me                                 │
+        │   ├── read_me                                 │
+        │   └── feedback        (sink injected by the   │
+        │                        deployment wrapper)    │
         └────────────┬─────────────────────────────────┘
                      │ pure Python calls
         ┌────────────▼─────────────────────────────────┐
         │  openwind-data       (no network framework)  │
         │   • adapters/openmeteo.py   (httpx, keyless) │
         │   • routing/geometry.py     (haversine, …)   │
-        │   • routing/archetypes.py   (5 polars JSON)  │
+        │   • routing/archetypes.py   (7 polars JSON)  │
         │   • routing/passage.py      (timing + derate)│
         │   • routing/complexity.py   (1-5 score)      │
         └────────────┬─────────────────────────────────┘

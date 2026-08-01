@@ -9,6 +9,7 @@ from openwind_data.routing.archetypes import (
 from openwind_data.routing.complexity import ComplexityScore, score_complexity
 from openwind_data.routing.geometry import (
     EARTH_RADIUS_NM,
+    MAX_WAYPOINTS,
     Point,
     Segment,
     bearing,
@@ -17,14 +18,16 @@ from openwind_data.routing.geometry import (
     midpoint,
     normalize_twa,
     segment_route,
+    validate_point,
+    validate_waypoints,
 )
 from openwind_data.routing.passage import (
     EtaPassagePlan,
     NoModelCoveredError,
     PassageReport,
     SegmentReport,
-    _build_conditions_summary,
     best_vmg_upwind,
+    build_conditions_summary,
     estimate_passage,
     estimate_passage_for_arrival,
     estimate_passage_windows,
@@ -32,6 +35,7 @@ from openwind_data.routing.passage import (
 
 __all__ = [
     "EARTH_RADIUS_NM",
+    "MAX_WAYPOINTS",
     "BoatPolar",
     "ComplexityScore",
     "EtaPassagePlan",
@@ -40,9 +44,9 @@ __all__ = [
     "Point",
     "Segment",
     "SegmentReport",
-    "_build_conditions_summary",
     "bearing",
     "best_vmg_upwind",
+    "build_conditions_summary",
     "estimate_passage",
     "estimate_passage_for_arrival",
     "estimate_passage_windows",
@@ -55,4 +59,6 @@ __all__ = [
     "normalize_twa",
     "score_complexity",
     "segment_route",
+    "validate_point",
+    "validate_waypoints",
 ]

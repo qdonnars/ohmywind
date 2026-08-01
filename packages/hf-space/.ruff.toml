@@ -1,0 +1,13 @@
+# hf-space ships via Docker, not as an installable package, so it has no
+# pyproject to carry a [tool.ruff] table. Without this file ruff falls back to
+# its defaults here (line-length 88) and formats this package differently from
+# the two it vendors. Keep in sync with packages/*/pyproject.toml.
+line-length = 100
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "I", "B", "UP", "N", "RUF"]
+# RUF001 on top of the shared ignore: app.py embeds the landing page as an HTML
+# string, and its CSS uses typographic glyphs (the "›" disclosure chevron) on
+# purpose. They are content, not confusable identifiers.
+ignore = ["E501", "RUF001"]

@@ -17,7 +17,7 @@ short_description: French Atlantic + Mediterranean sailing planner via MCP.
 > Turns any MCP-capable assistant into a sailing planner for the French
 > Atlantic and Mediterranean coasts. Free, keyless, open source.
 
-![OpenWind passage plan rendered in the web app](https://raw.githubusercontent.com/qdonnars/openwind/main/docs/screenshots/plan.png)
+![OpenWind passage plan rendered in the web app](https://raw.githubusercontent.com/qdonnars/ohmywind/main/docs/screenshots/plan.png)
 
 ---
 
@@ -59,7 +59,7 @@ card.
 - **Client-agnostic.** One HTTP MCP endpoint, no vendor lock-in. Rich [MCP Apps](https://modelcontextprotocol.io/extensions/client-matrix) widget on supporting hosts; clean deep-link fallback on the rest.
 - **Open source, MIT.** Self-host on Fly, Modal, or your own VPS in minutes.
 
-## Four tools
+## Five tools
 
 | Tool                      | What it does                                                              |
 |---------------------------|---------------------------------------------------------------------------|
@@ -67,6 +67,7 @@ card.
 | `get_marine_forecast`     | Wind + sea around a point/window, multi-model.                            |
 | `plan_passage`            | End-to-end: per-leg timing + 1–5 complexity + openwind.fr deep-link, in one call. Pass `latest_departure` and it walks every hourly window up to 14 days out so the LLM can compare side-by-side. Declares an MCP Apps UI resource; supporting hosts auto-render the live plan in a sandboxed iframe. |
 | `read_me`                 | Returns OpenWind's calculation methodology. Call it when the user asks how things are computed. |
+| `feedback`                | Structured channel for the LLM to report a problem or a suggestion about a tool interaction. |
 
 ## About this Space
 
@@ -75,7 +76,7 @@ card.
 > `huggingface.co/spaces?filter=mcp-server`. Discoverability lives at
 > [openwind.fr](https://openwind.fr) instead.
 
-**Source of truth:** <https://github.com/qdonnars/openwind>. This Space is
+**Source of truth:** <https://github.com/qdonnars/ohmywind>. This Space is
 auto-deployed by GitHub Actions from `packages/hf-space/` on `main`. Don't
 commit directly to the Space repo; your changes will be overwritten at the
 next push.

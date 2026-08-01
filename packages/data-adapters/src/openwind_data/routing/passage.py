@@ -140,7 +140,7 @@ def _categorize_twa(twa_deg: float) -> str:
         return "portant"
 
 
-def _build_conditions_summary(report: PassageReport) -> dict:
+def build_conditions_summary(report: PassageReport) -> dict:
     tws = [s.tws_kn for s in report.segments]
     counts: dict[str, int] = {}
     for s in report.segments:

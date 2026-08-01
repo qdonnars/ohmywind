@@ -5,14 +5,13 @@ This wrapper is intentionally thin. All tools live in ``openwind_mcp_core``
 different Dockerfile that runs the same ``build_server()`` factory.
 
 Transport: ``streamable-http`` on port 7860 (HF Spaces default). Clients
-connect to ``https://qdonnars-openwind-mcp.hf.space``. (Custom domain
-``mcp.openwind.fr`` deferred — HF gates custom domains behind PRO; see
-``plan/04-backlog.md``.)
+connect to ``https://qdonnars-openwind-mcp.hf.space``. A custom domain on the
+Space is deferred: HF gates those behind a PRO subscription.
 
-Trade-off explicitly accepted (cf. ``plan/04-backlog.md``): HF Docker SDK
-Spaces do not get the ``MCP`` badge or the one-click connector flow that
-Gradio ``mcp_server=True`` Spaces get. Discoverability is via the project
-website, not via the HF catalog. Re-evaluate if traffic plateaus.
+Trade-off explicitly accepted: HF Docker SDK Spaces do not get the ``MCP``
+badge or the one-click connector flow that Gradio ``mcp_server=True`` Spaces
+get. Discoverability is via the project website, not via the HF catalog.
+Re-evaluate if traffic plateaus.
 """
 
 from __future__ import annotations
@@ -35,10 +34,10 @@ from openwind_data.currents.marc_atlas import MarcAtlasRegistry
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
 from openwind_data.routing.archetypes import BoatPolar, list_archetypes_metadata
 from openwind_data.routing.complexity import score_complexity
-from openwind_data.routing.geometry import Point
+from openwind_data.routing.geometry import Point, validate_point, validate_waypoints
 from openwind_data.routing.passage import (
     NoModelCoveredError,
-    _build_conditions_summary,
+    build_conditions_summary,
     estimate_passage,
     estimate_passage_for_arrival,
     estimate_passage_windows,
@@ -50,6 +49,8 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
 from starlette.routing import Mount, Route
+
+from security import ALLOWED_ORIGINS, RateLimitMiddleware, SecurityHeadersMiddleware
 
 _logger = logging.getLogger(__name__)
 
@@ -178,7 +179,7 @@ LANDING_HTML = """<!doctype html>
     Mediterranean coasts. Exposed as an MCP server so any compatible
     assistant can use it.</p>
 
-  <img class="hero" src="https://raw.githubusercontent.com/qdonnars/openwind/main/docs/screenshots/plan.png"
+  <img class="hero" src="https://raw.githubusercontent.com/qdonnars/ohmywind/main/docs/screenshots/plan.png"
        alt="OpenWind passage plan: 5 waypoints, 48.6 nm, ETA 21:24, complexity 3 of 5.">
 
   <h2>Connect it to your assistant</h2>
@@ -274,7 +275,7 @@ LANDING_HTML = """<!doctype html>
 
   <h2>Source</h2>
   <p>Project site: <a href="https://openwind.fr">openwind.fr</a> &middot;
-    GitHub: <a href="https://github.com/qdonnars/openwind">qdonnars/openwind</a>
+    GitHub: <a href="https://github.com/qdonnars/ohmywind">qdonnars/ohmywind</a>
     (MIT).</p>
 
   <p class="footnote">First request after inactivity may take a few seconds
@@ -367,6 +368,7 @@ def _parse_polar(raw: Any) -> BoatPolar | None:
     if len(tws) < 2 or len(twa) < 2:
         raise ValueError("polar must have >= 2 TWS and >= 2 TWA entries")
     from itertools import pairwise
+
     if any(a >= b for a, b in pairwise(tws)):
         raise ValueError("polar tws_kn must be strictly ascending")
     if any(a >= b for a, b in pairwise(twa)):
@@ -384,9 +386,7 @@ def _parse_polar(raw: Any) -> BoatPolar | None:
             )
         for j, v in enumerate(row):
             if v < 0 or v > 30:
-                raise ValueError(
-                    f"polar boat_speed_kn[{i}][{j}]={v} out of range [0, 30]"
-                )
+                raise ValueError(f"polar boat_speed_kn[{i}][{j}]={v} out of range [0, 30]")
     # Optional motor config. Both fields must be set together; either alone
     # is dropped silently so a half-filled web form never silently changes
     # the simulation (matches the frontend / backend "both or neither" rule).
@@ -477,8 +477,14 @@ async def _api_passage(request: Request) -> JSONResponse:
     except (TypeError, IndexError, ValueError) as exc:
         return JSONResponse({"error": f"invalid waypoints: {exc}"}, status_code=422)
 
-    if len(waypoints) < 2:
-        return JSONResponse({"error": "at least 2 waypoints required"}, status_code=422)
+    # Bounds are checked before any upstream call: an out-of-range point used
+    # to reach Open-Meteo and come back as a misleading "forecast horizon
+    # exceeded". Message passed through verbatim so "at least 2 waypoints
+    # required" stays byte-identical for the front's error mapping.
+    try:
+        validate_waypoints(waypoints)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
 
     efficiency: float = body.get("efficiency", 0.75)
     try:
@@ -523,9 +529,15 @@ async def _api_passage(request: Request) -> JSONResponse:
 
         try:
             reports = await estimate_passage_windows(
-                waypoints, departure, latest_departure, body["archetype"],
-                sweep_interval_hours=sweep_interval, efficiency=efficiency, model="auto",
-                polar_override=polar_override, model_chain=model_chain,
+                waypoints,
+                departure,
+                latest_departure,
+                body["archetype"],
+                sweep_interval_hours=sweep_interval,
+                efficiency=efficiency,
+                model="auto",
+                polar_override=polar_override,
+                model_chain=model_chain,
                 adapter=cache_adapter,
             )
         except KeyError as exc:
@@ -545,7 +557,6 @@ async def _api_passage(request: Request) -> JSONResponse:
         # Sweep is partial-tolerant: estimate_passage_windows skips windows
         # that hit ForecastHorizonError. Compute the expected count to surface
         # a meta-warning if some were dropped.
-        from datetime import timedelta as _td
         expected_windows = (
             int((latest_departure - departure).total_seconds() / 3600 / sweep_interval) + 1
         )
@@ -558,22 +569,24 @@ async def _api_passage(request: Request) -> JSONResponse:
             # drill-down ("click a row → see detail") needs zero re-fetch.
             # The summary fields above (`complexity` partial, `conditions_summary`,
             # `duration_h`, `distance_nm`) stay for compact table rendering.
-            windows.append({
-                "departure": report.departure_time.isoformat(),
-                "arrival": report.arrival_time.isoformat(),
-                "duration_h": round(report.duration_h, 2),
-                "distance_nm": round(report.distance_nm, 1),
-                "complexity": {
-                    "level": score.level,
-                    "label": score.label,
-                    "tws_max_kn": round(score.tws_max_kn, 1),
-                    "rationale": score.rationale,
-                },
-                "conditions_summary": _build_conditions_summary(report),
-                "warnings": list(report.warnings) + [w.message for w in score.warnings],
-                "passage": _to_json(report),
-                "complexity_full": _to_json(score),
-            })
+            windows.append(
+                {
+                    "departure": report.departure_time.isoformat(),
+                    "arrival": report.arrival_time.isoformat(),
+                    "duration_h": round(report.duration_h, 2),
+                    "distance_nm": round(report.distance_nm, 1),
+                    "complexity": {
+                        "level": score.level,
+                        "label": score.label,
+                        "tws_max_kn": round(score.tws_max_kn, 1),
+                        "rationale": score.rationale,
+                    },
+                    "conditions_summary": build_conditions_summary(report),
+                    "warnings": list(report.warnings) + [w.message for w in score.warnings],
+                    "passage": _to_json(report),
+                    "complexity_full": _to_json(score),
+                }
+            )
 
         meta_warnings: list[str] = []
         if skipped_count > 0:
@@ -582,10 +595,11 @@ async def _api_passage(request: Request) -> JSONResponse:
                 f"(horizon dépassé) — affichage des {len(windows)} restantes."
             )
         if target_eta_dt is not None:
-            tol = _td(hours=2).total_seconds()
+            tol = timedelta(hours=2).total_seconds()
             target_utc = target_eta_dt.astimezone(UTC)
             filtered = [
-                w for w in windows
+                w
+                for w in windows
                 if abs((datetime.fromisoformat(w["arrival"]) - target_utc).total_seconds()) <= tol
             ]
             if not filtered:
@@ -596,24 +610,31 @@ async def _api_passage(request: Request) -> JSONResponse:
             else:
                 windows = filtered
 
-        return JSONResponse({
-            "mode": "multi_window",
-            "sweep": {
-                "earliest": departure.isoformat(),
-                "latest": latest_departure.isoformat(),
-                "interval_hours": sweep_interval,
-                "window_count": len(windows),
-            },
-            "windows": windows,
-            "meta_warnings": meta_warnings,
-            "forecast_updated_at": datetime.now(UTC).isoformat(),
-        })
+        return JSONResponse(
+            {
+                "mode": "multi_window",
+                "sweep": {
+                    "earliest": departure.isoformat(),
+                    "latest": latest_departure.isoformat(),
+                    "interval_hours": sweep_interval,
+                    "window_count": len(windows),
+                },
+                "windows": windows,
+                "meta_warnings": meta_warnings,
+                "forecast_updated_at": datetime.now(UTC).isoformat(),
+            }
+        )
 
     # Single mode.
     try:
         passage = await estimate_passage(
-            waypoints, departure, body["archetype"], efficiency=efficiency, model="auto",
-            polar_override=polar_override, model_chain=model_chain,
+            waypoints,
+            departure,
+            body["archetype"],
+            efficiency=efficiency,
+            model="auto",
+            polar_override=polar_override,
+            model_chain=model_chain,
             adapter=cache_adapter,
         )
     except KeyError as exc:
@@ -632,11 +653,13 @@ async def _api_passage(request: Request) -> JSONResponse:
 
     complexity = score_complexity(passage)
 
-    return JSONResponse({
-        "passage": _to_json(passage),
-        "complexity": _to_json(complexity),
-        "forecast_updated_at": datetime.now(UTC).isoformat(),
-    })
+    return JSONResponse(
+        {
+            "passage": _to_json(passage),
+            "complexity": _to_json(complexity),
+            "forecast_updated_at": datetime.now(UTC).isoformat(),
+        }
+    )
 
 
 async def _api_passage_by_eta(request: Request) -> JSONResponse:
@@ -668,8 +691,14 @@ async def _api_passage_by_eta(request: Request) -> JSONResponse:
     except (TypeError, IndexError, ValueError) as exc:
         return JSONResponse({"error": f"invalid waypoints: {exc}"}, status_code=422)
 
-    if len(waypoints) < 2:
-        return JSONResponse({"error": "at least 2 waypoints required"}, status_code=422)
+    # Bounds are checked before any upstream call: an out-of-range point used
+    # to reach Open-Meteo and come back as a misleading "forecast horizon
+    # exceeded". Message passed through verbatim so "at least 2 waypoints
+    # required" stays byte-identical for the front's error mapping.
+    try:
+        validate_waypoints(waypoints)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
 
     try:
         efficiency = float(body.get("efficiency", 0.75))
@@ -716,20 +745,20 @@ async def _api_passage_by_eta(request: Request) -> JSONResponse:
 
     complexity = score_complexity(plan.report)
 
-    return JSONResponse({
-        "passage": _to_json(plan.report),
-        "complexity": _to_json(complexity),
-        "eta": {"target_arrival": plan.target_arrival.isoformat()},
-        "forecast_updated_at": datetime.now(UTC).isoformat(),
-    })
+    return JSONResponse(
+        {
+            "passage": _to_json(plan.report),
+            "complexity": _to_json(complexity),
+            "eta": {"target_arrival": plan.target_arrival.isoformat()},
+            "forecast_updated_at": datetime.now(UTC).isoformat(),
+        }
+    )
 
 
 # Module-level MARC registry — loaded once at import. Empty registry when
 # MARC_ATLAS_DIR is unset or the dataset wasn't pulled (build without
 # HF_TOKEN secret), so the overlay endpoint silently returns covered=false.
-_MARC_REGISTRY = MarcAtlasRegistry.from_directory(
-    os.environ.get("MARC_ATLAS_DIR", "")
-)
+_MARC_REGISTRY = MarcAtlasRegistry.from_directory(os.environ.get("MARC_ATLAS_DIR", ""))
 # SHOM Atlas C2D registry — same lifecycle as MARC. Empty when SHOM_C2D_DIR
 # is unset or the dataset doesn't ship the SHOM artefacts. When populated,
 # SHOM takes priority for currents on covered points; SHOM ships no tide
@@ -801,7 +830,7 @@ def _build_feedback_scheduler() -> Any | None:
             _FEEDBACK_EVERY_MIN,
         )
         return scheduler
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         _logger.warning("openwind.feedback: scheduler init failed: %s", exc)
         return None
 
@@ -858,14 +887,16 @@ async def _api_marc_overlay(request: Request) -> JSONResponse:
             {"error": f"missing or invalid query params (lat, lon, start, end): {exc}"},
             status_code=422,
         )
+    try:
+        validate_point(lat, lon)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
     step_minutes = 60
     if "step_minutes" in request.query_params:
         try:
             step_minutes = int(request.query_params["step_minutes"])
         except ValueError:
-            return JSONResponse(
-                {"error": "step_minutes must be an integer"}, status_code=422
-            )
+            return JSONResponse({"error": "step_minutes must be an integer"}, status_code=422)
         if step_minutes < 5 or step_minutes > 360:
             return JSONResponse(
                 {"error": "step_minutes must be between 5 and 360"}, status_code=422
@@ -879,9 +910,7 @@ async def _api_marc_overlay(request: Request) -> JSONResponse:
         return JSONResponse({"error": "end must be after start"}, status_code=422)
     span_days = (end - start).total_seconds() / 86400
     if span_days > 30:
-        return JSONResponse(
-            {"error": "time window must be at most 30 days"}, status_code=422
-        )
+        return JSONResponse({"error": "time window must be at most 30 days"}, status_code=422)
 
     marc_loaded = bool(_MARC_REGISTRY.atlases)
     shom_covers = _SHOM_REGISTRY.covers(lat, lon)
@@ -907,9 +936,7 @@ async def _api_marc_overlay(request: Request) -> JSONResponse:
     # MARC because SHOM C2D ships no height series.
     h_result = _MARC_REGISTRY.predict_height_series(lat, lon, times) if cell else None
     marc_c_result = _MARC_REGISTRY.predict_current_series(lat, lon, times) if cell else None
-    shom_c_result = (
-        _SHOM_REGISTRY.predict_current_series(lat, lon, times) if shom_covers else None
-    )
+    shom_c_result = _SHOM_REGISTRY.predict_current_series(lat, lon, times) if shom_covers else None
 
     # Cascade for currents: SHOM > MARC. atlas_resolution_m and z0_hydro_m
     # stay on MARC because SHOM resolution varies per cartouche and SHOM
@@ -951,9 +978,7 @@ async def _api_marc_overlay(request: Request) -> JSONResponse:
         if source.lower().startswith("shom_c2d_"):
             payload["current_source"] = source.lower()
         elif cell and atlas_resolution_m:
-            payload["current_source"] = (
-                f"marc_{cell.atlas_name.lower()}_{atlas_resolution_m}m"
-            )
+            payload["current_source"] = f"marc_{cell.atlas_name.lower()}_{atlas_resolution_m}m"
         else:
             payload["current_source"] = source.lower()
     elif h_result is not None and cell and atlas_resolution_m:
@@ -961,6 +986,40 @@ async def _api_marc_overlay(request: Request) -> JSONResponse:
     return JSONResponse(
         payload,
         headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+def build_app(mcp_app: Any) -> Starlette:
+    """Assemble the parent Starlette app around a mounted FastMCP app.
+
+    Split out of ``main`` so tests can exercise routing and middleware without
+    booting uvicorn or a real MCP session manager.
+    """
+    return Starlette(
+        routes=[
+            Route("/", _index),
+            *[Route(path, _icon_redirect, methods=["GET"]) for path in _ICON_REDIRECTS],
+            Route("/api/v1/archetypes", _api_archetypes, methods=["GET"]),
+            Route("/api/v1/passage", _api_passage, methods=["POST"]),
+            Route("/api/v1/passage-by-eta", _api_passage_by_eta, methods=["POST"]),
+            Route("/api/v1/marine/marc", _api_marc_overlay, methods=["GET"]),
+            Mount("/", app=mcp_app),
+        ],
+        # Order matters: the first entry is the outermost wrapper. CORS sits
+        # outside the limiter so a 429 still carries the Access-Control-Allow-*
+        # headers — otherwise the browser reports an opaque CORS failure and
+        # the real cause never reaches the user.
+        middleware=[
+            Middleware(
+                CORSMiddleware,
+                allow_origins=ALLOWED_ORIGINS,
+                allow_methods=["GET", "POST", "OPTIONS"],
+                allow_headers=["Content-Type"],
+            ),
+            Middleware(SecurityHeadersMiddleware),
+            Middleware(RateLimitMiddleware),
+        ],
+        lifespan=mcp_app.router.lifespan_context,
     )
 
 
@@ -982,27 +1041,7 @@ def main() -> None:
     # so we must hand the inner lifespan to the parent — without this the MCP
     # endpoint returns 500 because the streamable-http session manager never
     # initialised.
-    mcp_app = server.streamable_http_app()
-    app = Starlette(
-        routes=[
-            Route("/", _index),
-            *[Route(path, _icon_redirect, methods=["GET"]) for path in _ICON_REDIRECTS],
-            Route("/api/v1/archetypes", _api_archetypes, methods=["GET"]),
-            Route("/api/v1/passage", _api_passage, methods=["POST"]),
-            Route("/api/v1/passage-by-eta", _api_passage_by_eta, methods=["POST"]),
-            Route("/api/v1/marine/marc", _api_marc_overlay, methods=["GET"]),
-            Mount("/", app=mcp_app),
-        ],
-        middleware=[
-            Middleware(
-                CORSMiddleware,
-                allow_origins=["*"],
-                allow_methods=["GET", "POST", "OPTIONS"],
-                allow_headers=["Content-Type"],
-            )
-        ],
-        lifespan=mcp_app.router.lifespan_context,
-    )
+    app = build_app(server.streamable_http_app())
     # Run uvicorn explicitly (rather than ``server.run(transport=...)``) so we
     # can enable ``proxy_headers``/``forwarded_allow_ips``. HF terminates TLS
     # at the edge; without these flags ASGI sees ``http`` + the internal Host
