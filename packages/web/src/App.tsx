@@ -206,10 +206,12 @@ function App() {
         <div className="absolute left-0 right-0 bottom-0 max-h-[44vh] md:max-h-[46vh] z-[400] flex flex-col">
           {/* Locate FAB — anchored to the overlay rather than to the map, so
               it rides up and down as the data panel grows and shrinks
-              instead of ending up buried under it. Sits flush on the pills
-              band, whose 48 px height matches the button exactly. Out of
+              instead of ending up buried under it. The 16 px offset is
+              measured from the solid table below, not from the pills band,
+              which is transparent over the map: the button straddles the
+              pills and keeps the same gap to the panel as on /plan. Out of
               flow, so it does not push the pills around. */}
-          <LocateButton status={geolocStatus} onClick={handleLocate} className="top-0 right-3" />
+          <LocateButton status={geolocStatus} onClick={handleLocate} className="-top-4 right-3" />
           {spot ? (
             <>
               <div className="shrink-0">

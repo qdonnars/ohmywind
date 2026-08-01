@@ -833,15 +833,16 @@ export function PlanPage() {
           </a>
           {/* Locate FAB — bottom right of the map container, which shrinks as
               the mobile drawer is dragged up, so the button follows it.
-              Normally flush with the drawer edge. It only lifts on mobile
-              when the hero stats occupy that corner, otherwise it would sit
-              on top of the arrival time. */}
+              Normally 16 px above the drawer edge, the reference gap reused
+              on the home overlay. On mobile the hero stats take that corner,
+              so the button clears their 72 px and keeps the same 16 px above
+              them rather than sitting on the arrival time. */}
           <LocateButton
             status={geolocStatus}
             onClick={handleLocate}
             className={
               passage && planMode === "single" && !isStale
-                ? "bottom-24 lg:bottom-4 right-3"
+                ? "bottom-[5.5rem] lg:bottom-4 right-3"
                 : "bottom-4 right-3"
             }
           />
