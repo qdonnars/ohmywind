@@ -27,6 +27,15 @@ export function friendlyError(raw: string): string {
   if (/at least 2 waypoints/i.test(raw)) {
     return "Placez au moins 2 waypoints sur la carte pour calculer une route.";
   }
+  if (/waypoint \d+: (lat|lon)=.* out of range/i.test(raw)) {
+    return "Un waypoint est hors des coordonnées valides. Replacez-le sur la carte.";
+  }
+  if (/too many waypoints/i.test(raw)) {
+    return "Trop de waypoints sur cette route. Retirez-en quelques-uns pour la simplifier.";
+  }
+  if (/rate limit exceeded/i.test(raw)) {
+    return "Trop de calculs lancés coup sur coup. Patientez une minute avant de relancer.";
+  }
   if (/unknown archetype/i.test(raw)) {
     return "Type de bateau inconnu. Sélectionnez un archétype dans la liste.";
   }

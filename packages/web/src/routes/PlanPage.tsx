@@ -24,6 +24,7 @@ import { LocateButton } from "../components/LocateButton";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useMapView } from "../hooks/useMapView";
 import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
+import { setCookie, clearCookie } from "../utils/cookies";
 
 // Build the plan-time overrides payload from current /config preferences.
 // Read at request time (not at mount) so a /config tweak takes effect on the
@@ -436,7 +437,7 @@ export function PlanPage() {
         const url = buildPlanUrl(wpts, resolvedDep, arch);
         window.history.replaceState(null, "", url);
         const ttl = 7 * 24 * 3600;
-        document.cookie = `ow_last_trip=${encodeURIComponent(window.location.href)};max-age=${ttl};path=/;SameSite=Lax`;
+        setCookie("ow_last_trip", window.location.href, ttl);
         // Persist for next visit. Merge into existing cache so a previously
         // saved compare-mode result stays available.
         const prev = loadLastSimulation();
@@ -631,7 +632,7 @@ export function PlanPage() {
     clearLastSimulation();
     // Also expire the dormant ow_last_trip cookie so a future read (if we ever
     // wire it up) doesn't resurrect a stale plan.
-    document.cookie = "ow_last_trip=;max-age=0;path=/;SameSite=Lax";
+    clearCookie("ow_last_trip");
     setWaypoints([]);
     setPassage(null);
     setComplexity(null);
@@ -693,7 +694,7 @@ export function PlanPage() {
       const url = buildPlanUrl(waypoints, naiveDep, archetype);
       window.history.replaceState(null, "", url);
       const ttl = 7 * 24 * 3600;
-      document.cookie = `ow_last_trip=${encodeURIComponent(window.location.href)};max-age=${ttl};path=/;SameSite=Lax`;
+      setCookie("ow_last_trip", window.location.href, ttl);
       // Keep windows around so the user can switch back to compare mode and
       // see the table again without re-fetching the sweep.
       // setWindows(null) intentionally NOT called — user toggling back to
