@@ -41,8 +41,8 @@ function EmptyState() {
           style={{ background: 'var(--ow-accent)' }}
         />
         <span className="text-[12px] font-medium" style={{ color: 'var(--ow-fg-0)' }}>
-          <span className="lg:hidden">Appui long pour placer votre premier spot</span>
-          <span className="hidden lg:inline">Clic droit pour placer votre premier spot</span>
+          <span className="lg:hidden">Touchez la carte pour la météo, appui long pour enregistrer un spot</span>
+          <span className="hidden lg:inline">Cliquez la carte pour la météo, clic droit pour enregistrer un spot</span>
         </span>
       </div>
     </div>
@@ -133,6 +133,18 @@ function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Tap or left click on the map: show the forecast there without saving.
+  // Named by its coordinates rather than reverse-geocoded: the lookup is
+  // instant and offline, and a position is meaningful information at sea.
+  // Creating a spot stays a deliberate act (long press, or right click).
+  const handlePreviewSpot = useCallback((lat: number, lon: number) => {
+    setSpot({
+      name: `${lat.toFixed(3)}, ${lon.toFixed(3)}`,
+      latitude: lat,
+      longitude: lon,
+    });
+  }, []);
+
   // Explicit "centre sur moi": always honor it, spot selected or not.
   const handleLocate = useCallback(() => {
     locate().then((fix) => {
@@ -183,6 +195,7 @@ function App() {
           onCenterChange={onCenterChange}
           defaultCenter={DEFAULT_MAP_CENTER}
           onSelectSpot={setSpot}
+          onPreviewSpot={handlePreviewSpot}
           onAddSpot={(s) => { addSpot(s); setSpot(s); }}
           onRemoveSpot={(s) => { removeSpot(s); if (spot?.latitude === s.latitude && spot?.longitude === s.longitude) { setSpot(null); setForecasts([]); setSelectedHour(null); } }}
           onRenameSpot={(s, name) => { renameSpot(s, name); if (spot?.latitude === s.latitude && spot?.longitude === s.longitude) setSpot({ ...s, name }); }}
