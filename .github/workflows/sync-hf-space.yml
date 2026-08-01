@@ -82,7 +82,7 @@ jobs:
             -e 's/^title: OhMyWind MCP$/title: OhMyWind MCP (dev)/' \
             -e 's/^colorFrom: blue$/colorFrom: gray/' \
             -e 's/^colorTo: indigo$/colorTo: yellow/' \
-            -e 's/^short_description: .*/short_description: (dev) French Atlantic + Med sailing planner via MCP./' \
+            -e 's/^short_description: .*/short_description: (dev) Sailing passage planner for any coast, via MCP./' \
             -e 's/^# OhMyWind MCP ⛵$/# OhMyWind MCP (dev) ⛵/' \
             -e 's#mcp\.ohmywind\.fr#mcp-dev.ohmywind.fr#g' \
             -e 's/on `main`/on `dev`/g' \

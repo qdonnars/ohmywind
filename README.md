@@ -3,10 +3,10 @@
 > **Talk to your LLM. Cast off with confidence.**
 >
 > OhMyWind turns any MCP-capable assistant (Claude, Le Chat, Cursor, Goose,
-> Zed, Continue) into a sailing planner for the French Atlantic and
-> Mediterranean coasts. Ask in plain language. Get a per-leg ETA, a 1‑5
-> complexity score, high-precision tidal currents on the Atlantic
-> (SHOM Atlas C2D and MARC PREVIMER), and a deep-link to the full plan.
+> Zed, Continue) into a sailing planner. Ask in plain language, anywhere in
+> the world: get a per-leg ETA, a 1‑5 complexity score, and a deep-link to
+> the full plan. On the French Atlantic coast it goes further, swapping the
+> global current model for the SHOM Atlas C2D and MARC PREVIMER atlases.
 > Free, keyless, open source.
 
 [**ohmywind.fr**](https://ohmywind.fr) · [MCP endpoint](https://mcp.ohmywind.fr/mcp) · MIT
@@ -83,7 +83,7 @@ Three prompts, each exercising a different tool:
 |                              |                                                                                              |
 |------------------------------|----------------------------------------------------------------------------------------------|
 | 🆓 **Free, keyless**         | Wind & sea via [Open-Meteo](https://open-meteo.com) (CC BY 4.0). No account, no API key.     |
-| 🌊 **Mediterranean-tuned**   | Defaults to AROME 1.3 km, catches thermals, mistral, tramontane. Falls back to ICON-EU → ECMWF → GFS as the horizon stretches out. |
+| 🌍 **Works anywhere**        | Global models (ECMWF, GFS) cover any coast. Over France, AROME 1.3 km takes over and catches thermals, mistral, tramontane. |
 | ⛵ **Boat-aware**             | Seven archetypes from 20 ft trailer-cruisers to bluewater 50-footers, real polars, an `efficiency` parameter for trim and crew level. |
 | 🗓️ **Window-aware**           | One call sweeps a 14-day departure range and lets your LLM pick the calmest weekend slot, no math by hand. |
 | 🔌 **Client-agnostic**        | One HTTP MCP endpoint. Works in Claude Desktop, Le Chat, Cursor, Goose, Zed, Continue, …     |
@@ -113,8 +113,8 @@ silently get the structured payload + the `openwind_url` deep-link.
 packages/
 ├── data-adapters/   # pure domain logic (forecast adapters, polars, routing, complexity)
 ├── mcp-core/        # FastMCP server (cloud-agnostic, no Gradio, no HF deps)
-├── hf-space/        # ~20-line Docker wrapper for Hugging Face Spaces
-└── web/             # React 19 + Vite app deployed to GitHub Pages (ohmywind.fr)
+├── hf-space/        # Docker wrapper for Hugging Face Spaces (Starlette + uvicorn)
+└── web/             # React 19 + Vite app deployed to Cloudflare Pages (ohmywind.fr)
 ```
 
 `mcp-core` stays deployment-agnostic. Re-deploying on Fly, Modal, or a VPS is

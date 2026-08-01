@@ -7,15 +7,16 @@ sdk: docker
 app_port: 7860
 pinned: false
 license: mit
-short_description: French Atlantic + Mediterranean sailing planner via MCP.
+short_description: Sailing passage planner for any coast, via MCP.
 ---
 
 # OhMyWind MCP ⛵
 
 > **Talk to your LLM. Cast off with confidence.**
 >
-> Turns any MCP-capable assistant into a sailing planner for the French
-> Atlantic and Mediterranean coasts. Free, keyless, open source.
+> Turns any MCP-capable assistant into a sailing planner, anywhere in the
+> world. Extra precision on the French Atlantic coast, where SHOM and MARC
+> tidal atlases replace the global model. Free, keyless, open source.
 
 ![OhMyWind passage plan rendered in the web app](https://raw.githubusercontent.com/qdonnars/ohmywind/main/docs/screenshots/plan.png)
 
