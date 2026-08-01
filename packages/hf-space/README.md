@@ -26,7 +26,7 @@ short_description: French Atlantic + Mediterranean sailing planner via MCP.
 **1.** In your MCP client, add the endpoint:
 
 ```
-https://qdonnars-openwind-mcp.hf.space/mcp
+https://mcp.ohmywind.fr/mcp
 ```
 
 **2.** Ask, in your own words:

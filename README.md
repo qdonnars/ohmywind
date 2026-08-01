@@ -9,7 +9,7 @@
 > (SHOM Atlas C2D and MARC PREVIMER), and a deep-link to the full plan.
 > Free, keyless, open source.
 
-[**ohmywind.fr**](https://ohmywind.fr) · [MCP endpoint](https://qdonnars-openwind-mcp.hf.space/mcp) · MIT
+[**ohmywind.fr**](https://ohmywind.fr) · [MCP endpoint](https://mcp.ohmywind.fr/mcp) · MIT
 
 ![OhMyWind passage plan rendered in the web app](docs/screenshots/plan.png)
 
@@ -20,7 +20,7 @@
 **1.** Open your MCP client and add the endpoint:
 
 ```
-https://qdonnars-openwind-mcp.hf.space/mcp
+https://mcp.ohmywind.fr/mcp
 ```
 
 **2.** Ask, in your own words:
