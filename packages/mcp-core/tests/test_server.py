@@ -70,9 +70,11 @@ class TestBuildServer:
         server = build_server(adapter=StubAdapter())
         assert isinstance(server, FastMCP)
 
-    async def test_lists_five_tools(self) -> None:
-        # The V1 surface: 3 functional tools + read_me for methodology Q&A
-        # + feedback for LLM-side issue reporting.
+    async def test_lists_four_tools(self) -> None:
+        # The V1 surface: 3 functional tools + read_me for methodology Q&A.
+        # `feedback` was removed before publication: an unauthenticated,
+        # unrate-limited write endpoint on a public server ingests whatever a
+        # prompt injection decides to send, and we would be storing it.
         server = build_server(adapter=StubAdapter())
         tools = await server.list_tools()
         names = {t.name for t in tools}
@@ -81,7 +83,6 @@ class TestBuildServer:
             "list_boat_archetypes",
             "get_marine_forecast",
             "plan_passage",
-            "feedback",
         }
 
 
@@ -293,94 +294,6 @@ class TestPlanPassageSweep:
             raise AssertionError("expected an exception for oversized sweep")
         except Exception as exc:
             assert "336" in str(exc) or "cap" in str(exc).lower() or "windows" in str(exc).lower()
-
-
-class TestFeedback:
-    """The feedback tool is the LLM-side issue reporting channel.
-
-    Contract: the sink receives a normalised entry with stable keys; the
-    tool never raises (a failing sink degrades to ``ack="buffered"``);
-    the LLM-facing payload only exposes ``feedback_id``, ``received_at``,
-    and ``ack``."""
-
-    @staticmethod
-    def _args(**overrides: object) -> dict:
-        base = {
-            "category": "wrong_result",
-            "tool_name": "plan_passage",
-            "severity": "medium",
-            "message": "distance_nm=0 for Marseille -> Calvi",
-        }
-        base.update(overrides)
-        return base
-
-    async def test_feedback_listed(self) -> None:
-        server = build_server(adapter=StubAdapter())
-        tools = await server.list_tools()
-        names = {t.name for t in tools}
-        assert "feedback" in names
-
-    async def test_default_sink_does_not_raise(self) -> None:
-        # No sink provided → stderr_sink default. Tool returns ack="thanks".
-        server = build_server(adapter=StubAdapter())
-        out = await _call(server, "feedback", self._args())
-        assert out["ack"] == "thanks"
-        assert isinstance(out["feedback_id"], str) and len(out["feedback_id"]) > 0
-        assert isinstance(out["received_at"], str)
-
-    async def test_custom_sink_receives_normalised_entry(self) -> None:
-        captured: list[dict] = []
-
-        def sink(entry: dict) -> None:
-            captured.append(entry)
-
-        server = build_server(adapter=StubAdapter(), feedback_sink=sink)
-        await _call(
-            server,
-            "feedback",
-            self._args(context_json={"waypoints": [[43.3, 5.35], [42.5, 8.7]]}),
-        )
-        assert len(captured) == 1
-        e = captured[0]
-        assert {
-            "feedback_id",
-            "received_at",
-            "category",
-            "tool_name",
-            "severity",
-            "message",
-            "context_json",
-            "client_hint",
-        } <= e.keys()
-        assert e["category"] == "wrong_result"
-        assert e["tool_name"] == "plan_passage"
-        assert e["severity"] == "medium"
-        assert e["context_json"] == {"waypoints": [[43.3, 5.35], [42.5, 8.7]]}
-        assert e["client_hint"] is None
-
-    async def test_failing_sink_degrades_to_buffered(self) -> None:
-        def sink(_entry: dict) -> None:
-            raise RuntimeError("HF push failed")
-
-        server = build_server(adapter=StubAdapter(), feedback_sink=sink)
-        out = await _call(server, "feedback", self._args())
-        assert out["ack"] == "buffered"
-        # ID and timestamp still returned, so the LLM never sees a tool error.
-        assert isinstance(out["feedback_id"], str) and len(out["feedback_id"]) > 0
-
-    async def test_long_message_is_truncated(self) -> None:
-        captured: list[dict] = []
-        server = build_server(adapter=StubAdapter(), feedback_sink=captured.append)
-        await _call(server, "feedback", self._args(message="x" * 5000))
-        assert "[truncated]" in captured[0]["message"]
-        assert len(captured[0]["message"]) < 5000
-
-    async def test_response_does_not_leak_message(self) -> None:
-        # The tool response should be a thin ack — not echo back the
-        # user's full message (no point round-tripping it to the LLM).
-        server = build_server(adapter=StubAdapter())
-        out = await _call(server, "feedback", self._args(message="some private note"))
-        assert "some private note" not in str(out)
 
 
 class TestGetMarineForecast:
