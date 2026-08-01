@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { checkForAppUpdate } from "./sw";
 
 /**
  * Minimal client-side routing, no dependency.
@@ -42,7 +43,12 @@ export function useRouter(): { path: string; search: string } {
   const [location, setLocation] = useState(currentLocation);
 
   useEffect(() => {
-    const sync = () => setLocation(currentLocation());
+    const sync = () => {
+      setLocation(currentLocation());
+      // Navigations no longer hit the network, so this is now the only
+      // regular occasion to notice a deploy. Throttled and best-effort.
+      checkForAppUpdate();
+    };
 
     const onPopState = () => sync();
 
