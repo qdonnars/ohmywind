@@ -22,7 +22,8 @@ import { activeModels, loadModelConfig } from "../config/modelConfig";
 import { effectivePolar, isPolarCustomized, loadPolarConfig, polarFingerprint } from "../config/polarConfig";
 import { LocateButton } from "../components/LocateButton";
 import { useGeolocation } from "../hooks/useGeolocation";
-import { useMapCenter } from "../hooks/useMapCenter";
+import { useMapView } from "../hooks/useMapView";
+import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
 
 // Build the plan-time overrides payload from current /config preferences.
 // Read at request time (not at mount) so a /config tweak takes effect on the
@@ -309,7 +310,10 @@ export function PlanPage() {
   const mapRef = useRef<PlanMapHandle>(null);
 
   const { position: userPosition, status: geolocStatus, attempt: geolocAttempt, locate } = useGeolocation();
-  const { center: mapCenter, onCenterChange } = useMapCenter();
+  const { view: mapView, onViewChange } = useMapView();
+  // Zoom handed over by the explore map, used only when no route frames the
+  // camera itself. Read once: navigating remounts the page.
+  const [handedView] = useState(() => parseMapView(window.location.search));
   // On /plan the user is building a route, so a locate request is always
   // explicit: no first-visit auto-centering here.
   const handleLocate = useCallback(() => {
@@ -733,7 +737,7 @@ export function PlanPage() {
           <h1 className="text-xl font-bold">URL invalide</h1>
           <p className="text-sm leading-relaxed" style={{ color: "var(--ow-fg-1)" }}>{initialParsed.error}</p>
           <a
-            href="/"
+            href={`/${mapViewQuery(mapView)}`}
             className="inline-block mt-4 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
             style={{ background: "var(--ow-accent)", color: "#fff" }}
           >
@@ -791,8 +795,8 @@ export function PlanPage() {
           fix as the search reference. */}
       <Header
         onSelectSpot={(spot) => mapRef.current?.recenter(spot.latitude, spot.longitude)}
-        nearLat={waypoints[0]?.[0] ?? userPosition?.lat ?? mapCenter?.lat ?? null}
-        nearLon={waypoints[0]?.[1] ?? userPosition?.lon ?? mapCenter?.lon ?? null}
+        nearLat={waypoints[0]?.[0] ?? userPosition?.lat ?? mapView?.lat ?? null}
+        nearLon={waypoints[0]?.[1] ?? userPosition?.lon ?? mapView?.lon ?? null}
       />
       <RebrandBanner />
 
@@ -818,7 +822,8 @@ export function PlanPage() {
             onMapClick={handleMapClick}
             initialCenter={isParsedOk(initialParsed) ? initialParsed.center : null}
             userPosition={userPosition}
-            onCenterChange={onCenterChange}
+            onViewChange={onViewChange}
+            initialZoom={handedView?.zoom ?? null}
             highlightedSegmentRange={
               selectedLegIdx != null && passage
                 ? computeLegSegmentRanges(passage.segments as { start: { lat: number; lon: number } }[], waypoints)[selectedLegIdx] ?? null
@@ -827,7 +832,7 @@ export function PlanPage() {
           />
           {/* Back-to-explore FAB — mirrors the compass FAB on the home map */}
           <a
-            href="/"
+            href={`/${mapViewQuery(mapView)}`}
             className="absolute top-3 left-3 z-[400] w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
             style={{ background: "var(--ow-accent)", color: "#fff" }}
             title="Retour à l'exploration"
