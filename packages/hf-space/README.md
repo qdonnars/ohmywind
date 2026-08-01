@@ -77,7 +77,7 @@ asks you for credentials is guessing rather than reading the server.
 - **Client-agnostic.** One HTTP MCP endpoint, no vendor lock-in. Rich [MCP Apps](https://modelcontextprotocol.io/extensions/client-matrix) widget on supporting hosts; clean deep-link fallback on the rest.
 - **Open source, MIT.** Self-host on Fly, Modal, or your own VPS in minutes.
 
-## Five tools
+## Four tools
 
 | Tool                      | What it does                                                              |
 |---------------------------|---------------------------------------------------------------------------|
@@ -85,7 +85,6 @@ asks you for credentials is guessing rather than reading the server.
 | `get_marine_forecast`     | Wind + sea around a point/window, multi-model.                            |
 | `plan_passage`            | End-to-end: per-leg timing + 1–5 complexity + ohmywind.fr deep-link, in one call. Pass `latest_departure` and it walks every hourly window up to 14 days out so the LLM can compare side-by-side. Declares an MCP Apps UI resource; supporting hosts auto-render the live plan in a sandboxed iframe. |
 | `read_me`                 | Returns OhMyWind's calculation methodology. Call it when the user asks how things are computed. |
-| `feedback`                | Structured channel for the LLM to report a problem or a suggestion about a tool interaction. |
 
 ## About this Space
 

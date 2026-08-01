@@ -15,9 +15,11 @@ import pytest
 
 from openwind_mcp_core import build_server
 
-# The one tool that writes. Kept as data so the "nothing else writes" assertion
-# below reads as a decision rather than a magic string.
-WRITING_TOOLS = {"feedback"}
+# Nothing on this server writes. The feedback tool used to, and was removed
+# before publication: an unauthenticated, unrate-limited write endpoint on a
+# public server is an ingest channel for whatever a prompt injection decides
+# to send, and we would be storing it.
+WRITING_TOOLS: set[str] = set()
 
 
 @pytest.fixture
@@ -45,18 +47,6 @@ async def test_only_the_feedback_tool_writes(tools) -> None:
     """
     writing = {t.name for t in tools if t.annotations and t.annotations.readOnlyHint is False}
     assert writing == WRITING_TOOLS
-
-
-async def test_the_writing_tool_is_neither_destructive_nor_idempotent(tools) -> None:
-    """``feedback`` appends one entry per call.
-
-    Not destructive, because it never replaces or removes anything. Not
-    idempotent, because calling it twice records twice — a host that assumed
-    otherwise could silently retry and double-log.
-    """
-    feedback = next(t for t in tools if t.name == "feedback")
-    assert feedback.annotations.destructiveHint is False
-    assert feedback.annotations.idempotentHint is False
 
 
 async def test_open_world_marks_the_tools_that_call_out(tools) -> None:
