@@ -1,7 +1,7 @@
 {
   "name": "OhMyWind",
   "short_name": "OhMyWind",
-  "description": "French Atlantic and Mediterranean sailing planner. Wind forecasts, passage estimates and SHOM-grade tidal currents.",
+  "description": "Sailing planner for any coast. Wind forecasts, passage estimates, and SHOM-grade tidal currents on the French Atlantic.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#030712",
