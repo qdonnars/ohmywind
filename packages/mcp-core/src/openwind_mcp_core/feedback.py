@@ -56,7 +56,7 @@ class FeedbackSink(Protocol):
 
 def stderr_sink(entry: dict[str, Any]) -> None:
     """Default sink: log to stderr at INFO level."""
-    logger.info("openwind.feedback %s", entry)
+    logger.info("ohmywind.feedback %s", entry)
 
 
 def build_feedback_entry(

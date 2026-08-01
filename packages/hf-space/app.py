@@ -830,14 +830,14 @@ def _build_feedback_scheduler() -> Any | None:
     """
     if not _FEEDBACK_REPO:
         _logger.info(
-            "openwind.feedback: OPENWIND_FEEDBACK_DATASET_REPO unset, "
+            "ohmywind.feedback: OPENWIND_FEEDBACK_DATASET_REPO unset, "
             "feedback will only log to stderr"
         )
         return None
     token = os.environ.get("HF_TOKEN_FEEDBACK") or os.environ.get("HF_TOKEN")
     if not token:
         _logger.warning(
-            "openwind.feedback: HF_TOKEN_FEEDBACK / HF_TOKEN unset, "
+            "ohmywind.feedback: HF_TOKEN_FEEDBACK / HF_TOKEN unset, "
             "cannot push to %s — feedback will only log to stderr",
             _FEEDBACK_REPO,
         )
@@ -856,13 +856,13 @@ def _build_feedback_scheduler() -> Any | None:
             token=token,
         )
         _logger.info(
-            "openwind.feedback: CommitScheduler attached to %s (every=%d min)",
+            "ohmywind.feedback: CommitScheduler attached to %s (every=%d min)",
             _FEEDBACK_REPO,
             _FEEDBACK_EVERY_MIN,
         )
         return scheduler
     except Exception as exc:
-        _logger.warning("openwind.feedback: scheduler init failed: %s", exc)
+        _logger.warning("ohmywind.feedback: scheduler init failed: %s", exc)
         return None
 
 
@@ -875,7 +875,7 @@ def _hf_feedback_sink(entry: dict[str, Any]) -> None:
     append-only contract that CommitScheduler requires.
     """
     if _feedback_scheduler is None:
-        _logger.info("openwind.feedback (no sink): %s", entry)
+        _logger.info("ohmywind.feedback (no sink): %s", entry)
         return
     with _feedback_scheduler.lock:
         with _FEEDBACK_FILE.open("a", encoding="utf-8") as f:
