@@ -1,4 +1,4 @@
-"""Run the OpenWind MCP server over stdio for local Claude Desktop integration.
+"""Run the OhMyWind MCP server over stdio for local Claude Desktop integration.
 
 Usage (in claude_desktop_config.json):
 

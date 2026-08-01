@@ -1,4 +1,4 @@
-# OpenWind — Working Notes
+# OhMyWind — Working Notes
 
 ## Mission
 
@@ -16,7 +16,7 @@ The web app is **strictly standalone** — it never proposes "talk to an assista
 - `packages/web/` — React 19 + TypeScript + Vite, deployed to **Cloudflare Pages** on **ohmywind.fr** (preview `dev` → **dev.ohmywind.fr**)
 - `packages/data-adapters/` — Python lib, pure domain logic (marine data adapters, polars, routing, complexity)
 - `packages/mcp-core/` — Python lib, FastMCP server definition (cloud-agnostic, redeployable anywhere)
-- `packages/hf-space/` — Thin Gradio wrapper for Hugging Face Spaces deployment, served at **mcp.openwind.fr**
+- `packages/hf-space/` — Wrapper Hugging Face Spaces : app **Starlette + uvicorn** en Docker (aucun Gradio), porte la landing, les endpoints REST, CORS et le rate-limit. Servi aujourd'hui sur `qdonnars-openwind-mcp.hf.space` ; le passage à **mcp.ohmywind.fr** (Worker Cloudflare) est la phase B du plan de rebrand.
 
 Plan d'exécution détaillé : `plan/` (local, non-tracké).
 

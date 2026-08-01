@@ -60,12 +60,16 @@ jobs:
           # Space, rewrite the HF card frontmatter and the advertised endpoint so
           # the two Spaces are visually distinct on the dashboard and demos hit dev.
           README=/tmp/hf-build/README.md
+          # NB: the title / heading patterns below match the committed README
+          # verbatim. sed reports nothing when a pattern misses, so any edit to
+          # those two lines in packages/hf-space/README.md must be mirrored here
+          # or the dev Space silently stops being distinguishable from prod.
           sed -i \
-            -e 's/^title: OpenWind MCP$/title: OpenWind MCP (dev)/' \
+            -e 's/^title: OhMyWind MCP$/title: OhMyWind MCP (dev)/' \
             -e 's/^colorFrom: blue$/colorFrom: gray/' \
             -e 's/^colorTo: indigo$/colorTo: yellow/' \
             -e 's/^short_description: .*/short_description: (dev) French Atlantic + Med sailing planner via MCP./' \
-            -e 's/^# OpenWind MCP ⛵$/# OpenWind MCP (dev) ⛵/' \
+            -e 's/^# OhMyWind MCP ⛵$/# OhMyWind MCP (dev) ⛵/' \
             -e 's#qdonnars-openwind-mcp\.hf\.space#qdonnars-openwind-mcp-dev.hf.space#g' \
             -e 's/on `main`/on `dev`/g' \
             "$README"
@@ -76,7 +80,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           GIT_USER_NAME: openwind-ci
-          GIT_USER_EMAIL: ci@openwind.fr
+          GIT_USER_EMAIL: ci@ohmywind.fr
         run: |
           set -euo pipefail
           if [ -z "${HF_TOKEN:-}" ]; then

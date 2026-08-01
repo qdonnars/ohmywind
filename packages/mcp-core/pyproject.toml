@@ -1,7 +1,7 @@
 [project]
 name = "openwind-mcp-core"
 version = "0.1.0"
-description = "Cloud-agnostic FastMCP server for OpenWind — sailing planner tools."
+description = "Cloud-agnostic FastMCP server for OhMyWind — sailing planner tools."
 requires-python = ">=3.12"
 dependencies = [
     # MCP Apps support requires:

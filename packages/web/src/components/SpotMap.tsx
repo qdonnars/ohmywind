@@ -321,7 +321,7 @@ export function SpotMap({
           ? [defaultCenter.lat, defaultCenter.lon]
           : [43.3, 5.35];
     // When neither a current spot nor a granted geolocation is available
-    // (typical first-visit + denied case), open wide enough to show OpenWind's
+    // (typical first-visit + denied case), open wide enough to show OhMyWind's
     // full scope — Atlantic + Mediterranean French coast — so the user
     // understands the geographic reach before zooming into their region.
     const initialZoom = initialView ? initialView.zoom : current || userPosition ? 10 : 6;

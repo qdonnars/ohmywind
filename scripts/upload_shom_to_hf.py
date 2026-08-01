@@ -1,4 +1,4 @@
-"""Upload the SHOM Atlas C2D artefacts to the OpenWind HF Dataset.
+"""Upload the SHOM Atlas C2D artefacts to the OhMyWind HF Dataset.
 
 Pushes ``build/shom_c2d/shom_c2d_points.parquet`` and
 ``build/shom_c2d/shom_c2d_ref_ports.json`` to the root of the private
