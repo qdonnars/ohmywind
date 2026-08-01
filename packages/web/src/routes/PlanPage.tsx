@@ -832,10 +832,12 @@ export function PlanPage() {
             <img src="/wind-icon.png" alt="" width="88" height="88" className="select-none" draggable={false} />
           </a>
           {/* Locate FAB — bottom right of the map container, which shrinks as
-              the mobile drawer is dragged up, so the button follows it. The
-              80 px offset clears both the Leaflet zoom control and the mobile
-              hero stats, which share that corner. */}
-          <LocateButton status={geolocStatus} onClick={handleLocate} className="bottom-20 right-3" />
+              the mobile drawer is dragged up, so the button follows it. Kept
+              clear of the mobile hero stats on small screens and of the
+              attribution line on desktop. The offset is fixed rather than
+              conditional on the stats being visible: a button that jumps
+              when results arrive is worse than one sitting slightly high. */}
+          <LocateButton status={geolocStatus} onClick={handleLocate} className="bottom-20 lg:bottom-8 right-3" />
           {/* Hint overlay while building the route */}
           {waypoints.length < 2 && (
             <div className="absolute inset-x-4 bottom-4 z-[400] flex justify-center pointer-events-none">

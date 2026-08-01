@@ -143,6 +143,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
 
     const map = L.map(containerRef.current, { zoomControl: false, attributionControl: false });
 
+
     const variant = resolvedTheme === "light" ? "light_all" : "dark_all";
     const tile = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{r}.png`, {
       maxZoom: 19,
@@ -153,7 +154,9 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
       .addAttribution('&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>')
       .addTo(map);
 
-    L.control.zoom({ position: "bottomright" }).addTo(map);
+    // No zoom buttons: they crowded the bottom-right corner against the
+    // locate control, and the explore map has done without them since day
+    // one. Wheel and pinch zoom stay enabled.
 
     // Initial view: fit bounds if ≥2 waypoints, else center on the single
     // waypoint, else honor the ?center hint propagated from the home compass
