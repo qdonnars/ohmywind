@@ -33,7 +33,9 @@ RUN --mount=type=secret,id=HF_TOKEN,required=false \
     sh -c 'if [ -f /run/secrets/HF_TOKEN ]; then export HF_TOKEN="$(cat /run/secrets/HF_TOKEN)"; fi; \
            python /tmp/fetch_atlases.py'
 
-COPY app.py /app/app.py
+# security.py is imported by app.py at boot — a missing COPY here is a hard
+# crash on startup, not a degraded mode.
+COPY app.py security.py /app/
 
 EXPOSE 7860
 

@@ -45,9 +45,11 @@ from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
 from openwind_data.routing import (
     BoatPolar,
     Point,
-    _build_conditions_summary,
+    build_conditions_summary,
     get_polar,
     list_archetypes,
+    validate_point,
+    validate_waypoints,
 )
 from openwind_data.routing import (
     estimate_passage as _estimate_passage,
@@ -516,7 +518,7 @@ def _build_window_dict(
             "tws_max_kn": round(score.tws_max_kn, 1),
             "rationale": score.rationale,
         },
-        "conditions_summary": _build_conditions_summary(report),
+        "conditions_summary": build_conditions_summary(report),
         "warnings": warnings,
         "openwind_url": build_openwind_url(waypoints_raw, dep_iso, report.archetype),
     }
@@ -673,6 +675,7 @@ def build_server(
         Do NOT write a free-text reply about the feedback in chat: the
         tool is the channel.
         """
+        validate_point(lat, lon)
         start_dt = datetime.fromisoformat(start)
         end_dt = datetime.fromisoformat(end)
         bundle = await fetch_adapter.fetch(lat, lon, start_dt, end_dt, models=models)
@@ -867,7 +870,24 @@ def build_server(
         Do NOT write a free-text reply about the feedback in chat: the
         tool is the channel.
         """
-        pts = [Point(w["lat"], w["lon"]) for w in waypoints]
+        # Same guards, same wording as the REST layer. FastMCP turns any
+        # exception raised in a tool into an isError result carrying str(exc),
+        # so the LLM reads the identical message a browser client would get.
+        try:
+            pts = [Point(float(w["lat"]), float(w["lon"])) for w in waypoints]
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(f"invalid waypoints: {exc}") from exc
+        validate_waypoints(pts)
+
+        # Resolved up front so an unknown archetype reads as
+        # "unknown archetype: 'foo'" (REST's wording) rather than the bare
+        # KeyError string "'foo'" that get_polar surfaces from deep inside
+        # the engine.
+        try:
+            get_polar(archetype)
+        except KeyError as exc:
+            raise ValueError(f"unknown archetype: {exc}") from exc
+
         dep = datetime.fromisoformat(departure)
 
         # Motor override: clone the archetype polar with motor knobs set when

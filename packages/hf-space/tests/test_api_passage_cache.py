@@ -48,7 +48,9 @@ def _corridor_cache(*, with_arome: bool = True) -> dict:
     n = len(times_ms)
 
     def wind() -> dict:
-        block = {"icon_eu": {"speed_kn": [10.0] * n, "direction_deg": [0.0] * n, "gust_kn": [None] * n}}
+        block = {
+            "icon_eu": {"speed_kn": [10.0] * n, "direction_deg": [0.0] * n, "gust_kn": [None] * n}
+        }
         if with_arome:
             block["meteofrance_arome_france"] = {
                 "speed_kn": [10.0] * n,
@@ -97,7 +99,7 @@ async def test_single_with_cache_returns_200_from_cache(monkeypatch) -> None:
     # Guard: if the handler ever instantiates the live adapter, fail loudly.
     import httpx
 
-    def _boom(*a, **k):  # noqa: ANN002, ANN003
+    def _boom(*a, **k):
         raise AssertionError("forecast_cache path must not hit Open-Meteo")
 
     monkeypatch.setattr(httpx.AsyncClient, "get", _boom)
@@ -112,7 +114,11 @@ async def test_single_with_cache_returns_200_from_cache(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_malformed_cache_returns_422(monkeypatch) -> None:
     resp = await app._api_passage(
-        _FakeRequest(_single_body(forecast_cache={"version": 999, "models": [], "times_ms": [], "points": []}))
+        _FakeRequest(
+            _single_body(
+                forecast_cache={"version": 999, "models": [], "times_ms": [], "points": []}
+            )
+        )
     )
     assert resp.status_code == 422
     assert "forecast_cache" in _resp_json(resp)["error"]
@@ -125,7 +131,7 @@ async def test_malformed_cache_returns_422(monkeypatch) -> None:
 async def test_single_passes_cache_adapter(monkeypatch) -> None:
     captured: dict = {}
 
-    async def _stub(*args, **kwargs):  # noqa: ANN002, ANN003
+    async def _stub(*args, **kwargs):
         captured["adapter"] = kwargs.get("adapter")
         captured["model_chain"] = kwargs.get("model_chain")
         raise app.NoModelCoveredError("stop here")  # short-circuit after capture
@@ -147,7 +153,7 @@ async def test_single_passes_cache_adapter(monkeypatch) -> None:
 async def test_sweep_passes_cache_adapter(monkeypatch) -> None:
     captured: dict = {}
 
-    async def _stub(*args, **kwargs):  # noqa: ANN002, ANN003
+    async def _stub(*args, **kwargs):
         captured["adapter"] = kwargs.get("adapter")
         return []
 
@@ -165,7 +171,7 @@ async def test_sweep_passes_cache_adapter(monkeypatch) -> None:
 async def test_by_eta_passes_cache_adapter(monkeypatch) -> None:
     captured: dict = {}
 
-    async def _stub(*args, **kwargs):  # noqa: ANN002, ANN003
+    async def _stub(*args, **kwargs):
         captured["adapter"] = kwargs.get("adapter")
         raise app.NoModelCoveredError("stop here")
 

@@ -13,6 +13,12 @@ from itertools import pairwise
 
 EARTH_RADIUS_NM = 3440.065
 
+# Upper bound on route complexity accepted at the public boundary. Well above
+# any realistic hand-drawn coastal route (the web map has no client-side cap),
+# but low enough that a hostile caller cannot inflate the corridor sampling
+# fan-out. The sweep fan-out is bounded separately by ``MAX_SWEEP_WINDOWS``.
+MAX_WAYPOINTS = 50
+
 
 @dataclass(frozen=True, slots=True)
 class Point:
@@ -26,6 +32,41 @@ class Segment:
     end: Point
     distance_nm: float
     bearing_deg: float
+
+
+def validate_waypoints(points: list[Point]) -> None:
+    """Reject routes that are out of range, non-finite, or unreasonably long.
+
+    Called at the public boundary (REST handlers and MCP tools) so both shells
+    surface the same wording. ``Point`` itself stays unvalidated on purpose:
+    the engines build interpolated points internally and must not pay a
+    validation cost per sub-segment.
+
+    NaN and infinity are rejected explicitly — plain range comparisons let NaN
+    through (every comparison against NaN is false), and it would only surface
+    much later as an opaque upstream error.
+
+    Raises:
+        ValueError: fewer than 2 points, more than ``MAX_WAYPOINTS``, or any
+            coordinate non-finite or outside [-90, 90] / [-180, 180].
+    """
+    if len(points) < 2:
+        raise ValueError("at least 2 waypoints required")
+    if len(points) > MAX_WAYPOINTS:
+        raise ValueError(f"too many waypoints: {len(points)} (max {MAX_WAYPOINTS})")
+    for i, p in enumerate(points):
+        if not math.isfinite(p.lat) or not -90.0 <= p.lat <= 90.0:
+            raise ValueError(f"waypoint {i}: lat={p.lat} out of range [-90, 90]")
+        if not math.isfinite(p.lon) or not -180.0 <= p.lon <= 180.0:
+            raise ValueError(f"waypoint {i}: lon={p.lon} out of range [-180, 180]")
+
+
+def validate_point(lat: float, lon: float) -> None:
+    """Single-point variant of ``validate_waypoints`` for forecast endpoints."""
+    if not math.isfinite(lat) or not -90.0 <= lat <= 90.0:
+        raise ValueError(f"lat={lat} out of range [-90, 90]")
+    if not math.isfinite(lon) or not -180.0 <= lon <= 180.0:
+        raise ValueError(f"lon={lon} out of range [-180, 180]")
 
 
 def _angular_distance_rad(a: Point, b: Point) -> float:

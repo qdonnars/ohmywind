@@ -5,14 +5,13 @@ This wrapper is intentionally thin. All tools live in ``openwind_mcp_core``
 different Dockerfile that runs the same ``build_server()`` factory.
 
 Transport: ``streamable-http`` on port 7860 (HF Spaces default). Clients
-connect to ``https://qdonnars-openwind-mcp.hf.space``. (Custom domain
-``mcp.openwind.fr`` deferred — HF gates custom domains behind PRO; see
-``plan/04-backlog.md``.)
+connect to ``https://qdonnars-openwind-mcp.hf.space``. A custom domain on the
+Space is deferred: HF gates those behind a PRO subscription.
 
-Trade-off explicitly accepted (cf. ``plan/04-backlog.md``): HF Docker SDK
-Spaces do not get the ``MCP`` badge or the one-click connector flow that
-Gradio ``mcp_server=True`` Spaces get. Discoverability is via the project
-website, not via the HF catalog. Re-evaluate if traffic plateaus.
+Trade-off explicitly accepted: HF Docker SDK Spaces do not get the ``MCP``
+badge or the one-click connector flow that Gradio ``mcp_server=True`` Spaces
+get. Discoverability is via the project website, not via the HF catalog.
+Re-evaluate if traffic plateaus.
 """
 
 from __future__ import annotations
@@ -35,10 +34,10 @@ from openwind_data.currents.marc_atlas import MarcAtlasRegistry
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
 from openwind_data.routing.archetypes import BoatPolar, list_archetypes_metadata
 from openwind_data.routing.complexity import score_complexity
-from openwind_data.routing.geometry import Point
+from openwind_data.routing.geometry import Point, validate_point, validate_waypoints
 from openwind_data.routing.passage import (
     NoModelCoveredError,
-    _build_conditions_summary,
+    build_conditions_summary,
     estimate_passage,
     estimate_passage_for_arrival,
     estimate_passage_windows,
@@ -50,6 +49,8 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
 from starlette.routing import Mount, Route
+
+from security import ALLOWED_ORIGINS, RateLimitMiddleware, SecurityHeadersMiddleware
 
 _logger = logging.getLogger(__name__)
 
@@ -178,7 +179,7 @@ LANDING_HTML = """<!doctype html>
     Mediterranean coasts. Exposed as an MCP server so any compatible
     assistant can use it.</p>
 
-  <img class="hero" src="https://raw.githubusercontent.com/qdonnars/openwind/main/docs/screenshots/plan.png"
+  <img class="hero" src="https://raw.githubusercontent.com/qdonnars/ohmywind/main/docs/screenshots/plan.png"
        alt="OpenWind passage plan: 5 waypoints, 48.6 nm, ETA 21:24, complexity 3 of 5.">
 
   <h2>Connect it to your assistant</h2>
@@ -274,7 +275,7 @@ LANDING_HTML = """<!doctype html>
 
   <h2>Source</h2>
   <p>Project site: <a href="https://openwind.fr">openwind.fr</a> &middot;
-    GitHub: <a href="https://github.com/qdonnars/openwind">qdonnars/openwind</a>
+    GitHub: <a href="https://github.com/qdonnars/ohmywind">qdonnars/ohmywind</a>
     (MIT).</p>
 
   <p class="footnote">First request after inactivity may take a few seconds
@@ -477,8 +478,14 @@ async def _api_passage(request: Request) -> JSONResponse:
     except (TypeError, IndexError, ValueError) as exc:
         return JSONResponse({"error": f"invalid waypoints: {exc}"}, status_code=422)
 
-    if len(waypoints) < 2:
-        return JSONResponse({"error": "at least 2 waypoints required"}, status_code=422)
+    # Bounds are checked before any upstream call: an out-of-range point used
+    # to reach Open-Meteo and come back as a misleading "forecast horizon
+    # exceeded". Message passed through verbatim so "at least 2 waypoints
+    # required" stays byte-identical for the front's error mapping.
+    try:
+        validate_waypoints(waypoints)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
 
     efficiency: float = body.get("efficiency", 0.75)
     try:
@@ -545,7 +552,6 @@ async def _api_passage(request: Request) -> JSONResponse:
         # Sweep is partial-tolerant: estimate_passage_windows skips windows
         # that hit ForecastHorizonError. Compute the expected count to surface
         # a meta-warning if some were dropped.
-        from datetime import timedelta as _td
         expected_windows = (
             int((latest_departure - departure).total_seconds() / 3600 / sweep_interval) + 1
         )
@@ -569,7 +575,7 @@ async def _api_passage(request: Request) -> JSONResponse:
                     "tws_max_kn": round(score.tws_max_kn, 1),
                     "rationale": score.rationale,
                 },
-                "conditions_summary": _build_conditions_summary(report),
+                "conditions_summary": build_conditions_summary(report),
                 "warnings": list(report.warnings) + [w.message for w in score.warnings],
                 "passage": _to_json(report),
                 "complexity_full": _to_json(score),
@@ -582,7 +588,7 @@ async def _api_passage(request: Request) -> JSONResponse:
                 f"(horizon dépassé) — affichage des {len(windows)} restantes."
             )
         if target_eta_dt is not None:
-            tol = _td(hours=2).total_seconds()
+            tol = timedelta(hours=2).total_seconds()
             target_utc = target_eta_dt.astimezone(UTC)
             filtered = [
                 w for w in windows
@@ -668,8 +674,14 @@ async def _api_passage_by_eta(request: Request) -> JSONResponse:
     except (TypeError, IndexError, ValueError) as exc:
         return JSONResponse({"error": f"invalid waypoints: {exc}"}, status_code=422)
 
-    if len(waypoints) < 2:
-        return JSONResponse({"error": "at least 2 waypoints required"}, status_code=422)
+    # Bounds are checked before any upstream call: an out-of-range point used
+    # to reach Open-Meteo and come back as a misleading "forecast horizon
+    # exceeded". Message passed through verbatim so "at least 2 waypoints
+    # required" stays byte-identical for the front's error mapping.
+    try:
+        validate_waypoints(waypoints)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
 
     try:
         efficiency = float(body.get("efficiency", 0.75))
@@ -801,7 +813,7 @@ def _build_feedback_scheduler() -> Any | None:
             _FEEDBACK_EVERY_MIN,
         )
         return scheduler
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         _logger.warning("openwind.feedback: scheduler init failed: %s", exc)
         return None
 
@@ -858,6 +870,10 @@ async def _api_marc_overlay(request: Request) -> JSONResponse:
             {"error": f"missing or invalid query params (lat, lon, start, end): {exc}"},
             status_code=422,
         )
+    try:
+        validate_point(lat, lon)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
     step_minutes = 60
     if "step_minutes" in request.query_params:
         try:
@@ -964,6 +980,40 @@ async def _api_marc_overlay(request: Request) -> JSONResponse:
     )
 
 
+def build_app(mcp_app: Any) -> Starlette:
+    """Assemble the parent Starlette app around a mounted FastMCP app.
+
+    Split out of ``main`` so tests can exercise routing and middleware without
+    booting uvicorn or a real MCP session manager.
+    """
+    return Starlette(
+        routes=[
+            Route("/", _index),
+            *[Route(path, _icon_redirect, methods=["GET"]) for path in _ICON_REDIRECTS],
+            Route("/api/v1/archetypes", _api_archetypes, methods=["GET"]),
+            Route("/api/v1/passage", _api_passage, methods=["POST"]),
+            Route("/api/v1/passage-by-eta", _api_passage_by_eta, methods=["POST"]),
+            Route("/api/v1/marine/marc", _api_marc_overlay, methods=["GET"]),
+            Mount("/", app=mcp_app),
+        ],
+        # Order matters: the first entry is the outermost wrapper. CORS sits
+        # outside the limiter so a 429 still carries the Access-Control-Allow-*
+        # headers — otherwise the browser reports an opaque CORS failure and
+        # the real cause never reaches the user.
+        middleware=[
+            Middleware(
+                CORSMiddleware,
+                allow_origins=ALLOWED_ORIGINS,
+                allow_methods=["GET", "POST", "OPTIONS"],
+                allow_headers=["Content-Type"],
+            ),
+            Middleware(SecurityHeadersMiddleware),
+            Middleware(RateLimitMiddleware),
+        ],
+        lifespan=mcp_app.router.lifespan_context,
+    )
+
+
 def main() -> None:
     global _feedback_scheduler
     _feedback_scheduler = _build_feedback_scheduler()
@@ -982,27 +1032,7 @@ def main() -> None:
     # so we must hand the inner lifespan to the parent — without this the MCP
     # endpoint returns 500 because the streamable-http session manager never
     # initialised.
-    mcp_app = server.streamable_http_app()
-    app = Starlette(
-        routes=[
-            Route("/", _index),
-            *[Route(path, _icon_redirect, methods=["GET"]) for path in _ICON_REDIRECTS],
-            Route("/api/v1/archetypes", _api_archetypes, methods=["GET"]),
-            Route("/api/v1/passage", _api_passage, methods=["POST"]),
-            Route("/api/v1/passage-by-eta", _api_passage_by_eta, methods=["POST"]),
-            Route("/api/v1/marine/marc", _api_marc_overlay, methods=["GET"]),
-            Mount("/", app=mcp_app),
-        ],
-        middleware=[
-            Middleware(
-                CORSMiddleware,
-                allow_origins=["*"],
-                allow_methods=["GET", "POST", "OPTIONS"],
-                allow_headers=["Content-Type"],
-            )
-        ],
-        lifespan=mcp_app.router.lifespan_context,
-    )
+    app = build_app(server.streamable_http_app())
     # Run uvicorn explicitly (rather than ``server.run(transport=...)``) so we
     # can enable ``proxy_headers``/``forwarded_allow_ips``. HF terminates TLS
     # at the edge; without these flags ASGI sees ``http`` + the internal Host
