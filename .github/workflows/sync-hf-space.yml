@@ -15,7 +15,15 @@ on:
 # main -> prod Space, dev -> dev Space (resolved per-branch below). The HF_TOKEN
 # secret must have write access to BOTH Spaces (a single qdonnars user token does).
 jobs:
+  # Gate. The Space is a production surface and mirroring a broken commit to
+  # it used to be entirely possible: nothing ran the suites before this push.
+  # Calling the CI workflow rather than duplicating its steps keeps a single
+  # definition of "green".
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   sync:
+    needs: ci
     runs-on: ubuntu-latest
     env:
       # Override via repo Variables → Actions if you renamed a Space.
@@ -49,6 +57,12 @@ jobs:
           find "$BUILD_DIR/vendor" -type d \( -name __pycache__ -o -name .pytest_cache -o -name .ruff_cache -o -name tests \) -prune -exec rm -rf {} +
           find "$BUILD_DIR/vendor" -type f -name "*.pyc" -delete
           rm -f "$BUILD_DIR/.gitignore"
+          # Dev-only artefacts of the wrapper itself. The Space builds from the
+          # Dockerfile, so its pyproject, lockfile, venv, lint config and test
+          # suite are dead weight there — and the tests would be the only files
+          # on the Space importing pytest.
+          rm -rf "$BUILD_DIR/tests" "$BUILD_DIR/.venv" "$BUILD_DIR/.pytest_cache"
+          rm -f "$BUILD_DIR/pyproject.toml" "$BUILD_DIR/uv.lock" "$BUILD_DIR/.ruff.toml"
           ls -la "$BUILD_DIR"
           ls -la "$BUILD_DIR/vendor"
 
