@@ -89,6 +89,14 @@ export function friendlyError(raw: string): string {
     // HF Spaces' shared egress is jittery and Open-Meteo occasionally pauses.
     return "Le service météo a mis trop de temps à répondre. Réessayez dans quelques instants.";
   }
+  if (/upstream weather service rate limit/i.test(raw)) {
+    // Open-Meteo throttling US, not the user throttling us. Deliberately worded
+    // so nobody reads it as "you clicked too fast": the quota is counted per
+    // egress IP and can be spent by an unrelated tenant of the same host, so
+    // slowing down changes nothing. Distinct from the /rate limit exceeded/
+    // rule above, which is our own limiter and IS about the caller's pace.
+    return "Le service météo limite temporairement nos requêtes. Ce n'est pas lié à votre usage, réessayez dans quelques minutes.";
+  }
   if (/Erreur serveur 5\d\d/.test(raw) || /HTTP 5\d\d/.test(raw)) {
     return "Le serveur météo est indisponible. Réessayez dans quelques instants.";
   }

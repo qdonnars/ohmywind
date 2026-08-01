@@ -13,6 +13,7 @@ from openwind_data.adapters.base import (
     ForecastHorizonError,
     SeaPoint,
     SeaSeries,
+    UpstreamRateLimitError,
     WindPoint,
     WindSeries,
 )
@@ -67,9 +68,25 @@ CACHE_MAX_ENTRIES = 64
 # A passage routes 12+ sub-segments through `asyncio.gather`, each fetching wind
 # + sea; without pacing, that's 24 simultaneous requests on the HF Space's
 # shared egress IP, which Open-Meteo rate-limits. The lock serialises starts
-# (cache hits stay free); 0.1 s ≈ 10 req/s, well under the public-API quota.
-# Disable in tests with `http_min_interval_s=0`.
+# (cache hits stay free). Disable in tests with `http_min_interval_s=0`.
+#
+# 0.1 s is 10 req/s, which is not "well under" the free quota as an earlier
+# version of this comment claimed — it is exactly it, since the free tier
+# allows 600/min. The margin only exists while we are alone on the egress IP,
+# and on a shared Space we are not: the quota is counted per IP, so a
+# co-tenant's traffic eats into ours. Lower this if 429s become routine.
 DEFAULT_HTTP_MIN_INTERVAL_S = 0.1
+
+# One retry on an upstream 429, and only when the wait is short.
+#
+# Open-Meteo's per-IP counters run at three scales, and only the shortest is
+# worth waiting out inline: a minutely bucket drains in seconds, while an
+# hourly or daily one leaves the address unusable far longer than any request
+# should block. So we honour Retry-After when it is small, guess briefly when
+# the header is absent, and give up immediately when it says the wait is long.
+# Sleeping through a daily quota would just turn a fast error into a timeout.
+RATE_LIMIT_RETRY_DEFAULT_WAIT_S = 0.5
+RATE_LIMIT_RETRY_MAX_WAIT_S = 2.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,6 +145,29 @@ class OpenMeteoAdapter:
             if wait > 0:
                 await asyncio.sleep(wait)
             self._last_http_at = time.monotonic()
+
+    async def _get_paced(
+        self, client: httpx.AsyncClient, url: str, params: dict[str, Any]
+    ) -> httpx.Response:
+        """Paced GET with a single bounded retry on an upstream 429.
+
+        Returns the 429 response unretried when the advertised wait is long;
+        the caller turns it into ``UpstreamRateLimitError`` so the reason
+        reaches the user instead of being slept through.
+        """
+        await self._pace_http()
+        resp = await client.get(url, params=params)
+        if resp.status_code != 429:
+            return resp
+
+        advertised = _retry_after_seconds(resp)
+        wait = RATE_LIMIT_RETRY_DEFAULT_WAIT_S if advertised is None else advertised
+        if wait > RATE_LIMIT_RETRY_MAX_WAIT_S:
+            return resp
+
+        await asyncio.sleep(wait)
+        await self._pace_http()
+        return await client.get(url, params=params)
 
     async def fetch(
         self,
@@ -226,8 +266,7 @@ class OpenMeteoAdapter:
             "start_date": start.date().isoformat(),
             "end_date": end.date().isoformat(),
         }
-        await self._pace_http()
-        resp = await client.get(FORECAST_URL, params=params)
+        resp = await self._get_paced(client, FORECAST_URL, params)
         try:
             _raise_for_status_with_horizon(resp, model, start)
         except _OffCoverageError:
@@ -253,8 +292,7 @@ class OpenMeteoAdapter:
             "start_date": start.date().isoformat(),
             "end_date": end.date().isoformat(),
         }
-        await self._pace_http()
-        resp = await client.get(MARINE_URL, params=params)
+        resp = await self._get_paced(client, MARINE_URL, params)
         try:
             _raise_for_status_with_horizon(resp, "open-meteo-marine", start)
         except _OffCoverageError:
@@ -382,8 +420,7 @@ class OpenMeteoAdapter:
             "start_date": start.date().isoformat(),
             "end_date": end.date().isoformat(),
         }
-        await self._pace_http()
-        resp = await client.get(FORECAST_URL, params=params)
+        resp = await self._get_paced(client, FORECAST_URL, params)
         try:
             _raise_for_status_with_horizon(resp, model, start)
         except _OffCoverageError:
@@ -408,14 +445,47 @@ class OpenMeteoAdapter:
             "start_date": start.date().isoformat(),
             "end_date": end.date().isoformat(),
         }
-        await self._pace_http()
-        resp = await client.get(MARINE_URL, params=params)
+        resp = await self._get_paced(client, MARINE_URL, params)
         try:
             _raise_for_status_with_horizon(resp, "open-meteo-marine", start)
         except _OffCoverageError:
             return [SeaSeries(points=()) for _ in points]
         elems = _as_coord_list(resp.json(), len(points))
         return [_parse_sea(el, start, end) for el in elems]
+
+
+def _error_reason(resp: httpx.Response) -> str:
+    """Open-Meteo's ``reason`` field, or "" when the body is not its JSON.
+
+    Worth extracting rather than discarding: on a 429 it names the counter
+    that tripped ("Minutely API request limit exceeded", "Daily API request
+    limit exceeded"), which is the difference between retrying in a moment and
+    knowing the egress IP is spent for the day.
+    """
+    try:
+        payload = resp.json()
+    except ValueError:
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    return str(payload.get("reason", "")).strip()
+
+
+def _retry_after_seconds(resp: httpx.Response) -> float | None:
+    """``Retry-After`` in seconds, or None when absent or not a delay.
+
+    Only the delta-seconds form is honoured. The HTTP-date form is legal but
+    Open-Meteo does not use it, and parsing it would mean trusting our clock
+    against theirs to decide how long to sleep.
+    """
+    raw = (resp.headers.get("Retry-After") or "").strip()
+    if not raw:
+        return None
+    try:
+        seconds = float(raw)
+    except ValueError:
+        return None
+    return seconds if seconds >= 0 else None
 
 
 def _raise_for_status_with_horizon(
@@ -437,7 +507,14 @@ def _raise_for_status_with_horizon(
         in ``estimate_passage`` can advance to the next model. We signal it
         by raising a sentinel; the caller converts to empty
         ``WindSeries(points=())``.
+
+    A 429 becomes ``UpstreamRateLimitError``. Without this it reached callers
+    as a raw ``HTTPStatusError`` carrying the full upstream URL: a 500 on the
+    REST route and, over MCP, an unactionable wall of query string that told
+    the model nothing about whether to wait or give up.
     """
+    if resp.status_code == 429:
+        raise UpstreamRateLimitError(_error_reason(resp), _retry_after_seconds(resp))
     if resp.status_code == 400:
         try:
             payload = resp.json()

@@ -47,3 +47,22 @@ describe("formatRetryDelay", () => {
     }
   });
 });
+
+// The two rate limits must never be confused in the UI. Ours is about the
+// caller's pace and slowing down fixes it. Open-Meteo's is counted per egress
+// IP and can be spent by another tenant of the same host, so telling the user
+// to slow down would be both wrong and useless.
+describe("upstream vs own rate limit", () => {
+  it("blames nobody when the weather service throttles us", () => {
+    const msg = friendlyError("upstream weather service rate limit reached (Daily API request limit exceeded.)");
+    expect(msg).toContain("service météo");
+    expect(msg).toContain("pas lié à votre usage");
+    expect(msg).not.toContain("Trop de calculs");
+  });
+
+  it("still blames the pace when it is our own limiter", () => {
+    const msg = friendlyError("rate limit exceeded, retry shortly, retry in 30s");
+    expect(msg).toContain("Trop de calculs");
+    expect(msg).not.toContain("service météo");
+  });
+});

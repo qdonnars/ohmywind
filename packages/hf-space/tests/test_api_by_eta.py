@@ -184,3 +184,19 @@ class TestUpstreamFailures:
         resp = await app._api_passage_by_eta(_FakeRequest(_body()))
         assert resp.status_code == 503
         assert "did not respond in time" in _payload(resp)["error"]
+
+    async def test_upstream_rate_limit_is_a_503_not_a_500(self, monkeypatch) -> None:
+        # Open-Meteo refusing *us* is not the caller's fault and not a bug on
+        # our side. Before this it escaped as a raw HTTPStatusError, so the
+        # route answered 500 with no body and the front could say nothing.
+        async def _stub(*_args, **_kwargs):
+            raise app.UpstreamRateLimitError("Minutely API request limit exceeded.")
+
+        monkeypatch.setattr(app, "estimate_passage_for_arrival", _stub)
+        resp = await app._api_passage_by_eta(_FakeRequest(_body()))
+        assert resp.status_code == 503
+        error = _payload(resp)["error"]
+        assert "upstream weather service rate limit reached" in error
+        # The upstream reason rides along: it is the only way to tell a
+        # minutely bucket (wait a moment) from a daily one (spent for today).
+        assert "Minutely API request limit exceeded." in error

@@ -28,7 +28,7 @@ from typing import Any
 import httpx
 import uvicorn
 from mcp.server.transport_security import TransportSecuritySettings
-from openwind_data.adapters.base import ForecastHorizonError
+from openwind_data.adapters.base import ForecastHorizonError, UpstreamRateLimitError
 from openwind_data.adapters.cache_backed import CacheBackedAdapter
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
@@ -584,6 +584,8 @@ async def _api_passage(request: Request) -> JSONResponse:
                 {"error": "upstream weather service did not respond in time"},
                 status_code=503,
             )
+        except UpstreamRateLimitError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=503)
 
         # Sweep is partial-tolerant: estimate_passage_windows skips windows
         # that hit ForecastHorizonError. Compute the expected count to surface
@@ -681,6 +683,8 @@ async def _api_passage(request: Request) -> JSONResponse:
             {"error": "upstream weather service did not respond in time"},
             status_code=503,
         )
+    except UpstreamRateLimitError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=503)
 
     complexity = score_complexity(passage)
 
@@ -773,6 +777,8 @@ async def _api_passage_by_eta(request: Request) -> JSONResponse:
             {"error": "upstream weather service did not respond in time"},
             status_code=503,
         )
+    except UpstreamRateLimitError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=503)
 
     complexity = score_complexity(plan.report)
 
