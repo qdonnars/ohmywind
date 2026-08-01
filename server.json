@@ -1,0 +1,25 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "fr.ohmywind/sailing-planner",
+  "title": "OhMyWind",
+  "description": "Sailing passage planner for the French Atlantic and Mediterranean. Free, no API key.",
+  "version": "1.0.0",
+  "websiteUrl": "https://ohmywind.fr",
+  "repository": {
+    "url": "https://github.com/qdonnars/ohmywind",
+    "source": "github"
+  },
+  "icons": [
+    {
+      "src": "https://ohmywind.fr/icon-512.png",
+      "mimeType": "image/png",
+      "sizes": ["512x512"]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.ohmywind.fr/mcp"
+    }
+  ]
+}
