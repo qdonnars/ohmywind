@@ -71,6 +71,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   const dragLineRef = useRef<L.Polyline | null>(null);
   const segLabelsRef = useRef<L.Tooltip[]>([]);
   const userLayerRef = useRef<L.LayerGroup | null>(null);
+  const flyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onViewChangeRef = useRef(onViewChange);
   useEffect(() => { onViewChangeRef.current = onViewChange; }, [onViewChange]);
   const livePositionsRef = useRef<[number, number][]>(waypoints);
@@ -167,12 +168,36 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     // locate control, and the explore map has done without them since day
     // one. Wheel and pinch zoom stay enabled.
 
-    // Initial view: fit bounds if ≥2 waypoints, else center on the single
-    // waypoint, else honor the ?center hint propagated from the home compass
-    // FAB. Falls back to a France-wide view rather than the Riviera so users
-    // landing on /plan from anywhere on the coast aren't whisked to the Med.
-    if (waypoints.length >= 2) {
-      map.fitBounds(L.latLngBounds(waypoints.map(([lat, lon]) => L.latLng(lat, lon))), { padding: [40, 40] });
+    // Initial view. Falls back to a France-wide view rather than the Riviera
+    // so users landing on /plan from anywhere on the coast aren't whisked to
+    // the Med.
+    //
+    // When the explore map handed a camera over AND a route is waiting, we
+    // open on the handed camera and animate to the route rather than cutting
+    // straight to it. The move is what tells the user the map travelled
+    // somewhere, instead of leaving them to work out that the coastline
+    // changed under them.
+    const routeBounds =
+      waypoints.length >= 2
+        ? L.latLngBounds(waypoints.map(([lat, lon]) => L.latLng(lat, lon)))
+        : null;
+
+    if (initialCenter && waypoints.length >= 1) {
+      map.setView([initialCenter[0], initialCenter[1]], initialZoom ?? 8);
+      // Deferred by a frame: flying before the container has its final size
+      // lands on the wrong bounds, and PlanMap is mounted inside a flex row
+      // that settles just after.
+      const flyTimer = setTimeout(() => {
+        map.invalidateSize();
+        if (routeBounds) {
+          map.flyToBounds(routeBounds, { padding: [40, 40], duration: 1.2 });
+        } else {
+          map.flyTo([waypoints[0][0], waypoints[0][1]], 10, { duration: 1.2 });
+        }
+      }, 80);
+      flyTimerRef.current = flyTimer;
+    } else if (routeBounds) {
+      map.fitBounds(routeBounds, { padding: [40, 40] });
     } else if (waypoints.length === 1) {
       map.setView([waypoints[0][0], waypoints[0][1]], 10);
     } else if (initialCenter) {
@@ -207,6 +232,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     setTimeout(() => map.invalidateSize(), 100);
 
     return () => {
+      if (flyTimerRef.current) clearTimeout(flyTimerRef.current);
       ro.disconnect();
       map.off("zoomend", onZoomEnd);
       segLabelsRef.current = [];
