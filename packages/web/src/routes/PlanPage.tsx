@@ -832,12 +832,19 @@ export function PlanPage() {
             <img src="/wind-icon.png" alt="" width="88" height="88" className="select-none" draggable={false} />
           </a>
           {/* Locate FAB — bottom right of the map container, which shrinks as
-              the mobile drawer is dragged up, so the button follows it. Kept
-              clear of the mobile hero stats on small screens and of the
-              attribution line on desktop. The offset is fixed rather than
-              conditional on the stats being visible: a button that jumps
-              when results arrive is worse than one sitting slightly high. */}
-          <LocateButton status={geolocStatus} onClick={handleLocate} className="bottom-20 lg:bottom-8 right-3" />
+              the mobile drawer is dragged up, so the button follows it.
+              Normally flush with the drawer edge. It only lifts on mobile
+              when the hero stats occupy that corner, otherwise it would sit
+              on top of the arrival time. */}
+          <LocateButton
+            status={geolocStatus}
+            onClick={handleLocate}
+            className={
+              passage && planMode === "single" && !isStale
+                ? "bottom-24 lg:bottom-4 right-3"
+                : "bottom-4 right-3"
+            }
+          />
           {/* Hint overlay while building the route */}
           {waypoints.length < 2 && (
             <div className="absolute inset-x-4 bottom-4 z-[400] flex justify-center pointer-events-none">
