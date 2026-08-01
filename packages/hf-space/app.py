@@ -56,7 +56,10 @@ from security import (
     RateLimitMiddleware,
     SecurityHeadersMiddleware,
     bucket_id,
+    came_through_edge,
     forwarded_hop_count,
+    trusted_hops_for,
+    warn_if_edge_secret_missing,
 )
 
 _logger = logging.getLogger(__name__)
@@ -482,7 +485,13 @@ async def _api_client_debug(request: Request) -> JSONResponse:
         {
             "bucket": bucket_id(request.scope),
             "forwarded_hops": forwarded_hop_count(request.scope),
+            # What the deployment is configured for, versus what this request
+            # actually earned. They diverge when the caller reached the Space
+            # directly instead of through the edge proxy, which is exactly the
+            # case that must not get the longer hop count.
             "trusted_hops": TRUSTED_PROXY_HOPS,
+            "hops_applied": trusted_hops_for(request.scope),
+            "via_edge": came_through_edge(request.scope),
         },
         headers={"Cache-Control": "no-store"},
     )
@@ -1069,6 +1078,8 @@ def build_app(mcp_app: Any) -> Starlette:
 
 def main() -> None:
     global _feedback_scheduler
+    logging.basicConfig(level=logging.INFO)
+    warn_if_edge_secret_missing()
     _feedback_scheduler = _build_feedback_scheduler()
     server = build_server(feedback_sink=_hf_feedback_sink)
     server.settings.transport_security = TransportSecuritySettings(

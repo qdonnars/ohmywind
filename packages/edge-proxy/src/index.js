@@ -20,7 +20,7 @@ const ORIGINS = {
 };
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     const incoming = new URL(request.url);
     const origin = ORIGINS[incoming.hostname];
     if (!origin) {
@@ -60,6 +60,21 @@ export default {
       upstream.headers.set("X-Forwarded-For", clientIp);
     } else {
       upstream.headers.delete("X-Forwarded-For");
+    }
+
+    // Vouch for this request, so the origin knows the chain above was written
+    // by us and can safely count two hops from the right.
+    //
+    // Without proof, the origin cannot tell our traffic apart from someone
+    // calling the Space directly on its *.hf.space hostname with a
+    // hand-written X-Forwarded-For — and that caller would get to pick their
+    // own rate-limit bucket, which was measured working on 2026-08-01.
+    //
+    // The delete is not optional: strip whatever the caller sent before
+    // setting ours, otherwise the header proves nothing.
+    upstream.headers.delete("X-OhMyWind-Edge");
+    if (env?.EDGE_SHARED_SECRET) {
+      upstream.headers.set("X-OhMyWind-Edge", env.EDGE_SHARED_SECRET);
     }
 
     // `manual` keeps 3xx responses as data instead of chasing them ourselves,
