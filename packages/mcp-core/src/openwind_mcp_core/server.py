@@ -81,6 +81,12 @@ from .render import build_ohmywind_url
 # module renames rather than with this cosmetic pass.
 PLAN_UI_RESOURCE_URI = "ui://openwind/plan-passage"
 PLAN_UI_MIME = "text/html;profile=mcp-app"
+
+# The name clients display for this server. Named rather than inlined into the
+# FastMCP() call so a test can assert it: the cosmetic rebrand shipped with this
+# value still on the old brand, because the sweep that renamed everything else
+# matched "OpenWind" and "openwind.fr" and this one is lowercase and bare.
+SERVER_NAME = "ohmywind"
 # unpkg serves the official @modelcontextprotocol/ext-apps SDK bundle that
 # implements the ui/initialize -> ui/notifications/initialized handshake and
 # the ui/notifications/tool-result listener. Same CDN as the official
@@ -351,7 +357,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
 
     app.ontoolresult = render;
     try { await app.connect(); }
-    catch (e) { console.error('[openwind] MCP App connect failed', e); }
+    catch (e) { console.error('[ohmywind] MCP App connect failed', e); }
   </script>
 </body>
 </html>
@@ -569,7 +575,7 @@ def build_server(
     # Per the official MCP Python SDK README, this combo is the
     # recommended config for production deployments.
     server: FastMCP = FastMCP(
-        "openwind",
+        SERVER_NAME,
         stateless_http=True,
         json_response=True,
     )
@@ -1076,7 +1082,7 @@ def build_server(
         except Exception as exc:
             import logging as _logging
 
-            _logging.getLogger(__name__).warning("openwind.feedback sink failed: %s", exc)
+            _logging.getLogger(__name__).warning("ohmywind.feedback sink failed: %s", exc)
             ack = "buffered"
         return {
             "feedback_id": entry["feedback_id"],

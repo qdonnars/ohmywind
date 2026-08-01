@@ -1,7 +1,7 @@
 [project]
 name = "openwind-hf-space"
 version = "0.1.0"
-description = "Thin Hugging Face Spaces wrapper serving the OpenWind MCP server and its REST API."
+description = "Hugging Face Spaces wrapper serving the OhMyWind MCP server and its REST API."
 requires-python = ">=3.12"
 
 # Until now these versions lived only in the Dockerfile's pip install line,

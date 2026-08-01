@@ -29,11 +29,11 @@ other MCP client (Goose, Continue, Zed) that accepts a stdio command.
 ```json
 {
   "mcpServers": {
-    "openwind": {
+    "ohmywind": {
       "command": "uv",
       "args": [
         "--directory",
-        "/ABSOLUTE/PATH/TO/openwind/packages/mcp-core",
+        "/ABSOLUTE/PATH/TO/ohmywind/packages/mcp-core",
         "run",
         "python",
         "scripts/run_local.py"
@@ -43,8 +43,8 @@ other MCP client (Goose, Continue, Zed) that accepts a stdio command.
 }
 ```
 
-Replace `/ABSOLUTE/PATH/TO/openwind` with your local repo path. Restart the
-client. The four tools should appear under the `openwind` server.
+Replace `/ABSOLUTE/PATH/TO/ohmywind` with your local repo path. Restart the
+client. The four tools should appear under the `ohmywind` server.
 
 ### Sanity check (without a chat client)
 
