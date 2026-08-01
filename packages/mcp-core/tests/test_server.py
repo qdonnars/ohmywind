@@ -290,7 +290,7 @@ class TestPlanPassageSweep:
         }
         try:
             await _call(server, "plan_passage", args)
-            assert False, "expected an exception for oversized sweep"
+            raise AssertionError("expected an exception for oversized sweep")
         except Exception as exc:
             assert "336" in str(exc) or "cap" in str(exc).lower() or "windows" in str(exc).lower()
 

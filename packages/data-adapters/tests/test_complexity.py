@@ -160,7 +160,7 @@ class TestWarnings:
         s = score_complexity(_make_passage([5.0]), max_hs_m=2.5)
         sea_w = [w for w in s.warnings if w.kind == "sea"]
         assert len(sea_w) == 1
-        assert sea_w[0].level == 4  # 2.5 m falls in level 4 (2–3 m band)
+        assert sea_w[0].level == 4  # 2.5 m falls in level 4 (2-3 m band)
         assert "Hs 2.5 m" in sea_w[0].message
         assert "max" not in sea_w[0].message
 

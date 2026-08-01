@@ -1,0 +1,47 @@
+[project]
+name = "openwind-hf-space"
+version = "0.1.0"
+description = "Thin Hugging Face Spaces wrapper serving the OpenWind MCP server and its REST API."
+requires-python = ">=3.12"
+
+# Until now these versions lived only in the Dockerfile's pip install line,
+# so nothing outside a Space build knew what this package needed. Declaring
+# them here makes the tests collectable in CI and finally tracks the
+# dependency set in the repository. Keep in sync with the Dockerfile.
+dependencies = [
+    "openwind-data",
+    "openwind-mcp-core",
+    # Imported directly by app.py: the ASGI app, its routes and middleware.
+    # Transitively available through mcp[cli], but relying on that would let a
+    # dependency bump of the MCP SDK silently break the REST layer.
+    "starlette>=0.37",
+    "uvicorn[standard]>=0.30",
+    "httpx>=0.27",
+    # fetch_atlases.py pulls the tidal atlas dataset at image build time.
+    "huggingface_hub[hf_xet]>=0.24",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+]
+
+# Not an installable package: the Space runs `python /app/app.py` on files the
+# sync workflow copies flat into the image, with no src layout and no wheel.
+# Declaring it as a virtual project gives us an environment without asking uv
+# to build something that was never meant to be built.
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+openwind-data = { path = "../data-adapters", editable = true }
+openwind-mcp-core = { path = "../mcp-core", editable = true }
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+# Ruff configuration deliberately stays in .ruff.toml: it predates this file
+# and ruff would ignore a [tool.ruff] table here while .ruff.toml exists.

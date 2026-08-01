@@ -797,13 +797,9 @@ class TestEstimatePassageWindows:
         """Some windows hitting ForecastHorizonError must NOT fail the whole sweep.
         Caller infers skip count from len(reports) vs expected window count."""
         from openwind_data.adapters.base import (
-            ForecastBundle as _FB,
-        )
-        from openwind_data.adapters.base import (
-            SeaSeries as _SS,
-        )
-        from openwind_data.adapters.base import (
-            WindSeries as _WS,
+            ForecastBundle,
+            SeaSeries,
+            WindSeries,
         )
 
         class FlakyAdapter(StubAdapter):
@@ -821,20 +817,20 @@ class TestEstimatePassageWindows:
                 start: datetime,
                 end: datetime,
                 models: list[str] | None = None,
-            ) -> _FB:
+            ) -> ForecastBundle:
                 self.fetch_count += 1
                 if self.fetch_count >= self.fail_at_call:
-                    return _FB(
+                    return ForecastBundle(
                         lat=lat,
                         lon=lon,
                         start=start,
                         end=end,
                         wind_by_model={
-                            (models or ["meteofrance_arome_france"])[0]: _WS(
+                            (models or ["meteofrance_arome_france"])[0]: WindSeries(
                                 model=(models or ["meteofrance_arome_france"])[0], points=()
                             )
                         },
-                        sea=_SS(points=()),
+                        sea=SeaSeries(points=()),
                         requested_at=start,
                     )
                 return await super().fetch(lat, lon, start, end, models)

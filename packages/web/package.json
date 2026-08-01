@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint:budget": "node scripts/lint-budget.mjs",
+    "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
     "katex": "^0.16.45",
@@ -40,5 +42,8 @@
     "vite": "^8.0.1",
     "vite-plugin-pwa": "^1.3.0",
     "vitest": "^4.1.5"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
