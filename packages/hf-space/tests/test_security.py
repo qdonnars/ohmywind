@@ -234,12 +234,31 @@ def test_cors_is_deliberately_open(client) -> None:
 def test_security_headers_present(client) -> None:
     resp = client.get("/api/v1/archetypes")
     assert resp.headers["x-content-type-options"] == "nosniff"
-    assert resp.headers["x-frame-options"] == "DENY"
     assert resp.headers["referrer-policy"] == "strict-origin-when-cross-origin"
+    assert "frame-ancestors" in resp.headers["content-security-policy"]
 
 
 def test_security_headers_on_the_landing_page(client) -> None:
     assert client.get("/").headers["x-content-type-options"] == "nosniff"
+
+
+def test_the_hf_space_page_can_still_frame_the_landing_page(client) -> None:
+    """Regression guard for the outage of 2026-08-01.
+
+    A Space's page on huggingface.co renders the app in an iframe pointing at
+    <slug>.hf.space. Shipping `X-Frame-Options: DENY` blanked the project's
+    own landing page on the HF catalogue. If this ever tightens back to a
+    blanket deny, that page breaks again with no error anywhere in our logs.
+    """
+    csp = client.get("/").headers["content-security-policy"]
+    assert "https://huggingface.co" in csp
+    assert "'none'" not in csp
+
+
+def test_x_frame_options_is_not_sent(client) -> None:
+    # frame-ancestors is the single source of truth. Sending both risks a
+    # browser honouring the stricter X-Frame-Options and re-breaking framing.
+    assert "x-frame-options" not in client.get("/").headers
 
 
 def test_rate_limit_triggers_on_repeated_posts(monkeypatch) -> None:

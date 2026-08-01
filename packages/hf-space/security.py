@@ -283,16 +283,36 @@ class RateLimitMiddleware:
 class SecurityHeadersMiddleware:
     """Add the baseline response headers to every route.
 
-    ``X-Frame-Options: DENY`` is safe here: nothing this app serves over HTTP
-    is meant to be framed. The MCP Apps widget is delivered as an MCP resource
-    (``text/html;profile=mcp-app``) that the host inlines into its own
-    sandboxed iframe — it is never fetched from this origin.
+    Framing is restricted with CSP ``frame-ancestors`` rather than
+    ``X-Frame-Options``, and it is NOT a blanket deny. A Hugging Face Space
+    page (``huggingface.co/spaces/<owner>/<name>``) renders the Space inside
+    an iframe pointing at ``<slug>.hf.space``: that *is* the Space UI. A
+    ``DENY`` shipped here blanks the project's own landing page on the HF
+    catalogue, which is exactly what happened on 2026-08-01.
+
+    ``X-Frame-Options`` is deliberately absent. It cannot express an
+    allowlist (``ALLOW-FROM`` is dead), and while the CSP spec says
+    ``frame-ancestors`` supersedes it, sending both invites a browser that
+    honours the stricter one to break the page again. One header, one source
+    of truth.
+
+    The MCP Apps widget is unaffected either way: it travels as an MCP
+    resource (``text/html;profile=mcp-app``) that the host inlines into its
+    own sandboxed iframe, never fetched from this origin.
     """
+
+    # Overridable so a non-HF deployment can tighten this back to 'none'.
+    FRAME_ANCESTORS = os.environ.get(
+        "OPENWIND_FRAME_ANCESTORS", "'self' https://huggingface.co https://*.hf.space"
+    )
 
     HEADERS = (
         (b"x-content-type-options", b"nosniff"),
-        (b"x-frame-options", b"DENY"),
         (b"referrer-policy", b"strict-origin-when-cross-origin"),
+        (
+            b"content-security-policy",
+            f"frame-ancestors {FRAME_ANCESTORS}".encode("latin-1"),
+        ),
     )
 
     def __init__(self, app: ASGIApp) -> None:
