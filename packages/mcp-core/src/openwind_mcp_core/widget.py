@@ -104,6 +104,6 @@ PASSAGE_WIDGET_HTML = """\
     </div>
   </div>
   <div class="ow-legs">{{legs}}</div>
-  <a class="ow-link" href="{{openwind_url}}" target="_blank" rel="noopener">Open in OpenWind &rarr;</a>
+  <a class="ow-link" href="{{openwind_url}}" target="_blank" rel="noopener">Open in OhMyWind &rarr;</a>
 </div>\
 """

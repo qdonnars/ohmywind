@@ -24,6 +24,7 @@ import { LocateButton } from "../components/LocateButton";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useMapView } from "../hooks/useMapView";
 import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
+import { setCookie, clearCookie } from "../utils/cookies";
 
 // Build the plan-time overrides payload from current /config preferences.
 // Read at request time (not at mount) so a /config tweak takes effect on the
@@ -90,10 +91,25 @@ function fmtTime(iso: string) {
 // Renders the exact same HeroCell as the desktop sidebar block
 // (Distance / Durée / Arrivée) inside a single glass strip, so both
 // surfaces are visually and structurally identical.
-function PlanHeroStats({ passage }: { passage: PassageReport }) {
+function PlanHeroStats({ passage, onOpen }: { passage: PassageReport; onOpen?: () => void }) {
+  // `pointer-events-auto` is load-bearing: the wrapper below sets
+  // `pointer-events-none` so map gestures pass through the empty space around
+  // this strip. Without re-enabling it here, a tap on the strip itself fell
+  // through to Leaflet and silently appended a waypoint to the route being
+  // edited — the banner looked inert while quietly corrupting the plan.
   return (
     <div
-      className="rounded-xl px-3.5 py-2.5 grid grid-cols-3 gap-3"
+      role="button"
+      tabIndex={0}
+      aria-label="Voir le détail du passage"
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen?.();
+        }
+      }}
+      className="pointer-events-auto cursor-pointer rounded-xl px-3.5 py-2.5 grid grid-cols-3 gap-3"
       style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)" }}
     >
       <HeroCell label="Distance" value={fr1(passage.distance_nm)} unit="nm" />
@@ -436,7 +452,7 @@ export function PlanPage() {
         const url = buildPlanUrl(wpts, resolvedDep, arch);
         window.history.replaceState(null, "", url);
         const ttl = 7 * 24 * 3600;
-        document.cookie = `ow_last_trip=${encodeURIComponent(window.location.href)};max-age=${ttl};path=/;SameSite=Lax`;
+        setCookie("ow_last_trip", window.location.href, ttl);
         // Persist for next visit. Merge into existing cache so a previously
         // saved compare-mode result stays available.
         const prev = loadLastSimulation();
@@ -631,7 +647,7 @@ export function PlanPage() {
     clearLastSimulation();
     // Also expire the dormant ow_last_trip cookie so a future read (if we ever
     // wire it up) doesn't resurrect a stale plan.
-    document.cookie = "ow_last_trip=;max-age=0;path=/;SameSite=Lax";
+    clearCookie("ow_last_trip");
     setWaypoints([]);
     setPassage(null);
     setComplexity(null);
@@ -693,7 +709,7 @@ export function PlanPage() {
       const url = buildPlanUrl(waypoints, naiveDep, archetype);
       window.history.replaceState(null, "", url);
       const ttl = 7 * 24 * 3600;
-      document.cookie = `ow_last_trip=${encodeURIComponent(window.location.href)};max-age=${ttl};path=/;SameSite=Lax`;
+      setCookie("ow_last_trip", window.location.href, ttl);
       // Keep windows around so the user can switch back to compare mode and
       // see the table again without re-fetching the sweep.
       // setWindows(null) intentionally NOT called — user toggling back to
@@ -872,7 +888,7 @@ export function PlanPage() {
               drawer. Complexity is read from the colored route itself. */}
           {passage && planMode === "single" && !isStale && (
             <div className="lg:hidden absolute bottom-2 left-2 right-2 z-[400] pointer-events-none">
-              <PlanHeroStats passage={passage} />
+              <PlanHeroStats passage={passage} onOpen={() => drawerRef.current?.expand()} />
             </div>
           )}
         </div>

@@ -42,9 +42,9 @@ Outils: navigateur piloté (Chrome DevTools MCP) pour le web, émulateur Android
 - Étapes: basculer l'icône lune, recharger la page, rebasculer.
 - Attendu: bascule immédiate de toute l'UI (carte comprise), préférence persistée au rechargement.
 
-### J7. Bandeau rebrand OpenWind → OhMyWind
+### J7. Bandeau rebrand OhMyWind → OhMyWind
 - Étapes: premier affichage: lire le bandeau; cliquer la croix; recharger.
-- Attendu: texte mentionne la redirection openwind.fr et l'open source; la croix ferme le bandeau; il ne réapparaît pas après rechargement.
+- Attendu: texte mentionne la redirection ohmywind.fr et l'open source; la croix ferme le bandeau; il ne réapparaît pas après rechargement.
 
 ### J8. Android: plein écran TWA et permissions
 - Précondition: app installée (adb), assetlinks à jour sur l'hôte visé.

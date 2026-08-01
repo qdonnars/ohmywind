@@ -2,7 +2,7 @@
 
 Reconnaissance du FTP Ifremer `MARC_L1-ATLAS-AHRMONIQUES` (atlas PREVIMER de
 composantes harmoniques de hauteurs et courants de marée) pour préparer
-l'intégration dans OpenWind.
+l'intégration dans OhMyWind.
 
 Source : `ftp.ifremer.fr/MARC_L1-ATLAS-AHRMONIQUES/` (auth requise, login `ext-marc_atlasharmo`).
 Documentation primaire : `2013_04_15_fiche_produit_atlas_V0.pdf` (téléchargé hors repo).

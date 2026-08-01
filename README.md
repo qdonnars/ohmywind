@@ -2,16 +2,16 @@
 
 > **Talk to your LLM. Cast off with confidence.**
 >
-> OpenWind turns any MCP-capable assistant (Claude, Le Chat, Cursor, Goose,
+> OhMyWind turns any MCP-capable assistant (Claude, Le Chat, Cursor, Goose,
 > Zed, Continue) into a sailing planner for the French Atlantic and
 > Mediterranean coasts. Ask in plain language. Get a per-leg ETA, a 1‑5
 > complexity score, high-precision tidal currents on the Atlantic
 > (SHOM Atlas C2D and MARC PREVIMER), and a deep-link to the full plan.
 > Free, keyless, open source.
 
-[**openwind.fr**](https://openwind.fr) · [MCP endpoint](https://qdonnars-openwind-mcp.hf.space/mcp) · MIT
+[**ohmywind.fr**](https://ohmywind.fr) · [MCP endpoint](https://qdonnars-openwind-mcp.hf.space/mcp) · MIT
 
-![OpenWind passage plan rendered in the web app](docs/screenshots/plan.png)
+![OhMyWind passage plan rendered in the web app](docs/screenshots/plan.png)
 
 ---
 
@@ -28,12 +28,12 @@ https://qdonnars-openwind-mcp.hf.space/mcp
 > *"Demain matin, Marseille → Porquerolles, sur un Sun Odyssey 36. Bonne
 > idée ? Combien de temps et c'est tendu comment ?"*
 
-**3.** Your assistant calls the OpenWind tools and answers in plain language.
+**3.** Your assistant calls the OhMyWind tools and answers in plain language.
 On hosts that support the [MCP Apps spec](https://modelcontextprotocol.io/extensions/client-matrix)
 (Claude, Claude Desktop, ChatGPT, VS Code Copilot, Goose, Postman, MCPJam) you
-also get a live, interactive widget: the [openwind.fr](https://openwind.fr)
+also get a live, interactive widget: the [ohmywind.fr](https://ohmywind.fr)
 plan view rendered inline. On hosts that don't (Cursor, Le Chat, terminal),
-the assistant hands you the same plan as an [openwind.fr](https://openwind.fr)
+the assistant hands you the same plan as an [ohmywind.fr](https://ohmywind.fr)
 deep-link. No account. No API key. No credit card.
 
 > **First time with MCP?** It takes 2 minutes. Pick your client on
@@ -45,7 +45,7 @@ deep-link. No account. No API key. No credit card.
 > add it under **Connectors → Add connector → Custom MCP connector** and paste
 > the endpoint above.
 
-## Why OpenWind
+## Why OhMyWind
 
 |                              |                                                                                              |
 |------------------------------|----------------------------------------------------------------------------------------------|
@@ -65,12 +65,12 @@ Four MCP tools, all async, all keyless:
 |---------------------------|---------------------------------------------------------------------------|
 | `list_boat_archetypes`    | Seven descriptive archetypes; the LLM maps "Sun Odyssey 36" → `cruiser_30ft` itself. |
 | `get_marine_forecast`     | Wind + sea around a point/window, multi-model.                            |
-| `plan_passage`            | End-to-end: per-leg timing + 1‑5 complexity + openwind.fr deep-link, in one call. Pass `latest_departure` to compare every hourly window up to 14 days out, and the LLM picks the calmest slot. |
-| `read_me`                 | Returns OpenWind's calculation methodology. Call it when the user asks how things are computed. |
+| `plan_passage`            | End-to-end: per-leg timing + 1‑5 complexity + ohmywind.fr deep-link, in one call. Pass `latest_departure` to compare every hourly window up to 14 days out, and the LLM picks the calmest slot. |
+| `read_me`                 | Returns OhMyWind's calculation methodology. Call it when the user asks how things are computed. |
 
 `plan_passage` declares an MCP Apps UI resource (`ui://openwind/plan-passage`)
 on its `_meta`. Hosts that support [MCP Apps](https://modelcontextprotocol.io/extensions/client-matrix)
-render the live `openwind.fr/plan?…` view in a sandboxed iframe automatically,
+render the live `ohmywind.fr/plan?…` view in a sandboxed iframe automatically,
 with no host-specific CSS and no vendor lock-in. Hosts without MCP Apps support
 silently get the structured payload + the `openwind_url` deep-link.
 
@@ -81,7 +81,7 @@ packages/
 ├── data-adapters/   # pure domain logic (forecast adapters, polars, routing, complexity)
 ├── mcp-core/        # FastMCP server (cloud-agnostic, no Gradio, no HF deps)
 ├── hf-space/        # ~20-line Docker wrapper for Hugging Face Spaces
-└── web/             # React 19 + Vite app deployed to GitHub Pages (openwind.fr)
+└── web/             # React 19 + Vite app deployed to GitHub Pages (ohmywind.fr)
 ```
 
 `mcp-core` stays deployment-agnostic. Re-deploying on Fly, Modal, or a VPS is
@@ -101,7 +101,7 @@ uv run ruff check .
 cd packages/hf-space
 uv run python app.py   # serves :7860, point any MCP client at /mcp
 
-# Web app (openwind.fr)
+# Web app (ohmywind.fr)
 cd packages/web
 npm install
 npm run dev            # vite dev server
@@ -159,7 +159,7 @@ Implementation: [`packages/data-adapters/src/openwind_data/routing/passage.py`](
 
 Wind & sea: [Open-Meteo](https://open-meteo.com/) (CC BY 4.0). Hosting:
 [Hugging Face Spaces](https://huggingface.co/spaces). Map tiles on
-[openwind.fr](https://openwind.fr): [CARTO](https://carto.com/) /
+[ohmywind.fr](https://ohmywind.fr): [CARTO](https://carto.com/) /
 [OpenStreetMap](https://www.openstreetmap.org/copyright).
 
 ## License

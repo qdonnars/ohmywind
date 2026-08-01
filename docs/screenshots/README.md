@@ -3,8 +3,8 @@
 Hero assets referenced from the READMEs and the Starlette landing of the HF
 Space.
 
-- `plan.png` the OpenWind passage view on
-  [openwind.fr](https://openwind.fr) (5 waypoints, ETA, complexity score).
+- `plan.png` the OhMyWind passage view on
+  [ohmywind.fr](https://ohmywind.fr) (5 waypoints, ETA, complexity score).
   Used as the hero image in the root README, the HF Space README, and the
   Starlette landing. Replace by `plan.gif` (animated demo) later update
   the `<img src="…">` in

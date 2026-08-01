@@ -46,14 +46,11 @@ def main() -> None:
 
     target_path = Path(target)
     marc_atlases = sorted(
-        p.name
-        for p in target_path.iterdir()
-        if p.is_dir() and (p / "metadata.json").exists()
+        p.name for p in target_path.iterdir() if p.is_dir() and (p / "metadata.json").exists()
     )
-    shom_present = (
-        (target_path / "shom_c2d_points.parquet").exists()
-        and (target_path / "shom_c2d_ref_ports.json").exists()
-    )
+    shom_present = (target_path / "shom_c2d_points.parquet").exists() and (
+        target_path / "shom_c2d_ref_ports.json"
+    ).exists()
     print(f"Atlas dataset cached at {target}")
     print(f"  MARC atlases: {marc_atlases or '<none>'}")
     print(f"  SHOM Atlas C2D: {'present' if shom_present else '<absent>'}")

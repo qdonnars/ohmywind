@@ -1,8 +1,8 @@
-# OpenWind — Architecture
+# OhMyWind — Architecture
 
 ## Mental model
 
-OpenWind is **not a router**. It is a thin set of MCP tools the LLM orchestrates
+OhMyWind is **not a router**. It is a thin set of MCP tools the LLM orchestrates
 to plan a sailing passage. The intelligence — picking waypoints, choosing a
 weather window, judging "is this a good day to go?" — lives in the LLM, not
 on the server.
@@ -23,14 +23,16 @@ on the server.
         │   ├── plan_passage    (single + compare-      │
         │   │                    windows mode; declares │
         │   │                    MCP Apps UI resource)  │
-        │   └── read_me                                 │
+        │   ├── read_me                                 │
+        │   └── feedback        (sink injected by the   │
+        │                        deployment wrapper)    │
         └────────────┬─────────────────────────────────┘
                      │ pure Python calls
         ┌────────────▼─────────────────────────────────┐
         │  openwind-data       (no network framework)  │
         │   • adapters/openmeteo.py   (httpx, keyless) │
         │   • routing/geometry.py     (haversine, …)   │
-        │   • routing/archetypes.py   (5 polars JSON)  │
+        │   • routing/archetypes.py   (7 polars JSON)  │
         │   • routing/passage.py      (timing + derate)│
         │   • routing/complexity.py   (1-5 score)      │
         └────────────┬─────────────────────────────────┘
@@ -54,7 +56,7 @@ A typical Claude Desktop conversation produces this tool sequence:
    for the Mediterranean. Claude reads wind, gusts, and (when relevant) Hs.
 3. **Plan the passage.** `plan_passage(waypoints, departure, archetype)`
    returns, in a single call: per-segment timing (TWA, polar speed,
-   warnings), a 1-5 complexity score, and an `openwind.fr/plan?...`
+   warnings), a 1-5 complexity score, and an `ohmywind.fr/plan?...`
    deep-link. The server fetches one wind bundle per segment (single-pass
    approximation; no convergence loop). When the caller passes
    `latest_departure`, the same call sweeps hourly windows over the route
@@ -62,7 +64,7 @@ A typical Claude Desktop conversation produces this tool sequence:
 4. **Render & narrate.** The tool declares
    `_meta.ui.resourceUri = ui://openwind/plan-passage`, so MCP-Apps-aware
    hosts (Claude, Claude Desktop, ChatGPT, VS Code Copilot, Goose, Postman,
-   MCPJam) auto-render the live openwind.fr/plan view in a sandboxed
+   MCPJam) auto-render the live ohmywind.fr/plan view in a sandboxed
    iframe. Hosts without MCP Apps support fall back to a text summary
    (ETA / complexity / warnings) plus the `openwind_url` deep-link. If the
    user later asks "how is this computed?", the LLM calls `read_me` and
@@ -77,12 +79,16 @@ LLM produces the verdict.
 | ----------------- | ---------------------------------------- | --------------------- |
 | `openwind-data`   | `httpx`, stdlib                          | `mcp`, `gradio`, HF   |
 | `openwind-mcp-core` | `mcp[cli]`, `openwind-data`            | `gradio`, HF          |
-| `hf-space/`       | `gradio`, `openwind-mcp-core`            | —                     |
+| `hf-space/`       | `starlette`, `uvicorn`, `openwind-mcp-core`, `huggingface_hub` | —  |
+
+The wrapper does **not** use Gradio: it is a plain Starlette app served by
+uvicorn in a Docker Space. `huggingface_hub` appears only there, to pull the
+tidal atlas at build time and to push feedback.
 
 `build_server()` in `openwind_mcp_core.server` is the single factory used by:
 
 - the local stdio runner (`packages/mcp-core/scripts/run_local.py`)
-- the future HF Spaces wrapper (`packages/hf-space/app.py`, Sprint 4)
+- the HF Spaces wrapper (`packages/hf-space/app.py`)
 - any future deployment (Fly.io, Modal, self-host)
 
 Re-deploying anywhere = writing a new wrapper that calls `build_server()`.
@@ -119,5 +125,5 @@ Re-deploying anywhere = writing a new wrapper that calls `build_server()`.
   optimization, no tide planning.
 - Not a scoring engine — no `find_best_window()`, no numerical comparison
   across days. The LLM compares; we provide ingredients.
-- Not a chat UI — the web app at `openwind.fr` is read-only, populated from a
+- Not a chat UI — the web app at `ohmywind.fr` is read-only, populated from a
   pre-computed `/plan?...` URL. Conversation happens in the MCP client.

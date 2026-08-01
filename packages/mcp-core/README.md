@@ -1,11 +1,12 @@
 # openwind-mcp-core
 
-Cloud-agnostic FastMCP server for OpenWind. Exposes 4 tools:
+Cloud-agnostic FastMCP server for OhMyWind. Exposes 5 tools:
 
 - `list_boat_archetypes` descriptive list, no server-side mapping
 - `get_marine_forecast` wind + sea around a point/window
-- `plan_passage` end-to-end timing + complexity + openwind.fr deep-link; declares an MCP Apps UI resource so supporting hosts auto-render the iframe widget. Optional compare-windows mode (sweep N hourly departures over the same route).
+- `plan_passage` end-to-end timing + complexity + ohmywind.fr deep-link; declares an MCP Apps UI resource so supporting hosts auto-render the iframe widget. Optional compare-windows mode (sweep N hourly departures over the same route).
 - `read_me` calculation methodology (polars, efficiency, VMG, defaults)
+- `feedback` structured channel for the LLM to report a problem or a suggestion; the sink is injected by the deployment wrapper, so the core stays cloud-agnostic
 
 `build_server()` is the single factory; no Gradio, no `huggingface_hub`. The
 HF Spaces wrapper (Sprint 4) and any future deployment use the same factory.
@@ -79,7 +80,7 @@ The client should call `list_boat_archetypes` (to map → `cruiser_40ft`)
 then `plan_passage` once with the waypoints, departure, and chosen archetype.
 The response includes timing, complexity, and an `openwind_url` deep-link.
 On hosts that support the [MCP Apps spec](https://modelcontextprotocol.io/extensions/client-matrix),
-the openwind.fr/plan view is also rendered inline as an iframe widget; on
+the ohmywind.fr/plan view is also rendered inline as an iframe widget; on
 hosts that don't, the deep-link is the user-facing fallback.
 
 > First request after inactivity may incur ~5s of cold-start once deployed
