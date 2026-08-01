@@ -50,7 +50,14 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
 from starlette.routing import Mount, Route
 
-from security import ALLOWED_ORIGINS, RateLimitMiddleware, SecurityHeadersMiddleware
+from security import (
+    ALLOWED_ORIGINS,
+    TRUSTED_PROXY_HOPS,
+    RateLimitMiddleware,
+    SecurityHeadersMiddleware,
+    bucket_id,
+    forwarded_hop_count,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -455,6 +462,30 @@ async def _icon_redirect(request: Request) -> RedirectResponse:
 
 async def _api_archetypes(_request: Request) -> JSONResponse:
     return JSONResponse(list_archetypes_metadata())
+
+
+async def _api_client_debug(request: Request) -> JSONResponse:
+    """Report how this deployment sees the caller, for rate-limit diagnosis.
+
+    The rate limiter keys on the client address taken from the last
+    ``X-Forwarded-For`` hop. Whether that address is the real caller or a
+    fixed proxy address is a property of the hosting platform, and it cannot
+    be observed from outside: a single-bucket-for-everyone bug looks exactly
+    like "you share a NAT with someone busy". Two callers on different
+    networks comparing ``bucket`` here tell the two apart in one request each.
+
+    ``forwarded_hops == 0`` is the alarm: the platform strips the header, the
+    fallback address is an internal proxy, and every caller shares one bucket.
+    Returns no address, only a fingerprint of the caller's own.
+    """
+    return JSONResponse(
+        {
+            "bucket": bucket_id(request.scope),
+            "forwarded_hops": forwarded_hop_count(request.scope),
+            "trusted_hops": TRUSTED_PROXY_HOPS,
+        },
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 async def _api_passage(request: Request) -> JSONResponse:
@@ -1000,6 +1031,7 @@ def build_app(mcp_app: Any) -> Starlette:
             Route("/", _index),
             *[Route(path, _icon_redirect, methods=["GET"]) for path in _ICON_REDIRECTS],
             Route("/api/v1/archetypes", _api_archetypes, methods=["GET"]),
+            Route("/api/v1/_client", _api_client_debug, methods=["GET"]),
             Route("/api/v1/passage", _api_passage, methods=["POST"]),
             Route("/api/v1/passage-by-eta", _api_passage_by_eta, methods=["POST"]),
             Route("/api/v1/marine/marc", _api_marc_overlay, methods=["GET"]),

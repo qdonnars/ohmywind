@@ -13,6 +13,7 @@ Space can diverge without a code change.
 
 from __future__ import annotations
 
+import hashlib
 import math
 import os
 import time
@@ -24,32 +25,39 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 # --------------------------------------------------------------------- CORS
 
-# Browsers are the only callers CORS constrains: MCP clients (Claude, Le Chat,
-# ...) reach /mcp server-to-server and never send an Origin. So this list only
-# has to cover the web app's own origins.
+# No allowlist here, and that is a deliberate, measured decision — not an
+# oversight. Do not "fix" this by reinstating one without re-running the
+# checks below.
 #
-# ohmywind.fr is canonical; openwind.fr is kept as a 301 source, and a browser
-# that followed the redirect still carries the *original* origin on the
-# subsequent XHR, so both families must be listed. localhost covers `vite dev`
-# (5173) and `vite preview` (4173) against a live backend.
-DEFAULT_ALLOWED_ORIGINS = [
-    "https://ohmywind.fr",
-    "https://www.ohmywind.fr",
-    "https://dev.ohmywind.fr",
-    "https://openwind.fr",
-    "https://www.openwind.fr",
-    "https://dev.openwind.fr",
-    "http://localhost:5173",
-    "http://localhost:4173",
-]
-
-ALLOWED_ORIGINS = [
-    o.strip()
-    for o in os.environ.get("OPENWIND_ALLOWED_ORIGINS", ",".join(DEFAULT_ALLOWED_ORIGINS)).split(
-        ","
-    )
-    if o.strip()
-]
+# An allowlist was implemented and shipped to the dev Space, then found to be
+# inert: Hugging Face's edge proxy answers CORS preflights itself and rewrites
+# the CORS headers on every response, so nothing the application decides ever
+# reaches the browser. Measured on the deployed Space:
+#
+#   OPTIONS /api/v1/passage
+#     Origin: https://evil.example.com          -> 200 + acao: evil.example.com
+#     Access-Control-Request-Method: DELETE     -> allow-methods: DELETE
+#
+# DELETE is not in this app's allowed methods, and Starlette answers a
+# disallowed preflight with 400 (verified locally against this exact code).
+# Getting a 200 that echoes DELETE proves the request never reached us. The
+# edge also stamps `access-control-expose-headers: *` on plain 404s, a header
+# this app never sets.
+#
+# Keeping a restrictive list would have been worse than having none: it reads
+# as an active control in code review and in the threat model, while providing
+# zero protection in production. False assurance is the real hazard.
+#
+# The protection that *does* hold on this platform is the rate limiter below,
+# which lives in the container and is out of the edge's reach.
+#
+# IF THIS EVER MOVES OFF HUGGING FACE (Fly, Modal, VPS): re-add an allowlist.
+# Application-level CORS is effective everywhere the edge does not pre-empt
+# it. The origins to use are ohmywind.fr and www/dev variants, plus the
+# openwind.fr family which is kept as a 301 source (a browser that followed
+# the redirect still sends the original origin on the subsequent XHR), plus
+# http://localhost:5173 and :4173 for `vite dev` / `vite preview`.
+ALLOWED_ORIGINS = ["*"]
 
 
 # ----------------------------------------------------------------- client IP
@@ -90,6 +98,29 @@ def resolve_client_ip(scope: Scope, *, hops: int = TRUSTED_PROXY_HOPS) -> str:
 
     client = scope.get("client")
     return client[0] if client else "unknown"
+
+
+def forwarded_hop_count(scope: Scope) -> int:
+    """Number of entries in X-Forwarded-For, 0 when the header is absent."""
+    for name, value in scope.get("headers", ()):
+        if name == b"x-forwarded-for":
+            return len([p for p in value.decode("latin-1").split(",") if p.strip()])
+    return 0
+
+
+def bucket_id(scope: Scope) -> str:
+    """Short, stable fingerprint of the rate-limit key for this caller.
+
+    Exists to answer one operational question that cannot be settled from
+    outside: does the platform's edge forward the real client address, or do
+    all callers collapse into a single bucket? Two clients on different
+    networks comparing this value settle it in one request each.
+
+    Only ever reports the caller's own bucket, and never the address itself.
+    Unsalted on purpose: a salt would change on every process restart and
+    would make two clients' readings incomparable, which is the whole point.
+    """
+    return hashlib.sha256(resolve_client_ip(scope).encode()).hexdigest()[:8]
 
 
 # -------------------------------------------------------------- rate limiter
@@ -178,8 +209,21 @@ class _SlidingWindowCounter:
 # legitimate MCP session doing many tool calls is never throttled.
 DEFAULT_LIMITED_PATHS = ("/api/v1/passage", "/api/v1/passage-by-eta")
 
+# 30 requests per 60s, not per 300s. The bucket key is an IP, so everyone
+# behind one NAT shares it: a marina wifi, an office, a mobile carrier on
+# CGNAT. We hit this for real during validation — three clients on one public
+# IP exhausted a 5-minute budget and a legitimate first request was refused.
+#
+# Shortening the window keeps the same instantaneous ceiling while making an
+# accidental block cost 60s instead of 300s. It is also the right shape for
+# the actual threat: a human iterating on a route makes a handful of requests
+# per minute, a scripted loop makes hundreds per second, and only the latter
+# should ever see a 429.
+#
+# The web client posts a `forecast_cache`, so its requests are served without
+# any Open-Meteo call. Being generous here costs us almost nothing upstream.
 RATE_LIMIT_MAX_REQUESTS = int(os.environ.get("OPENWIND_RATE_LIMIT_REQUESTS", "30"))
-RATE_LIMIT_WINDOW_S = float(os.environ.get("OPENWIND_RATE_LIMIT_WINDOW_S", "300"))
+RATE_LIMIT_WINDOW_S = float(os.environ.get("OPENWIND_RATE_LIMIT_WINDOW_S", "60"))
 RATE_LIMIT_MAX_IPS = int(os.environ.get("OPENWIND_RATE_LIMIT_MAX_IPS", "5000"))
 
 
@@ -223,7 +267,12 @@ class RateLimitMiddleware:
         response = JSONResponse(
             {"error": "rate limit exceeded, retry shortly"},
             status_code=429,
-            headers={"Retry-After": str(retry_after)},
+            headers={
+                "Retry-After": str(retry_after),
+                # Lets a support conversation distinguish "you share an IP with
+                # a busy neighbour" from "everyone lands in one bucket".
+                "X-RateLimit-Bucket": bucket_id(scope),
+            },
         )
         await response(scope, receive, send)
 
