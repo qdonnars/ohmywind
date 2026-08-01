@@ -6,6 +6,7 @@ import { QUICK_SPOTS } from "../spots";
 import { useTheme } from "../design/theme";
 import type { UserPosition } from "../hooks/useGeolocation";
 import { syncUserPositionLayer } from "../utils/userPositionLayer";
+import type { MapView } from "../utils/mapViewParams";
 
 // Spot-map arrows are drawn into a single 300×300 SVG anchored at the spot
 // (centre = 150,150). For ``wind``, each forecast contributes one arrow + label.
@@ -158,8 +159,12 @@ interface SpotMapProps {
   // when the viewport may be taken over: that policy lives in the page.
   flyToStamp?: number | null;
   /** Fired when the user finishes panning or zooming. Feeds the search
-      proximity bias: where someone is looking is a statement of intent. */
-  onCenterChange?: (center: { lat: number; lon: number }) => void;
+      proximity bias, and the view handed to /plan so switching mode leaves
+      the camera still. */
+  onViewChange?: (view: MapView) => void;
+  /** Restores the camera handed over by /plan. Wins over the active spot:
+      coming back from the planner must not move the map. */
+  initialView?: MapView | null;
   defaultCenter?: { lat: number; lon: number };
   onSelectSpot: (spot: Spot) => void;
   /** Plain tap or left click on the water: show the forecast there without
@@ -184,7 +189,8 @@ export function SpotMap({
   customSpots,
   userPosition,
   flyToStamp,
-  onCenterChange,
+  onViewChange,
+  initialView,
   defaultCenter,
   onSelectSpot,
   onPreviewSpot,
@@ -202,10 +208,10 @@ export function SpotMap({
   const arrowLayerRef = useRef<L.Marker | null>(null);
   const userLayerRef = useRef<L.LayerGroup | null>(null);
   const previewLayerRef = useRef<L.CircleMarker | null>(null);
-  const onCenterChangeRef = useRef(onCenterChange);
+  const onViewChangeRef = useRef(onViewChange);
   useEffect(() => {
-    onCenterChangeRef.current = onCenterChange;
-  }, [onCenterChange]);
+    onViewChangeRef.current = onViewChange;
+  }, [onViewChange]);
   const onSelectRef = useRef(onSelectSpot);
   onSelectRef.current = onSelectSpot;
   const onPreviewRef = useRef(onPreviewSpot);
@@ -305,7 +311,9 @@ export function SpotMap({
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    const initialCenter: [number, number] = current
+    const initialCenter: [number, number] = initialView
+      ? [initialView.lat, initialView.lon]
+      : current
       ? [current.latitude, current.longitude]
       : userPosition
         ? [userPosition.lat, userPosition.lon]
@@ -316,7 +324,7 @@ export function SpotMap({
     // (typical first-visit + denied case), open wide enough to show OpenWind's
     // full scope — Atlantic + Mediterranean French coast — so the user
     // understands the geographic reach before zooming into their region.
-    const initialZoom = current || userPosition ? 10 : 6;
+    const initialZoom = initialView ? initialView.zoom : current || userPosition ? 10 : 6;
     const map = L.map(containerRef.current, {
       zoomControl: false,
       attributionControl: false,
@@ -355,7 +363,7 @@ export function SpotMap({
     // churn React state.
     map.on("moveend", () => {
       const c = map.getCenter();
-      onCenterChangeRef.current?.({ lat: c.lat, lon: c.lng });
+      onViewChangeRef.current?.({ lat: c.lat, lon: c.lng, zoom: map.getZoom() });
     });
 
     // Long press detection via Pointer Events (covers mouse + touch, one event stream)

@@ -19,7 +19,8 @@ import { SpotMap } from "./components/SpotMap";
 import { Onboarding } from "./components/Onboarding";
 import { LocateButton } from "./components/LocateButton";
 import { useGeolocation } from "./hooks/useGeolocation";
-import { useMapCenter } from "./hooks/useMapCenter";
+import { useMapView } from "./hooks/useMapView";
+import { parseMapView, mapViewQuery } from "./utils/mapViewParams";
 import { hasDeclinedGeolocation } from "./config/geolocPreference";
 
 const DEFAULT_MAP_CENTER: { lat: number; lon: number } = { lat: 43.3, lon: 5.35 };
@@ -58,7 +59,9 @@ function App() {
   // their first favorite.
   const [spot, setSpot] = useState<Spot | null>(() => customSpots[0] ?? null);
   const { position: userPosition, status: geolocStatus, attempt: geolocAttempt, locate } = useGeolocation();
-  const { center: mapCenter, onCenterChange } = useMapCenter();
+  const { view: mapView, onViewChange } = useMapView();
+  // Camera handed over by /plan. Read once: later navigations remount.
+  const [initialView] = useState(() => parseMapView(window.location.search));
   // Which fix the map is allowed to fly to. Set only on an explicit request
   // (first visit, or a tap on the locate button) so an incoming fix never
   // steals the viewport on its own.
@@ -120,6 +123,9 @@ function App() {
   // waking the GPS unprompted on a first visit is a poor trade.
   useEffect(() => {
     if (customSpots.length > 0) return;
+    // Arriving with a camera handed over by /plan: honour it. Flying to the
+    // user would defeat the point of carrying the view across.
+    if (initialView) return;
     // Someone who already refused should not be asked again, nor shown the
     // same error bubble on every visit. The locate button still retries on
     // demand, so changing one's mind in the browser settings is enough.
@@ -177,8 +183,8 @@ function App() {
           alongside the Finistère one. */}
       <Header
         onSelectSpot={setSpot}
-        nearLat={userPosition?.lat ?? mapCenter?.lat ?? spot?.latitude ?? null}
-        nearLon={userPosition?.lon ?? mapCenter?.lon ?? spot?.longitude ?? null}
+        nearLat={userPosition?.lat ?? mapView?.lat ?? spot?.latitude ?? null}
+        nearLon={userPosition?.lon ?? mapView?.lon ?? spot?.longitude ?? null}
         savedSpots={customSpots}
       />
       <RebrandBanner />
@@ -192,7 +198,8 @@ function App() {
           customSpots={customSpots}
           userPosition={userPosition}
           flyToStamp={flyToStamp}
-          onCenterChange={onCenterChange}
+          onViewChange={onViewChange}
+          initialView={initialView}
           defaultCenter={DEFAULT_MAP_CENTER}
           onSelectSpot={setSpot}
           onPreviewSpot={handlePreviewSpot}
@@ -210,7 +217,7 @@ function App() {
             looking at, rather than a hardcoded default region. */}
         <a
           ref={fabRef}
-          href={spot ? `/plan?center=${spot.latitude.toFixed(5)},${spot.longitude.toFixed(5)}` : "/plan"}
+          href={`/plan${mapViewQuery(mapView)}`}
           className="absolute top-3 left-3 z-[400] w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
           style={{ background: "var(--ow-accent)", color: "#fff" }}
           title="Planifier un passage"

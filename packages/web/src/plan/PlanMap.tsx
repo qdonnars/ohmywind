@@ -7,6 +7,7 @@ import { cxLevel, CX_COLORS } from "./types";
 import { haversineNm, fmtNm } from "../utils/geo";
 import type { UserPosition } from "../hooks/useGeolocation";
 import { syncUserPositionLayer } from "../utils/userPositionLayer";
+import type { MapView } from "../utils/mapViewParams";
 
 /** Hide a segment label when the leg is shorter than this on screen (px).
     Below it the labels crowd the waypoint markers, so we let them fade out
@@ -38,8 +39,11 @@ interface PlanMapProps {
       call, through the `recenter` imperative handle. */
   userPosition?: UserPosition | null;
   /** Fired when the user finishes panning or zooming. Feeds the search
-      proximity bias: where someone is looking is a statement of intent. */
-  onCenterChange?: (center: { lat: number; lon: number }) => void;
+      proximity bias, and the view handed back to the explore map. */
+  onViewChange?: (view: MapView) => void;
+  /** Zoom that goes with `initialCenter`, when the explore map handed one
+      over. Ignored as soon as there are waypoints to frame. */
+  initialZoom?: number | null;
 }
 
 function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon {
@@ -55,7 +59,7 @@ function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon 
 }
 
 export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
-  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, initialCenter, userPosition, onCenterChange }: PlanMapProps,
+  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, initialCenter, userPosition, onViewChange, initialZoom }: PlanMapProps,
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -67,8 +71,8 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   const dragLineRef = useRef<L.Polyline | null>(null);
   const segLabelsRef = useRef<L.Tooltip[]>([]);
   const userLayerRef = useRef<L.LayerGroup | null>(null);
-  const onCenterChangeRef = useRef(onCenterChange);
-  useEffect(() => { onCenterChangeRef.current = onCenterChange; }, [onCenterChange]);
+  const onViewChangeRef = useRef(onViewChange);
+  useEffect(() => { onViewChangeRef.current = onViewChange; }, [onViewChange]);
   const livePositionsRef = useRef<[number, number][]>(waypoints);
   const isDraggingRef = useRef(false);
   const onWptAddRef = useRef(onWptAdd);
@@ -172,7 +176,9 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     } else if (waypoints.length === 1) {
       map.setView([waypoints[0][0], waypoints[0][1]], 10);
     } else if (initialCenter) {
-      map.setView([initialCenter[0], initialCenter[1]], 8);
+      // Honour the zoom the explore map was at, so arriving with no route
+      // yet does not jump the camera.
+      map.setView([initialCenter[0], initialCenter[1]], initialZoom ?? 8);
     } else {
       map.setView([46.5, 2.5], 5);
     }
@@ -193,7 +199,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     // Report the settled viewport for the search proximity bias.
     map.on("moveend", () => {
       const c = map.getCenter();
-      onCenterChangeRef.current?.({ lat: c.lat, lon: c.lng });
+      onViewChangeRef.current?.({ lat: c.lat, lon: c.lng, zoom: map.getZoom() });
     });
 
     const ro = new ResizeObserver(() => map.invalidateSize());
