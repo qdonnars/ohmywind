@@ -13,6 +13,32 @@ export interface PlanOverrides {
   polar?: PolarData;
 }
 
+// Render a Retry-After delay as a French sentence. Rounds up: telling someone
+// to wait 4 minutes when 4 min 10 s remain earns a second error message.
+export function formatRetryDelay(seconds: number | null): string {
+  if (seconds === null || !Number.isFinite(seconds) || seconds <= 0) {
+    return "Patientez quelques minutes avant de relancer.";
+  }
+  if (seconds < 60) {
+    return `Patientez ${Math.ceil(seconds)} secondes avant de relancer.`;
+  }
+  const minutes = Math.ceil(seconds / 60);
+  return `Patientez ${minutes} minute${minutes > 1 ? "s" : ""} avant de relancer.`;
+}
+
+// Extract the error message from a non-OK response, carrying the Retry-After
+// delay along when the server sent one. It travels inside the message string
+// because every call site funnels through `friendlyError(e.message)`.
+async function toError(res: Response): Promise<Error> {
+  const err = (await res.json().catch(() => ({}))) as Record<string, string>;
+  const message = err["error"] ?? `Erreur serveur ${res.status}`;
+  const retryAfter = res.status === 429 ? res.headers.get("Retry-After") : null;
+  if (retryAfter && /^\d+$/.test(retryAfter.trim())) {
+    return new Error(`${message}, retry in ${retryAfter.trim()}s`);
+  }
+  return new Error(message);
+}
+
 // Translate known backend error messages to actionable French. Returns the
 // original string if no rule matches, so unknown errors stay debuggable.
 export function friendlyError(raw: string): string {
@@ -34,7 +60,17 @@ export function friendlyError(raw: string): string {
     return "Trop de waypoints sur cette route. Retirez-en quelques-uns pour la simplifier.";
   }
   if (/rate limit exceeded/i.test(raw)) {
-    return "Trop de calculs lancés coup sur coup. Patientez une minute avant de relancer.";
+    // The server owns the delay: the window is configurable per environment,
+    // so never hard-code one here. The previous copy promised "une minute"
+    // against a 300 s window, so the user waited, retried, and got the exact
+    // same error. When the header is missing we stay vague rather than lie.
+    //
+    // The suffix is appended by `toError` and is not adjacent to the server's
+    // own wording ("rate limit exceeded, retry shortly"), so it is matched
+    // separately rather than as an optional tail of the pattern above.
+    const retryIn = /retry in (\d+)s/i.exec(raw);
+    const seconds = retryIn ? Number(retryIn[1]) : null;
+    return `Trop de calculs lancés coup sur coup. ${formatRetryDelay(seconds)}`;
   }
   if (/unknown archetype/i.test(raw)) {
     return "Type de bateau inconnu. Sélectionnez un archétype dans la liste.";
@@ -81,10 +117,7 @@ export async function fetchPassage(params: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({})) as Record<string, string>;
-    throw new Error(err["error"] ?? `Erreur serveur ${res.status}`);
-  }
+  if (!res.ok) throw await toError(res);
   return res.json() as Promise<PassageResponse>;
 }
 
@@ -117,10 +150,7 @@ export async function fetchPassageWindows(params: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({})) as Record<string, string>;
-    throw new Error(err["error"] ?? `Erreur serveur ${res.status}`);
-  }
+  if (!res.ok) throw await toError(res);
   return res.json() as Promise<MultiWindowResponse>;
 }
 
@@ -147,10 +177,7 @@ export async function fetchPassageByEta(params: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({})) as Record<string, string>;
-    throw new Error(err["error"] ?? `Erreur serveur ${res.status}`);
-  }
+  if (!res.ok) throw await toError(res);
   return res.json() as Promise<PassageByEtaResponse>;
 }
 

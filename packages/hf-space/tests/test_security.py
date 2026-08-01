@@ -287,6 +287,29 @@ def test_rate_limited_response_carries_retry_after_and_cors(monkeypatch) -> None
     assert resp.headers["access-control-allow-origin"] == "https://ohmywind.fr"
     assert "rate limit" in resp.json()["error"]
 
+    # The assertion above on ``retry-after`` is NOT enough on its own, and that
+    # gap shipped once: TestClient reads the raw response, so it sees the header
+    # whether or not the browser would. A cross-origin fetch only gets the
+    # CORS-safelisted response headers plus whatever the server explicitly
+    # exposes, so without this the web app reads null and has to invent a delay.
+    exposed = {h.strip().lower() for h in resp.headers["access-control-expose-headers"].split(",")}
+    assert "retry-after" in exposed
+
+
+def test_retry_after_never_exceeds_the_configured_window(monkeypatch) -> None:
+    """The advertised delay must stay inside the window it is derived from.
+
+    Guards the copy contract the web app depends on: it renders whatever we
+    send here, so an out-of-range value becomes a wrong promise on screen.
+    """
+    counter = security._SlidingWindowCounter(max_requests=2, window_s=300.0, max_tracked_ips=10)
+    assert counter.check("1.2.3.4", now=1000.0) is None
+    assert counter.check("1.2.3.4", now=1001.0) is None
+
+    retry_after = counter.check("1.2.3.4", now=1002.0)
+    assert retry_after is not None
+    assert 1 <= retry_after <= 300
+
 
 def test_get_routes_and_mcp_are_not_rate_limited(monkeypatch) -> None:
     from starlette.testclient import TestClient
