@@ -1015,6 +1015,12 @@ def build_app(mcp_app: Any) -> Starlette:
                 allow_origins=ALLOWED_ORIGINS,
                 allow_methods=["GET", "POST", "OPTIONS"],
                 allow_headers=["Content-Type"],
+                # Retry-After is set on our 429s, but a cross-origin fetch only
+                # sees the CORS-safelisted response headers unless the server
+                # opts the rest in here. Without this the web app cannot tell
+                # the user how long to wait and has to guess — which is how the
+                # copy ended up hard-coding "une minute" for a 5-minute window.
+                expose_headers=["Retry-After"],
             ),
             Middleware(SecurityHeadersMiddleware),
             Middleware(RateLimitMiddleware),
