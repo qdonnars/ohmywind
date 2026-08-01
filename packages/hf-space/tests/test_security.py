@@ -203,7 +203,7 @@ def client():
     return TestClient(app.build_app(_StubMcpApp()))
 
 
-def test_preflight_from_allowed_origin_is_accepted(client) -> None:
+def test_preflight_from_the_web_app_origin_is_accepted(client) -> None:
     resp = client.options(
         "/api/v1/passage",
         headers={
@@ -213,36 +213,22 @@ def test_preflight_from_allowed_origin_is_accepted(client) -> None:
         },
     )
     assert resp.status_code == 200
-    assert resp.headers["access-control-allow-origin"] == "https://ohmywind.fr"
+    assert resp.headers["access-control-allow-origin"] == "*"
 
 
-def test_preflight_from_legacy_domain_is_accepted(client) -> None:
-    # openwind.fr is 301'd to ohmywind.fr, but a browser mid-migration still
-    # sends the original origin on the XHR that follows.
-    resp = client.options(
-        "/api/v1/passage",
-        headers={
-            "Origin": "https://openwind.fr",
-            "Access-Control-Request-Method": "POST",
-        },
-    )
-    assert resp.headers.get("access-control-allow-origin") == "https://openwind.fr"
+def test_cors_is_deliberately_open(client) -> None:
+    """Guards the decision, not an accident.
 
+    An allowlist was implemented and deployed, then removed: Hugging Face's
+    edge answers preflights itself and rewrites CORS headers, so the app's
+    verdict never reached a browser. Keeping an inert allowlist would have
+    read as an active control while protecting nothing.
 
-def test_preflight_from_unknown_origin_is_refused(client) -> None:
-    resp = client.options(
-        "/api/v1/passage",
-        headers={
-            "Origin": "https://evil.example.com",
-            "Access-Control-Request-Method": "POST",
-        },
-    )
-    assert "access-control-allow-origin" not in resp.headers
-
-
-def test_no_wildcard_origin_anywhere(client) -> None:
-    resp = client.get("/api/v1/archetypes", headers={"Origin": "https://evil.example.com"})
-    assert resp.headers.get("access-control-allow-origin") != "*"
+    If this assertion ever fails because someone re-added a list, that is the
+    moment to re-check whether the platform still pre-empts CORS (see the
+    reproduction in security.py) rather than to just update the test.
+    """
+    assert security.ALLOWED_ORIGINS == ["*"]
 
 
 def test_security_headers_present(client) -> None:
@@ -283,8 +269,9 @@ def test_rate_limited_response_carries_retry_after_and_cors(monkeypatch) -> None
 
     assert resp.status_code == 429
     assert int(resp.headers["retry-after"]) >= 1
-    # Without this the browser reports an opaque CORS error instead of the 429.
-    assert resp.headers["access-control-allow-origin"] == "https://ohmywind.fr"
+    # Without this the browser reports an opaque CORS error instead of the 429,
+    # and the user never sees the real reason or the retry delay.
+    assert resp.headers["access-control-allow-origin"] == "*"
     assert "rate limit" in resp.json()["error"]
 
     # The assertion above on ``retry-after`` is NOT enough on its own, and that
@@ -350,15 +337,59 @@ def _init_with_limit(max_requests: int):
     return _init
 
 
-# ------------------------------------------------------------- allowlist
+# -------------------------------------------------- bucket diagnostics
 
 
-def test_default_allowlist_covers_both_domains_and_has_no_wildcard() -> None:
-    assert "*" not in security.ALLOWED_ORIGINS
-    for origin in (
-        "https://ohmywind.fr",
-        "https://dev.ohmywind.fr",
-        "https://openwind.fr",
-        "https://dev.openwind.fr",
-    ):
-        assert origin in security.ALLOWED_ORIGINS
+def test_bucket_id_is_stable_and_short() -> None:
+    scope = _scope(**{"x-forwarded-for": "1.2.3.4, 203.0.113.7"})
+    assert security.bucket_id(scope) == security.bucket_id(scope)
+    assert len(security.bucket_id(scope)) == 8
+
+
+def test_bucket_id_differs_between_clients() -> None:
+    a = security.bucket_id(_scope(**{"x-forwarded-for": "203.0.113.7"}))
+    b = security.bucket_id(_scope(**{"x-forwarded-for": "203.0.113.8"}))
+    assert a != b
+
+
+def test_bucket_id_leaks_no_address() -> None:
+    assert "203.0.113.7" not in security.bucket_id(_scope(**{"x-forwarded-for": "203.0.113.7"}))
+
+
+def test_bucket_id_ignores_a_spoofed_prefix() -> None:
+    # Same property as the rate-limit key: it is the same function.
+    plain = security.bucket_id(_scope(**{"x-forwarded-for": "203.0.113.7"}))
+    spoofed = security.bucket_id(_scope(**{"x-forwarded-for": "9.9.9.9, 203.0.113.7"}))
+    assert plain == spoofed
+
+
+def test_forwarded_hop_count() -> None:
+    assert security.forwarded_hop_count(_scope()) == 0
+    assert security.forwarded_hop_count(_scope(**{"x-forwarded-for": "1.1.1.1"})) == 1
+    assert security.forwarded_hop_count(_scope(**{"x-forwarded-for": "1.1.1.1, 2.2.2.2"})) == 2
+
+
+def test_rate_limited_response_exposes_the_bucket(monkeypatch) -> None:
+    from starlette.testclient import TestClient
+
+    app = _load_app()
+    monkeypatch.setattr(security.RateLimitMiddleware, "__init__", _init_with_limit(1))
+    client = TestClient(app.build_app(_StubMcpApp()))
+
+    client.post("/api/v1/passage", json={})
+    resp = client.post("/api/v1/passage", json={})
+    assert resp.status_code == 429
+    assert len(resp.headers["x-ratelimit-bucket"]) == 8
+
+
+def test_client_debug_route_reports_hops_without_leaking_the_address(client) -> None:
+    resp = client.get("/api/v1/_client", headers={"X-Forwarded-For": "9.9.9.9, 203.0.113.7"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["forwarded_hops"] == 2
+    assert body["trusted_hops"] == security.TRUSTED_PROXY_HOPS
+    assert len(body["bucket"]) == 8
+    # forwarded_hops == 0 in production would mean every caller shares one
+    # bucket; the whole point of the route is to make that visible.
+    assert "203.0.113.7" not in resp.text
+    assert "9.9.9.9" not in resp.text
