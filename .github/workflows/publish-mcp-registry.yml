@@ -1,0 +1,75 @@
+name: Publish to MCP Registry
+
+# Republishes server.json to the official MCP Registry when a release tag is
+# pushed. The registry is a metadata index: it stores the endpoint URL and the
+# server's identity, not any artefact. Keeping this on tags rather than on
+# every push to main means the registry only ever advertises versions we
+# deliberately cut.
+#
+# The namespace `fr.ohmywind/*` is earned by DNS: a TXT record on ohmywind.fr
+# carries the public half of an Ed25519 key, and this job signs with the
+# private half. Losing that key means losing the namespace, so it lives in
+# repo secrets and in the operator's vault, nowhere else.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (defaults to server.json's)"
+        required: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Align server.json with the tag
+        run: |
+          set -euo pipefail
+          VERSION="${{ github.event.inputs.version }}"
+          if [ -z "$VERSION" ] && [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          if [ -n "$VERSION" ]; then
+            # The registry rejects re-publishing an existing version, so the tag
+            # is the source of truth rather than whatever the file happens to
+            # say. jq rather than an inline heredoc: a heredoc nested in a YAML
+            # block scalar depends on how YAML strips indentation, which is a
+            # silly thing to make a release depend on.
+            jq --arg v "$VERSION" '.version = $v' server.json > server.json.tmp
+            mv server.json.tmp server.json
+            echo "server.json version -> $VERSION"
+          fi
+          cat server.json
+
+      - name: Install mcp-publisher
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" \
+            | tar xz mcp-publisher
+          sudo mv mcp-publisher /usr/local/bin/
+          mcp-publisher --help | head -3
+
+      - name: Authenticate by domain
+        env:
+          MCP_REGISTRY_PRIVATE_KEY: ${{ secrets.MCP_REGISTRY_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MCP_REGISTRY_PRIVATE_KEY:-}" ]; then
+            echo "::error::MCP_REGISTRY_PRIVATE_KEY secret is not set"
+            exit 1
+          fi
+          mcp-publisher login dns --domain ohmywind.fr --private-key "$MCP_REGISTRY_PRIVATE_KEY"
+
+      - name: Publish
+        run: mcp-publisher publish
+
+      - name: Confirm it is live
+        run: |
+          set -euo pipefail
+          # Publishing succeeding is not the same as the entry being queryable.
+          sleep 5
+          curl -fsS "https://registry.modelcontextprotocol.io/v0.1/servers?search=fr.ohmywind/sailing-planner" \
+            | python -c "import json,sys; d=json.load(sys.stdin); print([s.get('name') for s in d.get('servers', [])])"
