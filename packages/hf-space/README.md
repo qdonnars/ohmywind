@@ -50,6 +50,24 @@ card.
 > other MCP-compatible host. In Le Chat, add it under **Connectors → Add
 > connector → Custom MCP connector** and paste the endpoint above.
 
+### If your client only speaks stdio
+
+Bridge it with [`mcp-remote`](https://www.npmjs.com/package/mcp-remote):
+
+```json
+{
+  "mcpServers": {
+    "ohmywind": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.ohmywind.fr/mcp"]
+    }
+  }
+}
+```
+
+Nothing else to configure: **no account, no API key, no OAuth.** A client that
+asks you for credentials is guessing rather than reading the server.
+
 ## Why OhMyWind
 
 - **Free and keyless.** Wind + sea data via [Open-Meteo](https://open-meteo.com) (CC BY 4.0).

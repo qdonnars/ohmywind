@@ -37,6 +37,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 from openwind_data.adapters.base import MarineDataAdapter
 from openwind_data.adapters.openmeteo import AUTO_MODEL, OpenMeteoAdapter
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
@@ -637,7 +638,13 @@ def build_server(
         # would hand the tester a link to production.
         return _PLAN_WIDGET_HTML.replace("__WEB_BASE__", WEB_BASE).replace("__WEB_HOST__", WEB_HOST)
 
-    @server.tool()
+    @server.tool(
+        annotations=ToolAnnotations(
+            title="Calculation method",
+            readOnlyHint=True,
+            openWorldHint=False,
+        ),
+    )
     def read_me() -> str:
         """Return OhMyWind's calculation methodology as Markdown.
 
@@ -652,7 +659,13 @@ def build_server(
         """
         return _METHODOLOGY
 
-    @server.tool()
+    @server.tool(
+        annotations=ToolAnnotations(
+            title="Boat archetypes",
+            readOnlyHint=True,
+            openWorldHint=False,
+        ),
+    )
     def list_boat_archetypes() -> list[dict[str, Any]]:
         """List the 7 boat archetypes with descriptive metadata.
 
@@ -661,7 +674,13 @@ def build_server(
         """
         return [_archetype_summary(p) for p in list_archetypes()]
 
-    @server.tool()
+    @server.tool(
+        annotations=ToolAnnotations(
+            title="Marine forecast",
+            readOnlyHint=True,
+            openWorldHint=True,
+        ),
+    )
     async def get_marine_forecast(
         lat: float,
         lon: float,
@@ -722,6 +741,11 @@ def build_server(
         }
 
     @server.tool(
+        annotations=ToolAnnotations(
+            title="Plan a passage",
+            readOnlyHint=True,
+            openWorldHint=True,
+        ),
         meta={"ui": {"resourceUri": PLAN_UI_RESOURCE_URI}},
     )
     async def plan_passage(
@@ -998,7 +1022,15 @@ def build_server(
             "openwind_url": build_ohmywind_url(waypoints, departure, archetype),
         }
 
-    @server.tool()
+    @server.tool(
+        annotations=ToolAnnotations(
+            title="Send feedback",
+            readOnlyHint=False,
+            destructiveHint=False,
+            idempotentHint=False,
+            openWorldHint=False,
+        ),
+    )
     def feedback(
         category: FeedbackCategory,
         tool_name: FeedbackToolName,
