@@ -1,4 +1,4 @@
-# OpenWind ⛵
+# OhMyWind ⛵
 
 > **Talk to your LLM. Cast off with confidence.**
 >
