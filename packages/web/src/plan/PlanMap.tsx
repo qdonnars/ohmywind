@@ -5,6 +5,8 @@ import { useTheme } from "../design/theme";
 import type { SegmentReport } from "./types";
 import { cxLevel, CX_COLORS } from "./types";
 import { haversineNm, fmtNm } from "../utils/geo";
+import type { UserPosition } from "../hooks/useGeolocation";
+import { syncUserPositionLayer } from "../utils/userPositionLayer";
 
 /** Hide a segment label when the leg is shorter than this on screen (px).
     Below it the labels crowd the waypoint markers, so we let them fade out
@@ -32,6 +34,9 @@ interface PlanMapProps {
   /** Optional hint for the initial view when there are no waypoints yet
       (typically propagated from the home spot via `?center=lat,lon`). */
   initialCenter?: [number, number] | null;
+  /** Drawn as a dot with an accuracy halo. Recentering stays the page's
+      call, through the `recenter` imperative handle. */
+  userPosition?: UserPosition | null;
 }
 
 function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon {
@@ -47,7 +52,7 @@ function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon 
 }
 
 export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
-  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, initialCenter }: PlanMapProps,
+  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, initialCenter, userPosition }: PlanMapProps,
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -58,6 +63,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   const markersRef = useRef<L.Marker[]>([]);
   const dragLineRef = useRef<L.Polyline | null>(null);
   const segLabelsRef = useRef<L.Tooltip[]>([]);
+  const userLayerRef = useRef<L.LayerGroup | null>(null);
   const livePositionsRef = useRef<[number, number][]>(waypoints);
   const isDraggingRef = useRef(false);
   const onWptAddRef = useRef(onWptAdd);
@@ -90,6 +96,11 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   useEffect(() => {
     livePositionsRef.current = waypoints;
   }, [waypoints]);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    syncUserPositionLayer(mapRef.current, userLayerRef, userPosition ?? null);
+  }, [userPosition]);
 
   // Draw the live per-segment length labels: one permanent tooltip at each
   // leg midpoint, showing the great-circle distance in nm. Auto-hides legs
