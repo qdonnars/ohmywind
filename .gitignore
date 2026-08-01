@@ -37,6 +37,15 @@ dist-ssr
 # Local scratch / browser exports / non-tracked working files
 /tmp/
 
+# Source archives for the offline atlas builds (SHOM C2D and friends). The
+# runtime never reads these: the Space pulls the derived Parquet/JSON from the
+# HF Dataset. Extracted working copies live under build/, already ignored.
+*.7z
+
+# Working drafts and captures that are not part of the published docs
+/marketing-drafts/*.png
+/docs/screenshots/viz.png
+
 # Test artifacts
 test-results/
 eval_screenshots.ts
