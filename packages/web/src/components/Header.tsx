@@ -7,6 +7,11 @@ import { rememberReturnPath } from "../config/returnPath";
 
 interface HeaderProps {
   onSelectSpot: (spot: Spot) => void;
+  /** Reference point for the search proximity bias. Passed as primitives so
+      a fresh object each render cannot retrigger the search. */
+  nearLat?: number | null;
+  nearLon?: number | null;
+  savedSpots?: Spot[];
 }
 
 function WindIcon() {
@@ -43,7 +48,7 @@ function SettingsButton() {
   );
 }
 
-export function Header({ onSelectSpot }: HeaderProps) {
+export function Header({ onSelectSpot, nearLat, nearLon, savedSpots }: HeaderProps) {
   return (
     <header
       className="sticky top-0 z-30 backdrop-blur-lg px-3 py-2 lg:px-6"
@@ -58,7 +63,12 @@ export function Header({ onSelectSpot }: HeaderProps) {
           </h1>
         </div>
         <div className="flex-1 flex justify-center">
-          <SpotSearch onSelect={onSelectSpot} />
+          <SpotSearch
+            onSelect={onSelectSpot}
+            nearLat={nearLat}
+            nearLon={nearLon}
+            savedSpots={savedSpots}
+          />
         </div>
         <InfoButton />
         <SettingsButton />

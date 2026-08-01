@@ -22,7 +22,10 @@ export function LocateButton({ status, onClick, className = "" }: LocateButtonPr
   const locating = status === "locating";
 
   return (
-    <div className={`absolute z-[400] flex flex-col items-end gap-2 ${className}`}>
+    // column-reverse: the button is anchored near the bottom of the map on
+    // both pages, so the message has to grow upwards or it would slide under
+    // the data panel.
+    <div className={`absolute z-[400] flex flex-col-reverse items-end gap-2 ${className}`}>
       <button
         type="button"
         onClick={onClick}

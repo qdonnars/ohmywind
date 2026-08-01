@@ -66,6 +66,40 @@ export function InfoPanel() {
             <polyline points="12 5 19 12 12 19" />
           </svg>
         </a>
+        {/* Map credits. The OSM Foundation allows the attribution to sit off
+            the map, but only if it stays findable through an info button or
+            an About menu, which is exactly this panel. Removing the corner
+            notice without this block would breach the ODbL. */}
+        <p className="text-xs leading-relaxed mt-4" style={{ color: "var(--ow-fg-2)" }}>
+          Fonds de carte :{" "}
+          <a
+            href="https://www.openstreetmap.org/copyright"
+            target="_blank"
+            rel="noreferrer"
+            className="underline hover:opacity-80"
+          >
+            &copy; les contributeurs OpenStreetMap
+          </a>{" "}
+          (données sous licence ODbL), tuiles{" "}
+          <a
+            href="https://carto.com/attributions"
+            target="_blank"
+            rel="noreferrer"
+            className="underline hover:opacity-80"
+          >
+            &copy; CARTO
+          </a>
+          . Recherche de lieux :{" "}
+          <a
+            href="https://photon.komoot.io"
+            target="_blank"
+            rel="noreferrer"
+            className="underline hover:opacity-80"
+          >
+            Photon
+          </a>{" "}
+          et Open-Meteo Geocoding, tous deux sur données OpenStreetMap.
+        </p>
       </section>
 
       <section

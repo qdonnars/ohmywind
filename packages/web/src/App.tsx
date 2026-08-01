@@ -151,7 +151,16 @@ function App() {
       className="h-screen flex flex-col overflow-hidden"
       style={{ background: 'var(--ow-bg-0)', color: 'var(--ow-fg-0)' }}
     >
-      <Header onSelectSpot={setSpot} />
+      {/* Search proximity reference: the granted position first, else the
+          spot the user is looking at. When neither is known we send no bias
+          at all rather than defaulting to the Med, which would sink Atlantic
+          results for a first-time visitor on the Channel. */}
+      <Header
+        onSelectSpot={setSpot}
+        nearLat={userPosition?.lat ?? spot?.latitude ?? null}
+        nearLon={userPosition?.lon ?? spot?.longitude ?? null}
+        savedSpots={customSpots}
+      />
       <RebrandBanner />
 
       {/* Map fills the entire space; pills + table are an overlay floating
@@ -187,10 +196,6 @@ function App() {
           <img src="/compass.png" alt="" width="88" height="88" className="select-none" draggable={false} />
         </a>
 
-        {/* Locate FAB — top right, opposite the compass, clear of the
-            bottom data overlay. */}
-        <LocateButton status={geolocStatus} onClick={handleLocate} className="top-3 right-3" />
-
         {/* Bottom overlay: pills (fixed at top of overlay) + scrollable table
             below. Pills sit in a ``shrink-0`` band so vertical scroll inside
             the data area never sweeps them away. The data area provides a
@@ -199,6 +204,14 @@ function App() {
             scrolls (otherwise the hour row drifts away when the user scrolls
             down through GFS/ECMWF rows). */}
         <div className="absolute left-0 right-0 bottom-0 max-h-[44vh] md:max-h-[46vh] z-[400] flex flex-col">
+          {/* Locate FAB — anchored to the overlay rather than to the map, so
+              it rides up and down as the data panel grows and shrinks
+              instead of ending up buried under it. The 16 px offset is
+              measured from the solid table below, not from the pills band,
+              which is transparent over the map: the button straddles the
+              pills and keeps the same gap to the panel as on /plan. Out of
+              flow, so it does not push the pills around. */}
+          <LocateButton status={geolocStatus} onClick={handleLocate} className="-top-4 right-3" />
           {spot ? (
             <>
               <div className="shrink-0">

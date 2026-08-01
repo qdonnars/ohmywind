@@ -281,9 +281,9 @@ export function SpotMap({
     }).addTo(map);
     tileLayerRef.current = tile;
 
-    L.control.attribution({ position: "bottomright", prefix: false })
-      .addAttribution('&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>')
-      .addTo(map);
+    // Map credits live in the info panel rather than in the corner. The OSM
+    // Foundation allows this as long as they stay findable through an info
+    // button, which is where they now are, alongside the other sources.
 
     // Custom pane for wind arrows (below markers)
     map.createPane("windArrows");
