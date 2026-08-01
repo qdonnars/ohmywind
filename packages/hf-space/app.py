@@ -93,7 +93,7 @@ LANDING_HTML = """<!doctype html>
   <link rel="icon" type="image/png" sizes="192x192" href="https://ohmywind.fr/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="https://ohmywind.fr/icon-512.png">
   <link rel="apple-touch-icon" href="https://ohmywind.fr/icon-192.png">
-  <meta name="description" content="OhMyWind MCP — free, keyless sailing planner for the French Atlantic and Mediterranean coasts.">
+  <meta name="description" content="OhMyWind MCP. Free, keyless sailing passage planner for any coast, with high-precision tides on the French Atlantic.">
   <meta property="og:title" content="OhMyWind MCP">
   <meta property="og:description" content="Talk to your LLM. Cast off with confidence. Free, keyless sailing planner via MCP.">
   <meta property="og:image" content="https://ohmywind.fr/icon-512.png">
@@ -186,9 +186,9 @@ LANDING_HTML = """<!doctype html>
 <body>
   <h1>OhMyWind MCP <span class="badge">running</span></h1>
   <p class="lede">Talk to your LLM. Cast off with confidence.<br>
-    A free, keyless, open-source sailing planner for the French Atlantic and
-    Mediterranean coasts. Exposed as an MCP server so any compatible
-    assistant can use it.</p>
+    A free, keyless, open-source sailing planner for any coast, with
+    high-precision tidal currents on the French Atlantic. Exposed as an MCP
+    server so any compatible assistant can use it.</p>
 
   <img class="hero" src="https://raw.githubusercontent.com/qdonnars/ohmywind/main/docs/screenshots/plan.png"
        alt="OhMyWind passage plan: 5 waypoints, 48.6 nm, ETA 21:24, complexity 3 of 5.">

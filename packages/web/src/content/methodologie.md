@@ -1,6 +1,6 @@
 # Méthodologie
 
-OhMyWind est un planificateur de navigation à la voile open source pour les côtes françaises. Cette page explique d'où viennent les données, comment on estime un passage, et ce que l'outil ne sait volontairement pas faire.
+OhMyWind est un planificateur de navigation à la voile open source, utilisable partout dans le monde, avec une précision renforcée sur les côtes atlantiques françaises. Cette page explique d'où viennent les données, comment on estime un passage, et ce que l'outil ne sait volontairement pas faire.
 
 ## Sommaire
 
