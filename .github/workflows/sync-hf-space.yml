@@ -31,7 +31,7 @@ jobs:
       HF_SPACE_ID_DEV: ${{ vars.HF_SPACE_ID_DEV || 'qdonnars/openwind-mcp-dev' }}
     steps:
       - name: Checkout source repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Resolve target Space
         run: |
