@@ -1,6 +1,6 @@
 # openwind-data
 
-Pure Python domain logic for OpenWind: marine data adapters, polars, routing, complexity scoring.
+Pure Python domain logic for OhMyWind: marine data adapters, polars, routing, complexity scoring.
 
 Cloud-agnostic no dependency on Gradio, FastMCP, or any deployment runtime. Reused by `openwind-mcp-core` and any future deployment wrapper.
 

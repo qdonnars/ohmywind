@@ -1,7 +1,7 @@
 [project]
 name = "openwind-data"
 version = "0.1.0"
-description = "Marine data adapters, polars, routing, and complexity scoring for OpenWind"
+description = "Marine data adapters, polars, routing, and complexity scoring for OhMyWind"
 requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.27",

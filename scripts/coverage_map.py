@@ -233,7 +233,7 @@ def render_web_map() -> Figure:
 
     Stacks MARC (cool blue) below SHOM (warm red) on the same axes. No
     per-atlas resolution labels — the goal is to communicate "where does
-    OpenWind have high-precision tidal currents?" at a glance, not to
+    OhMyWind have high-precision tidal currents?" at a glance, not to
     teach the reader about Ifremer/SHOM atlas naming conventions.
     """
     fig, ax = plt.subplots(figsize=(11, 8))

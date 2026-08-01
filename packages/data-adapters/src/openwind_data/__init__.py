@@ -1,4 +1,4 @@
-"""OpenWind domain logic — marine adapters, polars, routing, complexity."""
+"""OhMyWind domain logic — marine adapters, polars, routing, complexity."""
 
 from openwind_data.adapters.base import (
     ForecastBundle,

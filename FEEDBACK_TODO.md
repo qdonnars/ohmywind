@@ -1,4 +1,4 @@
-# OpenWind — TODO retours Hisse & Oh
+# OhMyWind — TODO retours Hisse & Oh
 
 Synthèse des retours du fil H&O (9–19 mai 2026).
 Croisé avec les commits récents et la PR #142 (UX polish, mai 2026).
@@ -49,7 +49,7 @@ Légende : @pseudo = auteur du retour sur H&O.
 
 ## Outillage / plomberie (chantiers techniques)
 
-- [ ] Re-sync HF Space (mcp.openwind.fr) après merge PR #142 — sinon le motor/fallback ne tourne pas en prod
+- [ ] Re-sync HF Space (mcp.ohmywind.fr) après merge PR #142 — sinon le motor/fallback ne tourne pas en prod
 - [ ] Staging HF Space (preview backend) pour tester les branches Cloudflare Pages bout en bout
 - [ ] Analytics : Plausible / Cloudflare Web Analytics + Sentry (suggestion Tinqueen)
 

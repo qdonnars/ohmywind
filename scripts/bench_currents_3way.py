@@ -225,7 +225,7 @@ def _write_markdown(records: list[dict], summary: dict, out_path: Path) -> None:
             bucket["speed_deltas"].append(abs(va - vb))
 
     lines: list[str] = [
-        "# OpenWind currents bench: SHOM vs MARC vs SMOC",
+        "# OhMyWind currents bench: SHOM vs MARC vs SMOC",
         "",
         f"- Sample: {len(records)} SHOM-covered points, {HOURS_PER_POINT} hourly snapshots each",
         f"- Date window: {BASE_TIME.isoformat()} + {HOURS_PER_POINT} h",

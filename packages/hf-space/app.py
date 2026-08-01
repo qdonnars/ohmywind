@@ -1,4 +1,4 @@
-"""HF Space entry point — serves the OpenWind FastMCP server over HTTP.
+"""HF Space entry point — serves the OhMyWind FastMCP server over HTTP.
 
 This wrapper is intentionally thin. All tools live in ``openwind_mcp_core``
 (which itself imports ``openwind_data``). Re-deploying on Fly/Modal/VPS = a
@@ -77,16 +77,16 @@ LANDING_HTML = """<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>OpenWind MCP — talk to your LLM, cast off with confidence</title>
-  <link rel="icon" type="image/svg+xml" href="https://openwind.fr/favicon.svg">
-  <link rel="icon" type="image/png" sizes="192x192" href="https://openwind.fr/icon-192.png">
-  <link rel="icon" type="image/png" sizes="512x512" href="https://openwind.fr/icon-512.png">
-  <link rel="apple-touch-icon" href="https://openwind.fr/icon-192.png">
-  <meta name="description" content="OpenWind MCP — free, keyless sailing planner for the French Atlantic and Mediterranean coasts.">
-  <meta property="og:title" content="OpenWind MCP">
+  <title>OhMyWind MCP — talk to your LLM, cast off with confidence</title>
+  <link rel="icon" type="image/svg+xml" href="https://ohmywind.fr/favicon.svg">
+  <link rel="icon" type="image/png" sizes="192x192" href="https://ohmywind.fr/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="https://ohmywind.fr/icon-512.png">
+  <link rel="apple-touch-icon" href="https://ohmywind.fr/icon-192.png">
+  <meta name="description" content="OhMyWind MCP — free, keyless sailing planner for the French Atlantic and Mediterranean coasts.">
+  <meta property="og:title" content="OhMyWind MCP">
   <meta property="og:description" content="Talk to your LLM. Cast off with confidence. Free, keyless sailing planner via MCP.">
-  <meta property="og:image" content="https://openwind.fr/icon-512.png">
-  <meta property="og:url" content="https://openwind.fr">
+  <meta property="og:image" content="https://ohmywind.fr/icon-512.png">
+  <meta property="og:url" content="https://ohmywind.fr">
   <meta name="twitter:card" content="summary">
   <style>
     :root {
@@ -173,14 +173,14 @@ LANDING_HTML = """<!doctype html>
   </style>
 </head>
 <body>
-  <h1>OpenWind MCP <span class="badge">running</span></h1>
+  <h1>OhMyWind MCP <span class="badge">running</span></h1>
   <p class="lede">Talk to your LLM. Cast off with confidence.<br>
     A free, keyless, open-source sailing planner for the French Atlantic and
     Mediterranean coasts. Exposed as an MCP server so any compatible
     assistant can use it.</p>
 
   <img class="hero" src="https://raw.githubusercontent.com/qdonnars/ohmywind/main/docs/screenshots/plan.png"
-       alt="OpenWind passage plan: 5 waypoints, 48.6 nm, ETA 21:24, complexity 3 of 5.">
+       alt="OhMyWind passage plan: 5 waypoints, 48.6 nm, ETA 21:24, complexity 3 of 5.">
 
   <h2>Connect it to your assistant</h2>
   <p>Pick yours below — under a minute, no install, no API key.</p>
@@ -190,10 +190,10 @@ LANDING_HTML = """<!doctype html>
     <ol>
       <li>Open <a href="https://claude.ai/settings/connectors" target="_blank" rel="noopener">claude.ai → Settings → Connectors</a>.</li>
       <li>Scroll to the bottom and click <strong>Add custom connector</strong>.</li>
-      <li>Set <strong>Name</strong>: <code>OpenWind</code>.</li>
+      <li>Set <strong>Name</strong>: <code>OhMyWind</code>.</li>
       <li>Paste this in <strong>Remote MCP server URL</strong>:
         <pre><code>https://qdonnars-openwind-mcp.hf.space/mcp</code></pre></li>
-      <li>Click <strong>Add</strong>. In any new chat, OpenWind shows up in the
+      <li>Click <strong>Add</strong>. In any new chat, OhMyWind shows up in the
         <strong>Search and tools</strong> menu — toggle it on.</li>
     </ol>
   </details>
@@ -206,13 +206,13 @@ LANDING_HTML = """<!doctype html>
         <strong>Connecteurs</strong> (in English:
         <strong>Intelligence</strong> &rarr; <strong>Connectors</strong>),
         then click <strong>Add MCP server</strong>.</li>
-      <li>Set <strong>Name</strong>: <code>OpenWind</code> &middot; <strong>Auth</strong>: <code>None</code>.</li>
+      <li>Set <strong>Name</strong>: <code>OhMyWind</code> &middot; <strong>Auth</strong>: <code>None</code>.</li>
       <li>Paste this in <strong>URL</strong>:
         <pre><code>https://qdonnars-openwind-mcp.hf.space/mcp</code></pre></li>
-      <li>Save, then enable the OpenWind toggle inside any conversation.</li>
+      <li>Save, then enable the OhMyWind toggle inside any conversation.</li>
       <li>Le Chat doesn&rsquo;t (yet) support the MCP Apps spec, so the
         widget won&rsquo;t render inline &mdash; the assistant will hand you
-        an <a href="https://openwind.fr">openwind.fr</a> deep-link instead.</li>
+        an <a href="https://ohmywind.fr">ohmywind.fr</a> deep-link instead.</li>
     </ol>
   </details>
 
@@ -223,22 +223,22 @@ LANDING_HTML = """<!doctype html>
       <li>Open <a href="https://chatgpt.com/#settings/Connectors" target="_blank" rel="noopener">ChatGPT → Settings → Connectors</a>.</li>
       <li>In <strong>Advanced</strong>, turn on <strong>Developer mode</strong>.</li>
       <li>Back in <strong>Connectors</strong>, click <strong>Create</strong>.</li>
-      <li>Set <strong>Name</strong>: <code>OpenWind</code> · <strong>Authentication</strong>: <code>No authentication</code>.</li>
+      <li>Set <strong>Name</strong>: <code>OhMyWind</code> · <strong>Authentication</strong>: <code>No authentication</code>.</li>
       <li>Paste this in <strong>MCP server URL</strong>:
         <pre><code>https://qdonnars-openwind-mcp.hf.space/mcp</code></pre></li>
       <li>Trust the connector and save. Activate it in a chat via
-        <strong>+ → Developer connectors → OpenWind</strong>.</li>
+        <strong>+ → Developer connectors → OhMyWind</strong>.</li>
     </ol>
   </details>
 
   <h2>Then ask, in your own words</h2>
   <blockquote>I'm leaving Marseille tomorrow morning for Porquerolles on a Sun Odyssey 36.
     How long is the passage and how tricky is it?</blockquote>
-  <p>Your assistant calls the OpenWind tools and answers in plain language.
+  <p>Your assistant calls the OhMyWind tools and answers in plain language.
     On hosts that support the
     <a href="https://modelcontextprotocol.io/extensions/client-matrix" target="_blank" rel="noopener">MCP Apps spec</a>
     (Claude, Claude Desktop, ChatGPT, VS Code Copilot, Goose, Postman, MCPJam),
-    the live <a href="https://openwind.fr">openwind.fr</a> plan view also
+    the live <a href="https://ohmywind.fr">ohmywind.fr</a> plan view also
     renders inline as a sandboxed iframe. On hosts that don&rsquo;t (Cursor,
     Le Chat, terminal), the assistant hands you the same plan as a deep-link
     instead.</p>
@@ -247,7 +247,7 @@ LANDING_HTML = """<!doctype html>
   <blockquote>Marseille &rarr; Porquerolles, same boat &mdash; show me the
     calmest departure between Saturday morning and Monday evening.</blockquote>
 
-  <h2>Why OpenWind</h2>
+  <h2>Why OhMyWind</h2>
   <ul class="perks">
     <li><strong>Free &amp; keyless.</strong> Wind + sea via
       <a href="https://open-meteo.com">Open-Meteo</a> (CC BY 4.0).</li>
@@ -260,7 +260,7 @@ LANDING_HTML = """<!doctype html>
 
   <h2>Four tools</h2>
   <p>The workhorse is <code>plan_passage</code>: one call returns timing, a
-    1-5 complexity score, and an <a href="https://openwind.fr">openwind.fr</a>
+    1-5 complexity score, and an <a href="https://ohmywind.fr">ohmywind.fr</a>
     deep-link. It declares an MCP Apps UI resource, so supporting hosts also
     render the live plan view in a sandboxed iframe. Pass
     <code>latest_departure</code> and it walks every hourly window up to 14
@@ -270,11 +270,11 @@ LANDING_HTML = """<!doctype html>
     assistant pick a boat, sample the forecast ad hoc, or explain the math
     behind a result.</p>
   <p>Don&rsquo;t want to wire an MCP host? You can also drive everything by
-    hand at <a href="https://openwind.fr/plan">openwind.fr/plan</a> &mdash;
+    hand at <a href="https://ohmywind.fr/plan">ohmywind.fr/plan</a> &mdash;
     click your route, pick a boat, slide the departure.</p>
 
   <h2>Source</h2>
-  <p>Project site: <a href="https://openwind.fr">openwind.fr</a> &middot;
+  <p>Project site: <a href="https://ohmywind.fr">ohmywind.fr</a> &middot;
     GitHub: <a href="https://github.com/qdonnars/ohmywind">qdonnars/ohmywind</a>
     (MIT).</p>
 
@@ -435,14 +435,14 @@ async def _index(_request) -> HTMLResponse:
 # Connector pickers in chat hosts (Claude, etc.) often scrape the server
 # URL's favicon / og:image to badge the connector. Our app responded 404
 # on /favicon.ico and the host fell back to HuggingFace branding. Redirect
-# every common icon probe to the OpenWind PNG/SVG hosted on openwind.fr.
+# every common icon probe to the OhMyWind PNG/SVG hosted on ohmywind.fr.
 _ICON_REDIRECTS = {
-    "/favicon.ico": "https://openwind.fr/favicon.svg",
-    "/favicon.svg": "https://openwind.fr/favicon.svg",
-    "/icon-192.png": "https://openwind.fr/icon-192.png",
-    "/icon-512.png": "https://openwind.fr/icon-512.png",
-    "/apple-touch-icon.png": "https://openwind.fr/icon-192.png",
-    "/apple-touch-icon-precomposed.png": "https://openwind.fr/icon-192.png",
+    "/favicon.ico": "https://ohmywind.fr/favicon.svg",
+    "/favicon.svg": "https://ohmywind.fr/favicon.svg",
+    "/icon-192.png": "https://ohmywind.fr/icon-192.png",
+    "/icon-512.png": "https://ohmywind.fr/icon-512.png",
+    "/apple-touch-icon.png": "https://ohmywind.fr/icon-192.png",
+    "/apple-touch-icon-precomposed.png": "https://ohmywind.fr/icon-192.png",
 }
 
 

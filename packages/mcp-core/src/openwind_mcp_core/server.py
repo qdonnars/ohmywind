@@ -10,13 +10,13 @@ Tools exposed (V1):
    → ``cruiser_30ft``). No server-side mapping table.
 2. ``get_marine_forecast`` — wind+sea around a point/window for one or more models.
 3. ``plan_passage`` — single-shot end-to-end: timing along the polyline,
-   1-5 complexity score, rendered MCP App widget, and openwind.fr deep-link.
+   1-5 complexity score, rendered MCP App widget, and ohmywind.fr deep-link.
 
 ## Rich rendering (MCP Apps)
 
 ``plan_passage`` declares ``_meta.ui.resourceUri`` pointing at
 ``ui://openwind/plan-passage`` — a sandboxed HTML resource that iframes
-``openwind.fr/plan?...``. Hosts that support the MCP Apps spec (Claude,
+``ohmywind.fr/plan?...``. Hosts that support the MCP Apps spec (Claude,
 Claude Desktop, ChatGPT, VS Code Copilot, Goose, Postman, MCPJam — see the
 `extension client matrix`_) render the widget inline. Hosts that do NOT
 support MCP Apps (Cursor, Le Chat, terminal, …) silently fall back to the
@@ -69,12 +69,16 @@ from .feedback import (
     build_feedback_entry,
     stderr_sink,
 )
-from .render import build_openwind_url
+from .render import build_ohmywind_url
 
 # MCP Apps UI resource URI for plan_passage. The host fetches this resource
 # and renders it in a sandboxed iframe; the resource itself iframes
-# openwind.fr/plan, so the rendered widget IS the live web app — single
+# ohmywind.fr/plan, so the rendered widget IS the live web app — single
 # source of truth, no duplicate widget code to maintain.
+#
+# The URI keeps its pre-rebrand ``openwind`` segment on purpose: it is an
+# identifier hosts resolve, not display copy, so it moves with the Space and
+# module renames rather than with this cosmetic pass.
 PLAN_UI_RESOURCE_URI = "ui://openwind/plan-passage"
 PLAN_UI_MIME = "text/html;profile=mcp-app"
 # unpkg serves the official @modelcontextprotocol/ext-apps SDK bundle that
@@ -88,21 +92,21 @@ PLAN_UI_RESOURCE_DOMAINS = ["https://unpkg.com"]
 # say-server / threejs-server reference examples in the ext-apps repo).
 #
 # Why we render the content INLINE rather than via a nested iframe to
-# openwind.fr/plan: Claude.ai (as of 2026-05) does not honour the
+# ohmywind.fr/plan: Claude.ai (as of 2026-05) does not honour the
 # ``frameDomains`` CSP field — the inner iframe is blocked even when our
-# resource declares ``_meta.ui.csp.frameDomains: ["https://openwind.fr"]``.
+# resource declares ``_meta.ui.csp.frameDomains: ["https://ohmywind.fr"]``.
 # Inspect with the network tab: ``mcp_apps?resource-src=https://unpkg.com``
 # shows our ``resourceDomains`` got mapped to ``resource-src``, but no
-# corresponding ``frame-src`` is added → the openwind.fr load gets a CSP
+# corresponding ``frame-src`` is added → the ohmywind.fr load gets a CSP
 # refusal. Until that's fixed in the host, render the data directly. The
-# CTA still links to openwind.fr (target="_blank") for the full app.
+# CTA still links to ohmywind.fr (target="_blank") for the full app.
 _PLAN_WIDGET_HTML = """<!doctype html>
 <html lang="fr">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>OpenWind</title>
+  <title>OhMyWind</title>
   <style>
     :root{
       --bg:#FAF7EE;--card:#FFFFFF;--fg0:#1A1A1A;--fg1:#3F3F3F;--fg2:#777169;
@@ -203,7 +207,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       const cx = sc.complexity || {};
       const segs = p.segments || [];
       const warnings = (p.warnings||[]).concat((cx.warnings||[]).map(w=>w.message||w));
-      const url = sc.openwind_url || "https://openwind.fr/plan";
+      const url = sc.openwind_url || "https://ohmywind.fr/plan";
       const stats = [
         ["Distance", (p.distance_nm||0).toFixed(1)+" nm"],
         ["Durée",    fmtDur(p.duration_h)],
@@ -237,7 +241,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
           <thead><tr><th>#</th><th>Heure</th><th>Allure</th><th>Vent</th><th>Mer</th><th>Vitesse</th></tr></thead>
           <tbody>${legRows}</tbody>
         </table>` : ""}
-        <a class="cta" href="${escapeHtml(url)}" rel="noopener">Voir le plan complet sur openwind.fr →</a>
+        <a class="cta" href="${escapeHtml(url)}" rel="noopener">Voir le plan complet sur ohmywind.fr →</a>
       `;
     }
 
@@ -286,7 +290,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
     // Hold the latest structured content so the delegated click handler can
     // resolve a row index back to its openwind_url.
     let lastSc = null;
-    const app = new App({ name: "OpenWind Plan", version: "1.0.0" });
+    const app = new App({ name: "OhMyWind Plan", version: "1.0.0" });
 
     function openUrl(url){
       // Sandboxed iframes silently drop window.open / target=_blank without
@@ -294,7 +298,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       // app.openLink — works even inside a strict sandbox.
       if(!url) return;
       app.openLink({ url }).catch(err => {
-        console.error('[openwind] openLink failed', err);
+        console.error('[ohmywind] openLink failed', err);
         // Last-resort: attempt window.open just in case (will silently fail
         // in a sandbox without allow-popups).
         try { window.open(url, '_blank', 'noopener'); } catch(e) {}
@@ -335,11 +339,11 @@ _PLAN_WIDGET_HTML = """<!doctype html>
         else if(sc.passage) root.innerHTML = renderSingle(sc);
         wireClicks();
       } catch(e) {
-        console.error('[openwind] render failed', e);
-        const url = (sc.openwind_url || (sc.windows && sc.windows[0] && sc.windows[0].openwind_url) || "https://openwind.fr/plan");
+        console.error('[ohmywind] render failed', e);
+        const url = (sc.openwind_url || (sc.windows && sc.windows[0] && sc.windows[0].openwind_url) || "https://ohmywind.fr/plan");
         root.innerHTML = `<div class="placeholder">
           Impossible d'afficher le plan ici.
-          <br><a class="cta" href="${escapeHtml(url)}" rel="noopener">Ouvrir sur openwind.fr →</a>
+          <br><a class="cta" href="${escapeHtml(url)}" rel="noopener">Ouvrir sur ohmywind.fr →</a>
         </div>`;
         wireClicks();
       }
@@ -377,7 +381,7 @@ def _passage_to_dict(report: Any) -> dict[str, Any]:
 
 
 _METHODOLOGY = """\
-# OpenWind — Calculation method
+# OhMyWind calculation method
 
 How `plan_passage` simulates a passage. Defaults below are what the server
 uses unless overridden by tool parameters.
@@ -456,7 +460,7 @@ picks qualitatively (no server-side ranking).
 - Mediterranean: tides typically < 40 cm and currents typically below
   0.3 kt, so most legs surface only wind + waves.
 - Atlantic: tidal range exceeds 10 m on the Manche; tidal currents
-  exceed 5 kt in narrow passes — these become first-class signals.
+  exceed 5 kt in narrow passes, so these become first-class signals.
 
 ## Wind-against-current
 
@@ -471,7 +475,7 @@ into a contrary tide.
 Independently of currents, a steep wind sea is flagged when the
 steepness proxy Hs / Tp^2 exceeds 0.05 on a segment with Hs >= 0.8 m
 (e.g. Hs 1.0 m at Tp 4.5 s). This catches short fetch-built chop in
-fresh breeze even without contrary current — typical of a Mistral or
+fresh breeze even without contrary current, typical of a Mistral or
 Tramontane lee shore. Bump and warning mirror the wind-against-current
 case; the +1 bump is shared, so a passage with both signals does not
 jump +2.
@@ -520,7 +524,7 @@ def _build_window_dict(
         },
         "conditions_summary": build_conditions_summary(report),
         "warnings": warnings,
-        "openwind_url": build_openwind_url(waypoints_raw, dep_iso, report.archetype),
+        "openwind_url": build_ohmywind_url(waypoints_raw, dep_iso, report.archetype),
     }
 
 
@@ -529,7 +533,7 @@ def build_server(
     adapter: MarineDataAdapter | None = None,
     feedback_sink: FeedbackSink | None = None,
 ) -> FastMCP:
-    """Build a FastMCP server with all OpenWind tools registered.
+    """Build a FastMCP server with all OhMyWind tools registered.
 
     Args:
         adapter: optional `MarineDataAdapter` used by data-fetching tools.
@@ -549,7 +553,7 @@ def build_server(
     sink: FeedbackSink = feedback_sink or stderr_sink
     # ``stateless_http=True`` disables the in-memory session table that
     # otherwise tracks an ``mcp-session-id`` per client across requests.
-    # All OpenWind tools are idempotent point-in-time fetches with no
+    # All OhMyWind tools are idempotent point-in-time fetches with no
     # cross-call state, so stateless is strictly correct AND removes a
     # whole class of intermittent failures: any restart of the HF Space
     # process (cold-start after sleep, sync redeploy, OOM) wipes the
@@ -595,7 +599,7 @@ def build_server(
 
     @server.resource(
         PLAN_UI_RESOURCE_URI,
-        name="OpenWind plan widget",
+        name="OhMyWind plan widget",
         mime_type=PLAN_UI_MIME,
         meta={
             "ui": {
@@ -626,7 +630,7 @@ def build_server(
 
     @server.tool()
     def read_me() -> str:
-        """Return OpenWind's calculation methodology as Markdown.
+        """Return OhMyWind's calculation methodology as Markdown.
 
         Call this when the user asks how passage timing, complexity, or
         boat speed are computed (e.g. "comment c'est calculé ?",
@@ -669,7 +673,7 @@ def build_server(
 
         ## Feedback channel
 
-        If the user asks you to send feedback to OpenWind ("fais
+        If the user asks you to send feedback to OhMyWind ("fais
         remonter aux dev", "feedback", "signale ça", "remonte ça",
         "tell them", "let the team know"), call the ``feedback`` tool.
         Do NOT write a free-text reply about the feedback in chat: the
@@ -766,7 +770,7 @@ def build_server(
           model used, segments[] with TWS/TWA/boat_speed/Hs, warnings).
         - ``complexity``: 1-5 difficulty score with wind/sea breakdown and a
           human-readable rationale.
-        - ``openwind_url``: deep-link to openwind.fr/plan that renders the
+        - ``openwind_url``: deep-link to ohmywind.fr/plan that renders the
           same passage in the standalone web app.
 
         Compare-windows mode (``latest_departure`` set):
@@ -785,7 +789,7 @@ def build_server(
 
         On hosts that support MCP Apps (Claude, Claude Desktop, ChatGPT, VS
         Code Copilot, Goose, Postman, MCPJam), the response is automatically
-        accompanied by an interactive widget — the live openwind.fr/plan view
+        accompanied by an interactive widget — the live ohmywind.fr/plan view
         served via the ``ui://openwind/plan-passage`` resource declared on
         this tool's ``_meta``. The widget reads ``openwind_url`` from the
         structured output and embeds the matching plan view as an iframe.
@@ -801,7 +805,7 @@ def build_server(
         this as a hard requirement, not a fallback:
 
         - **Single mode**: end your reply with a Markdown link, e.g.
-          ``[Voir le plan détaillé →](https://openwind.fr/plan?…)``.
+          ``[Voir le plan détaillé →](https://ohmywind.fr/plan?…)``.
         - **Compare-windows mode**: list 2-4 of the most relevant windows
           and give each its own link, e.g.
           ``- Sam 2 mai 09h · 11h12 · ⚡2/5 — [voir →](url)``.
@@ -864,7 +868,7 @@ def build_server(
 
         ## Feedback channel
 
-        If the user asks you to send feedback to OpenWind ("fais
+        If the user asks you to send feedback to OhMyWind ("fais
         remonter aux dev", "feedback", "signale ça", "remonte ça",
         "tell them", "let the team know"), call the ``feedback`` tool.
         Do NOT write a free-text reply about the feedback in chat: the
@@ -979,7 +983,7 @@ def build_server(
         return {
             "passage": _passage_to_dict(report),
             "complexity": asdict(score),
-            "openwind_url": build_openwind_url(waypoints, departure, archetype),
+            "openwind_url": build_ohmywind_url(waypoints, departure, archetype),
         }
 
     @server.tool()
@@ -990,12 +994,12 @@ def build_server(
         message: str,
         context_json: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Log a structured note about an OpenWind tool interaction.
+        """Log a structured note about an OhMyWind tool interaction.
 
         ## Direct user trigger — call this immediately, no chat reply
 
         When the user EXPLICITLY asks you to send feedback / file a
-        report / signal something to the OpenWind team, call this tool
+        report / signal something to the OhMyWind team, call this tool
         right away. Do NOT draft a free-text reply in chat asking the
         user what they want to say: their phrasing IS the message.
         Pass it (translated or summarised as needed) as the ``message``.
@@ -1004,7 +1008,7 @@ def build_server(
         ``"fais un feedback"``, ``"fais remonter aux dev"``,
         ``"signale ça"``, ``"remonte ça"``, ``"file a feedback"``,
         ``"send feedback"``, ``"tell them"``, ``"let the team know"``,
-        ``"fais un retour à OpenWind"``.
+        ``"fais un retour à OhMyWind"``.
 
         ## Also call when
 
@@ -1019,7 +1023,7 @@ def build_server(
         - The user explicitly asked for a feature that doesn't exist yet
           (``category="feature_request"``).
         - The user expresses dissatisfaction in chat ("c'est faux",
-          "ce n'est pas ce que je voulais") about an OpenWind result.
+          "ce n'est pas ce que je voulais") about an OhMyWind result.
 
         ## Do NOT call this tool
 
@@ -1030,12 +1034,12 @@ def build_server(
           per distinct issue.
         - For errors that are clearly the user's input fault (typo in a
           city name, impossible date) — only call when the issue is on
-          OpenWind's side or in the tool surface.
+          OhMyWind's side or in the tool surface.
 
         ## Args
 
             category: nature of the feedback (see triggers above).
-            tool_name: which OpenWind tool the feedback is about. Use
+            tool_name: which OhMyWind tool the feedback is about. Use
                 ``"general"`` for cross-cutting feedback, ``"feedback"``
                 for meta-feedback about this tool itself.
             severity: ``"low"`` (nice-to-have, doesn't block the user),

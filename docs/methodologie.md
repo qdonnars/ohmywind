@@ -1,4 +1,4 @@
-# OpenWind — Méthodologie
+# OhMyWind — Méthodologie
 
 > **Note** : ce document est destiné à être affiché aux utilisateurs (extrait
 > dans le tool MCP `read_me`, footer du frontend web, README repo). Il est
@@ -53,7 +53,7 @@ marée. Rapport Ifremer, 89 p.
 
 ### Cascade de routing courants
 
-À chaque waypoint, OpenWind utilise la donnée la plus précise disponible :
+À chaque waypoint, OhMyWind utilise la donnée la plus précise disponible :
 
 ```
 si point ∈ emprise MARC valide  →  MARC (résolution la plus fine si overlap)
@@ -108,10 +108,10 @@ les zones MARC.
 - **MARC est un produit V0 figé en 2013** : pas de mise à jour de la
   constante harmonique depuis. Les amplitudes/phases sont stables dans le
   temps (variation millimétrique sur 10 ans).
-- **OpenWind n'est pas un routeur** : pas d'optimisation, pas de
+- **OhMyWind n'est pas un routeur** : pas d'optimisation, pas de
   `find_best_window`. On surface les données brutes (courants, étales, marnage,
   coefficient) et le LLM client rédige le conseil.
-- **OpenWind ne remplace pas un atlas SHOM ou une carte papier** pour la nav
+- **OhMyWind ne remplace pas un atlas SHOM ou une carte papier** pour la nav
   précise dans une passe étroite. C'est un outil de planification, pas de
   pilotage.
 

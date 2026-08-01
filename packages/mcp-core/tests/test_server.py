@@ -130,7 +130,7 @@ class TestPlanPassage:
         # Complexity shape
         assert 1 <= out["complexity"]["level"] <= 5
         # URL always present
-        assert out["openwind_url"].startswith("https://openwind.fr/plan?")
+        assert out["openwind_url"].startswith("https://ohmywind.fr/plan?")
 
     async def test_no_double_fetch(self) -> None:
         # The whole point of the merge: estimate_passage fetches once per
@@ -239,7 +239,7 @@ class TestPlanPassageSweep:
         server = build_server(adapter=StubAdapter())
         out = await _call(server, "plan_passage", _SWEEP_ARGS)
         for w in out["windows"]:
-            assert w["openwind_url"].startswith("https://openwind.fr/plan?")
+            assert w["openwind_url"].startswith("https://ohmywind.fr/plan?")
             assert "wpts=" in w["openwind_url"]
 
     async def test_sweep_departures_ordered_and_spaced(self) -> None:
