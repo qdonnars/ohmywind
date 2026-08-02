@@ -13,6 +13,15 @@ Checklist à dérouler avant toute promotion `dev` → `main`. Chaque parcours e
 
 Outils: navigateur piloté (Chrome DevTools MCP) pour le web, émulateur Android + adb pour les apps (SDK dans `~/.bubblewrap/`, AVD `ohmywind`, cf. `packages/android/README.md`).
 
+## Économie d'appels backend (rate limits)
+
+Chaque création de spot déclenche des fetchs de prévisions multi-modèles et chaque « Calculer le passage » un appel de planification: le rate limiting du Space se consomme vite. Règles pour toute passe de QA:
+
+1. Valider d'abord le comportement sur build local piloté (vite preview + navigateur), le device n'est que la confirmation finale: une seule passe device par cycle de correctif.
+2. Ordonner les items du moins coûteux au plus coûteux: config et interactions pures (localStorage, zéro appel) d'abord, calculs de passage en dernier. Un échec d'environnement en début de passe ne gaspille alors aucun quota.
+3. Réutiliser le spot et la route existants; ne créer un spot que s'il n'y en a aucun. Ne jamais relancer un calcul dont le résultat est déjà affiché.
+4. Les parcours J4 (recherche, appels Photon) et J2/J3/J5 (prévisions, passage) sont les consommateurs; J6, J7, J10 sont gratuits.
+
 ## Parcours
 
 ### J1. Premier lancement et géolocalisation
