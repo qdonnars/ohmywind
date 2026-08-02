@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ACTIVE_LIMIT,
   MODEL_META,
@@ -78,28 +78,80 @@ export function ConfigPage() {
     return best;
   }
 
-  function onRowPointerDown(e: React.PointerEvent<HTMLLIElement>, model: ModelName, idx: number) {
-    if (e.button !== 0) return;
-    // Touch drags only start from the ⋮⋮ handle (touch-action: none) so a
-    // finger on the row body still scrolls the page; a mouse can grab the
-    // whole row since it doesn't compete with scrolling.
-    if (e.pointerType !== "mouse" && !(e.target as HTMLElement).closest(".config-handle")) return;
-    e.preventDefault();
+  // Long-press state: touch on a row body arms a hold; a still finger for
+  // HOLD_MS lifts the row (native lists' reorder pattern), real movement
+  // before that cancels the hold and lets the page scroll instead.
+  const HOLD_MS = 350;
+  const HOLD_SLOP_PX = 10;
+  const holdRef = useRef<{ timer: number; model: ModelName; idx: number; x: number; y: number; pointerId: number; row: HTMLLIElement } | null>(null);
+  const dragActiveRef = useRef(false);
+  useEffect(() => { dragActiveRef.current = dragModel != null; }, [dragModel]);
+
+  // Once a row is lifted, native scrolling must stop competing for the touch.
+  // touch-action can't change mid-gesture and React registers touchmove as
+  // passive, so the preventDefault goes through a manual non-passive listener.
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const block = (e: TouchEvent) => { if (dragActiveRef.current) e.preventDefault(); };
+    list.addEventListener("touchmove", block, { passive: false });
+    return () => list.removeEventListener("touchmove", block);
+  }, []);
+
+  function activateDrag(row: HTMLLIElement, pointerId: number, model: ModelName, idx: number) {
     // Capture can be refused (pointer already lifted, synthetic events in
     // tests); the drag still works without it since the target slot is
     // computed from geometry, capture just avoids losing fast pointers.
-    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* best-effort */ }
+    try { row.setPointerCapture(pointerId); } catch { /* best-effort */ }
     setDragModel(model);
     setOverIdx(idx);
   }
 
+  function clearHold() {
+    if (holdRef.current) {
+      window.clearTimeout(holdRef.current.timer);
+      holdRef.current = null;
+    }
+  }
+
+  function onRowPointerDown(e: React.PointerEvent<HTMLLIElement>, model: ModelName, idx: number) {
+    if (e.button !== 0) return;
+    const onHandle = !!(e.target as HTMLElement).closest(".config-handle");
+    if (e.pointerType === "mouse" || onHandle) {
+      // Immediate grab: a mouse doesn't compete with scrolling, and the
+      // handle opts out of it via touch-action: none.
+      e.preventDefault();
+      activateDrag(e.currentTarget, e.pointerId, model, idx);
+      return;
+    }
+    // Touch on the row body: no preventDefault, a quick swipe must stay a
+    // scroll. Arm the hold instead.
+    const row = e.currentTarget;
+    clearHold();
+    holdRef.current = {
+      model, idx, x: e.clientX, y: e.clientY, pointerId: e.pointerId, row,
+      timer: window.setTimeout(() => {
+        if (holdRef.current?.row === row) {
+          const { pointerId } = holdRef.current;
+          holdRef.current = null;
+          activateDrag(row, pointerId, model, idx);
+        }
+      }, HOLD_MS),
+    };
+  }
+
   function onRowPointerMove(e: React.PointerEvent<HTMLLIElement>) {
-    if (dragModel == null) return;
-    const idx = targetIndexFromY(e.clientY);
-    if (idx != null && idx !== overIdx) setOverIdx(idx);
+    if (dragModel != null) {
+      const idx = targetIndexFromY(e.clientY);
+      if (idx != null && idx !== overIdx) setOverIdx(idx);
+      return;
+    }
+    const hold = holdRef.current;
+    if (hold && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > HOLD_SLOP_PX) clearHold();
   }
 
   function onRowPointerUp(e: React.PointerEvent<HTMLLIElement>) {
+    clearHold();
     if (dragModel == null) return;
     if (e.currentTarget.hasPointerCapture?.(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
     update({ ...config, order: previewOrder });
@@ -110,6 +162,7 @@ export function ConfigPage() {
   function onRowPointerCancel() {
     // Browser reclaimed the gesture (e.g. system interruption): revert, the
     // preview falls back to config.order once dragModel is null.
+    clearHold();
     setDragModel(null);
     setOverIdx(null);
   }
@@ -156,8 +209,8 @@ export function ConfigPage() {
         <p className="text-sm opacity-80 mb-8 leading-relaxed">
           Les {ACTIVE_LIMIT} premiers modèles sont affichés dans la table de
           prévision, dans cet ordre. Glisse-dépose pour réordonner (sur
-          mobile, saisis la poignée ⋮⋮). Cette configuration ne touche pas
-          les plans de passage.
+          mobile, appui maintenu sur une ligne, ou directement la poignée
+          ⋮⋮). Cette configuration ne touche pas les plans de passage.
         </p>
 
         <div className="config-list-with-zones">
@@ -324,7 +377,11 @@ export function ConfigPage() {
           background: var(--ow-bg-1, rgba(255,255,255,0.04));
           border-color: var(--ow-line-2, rgba(255,255,255,0.08));
           cursor: grab;
-          transition: opacity 150ms ease, transform 200ms ease, border-color 120ms ease, background 120ms ease;
+          transition: opacity 150ms ease, transform 200ms ease, border-color 120ms ease, background 120ms ease, box-shadow 150ms ease;
+          /* Un appui long saisit la ligne: sans ceci iOS superpose son menu
+             contextuel (copier/definir) au moment exact du soulevement. */
+          -webkit-touch-callout: none;
+          -webkit-user-select: none;
         }
         .config-row:active {
           cursor: grabbing;
@@ -333,8 +390,12 @@ export function ConfigPage() {
           opacity: 0.45;
         }
         .config-row.is-dragging {
-          opacity: 0.35;
+          /* "Soulevée": la ligne suit le doigt dans l'aperçu, elle doit se
+             lire comme saisie, pas comme un fantôme. */
+          opacity: 0.92;
+          transform: scale(1.02);
           border-style: dashed;
+          box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
         }
         .config-handle {
           font-size: 14px;
