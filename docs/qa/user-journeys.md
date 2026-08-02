@@ -13,6 +13,15 @@ Checklist à dérouler avant toute promotion `dev` → `main`. Chaque parcours e
 
 Outils: navigateur piloté (Chrome DevTools MCP) pour le web, émulateur Android + adb pour les apps (SDK dans `~/.bubblewrap/`, AVD `ohmywind`, cf. `packages/android/README.md`).
 
+## Économie d'appels backend (rate limits)
+
+Chaque création de spot déclenche des fetchs de prévisions multi-modèles et chaque « Calculer le passage » un appel de planification: le rate limiting du Space se consomme vite. Règles pour toute passe de QA:
+
+1. Valider d'abord le comportement sur build local piloté (vite preview + navigateur), le device n'est que la confirmation finale: une seule passe device par cycle de correctif.
+2. Ordonner les items du moins coûteux au plus coûteux: config et interactions pures (localStorage, zéro appel) d'abord, calculs de passage en dernier. Un échec d'environnement en début de passe ne gaspille alors aucun quota.
+3. Réutiliser le spot et la route existants; ne créer un spot que s'il n'y en a aucun. Ne jamais relancer un calcul dont le résultat est déjà affiché.
+4. Les parcours J4 (recherche, appels Photon) et J2/J3/J5 (prévisions, passage) sont les consommateurs; J6, J7, J10 sont gratuits.
+
 ## Parcours
 
 ### J1. Premier lancement et géolocalisation
@@ -59,6 +68,11 @@ Outils: navigateur piloté (Chrome DevTools MCP) pour le web, émulateur Android
 
 Prompt type: « Exécute les parcours J2, J3, J5 de docs/qa/user-journeys.md contre https://dev.ohmywind.fr (ou l'app Android dev sur l'émulateur). Rends un verdict OK/KO par parcours avec repro exacte des écarts, texte seul. » Fournir au sous-agent: chemin adb et nom d'AVD pour l'Android, pièges connus de l'émulateur (popup Google Translate, panneau stylet Gboard, snackbar « Running in Chrome »).
 
+### J10. Réordonnancement des modèles météo (/config)
+- Étapes: ouvrir /config, onglet « Modèles météo ». Au toucher: (a) saisir la poignée ⋮⋮ d'une ligne et la glisser deux positions plus bas; (b) appui maintenu ~400 ms doigt immobile sur le corps d'une autre ligne jusqu'au soulèvement visuel, puis glisser; (c) balayer verticalement le corps d'une ligne sans attendre. À la souris: saisir n'importe où sur une ligne. Recharger la page.
+- Attendu: (a) et (b) réordonnent avec aperçu temps réel (au soulèvement, la ligne grossit légèrement avec une ombre, sans menu contextuel iOS); (c) fait défiler la page sans déclencher de drag; la souris réordonne sans délai; l'ordre persiste au rechargement. À vérifier sur Chrome ET Firefox Android: le bug d'origine (drag inerte) ne touchait que Firefox, dont l'API HTML5 drag-and-drop ignore le tactile.
+
 ## Historique des bugs trouvés via ces parcours
 
-- 2026-07-11, J5: bandeau de plan non cliquable au toucher sur mobile (rapporté manuellement, en cours d'investigation).
+- 2026-07-11, J5: bandeau de plan non cliquable au toucher sur mobile; pire, le tap traversait vers la carte Leaflet et ajoutait un waypoint fantôme. Corrigé le 2026-08-01 (commit 8605393: pointer-events-auto + tap-to-expand). Note du 2026-08-02: une re-repro sur émulateur a produit un faux positif après le fix, cause probable: coordonnées de tap dérivées de bounds d'accessibilité périmés; en cas de doute, croiser avec un test navigateur local (elementFromPoint) avant de conclure.
+- 2026-08-02, J10: réordonnancement des modèles inopérant au toucher sur Firefox Android (rapport utilisateur, Fabrice): l'API HTML5 drag-and-drop n'y émet jamais dragstart au doigt. Corrigé en réécrivant le drag en Pointer Events avec poignée dédiée (touch-action: none) visible sur mobile.

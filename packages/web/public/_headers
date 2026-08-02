@@ -1,3 +1,9 @@
+# Le service worker doit etre revalide a chaque lancement, sinon le
+# navigateur peut resservir l'ancien pendant des heures et les PWA/TWA
+# installees ne voient pas les deploiements (widget iOS, apps Android).
+/sw.js
+  Cache-Control: no-cache
+
 https://dev.ohmywind.fr/*
   X-Robots-Tag: noindex, nofollow
 
