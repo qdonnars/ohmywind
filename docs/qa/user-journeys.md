@@ -69,8 +69,8 @@ Chaque création de spot déclenche des fetchs de prévisions multi-modèles et 
 Prompt type: « Exécute les parcours J2, J3, J5 de docs/qa/user-journeys.md contre https://dev.ohmywind.fr (ou l'app Android dev sur l'émulateur). Rends un verdict OK/KO par parcours avec repro exacte des écarts, texte seul. » Fournir au sous-agent: chemin adb et nom d'AVD pour l'Android, pièges connus de l'émulateur (popup Google Translate, panneau stylet Gboard, snackbar « Running in Chrome »).
 
 ### J10. Réordonnancement des modèles météo (/config)
-- Étapes: ouvrir /config, onglet « Modèles météo ». Au toucher: saisir la poignée ⋮⋮ d'une ligne et la glisser deux positions plus bas. À la souris: saisir n'importe où sur une ligne. Puis balayer verticalement le corps d'une ligne (pas la poignée). Recharger la page.
-- Attendu: le drag depuis la poignée (tactile) et depuis la ligne (souris) réordonne avec aperçu en temps réel; le balayage sur le corps de ligne fait défiler la page sans déclencher de drag; l'ordre persiste au rechargement. À vérifier sur Chrome ET Firefox Android: le bug d'origine (drag inerte) ne touchait que Firefox, dont l'API HTML5 drag-and-drop ignore le tactile.
+- Étapes: ouvrir /config, onglet « Modèles météo ». Au toucher: (a) saisir la poignée ⋮⋮ d'une ligne et la glisser deux positions plus bas; (b) appui maintenu ~400 ms doigt immobile sur le corps d'une autre ligne jusqu'au soulèvement visuel, puis glisser; (c) balayer verticalement le corps d'une ligne sans attendre. À la souris: saisir n'importe où sur une ligne. Recharger la page.
+- Attendu: (a) et (b) réordonnent avec aperçu temps réel (au soulèvement, la ligne grossit légèrement avec une ombre, sans menu contextuel iOS); (c) fait défiler la page sans déclencher de drag; la souris réordonne sans délai; l'ordre persiste au rechargement. À vérifier sur Chrome ET Firefox Android: le bug d'origine (drag inerte) ne touchait que Firefox, dont l'API HTML5 drag-and-drop ignore le tactile.
 
 ## Historique des bugs trouvés via ces parcours
 
