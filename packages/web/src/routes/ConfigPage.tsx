@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   ACTIVE_LIMIT,
   MODEL_META,
@@ -56,32 +56,60 @@ export function ConfigPage() {
     return next;
   }, [config.order, dragModel, overIdx]);
 
-  function onDragStart(e: React.DragEvent, model: ModelName, idx: number) {
+  // Reordering is driven by Pointer Events, not the HTML5 drag-and-drop API:
+  // Firefox Android never fires dragstart from a touch, so long-pressing a row
+  // did nothing there while Chrome (which does synthesize touch drags) worked.
+  // Pointer events behave identically across desktop and mobile browsers.
+  const listRef = useRef<HTMLOListElement>(null);
+
+  // Row whose vertical center is closest to the pointer. Pointer capture means
+  // move events keep firing on the row where the drag started, so the target
+  // slot must be derived from geometry rather than from event targets.
+  function targetIndexFromY(clientY: number): number | null {
+    const list = listRef.current;
+    if (!list) return null;
+    let best: number | null = null;
+    let bestDist = Infinity;
+    [...list.children].forEach((row, i) => {
+      const r = (row as HTMLElement).getBoundingClientRect();
+      const d = Math.abs(clientY - (r.top + r.height / 2));
+      if (d < bestDist) { bestDist = d; best = i; }
+    });
+    return best;
+  }
+
+  function onRowPointerDown(e: React.PointerEvent<HTMLLIElement>, model: ModelName, idx: number) {
+    if (e.button !== 0) return;
+    // Touch drags only start from the ⋮⋮ handle (touch-action: none) so a
+    // finger on the row body still scrolls the page; a mouse can grab the
+    // whole row since it doesn't compete with scrolling.
+    if (e.pointerType !== "mouse" && !(e.target as HTMLElement).closest(".config-handle")) return;
+    e.preventDefault();
+    // Capture can be refused (pointer already lifted, synthetic events in
+    // tests); the drag still works without it since the target slot is
+    // computed from geometry, capture just avoids losing fast pointers.
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* best-effort */ }
     setDragModel(model);
     setOverIdx(idx);
-    e.dataTransfer.setData("text/plain", model);
-    e.dataTransfer.effectAllowed = "move";
   }
 
-  function onDragOver(e: React.DragEvent, idx: number) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    if (overIdx !== idx) setOverIdx(idx);
+  function onRowPointerMove(e: React.PointerEvent<HTMLLIElement>) {
+    if (dragModel == null) return;
+    const idx = targetIndexFromY(e.clientY);
+    if (idx != null && idx !== overIdx) setOverIdx(idx);
   }
 
-  function onDrop(e: React.DragEvent) {
-    e.preventDefault();
-    if (dragModel != null) {
-      update({ ...config, order: previewOrder });
-    }
+  function onRowPointerUp(e: React.PointerEvent<HTMLLIElement>) {
+    if (dragModel == null) return;
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    update({ ...config, order: previewOrder });
     setDragModel(null);
     setOverIdx(null);
   }
 
-  function onDragEnd() {
-    // Fires after drop as well as for cancelled drags (Esc, drop outside any
-    // valid target). Resetting here makes a cancelled drag revert smoothly
-    // because previewOrder falls back to config.order once dragModel is null.
+  function onRowPointerCancel() {
+    // Browser reclaimed the gesture (e.g. system interruption): revert, the
+    // preview falls back to config.order once dragModel is null.
     setDragModel(null);
     setOverIdx(null);
   }
@@ -127,12 +155,13 @@ export function ConfigPage() {
         <h1 className="text-3xl font-bold mb-2">Modèles météo</h1>
         <p className="text-sm opacity-80 mb-8 leading-relaxed">
           Les {ACTIVE_LIMIT} premiers modèles sont affichés dans la table de
-          prévision, dans cet ordre. Glisse-dépose pour réordonner. Cette
-          configuration ne touche pas les plans de passage.
+          prévision, dans cet ordre. Glisse-dépose pour réordonner (sur
+          mobile, saisis la poignée ⋮⋮). Cette configuration ne touche pas
+          les plans de passage.
         </p>
 
         <div className="config-list-with-zones">
-          <ol className="config-list">
+          <ol className="config-list" ref={listRef}>
             {previewOrder.map((model, idx) => {
               const meta = MODEL_META[model];
               const isActive = idx < ACTIVE_LIMIT;
@@ -140,11 +169,10 @@ export function ConfigPage() {
               return (
                 <li
                   key={model}
-                  draggable
-                  onDragStart={(e) => onDragStart(e, model, idx)}
-                  onDragOver={(e) => onDragOver(e, idx)}
-                  onDrop={onDrop}
-                  onDragEnd={onDragEnd}
+                  onPointerDown={(e) => onRowPointerDown(e, model, idx)}
+                  onPointerMove={onRowPointerMove}
+                  onPointerUp={onRowPointerUp}
+                  onPointerCancel={onRowPointerCancel}
                   className={`config-row flex items-stretch gap-3 rounded-xl border p-3 select-none ${
                     isActive ? "is-active" : "is-inactive"
                   } ${isDragging ? "is-dragging" : ""}`}
@@ -314,6 +342,14 @@ export function ConfigPage() {
           letter-spacing: -2px;
           font-weight: 700;
           color: var(--ow-fg-1, #cbd5e1);
+          cursor: grab;
+          /* Without this, mobile browsers claim the gesture for scrolling and
+             fire pointercancel before a drag can start (Firefox Android is
+             strict about it). Scoped to the handle so the row body still
+             scrolls the page. */
+          touch-action: none;
+          padding: 10px 6px;
+          margin: -10px -6px;
         }
         .config-rank {
           display: inline-flex;
@@ -402,7 +438,11 @@ export function ConfigPage() {
             font-size: 11px;
           }
           .config-handle {
-            display: none;
+            /* Visible on mobile: it is the only touch surface that starts a
+               drag (the row body scrolls), so hiding it would make reordering
+               impossible by touch. */
+            font-size: 16px;
+            opacity: 0.5;
           }
           .config-zone {
             padding-left: 10px;
