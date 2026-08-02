@@ -59,6 +59,11 @@ Outils: navigateur piloté (Chrome DevTools MCP) pour le web, émulateur Android
 
 Prompt type: « Exécute les parcours J2, J3, J5 de docs/qa/user-journeys.md contre https://dev.ohmywind.fr (ou l'app Android dev sur l'émulateur). Rends un verdict OK/KO par parcours avec repro exacte des écarts, texte seul. » Fournir au sous-agent: chemin adb et nom d'AVD pour l'Android, pièges connus de l'émulateur (popup Google Translate, panneau stylet Gboard, snackbar « Running in Chrome »).
 
+### J10. Réordonnancement des modèles météo (/config)
+- Étapes: ouvrir /config, onglet « Modèles météo ». Au toucher: saisir la poignée ⋮⋮ d'une ligne et la glisser deux positions plus bas. À la souris: saisir n'importe où sur une ligne. Puis balayer verticalement le corps d'une ligne (pas la poignée). Recharger la page.
+- Attendu: le drag depuis la poignée (tactile) et depuis la ligne (souris) réordonne avec aperçu en temps réel; le balayage sur le corps de ligne fait défiler la page sans déclencher de drag; l'ordre persiste au rechargement. À vérifier sur Chrome ET Firefox Android: le bug d'origine (drag inerte) ne touchait que Firefox, dont l'API HTML5 drag-and-drop ignore le tactile.
+
 ## Historique des bugs trouvés via ces parcours
 
-- 2026-07-11, J5: bandeau de plan non cliquable au toucher sur mobile (rapporté manuellement, en cours d'investigation).
+- 2026-07-11, J5: bandeau de plan non cliquable au toucher sur mobile; pire, le tap traversait vers la carte Leaflet et ajoutait un waypoint fantôme. Corrigé le 2026-08-01 (commit 8605393: pointer-events-auto + tap-to-expand). Note du 2026-08-02: une re-repro sur émulateur a produit un faux positif après le fix, cause probable: coordonnées de tap dérivées de bounds d'accessibilité périmés; en cas de doute, croiser avec un test navigateur local (elementFromPoint) avant de conclure.
+- 2026-08-02, J10: réordonnancement des modèles inopérant au toucher sur Firefox Android (rapport utilisateur, Fabrice): l'API HTML5 drag-and-drop n'y émet jamais dragstart au doigt. Corrigé en réécrivant le drag en Pointer Events avec poignée dédiée (touch-action: none) visible sur mobile.
