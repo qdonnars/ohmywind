@@ -19,7 +19,7 @@ import {
 import { type TimeAnchor } from "../plan/ModeToggle";
 import { computeLegSegmentRanges } from "../plan/aggregateLegs";
 import { activeModels, loadModelConfig } from "../config/modelConfig";
-import { effectivePolar, isPolarCustomized, loadPolarConfig, polarFingerprint } from "../config/polarConfig";
+import { effectivePolar, isPolarCustomized, loadPolarConfig, planEfficiency, polarFingerprint } from "../config/polarConfig";
 import { LocateButton } from "../components/LocateButton";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useMapView } from "../hooks/useMapView";
@@ -41,6 +41,13 @@ function resolveOverrides(archetype: string): PlanOverrides {
     overrides.polar = effectivePolar(polarCfg);
   }
   return overrides;
+}
+
+// Plan-time efficiency override. Undefined lets the server default (0.75)
+// apply; 1.0 when the user imported a real-world polar and switched the
+// "coefficient de plaisance" off in /config.
+function resolveEfficiency(): number | undefined {
+  return planEfficiency(loadPolarConfig());
 }
 
 // Joint fingerprint of model + polar config. Same shape across single &
@@ -435,8 +442,8 @@ export function PlanPage() {
       : singleWindowMs(wpts, anchorMs);
     const promise = buildForecastCacheSafe(wpts, { window: cacheWindow }).then((forecastCache) =>
       anchor === "arrival"
-        ? fetchPassageByEta({ waypoints: wpts, targetArrival: depIso, archetype: arch, overrides, forecastCache })
-        : fetchPassage({ waypoints: wpts, departure: depIso, archetype: arch, overrides, forecastCache })
+        ? fetchPassageByEta({ waypoints: wpts, targetArrival: depIso, archetype: arch, efficiency: resolveEfficiency(), overrides, forecastCache })
+        : fetchPassage({ waypoints: wpts, departure: depIso, archetype: arch, efficiency: resolveEfficiency(), overrides, forecastCache })
     );
     promise
       .then((res) => {
@@ -606,6 +613,7 @@ export function PlanPage() {
           latest: latestIso,
           archetype,
           intervalHours: sweepInterval,
+          efficiency: resolveEfficiency(),
           overrides: resolveOverrides(archetype),
           forecastCache,
         }),

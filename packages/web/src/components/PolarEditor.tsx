@@ -9,12 +9,19 @@ import {
   defaultPolarConfig,
   effectivePolar,
   hasOverrides,
+  isImportedActive,
   loadPolarConfig,
   savePolarConfig,
   type PolarConfig,
   type PolarData,
+  type PolarSource,
   type SpiKind,
 } from "../config/polarConfig";
+import { parsePolarFile, PolarImportError } from "../config/polarImport";
+
+// Refuse absurdly large uploads before parsing: a real polar file weighs a
+// few kB; past this size it's the wrong file.
+const IMPORT_MAX_BYTES = 512 * 1024;
 
 // SVG canvas geometry. Matches the methodologie polar visual but smaller
 // and tuned for an editor pane: 480x500, polar centered at (240, 240).
@@ -57,6 +64,11 @@ export function PolarEditor() {
   // Index of the TWA point currently being dragged, used to render a live
   // speed label next to the moving handle. Null when no drag is in progress.
   const [draggingTwaIdx, setDraggingTwaIdx] = useState<number | null>(null);
+  // Outcome of the last file import attempt, shown under the import block.
+  const [importNotice, setImportNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(
+    null,
+  );
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function update(next: PolarConfig) {
     setConfig(next);
@@ -68,10 +80,70 @@ export function PolarEditor() {
     // Clear overrides when switching base because they're keyed by grid index
     // (twsIdx, twaIdx) and a different archetype may have a different grid.
     // Scale + spi are archetype-agnostic so we keep them as-is.
-    update({ base, scale: config.scale, spi: config.spi, overrides: {} });
+    update({ ...config, base, overrides: {} });
     // The new archetype may have a shorter TWS grid; snap selection back to 0
     // here rather than in an effect to avoid cascading renders.
     if (selectedTwsIdx >= BASE_POLARS[base].tws_kn.length) setSelectedTwsIdx(0);
+  }
+
+  async function importFile(file: File) {
+    if (file.size > IMPORT_MAX_BYTES) {
+      setImportNotice({
+        kind: "error",
+        text: "Fichier trop volumineux : une polaire fait quelques ko, vérifie que c'est le bon fichier.",
+      });
+      return;
+    }
+    try {
+      const parsed = parsePolarFile(await file.text());
+      const name = file.name.replace(/\.[^.]+$/, "").slice(0, 120) || "Polaire importée";
+      update({
+        ...config,
+        imported: {
+          name,
+          tws_kn: parsed.tws_kn,
+          twa_deg: parsed.twa_deg,
+          boat_speed_kn: parsed.boat_speed_kn,
+        },
+        source: "imported",
+      });
+      setSelectedTwsIdx(0);
+      const dims = `${parsed.tws_kn.length} vitesses de vent × ${parsed.twa_deg.length} angles`;
+      const suffix = parsed.warnings.length > 0 ? ` ${parsed.warnings.join(" ")}` : "";
+      setImportNotice({ kind: "ok", text: `« ${name} » importée (${dims}).${suffix}` });
+    } catch (e) {
+      setImportNotice({
+        kind: "error",
+        text:
+          e instanceof PolarImportError
+            ? e.message
+            : "Impossible de lire ce fichier. Format attendu : texte avec une ligne d'en-tête TWS puis une ligne par angle TWA.",
+      });
+    }
+  }
+
+  function onFilePicked(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    // Reset so picking the same (fixed) file again re-triggers onChange.
+    e.target.value = "";
+    if (file) void importFile(file);
+  }
+
+  function setSource(source: PolarSource) {
+    if (source === config.source) return;
+    update({ ...config, source });
+    // The two grids can have different TWS counts; snap to the first curve.
+    setSelectedTwsIdx(0);
+  }
+
+  function removeImported() {
+    update({ ...config, imported: null, source: "archetype" });
+    setImportNotice(null);
+    setSelectedTwsIdx(0);
+  }
+
+  function setApplyEfficiency(applyEfficiency: boolean) {
+    update({ ...config, applyEfficiency });
   }
 
   function setScale(scale: number) {
@@ -121,6 +193,10 @@ export function PolarEditor() {
   }
 
   const effective = useMemo<PolarData>(() => effectivePolar(config), [config]);
+  const importedActive = isImportedActive(config);
+  // The selection can outlive a grid change (file import, source flip to a
+  // shorter TWS list); clamp at render time instead of resetting in an effect.
+  const activeTwsIdx = Math.min(selectedTwsIdx, effective.tws_kn.length - 1);
   const maxSpeed = useMemo(() => {
     let m = 0;
     for (const row of effective.boat_speed_kn) for (const v of row) if (v > m) m = v;
@@ -157,10 +233,13 @@ export function PolarEditor() {
   }
 
   function onHandlePointerDown(e: React.PointerEvent, twaIdx: number) {
+    // The imported polar is displayed as-is: hand-tuning is an archetype-editor
+    // feature (overrides are keyed to the archetype grid).
+    if (importedActive) return;
     e.preventDefault();
     e.stopPropagation();
     const twaDeg = effective.twa_deg[twaIdx];
-    dragRef.current = { twsIdx: selectedTwsIdx, twaIdx, twaDeg };
+    dragRef.current = { twsIdx: activeTwsIdx, twaIdx, twaDeg };
     setDraggingTwaIdx(twaIdx);
     (e.target as Element).setPointerCapture(e.pointerId);
   }
@@ -199,89 +278,220 @@ export function PolarEditor() {
   return (
     <div className="polar-editor flex flex-col gap-4">
       {/* Reminder banner: this polar is the structural boat speed; the planner
-          applies its own efficiency coefficient on top at plan time. */}
+          applies its own efficiency coefficient on top at plan time — unless
+          the user opted out for an imported real-world polar. */}
       <div className="polar-banner">
         <span className="polar-banner-icon" aria-hidden>ⓘ</span>
         <div className="polar-banner-text">
-          Cette polaire décrit la vitesse théorique de ton bateau (structurelle).
-          Au moment du plan, l'app la multiplie par un coefficient d'efficacité
-          qui dépend des conditions (aujourd'hui <strong>{SERVER_DEFAULT_EFFICIENCY.toFixed(2)}</strong> en croisière).
+          {importedActive && !config.applyEfficiency ? (
+            <>
+              Ta polaire importée est utilisée <strong>telle quelle</strong> :
+              le plan n'applique pas le coefficient de plaisance
+              (efficacité <strong>1.00</strong>).
+            </>
+          ) : (
+            <>
+              Cette polaire décrit la vitesse théorique de ton bateau (structurelle).
+              Au moment du plan, l'app la multiplie par un coefficient d'efficacité
+              qui dépend des conditions (aujourd'hui <strong>{SERVER_DEFAULT_EFFICIENCY.toFixed(2)}</strong> en croisière).
+            </>
+          )}
         </div>
       </div>
 
-      {/* Top controls: archetype + multiplier */}
-      <div className="grid sm:grid-cols-[1fr_1fr] gap-4 items-end">
-        <label className="flex flex-col gap-1 text-xs uppercase tracking-wider opacity-70">
-          Archétype de base
-          <select
-            className="polar-select"
-            value={config.base}
-            onChange={(e) => setBase(e.target.value)}
-          >
-            {Object.entries(ARCHETYPE_LABELS).map(([id, label]) => (
-              <option key={id} value={id}>{label}</option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs uppercase tracking-wider opacity-70">
-          Facteur multiplicateur ({config.scale.toFixed(2)}×)
-          <input
-            type="range"
-            min={SCALE_MIN}
-            max={SCALE_MAX}
-            step={SCALE_STEP}
-            value={config.scale}
-            onChange={(e) => setScale(parseFloat(e.target.value))}
-            className="polar-range"
-          />
-          <span className="text-[10px] opacity-60 normal-case tracking-normal mt-0.5">
-            Plus rapide ou plus lent que l'archétype ? 1.0× = identique.
+      {/* Polar file import. The uploaded polar replaces the archetype-derived
+          matrix wholesale; the archetype editor state is kept so the user can
+          flip back at any time. */}
+      <div className="polar-import">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <span className="text-xs uppercase tracking-wider opacity-70">
+            Fichier de polaire
           </span>
-        </label>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="polar-btn polar-btn-accent"
+            >
+              {config.imported ? "Remplacer le fichier…" : "Importer un fichier…"}
+            </button>
+            {config.imported && (
+              <button type="button" onClick={removeImported} className="polar-btn">
+                Supprimer
+              </button>
+            )}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pol,.csv,.txt,.tsv,.dat,text/plain,text/csv"
+            onChange={onFilePicked}
+            className="hidden"
+          />
+        </div>
+        {config.imported ? (
+          <div className="polar-import-current">
+            <span className="polar-import-name">{config.imported.name}</span>
+            <span className="opacity-60">
+              {" "}· {config.imported.tws_kn.length} TWS × {config.imported.twa_deg.length} TWA
+            </span>
+            <div className="polar-source-segment mt-2" role="radiogroup" aria-label="Polaire active">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={config.source === "imported"}
+                onClick={() => setSource("imported")}
+                className={`polar-spi-btn ${config.source === "imported" ? "is-active" : ""}`}
+              >
+                Polaire importée
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={config.source === "archetype"}
+                onClick={() => setSource("archetype")}
+                className={`polar-spi-btn ${config.source === "archetype" ? "is-active" : ""}`}
+              >
+                Archétype ajusté
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="polar-import-hint">
+            Format standard (qtVlm, Expedition, MaxSea) : première ligne = vitesses
+            de vent (TWS), une ligne par angle (TWA), séparées par tabulations,
+            points-virgules ou virgules. Extensions .pol, .csv ou .txt.
+          </p>
+        )}
+        {importNotice && (
+          <p className={`polar-import-notice ${importNotice.kind === "ok" ? "is-ok" : "is-error"}`}>
+            {importNotice.text}
+          </p>
+        )}
       </div>
 
-      {/* Spinnaker selector — applies a per-TWA boost across all TWS curves. */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-xs uppercase tracking-wider opacity-70">
-          Spinnaker
-        </span>
-        <div className="polar-spi-segment" role="radiogroup" aria-label="Type de spi">
-          <button
-            type="button"
-            role="radio"
-            aria-checked={config.spi === "off"}
-            onClick={() => setSpi("off")}
-            className={`polar-spi-btn ${config.spi === "off" ? "is-active" : ""}`}
-          >
-            Aucun
-          </button>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={config.spi === "asymmetric"}
-            onClick={() => setSpi("asymmetric")}
-            className={`polar-spi-btn ${config.spi === "asymmetric" ? "is-active" : ""}`}
-            title="Asymétrique : sweet spot reaching 110-135°, utile jusqu'à 150° en heat-up"
-          >
-            Asymétrique
-          </button>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={config.spi === "symmetric"}
-            onClick={() => setSpi("symmetric")}
-            className={`polar-spi-btn ${config.spi === "symmetric" ? "is-active" : ""}`}
-            title="Symétrique : optimal au plein-vent arrière, 135-165° (pole requis)"
-          >
-            Symétrique
-          </button>
+      {/* Coefficient de plaisance — only meaningful for an imported polar:
+          a designer polar is theoretical (keep the coefficient), a polar built
+          from real logged performance already includes it (skip). */}
+      {importedActive && (
+        <div className="polar-eff">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-xs uppercase tracking-wider opacity-70">
+              Coefficient de plaisance (×{SERVER_DEFAULT_EFFICIENCY.toFixed(2)})
+            </span>
+            <div
+              className="polar-spi-segment"
+              role="radiogroup"
+              aria-label="Appliquer le coefficient de plaisance"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={config.applyEfficiency}
+                onClick={() => setApplyEfficiency(true)}
+                className={`polar-spi-btn ${config.applyEfficiency ? "is-active" : ""}`}
+              >
+                Oui
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={!config.applyEfficiency}
+                onClick={() => setApplyEfficiency(false)}
+                className={`polar-spi-btn ${!config.applyEfficiency ? "is-active" : ""}`}
+              >
+                Non
+              </button>
+            </div>
+          </div>
+          <p className="polar-eff-hint">
+            Polaire constructeur (théorique) ? Garde le coefficient : le plan
+            multiplie tes vitesses par {SERVER_DEFAULT_EFFICIENCY.toFixed(2)}.
+            Polaire issue de tes performances réelles ? Désactive-le : tes
+            vitesses sont utilisées telles quelles.
+          </p>
         </div>
-      </div>
+      )}
+
+      {/* Archetype-editor controls — hidden while the imported polar is
+          active: scale / spi / hand-tuning only apply to the archetype grid. */}
+      {!importedActive && (
+        <>
+          {/* Top controls: archetype + multiplier */}
+          <div className="grid sm:grid-cols-[1fr_1fr] gap-4 items-end">
+            <label className="flex flex-col gap-1 text-xs uppercase tracking-wider opacity-70">
+              Archétype de base
+              <select
+                className="polar-select"
+                value={config.base}
+                onChange={(e) => setBase(e.target.value)}
+              >
+                {Object.entries(ARCHETYPE_LABELS).map(([id, label]) => (
+                  <option key={id} value={id}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs uppercase tracking-wider opacity-70">
+              Facteur multiplicateur ({config.scale.toFixed(2)}×)
+              <input
+                type="range"
+                min={SCALE_MIN}
+                max={SCALE_MAX}
+                step={SCALE_STEP}
+                value={config.scale}
+                onChange={(e) => setScale(parseFloat(e.target.value))}
+                className="polar-range"
+              />
+              <span className="text-[10px] opacity-60 normal-case tracking-normal mt-0.5">
+                Plus rapide ou plus lent que l'archétype ? 1.0× = identique.
+              </span>
+            </label>
+          </div>
+
+          {/* Spinnaker selector — applies a per-TWA boost across all TWS curves. */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-xs uppercase tracking-wider opacity-70">
+              Spinnaker
+            </span>
+            <div className="polar-spi-segment" role="radiogroup" aria-label="Type de spi">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={config.spi === "off"}
+                onClick={() => setSpi("off")}
+                className={`polar-spi-btn ${config.spi === "off" ? "is-active" : ""}`}
+              >
+                Aucun
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={config.spi === "asymmetric"}
+                onClick={() => setSpi("asymmetric")}
+                className={`polar-spi-btn ${config.spi === "asymmetric" ? "is-active" : ""}`}
+                title="Asymétrique : sweet spot reaching 110-135°, utile jusqu'à 150° en heat-up"
+              >
+                Asymétrique
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={config.spi === "symmetric"}
+                onClick={() => setSpi("symmetric")}
+                className={`polar-spi-btn ${config.spi === "symmetric" ? "is-active" : ""}`}
+                title="Symétrique : optimal au plein-vent arrière, 135-165° (pole requis)"
+              >
+                Symétrique
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* TWS selector */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs uppercase tracking-wider opacity-70">
-          Courbe éditable (TWS)
+          {importedActive ? "Courbe affichée (TWS)" : "Courbe éditable (TWS)"}
         </span>
         <div className="flex gap-1 flex-wrap">
           {effective.tws_kn.map((tws, idx) => (
@@ -289,7 +499,7 @@ export function PolarEditor() {
               key={tws}
               type="button"
               onClick={() => setSelectedTwsIdx(idx)}
-              className={`polar-tws-btn ${idx === selectedTwsIdx ? "is-selected" : ""}`}
+              className={`polar-tws-btn ${idx === activeTwsIdx ? "is-selected" : ""}`}
             >
               {tws} kn
             </button>
@@ -308,10 +518,12 @@ export function PolarEditor() {
         >
           {/* Title */}
           <text x={CX} y={26} textAnchor="middle" className="polar-title">
-            {ARCHETYPE_LABELS[config.base]}
+            {importedActive ? effective.name : ARCHETYPE_LABELS[config.base]}
           </text>
           <text x={CX} y={44} textAnchor="middle" className="polar-subtitle">
-            {config.scale.toFixed(2)}× · {config.spi === "off" ? "sans spi" : config.spi === "asymmetric" ? "spi asymétrique" : "spi symétrique"} · {overrideCount > 0 ? `${overrideCount} point(s) ajusté(s)` : "aucun ajustement"}
+            {importedActive
+              ? `polaire importée · coefficient de plaisance ${config.applyEfficiency ? `×${SERVER_DEFAULT_EFFICIENCY.toFixed(2)}` : "désactivé"}`
+              : `${config.scale.toFixed(2)}× · ${config.spi === "off" ? "sans spi" : config.spi === "asymmetric" ? "spi asymétrique" : "spi symétrique"} · ${overrideCount > 0 ? `${overrideCount} point(s) ajusté(s)` : "aucun ajustement"}`}
           </text>
 
           {/* Speed rings */}
@@ -358,7 +570,7 @@ export function PolarEditor() {
 
           {/* Non-selected curves: thin, faded */}
           {effective.boat_speed_kn.map((row, twsIdx) => {
-            if (twsIdx === selectedTwsIdx) return null;
+            if (twsIdx === activeTwsIdx) return null;
             return (
               <path
                 key={twsIdx}
@@ -373,33 +585,35 @@ export function PolarEditor() {
           <path
             d={curvePath(
               effective.twa_deg,
-              effective.boat_speed_kn[selectedTwsIdx],
+              effective.boat_speed_kn[activeTwsIdx],
               pxPerKn,
             )}
             fill="none"
             className="polar-curve-selected"
           />
 
-          {/* Draggable handles for the selected curve */}
-          {effective.boat_speed_kn[selectedTwsIdx].map((speed, twaIdx) => {
+          {/* Handles for the selected curve — draggable in archetype mode,
+              read-only markers for an imported polar. */}
+          {effective.boat_speed_kn[activeTwsIdx].map((speed, twaIdx) => {
             const pt = polarToCartesian(effective.twa_deg[twaIdx], speed * pxPerKn);
             const isHover = hoverHandle === twaIdx;
             const isDragging = draggingTwaIdx === twaIdx;
-            const key = `${selectedTwsIdx},${twaIdx}`;
-            const isOverridden = key in config.overrides;
+            const key = `${activeTwsIdx},${twaIdx}`;
+            const isOverridden = !importedActive && key in config.overrides;
             return (
               <circle
                 key={twaIdx}
                 cx={pt.x}
                 cy={pt.y}
                 r={isHover || isDragging ? HANDLE_R_HOVER : HANDLE_R}
-                className={`polar-handle ${isOverridden ? "is-overridden" : ""}`}
+                className={`polar-handle ${isOverridden ? "is-overridden" : ""} ${importedActive ? "is-readonly" : ""}`}
                 onPointerDown={(e) => onHandlePointerDown(e, twaIdx)}
                 onPointerEnter={() => setHoverHandle(twaIdx)}
                 onPointerLeave={() => setHoverHandle(null)}
               >
                 <title>
-                  TWA {effective.twa_deg[twaIdx]}° · {speed.toFixed(1)} kn (glisser pour ajuster)
+                  TWA {effective.twa_deg[twaIdx]}° · {speed.toFixed(1)} kn
+                  {importedActive ? "" : " (glisser pour ajuster)"}
                 </title>
               </circle>
             );
@@ -411,7 +625,7 @@ export function PolarEditor() {
               setOverride fires on each pointer move. */}
           {draggingTwaIdx !== null && (() => {
             const twa = effective.twa_deg[draggingTwaIdx];
-            const speed = effective.boat_speed_kn[selectedTwsIdx][draggingTwaIdx];
+            const speed = effective.boat_speed_kn[activeTwsIdx][draggingTwaIdx];
             const r = speed * pxPerKn;
             // Push the label well outside the handle so the dragged finger
             // (or cursor) doesn't sit on top of the value. Cap inside the
@@ -494,11 +708,12 @@ export function PolarEditor() {
       {/* Footer actions */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="text-xs opacity-70">
-          Glisse un point de la courbe sélectionnée pour ajuster sa vitesse, ou
-          utilise le slider pour mettre toute la polaire à l'échelle.
+          {importedActive
+            ? "Polaire importée : les valeurs du fichier sont utilisées telles quelles. Repasse en « Archétype ajusté » pour retrouver l'édition manuelle."
+            : "Glisse un point de la courbe sélectionnée pour ajuster sa vitesse, ou utilise le slider pour mettre toute la polaire à l'échelle."}
         </div>
         <div className="flex gap-2">
-          {hasOverrides(config) && (
+          {!importedActive && hasOverrides(config) && (
             <button type="button" onClick={clearOverrides} className="polar-btn">
               Effacer les ajustements
             </button>
@@ -685,6 +900,78 @@ export function PolarEditor() {
         .polar-btn:hover {
           background: var(--ow-bg-2, rgba(255,255,255,0.06));
           color: var(--ow-fg-0, #e2e8f0);
+        }
+        .polar-import {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding: 12px 14px;
+          border-radius: 10px;
+          background: var(--ow-bg-1, rgba(255,255,255,0.03));
+          border: 1px solid var(--ow-line-2, rgba(255,255,255,0.10));
+        }
+        .polar-import-hint {
+          font-size: 11.5px;
+          line-height: 1.5;
+          opacity: 0.65;
+          margin: 0;
+        }
+        .polar-import-current {
+          font-size: 12.5px;
+          line-height: 1.5;
+        }
+        .polar-import-name {
+          font-weight: 700;
+          color: var(--ow-accent, #14b8a6);
+          font-family: ui-monospace, monospace;
+        }
+        .polar-source-segment {
+          display: inline-flex;
+          gap: 2px;
+          padding: 2px;
+          border-radius: 10px;
+          background: var(--ow-bg-1, rgba(255,255,255,0.04));
+          border: 1px solid var(--ow-line-2, rgba(255,255,255,0.10));
+        }
+        .polar-import-notice {
+          font-size: 11.5px;
+          line-height: 1.5;
+          margin: 0;
+        }
+        .polar-import-notice.is-ok {
+          color: var(--ow-accent, #14b8a6);
+        }
+        .polar-import-notice.is-error {
+          color: #f87171;
+        }
+        .polar-eff {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding: 12px 14px;
+          border-radius: 10px;
+          background: var(--ow-bg-1, rgba(255,255,255,0.03));
+          border: 1px solid var(--ow-line-2, rgba(255,255,255,0.10));
+        }
+        .polar-eff-hint {
+          font-size: 11.5px;
+          line-height: 1.5;
+          opacity: 0.65;
+          margin: 0;
+        }
+        .polar-btn-accent {
+          border-color: var(--ow-accent, #14b8a6);
+          color: var(--ow-accent, #14b8a6);
+        }
+        .polar-btn-accent:hover {
+          background: color-mix(in srgb, var(--ow-accent, #14b8a6) 15%, transparent);
+          color: var(--ow-accent, #14b8a6);
+        }
+        .polar-handle.is-readonly {
+          cursor: default;
+        }
+        .polar-handle.is-readonly:hover {
+          fill: var(--ow-accent, #14b8a6);
         }
         .polar-motor {
           display: flex;

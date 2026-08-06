@@ -298,11 +298,12 @@ export function ConfigPage() {
           <>
             <h1 className="text-3xl font-bold mb-2">Polaire personnalisée</h1>
             <p className="text-sm opacity-80 mb-8 leading-relaxed">
-              Choisis un archétype de base, puis ajuste-le. L'échelle multiplie
-              toute la polaire (utile si ton bateau est plus ou moins rapide
-              que la référence). Pour un ajustement fin, sélectionne une
-              courbe TWS et glisse ses points sur le diagramme. Cette polaire
-              n'est pas encore envoyée au planificateur côté serveur.
+              Importe le fichier de polaire de ton bateau (.pol, .csv, .txt) :
+              il remplace alors la polaire utilisée pour tes plans de passage.
+              Sans fichier, choisis un archétype de base et ajuste-le :
+              l'échelle multiplie toute la polaire, et pour un ajustement fin,
+              sélectionne une courbe TWS et glisse ses points sur le diagramme.
+              Cette polaire est utilisée par le planificateur.
             </p>
             <PolarEditor />
           </>
