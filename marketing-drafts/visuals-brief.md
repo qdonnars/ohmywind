@@ -12,7 +12,7 @@ named after the filename it should land at in `docs/screenshots/`.
 is the hero image on three surfaces (root README, HF Space card, HF Space
 landing). It predates PRs #57 (departure slider), #64 (Simuler/Comparer
 toggle), and the current `/plan` header layout — see
-[`MARKETING_AUDIT.md` § 5.2](../MARKETING_AUDIT.md#52-freshness-check-on-planpng).
+[`MARKETING_AUDIT.md` § 5.2](MARKETING_AUDIT.md#52-freshness-check-on-planpng).
 
 **Where to capture:**
 [`packages/web/src/routes/PlanPage.tsx`](../packages/web/src/routes/PlanPage.tsx),
@@ -61,7 +61,7 @@ Keep file < 600 KB.
 **Why:** The compare-windows / sweep mode is the largest UX feature
 shipped in 2026 Q1 (PRs #58 → #69) and currently has zero visual
 representation. See
-[`MARKETING_AUDIT.md` § 8 action 3](../MARKETING_AUDIT.md#3-promote-compare-windows--sweep-mode-as-a-first-class-feature).
+[`MARKETING_AUDIT.md` § 8 action 3](MARKETING_AUDIT.md#3-promote-compare-windows--sweep-mode-as-a-first-class-feature).
 
 **Where:** Same `/plan` view, but with the mode toggle set to **Comparer
 les fenêtres** and a sweep already executed.
