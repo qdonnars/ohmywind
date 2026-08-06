@@ -5,7 +5,7 @@
 OhMyWind est un planificateur de navigation à la voile open-source, disponible sur
 [ohmywind.fr](https://ohmywind.fr) et sous forme d'application Android. Il est édité à
 titre personnel et non commercial par Quentin Donnars. Pour toute question relative à
-cette politique : [qdonnars@gmail.com](mailto:qdonnars@gmail.com).
+cette politique : [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 Le principe général : **OhMyWind ne possède ni compte utilisateur, ni base de données,
 ni outil de mesure d'audience**. Aucune donnée personnelle n'est conservée sur des
@@ -69,7 +69,7 @@ Conformément au RGPD, vous disposez de droits d'accès, de rectification, d'opp
 et d'effacement. OhMyWind ne conservant aucune donnée personnelle côté serveur,
 l'essentiel s'exerce directement sur votre appareil : effacez les données du site ou
 de l'application. Pour toute question ou demande :
-[qdonnars@gmail.com](mailto:qdonnars@gmail.com).
+[contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 ## Évolution de cette politique
 
