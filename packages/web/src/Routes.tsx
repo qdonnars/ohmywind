@@ -2,6 +2,7 @@ import App from "./App";
 import { PlanPage } from "./routes/PlanPage";
 import { MethodologiePage } from "./routes/MethodologiePage";
 import { ConfigPage } from "./routes/ConfigPage";
+import { ConfidentialitePage } from "./routes/ConfidentialitePage";
 import { useRouter } from "./router";
 
 /**
@@ -23,5 +24,6 @@ export function Routes() {
   if (path === "/plan") return <PlanPage key={key} />;
   if (path === "/methodologie") return <MethodologiePage key={key} />;
   if (path === "/config") return <ConfigPage key={key} />;
+  if (path === "/confidentialite") return <ConfidentialitePage key={key} />;
   return <App key={key} />;
 }
