@@ -7,15 +7,15 @@ Seul `twa-manifest.json` est versionné. Le projet Android (Gradle, `app/`, etc.
 ## Prérequis
 
 - `npm i -g @bubblewrap/cli` (JDK 17 et Android SDK sont téléchargés par Bubblewrap au premier lancement, dans `~/.bubblewrap/`)
-- `android.keystore` présent dans ce dossier (backup: Vaultwarden, entrée "OhMyWind Android keystore"). Sans lui, impossible de signer une mise à jour: ne jamais le perdre, ne jamais le committer.
-- Attention à `git clean -fdx`: il supprimerait le keystore local. Restaurer depuis Vaultwarden le cas échéant.
+- `android.keystore` présent dans ce dossier (backup: NordPass, entrée "OhMyWind Android keystore"). Sans lui, impossible de signer une mise à jour: ne jamais le perdre, ne jamais le committer.
+- Attention à `git clean -fdx`: il supprimerait le keystore local. Restaurer depuis NordPass le cas échéant.
 
 ## Build
 
 ```bash
 cd packages/android
-export BUBBLEWRAP_KEYSTORE_PASSWORD='<Vaultwarden>'
-export BUBBLEWRAP_KEY_PASSWORD='<Vaultwarden>'
+export BUBBLEWRAP_KEYSTORE_PASSWORD='<NordPass>'
+export BUBBLEWRAP_KEY_PASSWORD='<NordPass>'
 bubblewrap update   # régénère le projet Android depuis twa-manifest.json
 bubblewrap build    # produit app-release-bundle.aab (Play) + app-release-signed.apk (device)
 ```
