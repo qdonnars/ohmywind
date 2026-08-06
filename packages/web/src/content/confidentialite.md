@@ -4,7 +4,7 @@
 
 OhMyWind est un planificateur de navigation à la voile open-source, disponible sur
 [ohmywind.fr](https://ohmywind.fr) et sous forme d'application Android. Il est édité à
-titre personnel et non commercial par Quentin Donnars. Pour toute question relative à
+titre personnel et non commercial par Tinqueen. Pour toute question relative à
 cette politique : [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 Le principe général : **OhMyWind ne possède ni compte utilisateur, ni base de données,
