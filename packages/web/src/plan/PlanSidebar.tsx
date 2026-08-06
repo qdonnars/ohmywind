@@ -15,6 +15,7 @@ import {
   savePolarConfig,
 } from "../config/polarConfig";
 import { rememberReturnPath } from "../config/returnPath";
+import { downloadGpx } from "./exportGpx";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -809,20 +810,22 @@ interface PlanSidebarProps {
   actionTaken?: boolean;
 }
 
-// Header row: ModeToggle + an optional trash button to discard the plan.
-// The trash sits flush with the toggle and only renders when a route exists
-// (no waypoints → nothing to reset). Tooltip: "Réinitialiser".
+// Header row: ModeToggle + optional GPX-export and trash buttons.
+// Both sit flush with the toggle and only render when a route exists
+// (no waypoints → nothing to export or reset).
 function PlanHeaderRow({
   mode,
   onModeChange,
   locked,
   pristine,
+  onExport,
   onReset,
 }: {
   mode: PlanMode;
   onModeChange: (m: PlanMode) => void;
   locked?: boolean;
   pristine?: boolean;
+  onExport?: () => void;
   onReset?: () => void;
 }) {
   return (
@@ -830,6 +833,28 @@ function PlanHeaderRow({
       <div className="flex-1 min-w-0">
         <ModeToggle value={mode} onChange={onModeChange} locked={locked} pristine={pristine} />
       </div>
+      {onExport && (
+        <button
+          type="button"
+          onClick={onExport}
+          title="Exporter la trace (GPX)"
+          aria-label="Exporter la trace (GPX)"
+          className="shrink-0 flex items-center justify-center rounded-lg transition-colors hover:opacity-100"
+          style={{
+            width: 38,
+            background: "var(--ow-bg-2)",
+            border: "1px solid var(--ow-line)",
+            color: "var(--ow-fg-2)",
+            opacity: 0.85,
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8 2v8.5" />
+            <path d="M4.5 7L8 10.5 11.5 7" />
+            <path d="M2.5 13.5h11" />
+          </svg>
+        </button>
+      )}
       {onReset && (
         <button
           type="button"
@@ -895,6 +920,19 @@ export function PlanSidebar({
   // Show the trash button only when the user has placed enough to have
   // something to clear — nothing to reset on a fully-empty form.
   const resetHandler = onReset && waypointCount >= 2 ? onReset : undefined;
+  // GPX export — same gate as reset: a route needs 2 points to be a trace.
+  // The time-stamped track only rides along when the displayed simulation
+  // still matches the drawn route (single mode, not stale); otherwise the
+  // export is the bare waypoint route.
+  const exportHandler = waypointCount >= 2
+    ? () =>
+        downloadGpx({
+          waypoints,
+          passage: mode === "single" && !isStale ? passage : null,
+          archetypeLabel:
+            archetypes.find((a) => a.slug === currentArchetypeSlug)?.name ?? currentArchetypeSlug,
+        })
+    : undefined;
   const { resolvedTheme } = useTheme();
   const sweepValid = mode === "compare"
     ? validateSweep(sweepEarliest, sweepLatest, sweepIntervalHours)
@@ -926,7 +964,7 @@ export function PlanSidebar({
   if (error) {
     return (
       <div className="p-4">
-        <PlanHeaderRow mode={mode} onModeChange={handleModeChange} locked={waypointCount < 2} onReset={resetHandler} />
+        <PlanHeaderRow mode={mode} onModeChange={handleModeChange} locked={waypointCount < 2} onExport={exportHandler} onReset={resetHandler} />
         <div className="mt-4 rounded-xl p-4 text-sm" style={{ background: "var(--ow-err-soft)", color: "var(--ow-err)", border: "1px solid var(--ow-err-line)" }}>
           <p className="font-semibold mb-1">Erreur</p>
           <p className="leading-relaxed">{error}</p>
@@ -959,6 +997,7 @@ export function PlanSidebar({
           mode={mode}
           onModeChange={handleModeChange}
           pristine
+          onExport={exportHandler}
           onReset={resetHandler}
         />
         <div className="hidden lg:block">
@@ -983,7 +1022,7 @@ export function PlanSidebar({
     return (
       <div className="animate-fade-in">
         <div className="px-4 pt-4 pb-3" style={{ borderBottom: "1px solid var(--ow-line)" }}>
-          <PlanHeaderRow mode={mode} onModeChange={handleModeChange} onReset={resetHandler} />
+          <PlanHeaderRow mode={mode} onModeChange={handleModeChange} onExport={exportHandler} onReset={resetHandler} />
         </div>
 
         <div className="px-4 py-2.5" style={{ borderBottom: "1px solid var(--ow-line)" }}>
@@ -1066,7 +1105,7 @@ export function PlanSidebar({
     const ctaInk = mode === "compare" ? "#3a2a08" : "#fff";
     return (
       <div className="p-4 space-y-3 animate-fade-in">
-        <PlanHeaderRow mode={mode} onModeChange={handleModeChange} onReset={resetHandler} />
+        <PlanHeaderRow mode={mode} onModeChange={handleModeChange} onExport={exportHandler} onReset={resetHandler} />
 
         {/* Tab-panel: everything below is "the contents" of the picked mode.
             The 2 px accent stripe at the top picks up the mode's color
@@ -1140,7 +1179,7 @@ export function PlanSidebar({
     <div className="animate-fade-in">
       {/* Mode tabs */}
       <div className="px-4 pt-4 pb-3" style={{ borderBottom: "1px solid var(--ow-line)" }}>
-        <PlanHeaderRow mode={mode} onModeChange={handleModeChange} onReset={resetHandler} />
+        <PlanHeaderRow mode={mode} onModeChange={handleModeChange} onExport={exportHandler} onReset={resetHandler} />
       </div>
 
       {/* Recalculer bar */}
