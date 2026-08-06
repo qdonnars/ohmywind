@@ -100,6 +100,13 @@ export function InfoPanel() {
           </a>{" "}
           et Open-Meteo Geocoding, tous deux sur données OpenStreetMap.
         </p>
+        <p className="text-xs leading-relaxed mt-2" style={{ color: "var(--ow-fg-2)" }}>
+          Aucun compte, aucun traqueur :{" "}
+          <a href="/confidentialite" className="underline hover:opacity-80">
+            politique de confidentialité
+          </a>
+          .
+        </p>
       </section>
 
       <section
