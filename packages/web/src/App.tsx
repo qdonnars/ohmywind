@@ -173,7 +173,7 @@ function App() {
 
   return (
     <div
-      className="h-screen flex flex-col overflow-hidden"
+      className="h-dvh flex flex-col overflow-hidden"
       style={{ background: 'var(--ow-bg-0)', color: 'var(--ow-fg-0)' }}
     >
       {/* Search proximity reference: the granted position first, else where
