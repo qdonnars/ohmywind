@@ -117,18 +117,23 @@ def get_polar(name: str) -> BoatPolar:
     return reg[name]
 
 
-def effective_min_upwind_twa(polar: BoatPolar) -> float:
-    """Explicit min upwind angle, else first grid TWA with real speed.
+def grid_min_sailable_twa(polar: BoatPolar) -> float:
+    """First grid TWA whose column carries real speed.
 
     Skips leading all-zero columns (imported files often carry a 0-deg row of
     zeros) so the derived floor lands on the first sailable angle.
     """
-    if polar.min_upwind_twa_deg is not None:
-        return polar.min_upwind_twa_deg
     for j, twa in enumerate(polar.twa_deg):
         if any(row[j] > 0.1 for row in polar.boat_speed_kn):
             return twa
     return polar.twa_deg[0]
+
+
+def effective_min_upwind_twa(polar: BoatPolar) -> float:
+    """Explicit min upwind angle, else the grid-derived sailable floor."""
+    if polar.min_upwind_twa_deg is not None:
+        return polar.min_upwind_twa_deg
+    return grid_min_sailable_twa(polar)
 
 
 def _bracket(values: tuple[float, ...], v: float) -> tuple[int, int, float]:

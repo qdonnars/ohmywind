@@ -1593,3 +1593,21 @@ class TestNullDataPerSegmentFallback:
         models_attempted = {c[2] for c in adapter.calls}
         assert "icon_d2" in models_attempted
         assert "icon_eu" in models_attempted
+
+
+class TestSweepFloorNeverBelowGridData:
+    def test_pin_below_grid_does_not_resurrect_the_30deg_bug(self) -> None:
+        # A user pinning 28 deg on a grid starting at 40 deg must not put the
+        # sweep back on clamp-flat speeds where cos alone picks the optimum.
+        import dataclasses
+
+        polar = dataclasses.replace(get_polar("cruiser_30ft"), min_upwind_twa_deg=28.0)
+        opt_twa, _ = best_vmg_upwind(polar, 10.0)
+        assert opt_twa >= 40.0
+
+    def test_pin_above_grid_still_wins(self) -> None:
+        import dataclasses
+
+        polar = dataclasses.replace(get_polar("cruiser_30ft"), min_upwind_twa_deg=55.0)
+        opt_twa, _ = best_vmg_upwind(polar, 10.0)
+        assert opt_twa >= 55.0
