@@ -1,13 +1,14 @@
 // User-customized polar diagram, persisted in localStorage.
 //
 // Two sources, one active at a time:
-// - "archetype": the user picks a bundled archetype, optionally scales every
-//   speed uniformly (size multiplier) and/or hand-tunes individual TWS/TWA
-//   cells;
+// - "archetype": the user picks a bundled archetype, optionally selects a spi
+//   profile and/or hand-tunes individual TWS/TWA cells;
 // - "imported": a polar file uploaded by the user (see polarImport.ts)
 //   replaces the archetype-derived matrix wholesale.
 // The effective matrix is pushed to `plan_passage` whenever it deviates from
-// the plain archetype default (see PlanPage's resolveOverrides).
+// the plain archetype default (see PlanPage's resolveOverrides). The
+// performance coefficient never touches the matrix: it travels as the
+// request's `efficiency` parameter.
 
 import catamaran40ft from "../data/polars/catamaran_40ft.json";
 import cruiser20ft from "../data/polars/cruiser_20ft.json";
@@ -36,6 +37,9 @@ export interface PolarData {
   // to `plan_passage` deserialises with no remapping in `_parse_polar`.
   motor_threshold_kn?: number;
   motor_speed_kn?: number;
+  // Minimum sailable TWA (deg) — mirrors BoatPolar (Python). Below this angle
+  // the boat is in the no-go zone; the server floors its VMG sweep here.
+  min_upwind_twa_deg?: number;
 }
 
 // Strong-typed re-exports of the bundled archetype polars. Imports go through
@@ -62,23 +66,31 @@ export const ARCHETYPE_LABELS: Readonly<Record<string, string>> = {
 
 export const DEFAULT_BASE = "cruiser_30ft";
 
-// Range of the uniform scale slider. 0.5 - 1.5 covers the realistic envelope
-// (heavy/light load, well/badly trimmed) without producing absurd values.
-export const SCALE_MIN = 0.5;
-export const SCALE_MAX = 1.5;
-export const SCALE_STEP = 0.01;
+// Performance coefficient applied at plan time (the server's `efficiency`
+// parameter). 100% = a race crew sailing the polar; cruising realistically
+// loses ~20% (sail trim, comfort margins, helm attention).
+export const COEFF_MIN = 0.5;
+export const COEFF_MAX = 1.0;
+export const COEFF_STEP = 0.01;
+export const COEFF_DEFAULT = 0.8;
 
-// Default multiplier — neutral (1.0) because the multiplier represents a
-// structural delta vs the chosen archetype ("is my boat faster/slower than
-// the reference cruiser 30ft?"), NOT the day-of efficiency (which the server
-// applies separately via plan_passage's `efficiency` arg, default 0.75 in
-// cruising). Two concepts, two knobs; keep them decoupled.
-export const SCALE_DEFAULT = 1;
-
-// Plan_passage default efficiency (kept in sync with the server / CLAUDE.md).
-// Surfaced here purely to display a UI banner reminding the user that this
-// coefficient is applied at plan time, on top of the polar they edit here.
+// Historical plan_passage default efficiency — what pre-v3 configs implicitly
+// planned with when they didn't pin 1.0. Consumed by the v1/v2 migration so
+// existing users keep their ETAs; fresh installs start at COEFF_DEFAULT.
 export const SERVER_DEFAULT_EFFICIENCY = 0.75;
+
+// User override bounds for the minimum upwind angle (deg TWA). Mirrors the
+// MCP-side validation range on plan_passage.
+export const MIN_UPWIND_MIN = 25;
+export const MIN_UPWIND_MAX = 70;
+
+// Wind ceiling for the spinnaker boost. Above this TWS the spi is doused and
+// rows keep their bare polar speeds. Default 16 kn: a cruising chute typically
+// comes down at 15-18 kn true, and 16 lands exactly on an archetype grid row
+// so the default gating needs no interpolation.
+export const SPI_MAX_TWS_DEFAULT = 16;
+export const SPI_MAX_TWS_MIN = 8;
+export const SPI_MAX_TWS_MAX = 30;
 
 export type SpiKind = "off" | "asymmetric" | "symmetric";
 
@@ -98,15 +110,23 @@ export interface ImportedPolar {
 export interface PolarConfig {
   // Archetype the user started from. Determines the (tws_kn, twa_deg) grid.
   base: string;
-  // Uniform multiplier applied to every cell of the base polar.
-  scale: number;
+  // Performance coefficient sent to plan_passage as `efficiency`. 1.0 = race
+  // trim (sail the polar), 0.8 = typical cruising. Applies to imported polars
+  // too: a file built from real logged performance should sit at 1.0.
+  coefficient: number;
   // Spinnaker selection: asymmetric (reaching) or symmetric (running). Applies
-  // a per-TWA multiplier on top of `scale` across all TWS curves. Overrides
-  // still win over the boost.
+  // a per-TWA multiplier across the TWS rows at or under `spiMaxTwsKn`.
+  // Overrides still win over the boost.
   spi: SpiKind;
+  // Douse the spi above this TWS (kn): rows above it keep bare polar speeds.
+  spiMaxTwsKn: number;
+  // User override of the minimum upwind angle (deg TWA). undefined = auto:
+  // the archetype's JSON value, or the first sailable angle of an imported
+  // grid (leading all-zero columns skipped).
+  minUpwindDeg?: number;
   // Sparse cell overrides keyed by `${twsIdx},${twaIdx}` -> absolute boat speed
-  // in knots. Overrides win over scale + spi, so the user's hand-tune sticks
-  // even when other sliders/toggles move.
+  // in knots. Overrides win over the spi boost, so the user's hand-tune sticks
+  // even when other toggles move.
   overrides: Record<string, number>;
   // Optional motor config. Both must be set together to take effect: when the
   // polar-derived boat speed falls under `motorThresholdKn`, the planner runs
@@ -119,27 +139,24 @@ export interface PolarConfig {
   // the user can flip back without losing their hand-tuning.
   source: PolarSource;
   imported: ImportedPolar | null;
-  // The "coefficient de plaisance": whether plan_passage should still apply
-  // its cruising efficiency coefficient (SERVER_DEFAULT_EFFICIENCY) on top of
-  // an imported polar. Designer polars are theoretical → keep it (true);
-  // polars reflecting real-world logged performance → skip it (false, the
-  // plan request then pins efficiency to 1.0). Only consulted while the
-  // imported polar is active.
-  applyEfficiency: boolean;
 }
 
 interface PersistedConfig {
-  v: 1 | 2;
+  v: 1 | 2 | 3;
   base: string;
-  scale: number;
   spi?: SpiKind | boolean;
   overrides: Record<string, number>;
   motorThresholdKn?: number;
   motorSpeedKn?: number;
-  // v2 fields — absent in payloads written before the polar-import feature.
   source?: PolarSource;
   imported?: ImportedPolar | null;
+  // v1/v2 legacy fields — consumed by the migration, no longer written.
+  scale?: number;
   applyEfficiency?: boolean;
+  // v3 fields.
+  coefficient?: number;
+  spiMaxTwsKn?: number;
+  minUpwindDeg?: number;
 }
 
 // Per-TWA multipliers. Values derived from sailmaker performance ranges
@@ -176,15 +193,39 @@ function boostMap(kind: SpiKind): Readonly<Record<number, number>> | null {
   return null;
 }
 
+// Boost at an arbitrary TWA: piecewise-linear between the map's breakpoints,
+// clamped to the edge values outside them. Archetype grids hit the breakpoints
+// exactly (byte-identical to a direct map lookup); imported grids can carry
+// 30° or 180° rows and interpolate/clamp instead of silently getting 1.
+export function spiBoostAt(kind: SpiKind, twaDeg: number): number {
+  const map = boostMap(kind);
+  if (!map) return 1;
+  const keys = Object.keys(map)
+    .map(Number)
+    .sort((a, b) => a - b);
+  if (twaDeg <= keys[0]) return map[keys[0]];
+  const last = keys[keys.length - 1];
+  if (twaDeg >= last) return map[last];
+  for (let i = 1; i < keys.length; i++) {
+    if (keys[i] >= twaDeg) {
+      const lo = keys[i - 1];
+      const hi = keys[i];
+      const f = (twaDeg - lo) / (hi - lo);
+      return map[lo] + f * (map[hi] - map[lo]);
+    }
+  }
+  return 1;
+}
+
 export function defaultPolarConfig(): PolarConfig {
   return {
     base: DEFAULT_BASE,
-    scale: SCALE_DEFAULT,
+    coefficient: COEFF_DEFAULT,
     spi: "off",
+    spiMaxTwsKn: SPI_MAX_TWS_DEFAULT,
     overrides: {},
     source: "archetype",
     imported: null,
-    applyEfficiency: true,
   };
 }
 
@@ -238,9 +279,20 @@ function sanitizeImported(raw: unknown): ImportedPolar | null {
   };
 }
 
-function clampScale(x: number): number {
-  if (Number.isNaN(x)) return 1;
-  return Math.min(SCALE_MAX, Math.max(SCALE_MIN, x));
+function clampCoefficient(x: unknown): number {
+  if (typeof x !== "number" || !Number.isFinite(x)) return COEFF_DEFAULT;
+  return Math.min(COEFF_MAX, Math.max(COEFF_MIN, Math.round(x * 100) / 100));
+}
+
+function sanitizeMinUpwind(raw: unknown): number | undefined {
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return undefined;
+  if (raw < MIN_UPWIND_MIN || raw > MIN_UPWIND_MAX) return undefined;
+  return Math.round(raw);
+}
+
+function clampSpiMaxTws(raw: unknown): number {
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return SPI_MAX_TWS_DEFAULT;
+  return Math.min(SPI_MAX_TWS_MAX, Math.max(SPI_MAX_TWS_MIN, Math.round(raw)));
 }
 
 function sanitizeOverrides(raw: unknown, base: PolarData): Record<string, number> {
@@ -270,9 +322,7 @@ export function loadPolarConfig(): PolarConfig {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultPolarConfig();
     const parsed = JSON.parse(raw) as PersistedConfig;
-    // v1 payloads (pre polar-import) load fine: the v2 fields just fall back
-    // to their defaults below.
-    if (parsed.v !== 1 && parsed.v !== 2) return defaultPolarConfig();
+    if (parsed.v !== 1 && parsed.v !== 2 && parsed.v !== 3) return defaultPolarConfig();
     const base = isValidBase(parsed.base) ? parsed.base : DEFAULT_BASE;
     // Tolerate legacy boolean `spi` from earlier dev builds: `true` maps to
     // the asymmetric profile (closest match to the original single-mode
@@ -286,18 +336,32 @@ export function loadPolarConfig(): PolarConfig {
       spi = "off";
     }
     const imported = sanitizeImported(parsed.imported);
+    // A source of "imported" without a valid imported polar would silently
+    // plan on the archetype while the UI claims otherwise — snap back.
+    const source: PolarSource =
+      parsed.source === "imported" && imported !== null ? "imported" : "archetype";
+    // v1/v2 → coefficient migration: those configs planned at the server
+    // default (0.75), except imported polars explicitly flagged "real-world"
+    // (applyEfficiency=false) which pinned 1.0 — preserve those ETAs. The old
+    // `scale` slider is dropped, not folded: a structural hull multiplier and
+    // a sail-trim coefficient are different concepts.
+    const coefficient =
+      parsed.v === 3
+        ? clampCoefficient(parsed.coefficient)
+        : parsed.applyEfficiency === false && source === "imported"
+          ? 1.0
+          : SERVER_DEFAULT_EFFICIENCY;
     return {
       base,
-      scale: clampScale(typeof parsed.scale === "number" ? parsed.scale : SCALE_DEFAULT),
+      coefficient,
       spi,
+      spiMaxTwsKn: parsed.v === 3 ? clampSpiMaxTws(parsed.spiMaxTwsKn) : SPI_MAX_TWS_DEFAULT,
+      minUpwindDeg: parsed.v === 3 ? sanitizeMinUpwind(parsed.minUpwindDeg) : undefined,
       overrides: sanitizeOverrides(parsed.overrides, BASE_POLARS[base]),
       motorThresholdKn: sanitizeMotorField(parsed.motorThresholdKn, MOTOR_THRESHOLD_MAX),
       motorSpeedKn: sanitizeMotorField(parsed.motorSpeedKn, MOTOR_SPEED_MAX),
-      // A source of "imported" without a valid imported polar would silently
-      // plan on the archetype while the UI claims otherwise — snap back.
-      source: parsed.source === "imported" && imported !== null ? "imported" : "archetype",
+      source,
       imported,
-      applyEfficiency: parsed.applyEfficiency !== false,
     };
   } catch {
     return defaultPolarConfig();
@@ -307,16 +371,17 @@ export function loadPolarConfig(): PolarConfig {
 export function savePolarConfig(cfg: PolarConfig): void {
   try {
     const payload: PersistedConfig = {
-      v: 2,
+      v: 3,
       base: cfg.base,
-      scale: cfg.scale,
+      coefficient: cfg.coefficient,
       spi: cfg.spi,
+      spiMaxTwsKn: cfg.spiMaxTwsKn,
+      minUpwindDeg: cfg.minUpwindDeg,
       overrides: cfg.overrides,
       motorThresholdKn: cfg.motorThresholdKn,
       motorSpeedKn: cfg.motorSpeedKn,
       source: cfg.source,
       imported: cfg.imported,
-      applyEfficiency: cfg.applyEfficiency,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch {
@@ -331,24 +396,59 @@ export function isImportedActive(cfg: PolarConfig): boolean {
   return cfg.source === "imported" && cfg.imported !== null;
 }
 
-// The `efficiency` to send to plan_passage, or undefined to let the server
-// default (SERVER_DEFAULT_EFFICIENCY) apply. Pinning 1.0 only makes sense for
-// an imported polar the user declared as already reflecting real-world
-// performance — the archetype polars are theoretical by construction.
-export function planEfficiency(cfg: PolarConfig): number | undefined {
-  if (isImportedActive(cfg) && !cfg.applyEfficiency) return 1.0;
-  return undefined;
+// The `efficiency` sent to plan_passage. Always explicit since v3: the
+// coefficient is a first-class basic setting, not a server-side default.
+export function planEfficiency(cfg: PolarConfig): number {
+  return cfg.coefficient;
 }
 
-// Compute the effective polar matrix. Imported source: the uploaded file wins
-// wholesale (scale / spi / overrides are archetype-editor concepts and do not
-// apply); motor config still does, being rig-independent. Archetype source:
-// base × scale × spi-boost, then overrides win.
-export function effectivePolar(cfg: PolarConfig): PolarData {
-  const motorActiveImported =
+// First TWA whose column carries any real speed — mirrors the server's
+// effective_min_upwind_twa (archetypes.py) so client display and server
+// calculation agree on where the no-go zone ends for a given grid.
+export function derivedMinUpwind(grid: {
+  twa_deg: number[];
+  boat_speed_kn: number[][];
+}): number {
+  for (let j = 0; j < grid.twa_deg.length; j++) {
+    if (grid.boat_speed_kn.some((row) => row[j] > 0.1)) return grid.twa_deg[j];
+  }
+  return grid.twa_deg[0];
+}
+
+// The minimum upwind angle in effect: user override, else imported-grid
+// derivation, else the archetype's bundled value.
+export function effectiveMinUpwind(cfg: PolarConfig, archetype?: string): number {
+  if (cfg.minUpwindDeg !== undefined) return cfg.minUpwindDeg;
+  if (isImportedActive(cfg)) return derivedMinUpwind(cfg.imported as ImportedPolar);
+  const base = BASE_POLARS[archetype ?? cfg.base] ?? BASE_POLARS[DEFAULT_BASE];
+  return base.min_upwind_twa_deg ?? derivedMinUpwind(base);
+}
+
+// Compute the effective polar payload. Imported source: the uploaded file wins
+// (overrides are archetype-editor concepts and do not apply); the spi boost is
+// an opt-in overlay for files that don't include spi rows — import resets spi
+// to "off", so trusting the file is the default. Archetype source: base ×
+// spi-boost (gated by the TWS ceiling), then overrides win. Both branches cap
+// at 30 kn (the server's hard bound) and carry the effective min upwind angle.
+export function effectivePolar(cfg: PolarConfig, archetype?: string): PolarData {
+  const motorActive =
     typeof cfg.motorThresholdKn === "number" && typeof cfg.motorSpeedKn === "number";
+  const minUpwind = effectiveMinUpwind(cfg, archetype);
   if (isImportedActive(cfg)) {
     const imp = cfg.imported as ImportedPolar;
+    const matrix =
+      cfg.spi === "off"
+        ? imp.boat_speed_kn
+        : imp.boat_speed_kn.map((row, twsIdx) =>
+            imp.tws_kn[twsIdx] <= cfg.spiMaxTwsKn
+              ? row.map((v, twaIdx) =>
+                  Math.min(
+                    30,
+                    Math.round(v * spiBoostAt(cfg.spi, imp.twa_deg[twaIdx]) * 100) / 100,
+                  ),
+                )
+              : row,
+          );
     return {
       name: imp.name,
       length_ft: 0,
@@ -358,32 +458,31 @@ export function effectivePolar(cfg: PolarConfig): PolarData {
       performance_class: "custom",
       tws_kn: imp.tws_kn,
       twa_deg: imp.twa_deg,
-      boat_speed_kn: imp.boat_speed_kn,
-      motor_threshold_kn: motorActiveImported ? cfg.motorThresholdKn : undefined,
-      motor_speed_kn: motorActiveImported ? cfg.motorSpeedKn : undefined,
+      boat_speed_kn: matrix,
+      motor_threshold_kn: motorActive ? cfg.motorThresholdKn : undefined,
+      motor_speed_kn: motorActive ? cfg.motorSpeedKn : undefined,
+      min_upwind_twa_deg: minUpwind,
     };
   }
-  const base = BASE_POLARS[cfg.base] ?? BASE_POLARS[DEFAULT_BASE];
-  const boost = boostMap(cfg.spi);
+  const base = BASE_POLARS[archetype ?? cfg.base] ?? BASE_POLARS[DEFAULT_BASE];
   const matrix = base.boat_speed_kn.map((row, twsIdx) =>
     row.map((v, twaIdx) => {
       const key = `${twsIdx},${twaIdx}`;
       if (key in cfg.overrides) return cfg.overrides[key];
-      const twa = base.twa_deg[twaIdx];
-      const spiMult = boost ? boost[twa] ?? 1 : 1;
-      return Math.round(v * cfg.scale * spiMult * 10) / 10;
+      const spiMult =
+        base.tws_kn[twsIdx] <= cfg.spiMaxTwsKn ? spiBoostAt(cfg.spi, base.twa_deg[twaIdx]) : 1;
+      return Math.min(30, Math.round(v * spiMult * 10) / 10);
     }),
   );
   // Only propagate motor fields when BOTH are present — matches the backend
   // contract (`_apply_motor` ignores half-set configs) and keeps the payload
   // minimal when the user hasn't opted in.
-  const motorActive =
-    typeof cfg.motorThresholdKn === "number" && typeof cfg.motorSpeedKn === "number";
   return {
     ...base,
     boat_speed_kn: matrix,
     motor_threshold_kn: motorActive ? cfg.motorThresholdKn : undefined,
     motor_speed_kn: motorActive ? cfg.motorSpeedKn : undefined,
+    min_upwind_twa_deg: minUpwind,
   };
 }
 
@@ -392,17 +491,19 @@ export function hasOverrides(cfg: PolarConfig): boolean {
 }
 
 // True when the polar deviates from the default for `archetype` — i.e. the
-// editor's base differs, the scale is non-neutral, a spi mode is selected, or
-// any cell has been hand-tuned. Used to decide whether to push the custom
+// editor's base differs, a spi mode is selected, the upwind angle is pinned,
+// or any cell has been hand-tuned. Used to decide whether to push the custom
 // matrix to the planner; when false, the server's bundled polar suffices.
+// The coefficient is deliberately absent: it travels as the `efficiency`
+// request parameter and never requires pushing a matrix.
 export function isPolarCustomized(cfg: PolarConfig, archetype: string): boolean {
   if (isImportedActive(cfg)) return true;
   const motorActive =
     typeof cfg.motorThresholdKn === "number" && typeof cfg.motorSpeedKn === "number";
   return (
     cfg.base !== archetype ||
-    cfg.scale !== SCALE_DEFAULT ||
     cfg.spi !== "off" ||
+    cfg.minUpwindDeg !== undefined ||
     hasOverrides(cfg) ||
     motorActive
   );
@@ -424,14 +525,14 @@ function hashMatrix(imp: ImportedPolar): string {
 // /config tweak doesn't leave stale results on /plan.
 export function polarFingerprint(cfg: PolarConfig): string {
   const motorKey = `${cfg.motorThresholdKn ?? ""}/${cfg.motorSpeedKn ?? ""}`;
+  const commonKey = `c${cfg.coefficient}|${cfg.spi}@${cfg.spiMaxTwsKn}|mu${effectiveMinUpwind(cfg)}|${motorKey}`;
   if (isImportedActive(cfg)) {
     const imp = cfg.imported as ImportedPolar;
-    const effKey = cfg.applyEfficiency ? "eff" : "raw";
-    return `imported:${imp.name}:${hashMatrix(imp)}|${effKey}|${motorKey}`;
+    return `imported:${imp.name}:${hashMatrix(imp)}|${commonKey}`;
   }
   const overrideKey = Object.keys(cfg.overrides)
     .sort()
     .map((k) => `${k}=${cfg.overrides[k]}`)
     .join(",");
-  return `${cfg.base}|${cfg.scale}|${cfg.spi}|${overrideKey}|${motorKey}`;
+  return `${cfg.base}|${overrideKey}|${commonKey}`;
 }

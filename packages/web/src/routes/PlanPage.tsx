@@ -43,10 +43,9 @@ function resolveOverrides(archetype: string): PlanOverrides {
   return overrides;
 }
 
-// Plan-time efficiency override. Undefined lets the server default (0.75)
-// apply; 1.0 when the user imported a real-world polar and switched the
-// "coefficient de plaisance" off in /config.
-function resolveEfficiency(): number | undefined {
+// Plan-time efficiency — the /config performance coefficient, always explicit
+// since config v3 (1.0 = race trim, 0.8 = typical cruising).
+function resolveEfficiency(): number {
   return planEfficiency(loadPolarConfig());
 }
 

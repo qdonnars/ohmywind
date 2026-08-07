@@ -2,10 +2,9 @@ import { useMemo, useRef, useState } from "react";
 import {
   ARCHETYPE_LABELS,
   BASE_POLARS,
-  SCALE_MAX,
-  SCALE_MIN,
-  SCALE_STEP,
-  SERVER_DEFAULT_EFFICIENCY,
+  COEFF_MAX,
+  COEFF_MIN,
+  COEFF_STEP,
   defaultPolarConfig,
   effectivePolar,
   hasOverrides,
@@ -79,7 +78,7 @@ export function PolarEditor() {
     if (base === config.base) return;
     // Clear overrides when switching base because they're keyed by grid index
     // (twsIdx, twaIdx) and a different archetype may have a different grid.
-    // Scale + spi are archetype-agnostic so we keep them as-is.
+    // Coefficient + spi are archetype-agnostic so we keep them as-is.
     update({ ...config, base, overrides: {} });
     // The new archetype may have a shorter TWS grid; snap selection back to 0
     // here rather than in an effect to avoid cascading renders.
@@ -142,12 +141,8 @@ export function PolarEditor() {
     setSelectedTwsIdx(0);
   }
 
-  function setApplyEfficiency(applyEfficiency: boolean) {
-    update({ ...config, applyEfficiency });
-  }
-
-  function setScale(scale: number) {
-    update({ ...config, scale });
+  function setCoefficient(coefficient: number) {
+    update({ ...config, coefficient });
   }
 
   function setSpi(spi: SpiKind) {
@@ -278,24 +273,13 @@ export function PolarEditor() {
   return (
     <div className="polar-editor flex flex-col gap-4">
       {/* Reminder banner: this polar is the structural boat speed; the planner
-          applies its own efficiency coefficient on top at plan time — unless
-          the user opted out for an imported real-world polar. */}
+          multiplies it by the user's performance coefficient at plan time. */}
       <div className="polar-banner">
         <span className="polar-banner-icon" aria-hidden>ⓘ</span>
         <div className="polar-banner-text">
-          {importedActive && !config.applyEfficiency ? (
-            <>
-              Ta polaire importée est utilisée <strong>telle quelle</strong> :
-              le plan n'applique pas le coefficient de plaisance
-              (efficacité <strong>1.00</strong>).
-            </>
-          ) : (
-            <>
-              Cette polaire décrit la vitesse théorique de ton bateau (structurelle).
-              Au moment du plan, l'app la multiplie par un coefficient d'efficacité
-              qui dépend des conditions (aujourd'hui <strong>{SERVER_DEFAULT_EFFICIENCY.toFixed(2)}</strong> en croisière).
-            </>
-          )}
+          Cette polaire décrit la vitesse théorique de ton bateau (structurelle).
+          Au moment du plan, l'app la multiplie par ton coefficient de performance
+          (<strong>×{config.coefficient.toFixed(2)}</strong>).
         </div>
       </div>
 
@@ -370,54 +354,35 @@ export function PolarEditor() {
         )}
       </div>
 
-      {/* Coefficient de plaisance — only meaningful for an imported polar:
-          a designer polar is theoretical (keep the coefficient), a polar built
-          from real logged performance already includes it (skip). */}
-      {importedActive && (
-        <div className="polar-eff">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-xs uppercase tracking-wider opacity-70">
-              Coefficient de plaisance (×{SERVER_DEFAULT_EFFICIENCY.toFixed(2)})
-            </span>
-            <div
-              className="polar-spi-segment"
-              role="radiogroup"
-              aria-label="Appliquer le coefficient de plaisance"
-            >
-              <button
-                type="button"
-                role="radio"
-                aria-checked={config.applyEfficiency}
-                onClick={() => setApplyEfficiency(true)}
-                className={`polar-spi-btn ${config.applyEfficiency ? "is-active" : ""}`}
-              >
-                Oui
-              </button>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={!config.applyEfficiency}
-                onClick={() => setApplyEfficiency(false)}
-                className={`polar-spi-btn ${!config.applyEfficiency ? "is-active" : ""}`}
-              >
-                Non
-              </button>
-            </div>
-          </div>
-          <p className="polar-eff-hint">
-            Polaire constructeur (théorique) ? Garde le coefficient : le plan
-            multiplie tes vitesses par {SERVER_DEFAULT_EFFICIENCY.toFixed(2)}.
-            Polaire issue de tes performances réelles ? Désactive-le : tes
-            vitesses sont utilisées telles quelles.
-          </p>
-        </div>
-      )}
+      {/* Performance coefficient — applies to both sources: it travels as the
+          plan request's `efficiency`, never baked into the matrix. */}
+      <div className="polar-eff">
+        <label className="flex flex-col gap-1 text-xs uppercase tracking-wider opacity-70">
+          Coefficient de performance ({Math.round(config.coefficient * 100)} %)
+          <input
+            type="range"
+            min={COEFF_MIN}
+            max={COEFF_MAX}
+            step={COEFF_STEP}
+            value={config.coefficient}
+            onChange={(e) => setCoefficient(parseFloat(e.target.value))}
+            className="polar-range"
+          />
+        </label>
+        <p className="polar-eff-hint">
+          On atteint 100 % de la performance polaire uniquement en mode course ;
+          en plaisance, un coefficient de 80 % est souvent plus approprié.
+          {importedActive && (
+            <> Polaire issue de tes performances réelles ? Mets 100 %.</>
+          )}
+        </p>
+      </div>
 
       {/* Archetype-editor controls — hidden while the imported polar is
           active: scale / spi / hand-tuning only apply to the archetype grid. */}
       {!importedActive && (
         <>
-          {/* Top controls: archetype + multiplier */}
+          {/* Top controls: archetype selection */}
           <div className="grid sm:grid-cols-[1fr_1fr] gap-4 items-end">
             <label className="flex flex-col gap-1 text-xs uppercase tracking-wider opacity-70">
               Archétype de base
@@ -430,21 +395,6 @@ export function PolarEditor() {
                   <option key={id} value={id}>{label}</option>
                 ))}
               </select>
-            </label>
-            <label className="flex flex-col gap-1 text-xs uppercase tracking-wider opacity-70">
-              Facteur multiplicateur ({config.scale.toFixed(2)}×)
-              <input
-                type="range"
-                min={SCALE_MIN}
-                max={SCALE_MAX}
-                step={SCALE_STEP}
-                value={config.scale}
-                onChange={(e) => setScale(parseFloat(e.target.value))}
-                className="polar-range"
-              />
-              <span className="text-[10px] opacity-60 normal-case tracking-normal mt-0.5">
-                Plus rapide ou plus lent que l'archétype ? 1.0× = identique.
-              </span>
             </label>
           </div>
 
@@ -522,8 +472,8 @@ export function PolarEditor() {
           </text>
           <text x={CX} y={44} textAnchor="middle" className="polar-subtitle">
             {importedActive
-              ? `polaire importée · coefficient de plaisance ${config.applyEfficiency ? `×${SERVER_DEFAULT_EFFICIENCY.toFixed(2)}` : "désactivé"}`
-              : `${config.scale.toFixed(2)}× · ${config.spi === "off" ? "sans spi" : config.spi === "asymmetric" ? "spi asymétrique" : "spi symétrique"} · ${overrideCount > 0 ? `${overrideCount} point(s) ajusté(s)` : "aucun ajustement"}`}
+              ? `polaire importée · coefficient ×${config.coefficient.toFixed(2)}`
+              : `coefficient ×${config.coefficient.toFixed(2)} · ${config.spi === "off" ? "sans spi" : config.spi === "asymmetric" ? "spi asymétrique" : "spi symétrique"} · ${overrideCount > 0 ? `${overrideCount} point(s) ajusté(s)` : "aucun ajustement"}`}
           </text>
 
           {/* Speed rings */}
