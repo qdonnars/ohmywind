@@ -424,31 +424,19 @@ export function effectiveMinUpwind(cfg: PolarConfig, archetype?: string): number
   return base.min_upwind_twa_deg ?? derivedMinUpwind(base);
 }
 
-// Compute the effective polar payload. Imported source: the uploaded file wins
-// (overrides are archetype-editor concepts and do not apply); the spi boost is
-// an opt-in overlay for files that don't include spi rows — import resets spi
-// to "off", so trusting the file is the default. Archetype source: base ×
-// spi-boost (gated by the TWS ceiling), then overrides win. Both branches cap
-// at 30 kn (the server's hard bound) and carry the effective min upwind angle.
+// Compute the effective polar payload. Imported source: the uploaded file
+// wins wholesale — spi and overrides are archetype-editor concepts, an
+// imported polar is presumed to already reflect the boat's sail inventory
+// (the UI disables the spi controls while it is active). Archetype source:
+// base × spi-boost (gated by the TWS ceiling), then overrides win, capped at
+// 30 kn (the server's hard bound). Both branches carry the effective min
+// upwind angle.
 export function effectivePolar(cfg: PolarConfig, archetype?: string): PolarData {
   const motorActive =
     typeof cfg.motorThresholdKn === "number" && typeof cfg.motorSpeedKn === "number";
   const minUpwind = effectiveMinUpwind(cfg, archetype);
   if (isImportedActive(cfg)) {
     const imp = cfg.imported as ImportedPolar;
-    const matrix =
-      cfg.spi === "off"
-        ? imp.boat_speed_kn
-        : imp.boat_speed_kn.map((row, twsIdx) =>
-            imp.tws_kn[twsIdx] <= cfg.spiMaxTwsKn
-              ? row.map((v, twaIdx) =>
-                  Math.min(
-                    30,
-                    Math.round(v * spiBoostAt(cfg.spi, imp.twa_deg[twaIdx]) * 100) / 100,
-                  ),
-                )
-              : row,
-          );
     return {
       name: imp.name,
       length_ft: 0,
@@ -458,7 +446,7 @@ export function effectivePolar(cfg: PolarConfig, archetype?: string): PolarData 
       performance_class: "custom",
       tws_kn: imp.tws_kn,
       twa_deg: imp.twa_deg,
-      boat_speed_kn: matrix,
+      boat_speed_kn: imp.boat_speed_kn,
       motor_threshold_kn: motorActive ? cfg.motorThresholdKn : undefined,
       motor_speed_kn: motorActive ? cfg.motorSpeedKn : undefined,
       min_upwind_twa_deg: minUpwind,

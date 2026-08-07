@@ -1,26 +1,21 @@
-import { useMemo, useState } from "react";
 import {
   ARCHETYPE_LABELS,
   COEFF_MAX,
   COEFF_MIN,
   COEFF_STEP,
-  effectiveMinUpwind,
-  effectivePolar,
   isImportedActive,
   type PolarConfig,
 } from "../config/polarConfig";
-import { PolarDiagram, TwsPills } from "./PolarDiagram";
 
 // "Essentiel" tile: the three settings every sailor needs — which boat,
-// when the engine takes over, how close to the polar they actually sail —
-// plus the resulting polar so every change is visible immediately.
+// when the engine takes over, how close to the polar they actually sail.
+// The resulting polar renders separately, after the tiles (BoatResult).
 interface BoatEssentialsProps {
   config: PolarConfig;
   onChange: (next: PolarConfig) => void;
 }
 
 export function BoatEssentials({ config, onChange }: BoatEssentialsProps) {
-  const [selectedTwsIdx, setSelectedTwsIdx] = useState(0);
   const importedActive = isImportedActive(config);
 
   function setBase(base: string) {
@@ -45,19 +40,6 @@ export function BoatEssentials({ config, onChange }: BoatEssentialsProps) {
     if (!Number.isFinite(num) || num <= 0) return;
     onChange({ ...config, [field]: Math.round(num * 10) / 10 });
   }
-
-  // The tile displays the RESULT: effective matrix (imported file or
-  // archetype × spi × overrides) further scaled by the coefficient — the
-  // speeds the planner will actually work from.
-  const effective = useMemo(() => effectivePolar(config), [config]);
-  const displayMatrix = useMemo(
-    () =>
-      effective.boat_speed_kn.map((row) =>
-        row.map((v) => Math.round(v * config.coefficient * 100) / 100),
-      ),
-    [effective, config.coefficient],
-  );
-  const minUpwind = effectiveMinUpwind(config);
 
   return (
     <>
@@ -148,23 +130,6 @@ export function BoatEssentials({ config, onChange }: BoatEssentialsProps) {
           </p>
         )}
       </fieldset>
-
-      {/* Resulting polar, read-only: what the planner will actually use. */}
-      <TwsPills
-        twsKn={effective.tws_kn}
-        selectedIdx={selectedTwsIdx}
-        onSelect={setSelectedTwsIdx}
-        label="Courbe affichée (TWS)"
-      />
-      <PolarDiagram
-        title={importedActive ? effective.name : ARCHETYPE_LABELS[config.base]}
-        subtitle={`polaire résultante · coefficient ×${config.coefficient.toFixed(2)} · près ${minUpwind}°${config.spi !== "off" ? ` · spi ${config.spi === "asymmetric" ? "asymétrique" : "symétrique"} ≤ ${config.spiMaxTwsKn} kn` : ""}`}
-        twsKn={effective.tws_kn}
-        twaDeg={effective.twa_deg}
-        matrix={displayMatrix}
-        selectedTwsIdx={selectedTwsIdx}
-        minUpwindDeg={minUpwind}
-      />
     </>
   );
 }

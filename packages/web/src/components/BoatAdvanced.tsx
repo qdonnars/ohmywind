@@ -245,30 +245,35 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
           En dessous de cet angle du vent, le bateau ne remonte plus : le simulateur
           tire des bords à l'angle de VMG optimal et le diagramme grise la zone morte.
           Auto = valeur de l'archétype ({ARCHETYPE_LABELS[config.base]}), ou premier
-          angle du fichier importé.
+          angle du fichier importé. Un angle plus serré que les données de la polaire
+          prolonge la courbe à VMG constant, sans améliorer les vitesses simulées.
         </p>
       </div>
 
-      {/* Spinnaker: sail type + wind ceiling. */}
-      <div className="polar-block">
+      {/* Spinnaker: sail type + wind ceiling. Locked while an imported polar
+          is active — the file is presumed to already include the boat's sail
+          inventory, so an extra boost would double-count it. */}
+      <div className={`polar-block ${importedActive ? "polar-block-disabled" : ""}`}>
         <div className="flex items-center gap-3 flex-wrap">
           <span className="text-xs uppercase tracking-wider opacity-70">Spinnaker</span>
           <div className="polar-spi-segment" role="radiogroup" aria-label="Type de spi">
             <button
               type="button"
               role="radio"
-              aria-checked={config.spi === "off"}
+              aria-checked={!importedActive && config.spi === "off"}
+              disabled={importedActive}
               onClick={() => setSpi("off")}
-              className={`polar-spi-btn ${config.spi === "off" ? "is-active" : ""}`}
+              className={`polar-spi-btn ${!importedActive && config.spi === "off" ? "is-active" : ""}`}
             >
               Aucun
             </button>
             <button
               type="button"
               role="radio"
-              aria-checked={config.spi === "asymmetric"}
+              aria-checked={!importedActive && config.spi === "asymmetric"}
+              disabled={importedActive}
               onClick={() => setSpi("asymmetric")}
-              className={`polar-spi-btn ${config.spi === "asymmetric" ? "is-active" : ""}`}
+              className={`polar-spi-btn ${!importedActive && config.spi === "asymmetric" ? "is-active" : ""}`}
               title="Asymétrique : sweet spot reaching 110-135°, utile jusqu'à 150° en heat-up"
             >
               Asymétrique
@@ -276,15 +281,16 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
             <button
               type="button"
               role="radio"
-              aria-checked={config.spi === "symmetric"}
+              aria-checked={!importedActive && config.spi === "symmetric"}
+              disabled={importedActive}
               onClick={() => setSpi("symmetric")}
-              className={`polar-spi-btn ${config.spi === "symmetric" ? "is-active" : ""}`}
+              className={`polar-spi-btn ${!importedActive && config.spi === "symmetric" ? "is-active" : ""}`}
               title="Symétrique : optimal au plein-vent arrière, 135-165° (pole requis)"
             >
               Symétrique
             </button>
           </div>
-          {config.spi !== "off" && (
+          {!importedActive && config.spi !== "off" && (
             <label className="flex items-center gap-2 text-xs opacity-80">
               Affaler au-dessus de
               <input
@@ -301,14 +307,18 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
             </label>
           )}
         </div>
-        {config.spi !== "off" && (
+        {importedActive ? (
           <p className="polar-hint">
-            Le gain de vitesse au portant ne s'applique qu'aux courbes de vent
-            inférieures ou égales à ce seuil.
-            {importedActive && (
-              <> À n'activer que si ta polaire importée n'inclut pas déjà le spi.</>
-            )}
+            Polaire importée active : le réglage spi est verrouillé, ton fichier est
+            supposé refléter déjà ta garde-robe de voiles.
           </p>
+        ) : (
+          config.spi !== "off" && (
+            <p className="polar-hint">
+              Le gain de vitesse au portant ne s'applique qu'aux courbes de vent
+              inférieures ou égales à ce seuil.
+            </p>
+          )
         )}
       </div>
 

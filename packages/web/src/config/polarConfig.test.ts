@@ -215,11 +215,11 @@ describe("effectivePolar", () => {
     expect(eff.boat_speed_kn[tws20][twa90]).toBe(base.boat_speed_kn[tws20][twa90]);
   });
 
-  it("overlays the interpolated spi boost on an imported polar when opted in", () => {
+  it("never applies the spi boost to an imported polar", () => {
+    // The file is presumed to already include the boat's sail inventory; a
+    // stale spi selection from archetype mode must not double-count it.
     const eff = effectivePolar(withImported({ spi: "asymmetric" }));
-    // 90° sits exactly on a breakpoint (×1.1); 45° interpolates flat (×1.0).
-    expect(eff.boat_speed_kn[0][1]).toBeCloseTo(IMPORTED.boat_speed_kn[0][1] * 1.1);
-    expect(eff.boat_speed_kn[0][0]).toBeCloseTo(IMPORTED.boat_speed_kn[0][0]);
+    expect(eff.boat_speed_kn).toEqual(IMPORTED.boat_speed_kn);
   });
 
   it("propagates the motor config onto the imported polar only when complete", () => {
@@ -250,6 +250,24 @@ describe("spiBoostAt", () => {
 describe("min upwind derivation", () => {
   it("derives the first angle carrying real speeds", () => {
     expect(derivedMinUpwind(IMPORTED)).toBe(45);
+  });
+
+  it("honours a file with a genuine 30° entry end-to-end", () => {
+    // A performance polar carrying real speeds at 30° must not be clipped to
+    // the archetype defaults: the derived floor is 30 and the payload carries
+    // it, so the server sweeps VMG from 30° on genuine data.
+    const perf: ImportedPolar = {
+      name: "perf-30",
+      tws_kn: [8, 12],
+      twa_deg: [30, 40, 90],
+      boat_speed_kn: [
+        [2.8, 3.6, 4.4],
+        [3.4, 4.5, 5.6],
+      ],
+    };
+    const cfg = withImported({ imported: perf });
+    expect(derivedMinUpwind(perf)).toBe(30);
+    expect(effectivePolar(cfg).min_upwind_twa_deg).toBe(30);
   });
 
   it("skips a leading zero column (0° row of zeros)", () => {

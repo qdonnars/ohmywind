@@ -17,6 +17,7 @@ import {
 } from "../config/polarConfig";
 import { BoatAdvanced } from "../components/BoatAdvanced";
 import { BoatEssentials } from "../components/BoatEssentials";
+import { BoatResult } from "../components/BoatResult";
 import { ConfigTile } from "../components/ConfigTile";
 
 // Tab id "polar" predates the tab's rename to "Bateau"; kept to avoid churn
@@ -335,6 +336,9 @@ export function ConfigPage() {
               >
                 <BoatAdvanced config={polarCfg} onChange={updatePolar} />
               </ConfigTile>
+              <ConfigTile title="Polaire résultante" subtitle="ce que le planificateur utilisera">
+                <BoatResult config={polarCfg} />
+              </ConfigTile>
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <button
                   type="button"
@@ -364,6 +368,12 @@ export function ConfigPage() {
           display: flex;
           flex-direction: column;
           gap: 8px;
+        }
+        .polar-block-disabled .polar-spi-segment {
+          opacity: 0.45;
+        }
+        .polar-block-disabled .polar-spi-btn {
+          cursor: not-allowed;
         }
         .polar-select, .polar-range {
           background: var(--ow-bg-1);
