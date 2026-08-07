@@ -1,0 +1,170 @@
+import { useMemo, useState } from "react";
+import {
+  ARCHETYPE_LABELS,
+  COEFF_MAX,
+  COEFF_MIN,
+  COEFF_STEP,
+  effectiveMinUpwind,
+  effectivePolar,
+  isImportedActive,
+  type PolarConfig,
+} from "../config/polarConfig";
+import { PolarDiagram, TwsPills } from "./PolarDiagram";
+
+// "Essentiel" tile: the three settings every sailor needs — which boat,
+// when the engine takes over, how close to the polar they actually sail —
+// plus the resulting polar so every change is visible immediately.
+interface BoatEssentialsProps {
+  config: PolarConfig;
+  onChange: (next: PolarConfig) => void;
+}
+
+export function BoatEssentials({ config, onChange }: BoatEssentialsProps) {
+  const [selectedTwsIdx, setSelectedTwsIdx] = useState(0);
+  const importedActive = isImportedActive(config);
+
+  function setBase(base: string) {
+    if (base === config.base) return;
+    // Clear overrides when switching base because they're keyed by grid index
+    // (twsIdx, twaIdx) and a different archetype may have a different grid.
+    // Coefficient + spi are archetype-agnostic so we keep them as-is.
+    onChange({ ...config, base, overrides: {} });
+  }
+
+  function setCoefficient(coefficient: number) {
+    onChange({ ...config, coefficient });
+  }
+
+  function setMotorField(field: "motorThresholdKn" | "motorSpeedKn", raw: string) {
+    const val = raw.trim();
+    if (val === "") {
+      onChange({ ...config, [field]: undefined });
+      return;
+    }
+    const num = Number(val);
+    if (!Number.isFinite(num) || num <= 0) return;
+    onChange({ ...config, [field]: Math.round(num * 10) / 10 });
+  }
+
+  // The tile displays the RESULT: effective matrix (imported file or
+  // archetype × spi × overrides) further scaled by the coefficient — the
+  // speeds the planner will actually work from.
+  const effective = useMemo(() => effectivePolar(config), [config]);
+  const displayMatrix = useMemo(
+    () =>
+      effective.boat_speed_kn.map((row) =>
+        row.map((v) => Math.round(v * config.coefficient * 100) / 100),
+      ),
+    [effective, config.coefficient],
+  );
+  const minUpwind = effectiveMinUpwind(config);
+
+  return (
+    <>
+      <div className="grid sm:grid-cols-[1fr_1fr] gap-4 items-end">
+        <label className="flex flex-col gap-1 text-xs uppercase tracking-wider opacity-70">
+          Mon bateau
+          <select
+            className="polar-select"
+            value={config.base}
+            onChange={(e) => setBase(e.target.value)}
+            disabled={importedActive}
+          >
+            {Object.entries(ARCHETYPE_LABELS).map(([id, label]) => (
+              <option key={id} value={id}>
+                {label}
+              </option>
+            ))}
+          </select>
+          {importedActive && (
+            <span className="text-[10px] opacity-60 normal-case tracking-normal">
+              Polaire importée active — le choix du bateau s'applique en mode archétype.
+            </span>
+          )}
+        </label>
+        <label className="flex flex-col gap-1 text-xs uppercase tracking-wider opacity-70">
+          Coefficient de performance ({Math.round(config.coefficient * 100)} %)
+          <input
+            type="range"
+            min={COEFF_MIN}
+            max={COEFF_MAX}
+            step={COEFF_STEP}
+            value={config.coefficient}
+            onChange={(e) => setCoefficient(parseFloat(e.target.value))}
+            className="polar-range"
+          />
+        </label>
+      </div>
+      <p className="polar-hint">
+        On atteint 100 % de la performance polaire uniquement en mode course ; en
+        plaisance, un coefficient de 80 % est souvent plus approprié.
+        {importedActive && <> Polaire issue de tes performances réelles ? Mets 100 %.</>}
+      </p>
+
+      {/* Motor (optional) — switches segments with sail speed under the
+          threshold to a fixed motor speed. Both fields must be filled for
+          the override to apply; the backend ignores partial configs. */}
+      <fieldset className="polar-motor">
+        <legend className="polar-motor-legend">Moteur (optionnel)</legend>
+        <div className="polar-motor-grid">
+          <label className="polar-motor-label">
+            <span>Vitesse seuil (kn)</span>
+            <input
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              min="0.1"
+              max="10"
+              placeholder="ex. 2"
+              value={config.motorThresholdKn ?? ""}
+              onChange={(e) => setMotorField("motorThresholdKn", e.target.value)}
+              className="polar-motor-input"
+            />
+          </label>
+          <label className="polar-motor-label">
+            <span>Vitesse moteur (kn)</span>
+            <input
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              min="0.1"
+              max="12"
+              placeholder="ex. 5"
+              value={config.motorSpeedKn ?? ""}
+              onChange={(e) => setMotorField("motorSpeedKn", e.target.value)}
+              className="polar-motor-input"
+            />
+          </label>
+        </div>
+        <p className="polar-motor-hint">
+          Sous la vitesse seuil calculée par la polaire, on bascule au moteur.
+          Laissez les deux champs vides pour rester 100&nbsp;% voile (comportement par défaut).
+        </p>
+        {typeof config.motorThresholdKn === "number" !==
+          (typeof config.motorSpeedKn === "number") && (
+          <p className="polar-motor-warn">
+            Renseignez les deux valeurs pour activer le moteur. Tant qu'un seul champ
+            est rempli, la simulation reste 100&nbsp;% voile.
+          </p>
+        )}
+      </fieldset>
+
+      {/* Resulting polar, read-only: what the planner will actually use. */}
+      <TwsPills
+        twsKn={effective.tws_kn}
+        selectedIdx={selectedTwsIdx}
+        onSelect={setSelectedTwsIdx}
+        label="Courbe affichée (TWS)"
+      />
+      <PolarDiagram
+        title={importedActive ? effective.name : ARCHETYPE_LABELS[config.base]}
+        subtitle={`polaire résultante · coefficient ×${config.coefficient.toFixed(2)} · près ${minUpwind}°${config.spi !== "off" ? ` · spi ${config.spi === "asymmetric" ? "asymétrique" : "symétrique"} ≤ ${config.spiMaxTwsKn} kn` : ""}`}
+        twsKn={effective.tws_kn}
+        twaDeg={effective.twa_deg}
+        matrix={displayMatrix}
+        selectedTwsIdx={selectedTwsIdx}
+        minUpwindDeg={minUpwind}
+      />
+    </>
+  );
+}

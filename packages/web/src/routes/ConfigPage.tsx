@@ -9,8 +9,18 @@ import {
   type ModelName,
 } from "../config/modelConfig";
 import { consumeReturnPath } from "../config/returnPath";
-import { PolarEditor } from "../components/PolarEditor";
+import {
+  defaultPolarConfig,
+  loadPolarConfig,
+  savePolarConfig,
+  type PolarConfig,
+} from "../config/polarConfig";
+import { BoatAdvanced } from "../components/BoatAdvanced";
+import { BoatEssentials } from "../components/BoatEssentials";
+import { ConfigTile } from "../components/ConfigTile";
 
+// Tab id "polar" predates the tab's rename to "Bateau"; kept to avoid churn
+// in return-path links.
 type Tab = "models" | "polar";
 
 function formatHorizon(hours: number): string {
@@ -22,6 +32,16 @@ export function ConfigPage() {
   const [tab, setTab] = useState<Tab>("models");
   const [config, setConfig] = useState<ModelConfig>(() => loadModelConfig());
   const [savedOnce, setSavedOnce] = useState(false);
+  // Single owner of the boat/polar state: the tiles receive {config, onChange}
+  // and never touch localStorage themselves, so the two of them always see
+  // the same object and every change is persisted exactly once.
+  const [polarCfg, setPolarCfg] = useState<PolarConfig>(() => loadPolarConfig());
+
+  function updatePolar(next: PolarConfig) {
+    setPolarCfg(next);
+    savePolarConfig(next);
+    setSavedOnce(true);
+  }
   // Resolved at mount so the back link is stable across re-renders. Consuming
   // here also clears the stash, so a hard reload of /config (no remembered
   // path) falls back to "/" on the next click, which is the right default.
@@ -199,7 +219,7 @@ export function ConfigPage() {
             onClick={() => setTab("polar")}
             className={`config-tab ${tab === "polar" ? "is-active" : ""}`}
           >
-            Polaire perso
+            Bateau
           </button>
         </div>
 
@@ -296,16 +316,36 @@ export function ConfigPage() {
           </>
         ) : (
           <>
-            <h1 className="text-3xl font-bold mb-2">Polaire personnalisée</h1>
+            <h1 className="text-3xl font-bold mb-2">Bateau</h1>
             <p className="text-sm opacity-80 mb-8 leading-relaxed">
-              Importe le fichier de polaire de ton bateau (.pol, .csv, .txt) :
-              il remplace alors la polaire utilisée pour tes plans de passage.
-              Sans fichier, choisis un archétype de base et ajuste-le :
-              l'échelle multiplie toute la polaire, et pour un ajustement fin,
-              sélectionne une courbe TWS et glisse ses points sur le diagramme.
-              Cette polaire est utilisée par le planificateur.
+              Décris ton bateau : ces réglages nourrissent tous tes plans de
+              passage. L'essentiel suffit pour bien commencer ; la tuile
+              Avancé permet d'importer ta propre polaire et d'affiner le
+              comportement au près et sous spi.
             </p>
-            <PolarEditor />
+            <div className="flex flex-col gap-5">
+              <ConfigTile title="Essentiel">
+                <BoatEssentials config={polarCfg} onChange={updatePolar} />
+              </ConfigTile>
+              <ConfigTile
+                title="Avancé"
+                subtitle="polaire perso, angle de près, spi"
+                collapsible
+                defaultOpen={false}
+              >
+                <BoatAdvanced config={polarCfg} onChange={updatePolar} />
+              </ConfigTile>
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => updatePolar(defaultPolarConfig())}
+                  className="config-reset"
+                >
+                  Tout réinitialiser
+                </button>
+                {savedOnce && <span className="text-xs opacity-50">· enregistré</span>}
+              </div>
+            </div>
           </>
         )}
 
@@ -319,6 +359,183 @@ export function ConfigPage() {
       </main>
 
       <style>{`
+        /* Shared controls for the boat tiles (BoatEssentials / BoatAdvanced). */
+        .polar-block {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .polar-select, .polar-range {
+          background: var(--ow-bg-1);
+          color: var(--ow-fg-0);
+          border: 1px solid var(--ow-line-2);
+          border-radius: 8px;
+          padding: 8px 10px;
+          font-size: 13px;
+        }
+        .polar-select:disabled {
+          opacity: 0.5;
+        }
+        .polar-range {
+          padding: 0;
+          accent-color: var(--ow-accent);
+        }
+        .polar-hint {
+          font-size: 11.5px;
+          line-height: 1.5;
+          opacity: 0.65;
+          margin: 0;
+        }
+        .polar-spi-segment, .polar-source-segment {
+          display: inline-flex;
+          gap: 2px;
+          padding: 2px;
+          border-radius: 10px;
+          background: var(--ow-bg-1);
+          border: 1px solid var(--ow-line-2);
+        }
+        .polar-spi-btn {
+          padding: 5px 12px;
+          border-radius: 8px;
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--ow-fg-1);
+          background: transparent;
+          border: 0;
+          transition: background 120ms ease, color 120ms ease;
+        }
+        .polar-spi-btn:hover:not(.is-active) {
+          background: var(--ow-bg-2);
+          color: var(--ow-fg-0);
+        }
+        .polar-spi-btn.is-active {
+          background: var(--ow-accent);
+          color: #fff;
+        }
+        .polar-tws-btn {
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 600;
+          background: var(--ow-bg-1);
+          color: var(--ow-fg-1);
+          border: 1px solid var(--ow-line-2);
+          transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+        }
+        .polar-tws-btn:hover {
+          background: var(--ow-bg-2);
+        }
+        .polar-tws-btn.is-selected {
+          background: var(--ow-accent);
+          color: #fff;
+          border-color: var(--ow-accent);
+        }
+        .polar-btn {
+          font-size: 12px;
+          padding: 6px 12px;
+          border-radius: 8px;
+          color: var(--ow-fg-1);
+          background: transparent;
+          border: 1px solid var(--ow-line-2);
+          transition: background 120ms ease, color 120ms ease;
+        }
+        .polar-btn:hover {
+          background: var(--ow-bg-2);
+          color: var(--ow-fg-0);
+        }
+        .polar-btn-accent {
+          border-color: var(--ow-accent);
+          color: var(--ow-accent);
+        }
+        .polar-btn-accent:hover {
+          background: color-mix(in srgb, var(--ow-accent) 15%, transparent);
+          color: var(--ow-accent);
+        }
+        .polar-import-current {
+          font-size: 12.5px;
+          line-height: 1.5;
+        }
+        .polar-import-name {
+          font-weight: 700;
+          color: var(--ow-accent);
+          font-family: ui-monospace, monospace;
+        }
+        .polar-import-notice {
+          font-size: 11.5px;
+          line-height: 1.5;
+          margin: 0;
+        }
+        .polar-import-notice.is-ok {
+          color: var(--ow-accent);
+        }
+        .polar-import-notice.is-error {
+          color: var(--ow-err);
+        }
+        .polar-motor {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding: 12px 14px;
+          border-radius: 10px;
+          background: var(--ow-bg-0);
+          border: 1px solid var(--ow-line-2);
+        }
+        .polar-motor-legend {
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          opacity: 0.7;
+          padding: 0 6px;
+        }
+        .polar-motor-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
+        .polar-motor-label {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          font-size: 12px;
+          color: var(--ow-fg-1);
+        }
+        .polar-motor-input {
+          background: var(--ow-bg-1);
+          color: var(--ow-fg-0);
+          border: 1px solid var(--ow-line-2);
+          border-radius: 8px;
+          padding: 7px 10px;
+          font-size: 13px;
+          font-family: ui-monospace, monospace;
+        }
+        .polar-motor-input:focus {
+          outline: none;
+          border-color: var(--ow-accent);
+        }
+        .polar-motor-hint {
+          font-size: 11.5px;
+          line-height: 1.5;
+          opacity: 0.65;
+          margin: 0;
+        }
+        .polar-motor-warn {
+          font-size: 11.5px;
+          line-height: 1.5;
+          color: var(--ow-warn);
+          margin: 0;
+        }
+        .polar-tuning-toggle {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          background: transparent;
+          border: 0;
+          color: inherit;
+          cursor: pointer;
+          padding: 0;
+          text-align: left;
+        }
         .config-root {
           background: var(--ow-bg-0, #0b1220);
           color: var(--ow-fg-0, #e2e8f0);
