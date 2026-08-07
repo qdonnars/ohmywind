@@ -180,6 +180,19 @@ class TestPlanPassage:
         out = await _call(server, "plan_passage", _BASE_PLAN_ARGS)
         assert out["passage"]["model"] == "meteofrance_arome_france"
 
+    async def test_min_upwind_override_changes_upwind_eta(self) -> None:
+        # StubAdapter blows from the north; a due-north route is dead upwind,
+        # so widening the minimum upwind angle must slow the passage (the VMG
+        # optimum is pushed to a wider, slower-projecting angle).
+        upwind_args = {
+            **_BASE_PLAN_ARGS,
+            "waypoints": [{"lat": 43.00, "lon": 5.35}, {"lat": 43.50, "lon": 5.35}],
+        }
+        server = build_server(adapter=StubAdapter())
+        out_default = await _call(server, "plan_passage", upwind_args)
+        out_wide = await _call(server, "plan_passage", {**upwind_args, "min_upwind_twa_deg": 65.0})
+        assert out_wide["passage"]["duration_h"] > out_default["passage"]["duration_h"]
+
 
 _SWEEP_ARGS: dict = {
     **_BASE_PLAN_ARGS,

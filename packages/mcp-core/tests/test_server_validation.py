@@ -137,3 +137,11 @@ class TestForecastBounds:
             },
         )
         assert adapter.fetch_calls == 1
+
+    async def test_min_upwind_out_of_range_refused(self) -> None:
+        adapter = StubAdapter()
+        server = build_server(adapter=adapter)
+        message = await _expect_error(server, "plan_passage", _args(min_upwind_twa_deg=10.0))
+        assert "min_upwind_twa_deg" in message
+        assert "[25, 70]" in message
+        assert adapter.fetch_calls == 0
