@@ -7,6 +7,12 @@
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
+html,
+body {
+  /* Block pull-to-refresh and scroll chaining on mobile (map pans, page must not) */
+  overscroll-behavior: none;
+}
+
 body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
