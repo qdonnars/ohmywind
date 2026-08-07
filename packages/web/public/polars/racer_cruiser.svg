@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 660" role="img" aria-labelledby="t d" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif">
-  <title id="t">Polaire de vitesse — Racer-cruiser</title>
+  <title id="t">Polaire de vitesse : Racer-cruiser</title>
   <desc id="d">Diagramme polaire en demi-cercle (côté droit) montrant la vitesse du bateau (en nœuds, distance au centre) selon l'angle au vent TWA pour différentes vitesses de vent réel TWS. Une courbe par valeur de TWS. La zone TWA &lt; 40° n'est pas tracée : dans cette zone le planificateur modélise le louvoyage via projection VMG.</desc>
   <style>
     text { fill: currentColor; }
@@ -46,8 +46,8 @@
 
   <!-- Cardinal labels -->
   
-    <text x="320" y="74" class="cardinal" text-anchor="middle">0° — vent debout</text>
-    <text x="320" y="572" class="cardinal" text-anchor="middle">180° — vent arrière</text>
+    <text x="320" y="74" class="cardinal" text-anchor="middle">0° : vent debout</text>
+    <text x="320" y="572" class="cardinal" text-anchor="middle">180° : vent arrière</text>
   
 
   <!-- Speed labels (left vertical axis, mirrored) -->
@@ -67,66 +67,66 @@
        Solid = polar; dashed = VMG projection in the louvoyage zone. -->
   <g>
         <path d="M 378.0 250.9 L 401.2 251.9 L 421.5 261.4 L 444.1 286.7 L 455.3 320.0 L 447.1 366.3 L 407.7 407.7 L 374.1 413.7 L 341.6 400.6 L 298.4 400.6 L 265.9 413.7 L 232.3 407.7 L 192.9 366.3 L 184.7 320.0 L 195.9 286.7 L 218.5 261.4 L 238.8 251.9 L 262.0 250.9" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" opacity="0.95">
-          <title>6 kn de vent réel — polaire</title>
+          <title>6 kn de vent réel : polaire</title>
         </path>
         <path d="M 255.3 250.6 L 384.7 250.6" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="4 3" opacity="0.85">
-          <title>6 kn de vent réel — projection VMG (louvoyage), TWA_opt = 43°</title>
+          <title>6 kn de vent réel : projection VMG (louvoyage), TWA_opt = 43°</title>
         </path>
       </g>
 <g>
         <path d="M 391.0 235.4 L 416.7 238.8 L 441.1 250.1 L 468.1 280.3 L 480.1 320.0 L 472.6 375.5 L 428.4 428.4 L 391.0 443.0 L 349.2 428.9 L 290.8 428.9 L 249.0 443.0 L 211.6 428.4 L 167.4 375.5 L 159.9 320.0 L 171.9 280.3 L 198.9 250.1 L 223.3 238.8 L 249.0 235.4" fill="none" stroke="#0ea5e9" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" opacity="0.95">
-          <title>8 kn de vent réel — polaire</title>
+          <title>8 kn de vent réel : polaire</title>
         </path>
         <path d="M 249.0 235.4 L 391.0 235.4" fill="none" stroke="#0ea5e9" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="4 3" opacity="0.85">
-          <title>8 kn de vent réel — projection VMG (louvoyage), TWA_opt = 40°</title>
+          <title>8 kn de vent réel : projection VMG (louvoyage), TWA_opt = 40°</title>
         </path>
       </g>
 <g>
         <path d="M 401.2 223.3 L 428.8 228.7 L 454.7 242.2 L 483.4 276.2 L 498.1 320.0 L 489.5 381.7 L 442.8 442.8 L 402.3 462.6 L 355.6 452.9 L 284.4 452.9 L 237.7 462.6 L 197.2 442.8 L 150.5 381.7 L 141.9 320.0 L 156.6 276.2 L 185.3 242.2 L 211.2 228.7 L 238.8 223.3" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" opacity="0.95">
-          <title>10 kn de vent réel — polaire</title>
+          <title>10 kn de vent réel : polaire</title>
         </path>
         <path d="M 238.8 223.3 L 401.2 223.3" fill="none" stroke="#10b981" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="4 3" opacity="0.85">
-          <title>10 kn de vent réel — projection VMG (louvoyage), TWA_opt = 40°</title>
+          <title>10 kn de vent réel : projection VMG (louvoyage), TWA_opt = 40°</title>
         </path>
       </g>
 <g>
         <path d="M 408.4 214.6 L 437.5 221.4 L 462.6 237.7 L 492.1 273.9 L 509.4 320.0 L 502.2 386.3 L 455.5 455.5 L 411.3 478.2 L 360.3 470.3 L 279.7 470.3 L 228.7 478.2 L 184.5 455.5 L 137.8 386.3 L 130.6 320.0 L 147.9 273.9 L 177.4 237.7 L 202.5 221.4 L 231.6 214.6" fill="none" stroke="#84cc16" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" opacity="0.95">
-          <title>12 kn de vent réel — polaire</title>
+          <title>12 kn de vent réel : polaire</title>
         </path>
         <path d="M 231.6 214.6 L 408.4 214.6" fill="none" stroke="#84cc16" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="4 3" opacity="0.85">
-          <title>12 kn de vent réel — projection VMG (louvoyage), TWA_opt = 40°</title>
+          <title>12 kn de vent réel : projection VMG (louvoyage), TWA_opt = 40°</title>
         </path>
       </g>
 <g>
         <path d="M 412.8 209.4 L 442.6 217.1 L 468.4 234.3 L 500.8 271.6 L 516.2 320.0 L 510.7 389.4 L 463.5 463.5 L 418.1 489.9 L 364.4 485.5 L 275.6 485.5 L 221.9 489.9 L 176.5 463.5 L 129.3 389.4 L 123.8 320.0 L 139.2 271.6 L 171.6 234.3 L 197.4 217.1 L 227.2 209.4" fill="none" stroke="#facc15" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" opacity="0.95">
-          <title>14 kn de vent réel — polaire</title>
+          <title>14 kn de vent réel : polaire</title>
         </path>
         <path d="M 227.2 209.4 L 412.8 209.4" fill="none" stroke="#facc15" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="4 3" opacity="0.85">
-          <title>14 kn de vent réel — projection VMG (louvoyage), TWA_opt = 40°</title>
+          <title>14 kn de vent réel : projection VMG (louvoyage), TWA_opt = 40°</title>
         </path>
       </g>
 <g>
         <path d="M 415.7 206.0 L 446.1 214.2 L 472.3 232.1 L 505.1 270.4 L 520.7 320.0 L 517.1 391.7 L 469.9 469.9 L 423.7 499.7 L 366.7 494.2 L 273.3 494.2 L 216.3 499.7 L 170.1 469.9 L 122.9 391.7 L 119.3 320.0 L 134.9 270.4 L 167.7 232.1 L 193.9 214.2 L 224.3 206.0" fill="none" stroke="#fb923c" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" opacity="0.95">
-          <title>16 kn de vent réel — polaire</title>
+          <title>16 kn de vent réel : polaire</title>
         </path>
         <path d="M 224.3 206.0 L 415.7 206.0" fill="none" stroke="#fb923c" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="4 3" opacity="0.85">
-          <title>16 kn de vent réel — projection VMG (louvoyage), TWA_opt = 40°</title>
+          <title>16 kn de vent réel : projection VMG (louvoyage), TWA_opt = 40°</title>
         </path>
       </g>
 <g>
         <path d="M 418.6 202.5 L 449.6 211.3 L 476.2 229.8 L 509.5 269.2 L 527.5 320.0 L 523.4 394.0 L 476.3 476.3 L 428.2 507.5 L 369.6 505.1 L 270.4 505.1 L 211.8 507.5 L 163.7 476.3 L 116.6 394.0 L 112.5 320.0 L 130.5 269.2 L 163.8 229.8 L 190.4 211.3 L 221.4 202.5" fill="none" stroke="#ef4444" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" opacity="0.95">
-          <title>20 kn de vent réel — polaire</title>
+          <title>20 kn de vent réel : polaire</title>
         </path>
         <path d="M 221.4 202.5 L 418.6 202.5" fill="none" stroke="#ef4444" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="4 3" opacity="0.85">
-          <title>20 kn de vent réel — projection VMG (louvoyage), TWA_opt = 40°</title>
+          <title>20 kn de vent réel : projection VMG (louvoyage), TWA_opt = 40°</title>
         </path>
       </g>
 <g>
         <path d="M 420.0 200.8 L 451.3 209.8 L 478.2 228.7 L 513.8 268.1 L 532.0 320.0 L 529.8 396.4 L 482.6 482.6 L 432.7 515.3 L 371.9 513.8 L 268.1 513.8 L 207.3 515.3 L 157.4 482.6 L 110.2 396.4 L 108.0 320.0 L 126.2 268.1 L 161.8 228.7 L 188.7 209.8 L 220.0 200.8" fill="none" stroke="#d946ef" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" opacity="0.95">
-          <title>25 kn de vent réel — polaire</title>
+          <title>25 kn de vent réel : polaire</title>
         </path>
         <path d="M 220.0 200.8 L 420.0 200.8" fill="none" stroke="#d946ef" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="4 3" opacity="0.85">
-          <title>25 kn de vent réel — projection VMG (louvoyage), TWA_opt = 40°</title>
+          <title>25 kn de vent réel : projection VMG (louvoyage), TWA_opt = 40°</title>
         </path>
       </g>
 

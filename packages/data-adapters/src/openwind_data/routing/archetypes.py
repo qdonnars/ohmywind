@@ -38,6 +38,10 @@ class BoatPolar:
     # up the engine rather than wait hours for the mistral.
     motor_threshold_kn: float | None = None
     motor_speed_kn: float | None = None
+    # Minimum sailable TWA (deg). Below this angle the boat is in the no-go
+    # zone; the VMG sweep never searches under it. ``None`` = derive from the
+    # grid (first TWA column with real speeds, see effective_min_upwind_twa).
+    min_upwind_twa_deg: float | None = None
 
 
 def _load_one(name: str) -> BoatPolar:
@@ -53,6 +57,11 @@ def _load_one(name: str) -> BoatPolar:
         tws_kn=tuple(float(v) for v in data["tws_kn"]),
         twa_deg=tuple(float(v) for v in data["twa_deg"]),
         boat_speed_kn=tuple(tuple(float(v) for v in row) for row in data["boat_speed_kn"]),
+        min_upwind_twa_deg=(
+            float(data["min_upwind_twa_deg"])
+            if data.get("min_upwind_twa_deg") is not None
+            else None
+        ),
     )
 
 
@@ -106,6 +115,25 @@ def get_polar(name: str) -> BoatPolar:
     if name not in reg:
         raise KeyError(f"unknown boat archetype {name!r}; available: {sorted(reg)}")
     return reg[name]
+
+
+def grid_min_sailable_twa(polar: BoatPolar) -> float:
+    """First grid TWA whose column carries real speed.
+
+    Skips leading all-zero columns (imported files often carry a 0-deg row of
+    zeros) so the derived floor lands on the first sailable angle.
+    """
+    for j, twa in enumerate(polar.twa_deg):
+        if any(row[j] > 0.1 for row in polar.boat_speed_kn):
+            return twa
+    return polar.twa_deg[0]
+
+
+def effective_min_upwind_twa(polar: BoatPolar) -> float:
+    """Explicit min upwind angle, else the grid-derived sailable floor."""
+    if polar.min_upwind_twa_deg is not None:
+        return polar.min_upwind_twa_deg
+    return grid_min_sailable_twa(polar)
 
 
 def _bracket(values: tuple[float, ...], v: float) -> tuple[int, int, float]:

@@ -11,7 +11,7 @@ const AUTO_DISMISS_MS = 8_000;
 const CARD_WIDTH = 288;
 
 const TITLE = "Planifier une route ?";
-const BODY = "Pour tracer un trajet entre deux spots et estimer la durée, cliquez sur la boussole.";
+const BODY = "Pour tracer un trajet entre deux spots et estimer la durée, cliquez sur le compas.";
 
 // "First-time user" snapshot read once at mount. The popup fires only if all
 // three storage signals say "no prior engagement": no saved spots, no

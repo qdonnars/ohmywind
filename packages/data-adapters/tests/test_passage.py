@@ -533,6 +533,28 @@ class TestModelFallback:
             )
 
 
+def _inline_polar(twa_deg: tuple[float, ...], zero_first_column: bool) -> BoatPolar:
+    """Small 2-TWS grid with speeds rising off the wind, mimicking an import."""
+
+    def speed(tws: float, twa: float) -> float:
+        if zero_first_column and twa == twa_deg[0]:
+            return 0.0
+        return round((3.0 + twa / 30.0) * (tws / 12.0), 2)
+
+    tws_kn = (8.0, 12.0)
+    return BoatPolar(
+        name="inline",
+        length_ft=0,
+        type="monohull",
+        category="cruising",
+        examples=(),
+        performance_class="custom",
+        tws_kn=tws_kn,
+        twa_deg=twa_deg,
+        boat_speed_kn=tuple(tuple(speed(tws, twa) for twa in twa_deg) for tws in tws_kn),
+    )
+
+
 class TestBestVmgUpwind:
     def test_returns_positive_vmg_speed(self) -> None:
         polar = get_polar("cruiser_40ft")
@@ -540,10 +562,45 @@ class TestBestVmgUpwind:
         assert opt_twa > 0.0
         assert opt_speed > 0.0
 
-    def test_optimal_twa_in_upwind_range(self) -> None:
-        polar = get_polar("cruiser_40ft")
-        opt_twa, _ = best_vmg_upwind(polar, 12.0)
-        assert 30.0 <= opt_twa <= 90.0
+    def test_optimal_twa_realistic_for_cruiser(self) -> None:
+        # The old sweep started at 30° where lookup_polar clamps flat, so the
+        # optimum was pinned at 30° for every monohull. It must now sit at a
+        # realistic beat angle at or above the archetype's min upwind angle.
+        polar = get_polar("cruiser_30ft")
+        opt_twa, _ = best_vmg_upwind(polar, 10.0)
+        assert opt_twa == pytest.approx(45.0, abs=3.0)
+
+    def test_optimal_twa_never_below_min_upwind(self) -> None:
+        from openwind_data.routing.archetypes import list_archetypes
+
+        for archetype in list_archetypes():
+            assert archetype.min_upwind_twa_deg is not None
+            for tws in (6.0, 10.0, 16.0, 25.0):
+                opt_twa, _ = best_vmg_upwind(archetype, tws)
+                assert opt_twa >= archetype.min_upwind_twa_deg, (
+                    f"{archetype.name} @ {tws} kn: opt {opt_twa} below floor"
+                )
+                assert opt_twa <= 60.0, f"{archetype.name} @ {tws} kn: opt {opt_twa} unrealistic"
+
+    def test_catamaran_points_wide(self) -> None:
+        opt_twa, _ = best_vmg_upwind(get_polar("catamaran_40ft"), 10.0)
+        assert opt_twa >= 50.0
+
+    def test_imported_grid_with_zero_column_skips_it(self) -> None:
+        # Imported files often carry a 0° row of zeros; the derived floor must
+        # skip it so interpolated half-zero speeds never win on geometry alone.
+        polar = _inline_polar(twa_deg=(0.0, 40.0, 50.0, 60.0, 90.0), zero_first_column=True)
+        opt_twa, opt_speed = best_vmg_upwind(polar, 10.0)
+        assert opt_twa >= 40.0
+        assert opt_speed > 0.0
+
+    def test_imported_grid_with_real_30deg_column_may_use_it(self) -> None:
+        # A grid carrying genuine speeds at 30° (e.g. a performance boat's
+        # measured polar) is allowed to beat below the archetype defaults.
+        polar = _inline_polar(twa_deg=(30.0, 40.0, 50.0, 60.0, 90.0), zero_first_column=False)
+        opt_twa, opt_speed = best_vmg_upwind(polar, 10.0)
+        assert 30.0 <= opt_twa < 60.0
+        assert opt_speed > 0.0
 
     def test_all_archetypes_return_positive(self) -> None:
         from openwind_data.routing.archetypes import list_archetypes
@@ -1536,3 +1593,21 @@ class TestNullDataPerSegmentFallback:
         models_attempted = {c[2] for c in adapter.calls}
         assert "icon_d2" in models_attempted
         assert "icon_eu" in models_attempted
+
+
+class TestSweepFloorNeverBelowGridData:
+    def test_pin_below_grid_does_not_resurrect_the_30deg_bug(self) -> None:
+        # A user pinning 28 deg on a grid starting at 40 deg must not put the
+        # sweep back on clamp-flat speeds where cos alone picks the optimum.
+        import dataclasses
+
+        polar = dataclasses.replace(get_polar("cruiser_30ft"), min_upwind_twa_deg=28.0)
+        opt_twa, _ = best_vmg_upwind(polar, 10.0)
+        assert opt_twa >= 40.0
+
+    def test_pin_above_grid_still_wins(self) -> None:
+        import dataclasses
+
+        polar = dataclasses.replace(get_polar("cruiser_30ft"), min_upwind_twa_deg=55.0)
+        opt_twa, _ = best_vmg_upwind(polar, 10.0)
+        assert opt_twa >= 55.0

@@ -1,4 +1,4 @@
-# OhMyWind — Méthodologie
+# OhMyWind : Méthodologie
 
 > **Note** : ce document est destiné à être affiché aux utilisateurs (extrait
 > dans le tool MCP `read_me`, footer du frontend web, README repo). Il est
@@ -11,11 +11,11 @@
 
 Les prévisions vent proviennent d'**Open-Meteo Forecast API** (keyless, MIT-friendly) avec une cascade de modèles à horizon croissant :
 
-- **AROME** (Météo-France, 1.3 km) — modèle haute résolution sur l'Atlantique
+- **AROME** (Météo-France, 1.3 km) : modèle haute résolution sur l'Atlantique
   français + Méditerranée, ~48 h. Capture les thermiques et les vents locaux.
-- **ICON-EU** (DWD, 7 km) — Europe, ~5 jours.
-- **ECMWF IFS** (Centre européen, 25 km) — global, ~10 jours.
-- **GFS** (NOAA, 25 km) — global, ~16 jours, fallback.
+- **ICON-EU** (DWD, 7 km) : Europe, ~5 jours.
+- **ECMWF IFS** (Centre européen, 25 km) : global, ~10 jours.
+- **GFS** (NOAA, 25 km) : global, ~16 jours, fallback.
 
 Convention : vitesses en nœuds, directions en TWD ("from", convention météo).
 
@@ -30,7 +30,7 @@ Convention : vitesses en nœuds, directions en TWD ("from", convention météo).
 
 Couverture : monde entier, suffisant pour l'open-water et la Méditerranée.
 
-### Marées et courants haute précision (Atlantique français — V2)
+### Marées et courants haute précision (Atlantique français, V2)
 
 **Atlas harmoniques MARC** (PREVIMER, Ifremer + SHOM, version V0/V1 Février
 2013), résolution 250 m sur les passes critiques (Finistère, Manche Ouest /
@@ -46,7 +46,7 @@ Atlantique Nord-Est :
 - Validation end-to-end vs marégraphe REFMAR Brest 2008 :
   RMSE 14 cm, r² 0.99 sur 8000+ observations horaires.
 
-→ **Citation obligatoire** : Pineau-Guillou Lucia (2013). PREVIMER —
+→ **Citation obligatoire** : Pineau-Guillou Lucia (2013). PREVIMER :
 Validation des atlas de composantes harmoniques de hauteurs et courants de
 marée. Rapport Ifremer, 89 p.
 [archimer.ifremer.fr/doc/00157/26801/](http://archimer.ifremer.fr/doc/00157/26801/)
@@ -126,9 +126,9 @@ les zones MARC.
 
 ## Documentation technique
 
-- [docs/marc_atlas_format.md](marc_atlas_format.md) — format NetCDF MARC,
+- [docs/marc_atlas_format.md](marc_atlas_format.md) : format NetCDF MARC,
   predictor, conventions, build pipeline.
-- [packages/data-adapters/](../packages/data-adapters/) — sources des
+- [packages/data-adapters/](../packages/data-adapters/) : sources des
   adapters et du predictor harmonique.
-- [scripts/build_marc_atlas.py](../scripts/build_marc_atlas.py) — build
+- [scripts/build_marc_atlas.py](../scripts/build_marc_atlas.py) : build
   offline des atlas MARC vers Parquet.

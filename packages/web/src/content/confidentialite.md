@@ -60,7 +60,7 @@ politiques de confidentialité (liens dans le tableau).
 ## Permissions Android
 
 L'application Android demande une seule permission : la **localisation**, déléguée au
-site web pour les usages décrits plus haut. Elle est optionnelle — l'application
+site web pour les usages décrits plus haut. Elle est optionnelle : l'application
 fonctionne sans, il suffit alors de rechercher un lieu manuellement.
 
 ## Vos droits

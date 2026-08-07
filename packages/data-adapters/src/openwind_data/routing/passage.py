@@ -38,7 +38,13 @@ from openwind_data.adapters.openmeteo import (
     OpenMeteoAdapter,
 )
 from openwind_data.currents.narrow_pass import confidence_for_point
-from openwind_data.routing.archetypes import BoatPolar, get_polar, lookup_polar
+from openwind_data.routing.archetypes import (
+    BoatPolar,
+    effective_min_upwind_twa,
+    get_polar,
+    grid_min_sailable_twa,
+    lookup_polar,
+)
 from openwind_data.routing.geometry import (
     Point,
     haversine_distance,
@@ -112,13 +118,25 @@ def wave_derate(hs_m: float, twa_deg: float) -> float:
 def best_vmg_upwind(polar: BoatPolar, tws_kn: float) -> tuple[float, float]:
     """Return (optimal_twa_deg, polar_speed_kn) that maximises VMG upwind.
 
-    Sweeps TWA in [30, 90] deg to find the angle maximising polar(twa) * cos(twa).
+    Sweeps TWA from the boat's minimum upwind angle to 90 deg to find the angle
+    maximising polar(twa) * cos(twa). Sweeping below that floor is wrong twice
+    over: `lookup_polar` clamps flat under the first grid angle while cos(twa)
+    keeps rising (which used to pin the optimum at the old 30-deg sweep floor
+    for every archetype), and grids carrying a 0-deg row of zeros would let
+    interpolated half-zero speeds win on geometry alone.
     Returns the optimal TWA and the polar speed at that angle (not the VMG value
     itself), so the caller can compute the tacking-geometry correction:
       effective_speed = polar_speed * cos(optimal_twa - segment_twa)
     """
-    best_twa, best_speed, best_vmg = 45.0, 0.0, 0.0
-    for twa_int in range(30, 91):
+    # The sweep floor is the boat's min upwind angle, but never below the
+    # grid's real data: a user pinning tighter than the polar's first angle
+    # would put the sweep back on clamp-flat speeds where cos alone decides
+    # (the historical 30-deg bug). Pinching below the data cannot beat the
+    # polar's VMG, so the extension is display-only on the client side.
+    floor_deg = max(effective_min_upwind_twa(polar), grid_min_sailable_twa(polar))
+    floor = min(90, max(0, math.ceil(floor_deg)))
+    best_twa, best_speed, best_vmg = float(floor), 0.0, 0.0
+    for twa_int in range(floor, 91):
         twa = float(twa_int)
         sp = lookup_polar(polar, tws_kn, twa)
         vmg = sp * math.cos(math.radians(twa))

@@ -5,6 +5,7 @@
   "category": "racer-cruiser",
   "examples": ["J/122", "Pogo 12.50", "Solaris 40", "Grand Soleil 43"],
   "performance_class": "very-fast",
+  "min_upwind_twa_deg": 42,
   "tws_kn": [6, 8, 10, 12, 14, 16, 20, 25],
   "twa_deg": [40, 50, 60, 75, 90, 110, 135, 150, 165],
   "boat_speed_kn": [

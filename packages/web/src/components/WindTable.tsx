@@ -203,7 +203,7 @@ export function WindTable({
                           style={{ color: 'var(--ow-fg-0)' }}
                           title={
                             forecast.fellBackFrom
-                              ? `${modelDescription(forecast.modelName)} — affiché à la place de ${modelLabel(forecast.fellBackFrom)} qui ne couvre pas ce point.`
+                              ? `${modelDescription(forecast.modelName)} (affiché à la place de ${modelLabel(forecast.fellBackFrom)}, qui ne couvre pas ce point).`
                               : modelDescription(forecast.modelName)
                           }
                         >

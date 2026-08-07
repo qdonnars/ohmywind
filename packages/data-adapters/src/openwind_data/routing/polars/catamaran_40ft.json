@@ -5,6 +5,7 @@
   "category": "cruising",
   "examples": ["Lagoon 40", "Bali 4.1", "Fountaine Pajot Lucia 40"],
   "performance_class": "fast-reach",
+  "min_upwind_twa_deg": 50,
   "tws_kn": [6, 8, 10, 12, 14, 16, 20, 25],
   "twa_deg": [40, 50, 60, 75, 90, 110, 135, 150, 165],
   "boat_speed_kn": [

@@ -32,7 +32,7 @@ by design (see PR #74 for the full reasoning).
 from __future__ import annotations
 
 import os
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -197,7 +197,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
     function badge(level, label){
       const c = CX_COLORS[level] || CX_COLORS[3];
       return `<span class="badge" style="background:${c}22;color:${c};border-color:${c}55">
-        <span class="dot" style="background:${c}"></span>${level}/5 — ${escapeHtml(label||"")}
+        <span class="dot" style="background:${c}"></span>${level}/5 · ${escapeHtml(label||"")}
       </span>`;
     }
 
@@ -400,8 +400,10 @@ uses unless overridden by tool parameters.
   fouled hull.
 
 - VMG / tacking correction: when route TWA is below the boat's optimal
-  upwind angle (typically ~42-48 deg), the simulator assumes the sailor
-  tacks at the optimal VMG angle. Effective speed toward destination =
+  upwind angle, the simulator assumes the sailor tacks at the optimal VMG
+  angle. The optimum is searched at or above the boat's minimum upwind
+  angle (per-archetype, 42-50 deg; override via ``min_upwind_twa_deg`` on
+  ``plan_passage``). Effective speed toward destination =
   polar(opt_TWA) * cos(opt_TWA - route_TWA). At dead upwind this reduces
   to polar(opt) * cos(opt) ~= polar / sqrt(2). At route_TWA=20 deg with
   opt=45 deg, the reduction is only cos(25 deg) ~= 0.91 (much less penalty).
@@ -739,35 +741,36 @@ def build_server(
         target_eta: str | None = None,
         motor_threshold_kn: float | None = None,
         motor_speed_kn: float | None = None,
+        min_upwind_twa_deg: float | None = None,
     ) -> dict[str, Any]:
         """Plan an A→B passage. Compare departure windows by default; pin a
         single departure only when the user gives an explicit time.
 
-        ## Tool routing — read this first
+        ## Tool routing: read this first
 
         Before calling, classify the user's question:
 
         1. **Pure weather lookup at a point** ("y aura-t-il du vent à Cassis
-           samedi à 14h ?", "quelles vagues dimanche au cap Sicié ?") — call
+           samedi à 14h ?", "quelles vagues dimanche au cap Sicié ?"): call
            ``get_marine_forecast`` and answer in text. Do NOT call
            ``plan_passage``: there's no route to plan.
 
         2. **Trajet question with a flexible date** ("Marseille → Porquerolles
-           ce week-end", "demain ou après-demain", "dans les prochains jours")
-           — call ``plan_passage`` in **compare-windows mode**: pass
+           ce week-end", "demain ou après-demain", "dans les prochains jours"):
+           call ``plan_passage`` in **compare-windows mode**, passing
            ``latest_departure`` (e.g. earliest+48h) and ``sweep_interval_hours``
            (3 or 6 typically) so the user sees several departure scenarios
            side-by-side. Then pick 2-3 good ones and let the user choose.
-           This is the **default** for trajet planning — same API cost as a
+           This is the **default** for trajet planning: same API cost as a
            single passage thanks to cache prewarm, much more value.
 
         3. **Trajet with a precise hour pinned by the user** ("je pars demain
-           à 8h", "départ Saturday 9am") — call ``plan_passage`` in single
+           à 8h", "départ Saturday 9am"): call ``plan_passage`` in single
            mode (no ``latest_departure``). Used for the final "show me the
            detailed plan for THIS departure" view, often after step 2.
 
         4. **Methodology question** ("comment c'est calculé ?",
-           "quelle efficacité par défaut ?") — call ``read_me``.
+           "quelle efficacité par défaut ?"): call ``read_me``.
 
         Rule of thumb: if the user does NOT give an exact hour, prefer
         compare-windows. The widget renders one of the windows by default
@@ -800,7 +803,7 @@ def build_server(
 
         On hosts that support MCP Apps (Claude, Claude Desktop, ChatGPT, VS
         Code Copilot, Goose, Postman, MCPJam), the response is automatically
-        accompanied by an interactive widget — the live ohmywind.fr/plan view
+        accompanied by an interactive widget: the live ohmywind.fr/plan view
         served via the ``ui://openwind/plan-passage`` resource declared on
         this tool's ``_meta``. The widget reads ``openwind_url`` from the
         structured output and embeds the matching plan view as an iframe.
@@ -822,17 +825,17 @@ def build_server(
           always the production site.
         - **Compare-windows mode**: list 2-4 of the most relevant windows
           and give each its own link, e.g.
-          ``- Sam 2 mai 09h · 11h12 · ⚡2/5 — [voir →](url)``.
+          ``- Sam 2 mai 09h · 11h12 · ⚡2/5 · [voir →](url)``.
           The user picks one from the chat, not the widget.
 
         Phrase the link with intent ("voir le plan détaillé", "ouvrir cette
-        fenêtre dans l'app"), not just a bare URL — the user should know
+        fenêtre dans l'app"), not just a bare URL: the user should know
         what clicking does.
 
         ## Args
 
             waypoints: list of ``{"lat": ..., "lon": ...}`` dicts (>=2). Caller
-                keeps the polyline off land — add intermediate waypoints to
+                keeps the polyline off land: add intermediate waypoints to
                 skirt capes and peninsulas.
             departure: ISO-8601 datetime, timezone-aware.
             archetype: one of ``list_boat_archetypes()`` names.
@@ -846,18 +849,22 @@ def build_server(
                 ICON-EU (≤5 d) → ECMWF IFS 0.25° (≤10 d) → GFS (≤16 d).
                 Pass an explicit name to bypass.
             max_hs_m: optional max significant wave height (meters) over the
-                route — pass it if you have a sea-state estimate from
+                route: pass it if you have a sea-state estimate from
                 ``get_marine_forecast`` and want it factored into the score.
                 Defaults to wind-only scoring.
             motor_threshold_kn: optional sail-speed floor (knots) under which
                 the simulator switches to engine power. Must be paired with
                 ``motor_speed_kn`` (either alone is ignored). Typical value
-                2 kn — sailors fire up the engine rather than crawl in light
+                2 kn: sailors fire up the engine rather than crawl in light
                 wind. Leave unset for 100% sail. Range (0, 10].
             motor_speed_kn: optional speed under engine (knots) applied to
                 segments where the sail estimate falls under
                 ``motor_threshold_kn``. Typical 5-6 kn for a cruising boat.
                 Range (0, 12].
+            min_upwind_twa_deg: optional minimum sailable TWA (degrees)
+                overriding the archetype's own value (42-50 deg depending on
+                the boat). Pass it when you know the boat points better or
+                worse than the archetype suggests. Range [25, 70].
 
         ## Compare-windows mode (latest_departure set)
 
@@ -899,30 +906,23 @@ def build_server(
         except KeyError as exc:
             raise ValueError(f"unknown archetype: {exc}") from exc
 
+        if min_upwind_twa_deg is not None and not 25.0 <= min_upwind_twa_deg <= 70.0:
+            raise ValueError(f"min_upwind_twa_deg must be in [25, 70], got {min_upwind_twa_deg}")
+
         dep = datetime.fromisoformat(departure)
 
-        # Motor override: clone the archetype polar with motor knobs set when
-        # the caller supplied BOTH values. Either alone is a no-op (same rule
-        # as ``_apply_motor``) so a half-filled call never silently changes
-        # the result. ``get_polar`` raises KeyError on an unknown archetype,
-        # which the runtime turns into a 422 — preferable to silently using
-        # the default.
-        polar_override: BoatPolar | None = None
+        # Polar override: clone the archetype polar with the caller's knobs.
+        # Motor requires BOTH values (same rule as ``_apply_motor``) so a
+        # half-filled call never silently changes the result.
+        polar_changes: dict[str, float] = {}
         if motor_threshold_kn is not None and motor_speed_kn is not None:
-            base_polar = get_polar(archetype)
-            polar_override = BoatPolar(
-                name=base_polar.name,
-                length_ft=base_polar.length_ft,
-                type=base_polar.type,
-                category=base_polar.category,
-                examples=base_polar.examples,
-                performance_class=base_polar.performance_class,
-                tws_kn=base_polar.tws_kn,
-                twa_deg=base_polar.twa_deg,
-                boat_speed_kn=base_polar.boat_speed_kn,
-                motor_threshold_kn=float(motor_threshold_kn),
-                motor_speed_kn=float(motor_speed_kn),
-            )
+            polar_changes["motor_threshold_kn"] = float(motor_threshold_kn)
+            polar_changes["motor_speed_kn"] = float(motor_speed_kn)
+        if min_upwind_twa_deg is not None:
+            polar_changes["min_upwind_twa_deg"] = float(min_upwind_twa_deg)
+        polar_override: BoatPolar | None = (
+            replace(get_polar(archetype), **polar_changes) if polar_changes else None
+        )
 
         # --- SWEEP MODE ---
         if latest_departure is not None:

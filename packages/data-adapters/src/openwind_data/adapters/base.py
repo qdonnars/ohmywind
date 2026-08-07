@@ -60,7 +60,7 @@ class ForecastHorizonError(RuntimeError):
         super().__init__(
             f"forecast horizon exceeded for model {model!r} at "
             f"{requested_time.isoformat()}; AROME ~48h, ICON-EU ~5d, "
-            f"ECMWF ~10d, GFS ~16d — try a longer-range model "
+            f"ECMWF ~10d, GFS ~16d. Try a longer-range model "
             f"or pass model='auto' to fall back automatically"
         )
 

@@ -88,7 +88,7 @@ LANDING_HTML = """<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>OhMyWind MCP — talk to your LLM, cast off with confidence</title>
+  <title>OhMyWind MCP : talk to your LLM, cast off with confidence</title>
   <link rel="icon" type="image/svg+xml" href="https://ohmywind.fr/favicon.svg">
   <link rel="icon" type="image/png" sizes="192x192" href="https://ohmywind.fr/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="https://ohmywind.fr/icon-512.png">
@@ -194,7 +194,7 @@ LANDING_HTML = """<!doctype html>
        alt="OhMyWind passage plan: 5 waypoints, 48.6 nm, ETA 21:24, complexity 3 of 5.">
 
   <h2>Connect it to your assistant</h2>
-  <p>Pick yours below — under a minute, no install, no API key.</p>
+  <p>Pick yours below (under a minute, no install, no API key).</p>
 
   <details class="connector">
     <summary>Claude (claude.ai)</summary>
@@ -205,7 +205,7 @@ LANDING_HTML = """<!doctype html>
       <li>Paste this in <strong>Remote MCP server URL</strong>:
         <pre><code>https://mcp.ohmywind.fr/mcp</code></pre></li>
       <li>Click <strong>Add</strong>. In any new chat, OhMyWind shows up in the
-        <strong>Search and tools</strong> menu — toggle it on.</li>
+        <strong>Search and tools</strong> menu: toggle it on.</li>
     </ol>
   </details>
 
@@ -222,7 +222,7 @@ LANDING_HTML = """<!doctype html>
         <pre><code>https://mcp.ohmywind.fr/mcp</code></pre></li>
       <li>Save, then enable the OhMyWind toggle inside any conversation.</li>
       <li>Le Chat doesn&rsquo;t (yet) support the MCP Apps spec, so the
-        widget won&rsquo;t render inline &mdash; the assistant will hand you
+        widget won&rsquo;t render inline: the assistant will hand you
         an <a href="https://ohmywind.fr">ohmywind.fr</a> deep-link instead.</li>
     </ol>
   </details>
@@ -255,7 +255,7 @@ LANDING_HTML = """<!doctype html>
     instead.</p>
   <p>Or to compare a whole weekend&rsquo;s worth of departure windows in one
     shot:</p>
-  <blockquote>Marseille &rarr; Porquerolles, same boat &mdash; show me the
+  <blockquote>Marseille &rarr; Porquerolles, same boat. Show me the
     calmest departure between Saturday morning and Monday evening.</blockquote>
 
   <h2>Why OhMyWind</h2>
@@ -276,12 +276,12 @@ LANDING_HTML = """<!doctype html>
     render the live plan view in a sandboxed iframe. Pass
     <code>latest_departure</code> and it walks every hourly window up to 14
     days out so the LLM can compare side-by-side. The other three tools
-    &mdash; <code>list_boat_archetypes</code>,
-    <code>get_marine_forecast</code>, <code>read_me</code> &mdash; let the
+    (<code>list_boat_archetypes</code>,
+    <code>get_marine_forecast</code>, <code>read_me</code>) let the
     assistant pick a boat, sample the forecast ad hoc, or explain the math
     behind a result.</p>
   <p>Don&rsquo;t want to wire an MCP host? You can also drive everything by
-    hand at <a href="https://ohmywind.fr/plan">ohmywind.fr/plan</a> &mdash;
+    hand at <a href="https://ohmywind.fr/plan">ohmywind.fr/plan</a>:
     click your route, pick a boat, slide the departure.</p>
 
   <h2>Source</h2>
@@ -406,6 +406,17 @@ def _parse_polar(raw: Any) -> BoatPolar | None:
     if motor_threshold is None or motor_speed is None:
         motor_threshold = None
         motor_speed = None
+    # Min upwind angle is strict (422) where motor is tolerant: a malformed
+    # value here silently reshapes every upwind ETA, so fail loudly instead.
+    min_upwind: float | None = None
+    raw_min_upwind = raw.get("min_upwind_twa_deg")
+    if raw_min_upwind is not None:
+        try:
+            min_upwind = float(raw_min_upwind)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("polar min_upwind_twa_deg must be a number in (0, 90)") from exc
+        if not math.isfinite(min_upwind) or not 0 < min_upwind < 90:
+            raise ValueError("polar min_upwind_twa_deg must be a number in (0, 90)")
     return BoatPolar(
         name=str(raw.get("name", "custom")),
         length_ft=int(raw.get("length_ft", 0) or 0),
@@ -418,6 +429,7 @@ def _parse_polar(raw: Any) -> BoatPolar | None:
         boat_speed_kn=tuple(tuple(row) for row in matrix),
         motor_threshold_kn=motor_threshold,
         motor_speed_kn=motor_speed,
+        min_upwind_twa_deg=min_upwind,
     )
 
 
@@ -635,7 +647,7 @@ async def _api_passage(request: Request) -> JSONResponse:
         if skipped_count > 0:
             meta_warnings.append(
                 f"{skipped_count} fenêtre(s) ignorée(s) faute de couverture météo "
-                f"(horizon dépassé) — affichage des {len(windows)} restantes."
+                f"(horizon dépassé) : affichage des {len(windows)} restantes."
             )
         if target_eta_dt is not None:
             tol = timedelta(hours=2).total_seconds()
