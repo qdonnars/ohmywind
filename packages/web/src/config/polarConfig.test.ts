@@ -274,27 +274,40 @@ describe("min upwind derivation", () => {
 
 describe("isPolarCustomized", () => {
   it("is false for the untouched default against its own archetype", () => {
-    expect(isPolarCustomized(defaultPolarConfig(), DEFAULT_BASE)).toBe(false);
+    expect(isPolarCustomized(defaultPolarConfig())).toBe(false);
   });
 
   it("stays false when only the coefficient moves (it travels as efficiency)", () => {
-    expect(isPolarCustomized({ ...defaultPolarConfig(), coefficient: 1.0 }, DEFAULT_BASE)).toBe(
+    expect(isPolarCustomized({ ...defaultPolarConfig(), coefficient: 1.0 })).toBe(
       false,
     );
   });
 
   it("is true when the upwind angle is pinned", () => {
-    expect(isPolarCustomized({ ...defaultPolarConfig(), minUpwindDeg: 50 }, DEFAULT_BASE)).toBe(
+    expect(isPolarCustomized({ ...defaultPolarConfig(), minUpwindDeg: 50 })).toBe(
       true,
     );
   });
 
   it("is true whenever the imported polar is active", () => {
-    expect(isPolarCustomized(withImported(), DEFAULT_BASE)).toBe(true);
+    expect(isPolarCustomized(withImported())).toBe(true);
   });
 
   it("ignores a stored-but-inactive imported polar", () => {
-    expect(isPolarCustomized(withImported({ source: "archetype" }), DEFAULT_BASE)).toBe(false);
+    expect(isPolarCustomized(withImported({ source: "archetype" }))).toBe(false);
+  });
+
+  it("does not treat a base/archetype mismatch alone as customization", () => {
+    // A shared URL can carry another boat: its archetype wins server-side,
+    // no matrix push needed.
+    expect(isPolarCustomized(defaultPolarConfig())).toBe(false);
+  });
+
+  it("applies spi/overrides onto the URL's boat grid via the archetype override", () => {
+    const cfg: PolarConfig = { ...defaultPolarConfig(), spi: "asymmetric" };
+    const eff = effectivePolar(cfg, "cruiser_50ft");
+    expect(eff.name).toBe("cruiser_50ft");
+    expect(eff.min_upwind_twa_deg).toBe(BASE_POLARS.cruiser_50ft.min_upwind_twa_deg);
   });
 });
 

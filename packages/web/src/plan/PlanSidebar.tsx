@@ -434,7 +434,7 @@ function ArchetypeSelector({
   // boolean checks) and ensures the "Custom" pill appears immediately after
   // the user edits /config in another tab and comes back here.
   const polarCfg = loadPolarConfig();
-  const isCustom = isPolarCustomized(polarCfg, currentSlug);
+  const isCustom = isPolarCustomized(polarCfg);
   const baseLabel = ARCHETYPE_LABELS[polarCfg.base] ?? polarCfg.base;
   const current = archetypes.find((a) => a.slug === currentSlug);
   const archetypeLabel = current?.name ?? currentSlug;

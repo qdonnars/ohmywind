@@ -19,7 +19,7 @@ import {
 import { type TimeAnchor } from "../plan/ModeToggle";
 import { computeLegSegmentRanges } from "../plan/aggregateLegs";
 import { activeModels, loadModelConfig } from "../config/modelConfig";
-import { effectivePolar, isPolarCustomized, loadPolarConfig, planEfficiency, polarFingerprint } from "../config/polarConfig";
+import { effectivePolar, isPolarCustomized, loadPolarConfig, planEfficiency, polarFingerprint, savePolarConfig } from "../config/polarConfig";
 import { LocateButton } from "../components/LocateButton";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useMapView } from "../hooks/useMapView";
@@ -37,8 +37,11 @@ function resolveOverrides(archetype: string): PlanOverrides {
   const models = activeModels(modelCfg);
   if (models.length > 0) overrides.models = models;
   const polarCfg = loadPolarConfig();
-  if (isPolarCustomized(polarCfg, archetype)) {
-    overrides.polar = effectivePolar(polarCfg);
+  if (isPolarCustomized(polarCfg)) {
+    // The current slug wins over cfg.base: a shared URL can carry a different
+    // boat than the one configured locally, and the link's boat is the one
+    // being planned — spi/overrides apply on top of ITS grid.
+    overrides.polar = effectivePolar(polarCfg, archetype);
   }
   return overrides;
 }
@@ -362,7 +365,8 @@ export function PlanPage() {
   const [archetype, setArchetype] = useState(() => {
     if (isParsedOk(initialParsed) && initialParsed.archetype) return initialParsed.archetype;
     if (useCachedRoute) return cachedAtMount!.archetype;
-    return "cruiser_30ft";
+    // The boat configured on /config is the app-wide default.
+    return loadPolarConfig().base;
   });
   const [departure, setDeparture] = useState(() => {
     const raw = isParsedOk(initialParsed) ? initialParsed.departure : "";
@@ -576,6 +580,10 @@ export function PlanPage() {
 
   function handleArchetypeChange(slug: string) {
     setArchetype(slug);
+    // Write through to /config: one boat for the whole app. Picking an
+    // archetype while an imported polar is active means "plan on THIS boat",
+    // so the source flips back; the file itself is kept for later.
+    savePolarConfig({ ...loadPolarConfig(), base: slug, source: "archetype" });
     setIsStale(true);
   }
 
@@ -666,7 +674,7 @@ export function PlanPage() {
     setForecastUpdatedAt(null);
     setPlanMode("single");
     setTimeAnchor("departure");
-    setArchetype("cruiser_30ft");
+    setArchetype(loadPolarConfig().base);
     const dep = tomorrowRoundedLocal();
     setDeparture(dep);
     setSweepEarliest(dep);

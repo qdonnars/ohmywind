@@ -490,22 +490,22 @@ export function hasOverrides(cfg: PolarConfig): boolean {
   return Object.keys(cfg.overrides).length > 0;
 }
 
-// True when the polar deviates from the default for `archetype` — i.e. the
-// editor's base differs, a spi mode is selected, the upwind angle is pinned,
-// or any cell has been hand-tuned. Used to decide whether to push the custom
-// matrix to the planner; when false, the server's bundled polar suffices.
-// The coefficient is deliberately absent: it travels as the `efficiency`
-// request parameter and never requires pushing a matrix.
-export function isPolarCustomized(cfg: PolarConfig, archetype: string): boolean {
+// True when the polar deviates from the plain archetype default — a spi mode
+// is selected, the upwind angle is pinned, a cell is hand-tuned, the motor is
+// configured, or an imported file is active. Used to decide whether to push
+// the custom matrix to the planner; when false, the server's bundled polar
+// for the requested archetype suffices. The check is archetype-independent:
+// since the /plan selector writes through to `cfg.base`, a base/archetype
+// mismatch only happens via a shared URL, where the link's boat should win —
+// deliberately NOT a customization trigger (the caller passes its slug to
+// `effectivePolar` instead). The coefficient is also absent: it travels as
+// the `efficiency` request parameter and never requires pushing a matrix.
+export function isPolarCustomized(cfg: PolarConfig): boolean {
   if (isImportedActive(cfg)) return true;
   const motorActive =
     typeof cfg.motorThresholdKn === "number" && typeof cfg.motorSpeedKn === "number";
   return (
-    cfg.base !== archetype ||
-    cfg.spi !== "off" ||
-    cfg.minUpwindDeg !== undefined ||
-    hasOverrides(cfg) ||
-    motorActive
+    cfg.spi !== "off" || cfg.minUpwindDeg !== undefined || hasOverrides(cfg) || motorActive
   );
 }
 
