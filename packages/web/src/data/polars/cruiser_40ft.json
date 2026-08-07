@@ -5,6 +5,7 @@
   "category": "cruising",
   "examples": ["Sun Odyssey 410", "Bavaria 41 Cruiser", "Hanse 418"],
   "performance_class": "average",
+  "min_upwind_twa_deg": 44,
   "tws_kn": [6, 8, 10, 12, 14, 16, 20, 25],
   "twa_deg": [40, 50, 60, 75, 90, 110, 135, 150, 165],
   "boat_speed_kn": [

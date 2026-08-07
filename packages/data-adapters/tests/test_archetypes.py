@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 
 from openwind_data.routing.archetypes import (
     _bracket,
+    effective_min_upwind_twa,
     get_polar,
     list_archetypes,
     lookup_polar,
@@ -119,3 +122,26 @@ class TestLookupPolar:
                 for twa in (40, 90, 135):
                     v = lookup_polar(arch, tws, twa)
                     assert v > 0
+
+
+class TestEffectiveMinUpwindTwa:
+    def test_explicit_field_wins(self) -> None:
+        p = dataclasses.replace(get_polar("cruiser_30ft"), min_upwind_twa_deg=52.0)
+        assert effective_min_upwind_twa(p) == 52.0
+
+    def test_all_archetypes_carry_a_realistic_value(self) -> None:
+        for arch in list_archetypes():
+            assert arch.min_upwind_twa_deg is not None, arch.name
+            assert 42.0 <= arch.min_upwind_twa_deg <= 50.0, arch.name
+
+    def test_derives_first_twa_when_field_absent(self) -> None:
+        p = dataclasses.replace(get_polar("cruiser_30ft"), min_upwind_twa_deg=None)
+        assert effective_min_upwind_twa(p) == p.twa_deg[0]
+
+    def test_skips_leading_zero_columns(self) -> None:
+        # Mimics an imported file with a 0-deg row of zeros.
+        base = get_polar("cruiser_30ft")
+        twa = (0.0, *base.twa_deg)
+        matrix = tuple((0.0, *row) for row in base.boat_speed_kn)
+        p = dataclasses.replace(base, min_upwind_twa_deg=None, twa_deg=twa, boat_speed_kn=matrix)
+        assert effective_min_upwind_twa(p) == base.twa_deg[0]
