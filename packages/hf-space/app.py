@@ -406,6 +406,17 @@ def _parse_polar(raw: Any) -> BoatPolar | None:
     if motor_threshold is None or motor_speed is None:
         motor_threshold = None
         motor_speed = None
+    # Min upwind angle is strict (422) where motor is tolerant: a malformed
+    # value here silently reshapes every upwind ETA, so fail loudly instead.
+    min_upwind: float | None = None
+    raw_min_upwind = raw.get("min_upwind_twa_deg")
+    if raw_min_upwind is not None:
+        try:
+            min_upwind = float(raw_min_upwind)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("polar min_upwind_twa_deg must be a number in (0, 90)") from exc
+        if not math.isfinite(min_upwind) or not 0 < min_upwind < 90:
+            raise ValueError("polar min_upwind_twa_deg must be a number in (0, 90)")
     return BoatPolar(
         name=str(raw.get("name", "custom")),
         length_ft=int(raw.get("length_ft", 0) or 0),
@@ -418,6 +429,7 @@ def _parse_polar(raw: Any) -> BoatPolar | None:
         boat_speed_kn=tuple(tuple(row) for row in matrix),
         motor_threshold_kn=motor_threshold,
         motor_speed_kn=motor_speed,
+        min_upwind_twa_deg=min_upwind,
     )
 
 
