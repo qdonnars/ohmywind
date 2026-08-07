@@ -10,6 +10,7 @@ import { EmptyState, ModePicker, Warn, RecapButton, HeroStats } from "./PlanStat
 import {
   ARCHETYPE_LABELS,
   defaultPolarConfig,
+  isImportedActive,
   isPolarCustomized,
   loadPolarConfig,
   savePolarConfig,
@@ -969,7 +970,18 @@ export function PlanSidebar({
   }
 
   const archetype = archetypes.find((a) => a.slug === currentArchetypeSlug);
-  const archetypeLabel = archetype?.name ?? currentArchetypeSlug;
+  // Recap-strip boat label: the French display label rather than the raw API
+  // slug, and the polar's provenance when it isn't the stock one — the file
+  // name suffixed « importée », or the boat suffixed « ajustée » when the
+  // archetype was hand-tuned. Re-read the config at render, same rationale
+  // as ArchetypeSelector.
+  const recapPolarCfg = loadPolarConfig();
+  const importedName = recapPolarCfg.imported?.name ?? "polaire";
+  const archetypeLabel = isImportedActive(recapPolarCfg)
+    ? `${importedName.length > 20 ? `${importedName.slice(0, 19)}…` : importedName} (importée)`
+    : `${ARCHETYPE_LABELS[currentArchetypeSlug] ?? archetype?.name ?? currentArchetypeSlug}${
+        isPolarCustomized(recapPolarCfg) ? " (ajustée)" : ""
+      }`;
 
   // ── Filled compare view: results loaded, inputs collapsed into a recap ────
   if (mode === "compare" && windows && windows.length > 0) {
