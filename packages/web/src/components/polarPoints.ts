@@ -3,9 +3,13 @@
 // without touching React.
 
 // The curve points actually drawn for one TWS row: everything below the
-// minimum upwind angle is dropped, and when the grid crosses the boundary the
-// entry point is interpolated exactly onto it so the curve starts on the
-// no-go edge rather than jumping to the next grid angle.
+// minimum upwind angle is dropped, and the curve enters exactly on the no-go
+// boundary. The entry speed comes from real data when it exists on both sides
+// (linear interpolation); when the boundary sits below the first real angle —
+// user pinning tighter than the file's data, or a dead 0-kn row — the curve
+// is extended along the equal-VMG arc instead: pinching below the data can't
+// beat the polar's VMG, so speed tapers by cos(θ0)/cos(θ). This mirrors the
+// server, whose VMG sweep never searches below the grid's real data.
 export function visiblePolarPoints(
   twaDeg: number[],
   speeds: number[],
@@ -14,12 +18,19 @@ export function visiblePolarPoints(
   const pts = twaDeg.map((twa, i) => ({ twa, speed: speeds[i] }));
   const first = pts.findIndex((p) => p.twa >= minUpwindDeg);
   if (first === -1) return [];
-  if (first === 0) return pts;
   const kept = pts.slice(first);
   if (kept[0].twa === minUpwindDeg) return kept;
-  const below = pts[first - 1];
-  const above = kept[0];
-  const f = (minUpwindDeg - below.twa) / (above.twa - below.twa);
-  const speed = Math.round((below.speed + f * (above.speed - below.speed)) * 100) / 100;
-  return [{ twa: minUpwindDeg, speed }, ...kept];
+  // Past 90° an equal-VMG extension is meaningless (cos ≤ 0) and such a grid
+  // has no upwind data anyway — draw what exists.
+  if (kept[0].twa >= 90) return kept;
+  const below = first > 0 ? pts[first - 1] : null;
+  let speed: number;
+  if (below && below.speed > 0.1) {
+    const f = (minUpwindDeg - below.twa) / (kept[0].twa - below.twa);
+    speed = below.speed + f * (kept[0].speed - below.speed);
+  } else {
+    const rad = (deg: number) => (deg * Math.PI) / 180;
+    speed = (kept[0].speed * Math.cos(rad(kept[0].twa))) / Math.cos(rad(minUpwindDeg));
+  }
+  return [{ twa: minUpwindDeg, speed: Math.round(speed * 100) / 100 }, ...kept];
 }

@@ -37,4 +37,22 @@ describe("visiblePolarPoints", () => {
   it("returns nothing when every angle sits inside the no-go zone", () => {
     expect(visiblePolarPoints([10, 20], [1, 2], 40)).toEqual([]);
   });
+
+  it("extends along the equal-VMG arc when the boundary sits below a dead 0-kn row", () => {
+    // User pins 28° on a file whose first real angle is 40° with a 0° row of
+    // zeros: no interpolation toward the dead point (the old center spike),
+    // the entry tapers from the 40° speed by cos(40°)/cos(28°).
+    const pts = visiblePolarPoints([0, 40, 50], [0, 4.0, 5.0], 28);
+    expect(pts.map((p) => p.twa)).toEqual([28, 40, 50]);
+    const expected = (4.0 * Math.cos((40 * Math.PI) / 180)) / Math.cos((28 * Math.PI) / 180);
+    expect(pts[0].speed).toBeCloseTo(expected, 2);
+    expect(pts[0].speed).toBeLessThan(4.0);
+  });
+
+  it("extends along the equal-VMG arc when the boundary sits below the whole grid", () => {
+    const pts = visiblePolarPoints([40, 50, 90], [4.0, 5.0, 6.0], 35);
+    expect(pts.map((p) => p.twa)).toEqual([35, 40, 50, 90]);
+    expect(pts[0].speed).toBeLessThan(4.0);
+    expect(pts[0].speed).toBeGreaterThan(3.0);
+  });
 });
