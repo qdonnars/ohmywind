@@ -1,3 +1,4 @@
+import exampleCsv from "../../public/polars/exemple-polaire.csv?raw";
 import { describe, expect, it } from "vitest";
 import { parsePolarFile, PolarImportError } from "./polarImport";
 
@@ -139,5 +140,18 @@ describe("parsePolarFile", () => {
     expect(() =>
       parsePolarFile(["TWA\\TWS\t6\t900", "45\t3\t4", "90\t4\t5"].join("\n")),
     ).toThrow(/TWS invalide/);
+  });
+});
+
+describe("bundled example file", () => {
+  it("the downloadable example parses with the import parser", () => {
+    // public/polars/exemple-polaire.csv is what we tell users to start from:
+    // it must always satisfy the parser it is meant to demonstrate.
+    const parsed = parsePolarFile(exampleCsv);
+    expect(parsed.tws_kn).toEqual([6, 8, 10, 12, 14, 16, 20, 25]);
+    expect(parsed.twa_deg).toEqual([40, 50, 60, 75, 90, 110, 135, 150, 165]);
+    expect(parsed.warnings).toEqual([]);
+    // Spot-check the transposition: TWS 10 kn (idx 2) at TWA 90° (idx 4).
+    expect(parsed.boat_speed_kn[2][4]).toBe(6.0);
   });
 });

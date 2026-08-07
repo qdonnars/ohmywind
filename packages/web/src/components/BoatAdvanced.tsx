@@ -212,6 +212,18 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
             {importNotice.text}
           </p>
         )}
+        <p className="polar-hint">
+          <a
+            href="/polars/exemple-polaire.csv"
+            download
+            className="underline"
+            style={{ color: "var(--ow-accent)" }}
+          >
+            Télécharger un fichier d'exemple (.csv)
+          </a>{" "}
+          : la polaire du croiseur 30 pieds, à ouvrir dans un tableur et remplacer
+          par les valeurs de ton bateau.
+        </p>
       </div>
 
       {/* Minimum upwind angle — no-go boundary for display AND simulation. */}
