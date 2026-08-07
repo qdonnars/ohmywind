@@ -1,0 +1,5 @@
+# Cloudflare Pages rewrites. Le fallback SPA generique passe par 404.html
+# (statut HTTP 404) : suffisant pour un humain, pas pour le verificateur
+# d'URL de la Play Console, qui exige un 200 sur la politique de
+# confidentialite. On sert donc le shell directement pour cette route.
+/confidentialite /index.html 200

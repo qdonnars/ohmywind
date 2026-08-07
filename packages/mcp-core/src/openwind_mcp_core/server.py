@@ -32,7 +32,7 @@ by design (see PR #74 for the full reasoning).
 from __future__ import annotations
 
 import os
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -400,8 +400,10 @@ uses unless overridden by tool parameters.
   fouled hull.
 
 - VMG / tacking correction: when route TWA is below the boat's optimal
-  upwind angle (typically ~42-48 deg), the simulator assumes the sailor
-  tacks at the optimal VMG angle. Effective speed toward destination =
+  upwind angle, the simulator assumes the sailor tacks at the optimal VMG
+  angle. The optimum is searched at or above the boat's minimum upwind
+  angle (per-archetype, 42-50 deg; override via ``min_upwind_twa_deg`` on
+  ``plan_passage``). Effective speed toward destination =
   polar(opt_TWA) * cos(opt_TWA - route_TWA). At dead upwind this reduces
   to polar(opt) * cos(opt) ~= polar / sqrt(2). At route_TWA=20 deg with
   opt=45 deg, the reduction is only cos(25 deg) ~= 0.91 (much less penalty).
@@ -739,6 +741,7 @@ def build_server(
         target_eta: str | None = None,
         motor_threshold_kn: float | None = None,
         motor_speed_kn: float | None = None,
+        min_upwind_twa_deg: float | None = None,
     ) -> dict[str, Any]:
         """Plan an A→B passage. Compare departure windows by default; pin a
         single departure only when the user gives an explicit time.
@@ -858,6 +861,10 @@ def build_server(
                 segments where the sail estimate falls under
                 ``motor_threshold_kn``. Typical 5-6 kn for a cruising boat.
                 Range (0, 12].
+            min_upwind_twa_deg: optional minimum sailable TWA (degrees)
+                overriding the archetype's own value (42-50 deg depending on
+                the boat). Pass it when you know the boat points better or
+                worse than the archetype suggests. Range [25, 70].
 
         ## Compare-windows mode (latest_departure set)
 
@@ -899,30 +906,23 @@ def build_server(
         except KeyError as exc:
             raise ValueError(f"unknown archetype: {exc}") from exc
 
+        if min_upwind_twa_deg is not None and not 25.0 <= min_upwind_twa_deg <= 70.0:
+            raise ValueError(f"min_upwind_twa_deg must be in [25, 70], got {min_upwind_twa_deg}")
+
         dep = datetime.fromisoformat(departure)
 
-        # Motor override: clone the archetype polar with motor knobs set when
-        # the caller supplied BOTH values. Either alone is a no-op (same rule
-        # as ``_apply_motor``) so a half-filled call never silently changes
-        # the result. ``get_polar`` raises KeyError on an unknown archetype,
-        # which the runtime turns into a 422 — preferable to silently using
-        # the default.
-        polar_override: BoatPolar | None = None
+        # Polar override: clone the archetype polar with the caller's knobs.
+        # Motor requires BOTH values (same rule as ``_apply_motor``) so a
+        # half-filled call never silently changes the result.
+        polar_changes: dict[str, float] = {}
         if motor_threshold_kn is not None and motor_speed_kn is not None:
-            base_polar = get_polar(archetype)
-            polar_override = BoatPolar(
-                name=base_polar.name,
-                length_ft=base_polar.length_ft,
-                type=base_polar.type,
-                category=base_polar.category,
-                examples=base_polar.examples,
-                performance_class=base_polar.performance_class,
-                tws_kn=base_polar.tws_kn,
-                twa_deg=base_polar.twa_deg,
-                boat_speed_kn=base_polar.boat_speed_kn,
-                motor_threshold_kn=float(motor_threshold_kn),
-                motor_speed_kn=float(motor_speed_kn),
-            )
+            polar_changes["motor_threshold_kn"] = float(motor_threshold_kn)
+            polar_changes["motor_speed_kn"] = float(motor_speed_kn)
+        if min_upwind_twa_deg is not None:
+            polar_changes["min_upwind_twa_deg"] = float(min_upwind_twa_deg)
+        polar_override: BoatPolar | None = (
+            replace(get_polar(archetype), **polar_changes) if polar_changes else None
+        )
 
         # --- SWEEP MODE ---
         if latest_departure is not None:

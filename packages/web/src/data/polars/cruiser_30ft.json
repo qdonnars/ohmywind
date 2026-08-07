@@ -5,6 +5,7 @@
   "category": "cruising",
   "examples": ["Sun Odyssey 32", "Bavaria 31", "Beneteau Oceanis 31"],
   "performance_class": "slow",
+  "min_upwind_twa_deg": 45,
   "tws_kn": [6, 8, 10, 12, 14, 16, 20, 25],
   "twa_deg": [40, 50, 60, 75, 90, 110, 135, 150, 165],
   "boat_speed_kn": [
