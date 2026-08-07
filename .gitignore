@@ -33,6 +33,7 @@ dist-ssr
 
 # Internal scoping/decision docs (not part of the public repo)
 /plan/
+/FEEDBACK_TODO.md
 
 # Local scratch / browser exports / non-tracked working files
 /tmp/

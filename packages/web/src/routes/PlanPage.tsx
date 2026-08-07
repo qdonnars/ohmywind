@@ -745,7 +745,7 @@ export function PlanPage() {
   if (!isParsedOk(initialParsed)) {
     return (
       <div
-        className="h-screen flex flex-col items-center justify-center px-6"
+        className="h-dvh flex flex-col items-center justify-center px-6"
         style={{ background: "var(--ow-bg-0)", color: "var(--ow-fg-0)" }}
       >
         <div className="max-w-sm text-center space-y-4">
@@ -803,7 +803,7 @@ export function PlanPage() {
 
   return (
     <div
-      className="h-screen flex flex-col overflow-hidden"
+      className="h-dvh flex flex-col overflow-hidden"
       style={{ background: "var(--ow-bg-0)", color: "var(--ow-fg-0)" }}
     >
       {/* On the planner the route being drawn is the strongest statement of

@@ -20,8 +20,8 @@
     "path": "./android.keystore",
     "alias": "android"
   },
-  "appVersionName": "y",
-  "appVersionCode": 2,
+  "appVersionName": "1.0.0",
+  "appVersionCode": 3,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://ohmywind.fr/manifest.json",
@@ -51,5 +51,5 @@
   "additionalTrustedOrigins": [],
   "retainedBundles": [],
   "displayOverride": [],
-  "appVersion": "y"
+  "appVersion": "1.0.0"
 }
