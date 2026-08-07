@@ -62,11 +62,11 @@ Limite assumée : 8 km est suffisant au large mais reste trop grossier pour les 
 
 Pour les passes critiques de la façade Atlantique, OhMyWind ne se contente pas du SMOC à 8 km. La cascade de courants empile trois sources, du plus fin au plus large :
 
-**1. SHOM Atlas C2D — la référence du SHOM (Service Hydrographique et Océanographique de la Marine).** Les atlas C2D rassemblent les courants de marée des côtes de France (Manche et Atlantique) sous forme de points scattered placés à la main par les hydrographes sur les axes de flux des passes navigationnelles. Édition 2005, 9 atlas (557 Pas de Calais, 558 Bretagne sud, 559 Vendée-Gironde, 560 Iroise / Brest, 561 Baie de Seine, 562 Golfe Normand-Breton, 563 Bretagne nord, 564 Manche, 565 Gascogne), environ 13 000 points au total. La couverture n'est pas continue : ce sont des cartouches centrés sur les zones d'intérêt nautique (Goulet de Brest, Rade de Brest, Raz de Sein, Goulet du Morbihan, Quiberon, Saint-Malo, Hague, etc.). Distribué par data.gouv.fr sous Licence Ouverte v2.0 Etalab. À chaque point, deux séries horaires de 13 valeurs U/V (composantes est-ouest et nord-sud) sont stockées, l'une pour les vives-eaux (coefficient 95), l'autre pour les mortes-eaux (coefficient 45), heures de -6 h à +6 h relatives à la pleine mer (ou basse mer) du port de référence de la zone (Port-Navalo, Brest, Saint-Malo…).
+**1. SHOM Atlas C2D : la référence du SHOM (Service Hydrographique et Océanographique de la Marine).** Les atlas C2D rassemblent les courants de marée des côtes de France (Manche et Atlantique) sous forme de points scattered placés à la main par les hydrographes sur les axes de flux des passes navigationnelles. Édition 2005, 9 atlas (557 Pas de Calais, 558 Bretagne sud, 559 Vendée-Gironde, 560 Iroise / Brest, 561 Baie de Seine, 562 Golfe Normand-Breton, 563 Bretagne nord, 564 Manche, 565 Gascogne), environ 13 000 points au total. La couverture n'est pas continue : ce sont des cartouches centrés sur les zones d'intérêt nautique (Goulet de Brest, Rade de Brest, Raz de Sein, Goulet du Morbihan, Quiberon, Saint-Malo, Hague, etc.). Distribué par data.gouv.fr sous Licence Ouverte v2.0 Etalab. À chaque point, deux séries horaires de 13 valeurs U/V (composantes est-ouest et nord-sud) sont stockées, l'une pour les vives-eaux (coefficient 95), l'autre pour les mortes-eaux (coefficient 45), heures de -6 h à +6 h relatives à la pleine mer (ou basse mer) du port de référence de la zone (Port-Navalo, Brest, Saint-Malo…).
 
 **2. MARC PREVIMER (Modélisation et Analyse pour la Recherche Côtière, Ifremer + SHOM).** Atlas harmoniques continus à grille régulière qui complètent SHOM C2D là où ses cartouches ne sont pas placés. Résolutions : 250 m sur le Finistère et la Bretagne sud, 700 m en Manche et Golfe de Gascogne, 2 km sur l'Atlantique nord-est. 38 constituants harmoniques par cellule, prédicteur Schureman/Cartwright. Validation contre le marégraphe REFMAR de Brest (2008, 8000+ observations horaires) : RMSE 14 cm, r² 0.99 sur la hauteur.
 
-**3. Open-Meteo SMOC — fallback global** (déjà décrit ci-dessus, 8 km).
+**3. Open-Meteo SMOC : fallback global** (déjà décrit ci-dessus, 8 km).
 
 À chaque point de route, OhMyWind applique la cascade :
 
@@ -78,7 +78,7 @@ sinon                                                          →  Open-Meteo S
 
 Conséquence : précision native sur Goulet du Morbihan / Tascon (pic ~7 kt en vives-eaux), Goulet de Brest, Raz de Sein, Fromveur, Saint-Malo, Hague. Continuité harmonique sur tout le plateau atlantique français entre les cartouches SHOM. Solution de repli globale et homogène ailleurs.
 
-![Couverture des atlas de courants haute précision : MARC PREVIMER (bleu) couvre tout le plateau atlantique français et la Manche, SHOM Atlas C2D (rouge) ajoute des cartouches haute densité sur les passes critiques (Iroise, Bretagne sud, Saint-Malo, Pas-de-Calais). En dehors, on retombe sur Open-Meteo SMOC à 8 km — c'est le cas de la Méditerranée et de l'open Atlantique au large.](/methodologie/coverage_map.png)
+![Couverture des atlas de courants haute précision : MARC PREVIMER (bleu) couvre tout le plateau atlantique français et la Manche, SHOM Atlas C2D (rouge) ajoute des cartouches haute densité sur les passes critiques (Iroise, Bretagne sud, Saint-Malo, Pas-de-Calais). En dehors, on retombe sur Open-Meteo SMOC à 8 km : c'est le cas de la Méditerranée et de l'open Atlantique au large.](/methodologie/coverage_map.png)
 
 Le champ `current_source` exposé sur chaque tronçon de route indique la source effectivement utilisée : `shom_c2d_558_morbihan`, `marc_finis_250m`, `openmeteo_smoc`, etc.
 
@@ -95,37 +95,37 @@ Les polaires utilisées sont consultables ci-dessous (cliquez pour ouvrir). Chaq
 > **Note de lecture.** Les polaires ne descendent pas jusqu'à TWA = 0°. Par convention, les tableaux ORC ne définissent la vitesse qu'à partir de l'angle minimal de remontée du bateau (typiquement 40° à 45°). Dans la zone "interdite" plus serrée que cet angle, OhMyWind ne lit pas un zéro dans la polaire (qui annulerait la vitesse de planification) : on bascule sur le calcul de louvoyage par projection VMG décrit à l'[étape 4 ci-dessous](#4-polaire-angle-au-vent-et-tactique-au-près). C'est pour cette raison que les courbes apparaissent ouvertes en haut.
 
 <details>
-<summary>Polaire — croiseur 20 pieds (Beneteau First 210, Catalina 22, Jeanneau Tonic 23, Jeanneau Sun 2000)</summary>
+<summary>Polaire : croiseur 20 pieds (Beneteau First 210, Catalina 22, Jeanneau Tonic 23, Jeanneau Sun 2000)</summary>
 <img src="/polars/cruiser_20ft.svg" alt="Polaire de vitesse du croiseur 20 pieds" />
 </details>
 
 <details>
-<summary>Polaire — croiseur 25 pieds (Beneteau First 25, Catalina 25, Jeanneau Sun Odyssey 24, Beneteau Oceanis 251)</summary>
+<summary>Polaire : croiseur 25 pieds (Beneteau First 25, Catalina 25, Jeanneau Sun Odyssey 24, Beneteau Oceanis 251)</summary>
 <img src="/polars/cruiser_25ft.svg" alt="Polaire de vitesse du croiseur 25 pieds" />
 </details>
 
 <details>
-<summary>Polaire — croiseur 30 pieds (Sun Odyssey 32, Bavaria 31, Beneteau Oceanis 31)</summary>
+<summary>Polaire : croiseur 30 pieds (Sun Odyssey 32, Bavaria 31, Beneteau Oceanis 31)</summary>
 <img src="/polars/cruiser_30ft.svg" alt="Polaire de vitesse du croiseur 30 pieds" />
 </details>
 
 <details>
-<summary>Polaire — croiseur 40 pieds (Sun Odyssey 410, Bavaria 41 Cruiser, Hanse 418)</summary>
+<summary>Polaire : croiseur 40 pieds (Sun Odyssey 410, Bavaria 41 Cruiser, Hanse 418)</summary>
 <img src="/polars/cruiser_40ft.svg" alt="Polaire de vitesse du croiseur 40 pieds" />
 </details>
 
 <details>
-<summary>Polaire — croiseur 50 pieds (Sun Odyssey 519, Bavaria C50, Hanse 508)</summary>
+<summary>Polaire : croiseur 50 pieds (Sun Odyssey 519, Bavaria C50, Hanse 508)</summary>
 <img src="/polars/cruiser_50ft.svg" alt="Polaire de vitesse du croiseur 50 pieds" />
 </details>
 
 <details>
-<summary>Polaire — racer-cruiser (J/122, Pogo 12.50, Solaris 40, Grand Soleil 43)</summary>
+<summary>Polaire : racer-cruiser (J/122, Pogo 12.50, Solaris 40, Grand Soleil 43)</summary>
 <img src="/polars/racer_cruiser.svg" alt="Polaire de vitesse du racer-cruiser" />
 </details>
 
 <details>
-<summary>Polaire — catamaran 40 pieds (Lagoon 40, Bali 4.1, Fountaine Pajot Lucia 40)</summary>
+<summary>Polaire : catamaran 40 pieds (Lagoon 40, Bali 4.1, Fountaine Pajot Lucia 40)</summary>
 <img src="/polars/catamaran_40ft.svg" alt="Polaire de vitesse du catamaran 40 pieds" />
 </details>
 
@@ -254,7 +254,7 @@ $$
 
 Convention océanographique : $\theta_{\text{courant}}$ donne la direction "vers où" porte le courant, en degrés vrais (0° = Nord, 90° = Est). C'est cette valeur qui est ensuite projetée sur le cap du segment dans le calcul de SOG (étape 6).
 
-Atlas utilisés : 38 constituants pour MARC PREVIMER (sous-ensemble du jeu standard de 60 constituants, dominé par M2, S2, N2, K2, K1, O1, P1 — la marée semi-diurne explique l'essentiel du signal en Atlantique français). Pour Brest, plus de 90 % de la variance du courant horizontal est portée par la composante tidale, ce qui justifie la précision native obtenue (RMSE 14 cm sur la hauteur, ratios comparables sur le courant).
+Atlas utilisés : 38 constituants pour MARC PREVIMER (sous-ensemble du jeu standard de 60 constituants, dominé par M2, S2, N2, K2, K1, O1, P1 : la marée semi-diurne explique l'essentiel du signal en Atlantique français). Pour Brest, plus de 90 % de la variance du courant horizontal est portée par la composante tidale, ce qui justifie la précision native obtenue (RMSE 14 cm sur la hauteur, ratios comparables sur le courant).
 
 ## Comment on note la complexité
 
@@ -275,10 +275,10 @@ Le niveau du passage est `max(niveau_vent, niveau_mer)`. Pas de moyenne magique,
 
 Deux signaux distincts viennent ensuite **incrémenter le niveau de +1** (plafonné à 5) quand la mer est cassée :
 
-- **Vent contre courant** : courant ≥ 1.5 kt opposé au vent par ≥ 120° (typique des passes tidales atlantiques — Goulet de Brest, Raz de Sein, Raz Blanchard).
-- **Clapot court** : cambrure $H_s / T_p^2 > 0{,}05$ avec $H_s \geq 0{,}8$ m. Détecte une mer du vent levée à courte période — Hs 1,2 m à Tp 4,5 s par exemple. Une longue houle au même Hs (Hs 1,8 m à Tp 11 s, cambrure ≈ 0,015) **ne déclenche pas** ce bump et garde son label "mer formée" : grosse, mais confortable. Quand **tous** les segments concernés sont au vent arrière ($|TWA| \geq 120°$), on parle de "clapot suiveur" : le warning reste émis (risque de départ au lof, d'empannage involontaire) mais on **n'applique pas** le +1 — le bateau marche avec la lame plutôt que dedans.
+- **Vent contre courant** : courant ≥ 1.5 kt opposé au vent par ≥ 120° (typique des passes tidales atlantiques : Goulet de Brest, Raz de Sein, Raz Blanchard).
+- **Clapot court** : cambrure $H_s / T_p^2 > 0{,}05$ avec $H_s \geq 0{,}8$ m. Détecte une mer du vent levée à courte période : Hs 1,2 m à Tp 4,5 s par exemple. Une longue houle au même Hs (Hs 1,8 m à Tp 11 s, cambrure ≈ 0,015) **ne déclenche pas** ce bump et garde son label "mer formée" : grosse, mais confortable. Quand **tous** les segments concernés sont au vent arrière ($|TWA| \geq 120°$), on parle de "clapot suiveur" : le warning reste émis (risque de départ au lof, d'empannage involontaire) mais on **n'applique pas** le +1 : le bateau marche avec la lame plutôt que dedans.
 
-Les deux signaux peuvent coexister sur un même passage, mais **partagent un seul bump** (+1 total) — ils décrivent le même phénomène physique de mer cassée et ne se cumulent pas.
+Les deux signaux peuvent coexister sur un même passage, mais **partagent un seul bump** (+1 total) : ils décrivent le même phénomène physique de mer cassée et ne se cumulent pas.
 
 Les avertissements (vent fort, mer forte, vent contre courant, clapot court) sont rattachés à la portion de route concernée et restitués tels quels.
 

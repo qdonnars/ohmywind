@@ -88,7 +88,7 @@ LANDING_HTML = """<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>OhMyWind MCP — talk to your LLM, cast off with confidence</title>
+  <title>OhMyWind MCP : talk to your LLM, cast off with confidence</title>
   <link rel="icon" type="image/svg+xml" href="https://ohmywind.fr/favicon.svg">
   <link rel="icon" type="image/png" sizes="192x192" href="https://ohmywind.fr/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="https://ohmywind.fr/icon-512.png">
@@ -194,7 +194,7 @@ LANDING_HTML = """<!doctype html>
        alt="OhMyWind passage plan: 5 waypoints, 48.6 nm, ETA 21:24, complexity 3 of 5.">
 
   <h2>Connect it to your assistant</h2>
-  <p>Pick yours below — under a minute, no install, no API key.</p>
+  <p>Pick yours below (under a minute, no install, no API key).</p>
 
   <details class="connector">
     <summary>Claude (claude.ai)</summary>
@@ -205,7 +205,7 @@ LANDING_HTML = """<!doctype html>
       <li>Paste this in <strong>Remote MCP server URL</strong>:
         <pre><code>https://mcp.ohmywind.fr/mcp</code></pre></li>
       <li>Click <strong>Add</strong>. In any new chat, OhMyWind shows up in the
-        <strong>Search and tools</strong> menu — toggle it on.</li>
+        <strong>Search and tools</strong> menu: toggle it on.</li>
     </ol>
   </details>
 
@@ -635,7 +635,7 @@ async def _api_passage(request: Request) -> JSONResponse:
         if skipped_count > 0:
             meta_warnings.append(
                 f"{skipped_count} fenêtre(s) ignorée(s) faute de couverture météo "
-                f"(horizon dépassé) — affichage des {len(windows)} restantes."
+                f"(horizon dépassé) : affichage des {len(windows)} restantes."
             )
         if target_eta_dt is not None:
             tol = timedelta(hours=2).total_seconds()

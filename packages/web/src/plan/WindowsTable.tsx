@@ -157,7 +157,7 @@ export function WindowsTable({ windows, onSelect }: WindowsTableProps) {
                     color: cxColor,
                     border: `1px solid ${cxColor}55`,
                   }}
-                  title={cx.label && cx.rationale ? `${cx.label} — ${cx.rationale}` : cx.label ?? ""}
+                  title={cx.label && cx.rationale ? `${cx.label} : ${cx.rationale}` : cx.label ?? ""}
                 >
                   {cxLvl || "—"}
                 </span>

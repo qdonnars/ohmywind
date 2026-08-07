@@ -197,7 +197,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
     function badge(level, label){
       const c = CX_COLORS[level] || CX_COLORS[3];
       return `<span class="badge" style="background:${c}22;color:${c};border-color:${c}55">
-        <span class="dot" style="background:${c}"></span>${level}/5 — ${escapeHtml(label||"")}
+        <span class="dot" style="background:${c}"></span>${level}/5 · ${escapeHtml(label||"")}
       </span>`;
     }
 
@@ -743,31 +743,31 @@ def build_server(
         """Plan an A→B passage. Compare departure windows by default; pin a
         single departure only when the user gives an explicit time.
 
-        ## Tool routing — read this first
+        ## Tool routing: read this first
 
         Before calling, classify the user's question:
 
         1. **Pure weather lookup at a point** ("y aura-t-il du vent à Cassis
-           samedi à 14h ?", "quelles vagues dimanche au cap Sicié ?") — call
+           samedi à 14h ?", "quelles vagues dimanche au cap Sicié ?"): call
            ``get_marine_forecast`` and answer in text. Do NOT call
            ``plan_passage``: there's no route to plan.
 
         2. **Trajet question with a flexible date** ("Marseille → Porquerolles
-           ce week-end", "demain ou après-demain", "dans les prochains jours")
-           — call ``plan_passage`` in **compare-windows mode**: pass
+           ce week-end", "demain ou après-demain", "dans les prochains jours"):
+           call ``plan_passage`` in **compare-windows mode**, passing
            ``latest_departure`` (e.g. earliest+48h) and ``sweep_interval_hours``
            (3 or 6 typically) so the user sees several departure scenarios
            side-by-side. Then pick 2-3 good ones and let the user choose.
-           This is the **default** for trajet planning — same API cost as a
+           This is the **default** for trajet planning: same API cost as a
            single passage thanks to cache prewarm, much more value.
 
         3. **Trajet with a precise hour pinned by the user** ("je pars demain
-           à 8h", "départ Saturday 9am") — call ``plan_passage`` in single
+           à 8h", "départ Saturday 9am"): call ``plan_passage`` in single
            mode (no ``latest_departure``). Used for the final "show me the
            detailed plan for THIS departure" view, often after step 2.
 
         4. **Methodology question** ("comment c'est calculé ?",
-           "quelle efficacité par défaut ?") — call ``read_me``.
+           "quelle efficacité par défaut ?"): call ``read_me``.
 
         Rule of thumb: if the user does NOT give an exact hour, prefer
         compare-windows. The widget renders one of the windows by default
@@ -800,7 +800,7 @@ def build_server(
 
         On hosts that support MCP Apps (Claude, Claude Desktop, ChatGPT, VS
         Code Copilot, Goose, Postman, MCPJam), the response is automatically
-        accompanied by an interactive widget — the live ohmywind.fr/plan view
+        accompanied by an interactive widget: the live ohmywind.fr/plan view
         served via the ``ui://openwind/plan-passage`` resource declared on
         this tool's ``_meta``. The widget reads ``openwind_url`` from the
         structured output and embeds the matching plan view as an iframe.
@@ -822,17 +822,17 @@ def build_server(
           always the production site.
         - **Compare-windows mode**: list 2-4 of the most relevant windows
           and give each its own link, e.g.
-          ``- Sam 2 mai 09h · 11h12 · ⚡2/5 — [voir →](url)``.
+          ``- Sam 2 mai 09h · 11h12 · ⚡2/5 · [voir →](url)``.
           The user picks one from the chat, not the widget.
 
         Phrase the link with intent ("voir le plan détaillé", "ouvrir cette
-        fenêtre dans l'app"), not just a bare URL — the user should know
+        fenêtre dans l'app"), not just a bare URL: the user should know
         what clicking does.
 
         ## Args
 
             waypoints: list of ``{"lat": ..., "lon": ...}`` dicts (>=2). Caller
-                keeps the polyline off land — add intermediate waypoints to
+                keeps the polyline off land: add intermediate waypoints to
                 skirt capes and peninsulas.
             departure: ISO-8601 datetime, timezone-aware.
             archetype: one of ``list_boat_archetypes()`` names.
@@ -846,13 +846,13 @@ def build_server(
                 ICON-EU (≤5 d) → ECMWF IFS 0.25° (≤10 d) → GFS (≤16 d).
                 Pass an explicit name to bypass.
             max_hs_m: optional max significant wave height (meters) over the
-                route — pass it if you have a sea-state estimate from
+                route: pass it if you have a sea-state estimate from
                 ``get_marine_forecast`` and want it factored into the score.
                 Defaults to wind-only scoring.
             motor_threshold_kn: optional sail-speed floor (knots) under which
                 the simulator switches to engine power. Must be paired with
                 ``motor_speed_kn`` (either alone is ignored). Typical value
-                2 kn — sailors fire up the engine rather than crawl in light
+                2 kn: sailors fire up the engine rather than crawl in light
                 wind. Leave unset for 100% sail. Range (0, 10].
             motor_speed_kn: optional speed under engine (knots) applied to
                 segments where the sail estimate falls under
