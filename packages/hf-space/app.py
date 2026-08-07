@@ -222,7 +222,7 @@ LANDING_HTML = """<!doctype html>
         <pre><code>https://mcp.ohmywind.fr/mcp</code></pre></li>
       <li>Save, then enable the OhMyWind toggle inside any conversation.</li>
       <li>Le Chat doesn&rsquo;t (yet) support the MCP Apps spec, so the
-        widget won&rsquo;t render inline &mdash; the assistant will hand you
+        widget won&rsquo;t render inline: the assistant will hand you
         an <a href="https://ohmywind.fr">ohmywind.fr</a> deep-link instead.</li>
     </ol>
   </details>
@@ -255,7 +255,7 @@ LANDING_HTML = """<!doctype html>
     instead.</p>
   <p>Or to compare a whole weekend&rsquo;s worth of departure windows in one
     shot:</p>
-  <blockquote>Marseille &rarr; Porquerolles, same boat &mdash; show me the
+  <blockquote>Marseille &rarr; Porquerolles, same boat. Show me the
     calmest departure between Saturday morning and Monday evening.</blockquote>
 
   <h2>Why OhMyWind</h2>
@@ -276,12 +276,12 @@ LANDING_HTML = """<!doctype html>
     render the live plan view in a sandboxed iframe. Pass
     <code>latest_departure</code> and it walks every hourly window up to 14
     days out so the LLM can compare side-by-side. The other three tools
-    &mdash; <code>list_boat_archetypes</code>,
-    <code>get_marine_forecast</code>, <code>read_me</code> &mdash; let the
+    (<code>list_boat_archetypes</code>,
+    <code>get_marine_forecast</code>, <code>read_me</code>) let the
     assistant pick a boat, sample the forecast ad hoc, or explain the math
     behind a result.</p>
   <p>Don&rsquo;t want to wire an MCP host? You can also drive everything by
-    hand at <a href="https://ohmywind.fr/plan">ohmywind.fr/plan</a> &mdash;
+    hand at <a href="https://ohmywind.fr/plan">ohmywind.fr/plan</a>:
     click your route, pick a boat, slide the departure.</p>
 
   <h2>Source</h2>

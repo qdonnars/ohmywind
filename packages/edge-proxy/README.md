@@ -85,7 +85,7 @@ Then on **both** Spaces: Settings -> Variables and secrets -> New secret,
 redeploys itself on a push to `main` or `dev`; this Worker does not. Ship them
 the other way round and proxied traffic arrives without attestation, gets
 treated as direct, and every user behind the proxy keys on Cloudflare's egress
-address — one shared bucket, 429s for everyone. The reverse order is harmless:
+address: one shared bucket, 429s for everyone. The reverse order is harmless:
 a Worker sending a header the origin does not yet read changes nothing.
 
 Verify with the diagnostic route, which reports what the origin decided

@@ -193,8 +193,8 @@ function buildSvg(polar) {
 
   // Cardinal labels.
   const cardinal = `
-    <text x="${CX}" y="${CY - R_MAX - 16}" class="cardinal" text-anchor="middle">0° — vent debout</text>
-    <text x="${CX}" y="${CY + R_MAX + 22}" class="cardinal" text-anchor="middle">180° — vent arrière</text>
+    <text x="${CX}" y="${CY - R_MAX - 16}" class="cardinal" text-anchor="middle">0° : vent debout</text>
+    <text x="${CX}" y="${CY + R_MAX + 22}" class="cardinal" text-anchor="middle">180° : vent arrière</text>
   `;
 
   // ----- Polar curves (one per TWS) plus VMG projection arc (dashed) -----
@@ -207,10 +207,10 @@ function buildSvg(polar) {
       const vmgPath = buildVmgArcPath(twaOpt, speedAtOpt, scale);
       return `<g>
         <path d="${polarPath}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" opacity="0.95">
-          <title>${tws} kn de vent réel — polaire</title>
+          <title>${tws} kn de vent réel : polaire</title>
         </path>
         <path d="${vmgPath}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="4 3" opacity="0.85">
-          <title>${tws} kn de vent réel — projection VMG (louvoyage), TWA_opt = ${twaOpt}°</title>
+          <title>${tws} kn de vent réel : projection VMG (louvoyage), TWA_opt = ${twaOpt}°</title>
         </path>
       </g>`;
     })
@@ -254,7 +254,7 @@ function buildSvg(polar) {
     : "";
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="t d" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif">
-  <title id="t">Polaire de vitesse — ${human}</title>
+  <title id="t">Polaire de vitesse : ${human}</title>
   <desc id="d">Diagramme polaire en demi-cercle (côté droit) montrant la vitesse du bateau (en nœuds, distance au centre) selon l'angle au vent TWA pour différentes vitesses de vent réel TWS. Une courbe par valeur de TWS. La zone TWA &lt; ${minTwa}° n'est pas tracée : dans cette zone le planificateur modélise le louvoyage via projection VMG.</desc>
   <style>
     text { fill: currentColor; }
