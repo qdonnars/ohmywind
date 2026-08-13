@@ -3,7 +3,7 @@ import type { Spot } from "../types";
 import { migrateLegacyKey } from "../utils/localStorageMigration";
 
 export const STORAGE_KEY = "ohmywind_custom_spots";
-const LEGACY_STORAGE_KEY = "openwind_custom_spots";
+export const LEGACY_STORAGE_KEY = "openwind_custom_spots";
 
 function loadSpots(): Spot[] {
   migrateLegacyKey(LEGACY_STORAGE_KEY, STORAGE_KEY);
