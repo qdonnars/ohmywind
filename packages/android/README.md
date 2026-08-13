@@ -30,7 +30,28 @@ Le contenu web, lui, se met à jour tout seul (c'est le site). Un rebuild n'est 
 
 ## assetlinks.json
 
-`packages/web/public/.well-known/assetlinks.json` doit contenir l'empreinte SHA256 du certificat de signature, sinon l'app s'ouvre avec la barre Chrome au lieu du plein écran. Il est servi sur https://ohmywind.fr/.well-known/assetlinks.json. Si le keystore change (jamais, en principe), régénérer via `bubblewrap fingerprint` et redéployer le site.
+`packages/web/public/.well-known/assetlinks.json` doit contenir l'empreinte SHA256 de **chaque** certificat susceptible de signer l'app, sinon celle-ci s'ouvre avec la barre Chrome au lieu du plein écran. Il est servi sur https://ohmywind.fr/.well-known/assetlinks.json.
+
+Il en faut deux pour `fr.ohmywind.app`, parce que les deux canaux de distribution signent différemment:
+
+- la **clé d'upload** (`android.keystore` local), pour les APK installés en direct via `bubblewrap install` / `adb install`;
+- la **clé Play App Signing**, celle avec laquelle Google re-signe le build qu'il distribue. Play Console la publie sous Test et publication → Intégrité de l'app → Clé de signature de l'app.
+
+Ne jamais faire confiance à une empreinte recopiée à la main: la vérité terrain, c'est le certificat de l'APK réellement installé. Pour la mesurer:
+
+```bash
+adb pull "$(adb shell pm path fr.ohmywind.app | grep base.apk | sed 's/package://' | tr -d '\r')" /tmp/play.apk
+keytool -printcert -jarfile /tmp/play.apk | grep SHA256
+```
+
+Sur un build issu du Play Store, le certificat porte `CN=Android, O=Google Inc.`: c'est la clé Play App Signing. Une empreinte fausse ou manquante se voit dans `adb logcat`, au lancement de l'app:
+
+```
+W chromium: [...digital_asset_links_handler.cc] Statement failure matching fingerprint.
+W cr_WebAppLaunchHandler: Target url verification has been failed.
+```
+
+Le fichier étant servi par le site, une correction ne demande aucun rebuild de l'app: il suffit de redéployer la prod, puis de relancer l'app (Chrome met en cache le résultat de la vérification, un `adb shell pm clear com.android.chrome` force une revérification).
 
 ## Variante dev
 
