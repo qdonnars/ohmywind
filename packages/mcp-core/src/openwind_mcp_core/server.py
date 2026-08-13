@@ -504,6 +504,15 @@ but the underlying complexity is unchanged.
   Validation des atlas de composantes harmoniques de hauteurs et
   courants de maree", Rapport Ifremer, 89 p.
   http://archimer.ifremer.fr/doc/00157/26801/
+
+## Licence and trademark
+
+The OhMyWind source code is MIT licensed. Two things the MIT grant does
+not cover: the name "OhMyWind", filed as a trademark at the INPI (the
+French industrial property office), and the visual identity (logo,
+icons), which stays under copyright. Forks are welcome under their own
+name and icons. Policy:
+https://github.com/qdonnars/ohmywind/blob/main/TRADEMARK.md
 """
 
 

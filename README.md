@@ -9,7 +9,7 @@
 > global current model for the SHOM Atlas C2D and MARC PREVIMER atlases.
 > Free, keyless, open source.
 
-[**ohmywind.fr**](https://ohmywind.fr) · [MCP endpoint](https://mcp.ohmywind.fr/mcp) · MIT
+[**ohmywind.fr**](https://ohmywind.fr) · [MCP endpoint](https://mcp.ohmywind.fr/mcp) · [MIT](LICENSE) + [trademark](TRADEMARK.md)
 
 ![OhMyWind passage plan rendered in the web app](docs/screenshots/plan.png)
 
@@ -88,7 +88,7 @@ Three prompts, each exercising a different tool:
 | 🗓️ **Window-aware**           | One call sweeps a 14-day departure range and lets your LLM pick the calmest weekend slot, no math by hand. |
 | 🔌 **Client-agnostic**        | One HTTP MCP endpoint. Works in Claude Desktop, Le Chat, Cursor, Goose, Zed, Continue, …     |
 | 🖼️ **Rich on supporting hosts** | On Claude / ChatGPT / VS Code Copilot / Goose, an interactive widget renders inline via [MCP Apps](https://modelcontextprotocol.io/extensions/client-matrix). Other hosts fall back to a clean text summary + deep-link. |
-| 🛠️ **Open source, MIT**       | Self-host on Fly, Modal, or your own VPS: `mcp-core` is deployment-agnostic. The HF Space is one wrapper among many. |
+| 🛠️ **Open source, MIT**       | Self-host on Fly, Modal, or your own VPS: `mcp-core` is deployment-agnostic. The HF Space is one wrapper among many. Fork it under your own name and icons, see [TRADEMARK.md](TRADEMARK.md). |
 
 ## What the LLM sees
 
@@ -195,6 +195,22 @@ Wind & sea: [Open-Meteo](https://open-meteo.com/) (CC BY 4.0). Hosting:
 [ohmywind.fr](https://ohmywind.fr): [CARTO](https://carto.com/) /
 [OpenStreetMap](https://www.openstreetmap.org/copyright).
 
-## License
+## License and trademark
 
-[MIT](LICENSE).
+Code: [MIT](LICENSE). That covers everything under `packages/`, the web app, the
+MCP server and the data adapters alike.
+
+Two things the MIT licence does **not** cover:
+
+- **The name "OhMyWind"**, filed as a trademark at the INPI, the French
+  industrial property office.
+- **The visual identity** (logo, app icons), which stays under copyright.
+
+Forks are welcome. Publish them under your own name and your own icons. The
+full policy, and what counts as a technical figure rather than brand identity,
+is in [TRADEMARK.md](TRADEMARK.md).
+
+Data is licensed separately by each provider: Open-Meteo forecasts under
+CC BY 4.0, SHOM Atlas C2D under Licence Ouverte Etalab 2.0, MARC PREVIMER under
+a no-redistribution commitment on the raw NetCDF. The per-source table lives in
+[docs/methodologie.md](docs/methodologie.md).
