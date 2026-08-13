@@ -49,7 +49,16 @@ jobs:
       # par sa toolbox interne (Read + git add/commit + git-push.sh, sans
       # Edit/Write ni gh) — constaté au run 31736398989. En mode agent pur,
       # l'allowlist ci-dessous fait foi et le prompt pilote tout le flow.
+      #
+      # GH_TOKEN : sans lui, gh n'est pas authentifié dans le process de
+      # l'agent (constaté au run 31737271536 : l'étape 1 du prompt échouait
+      # dès le premier tour). Conséquence assumée : la PR est créée par
+      # github-actions[bot], dont les événements ne déclenchent pas de
+      # workflow — c'est pour ça que ci.yml écoute aussi les push sur fix/**
+      # (les pushes, eux, viennent de l'app Claude et déclenchent bien).
       - uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           base_branch: dev
@@ -66,11 +75,15 @@ jobs:
             3. Respecte CLAUDE.md : conventions du repo, domaine voile (nœuds,
                caps vrais…), conventional commits. Exception runner CI :
                ignore la consigne worktree, travaille dans le checkout.
-            4. Avant de committer, lance les tests du périmètre touché :
+            4. Si c'est rapide, lance les tests du périmètre touché avant de
+               committer (utilise `cd` seul pour changer de dossier, jamais
+               de commande composée) :
                - Python : `uv sync --extra dev` puis `uv run pytest -q` dans le
                  package modifié, et `uvx ruff check` + `uvx ruff format --check`
                - Web : `npm ci` à la racine puis `npm run typecheck` et
                  `npm run test` dans packages/web
+               Ne t'acharne pas : la CI de la PR fait le gate final. Mieux vaut
+               une PR poussée sans tests locaux qu'un run à sec sans PR.
             5. Ouvre une PR DRAFT vers dev (jamais main) :
                `gh pr create --base dev --draft`, titre en conventional commit
                référençant l'issue, corps contenant « Closes #${{ github.event.issue.number }} »,
@@ -86,5 +99,5 @@ jobs:
             redirection ni enchaînement (&&) — elles seraient refusées par
             l'allowlist et chaque refus gaspille un tour.
           claude_args: |
-            --max-turns 40
-            --allowedTools "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(git status),Bash(git diff:*),Bash(git log:*),Bash(git branch:*),Bash(git add:*),Bash(git commit:*),Bash(git checkout:*),Bash(git switch:*),Bash(git push:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(npm ci),Bash(npm run:*),Bash(uv sync:*),Bash(uv run:*),Bash(uvx ruff:*)"
+            --max-turns 50
+            --allowedTools "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(cd:*),Bash(ls:*),Bash(git status),Bash(git diff:*),Bash(git log:*),Bash(git branch:*),Bash(git add:*),Bash(git commit:*),Bash(git checkout:*),Bash(git switch:*),Bash(git push:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(npm:*),Bash(uv:*),Bash(uvx:*)"
