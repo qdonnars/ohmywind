@@ -1,0 +1,80 @@
+name: Claude Fix
+
+# Agent d'implémentation, armé manuellement : c'est le label agent:fix posé
+# PAR qdonnars qui déclenche, issue par issue. Jamais sur issues: [opened] —
+# repo public, texte non trusté, pas d'agent avec write access dessus.
+#
+# Pipeline : label agent:fix → branche fix/issue-NN- depuis dev → PR draft
+# vers dev → ci.yml (ruff + pytest + typecheck + vitest + build) fait le gate
+# → review humaine. Pour itérer : « @claude <feedback> » en commentaire de PR
+# (claude.yml), repush sur la même branche. La promotion dev → main reste
+# manuelle : l'agent s'arrête à dev.
+
+on:
+  issues:
+    types: [labeled]
+
+concurrency:
+  group: claude-fix-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    if: |
+      github.event.label.name == 'agent:fix' &&
+      github.event.sender.login == 'qdonnars'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: dev
+          fetch-depth: 1
+
+      # Pas d'input github_token : l'action s'authentifie comme la Claude
+      # GitHub App. Les commits poussés avec le GITHUB_TOKEN par défaut ne
+      # déclencheraient jamais ci.yml sur la PR — le gate serait mort-né.
+      # track_progress poste un commentaire de suivi sur l'issue et garde le
+      # contexte GitHub (issue, labels) dans le prompt de l'agent.
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          base_branch: dev
+          branch_prefix: "fix/"
+          track_progress: true
+          prompt: |
+            Tu traites l'issue #${{ github.event.issue.number }}, que qdonnars
+            vient de marquer agent:fix.
+
+            1. Lis-la avec `gh issue view ${{ github.event.issue.number }} --comments`.
+            2. Implémente le fix minimal qui résout l'issue, sur une branche
+               partant de dev (le checkout est déjà sur dev). En cas
+               d'ambiguïté, choisis l'interprétation la plus conservatrice et
+               note l'hypothèse dans le corps de la PR.
+            3. Respecte CLAUDE.md : conventions du repo, domaine voile (nœuds,
+               caps vrais…), conventional commits. Exception runner CI :
+               ignore la consigne worktree, travaille dans le checkout.
+            4. Avant de committer, lance les tests du périmètre touché :
+               - Python : `uv sync --extra dev` puis `uv run pytest -q` dans le
+                 package modifié, et `uvx ruff check` + `uvx ruff format --check`
+               - Web : `npm ci` à la racine puis `npm run typecheck` et
+                 `npm run test` dans packages/web
+            5. Ouvre une PR DRAFT vers dev (jamais main) :
+               `gh pr create --base dev --draft`, titre en conventional commit
+               référençant l'issue, corps contenant « Closes #${{ github.event.issue.number }} »,
+               le résumé du fix et les hypothèses prises.
+            6. Termine par un commentaire sur l'issue avec le lien de la PR.
+
+            Si le fix exige une décision produit, touche à la sécurité ou
+            dépasse largement le cadre d'un fix (refonte, migration), n'ouvre
+            pas de PR : commente l'issue en expliquant le blocage et propose
+            un découpage.
+          claude_args: |
+            --max-turns 15
+            --allowedTools "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(git status),Bash(git diff:*),Bash(git log:*),Bash(git add:*),Bash(git commit:*),Bash(git checkout:*),Bash(git switch:*),Bash(git push:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(npm ci),Bash(npm run:*),Bash(uv sync:*),Bash(uv run:*),Bash(uvx ruff:*)"
