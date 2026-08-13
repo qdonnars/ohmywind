@@ -19,11 +19,28 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Prevent text selection and context menu on long press (mobile) */
-.leaflet-container {
+/* Prevent text selection and context menu on long press (mobile). Applied to
+   the whole shell, not just the map: in the Android app, a long press on a
+   forecast cell raised Chrome's selection toolbar and its "tap to see search
+   results" panel, which navigates to Google and drops the user out of the app. */
+body {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
+}
+
+/* Selection stays where copying is the point: form fields and long-form pages. */
+input,
+textarea,
+select,
+[contenteditable="true"],
+.prose-conf,
+.prose-methodo {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.leaflet-container {
   touch-action: manipulation;
 }
 
