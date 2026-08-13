@@ -315,8 +315,10 @@ Limites assumées des données :
 |-------------------------------|------------------------------------------------------|-----------------------------------------------------------------|
 | Open-Meteo Forecast / Marine  | CC BY 4.0                                            | open-meteo.com                                                  |
 | AROME (via Open-Meteo)        | Open Etalab 2.0                                      | Météo-France                                                    |
+| SHOM Atlas C2D                | Licence Ouverte Etalab 2.0                           | SHOM, via data.gouv.fr                                          |
 | Atlas MARC PREVIMER           | Engagement non-redistribution NetCDF brut            | Pineau-Guillou (2013)                                           |
 | Marégraphes REFMAR            | Libre, source obligatoire                            | REFMAR, dx.doi.org/10.17183/REFMAR#RONIM                        |
+| Code OhMyWind                 | MIT, hors nom et identité visuelle                   | [TRADEMARK.md](https://github.com/qdonnars/ohmywind/blob/main/TRADEMARK.md) |
 
 Référence académique pour MARC : Pineau-Guillou Lucia (2013). PREVIMER, Validation des atlas de composantes harmoniques de hauteurs et courants de marée. Rapport Ifremer, 89 p. [archimer.ifremer.fr/doc/00157/26801](http://archimer.ifremer.fr/doc/00157/26801/)
 
@@ -331,4 +333,6 @@ Faire vivre un planificateur météo-marine open source et sans publicité serai
 
 ## Code et contributions
 
-OhMyWind est intégralement open source. Le code, les polaires, le prédicteur harmonique et la cascade de routage sont sur le dépôt GitHub. Les contributions sont bienvenues, en particulier sur les polaires de nouveaux archétypes et sur l'extension de la couverture MARC.
+Le code d'OhMyWind est intégralement open source, sous licence MIT. Le code, les polaires, le prédicteur harmonique et la cascade de routage sont sur le dépôt GitHub. Les contributions sont bienvenues, en particulier sur les polaires de nouveaux archétypes et sur l'extension de la couverture MARC.
+
+Deux choses ne sont pas couvertes par la licence MIT : le nom « OhMyWind », qui fait l'objet d'un dépôt de marque à l'INPI, et l'identité visuelle (logo, icônes), qui reste protégée par le droit d'auteur. Vous pouvez forker le projet et le republier librement, sous votre propre nom et vos propres icônes. Le détail est dans la [politique de marque](https://github.com/qdonnars/ohmywind/blob/main/TRADEMARK.md).

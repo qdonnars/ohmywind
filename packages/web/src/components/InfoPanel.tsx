@@ -109,6 +109,40 @@ export function InfoPanel() {
         </p>
       </section>
 
+      <section className="mb-5">
+        <h3
+          className="text-sm font-semibold mb-1.5 uppercase tracking-wider"
+          style={{ color: "var(--ow-accent)" }}
+        >
+          Licence et marque
+        </h3>
+        <p className="text-sm leading-relaxed" style={{ color: "var(--ow-fg-1)" }}>
+          Le code d'OhMyWind est open source, sous{" "}
+          <a
+            href="https://github.com/qdonnars/ohmywind/blob/main/LICENSE"
+            target="_blank"
+            rel="noreferrer"
+            className="underline hover:opacity-80"
+          >
+            licence MIT
+          </a>
+          . Vous pouvez le forker, le modifier et le redistribuer. En revanche,
+          le nom « OhMyWind » fait l'objet d'un dépôt de marque à l'INPI, et
+          l'identité visuelle (logo, icônes) reste protégée par le droit
+          d'auteur : un fork se publie sous son propre nom et ses propres
+          icônes. Détails dans la{" "}
+          <a
+            href="https://github.com/qdonnars/ohmywind/blob/main/TRADEMARK.md"
+            target="_blank"
+            rel="noreferrer"
+            className="underline hover:opacity-80"
+          >
+            politique de marque
+          </a>
+          .
+        </p>
+      </section>
+
       <section
         className="rounded-xl p-4 lg:p-5"
         style={{
