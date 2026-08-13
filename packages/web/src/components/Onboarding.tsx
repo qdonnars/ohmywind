@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState, type RefObject } from "react";
-import { STORAGE_KEY as CUSTOM_SPOTS_KEY } from "../hooks/useCustomSpots";
+import {
+  STORAGE_KEY as CUSTOM_SPOTS_KEY,
+  LEGACY_STORAGE_KEY as CUSTOM_SPOTS_LEGACY_KEY,
+} from "../hooks/useCustomSpots";
 import { migrateLegacyKey } from "../utils/localStorageMigration";
 
 const STORAGE_KEY = "ohmywind:onboarding-v1";
@@ -24,6 +27,7 @@ function isFirstTimeUser(): boolean {
   try {
     migrateLegacyKey(LEGACY_STORAGE_KEY, STORAGE_KEY);
     if (localStorage.getItem(STORAGE_KEY) === "done") return false;
+    migrateLegacyKey(CUSTOM_SPOTS_LEGACY_KEY, CUSTOM_SPOTS_KEY);
     const spotsRaw = localStorage.getItem(CUSTOM_SPOTS_KEY);
     if (spotsRaw) {
       const parsed = JSON.parse(spotsRaw);
