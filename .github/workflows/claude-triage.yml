@@ -77,6 +77,13 @@ jobs:
                reproduction manquantes. Si l'issue est claire et complète,
                ne commente pas.
 
+            Termine TOUJOURS par une action visible : au minimum un label
+            posé (constaté sur l'issue), ou un commentaire-question si tu ne
+            peux pas trancher. Ne termine jamais sans avoir fait l'un des
+            deux. Les images jointes aux issues te sont invisibles :
+            appuie-toi sur le texte ; s'il ne suffit pas, demande une
+            description écrite en commentaire.
+
             Tu ne modifies aucun fichier et tu n'écris pas de code.
 
             Contrainte outillage : commandes gh SIMPLES uniquement, sans pipe,
