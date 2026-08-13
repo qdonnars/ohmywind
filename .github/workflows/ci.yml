@@ -9,7 +9,12 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main, dev]
+    # fix/** et claude/** : branches poussées par l'agent Claude. Sa PR est
+    # créée avec le GITHUB_TOKEN par défaut, dont les événements ne
+    # déclenchent aucun workflow — mais ses pushes viennent de l'app Claude
+    # et déclenchent, et les check runs posés sur le SHA de tête satisfont
+    # les required status checks de la PR.
+    branches: [main, dev, "fix/**", "claude/**"]
   workflow_call:
 
 # A branch pushed twice in a row only needs its latest state verified.
