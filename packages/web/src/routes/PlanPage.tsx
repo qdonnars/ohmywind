@@ -862,11 +862,11 @@ export function PlanPage() {
           {/* Back-to-explore FAB — mirrors the compass FAB on the home map */}
           <a
             href={`/${mapViewQuery(mapView)}`}
-            className="absolute top-3 left-3 z-[400] w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
+            className="absolute top-3 left-3 z-[400] w-12 h-12 sm:w-20 sm:h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
             style={{ background: "var(--ow-accent)", color: "#fff" }}
             title="Retour à l'exploration"
           >
-            <img src="/wind-icon.png" alt="" width="88" height="88" className="select-none" draggable={false} />
+            <img src="/wind-icon.png" alt="" className="select-none w-[53px] h-[53px] sm:w-[88px] sm:h-[88px]" draggable={false} />
           </a>
           {/* Locate FAB — bottom right of the map container, which shrinks as
               the mobile drawer is dragged up, so the button follows it.

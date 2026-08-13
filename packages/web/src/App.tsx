@@ -216,11 +216,11 @@ function App() {
         <a
           ref={fabRef}
           href={`/plan${mapViewQuery(mapView)}`}
-          className="absolute top-3 left-3 z-[400] w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
+          className="absolute top-3 left-3 z-[400] w-12 h-12 sm:w-20 sm:h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
           style={{ background: "var(--ow-accent)", color: "#fff" }}
           title="Planifier un passage"
         >
-          <img src="/compass.png" alt="" width="88" height="88" className="select-none" draggable={false} />
+          <img src="/compass.png" alt="" className="select-none w-[53px] h-[53px] sm:w-[88px] sm:h-[88px]" draggable={false} />
         </a>
 
         {/* Bottom overlay: pills (fixed at top of overlay) + scrollable table
