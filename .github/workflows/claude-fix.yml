@@ -57,6 +57,7 @@ jobs:
       # workflow — c'est pour ça que ci.yml écoute aussi les push sur fix/**
       # (les pushes, eux, viennent de l'app Claude et déclenchent bien).
       - uses: anthropics/claude-code-action@v1
+        id: claude
         env:
           GH_TOKEN: ${{ github.token }}
         with:
@@ -72,6 +73,16 @@ jobs:
                minimal qui résout l'issue. En cas d'ambiguïté, choisis
                l'interprétation la plus conservatrice et note l'hypothèse dans
                le corps de la PR.
+
+            Va droit au but : ouvre directement les fichiers cités par
+            l'issue (ou trouve-les par UN Grep ciblé), écris le fix, teste,
+            pousse. Pas d'inventaire général du repo, pas de lecture hors
+            périmètre. Tu ne peux PAS créer ni modifier de fichiers binaires
+            (images, icônes, polices) : si le fix en exige, commente le
+            blocage sur l'issue immédiatement et termine — c'est une fin de
+            run valide. De même, si tu n'identifies pas la cause après une
+            exploration courte, ne t'enfonce pas : commente l'issue avec ton
+            diagnostic partiel et ce qui te manque, puis termine.
             3. Respecte CLAUDE.md : conventions du repo, domaine voile (nœuds,
                caps vrais…), conventional commits. Exception runner CI :
                ignore la consigne worktree, travaille dans le checkout.
@@ -101,3 +112,25 @@ jobs:
           claude_args: |
             --max-turns 50
             --allowedTools "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(cd:*),Bash(ls:*),Bash(git status),Bash(git diff:*),Bash(git log:*),Bash(git branch:*),Bash(git add:*),Bash(git commit:*),Bash(git checkout:*),Bash(git switch:*),Bash(git push:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(npm:*),Bash(uv:*),Bash(uvx:*)"
+
+      # L'agent coupé (max-turns, timeout, crash) ne peut rien poster : c'est
+      # le workflow qui signale l'échec sur l'issue, de façon déterministe.
+      - name: Signaler l'échec sur l'issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" \
+            --repo "${{ github.repository }}" \
+            --body "⚠️ L'agent a tenté un fix mais n'a pas abouti (limite de tours, timeout ou erreur). Détails : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} — la trace complète est dans les artifacts du run. Précisez l'issue (fichiers concernés, comportement attendu) puis réarmez \`agent:fix\` pour relancer."
+
+      # Trace complète de la conversation, archivée uniquement en cas d'échec
+      # pour diagnostiquer les max-turns (repo public : artifacts publics).
+      - name: Archiver la trace d'exécution
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-trace-${{ github.run_id }}
+          path: ${{ steps.claude.outputs.execution_file }}
+          if-no-files-found: ignore
+          retention-days: 7

@@ -50,6 +50,7 @@ jobs:
       # Le GITHUB_TOKEN passé ici est borné par le bloc permissions ci-dessus :
       # c'est lui le vrai garde-fou, pas la confiance dans le prompt.
       - uses: anthropics/claude-code-action@v1
+        id: claude
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -92,3 +93,14 @@ jobs:
           claude_args: |
             --max-turns 25
             --allowedTools "Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh label list),Bash(gh search:*),Read,Glob,Grep"
+
+      # Trace complète de la conversation, archivée uniquement en cas d'échec
+      # pour diagnostiquer les max-turns (repo public : artifacts publics).
+      - name: Archiver la trace d'exécution
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-trace-${{ github.run_id }}
+          path: ${{ steps.claude.outputs.execution_file }}
+          if-no-files-found: ignore
+          retention-days: 7
