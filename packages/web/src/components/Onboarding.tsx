@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, type RefObject } from "react";
+import { STORAGE_KEY as CUSTOM_SPOTS_KEY } from "../hooks/useCustomSpots";
+import { migrateLegacyKey } from "../utils/localStorageMigration";
 
-const STORAGE_KEY = "openwind:onboarding-v1";
-const CUSTOM_SPOTS_KEY = "openwind_custom_spots";
+const STORAGE_KEY = "ohmywind:onboarding-v1";
+const LEGACY_STORAGE_KEY = "openwind:onboarding-v1";
 const LAST_SIMULATION_KEY = "ow_last_simulation_v1";
 // Time between page load and the planner hint surfacing — for first-time
 // users only. The check is a snapshot at mount; subsequent state changes
@@ -20,6 +22,7 @@ const BODY = "Pour tracer un trajet entre deux spots et estimer la durée, cliqu
 // through to false — better silently skip the hint than crash the home page.
 function isFirstTimeUser(): boolean {
   try {
+    migrateLegacyKey(LEGACY_STORAGE_KEY, STORAGE_KEY);
     if (localStorage.getItem(STORAGE_KEY) === "done") return false;
     const spotsRaw = localStorage.getItem(CUSTOM_SPOTS_KEY);
     if (spotsRaw) {
