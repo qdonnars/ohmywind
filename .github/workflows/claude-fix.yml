@@ -32,31 +32,37 @@ jobs:
       id-token: write
       actions: read
     steps:
+      # persist-credentials: false — sinon le GITHUB_TOKEN par défaut reste
+      # dans la config git et les pushes de l'agent partiraient avec lui :
+      # GitHub ne déclenche aucun workflow sur ces événements, donc ci.yml ne
+      # tournerait jamais sur la PR. Sans lui, le seul credential restant est
+      # celui que l'action installe (app Claude) → les pushes déclenchent CI.
       - uses: actions/checkout@v7
         with:
           ref: dev
           fetch-depth: 1
+          persist-credentials: false
 
       # Pas d'input github_token : l'action s'authentifie comme la Claude
-      # GitHub App. Les commits poussés avec le GITHUB_TOKEN par défaut ne
-      # déclencheraient jamais ci.yml sur la PR — le gate serait mort-né.
-      # track_progress poste un commentaire de suivi sur l'issue et garde le
-      # contexte GitHub (issue, labels) dans le prompt de l'agent.
+      # GitHub App (cf. checkout ci-dessus).
+      # Pas de track_progress : en mode tag, l'action REMPLACE --allowedTools
+      # par sa toolbox interne (Read + git add/commit + git-push.sh, sans
+      # Edit/Write ni gh) — constaté au run 31736398989. En mode agent pur,
+      # l'allowlist ci-dessous fait foi et le prompt pilote tout le flow.
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           base_branch: dev
-          branch_prefix: "fix/"
-          track_progress: true
           prompt: |
             Tu traites l'issue #${{ github.event.issue.number }}, que qdonnars
             vient de marquer agent:fix.
 
             1. Lis-la avec `gh issue view ${{ github.event.issue.number }} --comments`.
-            2. Implémente le fix minimal qui résout l'issue, sur une branche
-               partant de dev (le checkout est déjà sur dev). En cas
-               d'ambiguïté, choisis l'interprétation la plus conservatrice et
-               note l'hypothèse dans le corps de la PR.
+            2. Crée la branche `fix/issue-${{ github.event.issue.number }}`
+               depuis dev (le checkout est déjà sur dev) et implémente le fix
+               minimal qui résout l'issue. En cas d'ambiguïté, choisis
+               l'interprétation la plus conservatrice et note l'hypothèse dans
+               le corps de la PR.
             3. Respecte CLAUDE.md : conventions du repo, domaine voile (nœuds,
                caps vrais…), conventional commits. Exception runner CI :
                ignore la consigne worktree, travaille dans le checkout.
@@ -80,5 +86,5 @@ jobs:
             redirection ni enchaînement (&&) — elles seraient refusées par
             l'allowlist et chaque refus gaspille un tour.
           claude_args: |
-            --max-turns 30
+            --max-turns 40
             --allowedTools "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(git status),Bash(git diff:*),Bash(git log:*),Bash(git branch:*),Bash(git add:*),Bash(git commit:*),Bash(git checkout:*),Bash(git switch:*),Bash(git push:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(npm ci),Bash(npm run:*),Bash(uv sync:*),Bash(uv run:*),Bash(uvx ruff:*)"
