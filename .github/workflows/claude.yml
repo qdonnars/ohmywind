@@ -53,6 +53,6 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           base_branch: dev
           claude_args: |
-            --max-turns 15
+            --max-turns 25
             --allowedTools "Bash(npm ci),Bash(npm run:*),Bash(uv sync:*),Bash(uv run:*),Bash(uvx ruff:*)"
-            --append-system-prompt "Tu tournes dans un runner GitHub Actions : ignore la consigne worktree de CLAUDE.md et travaille directement dans le checkout. Toute branche part de dev et toute PR cible dev, jamais main. La promotion dev vers main est toujours manuelle."
+            --append-system-prompt "Tu tournes dans un runner GitHub Actions : ignore la consigne worktree de CLAUDE.md et travaille directement dans le checkout. Toute branche part de dev et toute PR cible dev, jamais main. La promotion dev vers main est toujours manuelle. Commandes Bash simples uniquement, sans pipe ni enchaînement : elles seraient refusées par l'allowlist."
