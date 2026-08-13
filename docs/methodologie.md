@@ -121,8 +121,10 @@ les zones MARC.
 |--------|---------|----------|
 | Open-Meteo Forecast / Marine | CC BY 4.0 | open-meteo.com |
 | AROME (via Open-Meteo) | Open Etalab 2.0 | Météo-France |
+| SHOM Atlas C2D | Licence Ouverte Etalab 2.0 | SHOM, via data.gouv.fr |
 | Atlas MARC PREVIMER | Engagement non-redistribution NetCDF brut, Parquet dérivé OK | Pineau-Guillou (2013), URL ci-dessus |
 | Marégraphes REFMAR (validation) | Libre, source obligatoire | "REFMAR. http://dx.doi.org/10.17183/REFMAR#RONIM" |
+| Code OhMyWind | MIT, hors nom « OhMyWind » et identité visuelle | [LICENSE](../LICENSE), [TRADEMARK.md](../TRADEMARK.md) |
 
 ## Documentation technique
 

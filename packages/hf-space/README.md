@@ -76,7 +76,7 @@ asks you for credentials is guessing rather than reading the server.
 - **Boat-aware.** 7 archetypes from 20 to 50 ft, real polars, an `efficiency` parameter for trim and crew level.
 - **Window-aware.** One call sweeps up to 14 days of hourly departures so the LLM can pick the calmest slot.
 - **Client-agnostic.** One HTTP MCP endpoint, no vendor lock-in. Rich [MCP Apps](https://modelcontextprotocol.io/extensions/client-matrix) widget on supporting hosts; clean deep-link fallback on the rest.
-- **Open source, MIT.** Self-host on Fly, Modal, or your own VPS in minutes.
+- **Open source, MIT.** Self-host on Fly, Modal, or your own VPS in minutes, under your own name and icons.
 
 ## Four tools
 
@@ -110,6 +110,9 @@ a different wrapper. Neither upstream package imports Gradio or
 Free CPU-basic hardware sleeps after 48 h of inactivity. First request after
 sleep takes ~5 s to wake. Acceptable for V1.
 
-## License
+## License and trademark
 
-MIT.
+Code: MIT. The name "OhMyWind" is filed as a trademark at the INPI, and the
+visual identity (logo, icons) stays under copyright. Neither is covered by the
+MIT licence, so a fork ships under its own name and icons. Full policy:
+[TRADEMARK.md](https://github.com/qdonnars/ohmywind/blob/main/TRADEMARK.md).
