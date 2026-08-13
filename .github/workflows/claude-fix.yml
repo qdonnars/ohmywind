@@ -75,6 +75,10 @@ jobs:
             dépasse largement le cadre d'un fix (refonte, migration), n'ouvre
             pas de PR : commente l'issue en expliquant le blocage et propose
             un découpage.
+
+            Contrainte outillage : commandes SIMPLES uniquement, sans pipe,
+            redirection ni enchaînement (&&) — elles seraient refusées par
+            l'allowlist et chaque refus gaspille un tour.
           claude_args: |
-            --max-turns 15
-            --allowedTools "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(git status),Bash(git diff:*),Bash(git log:*),Bash(git add:*),Bash(git commit:*),Bash(git checkout:*),Bash(git switch:*),Bash(git push:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(npm ci),Bash(npm run:*),Bash(uv sync:*),Bash(uv run:*),Bash(uvx ruff:*)"
+            --max-turns 30
+            --allowedTools "Edit,MultiEdit,Write,Read,Glob,Grep,Bash(git status),Bash(git diff:*),Bash(git log:*),Bash(git branch:*),Bash(git add:*),Bash(git commit:*),Bash(git checkout:*),Bash(git switch:*),Bash(git push:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(npm ci),Bash(npm run:*),Bash(uv sync:*),Bash(uv run:*),Bash(uvx ruff:*)"
