@@ -40,15 +40,20 @@ jobs:
       id-token: write
       actions: read # lire les résultats CI sur les PRs
     steps:
+      # persist-credentials: false — sinon le GITHUB_TOKEN par défaut reste
+      # dans la config git et les pushes de l'agent partent avec lui : aucun
+      # workflow ne se déclenche dessus (constaté au run 31742540466 : commit
+      # poussé sur la PR sans aucun check CI). Le seul credential restant est
+      # celui de l'app Claude, dont les pushes déclenchent bien ci.yml.
       - uses: actions/checkout@v7
         with:
           fetch-depth: 1
+          persist-credentials: false
 
       # Pas d'input github_token : l'action s'authentifie comme la Claude
-      # GitHub App. C'est indispensable — les commits poussés avec le
-      # GITHUB_TOKEN par défaut ne déclencheraient jamais ci.yml sur la PR,
-      # et le gate CI serait mort-né.
+      # GitHub App (cf. checkout ci-dessus).
       - uses: anthropics/claude-code-action@v1
+        id: claude
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           base_branch: dev
@@ -56,3 +61,15 @@ jobs:
             --max-turns 50
             --allowedTools "Bash(cd:*),Bash(ls:*),Bash(npm:*),Bash(uv:*),Bash(uvx:*)"
             --append-system-prompt "Tu tournes dans un runner GitHub Actions : ignore la consigne worktree de CLAUDE.md et travaille directement dans le checkout. Toute branche part de dev et toute PR cible dev, jamais main. La promotion dev vers main est toujours manuelle. Commandes Bash simples uniquement, sans pipe ni enchaînement : elles seraient refusées par l'allowlist."
+
+      # Trace complète de la conversation, archivée uniquement en cas d'échec
+      # pour diagnostiquer les max-turns sans exposer le transcript en
+      # permanence (repo public : les artifacts sont téléchargeables).
+      - name: Archiver la trace d'exécution
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-trace-${{ github.run_id }}
+          path: ${{ steps.claude.outputs.execution_file }}
+          if-no-files-found: ignore
+          retention-days: 7
