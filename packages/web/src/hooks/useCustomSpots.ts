@@ -1,9 +1,12 @@
 import { useState } from "react";
 import type { Spot } from "../types";
+import { migrateLegacyKey } from "../utils/localStorageMigration";
 
-const STORAGE_KEY = "openwind_custom_spots";
+export const STORAGE_KEY = "ohmywind_custom_spots";
+const LEGACY_STORAGE_KEY = "openwind_custom_spots";
 
 function loadSpots(): Spot[] {
+  migrateLegacyKey(LEGACY_STORAGE_KEY, STORAGE_KEY);
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : [];
