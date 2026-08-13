@@ -10,7 +10,6 @@ import {
 } from "./api/marine";
 import { useCustomSpots } from "./hooks/useCustomSpots";
 import { Header } from "./components/Header";
-import { RebrandBanner } from "./components/RebrandBanner";
 import { WindTable } from "./components/WindTable";
 import { MarineTable } from "./components/MarineTable";
 import { MetricPills } from "./components/MetricPills";
@@ -187,7 +186,6 @@ function App() {
         nearLon={userPosition?.lon ?? mapView?.lon ?? spot?.longitude ?? null}
         savedSpots={customSpots}
       />
-      <RebrandBanner />
 
       {/* Map fills the entire space; pills + table are an overlay floating
           above its bottom edge so the map keeps showing through the gaps

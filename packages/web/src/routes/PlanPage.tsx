@@ -5,7 +5,6 @@ import { PlanSidebar } from "../plan/PlanSidebar";
 import { fetchPassage, fetchPassageByEta, fetchPassageWindows, fetchArchetypes, friendlyError, type PlanOverrides } from "../api/passage";
 import { buildForecastCacheSafe, singleWindowMs, sweepWindowMs, etaWindowMs } from "../api/forecastCache";
 import { Header } from "../components/Header";
-import { RebrandBanner } from "../components/RebrandBanner";
 import type { PassageReport, ComplexityScore, Archetype, PassageWindow } from "../plan/types";
 import { fmtDuration, fr1 } from "../plan/format";
 import { HeroCell } from "../plan/PlanStates";
@@ -829,7 +828,6 @@ export function PlanPage() {
         nearLat={waypoints[0]?.[0] ?? userPosition?.lat ?? mapView?.lat ?? null}
         nearLon={waypoints[0]?.[1] ?? userPosition?.lon ?? mapView?.lon ?? null}
       />
-      <RebrandBanner />
 
       {/* Body */}
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">

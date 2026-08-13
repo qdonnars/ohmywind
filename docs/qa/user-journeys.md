@@ -20,7 +20,7 @@ Chaque création de spot déclenche des fetchs de prévisions multi-modèles et 
 1. Valider d'abord le comportement sur build local piloté (vite preview + navigateur), le device n'est que la confirmation finale: une seule passe device par cycle de correctif.
 2. Ordonner les items du moins coûteux au plus coûteux: config et interactions pures (localStorage, zéro appel) d'abord, calculs de passage en dernier. Un échec d'environnement en début de passe ne gaspille alors aucun quota.
 3. Réutiliser le spot et la route existants; ne créer un spot que s'il n'y en a aucun. Ne jamais relancer un calcul dont le résultat est déjà affiché.
-4. Les parcours J4 (recherche, appels Photon) et J2/J3/J5 (prévisions, passage) sont les consommateurs; J6, J7, J10 sont gratuits.
+4. Les parcours J4 (recherche, appels Photon) et J2/J3/J5 (prévisions, passage) sont les consommateurs; J6 et J10 sont gratuits.
 
 ## Parcours
 
@@ -50,10 +50,6 @@ Chaque création de spot déclenche des fetchs de prévisions multi-modèles et 
 ### J6. Dark mode
 - Étapes: basculer l'icône lune, recharger la page, rebasculer.
 - Attendu: bascule immédiate de toute l'UI (carte comprise), préférence persistée au rechargement.
-
-### J7. Bandeau rebrand OhMyWind → OhMyWind
-- Étapes: premier affichage: lire le bandeau; cliquer la croix; recharger.
-- Attendu: texte mentionne la redirection ohmywind.fr et l'open source; la croix ferme le bandeau; il ne réapparaît pas après rechargement.
 
 ### J8. Android: plein écran TWA et permissions
 - Précondition: app installée (adb), assetlinks à jour sur l'hôte visé.
