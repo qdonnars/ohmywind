@@ -1,0 +1,58 @@
+name: Claude Code
+
+# Mode interactif : répond aux mentions @claude de qdonnars dans les
+# commentaires d'issues, de PRs et les reviews. C'est aussi le canal
+# d'itération sur les PRs ouvertes par claude-fix.yml : « @claude <feedback> »
+# en commentaire de PR → repush sur la même branche.
+#
+# Volontairement PAS de trigger sur issues: [opened] : le repo est public,
+# le corps d'une issue est du texte non trusté — un agent avec write access
+# déclenché dessus serait un chemin d'exécution pour prompt injection.
+# Le triage des issues entrantes vit dans claude-triage.yml (permissions
+# amputées), l'implémentation dans claude-fix.yml (armée par label).
+#
+# Gate sur github.actor : l'action vérifie déjà le write access du
+# déclencheur, mais le gate explicite ne coûte rien et documente l'intention.
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  claude:
+    if: |
+      github.actor == 'qdonnars' &&
+      (
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude'))
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read # lire les résultats CI sur les PRs
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      # Pas d'input github_token : l'action s'authentifie comme la Claude
+      # GitHub App. C'est indispensable — les commits poussés avec le
+      # GITHUB_TOKEN par défaut ne déclencheraient jamais ci.yml sur la PR,
+      # et le gate CI serait mort-né.
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          base_branch: dev
+          claude_args: |
+            --max-turns 15
+            --allowedTools "Bash(npm ci),Bash(npm run:*),Bash(uv sync:*),Bash(uv run:*),Bash(uvx ruff:*)"
+            --append-system-prompt "Tu tournes dans un runner GitHub Actions : ignore la consigne worktree de CLAUDE.md et travaille directement dans le checkout. Toute branche part de dev et toute PR cible dev, jamais main. La promotion dev vers main est toujours manuelle."
