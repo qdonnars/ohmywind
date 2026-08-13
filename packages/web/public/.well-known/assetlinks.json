@@ -15,10 +15,7 @@
     "target": {
       "namespace": "android_app",
       "package_name": "fr.ohmywind.app.dev",
-      "sha256_cert_fingerprints": [
-        "6B:F4:67:EB:7E:EA:C5:F0:54:0A:67:E6:5A:86:2D:1D:67:66:C4:9A:B3:35:03:5C:A8:79:AA:81:2F:54:36:82",
-        "FF:D9:02:AB:83:74:C7:A2:B4:74:F8:FA:86:2A:43:53:E5:24:90:EF:F2:A0:40:AE:2A:1C:0B:96:2E:C1:53:F0"
-      ]
+      "sha256_cert_fingerprints": ["6B:F4:67:EB:7E:EA:C5:F0:54:0A:67:E6:5A:86:2D:1D:67:66:C4:9A:B3:35:03:5C:A8:79:AA:81:2F:54:36:82"]
     }
   }
 ]
