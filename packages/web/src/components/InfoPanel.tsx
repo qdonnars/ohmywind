@@ -162,7 +162,7 @@ export function InfoPanel() {
           la pub dans cette app. Si vous non plus, n'hésitez pas à m'aider.
         </p>
         <a
-          href="https://ko-fi.com/openwind"
+          href="https://ko-fi.com/ohmywind"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-transform hover:scale-105 active:scale-95"

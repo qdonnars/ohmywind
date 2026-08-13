@@ -129,7 +129,7 @@ Les polaires utilisées sont consultables ci-dessous (cliquez pour ouvrir). Chaq
 <img src="/polars/catamaran_40ft.svg" alt="Polaire de vitesse du catamaran 40 pieds" />
 </details>
 
-Les fichiers source (JSON) sont dans le dépôt sous [`packages/data-adapters/src/openwind_data/routing/polars/`](https://github.com/qdonnars/open_wind/tree/main/packages/data-adapters/src/openwind_data/routing/polars). Chaque fichier contient le tableau brut TWS x TWA, la classe de performance et les exemples de bateaux.
+Les fichiers source (JSON) sont dans le dépôt sous [`packages/data-adapters/src/openwind_data/routing/polars/`](https://github.com/qdonnars/ohmywind/tree/main/packages/data-adapters/src/openwind_data/routing/polars). Chaque fichier contient le tableau brut TWS x TWA, la classe de performance et les exemples de bateaux.
 
 ### 2. Découpage de la route
 
