@@ -22,8 +22,8 @@ bubblewrap build    # produit app-release-bundle.aab (Play) + app-release-signed
 
 ## Publier une mise à jour
 
-1. Incrémenter `appVersionCode` (+1, entier) et `appVersion` (lisible, ex. "1.1.0") dans `twa-manifest.json`.
-2. `bubblewrap update` puis `bubblewrap build`.
+1. Incrémenter `appVersionCode` (+1, entier) et `appVersion` (lisible, ex. "1.1.0") dans `twa-manifest.json`. Attention: c'est `appVersion` que Bubblewrap lit pour le versionName du bundle; si un champ `appVersionName` est aussi présent, le garder synchronisé (incident: la 1.0.1 a failli partir étiquetée 1.0.0 parce que seul `appVersionName` avait été incrémenté).
+2. `bubblewrap update --skipVersionUpgrade` puis `bubblewrap build` (sans le flag, `update` prompte interactivement pour une nouvelle version et pollue les champs en non-interactif).
 3. Uploader `app-release-bundle.aab` sur la Play Console.
 
 Le contenu web, lui, se met à jour tout seul (c'est le site). Un rebuild n'est nécessaire que pour changer le manifest Android (icône, nom, permissions, version affichée sur le Play Store).
