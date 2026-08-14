@@ -18,7 +18,7 @@ import {
 import { type TimeAnchor } from "../plan/ModeToggle";
 import { computeLegSegmentRanges } from "../plan/aggregateLegs";
 import { activeModels, loadModelConfig } from "../config/modelConfig";
-import { effectivePolar, initialPlanBoat, isPolarCustomized, loadPolarConfig, planEfficiency, polarFingerprint, savePolarConfig } from "../config/polarConfig";
+import { effectivePolar, initialPlanBoat, isPersoActive, isPolarCustomized, loadPolarConfig, planEfficiency, polarFingerprint, savePolarConfig } from "../config/polarConfig";
 import { LocateButton } from "../components/LocateButton";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useMapView } from "../hooks/useMapView";
@@ -36,12 +36,14 @@ function resolveOverrides(): PlanOverrides {
   const models = activeModels(modelCfg);
   if (models.length > 0) overrides.models = models;
   const polarCfg = loadPolarConfig();
-  if (isPolarCustomized(polarCfg)) {
+  if (isPersoActive(polarCfg)) {
     // The custom matrix is always built on cfg.base's grid — the boat of
-    // record while a customization is active (#220). The page's slug matches
-    // it (seeded via initialPlanBoat, kept in sync by the selector's
-    // write-through), so passing it here would be redundant at best and, in a
-    // cross-tab /config edit, would resurrect the mismatch.
+    // record while the perso polar is the active pick (#220). The page's slug
+    // matches it (seeded via initialPlanBoat, re-pinned by handlePersoSelect),
+    // so passing it here would be redundant at best and, in a cross-tab
+    // /config edit, would resurrect the mismatch. When perso is parked in
+    // favour of a stock archetype, no matrix travels: the server's bundled
+    // polar for the requested slug wins.
     overrides.polar = effectivePolar(polarCfg);
   }
   return overrides;
@@ -594,10 +596,25 @@ export function PlanPage() {
 
   function handleArchetypeChange(slug: string) {
     setArchetype(slug);
-    // Write through to /config: one boat for the whole app. Picking an
-    // archetype while an imported polar is active means "plan on THIS boat",
-    // so the source flips back; the file itself is kept for later.
-    savePolarConfig({ ...loadPolarConfig(), base: slug, source: "archetype" });
+    const cfg = loadPolarConfig();
+    if (isPolarCustomized(cfg)) {
+      // Perso stays defined: picking a stock hull just parks it for planning
+      // (no matrix push, the server's bundled polar wins). The tuning is kept
+      // untouched so the « Perso » entry of the selector brings it back.
+      savePolarConfig({ ...cfg, persoActive: false });
+    } else {
+      // Write through to /config: one boat for the whole app.
+      savePolarConfig({ ...cfg, base: slug, source: "archetype" });
+    }
+    setIsStale(true);
+  }
+
+  // Selecting the « Perso » entry of the boat list: reactivate the
+  // customization and re-pin the page's slug to the grid it was built on.
+  function handlePersoSelect() {
+    const cfg = loadPolarConfig();
+    savePolarConfig({ ...cfg, persoActive: true });
+    setArchetype(cfg.base);
     setIsStale(true);
   }
 
@@ -803,6 +820,7 @@ export function PlanPage() {
     archetypes,
     currentArchetypeSlug: archetype,
     onArchetypeChange: handleArchetypeChange,
+    onPersoSelect: handlePersoSelect,
     departure,
     onDepartureChange: handleDepartureChange,
     isStale,
