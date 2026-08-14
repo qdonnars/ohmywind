@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 import { parsePlanUrl, isParsedOk, buildPlanUrl } from "../plan/parseUrl";
 import { PlanMap, type PlanMapHandle } from "../plan/PlanMap";
 import { PlanSidebar } from "../plan/PlanSidebar";
@@ -147,6 +147,10 @@ const DRAWER_EXPANDED_VH = 75;
 
 interface DrawerHandle {
   expand: () => void;
+  /** Scroll the drawer content back to the top — used when the route turns
+   *  stale so the Recalculer bar (hidden by the results fit below) is
+   *  visible next to the "Cliquez sur Recalculer" placeholder. */
+  scrollToTop: () => void;
 }
 
 const ResizableMobileDrawer = forwardRef<DrawerHandle, {
@@ -156,8 +160,16 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
    *  overrides until the next ``targetVh`` change. Pass ``undefined`` to
    *  fall back to ``defaultVh`` / persisted height with no auto-resize. */
   targetVh?: number;
+  /** Fresh-results signal. Whenever this identity changes (and is non-null)
+   *  the drawer fits itself to the results: height shrinks so the content
+   *  below the ``data-results-anchor`` marker exactly fills it (never grows,
+   *  floored at DRAWER_MIN_VH), then the anchor is scrolled to the top. Net
+   *  effect: the recap + results open the view, the mode pills + Recalculer
+   *  block sits one scroll-up away, and the map gets the freed space. No-op
+   *  when the sidebar isn't showing a filled view (no anchor in the DOM). */
+  resultsFitKey?: object | null;
   children: React.ReactNode;
-}>(function ResizableMobileDrawer({ defaultVh, targetVh, children }, ref) {
+}>(function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, children }, ref) {
   const [vh, setVh] = useState<number>(() => {
     try {
       const raw = localStorage.getItem(DRAWER_HEIGHT_KEY);
@@ -168,6 +180,8 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
     }
   });
   const dragRef = useRef<{ startY: number; startVh: number } | null>(null);
+  const outerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   // Animate only when the auto-target moves the drawer; user drag should
   // feel direct (no easing lag). Toggled in onPointerDown/onPointerUp.
   const [isAnimating, setIsAnimating] = useState(false);
@@ -188,6 +202,60 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
     return () => clearTimeout(t);
   }, [targetVh]);
 
+  // Fit-to-results: see the ``resultsFitKey`` prop doc. Runs one frame after
+  // render (rAF) so the filled view is measurable; the height is written to
+  // the DOM directly (transition suppressed) so the scroll clamp updates in
+  // the same frame — a CSS-animated shrink would keep max-scroll at 0 until
+  // the transition ends and the anchor could never reach the top. setVh then
+  // re-renders the same height so React state stays the source of truth.
+  // Deliberately not persisted: app-driven, like targetVh. Declared after the
+  // targetVh effect so on a cache-hydrated mount (both fire) the fit wins.
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => {
+      const outer = outerRef.current;
+      const container = contentRef.current;
+      if (!outer || !container) return;
+      if (resultsFitKey == null) {
+        // Back to a form view (mode toggled before its results exist, or
+        // reset): restore the flow-driven target height and rewind the
+        // scroll — a previous fit may have left the drawer in its compact
+        // slot, scrolled past the pills, which would open the form
+        // mid-content.
+        container.scrollTop = 0;
+        if (targetVh != null) {
+          setIsAnimating(true);
+          setVh(Math.max(DRAWER_MIN_VH, Math.min(DRAWER_MAX_VH, targetVh)));
+          setTimeout(() => setIsAnimating(false), 320);
+        }
+        return;
+      }
+      const anchor = container.querySelector<HTMLElement>("[data-results-anchor]");
+      if (!anchor) return;
+      if (outer.offsetHeight === 0) return; // desktop: the drawer is display:none
+      const anchorTop =
+        anchor.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+      // Real content extent, NOT container.scrollHeight — scrollHeight is
+      // floored at clientHeight, so when the content is shorter than the
+      // drawer it would count the empty space and the fit would stop short.
+      const contentEnd = container.lastElementChild?.getBoundingClientRect().bottom
+        ?? container.getBoundingClientRect().bottom;
+      const belowPx = contentEnd - anchor.getBoundingClientRect().top;
+      const chromePx = outer.offsetHeight - container.clientHeight; // grab handle + border
+      const currentVh = (outer.offsetHeight / window.innerHeight) * 100;
+      // −1 px absorbs sub-pixel rounding: the visible slot must stay ≤ the
+      // content below the anchor, or the scroll clamp leaves a sliver of the
+      // Recalculer bar visible at the top.
+      const desiredVh = ((belowPx - 1 + chromePx) / window.innerHeight) * 100;
+      const next = Math.max(DRAWER_MIN_VH, Math.min(currentVh, desiredVh));
+      setIsAnimating(false);
+      outer.style.transition = "none";
+      outer.style.height = `${next}vh`;
+      container.scrollTop = anchorTop;
+      setVh(next);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [resultsFitKey, targetVh]);
+
   useImperativeHandle(ref, () => ({
     expand: () => {
       setVh((prev) => {
@@ -195,6 +263,9 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
         if (next !== prev) persist(next);
         return next;
       });
+    },
+    scrollToTop: () => {
+      contentRef.current?.scrollTo({ top: 0 });
     },
   }), []);
 
@@ -220,6 +291,7 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
 
   return (
     <div
+      ref={outerRef}
       className="lg:hidden shrink-0 overflow-y-auto border-t flex flex-col"
       style={{
         height: `${vh}vh`,
@@ -244,7 +316,7 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
           style={{ width: 36, height: 4, background: "var(--ow-line-2)" }}
         />
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>
+      <div ref={contentRef} className="flex-1 min-h-0 overflow-y-auto">{children}</div>
     </div>
   );
 });
@@ -437,6 +509,26 @@ export function PlanPage() {
   useEffect(() => {
     fetchArchetypes().then(setArchetypes).catch(() => {});
   }, []);
+
+  // Fresh-results signal for the mobile drawer's fit-to-results behaviour
+  // (see ResizableMobileDrawer). New identity whenever results land — fresh
+  // fetch, window drill-down, cache hydration at mount — or the user toggles
+  // between two filled modes, so the drawer re-fits on the view it switched
+  // to. Gated on isLoading because setPassage/setWindows and
+  // setIsLoading(false) can flush in separate renders — the filled view
+  // (and its anchor) only exists once loading ends.
+  const resultsFitKey = useMemo(() => {
+    if (isLoading) return null;
+    const filled = planMode === "compare" ? !!windows && windows.length > 0 : !!passage;
+    return filled ? {} : null;
+  }, [passage, windows, planMode, isLoading]);
+
+  // Route edited after a result: the drawer content flips to the "Cliquez
+  // sur Recalculer" placeholders while the results fit above may have left
+  // the Recalculer bar scrolled out of view — bring it back.
+  useEffect(() => {
+    if (isStale) drawerRef.current?.scrollToTop();
+  }, [isStale]);
 
   function doFetch(wpts: [number, number][], arch: string, dep: string, anchor: TimeAnchor = "departure") {
     setIsLoading(true);
@@ -960,6 +1052,7 @@ export function PlanPage() {
               ? 22
               : 65
         }
+        resultsFitKey={resultsFitKey}
       >
         <PlanSidebar {...sidebarProps} />
       </ResizableMobileDrawer>
