@@ -68,11 +68,12 @@ export const DEFAULT_BASE = "cruiser_30ft";
 
 // Performance coefficient applied at plan time (the server's `efficiency`
 // parameter). 100% = a race crew sailing the polar; cruising realistically
-// loses ~20% (sail trim, comfort margins, helm attention).
+// loses ~25% (sail trim, comfort margins, helm attention). The default
+// matches the server-side plan_passage default so web and MCP plans agree.
 export const COEFF_MIN = 0.5;
 export const COEFF_MAX = 1.0;
 export const COEFF_STEP = 0.01;
-export const COEFF_DEFAULT = 0.8;
+export const COEFF_DEFAULT = 0.75;
 
 // Historical plan_passage default efficiency — what pre-v3 configs implicitly
 // planned with when they didn't pin 1.0. Consumed by the v1/v2 migration so
@@ -111,7 +112,7 @@ export interface PolarConfig {
   // Archetype the user started from. Determines the (tws_kn, twa_deg) grid.
   base: string;
   // Performance coefficient sent to plan_passage as `efficiency`. 1.0 = race
-  // trim (sail the polar), 0.8 = typical cruising. Applies to imported polars
+  // trim (sail the polar), 0.75 = typical cruising. Applies to imported polars
   // too: a file built from real logged performance should sit at 1.0.
   coefficient: number;
   // Spinnaker selection: asymmetric (reaching) or symmetric (running). Applies
