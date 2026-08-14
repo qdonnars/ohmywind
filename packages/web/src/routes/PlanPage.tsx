@@ -18,7 +18,7 @@ import {
 import { type TimeAnchor } from "../plan/ModeToggle";
 import { computeLegSegmentRanges } from "../plan/aggregateLegs";
 import { activeModels, loadModelConfig } from "../config/modelConfig";
-import { effectivePolar, isPolarCustomized, loadPolarConfig, planEfficiency, polarFingerprint, savePolarConfig } from "../config/polarConfig";
+import { effectivePolar, initialPlanBoat, isPolarCustomized, loadPolarConfig, planEfficiency, polarFingerprint, savePolarConfig } from "../config/polarConfig";
 import { LocateButton } from "../components/LocateButton";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useMapView } from "../hooks/useMapView";
@@ -30,17 +30,19 @@ import { setCookie, clearCookie } from "../utils/cookies";
 // next refetch without a page reload. Polar matrix is only attached when the
 // editor deviates from the default for the active archetype — otherwise the
 // server's bundled polar wins, saving ~kB per request.
-function resolveOverrides(archetype: string): PlanOverrides {
+function resolveOverrides(): PlanOverrides {
   const overrides: PlanOverrides = {};
   const modelCfg = loadModelConfig();
   const models = activeModels(modelCfg);
   if (models.length > 0) overrides.models = models;
   const polarCfg = loadPolarConfig();
   if (isPolarCustomized(polarCfg)) {
-    // The current slug wins over cfg.base: a shared URL can carry a different
-    // boat than the one configured locally, and the link's boat is the one
-    // being planned — spi/overrides apply on top of ITS grid.
-    overrides.polar = effectivePolar(polarCfg, archetype);
+    // The custom matrix is always built on cfg.base's grid — the boat of
+    // record while a customization is active (#220). The page's slug matches
+    // it (seeded via initialPlanBoat, kept in sync by the selector's
+    // write-through), so passing it here would be redundant at best and, in a
+    // cross-tab /config edit, would resurrect the mismatch.
+    overrides.polar = effectivePolar(polarCfg);
   }
   return overrides;
 }
@@ -361,12 +363,17 @@ export function PlanPage() {
     if (useCachedRoute) return cachedAtMount!.waypoints;
     return [];
   });
-  const [archetype, setArchetype] = useState(() => {
-    if (isParsedOk(initialParsed) && initialParsed.archetype) return initialParsed.archetype;
-    if (useCachedRoute) return cachedAtMount!.archetype;
-    // The boat configured on /config is the app-wide default.
-    return loadPolarConfig().base;
-  });
+  const [archetype, setArchetype] = useState(() =>
+    // A customized polar pins the boat to cfg.base — the hull the tuning was
+    // built on and the one the selector displays — so a stale URL/cache slug
+    // from an earlier session can't silently re-board the plan on another
+    // boat (#220). Otherwise: URL, then cache, then the /config default.
+    initialPlanBoat(
+      loadPolarConfig(),
+      isParsedOk(initialParsed) ? initialParsed.archetype : null,
+      useCachedRoute ? cachedAtMount!.archetype : null,
+    ),
+  );
   const [departure, setDeparture] = useState(() => {
     const raw = isParsedOk(initialParsed) ? initialParsed.departure : "";
     if (raw && new Date(raw) >= new Date()) return raw;
@@ -432,7 +439,7 @@ export function PlanPage() {
   function doFetch(wpts: [number, number][], arch: string, dep: string, anchor: TimeAnchor = "departure") {
     setIsLoading(true);
     setApiError(null);
-    const overrides = resolveOverrides(arch);
+    const overrides = resolveOverrides();
     const depIso = toTzAware(dep);
     const anchorMs = Date.parse(depIso);
     // Sample the route corridor in the browser and attach it so the server
@@ -488,13 +495,16 @@ export function PlanPage() {
 
   useEffect(() => {
     // Path A — URL has waypoints: respect the URL, restore from cache if it
-    // matches the same route + archetype, otherwise fetch fresh.
+    // matches the same route + boat, otherwise fetch fresh. The boat is the
+    // seeded `archetype` state, not the raw URL slug: a customized polar
+    // overrides the URL's boat (see initialPlanBoat), and the results shown
+    // must be the ones computed on the boat the recap displays (#220).
     if (urlHasWaypoints) {
       const cached: LastSimulation | null = loadLastSimulation();
       const cacheMatches =
         cached &&
         waypointsEqual(cached.waypoints, initialParsed.waypoints) &&
-        cached.archetype === initialParsed.archetype &&
+        cached.archetype === archetype &&
         // Reject the cache if the user tweaked /config since the simulation
         // ran — the persisted result is stale relative to the active
         // preferences. Treat missing fingerprint as "pre-config-era" cache.
@@ -516,7 +526,7 @@ export function PlanPage() {
         }
         if (cached.single || cached.compare) return;
       }
-      doFetch(initialParsed.waypoints, initialParsed.archetype, departure);
+      doFetch(initialParsed.waypoints, archetype, departure);
       return;
     }
 
@@ -524,13 +534,18 @@ export function PlanPage() {
     // useState initializers above. Hydrate the simulation results, sync the
     // URL so reload/share works, and skip any network call.
     if (useCachedRoute && cachedAtMount) {
-      const url = buildPlanUrl(cachedAtMount.waypoints, departure, cachedAtMount.archetype);
+      const url = buildPlanUrl(cachedAtMount.waypoints, departure, archetype);
       window.history.replaceState(null, "", url);
-      // /config changed since the cache was written — discard the persisted
-      // results and refetch so the plan reflects the user's current
-      // preferences. Route + archetype + departure remain seeded.
-      if (cachedAtMount.configFingerprint !== currentConfigFingerprint()) {
-        doFetch(cachedAtMount.waypoints, cachedAtMount.archetype, departure);
+      // Discard the persisted results and refetch when /config changed since
+      // the cache was written, or when the cached simulation ran on another
+      // boat than the seeded one (a customized polar re-pins the boat to its
+      // base — the cached run may predate the fix for #220). Route + boat +
+      // departure remain seeded.
+      if (
+        cachedAtMount.configFingerprint !== currentConfigFingerprint() ||
+        cachedAtMount.archetype !== archetype
+      ) {
+        doFetch(cachedAtMount.waypoints, archetype, departure);
         return;
       }
       if (cachedAtMount.single) {
@@ -620,7 +635,7 @@ export function PlanPage() {
           archetype,
           intervalHours: sweepInterval,
           efficiency: resolveEfficiency(),
-          overrides: resolveOverrides(archetype),
+          overrides: resolveOverrides(),
           forecastCache,
         }),
       )

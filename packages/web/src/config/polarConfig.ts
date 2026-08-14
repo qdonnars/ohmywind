@@ -483,12 +483,13 @@ export function hasOverrides(cfg: PolarConfig): boolean {
 // is selected, the upwind angle is pinned, a cell is hand-tuned, the motor is
 // configured, or an imported file is active. Used to decide whether to push
 // the custom matrix to the planner; when false, the server's bundled polar
-// for the requested archetype suffices. The check is archetype-independent:
-// since the /plan selector writes through to `cfg.base`, a base/archetype
-// mismatch only happens via a shared URL, where the link's boat should win —
-// deliberately NOT a customization trigger (the caller passes its slug to
-// `effectivePolar` instead). The coefficient is also absent: it travels as
-// the `efficiency` request parameter and never requires pushing a matrix.
+// for the requested archetype suffices. While this is true, `cfg.base` is
+// the boat of record app-wide: the customization was built against ITS grid,
+// and the /plan selector displays it as the active boat — so /plan seeds its
+// slug from it (see initialPlanBoat) instead of trusting a URL or cached
+// slug left by an earlier session (#220). The coefficient is absent from the
+// check: it travels as the `efficiency` request parameter and never requires
+// pushing a matrix.
 export function isPolarCustomized(cfg: PolarConfig): boolean {
   if (isImportedActive(cfg)) return true;
   const motorActive =
@@ -496,6 +497,19 @@ export function isPolarCustomized(cfg: PolarConfig): boolean {
   return (
     cfg.spi !== "off" || cfg.minUpwindDeg !== undefined || hasOverrides(cfg) || motorActive
   );
+}
+
+// The boat slug /plan starts on. A customized polar pins the boat to
+// `cfg.base` (see isPolarCustomized); otherwise the usual precedence applies:
+// the shared/bookmarked URL's boat first, then the last-simulation cache,
+// then the /config default.
+export function initialPlanBoat(
+  cfg: PolarConfig,
+  urlSlug?: string | null,
+  cachedSlug?: string | null,
+): string {
+  if (isPolarCustomized(cfg)) return cfg.base;
+  return urlSlug || cachedSlug || cfg.base;
 }
 
 // Cheap content hash (djb2) so two different files with the same name and
