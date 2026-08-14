@@ -79,7 +79,7 @@ export function BoatEssentials({ config, onChange }: BoatEssentialsProps) {
       </div>
       <p className="polar-hint">
         On atteint 100 % de la performance polaire uniquement en mode course ; en
-        plaisance, un coefficient de 80 % est souvent plus approprié.
+        plaisance, un coefficient de 75 % est souvent plus approprié.
         {importedActive && <> Polaire issue de tes performances réelles ? Mets 100 %.</>}
       </p>
 

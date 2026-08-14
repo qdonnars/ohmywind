@@ -440,6 +440,7 @@ function ArchetypeSelector({
   const current = archetypes.find((a) => a.slug === currentSlug);
   const archetypeLabel = current?.name ?? currentSlug;
   const label = isCustom ? "Custom" : archetypeLabel;
+  const coeffPct = Math.round(polarCfg.coefficient * 100);
 
   function resetCustom() {
     savePolarConfig(defaultPolarConfig());
@@ -456,6 +457,12 @@ function ArchetypeSelector({
         title={isCustom ? `Polaire personnalisée active (base : ${baseLabel})` : "Changer le type de bateau"}
       >
         {label}
+        <span
+          style={{ color: "var(--ow-fg-2)" }}
+          title="Coefficient de performance appliqué à la polaire (réglable dans l'onglet Bateau)"
+        >
+          · {coeffPct} %
+        </span>
         {isCustom && (
           <span
             className="text-[9px] font-semibold uppercase tracking-wider px-1 py-0.5 rounded"
@@ -977,11 +984,16 @@ export function PlanSidebar({
   // as ArchetypeSelector.
   const recapPolarCfg = loadPolarConfig();
   const importedName = recapPolarCfg.imported?.name ?? "polaire";
-  const archetypeLabel = isImportedActive(recapPolarCfg)
-    ? `${importedName.length > 20 ? `${importedName.slice(0, 19)}…` : importedName} (importée)`
-    : `${ARCHETYPE_LABELS[currentArchetypeSlug] ?? archetype?.name ?? currentArchetypeSlug}${
-        isPolarCustomized(recapPolarCfg) ? " (ajustée)" : ""
-      }`;
+  // The performance coefficient rides along with the boat label so the plan
+  // always states which fraction of the polar the ETA was computed with.
+  const recapCoeffPct = `${Math.round(recapPolarCfg.coefficient * 100)} %`;
+  const archetypeLabel = `${
+    isImportedActive(recapPolarCfg)
+      ? `${importedName.length > 20 ? `${importedName.slice(0, 19)}…` : importedName} (importée)`
+      : `${ARCHETYPE_LABELS[currentArchetypeSlug] ?? archetype?.name ?? currentArchetypeSlug}${
+          isPolarCustomized(recapPolarCfg) ? " (ajustée)" : ""
+        }`
+  } · ${recapCoeffPct}`;
 
   // ── Filled compare view: results loaded, inputs collapsed into a recap ────
   if (mode === "compare" && windows && windows.length > 0) {

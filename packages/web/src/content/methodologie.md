@@ -181,7 +181,7 @@ $$
 
 avec :
 
-- **`η` (efficacité)** : facteur multiplicatif qui ramène le polaire ORC théorique à la voile réelle. **OhMyWind utilise actuellement la valeur 0.75 par défaut, et cette valeur n'est pas modifiable depuis l'interface web.** Le paramètre existe côté serveur (un client expert peut le surcharger) mais aucun champ utilisateur ne l'expose pour l'instant. Valeurs de référence si on devait l'ajuster :
+- **`η` (efficacité)** : facteur multiplicatif qui ramène le polaire ORC théorique à la voile réelle. **OhMyWind utilise la valeur 0.75 par défaut**, côté serveur comme dans l'interface web : c'est le « coefficient de performance » réglable de 50 à 100 % dans l'onglet Bateau, et le plan affiche la valeur utilisée à côté du nom du bateau. Valeurs de référence pour l'ajuster :
   - `0.85` régate (carène propre, voiles fraîches, équipage attentif)
   - `0.75` croisière (réglages standards, marges de confort, défaut OhMyWind)
   - `0.65` croisière chargée en famille (eau, gasoil, équipement, carène salie)

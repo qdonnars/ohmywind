@@ -46,7 +46,7 @@ function resolveOverrides(archetype: string): PlanOverrides {
 }
 
 // Plan-time efficiency — the /config performance coefficient, always explicit
-// since config v3 (1.0 = race trim, 0.8 = typical cruising).
+// since config v3 (1.0 = race trim, 0.75 = typical cruising).
 function resolveEfficiency(): number {
   return planEfficiency(loadPolarConfig());
 }
