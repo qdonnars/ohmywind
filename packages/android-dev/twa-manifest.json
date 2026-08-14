@@ -14,13 +14,13 @@
   "enableNotifications": false,
   "startUrl": "/",
   "iconUrl": "https://ohmywind.fr/icon-512.png",
-  "maskableIconUrl": "https://ohmywind.fr/icon-512.png",
+  "maskableIconUrl": "https://ohmywind.fr/icon-maskable-512.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "../android/android.keystore",
     "alias": "android"
   },
-  "appVersionCode": 1,
+  "appVersionCode": 2,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://dev.ohmywind.fr/manifest.json",

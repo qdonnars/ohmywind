@@ -28,6 +28,7 @@ Sont concernés les fichiers d'identité de marque du dépôt :
 - `packages/web/public/favicon.svg`
 - `packages/web/public/icon-192.png`
 - `packages/web/public/icon-512.png`
+- `packages/web/public/icon-maskable-512.png`
 - `packages/web/public/compass.png`
 - `packages/web/public/wind-icon.png`
 

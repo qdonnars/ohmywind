@@ -92,7 +92,7 @@ LANDING_HTML = """<!doctype html>
   <link rel="icon" type="image/svg+xml" href="https://ohmywind.fr/favicon.svg">
   <link rel="icon" type="image/png" sizes="192x192" href="https://ohmywind.fr/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="https://ohmywind.fr/icon-512.png">
-  <link rel="apple-touch-icon" href="https://ohmywind.fr/icon-192.png">
+  <link rel="apple-touch-icon" href="https://ohmywind.fr/icon-maskable-512.png">
   <meta name="description" content="OhMyWind MCP. Free, keyless sailing passage planner for any coast, with high-precision tides on the French Atlantic.">
   <meta property="og:title" content="OhMyWind MCP">
   <meta property="og:description" content="Talk to your LLM. Cast off with confidence. Free, keyless sailing planner via MCP.">
@@ -464,8 +464,8 @@ _ICON_REDIRECTS = {
     "/favicon.svg": "https://ohmywind.fr/favicon.svg",
     "/icon-192.png": "https://ohmywind.fr/icon-192.png",
     "/icon-512.png": "https://ohmywind.fr/icon-512.png",
-    "/apple-touch-icon.png": "https://ohmywind.fr/icon-192.png",
-    "/apple-touch-icon-precomposed.png": "https://ohmywind.fr/icon-192.png",
+    "/apple-touch-icon.png": "https://ohmywind.fr/icon-maskable-512.png",
+    "/apple-touch-icon-precomposed.png": "https://ohmywind.fr/icon-maskable-512.png",
 }
 
 
