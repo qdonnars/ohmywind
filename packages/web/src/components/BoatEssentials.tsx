@@ -83,9 +83,9 @@ export function BoatEssentials({ config, onChange }: BoatEssentialsProps) {
       <p className="polar-hint">
         Les 100 % correspondent à la polaire théorique, calculée bateau à vide
         avec des voiles de course : en pratique on navigue en dessous. La valeur
-        par défaut est un bon point de départ ; baisse-la si le bateau est chargé
+        par défaut est un bon point de départ ; baissez-la si le bateau est chargé
         ou les voiles fatiguées.
-        {importedActive && <> Polaire mesurée sur ton propre bateau ? Là, 100 % se justifie.</>}
+        {importedActive && <> Polaire mesurée sur votre propre bateau ? Là, 100 % se justifie.</>}
       </p>
 
       {/* Motor (optional) — switches segments with sail speed under the
