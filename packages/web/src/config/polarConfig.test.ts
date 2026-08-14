@@ -9,6 +9,7 @@ import {
   derivedMinUpwind,
   effectiveMinUpwind,
   effectivePolar,
+  initialPlanBoat,
   isImportedActive,
   isPolarCustomized,
   loadPolarConfig,
@@ -321,11 +322,43 @@ describe("isPolarCustomized", () => {
     expect(isPolarCustomized(defaultPolarConfig())).toBe(false);
   });
 
-  it("applies spi/overrides onto the URL's boat grid via the archetype override", () => {
+  it("applies spi/overrides onto an explicitly requested boat grid", () => {
     const cfg: PolarConfig = { ...defaultPolarConfig(), spi: "asymmetric" };
     const eff = effectivePolar(cfg, "cruiser_50ft");
     expect(eff.name).toBe("cruiser_50ft");
     expect(eff.min_upwind_twa_deg).toBe(BASE_POLARS.cruiser_50ft.min_upwind_twa_deg);
+  });
+});
+
+describe("initialPlanBoat", () => {
+  const custom50: PolarConfig = {
+    ...defaultPolarConfig(),
+    base: "cruiser_50ft",
+    spi: "asymmetric",
+  };
+
+  it("pins the boat to cfg.base when a customization is active (#220)", () => {
+    // The reported repro: custom polar built on a 50-footer, URL/cache still
+    // carrying the 30ft slug from an earlier session.
+    expect(initialPlanBoat(custom50, "cruiser_30ft", null)).toBe("cruiser_50ft");
+    expect(initialPlanBoat(custom50, null, "cruiser_30ft")).toBe("cruiser_50ft");
+  });
+
+  it("pins to cfg.base for an active imported polar too", () => {
+    expect(initialPlanBoat(withImported({ base: "cruiser_40ft" }), "cruiser_30ft", null)).toBe(
+      "cruiser_40ft",
+    );
+  });
+
+  it("lets the URL's boat win when nothing is customized", () => {
+    expect(initialPlanBoat(defaultPolarConfig(), "cruiser_50ft", "cruiser_25ft")).toBe(
+      "cruiser_50ft",
+    );
+  });
+
+  it("falls back to the cached slug, then cfg.base", () => {
+    expect(initialPlanBoat(defaultPolarConfig(), null, "cruiser_25ft")).toBe("cruiser_25ft");
+    expect(initialPlanBoat(defaultPolarConfig(), null, null)).toBe(DEFAULT_BASE);
   });
 });
 

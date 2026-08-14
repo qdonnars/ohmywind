@@ -980,8 +980,11 @@ export function PlanSidebar({
   // Recap-strip boat label: the French display label rather than the raw API
   // slug, and the polar's provenance when it isn't the stock one — the file
   // name suffixed « importée », or the boat suffixed « ajustée » when the
-  // archetype was hand-tuned. Re-read the config at render, same rationale
-  // as ArchetypeSelector.
+  // archetype was hand-tuned. The « ajustée » branch names cfg.base, the hull
+  // the tuning was built on and the one the ArchetypeSelector announces —
+  // never the page slug, which could still carry another boat from a stale
+  // URL/cache (#220). Re-read the config at render, same rationale as
+  // ArchetypeSelector.
   const recapPolarCfg = loadPolarConfig();
   const importedName = recapPolarCfg.imported?.name ?? "polaire";
   // The performance coefficient rides along with the boat label so the plan
@@ -990,9 +993,9 @@ export function PlanSidebar({
   const archetypeLabel = `${
     isImportedActive(recapPolarCfg)
       ? `${importedName.length > 20 ? `${importedName.slice(0, 19)}…` : importedName} (importée)`
-      : `${ARCHETYPE_LABELS[currentArchetypeSlug] ?? archetype?.name ?? currentArchetypeSlug}${
-          isPolarCustomized(recapPolarCfg) ? " (ajustée)" : ""
-        }`
+      : isPolarCustomized(recapPolarCfg)
+        ? `${ARCHETYPE_LABELS[recapPolarCfg.base] ?? recapPolarCfg.base} (ajustée)`
+        : ARCHETYPE_LABELS[currentArchetypeSlug] ?? archetype?.name ?? currentArchetypeSlug
   } · ${recapCoeffPct}`;
 
   // ── Filled compare view: results loaded, inputs collapsed into a recap ────
