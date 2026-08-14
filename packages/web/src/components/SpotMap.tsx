@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback, useState, type RefObject } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Spot, ModelForecast, MarineHourly, MetricView } from "../types";
@@ -6,6 +6,7 @@ import { QUICK_SPOTS } from "../spots";
 import { useTheme } from "../design/theme";
 import type { UserPosition } from "../hooks/useGeolocation";
 import { syncUserPositionLayer } from "../utils/userPositionLayer";
+import { centerForBottomInset } from "../utils/visibleCenter";
 import type { MapView } from "../utils/mapViewParams";
 
 // Spot-map arrows are drawn into a single 300×300 SVG anchored at the spot
@@ -37,6 +38,9 @@ type ArrowItem = {
 
 const SPOT_CX = 150;
 const SPOT_CY = 150;
+// Zoom and duration of the "fly to the user" camera move.
+const FLY_ZOOM = 10;
+const FLY_MS = 1200;
 // Approximate label half-width and half-height (speed text 18px + model text 13px stacked).
 const LABEL_HW = 32;
 const LABEL_HH = 22;
@@ -151,8 +155,8 @@ interface SpotMapProps {
   customSpots: Spot[];
   // User position once the browser grants geolocation. Drawn as a dot with
   // an accuracy halo, and used as the initial center when it is already
-  // known at mount. Never auto-creates a spot: new users see their region
-  // without arrows until they drop their first pin.
+  // known at mount. Never auto-creates a spot itself: whether a fix becomes
+  // the active preview spot is the page's decision.
   userPosition?: UserPosition | null;
   // Bumped by the page when it wants the camera moved onto the user. Kept
   // separate from `userPosition` so the map draws the dot without deciding
@@ -166,6 +170,12 @@ interface SpotMapProps {
       coming back from the planner must not move the map. */
   initialView?: MapView | null;
   defaultCenter?: { lat: number; lon: number };
+  /** The data panel overlaying the bottom edge of the map (pills + tables).
+      Centring a point must aim for the middle of the strip the panel leaves
+      visible, not of the full container half-hidden behind it (issue #218).
+      A ref rather than a number: the panel grows and shrinks with its
+      content, so its height is measured at the moment the camera moves. */
+  bottomInsetRef?: RefObject<HTMLElement | null>;
   onSelectSpot: (spot: Spot) => void;
   /** Plain tap or left click on the water: show the forecast there without
       saving anything. Looking up conditions at a point should not oblige
@@ -192,6 +202,7 @@ export function SpotMap({
   onViewChange,
   initialView,
   defaultCenter,
+  bottomInsetRef,
   onSelectSpot,
   onPreviewSpot,
   onAddSpot,
@@ -293,42 +304,91 @@ export function SpotMap({
     syncUserPositionLayer(mapRef.current, userLayerRef, userPosition ?? null);
   }, [userPosition]);
 
-  // Fly to the user only when the page asks for it (first visit with no
-  // saved spot, or an explicit tap on the locate button). Keying on the
-  // stamp rather than the coordinates means a second tap still recenters
-  // after the user has panned away, even though the fix is unchanged.
-  useEffect(() => {
-    if (!mapRef.current) return;
-    if (!flyToStamp || !userPosition) return;
-    mapRef.current.flyTo([userPosition.lat, userPosition.lon], 10, { duration: 1.2 });
-    // userPosition is intentionally not a dependency: the stamp is what
-    // expresses "a move was requested", and a fresh fix alone must not
-    // steal the viewport.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flyToStamp]);
+  // Centring a point means aiming for the middle of the strip the bottom
+  // data panel leaves visible — and the panel height at the moment a camera
+  // move starts is not final: the skeleton is swapped for tables of varying
+  // height once the forecast lands. So every auto-centre records its target
+  // here, and a ResizeObserver on the panel re-aims the camera when the
+  // height settles. A drag ends the intent: the viewport is the user's.
+  const autoCenterRef = useRef<{
+    lat: number;
+    lon: number;
+    zoom: number;
+    insetPx: number;
+    // Epoch ms when the flyTo animation lands; 0 for plain pans. A panel
+    // resize during the flight re-issues the fly with the remaining
+    // duration, so the correction reads as one continuous camera move.
+    flyEndsAt: number;
+  } | null>(null);
+
+  const visibleCenter = useCallback(
+    (lat: number, lon: number, zoom: number): [number, number] => {
+      const inset = bottomInsetRef?.current?.offsetHeight ?? 0;
+      const c = centerForBottomInset(lat, lon, zoom, inset);
+      return [c.lat, c.lon];
+    },
+    [bottomInsetRef],
+  );
+
+  const autoCenter = useCallback(
+    (lat: number, lon: number, mode: "pan" | "fly") => {
+      const map = mapRef.current;
+      if (!map) return;
+      const inset = bottomInsetRef?.current?.offsetHeight ?? 0;
+      const zoom = mode === "fly" ? FLY_ZOOM : map.getZoom();
+      const c = centerForBottomInset(lat, lon, zoom, inset);
+      autoCenterRef.current = {
+        lat,
+        lon,
+        zoom,
+        insetPx: inset,
+        flyEndsAt: mode === "fly" ? Date.now() + FLY_MS : 0,
+      };
+      if (mode === "fly") {
+        map.flyTo([c.lat, c.lon], zoom, { duration: FLY_MS / 1000 });
+      } else {
+        map.panTo([c.lat, c.lon], { animate: true });
+      }
+    },
+    [bottomInsetRef],
+  );
 
   // Init map once
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    const initialCenter: [number, number] = initialView
-      ? [initialView.lat, initialView.lon]
-      : current
-      ? [current.latitude, current.longitude]
-      : userPosition
-        ? [userPosition.lat, userPosition.lon]
-        : defaultCenter
-          ? [defaultCenter.lat, defaultCenter.lon]
-          : [43.3, 5.35];
     // When neither a current spot nor a granted geolocation is available
     // (typical first-visit + denied case), open wide enough to show OhMyWind's
     // full scope — Atlantic + Mediterranean French coast — so the user
     // understands the geographic reach before zooming into their region.
     const initialZoom = initialView ? initialView.zoom : current || userPosition ? 10 : 6;
+    // A camera handed over by /plan or the default region framing is a
+    // *centre* and is honoured as-is; a spot or a user fix is a *point of
+    // interest* and must land in the visible strip above the data panel.
+    const initialCenter: [number, number] = initialView
+      ? [initialView.lat, initialView.lon]
+      : current
+      ? visibleCenter(current.latitude, current.longitude, initialZoom)
+      : userPosition
+        ? visibleCenter(userPosition.lat, userPosition.lon, initialZoom)
+        : defaultCenter
+          ? [defaultCenter.lat, defaultCenter.lon]
+          : [43.3, 5.35];
     const map = L.map(containerRef.current, {
       zoomControl: false,
       attributionControl: false,
     }).setView(initialCenter, initialZoom);
+    // A point-centred initial view is an auto-centre like any other: seed
+    // the intent so the panel settling (skeleton → loaded table) re-aims it.
+    if (!initialView && (current || userPosition)) {
+      autoCenterRef.current = {
+        lat: current ? current.latitude : userPosition!.lat,
+        lon: current ? current.longitude : userPosition!.lon,
+        zoom: initialZoom,
+        insetPx: bottomInsetRef?.current?.offsetHeight ?? 0,
+        flyEndsAt: 0,
+      };
+    }
 
     const variant = resolvedTheme === "light" ? "light_all" : "dark_all";
     const tile = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{r}.png`, {
@@ -492,9 +552,48 @@ export function SpotMap({
     const ro = new ResizeObserver(() => map.invalidateSize());
     ro.observe(el);
 
+    // The user dragging the map ends any auto-centre intent: from then on
+    // the viewport is theirs, panel resizes must not move it. (A manual
+    // zoom keeps the intent — zooming around the centred point is still
+    // "looking at the point".)
+    map.on("dragstart", () => {
+      autoCenterRef.current = null;
+    });
+
+    // Re-aim the camera when the data panel's height settles: the height
+    // measured when an auto-centre started (often the loading skeleton) is
+    // not the height of the loaded tables, and the difference shifts the
+    // point off the visible-strip centre by half of it.
+    const overlayEl = bottomInsetRef?.current;
+    let overlayRo: ResizeObserver | null = null;
+    if (overlayEl) {
+      overlayRo = new ResizeObserver(() => {
+        const target = autoCenterRef.current;
+        if (!target || !mapRef.current) return;
+        const inset = overlayEl.offsetHeight;
+        if (inset === target.insetPx) return;
+        target.insetPx = inset;
+        const flyRemainingMs = target.flyEndsAt - Date.now();
+        // Mid-flight the interpolated getZoom() is meaningless — keep the
+        // fly's destination zoom. At rest, follow the user's current zoom.
+        const zoom = flyRemainingMs > 0 ? target.zoom : mapRef.current.getZoom();
+        target.zoom = zoom;
+        const c = centerForBottomInset(target.lat, target.lon, zoom, inset);
+        if (flyRemainingMs > 0) {
+          mapRef.current.flyTo([c.lat, c.lon], zoom, {
+            duration: Math.max(flyRemainingMs, 300) / 1000,
+          });
+        } else {
+          mapRef.current.panTo([c.lat, c.lon], { animate: true });
+        }
+      });
+      overlayRo.observe(overlayEl);
+    }
+
     return () => {
       cancelPress();
       ro.disconnect();
+      overlayRo?.disconnect();
       el.removeEventListener("pointerdown", handlePointerDown);
       el.removeEventListener("contextmenu", handleContextMenu);
       window.removeEventListener("pointermove", handlePointerMove);
@@ -572,9 +671,31 @@ export function SpotMap({
     // If the user just removed their active spot (current == null), don't
     // pan at all — preserve their viewport instead of reverting to a default.
     if (current) {
-      mapRef.current.panTo([current.latitude, current.longitude], { animate: true });
+      autoCenter(current.latitude, current.longitude, "pan");
+    } else {
+      autoCenterRef.current = null;
     }
-  }, [current, customSpots, syncMarkers]);
+  }, [current, customSpots, syncMarkers, autoCenter]);
+
+  // Fly to the user only when the page asks for it (first visit with no
+  // saved spot, or an explicit tap on the locate button). Keying on the
+  // stamp rather than the coordinates means a second tap still recenters
+  // after the user has panned away, even though the fix is unchanged.
+  //
+  // Declared AFTER the pan-to-spot effect above, and the order is load-
+  // bearing: on a first visit the page selects the fix as preview spot and
+  // requests the fly in the same commit, so both effects fire — each starts
+  // a camera move that cancels the other's, and the one declared later wins.
+  // The fly must win, or the map stays at the wide initial zoom.
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (!flyToStamp || !userPosition) return;
+    autoCenter(userPosition.lat, userPosition.lon, "fly");
+    // userPosition is intentionally not a dependency: the stamp is what
+    // expresses "a move was requested", and a fresh fix alone must not
+    // steal the viewport.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flyToStamp]);
 
   // Metric-aware arrows: wind = one per model, waves/currents = one (single
   // Open-Meteo Marine source), tides = none (scalar).
