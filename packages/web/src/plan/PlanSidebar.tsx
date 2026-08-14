@@ -1025,6 +1025,10 @@ export function PlanSidebar({
           </button>
         </div>
 
+        {/* Zero-height marker: when results land, the mobile drawer jumps
+            here so the recap + windows table open the view and the pills +
+            Recalculer block above stays one scroll-up away. */}
+        <div data-results-anchor />
         <RecapButton
           primary={recapPrimary}
           secondary={recapSecondary}
@@ -1184,7 +1188,11 @@ export function PlanSidebar({
         </button>
       </div>
 
-      {/* Récap compact: click to edit departure / archetype inline */}
+      {/* Récap compact: click to edit departure / archetype inline.
+          The zero-height marker above it is where the mobile drawer jumps
+          when results land — recap + legs open the view, pills + Recalculer
+          stay one scroll-up away. */}
+      <div data-results-anchor />
       <RecapButton
         primary={`${timeAnchor === "arrival" ? "Arrivée" : "Départ"} : ${recapDate.charAt(0).toUpperCase() + recapDate.slice(1)} · ${recapTime}`}
         secondary={archetypeLabel}
