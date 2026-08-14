@@ -170,11 +170,15 @@ interface SpotMapProps {
       coming back from the planner must not move the map. */
   initialView?: MapView | null;
   defaultCenter?: { lat: number; lon: number };
-  /** The data panel overlaying the bottom edge of the map (pills + tables).
-      Centring a point must aim for the middle of the strip the panel leaves
-      visible, not of the full container half-hidden behind it (issue #218).
-      A ref rather than a number: the panel grows and shrinks with its
-      content, so its height is measured at the moment the camera moves. */
+  /** The OPAQUE data area overlaying the bottom edge of the map (the
+      forecast tables — not the pills band, which floats transparently over
+      a still-readable map and therefore counts as map). Centring a point
+      must aim for the middle of the strip above this area, not of the full
+      container half-hidden behind it (issue #218). A ref rather than a
+      number, for two reasons: the panel grows and shrinks with its content,
+      so its height is measured at the moment the camera moves; and the
+      element itself is unmounted while no spot is active, so the ref is
+      re-read rather than captured. */
   bottomInsetRef?: RefObject<HTMLElement | null>;
   onSelectSpot: (spot: Spot) => void;
   /** Plain tap or left click on the water: show the forecast there without
@@ -330,10 +334,25 @@ export function SpotMap({
     [bottomInsetRef],
   );
 
+  // The observer wants the element, but the data area is unmounted while no
+  // spot is active — so each auto-centre re-points it at whichever node
+  // currently renders the panel, instead of observing once at mount.
+  const insetRoRef = useRef<ResizeObserver | null>(null);
+  const observedInsetElRef = useRef<Element | null>(null);
+  const ensureInsetObserved = useCallback(() => {
+    const el = bottomInsetRef?.current ?? null;
+    const ro = insetRoRef.current;
+    if (!ro || el === observedInsetElRef.current) return;
+    if (observedInsetElRef.current) ro.unobserve(observedInsetElRef.current);
+    observedInsetElRef.current = el;
+    if (el) ro.observe(el);
+  }, [bottomInsetRef]);
+
   const autoCenter = useCallback(
     (lat: number, lon: number, mode: "pan" | "fly") => {
       const map = mapRef.current;
       if (!map) return;
+      ensureInsetObserved();
       const inset = bottomInsetRef?.current?.offsetHeight ?? 0;
       const zoom = mode === "fly" ? FLY_ZOOM : map.getZoom();
       const c = centerForBottomInset(lat, lon, zoom, inset);
@@ -350,7 +369,7 @@ export function SpotMap({
         map.panTo([c.lat, c.lon], { animate: true });
       }
     },
-    [bottomInsetRef],
+    [bottomInsetRef, ensureInsetObserved],
   );
 
   // Init map once
@@ -563,37 +582,39 @@ export function SpotMap({
     // Re-aim the camera when the data panel's height settles: the height
     // measured when an auto-centre started (often the loading skeleton) is
     // not the height of the loaded tables, and the difference shifts the
-    // point off the visible-strip centre by half of it.
-    const overlayEl = bottomInsetRef?.current;
-    let overlayRo: ResizeObserver | null = null;
-    if (overlayEl) {
-      overlayRo = new ResizeObserver(() => {
-        const target = autoCenterRef.current;
-        if (!target || !mapRef.current) return;
-        const inset = overlayEl.offsetHeight;
-        if (inset === target.insetPx) return;
-        target.insetPx = inset;
-        const flyRemainingMs = target.flyEndsAt - Date.now();
-        // Mid-flight the interpolated getZoom() is meaningless — keep the
-        // fly's destination zoom. At rest, follow the user's current zoom.
-        const zoom = flyRemainingMs > 0 ? target.zoom : mapRef.current.getZoom();
-        target.zoom = zoom;
-        const c = centerForBottomInset(target.lat, target.lon, zoom, inset);
-        if (flyRemainingMs > 0) {
-          mapRef.current.flyTo([c.lat, c.lon], zoom, {
-            duration: Math.max(flyRemainingMs, 300) / 1000,
-          });
-        } else {
-          mapRef.current.panTo([c.lat, c.lon], { animate: true });
-        }
-      });
-      overlayRo.observe(overlayEl);
-    }
+    // point off the visible-strip centre by half of it. The observed node
+    // is (re-)chosen by ensureInsetObserved at each auto-centre, because
+    // the panel unmounts while no spot is active.
+    insetRoRef.current = new ResizeObserver(() => {
+      const target = autoCenterRef.current;
+      if (!target || !mapRef.current) return;
+      // Measure through the ref, not the observed entry: after a remount
+      // the observer may still deliver for the old node.
+      const inset = bottomInsetRef?.current?.offsetHeight ?? 0;
+      if (inset === target.insetPx) return;
+      target.insetPx = inset;
+      const flyRemainingMs = target.flyEndsAt - Date.now();
+      // Mid-flight the interpolated getZoom() is meaningless — keep the
+      // fly's destination zoom. At rest, follow the user's current zoom.
+      const zoom = flyRemainingMs > 0 ? target.zoom : mapRef.current.getZoom();
+      target.zoom = zoom;
+      const c = centerForBottomInset(target.lat, target.lon, zoom, inset);
+      if (flyRemainingMs > 0) {
+        mapRef.current.flyTo([c.lat, c.lon], zoom, {
+          duration: Math.max(flyRemainingMs, 300) / 1000,
+        });
+      } else {
+        mapRef.current.panTo([c.lat, c.lon], { animate: true });
+      }
+    });
+    ensureInsetObserved();
 
     return () => {
       cancelPress();
       ro.disconnect();
-      overlayRo?.disconnect();
+      insetRoRef.current?.disconnect();
+      insetRoRef.current = null;
+      observedInsetElRef.current = null;
       el.removeEventListener("pointerdown", handlePointerDown);
       el.removeEventListener("contextmenu", handleContextMenu);
       window.removeEventListener("pointermove", handlePointerMove);

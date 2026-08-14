@@ -181,8 +181,11 @@ function App() {
 
   const fabRef = useRef<HTMLAnchorElement>(null);
   // Handed to SpotMap so camera moves can centre a point in the strip of map
-  // this overlay leaves visible, instead of the full (half-covered) container.
-  const overlayRef = useRef<HTMLDivElement>(null);
+  // the OPAQUE data tables leave visible, instead of the full (half-covered)
+  // container. Attached to the tables area, not the whole overlay: the pills
+  // float transparently over a still-readable map, so they count as map
+  // (user call on issue #218).
+  const dataPanelRef = useRef<HTMLDivElement>(null);
 
   return (
     <div
@@ -213,7 +216,7 @@ function App() {
           onViewChange={onViewChange}
           initialView={initialView}
           defaultCenter={DEFAULT_MAP_CENTER}
-          bottomInsetRef={overlayRef}
+          bottomInsetRef={dataPanelRef}
           onSelectSpot={setSpot}
           onPreviewSpot={handlePreviewSpot}
           onAddSpot={(s) => { addSpot(s); setSpot(s); }}
@@ -245,7 +248,7 @@ function App() {
             ``thead.sticky top-0`` collides with the same container that
             scrolls (otherwise the hour row drifts away when the user scrolls
             down through GFS/ECMWF rows). */}
-        <div ref={overlayRef} className="absolute left-0 right-0 bottom-0 max-h-[44vh] md:max-h-[46vh] z-[400] flex flex-col">
+        <div className="absolute left-0 right-0 bottom-0 max-h-[44vh] md:max-h-[46vh] z-[400] flex flex-col">
           {/* Locate FAB — anchored to the overlay rather than to the map, so
               it rides up and down as the data panel grows and shrinks
               instead of ending up buried under it. The 16 px offset is
@@ -265,7 +268,7 @@ function App() {
                   showCurrents={showCurrents}
                 />
               </div>
-              <div className="flex-1 min-h-0 overflow-hidden">
+              <div ref={dataPanelRef} className="flex-1 min-h-0 overflow-hidden">
                 {view === "wind" || !marine ? (
                   <WindTable
                     forecasts={forecasts}
