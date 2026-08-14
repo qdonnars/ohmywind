@@ -202,8 +202,10 @@ export function PolarDiagram({
         <line x1={CX} y1={CY - R_MAX - 10} x2={CX} y2={CY + R_MAX + 10} className="polar-axis" />
         <line x1={CX} y1={CY} x2={CX + R_MAX + 10} y2={CY} className="polar-axis" />
 
-        {/* Angular ticks and labels (right side, every twa point) */}
-        {twaDeg.map((twa) => {
+        {/* Angular ticks and labels (right side, every twa point). A dead-run
+            tick is appended when the grid stops short of 180°: the drawn curve
+            is clamp-extended there (see polarPoints), the scale must follow. */}
+        {(twaDeg[twaDeg.length - 1] < 180 ? [...twaDeg, 180] : twaDeg).map((twa) => {
           const inner = polarToCartesian(twa, R_MAX);
           const outer = polarToCartesian(twa, R_MAX + 10);
           const label = polarToCartesian(twa, R_MAX + 22);

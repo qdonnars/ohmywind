@@ -73,13 +73,19 @@ function App() {
   }, [spot]);
   const [forecasts, setForecasts] = useState<ModelForecast[]>([]);
   const [marine, setMarine] = useState<MarineHourly | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  // Which spot the forecasts in state belong to. The loading flag is derived
+  // from it at render time rather than set in the fetch effect: deriving
+  // makes the skeleton part of the very commit that selects a spot, so the
+  // data panel already has its full height when SpotMap's camera effects
+  // measure it to centre the point in the visible strip (issue #218).
+  const [loadedSpotKey, setLoadedSpotKey] = useState<string | null>(null);
   const [selectedHour, setSelectedHour] = useState<string | null>(null);
   const [view, setView] = useState<MetricView>("wind");
+  const activeSpotKey = spot ? `${spot.latitude},${spot.longitude}` : null;
+  const isLoading = activeSpotKey != null && loadedSpotKey !== activeSpotKey;
   useEffect(() => {
     if (!spot) return;
     let cancelled = false;
-    setIsLoading(true);
     Promise.all([
       fetchAllModels(spot.latitude, spot.longitude),
       fetchMarine(spot.latitude, spot.longitude),
@@ -87,7 +93,7 @@ function App() {
       if (!cancelled) {
         setForecasts(data);
         setMarine(marineData);
-        setIsLoading(false);
+        setLoadedSpotKey(`${spot.latitude},${spot.longitude}`);
         // Preserve the previously-selected hour across spot changes so users
         // don't have to scroll the timeline back to e.g. "tomorrow 14h" every
         // time they switch favourites. Fall back to "now" only when:
@@ -113,10 +119,24 @@ function App() {
     };
   }, [spot]);
 
+  // Tap or left click on the map: show the forecast there without saving.
+  // Named by its coordinates rather than reverse-geocoded: the lookup is
+  // instant and offline, and a position is meaningful information at sea.
+  // Creating a spot stays a deliberate act (long press, or right click).
+  const handlePreviewSpot = useCallback((lat: number, lon: number) => {
+    setSpot({
+      name: `${lat.toFixed(3)}, ${lon.toFixed(3)}`,
+      latitude: lat,
+      longitude: lon,
+    });
+  }, []);
+
   // First-visit geolocation: if the user has no saved spots, ask the browser
-  // for their position and recenter the MAP — without auto-picking it as a
-  // spot. That way the canvas frames their region but stays empty (no
-  // arrows, no forecasts) until they actively drop their first spot.
+  // for their position, fly the map there and show the wind at that point
+  // right away, as a preview spot (issue #218). A first visit that lands on
+  // an empty canvas hides what the app can do; the forecast at one's own
+  // position is the fastest proof. Preview only: nothing is saved without a
+  // deliberate act (long press, or right click).
   // Denied / error → silent, the SpotMap falls back to its default center.
   // High accuracy is off here: framing a region needs a city-level fix, and
   // waking the GPS unprompted on a first visit is a poor trade.
@@ -131,23 +151,14 @@ function App() {
     if (hasDeclinedGeolocation()) return;
     locate({ enableHighAccuracy: false, maximumAge: 5 * 60 * 1000 }).then((fix) => {
       // A spot picked while the fix was in flight means the user already
-      // chose their focus — leave the viewport alone.
-      if (fix && !spotRef.current) setFlyToStamp(fix.stamp);
+      // chose their focus — leave the viewport and their selection alone.
+      if (fix && !spotRef.current) {
+        setFlyToStamp(fix.stamp);
+        handlePreviewSpot(fix.lat, fix.lon);
+      }
     });
   // Run once on mount; the customSpots check covers the returning-user case.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Tap or left click on the map: show the forecast there without saving.
-  // Named by its coordinates rather than reverse-geocoded: the lookup is
-  // instant and offline, and a position is meaningful information at sea.
-  // Creating a spot stays a deliberate act (long press, or right click).
-  const handlePreviewSpot = useCallback((lat: number, lon: number) => {
-    setSpot({
-      name: `${lat.toFixed(3)}, ${lon.toFixed(3)}`,
-      latitude: lat,
-      longitude: lon,
-    });
   }, []);
 
   // Explicit "centre sur moi": always honor it, spot selected or not.
@@ -169,6 +180,12 @@ function App() {
   }, [view, showWaves, showTides, showCurrents]);
 
   const fabRef = useRef<HTMLAnchorElement>(null);
+  // Handed to SpotMap so camera moves can centre a point in the strip of map
+  // the OPAQUE data tables leave visible, instead of the full (half-covered)
+  // container. Attached to the tables area, not the whole overlay: the pills
+  // float transparently over a still-readable map, so they count as map
+  // (user call on issue #218).
+  const dataPanelRef = useRef<HTMLDivElement>(null);
 
   return (
     <div
@@ -199,10 +216,11 @@ function App() {
           onViewChange={onViewChange}
           initialView={initialView}
           defaultCenter={DEFAULT_MAP_CENTER}
+          bottomInsetRef={dataPanelRef}
           onSelectSpot={setSpot}
           onPreviewSpot={handlePreviewSpot}
           onAddSpot={(s) => { addSpot(s); setSpot(s); }}
-          onRemoveSpot={(s) => { removeSpot(s); if (spot?.latitude === s.latitude && spot?.longitude === s.longitude) { setSpot(null); setForecasts([]); setSelectedHour(null); } }}
+          onRemoveSpot={(s) => { removeSpot(s); if (spot?.latitude === s.latitude && spot?.longitude === s.longitude) { setSpot(null); setForecasts([]); setLoadedSpotKey(null); setSelectedHour(null); } }}
           onRenameSpot={(s, name) => { renameSpot(s, name); if (spot?.latitude === s.latitude && spot?.longitude === s.longitude) setSpot({ ...s, name }); }}
           forecasts={forecasts}
           marine={marine}
@@ -216,11 +234,11 @@ function App() {
         <a
           ref={fabRef}
           href={`/plan${mapViewQuery(mapView)}`}
-          className="absolute top-3 left-3 z-[400] w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
+          className="absolute top-3 left-3 z-[400] w-[58px] h-[58px] sm:w-20 sm:h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
           style={{ background: "var(--ow-accent)", color: "#fff" }}
           title="Planifier un passage"
         >
-          <img src="/compass.png" alt="" width="88" height="88" className="select-none" draggable={false} />
+          <img src="/compass.png" alt="" className="select-none w-[64px] h-[64px] sm:w-[88px] sm:h-[88px]" draggable={false} />
         </a>
 
         {/* Bottom overlay: pills (fixed at top of overlay) + scrollable table
@@ -250,7 +268,7 @@ function App() {
                   showCurrents={showCurrents}
                 />
               </div>
-              <div className="flex-1 min-h-0 overflow-hidden">
+              <div ref={dataPanelRef} className="flex-1 min-h-0 overflow-hidden">
                 {view === "wind" || !marine ? (
                   <WindTable
                     forecasts={forecasts}

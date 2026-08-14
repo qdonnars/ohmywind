@@ -77,10 +77,15 @@ export function BoatEssentials({ config, onChange }: BoatEssentialsProps) {
           />
         </label>
       </div>
+      {/* Single source of truth for the recommended value: the slider label.
+          The hint explains the scale but never repeats a number that could
+          drift from COEFF_DEFAULT. */}
       <p className="polar-hint">
-        On atteint 100 % de la performance polaire uniquement en mode course ; en
-        plaisance, un coefficient de 80 % est souvent plus approprié.
-        {importedActive && <> Polaire issue de tes performances réelles ? Mets 100 %.</>}
+        Les 100 % correspondent à la polaire théorique, calculée bateau à vide
+        avec des voiles de course : en pratique on navigue en dessous. La valeur
+        par défaut est un bon point de départ ; baissez-la si le bateau est chargé
+        ou les voiles fatiguées.
+        {importedActive && <> Polaire mesurée sur votre propre bateau ? Là, 100 % se justifie.</>}
       </p>
 
       {/* Motor (optional) — switches segments with sail speed under the

@@ -39,8 +39,11 @@ export function ConfigPage() {
   const [polarCfg, setPolarCfg] = useState<PolarConfig>(() => loadPolarConfig());
 
   function updatePolar(next: PolarConfig) {
-    setPolarCfg(next);
-    savePolarConfig(next);
+    // Any touch in the Bateau tab re-selects the perso polar on /plan (its
+    // selector may have parked it in favour of a stock archetype).
+    const activated = { ...next, persoActive: true };
+    setPolarCfg(activated);
+    savePolarConfig(activated);
     setSavedOnce(true);
   }
   // Resolved at mount so the back link is stable across re-renders. Consuming
@@ -319,9 +322,9 @@ export function ConfigPage() {
           <>
             <h1 className="text-3xl font-bold mb-2">Bateau</h1>
             <p className="text-sm opacity-80 mb-8 leading-relaxed">
-              Décris ton bateau : ces réglages nourrissent tous tes plans de
+              Décrivez votre bateau : ces réglages nourrissent tous vos plans de
               passage. L'essentiel suffit pour bien commencer ; la tuile
-              Avancé permet d'importer ta propre polaire et d'affiner le
+              Avancé permet d'importer votre propre polaire et d'affiner le
               comportement au près et sous spi.
             </p>
             <div className="flex flex-col gap-5">
@@ -355,10 +358,10 @@ export function ConfigPage() {
 
         <footer className="config-storage-note mt-10">
           OhMyWind ne propose volontairement pas de comptes utilisateurs :
-          aucune donnée n'est envoyée sur un serveur pour identifier qui tu es.
-          Tes préférences (modèles, polaire perso) sont stockées localement
-          dans ton navigateur. Si tu changes d'appareil, de navigateur ou si
-          tu effaces les cookies de ce site, ces ajustements seront perdus.
+          aucune donnée n'est envoyée sur un serveur pour identifier qui vous êtes.
+          Vos préférences (modèles, polaire perso) sont stockées localement
+          dans votre navigateur. Si vous changez d'appareil, de navigateur ou si
+          vous effacez les cookies de ce site, ces ajustements seront perdus.
         </footer>
       </main>
 

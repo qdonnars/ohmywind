@@ -9,7 +9,9 @@ import {
   derivedMinUpwind,
   effectiveMinUpwind,
   effectivePolar,
+  initialPlanBoat,
   isImportedActive,
+  isPersoActive,
   isPolarCustomized,
   loadPolarConfig,
   planEfficiency,
@@ -174,6 +176,21 @@ describe("persistence", () => {
     savePolarConfig(bad);
     expect(loadPolarConfig().imported).toBeNull();
   });
+
+  it("round-trips a parked perso (persoActive: false)", () => {
+    savePolarConfig(withImported({ persoActive: false }));
+    expect(loadPolarConfig().persoActive).toBe(false);
+  });
+
+  it("defaults persoActive to true on configs persisted before the field", () => {
+    store[STORAGE_KEY] = JSON.stringify({
+      v: 3,
+      base: DEFAULT_BASE,
+      spi: "asymmetric",
+      overrides: {},
+    });
+    expect(loadPolarConfig().persoActive).toBe(true);
+  });
 });
 
 describe("effectivePolar", () => {
@@ -321,11 +338,68 @@ describe("isPolarCustomized", () => {
     expect(isPolarCustomized(defaultPolarConfig())).toBe(false);
   });
 
-  it("applies spi/overrides onto the URL's boat grid via the archetype override", () => {
+  it("applies spi/overrides onto an explicitly requested boat grid", () => {
     const cfg: PolarConfig = { ...defaultPolarConfig(), spi: "asymmetric" };
     const eff = effectivePolar(cfg, "cruiser_50ft");
     expect(eff.name).toBe("cruiser_50ft");
     expect(eff.min_upwind_twa_deg).toBe(BASE_POLARS.cruiser_50ft.min_upwind_twa_deg);
+  });
+});
+
+describe("isPersoActive", () => {
+  it("is false while nothing is customized, whatever the flag says", () => {
+    expect(isPersoActive(defaultPolarConfig())).toBe(false);
+    expect(isPersoActive({ ...defaultPolarConfig(), persoActive: false })).toBe(false);
+  });
+
+  it("is true for a fresh customization (flag defaults to true)", () => {
+    expect(isPersoActive({ ...defaultPolarConfig(), spi: "asymmetric" })).toBe(true);
+    expect(isPersoActive(withImported())).toBe(true);
+  });
+
+  it("is false once the perso polar is parked for a stock archetype", () => {
+    expect(
+      isPersoActive({ ...defaultPolarConfig(), spi: "asymmetric", persoActive: false }),
+    ).toBe(false);
+  });
+});
+
+describe("initialPlanBoat", () => {
+  const custom50: PolarConfig = {
+    ...defaultPolarConfig(),
+    base: "cruiser_50ft",
+    spi: "asymmetric",
+  };
+
+  it("pins the boat to cfg.base when a customization is active (#220)", () => {
+    // The reported repro: custom polar built on a 50-footer, URL/cache still
+    // carrying the 30ft slug from an earlier session.
+    expect(initialPlanBoat(custom50, "cruiser_30ft", null)).toBe("cruiser_50ft");
+    expect(initialPlanBoat(custom50, null, "cruiser_30ft")).toBe("cruiser_50ft");
+  });
+
+  it("lets the URL's boat win again once the perso polar is parked", () => {
+    const parked = { ...custom50, persoActive: false };
+    expect(initialPlanBoat(parked, "cruiser_30ft", null)).toBe("cruiser_30ft");
+    expect(initialPlanBoat(parked, null, "cruiser_25ft")).toBe("cruiser_25ft");
+    expect(initialPlanBoat(parked, null, null)).toBe("cruiser_50ft");
+  });
+
+  it("pins to cfg.base for an active imported polar too", () => {
+    expect(initialPlanBoat(withImported({ base: "cruiser_40ft" }), "cruiser_30ft", null)).toBe(
+      "cruiser_40ft",
+    );
+  });
+
+  it("lets the URL's boat win when nothing is customized", () => {
+    expect(initialPlanBoat(defaultPolarConfig(), "cruiser_50ft", "cruiser_25ft")).toBe(
+      "cruiser_50ft",
+    );
+  });
+
+  it("falls back to the cached slug, then cfg.base", () => {
+    expect(initialPlanBoat(defaultPolarConfig(), null, "cruiser_25ft")).toBe("cruiser_25ft");
+    expect(initialPlanBoat(defaultPolarConfig(), null, null)).toBe(DEFAULT_BASE);
   });
 });
 
@@ -366,5 +440,11 @@ describe("polarFingerprint", () => {
 
   it("is stable for identical configs", () => {
     expect(polarFingerprint(withImported())).toBe(polarFingerprint(withImported()));
+  });
+
+  it("changes when the perso polar is parked (matrix push flips off)", () => {
+    expect(polarFingerprint(withImported({ persoActive: false }))).not.toBe(
+      polarFingerprint(withImported()),
+    );
   });
 });

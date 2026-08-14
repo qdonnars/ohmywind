@@ -68,11 +68,12 @@ export const DEFAULT_BASE = "cruiser_30ft";
 
 // Performance coefficient applied at plan time (the server's `efficiency`
 // parameter). 100% = a race crew sailing the polar; cruising realistically
-// loses ~20% (sail trim, comfort margins, helm attention).
+// loses ~25% (sail trim, comfort margins, helm attention). The default
+// matches the server-side plan_passage default so web and MCP plans agree.
 export const COEFF_MIN = 0.5;
 export const COEFF_MAX = 1.0;
 export const COEFF_STEP = 0.01;
-export const COEFF_DEFAULT = 0.8;
+export const COEFF_DEFAULT = 0.75;
 
 // Historical plan_passage default efficiency — what pre-v3 configs implicitly
 // planned with when they didn't pin 1.0. Consumed by the v1/v2 migration so
@@ -111,7 +112,7 @@ export interface PolarConfig {
   // Archetype the user started from. Determines the (tws_kn, twa_deg) grid.
   base: string;
   // Performance coefficient sent to plan_passage as `efficiency`. 1.0 = race
-  // trim (sail the polar), 0.8 = typical cruising. Applies to imported polars
+  // trim (sail the polar), 0.75 = typical cruising. Applies to imported polars
   // too: a file built from real logged performance should sit at 1.0.
   coefficient: number;
   // Spinnaker selection: asymmetric (reaching) or symmetric (running). Applies
@@ -139,6 +140,12 @@ export interface PolarConfig {
   // the user can flip back without losing their hand-tuning.
   source: PolarSource;
   imported: ImportedPolar | null;
+  // Whether the perso polar is the boat selected on /plan. Only meaningful
+  // while isPolarCustomized(cfg) is true: picking a stock archetype in the
+  // plan selector sets it to false (the tuning is kept, just not planned on);
+  // re-selecting « Perso » there, or touching anything in /config's Bateau
+  // tab, sets it back to true.
+  persoActive: boolean;
 }
 
 interface PersistedConfig {
@@ -157,6 +164,7 @@ interface PersistedConfig {
   coefficient?: number;
   spiMaxTwsKn?: number;
   minUpwindDeg?: number;
+  persoActive?: boolean;
 }
 
 // Per-TWA multipliers. Values derived from sailmaker performance ranges
@@ -226,6 +234,7 @@ export function defaultPolarConfig(): PolarConfig {
     overrides: {},
     source: "archetype",
     imported: null,
+    persoActive: true,
   };
 }
 
@@ -362,6 +371,9 @@ export function loadPolarConfig(): PolarConfig {
       motorSpeedKn: sanitizeMotorField(parsed.motorSpeedKn, MOTOR_SPEED_MAX),
       source,
       imported,
+      // Absent on pre-existing configs → true: the perso polar stays the
+      // default pick until the user explicitly parks it.
+      persoActive: parsed.persoActive !== false,
     };
   } catch {
     return defaultPolarConfig();
@@ -382,6 +394,7 @@ export function savePolarConfig(cfg: PolarConfig): void {
       motorSpeedKn: cfg.motorSpeedKn,
       source: cfg.source,
       imported: cfg.imported,
+      persoActive: cfg.persoActive,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch {
@@ -480,14 +493,12 @@ export function hasOverrides(cfg: PolarConfig): boolean {
 
 // True when the polar deviates from the plain archetype default — a spi mode
 // is selected, the upwind angle is pinned, a cell is hand-tuned, the motor is
-// configured, or an imported file is active. Used to decide whether to push
-// the custom matrix to the planner; when false, the server's bundled polar
-// for the requested archetype suffices. The check is archetype-independent:
-// since the /plan selector writes through to `cfg.base`, a base/archetype
-// mismatch only happens via a shared URL, where the link's boat should win —
-// deliberately NOT a customization trigger (the caller passes its slug to
-// `effectivePolar` instead). The coefficient is also absent: it travels as
-// the `efficiency` request parameter and never requires pushing a matrix.
+// configured, or an imported file is active. In other words: the perso polar
+// EXISTS. Whether it is also the boat currently planned on is a separate
+// question (see isPersoActive) — the /plan selector lists it first as
+// « Perso » as soon as this is true. The coefficient is absent from the
+// check: it travels as the `efficiency` request parameter and never requires
+// pushing a matrix.
 export function isPolarCustomized(cfg: PolarConfig): boolean {
   if (isImportedActive(cfg)) return true;
   const motorActive =
@@ -495,6 +506,29 @@ export function isPolarCustomized(cfg: PolarConfig): boolean {
   return (
     cfg.spi !== "off" || cfg.minUpwindDeg !== undefined || hasOverrides(cfg) || motorActive
   );
+}
+
+// The perso polar is defined AND is the current pick. This is the predicate
+// that gates everything perso does at plan time: /plan seeds its slug from
+// cfg.base (the grid the customization was built against, #220) and pushes
+// the custom matrix to the planner. When false — nothing customized, or the
+// user chose a stock archetype in the plan selector — the server's bundled
+// polar for the requested archetype suffices.
+export function isPersoActive(cfg: PolarConfig): boolean {
+  return isPolarCustomized(cfg) && cfg.persoActive;
+}
+
+// The boat slug /plan starts on. An active perso polar pins the boat to
+// `cfg.base` — even against a shared link carrying another type; otherwise
+// the usual precedence applies: the shared/bookmarked URL's boat first, then
+// the last-simulation cache, then the /config default.
+export function initialPlanBoat(
+  cfg: PolarConfig,
+  urlSlug?: string | null,
+  cachedSlug?: string | null,
+): string {
+  if (isPersoActive(cfg)) return cfg.base;
+  return urlSlug || cachedSlug || cfg.base;
 }
 
 // Cheap content hash (djb2) so two different files with the same name and
@@ -509,11 +543,12 @@ function hashMatrix(imp: ImportedPolar): string {
 }
 
 // Compact key capturing every input that affects effectivePolar() and the
-// plan-time efficiency. Used to invalidate the lastSimulation cache so a
-// /config tweak doesn't leave stale results on /plan.
+// plan-time efficiency — plus whether the perso polar is the active pick,
+// which decides if the matrix is pushed at all. Used to invalidate the
+// lastSimulation cache so a /config tweak doesn't leave stale results on /plan.
 export function polarFingerprint(cfg: PolarConfig): string {
   const motorKey = `${cfg.motorThresholdKn ?? ""}/${cfg.motorSpeedKn ?? ""}`;
-  const commonKey = `c${cfg.coefficient}|${cfg.spi}@${cfg.spiMaxTwsKn}|mu${effectiveMinUpwind(cfg)}|${motorKey}`;
+  const commonKey = `c${cfg.coefficient}|${cfg.spi}@${cfg.spiMaxTwsKn}|mu${effectiveMinUpwind(cfg)}|${motorKey}|p${cfg.persoActive ? 1 : 0}`;
   if (isImportedActive(cfg)) {
     const imp = cfg.imported as ImportedPolar;
     return `imported:${imp.name}:${hashMatrix(imp)}|${commonKey}`;

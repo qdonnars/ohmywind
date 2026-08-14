@@ -41,7 +41,7 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
     if (file.size > IMPORT_MAX_BYTES) {
       setImportNotice({
         kind: "error",
-        text: "Fichier trop volumineux : une polaire fait quelques ko, vérifie que c'est le bon fichier.",
+        text: "Fichier trop volumineux : une polaire fait quelques ko, vérifiez que c'est le bon fichier.",
       });
       return;
     }
@@ -222,7 +222,7 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
             Télécharger un fichier d'exemple (.csv)
           </a>{" "}
           : la polaire du croiseur 30 pieds, à ouvrir dans un tableur et remplacer
-          par les valeurs de ton bateau.
+          par les valeurs de votre bateau.
         </p>
       </div>
 
@@ -321,8 +321,8 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
         </div>
         {importedActive ? (
           <p className="polar-hint">
-            Polaire importée active : le réglage spi est verrouillé, ton fichier est
-            supposé refléter déjà ta garde-robe de voiles.
+            Polaire importée active : le réglage spi est verrouillé, votre fichier est
+            supposé refléter déjà votre garde-robe de voiles.
           </p>
         ) : (
           config.spi !== "off" && (
@@ -355,9 +355,9 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
           {tuningOpen && (
             <>
               <p className="polar-hint">
-                Glisse un point de la courbe sélectionnée pour fixer sa vitesse
+                Glissez un point de la courbe sélectionnée pour fixer sa vitesse
                 (valeurs brutes, avant coefficient). Les points ajustés restent
-                quand tu changes de spi.
+                quand vous changez de spi.
               </p>
               <TwsPills
                 twsKn={effective.tws_kn}

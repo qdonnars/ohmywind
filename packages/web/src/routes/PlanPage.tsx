@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 import { parsePlanUrl, isParsedOk, buildPlanUrl } from "../plan/parseUrl";
 import { PlanMap, type PlanMapHandle } from "../plan/PlanMap";
 import { PlanSidebar } from "../plan/PlanSidebar";
@@ -18,7 +18,7 @@ import {
 import { type TimeAnchor } from "../plan/ModeToggle";
 import { computeLegSegmentRanges } from "../plan/aggregateLegs";
 import { activeModels, loadModelConfig } from "../config/modelConfig";
-import { effectivePolar, isPolarCustomized, loadPolarConfig, planEfficiency, polarFingerprint, savePolarConfig } from "../config/polarConfig";
+import { effectivePolar, initialPlanBoat, isPersoActive, isPolarCustomized, loadPolarConfig, planEfficiency, polarFingerprint, savePolarConfig } from "../config/polarConfig";
 import { LocateButton } from "../components/LocateButton";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useMapView } from "../hooks/useMapView";
@@ -30,23 +30,27 @@ import { setCookie, clearCookie } from "../utils/cookies";
 // next refetch without a page reload. Polar matrix is only attached when the
 // editor deviates from the default for the active archetype — otherwise the
 // server's bundled polar wins, saving ~kB per request.
-function resolveOverrides(archetype: string): PlanOverrides {
+function resolveOverrides(): PlanOverrides {
   const overrides: PlanOverrides = {};
   const modelCfg = loadModelConfig();
   const models = activeModels(modelCfg);
   if (models.length > 0) overrides.models = models;
   const polarCfg = loadPolarConfig();
-  if (isPolarCustomized(polarCfg)) {
-    // The current slug wins over cfg.base: a shared URL can carry a different
-    // boat than the one configured locally, and the link's boat is the one
-    // being planned — spi/overrides apply on top of ITS grid.
-    overrides.polar = effectivePolar(polarCfg, archetype);
+  if (isPersoActive(polarCfg)) {
+    // The custom matrix is always built on cfg.base's grid — the boat of
+    // record while the perso polar is the active pick (#220). The page's slug
+    // matches it (seeded via initialPlanBoat, re-pinned by handlePersoSelect),
+    // so passing it here would be redundant at best and, in a cross-tab
+    // /config edit, would resurrect the mismatch. When perso is parked in
+    // favour of a stock archetype, no matrix travels: the server's bundled
+    // polar for the requested slug wins.
+    overrides.polar = effectivePolar(polarCfg);
   }
   return overrides;
 }
 
 // Plan-time efficiency — the /config performance coefficient, always explicit
-// since config v3 (1.0 = race trim, 0.8 = typical cruising).
+// since config v3 (1.0 = race trim, 0.75 = typical cruising).
 function resolveEfficiency(): number {
   return planEfficiency(loadPolarConfig());
 }
@@ -143,6 +147,10 @@ const DRAWER_EXPANDED_VH = 75;
 
 interface DrawerHandle {
   expand: () => void;
+  /** Scroll the drawer content back to the top — used when the route turns
+   *  stale so the Recalculer bar (hidden by the results fit below) is
+   *  visible next to the "Cliquez sur Recalculer" placeholder. */
+  scrollToTop: () => void;
 }
 
 const ResizableMobileDrawer = forwardRef<DrawerHandle, {
@@ -152,8 +160,16 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
    *  overrides until the next ``targetVh`` change. Pass ``undefined`` to
    *  fall back to ``defaultVh`` / persisted height with no auto-resize. */
   targetVh?: number;
+  /** Fresh-results signal. Whenever this identity changes (and is non-null)
+   *  the drawer fits itself to the results: height shrinks so the content
+   *  below the ``data-results-anchor`` marker exactly fills it (never grows,
+   *  floored at DRAWER_MIN_VH), then the anchor is scrolled to the top. Net
+   *  effect: the recap + results open the view, the mode pills + Recalculer
+   *  block sits one scroll-up away, and the map gets the freed space. No-op
+   *  when the sidebar isn't showing a filled view (no anchor in the DOM). */
+  resultsFitKey?: object | null;
   children: React.ReactNode;
-}>(function ResizableMobileDrawer({ defaultVh, targetVh, children }, ref) {
+}>(function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, children }, ref) {
   const [vh, setVh] = useState<number>(() => {
     try {
       const raw = localStorage.getItem(DRAWER_HEIGHT_KEY);
@@ -164,6 +180,8 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
     }
   });
   const dragRef = useRef<{ startY: number; startVh: number } | null>(null);
+  const outerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   // Animate only when the auto-target moves the drawer; user drag should
   // feel direct (no easing lag). Toggled in onPointerDown/onPointerUp.
   const [isAnimating, setIsAnimating] = useState(false);
@@ -184,6 +202,60 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
     return () => clearTimeout(t);
   }, [targetVh]);
 
+  // Fit-to-results: see the ``resultsFitKey`` prop doc. Runs one frame after
+  // render (rAF) so the filled view is measurable; the height is written to
+  // the DOM directly (transition suppressed) so the scroll clamp updates in
+  // the same frame — a CSS-animated shrink would keep max-scroll at 0 until
+  // the transition ends and the anchor could never reach the top. setVh then
+  // re-renders the same height so React state stays the source of truth.
+  // Deliberately not persisted: app-driven, like targetVh. Declared after the
+  // targetVh effect so on a cache-hydrated mount (both fire) the fit wins.
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => {
+      const outer = outerRef.current;
+      const container = contentRef.current;
+      if (!outer || !container) return;
+      if (resultsFitKey == null) {
+        // Back to a form view (mode toggled before its results exist, or
+        // reset): restore the flow-driven target height and rewind the
+        // scroll — a previous fit may have left the drawer in its compact
+        // slot, scrolled past the pills, which would open the form
+        // mid-content.
+        container.scrollTop = 0;
+        if (targetVh != null) {
+          setIsAnimating(true);
+          setVh(Math.max(DRAWER_MIN_VH, Math.min(DRAWER_MAX_VH, targetVh)));
+          setTimeout(() => setIsAnimating(false), 320);
+        }
+        return;
+      }
+      const anchor = container.querySelector<HTMLElement>("[data-results-anchor]");
+      if (!anchor) return;
+      if (outer.offsetHeight === 0) return; // desktop: the drawer is display:none
+      const anchorTop =
+        anchor.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+      // Real content extent, NOT container.scrollHeight — scrollHeight is
+      // floored at clientHeight, so when the content is shorter than the
+      // drawer it would count the empty space and the fit would stop short.
+      const contentEnd = container.lastElementChild?.getBoundingClientRect().bottom
+        ?? container.getBoundingClientRect().bottom;
+      const belowPx = contentEnd - anchor.getBoundingClientRect().top;
+      const chromePx = outer.offsetHeight - container.clientHeight; // grab handle + border
+      const currentVh = (outer.offsetHeight / window.innerHeight) * 100;
+      // −1 px absorbs sub-pixel rounding: the visible slot must stay ≤ the
+      // content below the anchor, or the scroll clamp leaves a sliver of the
+      // Recalculer bar visible at the top.
+      const desiredVh = ((belowPx - 1 + chromePx) / window.innerHeight) * 100;
+      const next = Math.max(DRAWER_MIN_VH, Math.min(currentVh, desiredVh));
+      setIsAnimating(false);
+      outer.style.transition = "none";
+      outer.style.height = `${next}vh`;
+      container.scrollTop = anchorTop;
+      setVh(next);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [resultsFitKey, targetVh]);
+
   useImperativeHandle(ref, () => ({
     expand: () => {
       setVh((prev) => {
@@ -191,6 +263,9 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
         if (next !== prev) persist(next);
         return next;
       });
+    },
+    scrollToTop: () => {
+      contentRef.current?.scrollTo({ top: 0 });
     },
   }), []);
 
@@ -216,6 +291,7 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
 
   return (
     <div
+      ref={outerRef}
       className="lg:hidden shrink-0 overflow-y-auto border-t flex flex-col"
       style={{
         height: `${vh}vh`,
@@ -240,7 +316,7 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
           style={{ width: 36, height: 4, background: "var(--ow-line-2)" }}
         />
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>
+      <div ref={contentRef} className="flex-1 min-h-0 overflow-y-auto">{children}</div>
     </div>
   );
 });
@@ -361,12 +437,17 @@ export function PlanPage() {
     if (useCachedRoute) return cachedAtMount!.waypoints;
     return [];
   });
-  const [archetype, setArchetype] = useState(() => {
-    if (isParsedOk(initialParsed) && initialParsed.archetype) return initialParsed.archetype;
-    if (useCachedRoute) return cachedAtMount!.archetype;
-    // The boat configured on /config is the app-wide default.
-    return loadPolarConfig().base;
-  });
+  const [archetype, setArchetype] = useState(() =>
+    // A customized polar pins the boat to cfg.base — the hull the tuning was
+    // built on and the one the selector displays — so a stale URL/cache slug
+    // from an earlier session can't silently re-board the plan on another
+    // boat (#220). Otherwise: URL, then cache, then the /config default.
+    initialPlanBoat(
+      loadPolarConfig(),
+      isParsedOk(initialParsed) ? initialParsed.archetype : null,
+      useCachedRoute ? cachedAtMount!.archetype : null,
+    ),
+  );
   const [departure, setDeparture] = useState(() => {
     const raw = isParsedOk(initialParsed) ? initialParsed.departure : "";
     if (raw && new Date(raw) >= new Date()) return raw;
@@ -429,10 +510,30 @@ export function PlanPage() {
     fetchArchetypes().then(setArchetypes).catch(() => {});
   }, []);
 
+  // Fresh-results signal for the mobile drawer's fit-to-results behaviour
+  // (see ResizableMobileDrawer). New identity whenever results land — fresh
+  // fetch, window drill-down, cache hydration at mount — or the user toggles
+  // between two filled modes, so the drawer re-fits on the view it switched
+  // to. Gated on isLoading because setPassage/setWindows and
+  // setIsLoading(false) can flush in separate renders — the filled view
+  // (and its anchor) only exists once loading ends.
+  const resultsFitKey = useMemo(() => {
+    if (isLoading) return null;
+    const filled = planMode === "compare" ? !!windows && windows.length > 0 : !!passage;
+    return filled ? {} : null;
+  }, [passage, windows, planMode, isLoading]);
+
+  // Route edited after a result: the drawer content flips to the "Cliquez
+  // sur Recalculer" placeholders while the results fit above may have left
+  // the Recalculer bar scrolled out of view — bring it back.
+  useEffect(() => {
+    if (isStale) drawerRef.current?.scrollToTop();
+  }, [isStale]);
+
   function doFetch(wpts: [number, number][], arch: string, dep: string, anchor: TimeAnchor = "departure") {
     setIsLoading(true);
     setApiError(null);
-    const overrides = resolveOverrides(arch);
+    const overrides = resolveOverrides();
     const depIso = toTzAware(dep);
     const anchorMs = Date.parse(depIso);
     // Sample the route corridor in the browser and attach it so the server
@@ -488,13 +589,16 @@ export function PlanPage() {
 
   useEffect(() => {
     // Path A — URL has waypoints: respect the URL, restore from cache if it
-    // matches the same route + archetype, otherwise fetch fresh.
+    // matches the same route + boat, otherwise fetch fresh. The boat is the
+    // seeded `archetype` state, not the raw URL slug: a customized polar
+    // overrides the URL's boat (see initialPlanBoat), and the results shown
+    // must be the ones computed on the boat the recap displays (#220).
     if (urlHasWaypoints) {
       const cached: LastSimulation | null = loadLastSimulation();
       const cacheMatches =
         cached &&
         waypointsEqual(cached.waypoints, initialParsed.waypoints) &&
-        cached.archetype === initialParsed.archetype &&
+        cached.archetype === archetype &&
         // Reject the cache if the user tweaked /config since the simulation
         // ran — the persisted result is stale relative to the active
         // preferences. Treat missing fingerprint as "pre-config-era" cache.
@@ -516,7 +620,7 @@ export function PlanPage() {
         }
         if (cached.single || cached.compare) return;
       }
-      doFetch(initialParsed.waypoints, initialParsed.archetype, departure);
+      doFetch(initialParsed.waypoints, archetype, departure);
       return;
     }
 
@@ -524,13 +628,18 @@ export function PlanPage() {
     // useState initializers above. Hydrate the simulation results, sync the
     // URL so reload/share works, and skip any network call.
     if (useCachedRoute && cachedAtMount) {
-      const url = buildPlanUrl(cachedAtMount.waypoints, departure, cachedAtMount.archetype);
+      const url = buildPlanUrl(cachedAtMount.waypoints, departure, archetype);
       window.history.replaceState(null, "", url);
-      // /config changed since the cache was written — discard the persisted
-      // results and refetch so the plan reflects the user's current
-      // preferences. Route + archetype + departure remain seeded.
-      if (cachedAtMount.configFingerprint !== currentConfigFingerprint()) {
-        doFetch(cachedAtMount.waypoints, cachedAtMount.archetype, departure);
+      // Discard the persisted results and refetch when /config changed since
+      // the cache was written, or when the cached simulation ran on another
+      // boat than the seeded one (a customized polar re-pins the boat to its
+      // base — the cached run may predate the fix for #220). Route + boat +
+      // departure remain seeded.
+      if (
+        cachedAtMount.configFingerprint !== currentConfigFingerprint() ||
+        cachedAtMount.archetype !== archetype
+      ) {
+        doFetch(cachedAtMount.waypoints, archetype, departure);
         return;
       }
       if (cachedAtMount.single) {
@@ -579,10 +688,25 @@ export function PlanPage() {
 
   function handleArchetypeChange(slug: string) {
     setArchetype(slug);
-    // Write through to /config: one boat for the whole app. Picking an
-    // archetype while an imported polar is active means "plan on THIS boat",
-    // so the source flips back; the file itself is kept for later.
-    savePolarConfig({ ...loadPolarConfig(), base: slug, source: "archetype" });
+    const cfg = loadPolarConfig();
+    if (isPolarCustomized(cfg)) {
+      // Perso stays defined: picking a stock hull just parks it for planning
+      // (no matrix push, the server's bundled polar wins). The tuning is kept
+      // untouched so the « Perso » entry of the selector brings it back.
+      savePolarConfig({ ...cfg, persoActive: false });
+    } else {
+      // Write through to /config: one boat for the whole app.
+      savePolarConfig({ ...cfg, base: slug, source: "archetype" });
+    }
+    setIsStale(true);
+  }
+
+  // Selecting the « Perso » entry of the boat list: reactivate the
+  // customization and re-pin the page's slug to the grid it was built on.
+  function handlePersoSelect() {
+    const cfg = loadPolarConfig();
+    savePolarConfig({ ...cfg, persoActive: true });
+    setArchetype(cfg.base);
     setIsStale(true);
   }
 
@@ -620,7 +744,7 @@ export function PlanPage() {
           archetype,
           intervalHours: sweepInterval,
           efficiency: resolveEfficiency(),
-          overrides: resolveOverrides(archetype),
+          overrides: resolveOverrides(),
           forecastCache,
         }),
       )
@@ -788,6 +912,7 @@ export function PlanPage() {
     archetypes,
     currentArchetypeSlug: archetype,
     onArchetypeChange: handleArchetypeChange,
+    onPersoSelect: handlePersoSelect,
     departure,
     onDepartureChange: handleDepartureChange,
     isStale,
@@ -862,11 +987,11 @@ export function PlanPage() {
           {/* Back-to-explore FAB — mirrors the compass FAB on the home map */}
           <a
             href={`/${mapViewQuery(mapView)}`}
-            className="absolute top-3 left-3 z-[400] w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
+            className="absolute top-3 left-3 z-[400] w-[58px] h-[58px] sm:w-20 sm:h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
             style={{ background: "var(--ow-accent)", color: "#fff" }}
             title="Retour à l'exploration"
           >
-            <img src="/wind-icon.png" alt="" width="88" height="88" className="select-none" draggable={false} />
+            <img src="/wind-icon.png" alt="" className="select-none w-[64px] h-[64px] sm:w-[88px] sm:h-[88px]" draggable={false} />
           </a>
           {/* Locate FAB — bottom right of the map container, which shrinks as
               the mobile drawer is dragged up, so the button follows it.
@@ -927,6 +1052,7 @@ export function PlanPage() {
               ? 22
               : 65
         }
+        resultsFitKey={resultsFitKey}
       >
         <PlanSidebar {...sidebarProps} />
       </ResizableMobileDrawer>
