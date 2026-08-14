@@ -39,8 +39,11 @@ export function ConfigPage() {
   const [polarCfg, setPolarCfg] = useState<PolarConfig>(() => loadPolarConfig());
 
   function updatePolar(next: PolarConfig) {
-    setPolarCfg(next);
-    savePolarConfig(next);
+    // Any touch in the Bateau tab re-selects the perso polar on /plan (its
+    // selector may have parked it in favour of a stock archetype).
+    const activated = { ...next, persoActive: true };
+    setPolarCfg(activated);
+    savePolarConfig(activated);
     setSavedOnce(true);
   }
   // Resolved at mount so the back link is stable across re-renders. Consuming

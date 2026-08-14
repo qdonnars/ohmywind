@@ -11,6 +11,7 @@ import {
   effectivePolar,
   initialPlanBoat,
   isImportedActive,
+  isPersoActive,
   isPolarCustomized,
   loadPolarConfig,
   planEfficiency,
@@ -175,6 +176,21 @@ describe("persistence", () => {
     savePolarConfig(bad);
     expect(loadPolarConfig().imported).toBeNull();
   });
+
+  it("round-trips a parked perso (persoActive: false)", () => {
+    savePolarConfig(withImported({ persoActive: false }));
+    expect(loadPolarConfig().persoActive).toBe(false);
+  });
+
+  it("defaults persoActive to true on configs persisted before the field", () => {
+    store[STORAGE_KEY] = JSON.stringify({
+      v: 3,
+      base: DEFAULT_BASE,
+      spi: "asymmetric",
+      overrides: {},
+    });
+    expect(loadPolarConfig().persoActive).toBe(true);
+  });
 });
 
 describe("effectivePolar", () => {
@@ -330,6 +346,24 @@ describe("isPolarCustomized", () => {
   });
 });
 
+describe("isPersoActive", () => {
+  it("is false while nothing is customized, whatever the flag says", () => {
+    expect(isPersoActive(defaultPolarConfig())).toBe(false);
+    expect(isPersoActive({ ...defaultPolarConfig(), persoActive: false })).toBe(false);
+  });
+
+  it("is true for a fresh customization (flag defaults to true)", () => {
+    expect(isPersoActive({ ...defaultPolarConfig(), spi: "asymmetric" })).toBe(true);
+    expect(isPersoActive(withImported())).toBe(true);
+  });
+
+  it("is false once the perso polar is parked for a stock archetype", () => {
+    expect(
+      isPersoActive({ ...defaultPolarConfig(), spi: "asymmetric", persoActive: false }),
+    ).toBe(false);
+  });
+});
+
 describe("initialPlanBoat", () => {
   const custom50: PolarConfig = {
     ...defaultPolarConfig(),
@@ -342,6 +376,13 @@ describe("initialPlanBoat", () => {
     // carrying the 30ft slug from an earlier session.
     expect(initialPlanBoat(custom50, "cruiser_30ft", null)).toBe("cruiser_50ft");
     expect(initialPlanBoat(custom50, null, "cruiser_30ft")).toBe("cruiser_50ft");
+  });
+
+  it("lets the URL's boat win again once the perso polar is parked", () => {
+    const parked = { ...custom50, persoActive: false };
+    expect(initialPlanBoat(parked, "cruiser_30ft", null)).toBe("cruiser_30ft");
+    expect(initialPlanBoat(parked, null, "cruiser_25ft")).toBe("cruiser_25ft");
+    expect(initialPlanBoat(parked, null, null)).toBe("cruiser_50ft");
   });
 
   it("pins to cfg.base for an active imported polar too", () => {
@@ -399,5 +440,11 @@ describe("polarFingerprint", () => {
 
   it("is stable for identical configs", () => {
     expect(polarFingerprint(withImported())).toBe(polarFingerprint(withImported()));
+  });
+
+  it("changes when the perso polar is parked (matrix push flips off)", () => {
+    expect(polarFingerprint(withImported({ persoActive: false }))).not.toBe(
+      polarFingerprint(withImported()),
+    );
   });
 });

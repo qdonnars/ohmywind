@@ -11,6 +11,7 @@ import {
   ARCHETYPE_LABELS,
   defaultPolarConfig,
   isImportedActive,
+  isPersoActive,
   isPolarCustomized,
   loadPolarConfig,
   savePolarConfig,
@@ -420,11 +421,15 @@ function ArchetypeSelector({
   currentSlug,
   archetypes,
   onChange,
+  onPersoSelect,
   onCustomCleared,
 }: {
   currentSlug: string;
   archetypes: Archetype[];
   onChange: (slug: string) => void;
+  // Select the « Perso » entry (shown first as soon as the polar deviates
+  // from the stock archetype default).
+  onPersoSelect: () => void;
   // Notify the parent that the custom polar was reset so it can re-fetch
   // (the new fingerprint won't match the cached one, and resolveOverrides
   // will stop sending the custom matrix).
@@ -432,15 +437,19 @@ function ArchetypeSelector({
 }) {
   const [open, setOpen] = useState(false);
   // Re-read the polar config every render. Cheap (localStorage parse + a few
-  // boolean checks) and ensures the "Custom" pill appears immediately after
+  // boolean checks) and ensures the « Perso » entry appears immediately after
   // the user edits /config in another tab and comes back here.
   const polarCfg = loadPolarConfig();
-  const isCustom = isPolarCustomized(polarCfg);
+  const persoDefined = isPolarCustomized(polarCfg);
+  const persoSelected = isPersoActive(polarCfg);
   const baseLabel = ARCHETYPE_LABELS[polarCfg.base] ?? polarCfg.base;
   const current = archetypes.find((a) => a.slug === currentSlug);
-  const archetypeLabel = current?.name ?? currentSlug;
-  const label = isCustom ? "Custom" : archetypeLabel;
-  const coeffPct = Math.round(polarCfg.coefficient * 100);
+  const label = persoSelected ? "Perso" : (current?.name ?? currentSlug);
+  // Detail line of the « Perso » entry, same shape as the archetype rows:
+  // provenance of the customization rather than hull specs.
+  const persoDetail = isImportedActive(polarCfg)
+    ? `${polarCfg.imported?.name ?? "polaire"} · importée`
+    : `${baseLabel} · ajustée`;
 
   function resetCustom() {
     savePolarConfig(defaultPolarConfig());
@@ -453,24 +462,10 @@ function ArchetypeSelector({
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1.5 text-sm transition-colors"
-        style={{ color: isCustom ? "var(--ow-accent)" : "var(--ow-fg-1)" }}
-        title={isCustom ? `Polaire personnalisée active (base : ${baseLabel})` : "Changer le type de bateau"}
+        style={{ color: persoSelected ? "var(--ow-accent)" : "var(--ow-fg-1)" }}
+        title={persoSelected ? `Polaire personnalisée active (${persoDetail})` : "Changer le type de bateau"}
       >
         {label}
-        <span
-          style={{ color: "var(--ow-fg-2)" }}
-          title="Coefficient de performance appliqué à la polaire (réglable dans l'onglet Bateau)"
-        >
-          · {coeffPct} %
-        </span>
-        {isCustom && (
-          <span
-            className="text-[9px] font-semibold uppercase tracking-wider px-1 py-0.5 rounded"
-            style={{ background: "var(--ow-accent-soft)", color: "var(--ow-accent)" }}
-          >
-            perso
-          </span>
-        )}
         <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" style={{ opacity: 0.5 }}>
           <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
         </svg>
@@ -484,37 +479,38 @@ function ArchetypeSelector({
             className="absolute left-0 top-7 z-20 min-w-[240px] rounded-xl shadow-xl border overflow-hidden"
             style={{ background: "var(--ow-bg-1)", borderColor: "var(--ow-line-2)", boxShadow: "var(--ow-shadow-pop)" }}
           >
-            {isCustom && (
-              <div
-                className="px-4 py-3 text-xs"
-                style={{
-                  background: "var(--ow-accent-soft)",
-                  color: "var(--ow-accent)",
-                  borderBottom: "1px solid var(--ow-line)",
-                }}
-              >
-                <div className="font-semibold mb-1">Polaire personnalisée active</div>
-                <div className="opacity-80 mb-2">Base : {baseLabel}</div>
-                <div className="flex gap-2">
-                  <a
-                    href="/config"
-                    onClick={rememberReturnPath}
-                    className="underline"
-                    style={{ color: "var(--ow-accent)" }}
-                  >
+            {persoDefined && (
+              <>
+                <button
+                  onClick={() => { onPersoSelect(); setOpen(false); }}
+                  className="w-full text-left px-4 py-3 text-sm transition-colors"
+                  style={{
+                    background: persoSelected ? "var(--ow-accent-soft)" : "transparent",
+                    color: persoSelected ? "var(--ow-accent)" : "var(--ow-fg-0)",
+                  }}
+                >
+                  <div className="font-semibold">Perso</div>
+                  <div className="text-[11px] mt-0.5" style={{ color: "var(--ow-fg-2)" }}>
+                    {persoDetail}
+                  </div>
+                </button>
+                <div
+                  className="flex gap-2 px-4 pb-2.5 text-[11px]"
+                  style={{
+                    background: persoSelected ? "var(--ow-accent-soft)" : "transparent",
+                    color: "var(--ow-accent)",
+                    borderBottom: "1px solid var(--ow-line)",
+                  }}
+                >
+                  <a href="/config" onClick={rememberReturnPath} className="underline">
                     éditer
                   </a>
                   <span style={{ opacity: 0.4 }}>·</span>
-                  <button
-                    type="button"
-                    onClick={resetCustom}
-                    className="underline"
-                    style={{ color: "var(--ow-accent)" }}
-                  >
+                  <button type="button" onClick={resetCustom} className="underline">
                     réinitialiser
                   </button>
                 </div>
-              </div>
+              </>
             )}
             {archetypes.map((a) => (
               <button
@@ -522,8 +518,8 @@ function ArchetypeSelector({
                 onClick={() => { onChange(a.slug); setOpen(false); }}
                 className="w-full text-left px-4 py-3 text-sm transition-colors"
                 style={{
-                  background: !isCustom && a.slug === currentSlug ? "var(--ow-accent-soft)" : "transparent",
-                  color: !isCustom && a.slug === currentSlug ? "var(--ow-accent)" : "var(--ow-fg-0)",
+                  background: !persoSelected && a.slug === currentSlug ? "var(--ow-accent-soft)" : "transparent",
+                  color: !persoSelected && a.slug === currentSlug ? "var(--ow-accent)" : "var(--ow-fg-0)",
                   borderBottom: "1px solid var(--ow-line)",
                 }}
               >
@@ -783,6 +779,8 @@ interface PlanSidebarProps {
   archetypes: Archetype[];
   currentArchetypeSlug: string;
   onArchetypeChange: (slug: string) => void;
+  /** Select the perso polar (first entry of the boat list when defined). */
+  onPersoSelect: () => void;
   departure: string;
   onDepartureChange: (iso: string) => void;
   isStale: boolean;
@@ -874,6 +872,7 @@ export function PlanSidebar({
   archetypes,
   currentArchetypeSlug,
   onArchetypeChange,
+  onPersoSelect,
   departure,
   onDepartureChange,
   isStale,
@@ -977,26 +976,21 @@ export function PlanSidebar({
   }
 
   const archetype = archetypes.find((a) => a.slug === currentArchetypeSlug);
-  // Recap-strip boat label: the French display label rather than the raw API
-  // slug, and the polar's provenance when it isn't the stock one — the file
-  // name suffixed « importée », or the boat suffixed « ajustée » when the
-  // archetype was hand-tuned. The « ajustée » branch names cfg.base, the hull
+  // Recap-strip boat label. Perso active: the polar's provenance — the file
+  // name suffixed « importée », or cfg.base suffixed « ajustée » (the hull
   // the tuning was built on and the one the ArchetypeSelector announces —
   // never the page slug, which could still carry another boat from a stale
-  // URL/cache (#220). Re-read the config at render, same rationale as
-  // ArchetypeSelector.
+  // URL/cache, #220). Otherwise the French display label of the selected
+  // stock archetype. Re-read the config at render, same rationale as
+  // ArchetypeSelector. The performance coefficient is deliberately not
+  // repeated here: /config's Bateau tab stays its single indicator.
   const recapPolarCfg = loadPolarConfig();
   const importedName = recapPolarCfg.imported?.name ?? "polaire";
-  // The performance coefficient rides along with the boat label so the plan
-  // always states which fraction of the polar the ETA was computed with.
-  const recapCoeffPct = `${Math.round(recapPolarCfg.coefficient * 100)} %`;
-  const archetypeLabel = `${
-    isImportedActive(recapPolarCfg)
+  const archetypeLabel = isPersoActive(recapPolarCfg)
+    ? isImportedActive(recapPolarCfg)
       ? `${importedName.length > 20 ? `${importedName.slice(0, 19)}…` : importedName} (importée)`
-      : isPolarCustomized(recapPolarCfg)
-        ? `${ARCHETYPE_LABELS[recapPolarCfg.base] ?? recapPolarCfg.base} (ajustée)`
-        : ARCHETYPE_LABELS[currentArchetypeSlug] ?? archetype?.name ?? currentArchetypeSlug
-  } · ${recapCoeffPct}`;
+      : `${ARCHETYPE_LABELS[recapPolarCfg.base] ?? recapPolarCfg.base} (ajustée)`
+    : ARCHETYPE_LABELS[currentArchetypeSlug] ?? archetype?.name ?? currentArchetypeSlug;
 
   // ── Filled compare view: results loaded, inputs collapsed into a recap ────
   if (mode === "compare" && windows && windows.length > 0) {
@@ -1051,6 +1045,7 @@ export function PlanSidebar({
               currentSlug={currentArchetypeSlug}
               archetypes={archetypes}
               onChange={onArchetypeChange}
+              onPersoSelect={onPersoSelect}
               onCustomCleared={onRefetch}
             />
           </div>
@@ -1132,6 +1127,7 @@ export function PlanSidebar({
             currentSlug={currentArchetypeSlug}
             archetypes={archetypes}
             onChange={onArchetypeChange}
+            onPersoSelect={onPersoSelect}
             onCustomCleared={onRefetch}
           />
 
@@ -1208,6 +1204,7 @@ export function PlanSidebar({
             currentSlug={currentArchetypeSlug}
             archetypes={archetypes}
             onChange={onArchetypeChange}
+            onPersoSelect={onPersoSelect}
             onCustomCleared={onRefetch}
           />
         </div>
