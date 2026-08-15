@@ -6,7 +6,7 @@ Seul `twa-manifest.json` est versionné. Le projet Android (Gradle, `app/`, etc.
 
 ## Prérequis
 
-- `npm i -g @bubblewrap/cli` (JDK 17 et Android SDK sont téléchargés par Bubblewrap au premier lancement, dans `~/.bubblewrap/`)
+- `npm i -g @bubblewrap/cli@latest` (JDK 17 et Android SDK sont téléchargés par Bubblewrap au premier lancement, dans `~/.bubblewrap/`). Mettre la CLI à jour **avant chaque release**: le `targetSdkVersion` du bundle suit la version de la CLI (incident: la 1.0.1 buildée avec la CLI 1.24.1 est partie en targetSdk 35 alors que la v3 était en 36; Google exige targetSdk 36 pour toute mise à jour publiée après le 2026-08-31).
 - `android.keystore` présent dans ce dossier (backup: NordPass, entrée "OhMyWind Android keystore"). Sans lui, impossible de signer une mise à jour: ne jamais le perdre, ne jamais le committer.
 - Attention à `git clean -fdx`: il supprimerait le keystore local. Restaurer depuis NordPass le cas échéant.
 
