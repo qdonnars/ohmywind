@@ -269,7 +269,7 @@ LANDING_HTML = """<!doctype html>
     <li><strong>Boat-aware.</strong> Seven archetypes from 20 to 50 ft, real polars, an <code>efficiency</code> parameter for trim and crew level.</li>
     <li><strong>Window-aware.</strong> One call sweeps up to 14 days of hourly departures so the LLM can pick the calmest slot.</li>
     <li><strong>Client-agnostic.</strong> One HTTP MCP endpoint. No vendor lock-in.</li>
-    <li><strong>Open source, MIT.</strong> Self-host on Fly, Modal, your VPS.</li>
+    <li><strong>Open source, AGPL.</strong> Self-host on Fly, Modal, your VPS.</li>
   </ul>
 
   <h2>Four tools</h2>
@@ -290,7 +290,7 @@ LANDING_HTML = """<!doctype html>
   <h2>Source</h2>
   <p>Project site: <a href="https://ohmywind.fr">ohmywind.fr</a> &middot;
     GitHub: <a href="https://github.com/qdonnars/ohmywind">qdonnars/ohmywind</a>
-    (MIT).</p>
+    (AGPL-3.0).</p>
 
   <p class="footnote">First request after inactivity may take a few seconds
     (HF Spaces cold-start).</p>
