@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Put the hf-space package dir on sys.path for the whole test session.
 
 ``app.py`` imports its sibling ``security`` module by bare name, which is how

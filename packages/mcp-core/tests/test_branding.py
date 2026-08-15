@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Guards on the brand strings clients actually see.
 
 Written after the 2026-08-01 cosmetic rebrand shipped with the server name

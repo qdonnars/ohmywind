@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Boundary validation for waypoints and single points.
 
 These guards run at the public boundary (REST handlers + MCP tools), so their

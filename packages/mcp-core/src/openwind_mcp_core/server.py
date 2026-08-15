@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """FastMCP server factory.
 
 `build_server()` returns a `FastMCP` instance with all tools registered. It is

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 import type { TimezoneMode } from "../hooks/useTimezone";
 
 const DAYS_EN = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];

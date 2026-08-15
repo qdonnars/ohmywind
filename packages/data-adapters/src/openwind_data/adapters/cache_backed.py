@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Adapter backed by a client-supplied forecast cache.
 
 Instead of calling Open-Meteo, this adapter reads wind (multi-model) and sea

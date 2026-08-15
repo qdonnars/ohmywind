@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Input-bounds tests for the REST handlers.
 
 Same contract as ``mcp-core/tests/test_server_validation.py``: identical

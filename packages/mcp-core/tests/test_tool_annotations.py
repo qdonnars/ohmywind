@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Every tool declares what it does to the world.
 
 Annotations drive how clients present a tool: read-only ones can be offered

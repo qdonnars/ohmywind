@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 // Cookie helpers. Single place where the attribute string is built, so the
 // security flags cannot drift between call sites.
 

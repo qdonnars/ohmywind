@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Pull tidal atlases from the HF Dataset at Docker build time.
 
 Reads ``HF_TOKEN`` (mounted as a build secret) and ``HF_DATASET_ID`` from

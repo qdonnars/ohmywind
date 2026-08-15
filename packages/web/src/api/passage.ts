@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 import type { PassageResponse, PassageByEtaResponse, MultiWindowResponse, Archetype } from "../plan/types";
 import type { ModelName } from "../config/modelConfig";
 import type { PolarData } from "../config/polarConfig";

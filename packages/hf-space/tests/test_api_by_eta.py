@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Characterisation of ``POST /api/v1/passage-by-eta``.
 
 This endpoint arrived after the April plan and had never been tested: the

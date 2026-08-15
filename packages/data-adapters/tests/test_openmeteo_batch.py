@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Tests for OpenMeteoAdapter.prewarm_batch (multi-coordinate batching).
 
 The win: a passage samples one point per segment, so the per-segment fetch path

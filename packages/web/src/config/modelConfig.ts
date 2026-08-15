@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 // Persisted ordering of the wind models the app fetches from Open-Meteo.
 // The top `ACTIVE_LIMIT` models in the order are the ones actually fetched
 // and shown as rows in the forecast table; the rest are kept in the catalog

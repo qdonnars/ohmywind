@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 // Where must the map centre go so a point of interest lands in the middle of
 // the *visible* strip of the map, when a UI panel overlays the bottom
 // `insetPx` pixels of the container? Answer: `insetPx / 2` screen pixels

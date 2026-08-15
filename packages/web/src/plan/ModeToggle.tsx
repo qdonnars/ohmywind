@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 export type PlanMode = "single" | "compare";
 
 // Sub-mode inside "Simuler ma route": is the picked time a departure or a

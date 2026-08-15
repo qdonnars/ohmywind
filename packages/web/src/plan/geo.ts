@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 // Spherical geometry helpers — distances in nautical miles, angles in degrees.
 // TypeScript mirror of packages/data-adapters/.../routing/geometry.py. Kept in
 // sync so the client can sample the same route polyline the server segments.

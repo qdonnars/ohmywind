@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 // Remember which page the user was on before opening /config so the back
 // link can land them where they came from instead of always bouncing to "/".
 // Stored in sessionStorage (not local) because the value is only meaningful

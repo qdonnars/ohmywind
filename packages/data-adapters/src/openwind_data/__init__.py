@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """OhMyWind domain logic — marine adapters, polars, routing, complexity."""
 
 from openwind_data.adapters.base import (

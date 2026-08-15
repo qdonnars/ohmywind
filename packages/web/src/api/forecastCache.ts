@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 // Builds the `forecast_cache` payload posted to the backend so passage planning
 // reads weather the BROWSER fetched (one Open-Meteo call per user IP) instead of
 // the HF Space's single IP. The server keeps full authority over segmentation;
