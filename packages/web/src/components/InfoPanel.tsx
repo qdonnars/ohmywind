@@ -127,9 +127,11 @@ export function InfoPanel() {
             rel="noreferrer"
             className="underline hover:opacity-80"
           >
-            licence MIT
+            licence AGPL-3.0
           </a>
-          . Vous pouvez le forker, le modifier et le redistribuer. En revanche,
+          . Vous pouvez le forker, le modifier et le redistribuer. Si vous
+          exposez une version modifiée sur le réseau, vous devez en publier
+          les sources. En revanche,
           le nom « OhMyWind » fait l'objet d'un dépôt de marque à l'INPI, et
           l'identité visuelle (logo, icônes) reste protégée par le droit
           d'auteur : un fork se publie sous son propre nom et ses propres

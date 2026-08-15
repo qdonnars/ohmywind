@@ -510,8 +510,10 @@ but the underlying complexity is unchanged.
 
 ## Licence and trademark
 
-The OhMyWind source code is MIT licensed. Two things the MIT grant does
-not cover: the name "OhMyWind", filed as a trademark at the INPI (the
+The OhMyWind source code is licensed under the AGPL-3.0-or-later. Forks
+and redistribution stay free; a modified instance served over the
+network must publish its source. Two things the AGPL grant does not
+cover: the name "OhMyWind", filed as a trademark at the INPI (the
 French industrial property office), and the visual identity (logo,
 icons), which stays under copyright. Forks are welcome under their own
 name and icons. Policy:

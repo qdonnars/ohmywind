@@ -9,7 +9,7 @@
 
 ### Vent (multi-modèle)
 
-Les prévisions vent proviennent d'**Open-Meteo Forecast API** (keyless, MIT-friendly) avec une cascade de modèles à horizon croissant :
+Les prévisions vent proviennent d'**Open-Meteo Forecast API** (keyless, données sous CC BY 4.0) avec une cascade de modèles à horizon croissant :
 
 - **AROME** (Météo-France, 1.3 km) : modèle haute résolution sur l'Atlantique
   français + Méditerranée, ~48 h. Capture les thermiques et les vents locaux.
@@ -124,7 +124,7 @@ les zones MARC.
 | SHOM Atlas C2D | Licence Ouverte Etalab 2.0 | SHOM, via data.gouv.fr |
 | Atlas MARC PREVIMER | Engagement non-redistribution NetCDF brut, Parquet dérivé OK | Pineau-Guillou (2013), URL ci-dessus |
 | Marégraphes REFMAR (validation) | Libre, source obligatoire | "REFMAR. http://dx.doi.org/10.17183/REFMAR#RONIM" |
-| Code OhMyWind | MIT, hors nom « OhMyWind » et identité visuelle | [LICENSE](../LICENSE), [TRADEMARK.md](../TRADEMARK.md) |
+| Code OhMyWind | AGPL-3.0-or-later, hors nom « OhMyWind » et identité visuelle | [LICENSE](../LICENSE), [TRADEMARK.md](../TRADEMARK.md) |
 
 ## Documentation technique
 
