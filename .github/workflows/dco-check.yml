@@ -1,0 +1,72 @@
+# Vérifie la présence du Signed-off-by (DCO) sur chaque commit d'une PR.
+# Non bloquant pour l'instant : le job signale les commits non signés en
+# commentaire de PR et sort toujours en succès. À durcir si le volume de
+# contributions externes le justifie.
+#
+# pull_request_target plutôt que pull_request : les PR de forks n'ont qu'un
+# GITHUB_TOKEN en lecture seule sur pull_request, insuffisant pour commenter.
+# Sûr ici : le job n'exécute jamais le code de la PR (aucun checkout), il ne
+# fait qu'interroger l'API GitHub.
+name: DCO
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  signoff:
+    name: Signed-off-by présent (informatif)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = "<!-- dco-check -->";
+            const { owner, repo } = context.repo;
+            const number = context.payload.pull_request.number;
+
+            const commits = await github.paginate(github.rest.pulls.listCommits, {
+              owner, repo, pull_number: number, per_page: 100,
+            });
+            const missing = commits
+              .filter((c) => c.parents.length < 2) // les commits de merge sont exemptés
+              .filter((c) => !/^Signed-off-by: .+ <.+@.+>/m.test(c.commit.message))
+              .map((c) => `- \`${c.sha.slice(0, 7)}\` ${c.commit.message.split("\n")[0]}`);
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: number, per_page: 100,
+            });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+
+            if (missing.length === 0) {
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner, repo, comment_id: existing.id,
+                  body: `${marker}\n✅ DCO : tous les commits de cette PR sont signés. Merci !`,
+                });
+              }
+              return;
+            }
+
+            const body = [
+              marker,
+              "⚠️ **DCO : commits non signés.** Ce contrôle est informatif, il ne bloque pas la PR.",
+              "",
+              "Les commits suivants n'ont pas de ligne `Signed-off-by` :",
+              "",
+              ...missing,
+              "",
+              "Pour signer vos prochains commits : `git commit -s`. Pour reprendre",
+              "toute la branche : `git rebase --signoff origin/dev` puis",
+              "`git push --force-with-lease`. Détails dans",
+              `[CONTRIBUTING.md](https://github.com/${owner}/${repo}/blob/dev/CONTRIBUTING.md).`,
+            ].join("\n");
+
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: number, body });
+            }
