@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { useState } from "react";
+
 import {
   ARCHETYPE_LABELS,
   COEFF_MAX,
   COEFF_MIN,
   COEFF_STEP,
+  MOTOR_MAX_KN,
   isImportedActive,
   type PolarConfig,
 } from "../config/polarConfig";
@@ -20,6 +23,10 @@ interface BoatEssentialsProps {
 
 export function BoatEssentials({ config, onChange }: BoatEssentialsProps) {
   const importedActive = isImportedActive(config);
+  // True after a typed motor value got clamped to MOTOR_MAX_KN. Transient UI
+  // state: the stored config only ever holds valid values, so the clamp event
+  // itself has to be remembered here to be explainable to the user.
+  const [motorClamped, setMotorClamped] = useState(false);
 
   function setBase(base: string) {
     if (base === config.base) return;
@@ -36,13 +43,31 @@ export function BoatEssentials({ config, onChange }: BoatEssentialsProps) {
   function setMotorField(field: "motorThresholdKn" | "motorSpeedKn", raw: string) {
     const val = raw.trim();
     if (val === "") {
+      setMotorClamped(false);
       onChange({ ...config, [field]: undefined });
       return;
     }
     const num = Number(val);
     if (!Number.isFinite(num) || num <= 0) return;
+    if (num > MOTOR_MAX_KN) {
+      setMotorClamped(true);
+      onChange({ ...config, [field]: MOTOR_MAX_KN });
+      return;
+    }
+    setMotorClamped(false);
     onChange({ ...config, [field]: Math.round(num * 10) / 10 });
   }
+
+  const motorThreshold = config.motorThresholdKn;
+  const motorSpeed = config.motorSpeedKn;
+  const motorHalfSet = (typeof motorThreshold === "number") !== (typeof motorSpeed === "number");
+  // A threshold above the motor speed would make the engine *slow the boat
+  // down* on segments sailing between the two values — always a config
+  // mistake, worth flagging (the simulation still applies it as configured).
+  const motorInverted =
+    typeof motorThreshold === "number" &&
+    typeof motorSpeed === "number" &&
+    motorThreshold > motorSpeed;
 
   return (
     <>
@@ -104,7 +129,7 @@ export function BoatEssentials({ config, onChange }: BoatEssentialsProps) {
               inputMode="decimal"
               step="0.1"
               min="0.1"
-              max="10"
+              max={MOTOR_MAX_KN}
               placeholder="ex. 2"
               value={config.motorThresholdKn ?? ""}
               onChange={(e) => setMotorField("motorThresholdKn", e.target.value)}
@@ -118,7 +143,7 @@ export function BoatEssentials({ config, onChange }: BoatEssentialsProps) {
               inputMode="decimal"
               step="0.1"
               min="0.1"
-              max="12"
+              max={MOTOR_MAX_KN}
               placeholder="ex. 5"
               value={config.motorSpeedKn ?? ""}
               onChange={(e) => setMotorField("motorSpeedKn", e.target.value)}
@@ -127,14 +152,26 @@ export function BoatEssentials({ config, onChange }: BoatEssentialsProps) {
           </label>
         </div>
         <p className="polar-motor-hint">
-          Sous la vitesse seuil calculée par la polaire, on bascule au moteur.
-          Laissez les deux champs vides pour rester 100&nbsp;% voile (comportement par défaut).
+          Sous la vitesse seuil calculée par la polaire, on bascule au moteur
+          (jusqu'à {MOTOR_MAX_KN}&nbsp;kn). Laissez les deux champs vides pour rester
+          100&nbsp;% voile (comportement par défaut).
         </p>
-        {typeof config.motorThresholdKn === "number" !==
-          (typeof config.motorSpeedKn === "number") && (
+        {motorClamped && (
+          <p className="polar-motor-warn">
+            Valeur ramenée à {MOTOR_MAX_KN}&nbsp;kn, le plafond du simulateur : au-delà,
+            l'estimation météo par tronçon n'est plus fiable.
+          </p>
+        )}
+        {motorHalfSet && (
           <p className="polar-motor-warn">
             Renseignez les deux valeurs pour activer le moteur. Tant qu'un seul champ
             est rempli, la simulation reste 100&nbsp;% voile.
+          </p>
+        )}
+        {motorInverted && (
+          <p className="polar-motor-warn">
+            La vitesse seuil dépasse la vitesse moteur : sur les tronçons naviguant
+            entre les deux, le moteur ralentirait le bateau. Vérifiez les deux valeurs.
           </p>
         )}
       </fieldset>

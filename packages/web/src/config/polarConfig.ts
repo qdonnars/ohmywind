@@ -241,15 +241,20 @@ export function defaultPolarConfig(): PolarConfig {
   };
 }
 
-// Motor speed sanity bounds — keep generous enough for a fast trawler-style
-// auxiliary (8 kn) without admitting absurd values typed by accident.
-const MOTOR_SPEED_MAX = 12;
-const MOTOR_THRESHOLD_MAX = 10;
+// Motor bound, aligned on the system-wide 30 kn boat-speed ceiling (imported
+// polars and cell overrides cap there too, and so does the server's
+// `_parse_polar`). Beyond it the single-pass weather sampling assumption
+// breaks down anyway. Exported: the form's `max` attributes and copy must
+// derive from this single source.
+export const MOTOR_MAX_KN = 30;
 
-function sanitizeMotorField(raw: unknown, maxKn: number): number | undefined {
+// Clamp rather than drop out-of-range values: a persisted config from a
+// build with laxer input validation keeps its motor (at the cap) instead of
+// silently losing it. Non-numbers and non-positive values still mean "unset".
+function sanitizeMotorField(raw: unknown): number | undefined {
   if (typeof raw !== "number" || !Number.isFinite(raw)) return undefined;
-  if (raw <= 0 || raw > maxKn) return undefined;
-  return Math.round(raw * 10) / 10;
+  if (raw <= 0) return undefined;
+  return Math.min(MOTOR_MAX_KN, Math.round(raw * 10) / 10);
 }
 
 function isValidBase(x: unknown): x is string {
@@ -370,8 +375,8 @@ export function loadPolarConfig(): PolarConfig {
       spiMaxTwsKn: parsed.v === 3 ? clampSpiMaxTws(parsed.spiMaxTwsKn) : SPI_MAX_TWS_DEFAULT,
       minUpwindDeg: parsed.v === 3 ? sanitizeMinUpwind(parsed.minUpwindDeg) : undefined,
       overrides: sanitizeOverrides(parsed.overrides, BASE_POLARS[base]),
-      motorThresholdKn: sanitizeMotorField(parsed.motorThresholdKn, MOTOR_THRESHOLD_MAX),
-      motorSpeedKn: sanitizeMotorField(parsed.motorSpeedKn, MOTOR_SPEED_MAX),
+      motorThresholdKn: sanitizeMotorField(parsed.motorThresholdKn),
+      motorSpeedKn: sanitizeMotorField(parsed.motorSpeedKn),
       source,
       imported,
       // Absent on pre-existing configs → true: the perso polar stays the
