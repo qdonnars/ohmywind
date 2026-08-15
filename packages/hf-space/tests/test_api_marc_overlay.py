@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Characterisation of ``GET /api/v1/marine/marc`` and of the landing page.
 
 The overlay endpoint had no test. It is unusual enough to deserve one: it

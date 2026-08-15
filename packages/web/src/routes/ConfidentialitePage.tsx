@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 

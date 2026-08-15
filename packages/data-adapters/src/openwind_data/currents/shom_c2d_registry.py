@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Runtime SHOM Atlas C2D registry: spatial index + tide-relative predictor.
 
 Loads the Parquet + JSON artefacts produced by ``scripts/build_shom_c2d.py``

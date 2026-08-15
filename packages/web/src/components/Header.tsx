@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 import type { Spot } from "../types";
 import { SpotSearch } from "./SpotSearch";
 import { ThemeToggle } from "../design/theme";

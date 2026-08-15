@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 // 9 Beaufort steps — 0-50 kn, covers Mediterranean mistral (35-40 kn)
 const BEAUFORT_STEPS: [number, string, string][] = [
   //  kn_max, bg_color,   text_color

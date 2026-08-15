@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 import exampleCsv from "../../public/polars/exemple-polaire.csv?raw";
 import { describe, expect, it } from "vitest";
 import { parsePolarFile, PolarImportError } from "./polarImport";

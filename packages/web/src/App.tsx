@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import { nowParisHourPrefix } from "./utils/format";
 import type { Spot, ModelForecast, MarineHourly, MetricView } from "./types";

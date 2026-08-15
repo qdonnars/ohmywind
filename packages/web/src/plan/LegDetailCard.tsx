@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 import type { AggregatedLeg } from "./aggregateLegs";
 
 // "Conditions vues du bateau" — North-up compass with the boat rotated to its

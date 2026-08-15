@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Parser for the SHOM "Courants de marée 2D" ASCII atlas (Édition 2005).
 
 This module loads the public-domain dataset distributed by SHOM under

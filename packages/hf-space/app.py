@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """HF Space entry point — serves the OhMyWind FastMCP server over HTTP.
 
 This wrapper is intentionally thin. All tools live in ``openwind_mcp_core``

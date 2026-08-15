@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Coverage for the sweep response assembly in ``_api_passage``.
 
 Written because the ``target_eta`` filtering branch had no test at all: a stray

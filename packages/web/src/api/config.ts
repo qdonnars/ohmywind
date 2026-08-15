@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 // Base du backend MCP / HF Space. Surchargée par environnement via VITE_API_BASE
 // (Cloudflare Pages : Production -> Space prod, Preview -> Space dev). Sans
 // override, on retombe sur la prod. Vite expose toute var d'env préfixée

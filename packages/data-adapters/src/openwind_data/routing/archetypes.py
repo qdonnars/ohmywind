@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Boat archetype registry — loads ORC-style polars from `polars/*.json`.
 
 V1 ships 7 archetypes (5 monohull cruisers from 20 to 50 ft, 1 catamaran, 1

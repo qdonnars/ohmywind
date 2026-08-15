@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Tests for the MARC atlas runtime loader.
 
 The fixture is a minimal in-memory atlas with one cell, M2-only constants.

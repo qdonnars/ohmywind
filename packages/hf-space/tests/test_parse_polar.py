@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Unit tests for ``_parse_polar`` — the gate every custom polar from the web
 app passes through. First coverage of this function: it existed since the
 custom-polar feature with zero tests, and it is exactly where new payload

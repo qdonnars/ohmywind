@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 // Shared number/duration formatters for the /plan panel. Consolidates helpers
 // that had drifted into separate copies across PlanStates.tsx and
 // WindowsTable.tsx so the "12h30" convention and French decimals stay in one

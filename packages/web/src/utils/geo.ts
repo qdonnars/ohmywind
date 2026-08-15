@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 // Pure geo helpers for the plan map. Deliberately leaflet-free: leaflet
 // touches the DOM and crashes the node vitest env, and keeping these
 // functions dependency-free makes them unit-testable in isolation.

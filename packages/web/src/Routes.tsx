@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 import App from "./App";
 import { PlanPage } from "./routes/PlanPage";
 import { MethodologiePage } from "./routes/MethodologiePage";

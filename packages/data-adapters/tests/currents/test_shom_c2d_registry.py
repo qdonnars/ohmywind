@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Tests for the runtime SHOM Atlas C2D registry.
 
 Builds a small synthetic registry on disk (one zone, a few points, one

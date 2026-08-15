@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Composite marine adapter — SHOM > MARC > Open-Meteo cascade.
 
 Wraps an upstream ``MarineDataAdapter`` (typically ``OpenMeteoAdapter``)

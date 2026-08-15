@@ -6,7 +6,7 @@ colorTo: indigo
 sdk: docker
 app_port: 7860
 pinned: false
-license: mit
+license: agpl-3.0
 short_description: Sailing passage planner for any coast, via MCP.
 ---
 
@@ -76,7 +76,7 @@ asks you for credentials is guessing rather than reading the server.
 - **Boat-aware.** 7 archetypes from 20 to 50 ft, real polars, an `efficiency` parameter for trim and crew level.
 - **Window-aware.** One call sweeps up to 14 days of hourly departures so the LLM can pick the calmest slot.
 - **Client-agnostic.** One HTTP MCP endpoint, no vendor lock-in. Rich [MCP Apps](https://modelcontextprotocol.io/extensions/client-matrix) widget on supporting hosts; clean deep-link fallback on the rest.
-- **Open source, MIT.** Self-host on Fly, Modal, or your own VPS in minutes, under your own name and icons.
+- **Open source, AGPL.** Self-host on Fly, Modal, or your own VPS in minutes, under your own name and icons.
 
 ## Four tools
 
@@ -112,7 +112,9 @@ sleep takes ~5 s to wake. Acceptable for V1.
 
 ## License and trademark
 
-Code: MIT. The name "OhMyWind" is filed as a trademark at the INPI, and the
-visual identity (logo, icons) stays under copyright. Neither is covered by the
-MIT licence, so a fork ships under its own name and icons. Full policy:
+Code: AGPL-3.0-or-later. Forking and self-hosting stay free; a modified
+instance served over the network must publish its source. The name "OhMyWind"
+is filed as a trademark at the INPI, and the visual identity (logo, icons)
+stays under copyright. Neither is covered by the AGPL licence, so a fork ships
+under its own name and icons. Full policy:
 [TRADEMARK.md](https://github.com/qdonnars/ohmywind/blob/main/TRADEMARK.md).
