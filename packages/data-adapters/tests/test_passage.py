@@ -1614,3 +1614,100 @@ class TestSweepFloorNeverBelowGridData:
         polar = dataclasses.replace(get_polar("cruiser_30ft"), min_upwind_twa_deg=55.0)
         opt_twa, _ = best_vmg_upwind(polar, 10.0)
         assert opt_twa >= 55.0
+
+
+class TestBoatAwareLayout:
+    """Weather-sampling mid-times are laid out at a boat-aware speed
+    (`_layout_speed_kn`), not the historical 6 kn constant."""
+
+    def _motor_polar(self, threshold_kn: float, motor_kn: float) -> BoatPolar:
+        import dataclasses
+
+        return dataclasses.replace(
+            get_polar("cruiser_40ft"),
+            motor_threshold_kn=threshold_kn,
+            motor_speed_kn=motor_kn,
+        )
+
+    def test_layout_speed_mirrors_motor_rule(self) -> None:
+        from openwind_data.routing.passage import _layout_speed_kn
+
+        base = get_polar("cruiser_40ft")
+        sail_ref = lookup_polar(base, 12.0, 110.0) * 0.75
+        assert _layout_speed_kn(base, 0.75) == pytest.approx(sail_ref)
+        # A motor-dominant config lays out at motor speed…
+        assert _layout_speed_kn(self._motor_polar(15.0, 25.0), 0.75) == pytest.approx(25.0)
+        # …but a low threshold leaves the sail estimate in charge.
+        assert _layout_speed_kn(self._motor_polar(2.0, 5.0), 0.75) == pytest.approx(sail_ref)
+
+    async def test_fast_motor_config_compresses_sampling_times(self) -> None:
+        # ~41 nm at motor 25 kn: the passage lasts ~1.6 h, so the fetch
+        # windows must be laid out on that scale — the old 6 kn constant
+        # spread them over ~7 h (last fetch end past departure + 8 h).
+        adapter = StubAdapter(tws_kn=10.0, twd_deg=0.0)
+        report = await estimate_passage(
+            [MARSEILLE, PORQUEROLLES],
+            DEPARTURE,
+            "cruiser_40ft",
+            adapter=adapter,
+            segment_length_nm=10.0,
+            polar_override=self._motor_polar(15.0, 25.0),
+        )
+        assert all(s.motor_used for s in report.segments)
+        last_fetch_end = max(end for (_, _, _, end) in adapter.calls)
+        assert last_fetch_end < DEPARTURE + timedelta(hours=4)
+        # Layout speed == actual speed (motor everywhere) → near-zero drift.
+        assert report.max_sampling_drift_h is not None
+        assert report.max_sampling_drift_h < 0.1
+
+    async def test_drift_reported_for_plain_sailing(self) -> None:
+        adapter = StubAdapter(tws_kn=10.0, twd_deg=0.0)
+        report = await estimate_passage(
+            [MARSEILLE, PORQUEROLLES],
+            DEPARTURE,
+            "cruiser_40ft",
+            adapter=adapter,
+            segment_length_nm=10.0,
+        )
+        # 10 kn TWS sails slightly under the 12 kn reference layout; the
+        # residual drift must stay well inside the forecast's temporal
+        # correlation length.
+        assert report.max_sampling_drift_h is not None
+        assert report.max_sampling_drift_h < 2.0
+
+    async def test_explicit_heuristic_still_wins(self) -> None:
+        # Pinning heuristic_speed_kn keeps the historical layout even for a
+        # motor-dominant config: 41 nm at 6 kn puts the last fetch window
+        # past departure + 6 h.
+        adapter = StubAdapter(tws_kn=10.0, twd_deg=0.0)
+        await estimate_passage(
+            [MARSEILLE, PORQUEROLLES],
+            DEPARTURE,
+            "cruiser_40ft",
+            adapter=adapter,
+            segment_length_nm=10.0,
+            heuristic_speed_kn=6.0,
+            polar_override=self._motor_polar(15.0, 25.0),
+        )
+        last_fetch_end = max(end for (_, _, _, end) in adapter.calls)
+        assert last_fetch_end > DEPARTURE + timedelta(hours=6)
+
+    async def test_backward_path_uses_boat_aware_layout(self) -> None:
+        adapter = StubAdapter(tws_kn=10.0, twd_deg=0.0)
+        target = DEPARTURE + timedelta(hours=12)
+        plan = await estimate_passage_for_arrival(
+            [MARSEILLE, PORQUEROLLES],
+            target,
+            "cruiser_40ft",
+            adapter=adapter,
+            segment_length_nm=10.0,
+            model="meteofrance_arome_france",
+            polar_override=self._motor_polar(15.0, 25.0),
+        )
+        assert all(s.motor_used for s in plan.report.segments)
+        earliest_fetch_start = min(start for (_, _, start, _) in adapter.calls)
+        # Backward layout at 25 kn: earliest window ≈ target - 3 h. The old
+        # 6 kn layout reached back past target - 7.5 h.
+        assert earliest_fetch_start > target - timedelta(hours=4)
+        assert plan.report.max_sampling_drift_h is not None
+        assert plan.report.max_sampling_drift_h < 0.1
