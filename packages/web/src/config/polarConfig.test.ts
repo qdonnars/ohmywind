@@ -6,6 +6,7 @@ import {
   BASE_POLARS,
   COEFF_DEFAULT,
   DEFAULT_BASE,
+  MOTOR_MAX_KN,
   SERVER_DEFAULT_EFFICIENCY,
   SPI_MAX_TWS_DEFAULT,
   defaultPolarConfig,
@@ -158,6 +159,36 @@ describe("persistence", () => {
     expect(loaded.coefficient).toBe(1.0);
     expect(loaded.spiMaxTwsKn).toBe(30);
     expect(loaded.minUpwindDeg).toBeUndefined();
+  });
+
+  it("round-trips a motor config within the bounds", () => {
+    savePolarConfig({ ...defaultPolarConfig(), motorThresholdKn: 15, motorSpeedKn: 25 });
+    const loaded = loadPolarConfig();
+    expect(loaded.motorThresholdKn).toBe(15);
+    expect(loaded.motorSpeedKn).toBe(25);
+  });
+
+  it("clamps persisted motor values above the cap instead of dropping them", () => {
+    // A config saved by a build with laxer input validation (issue: typed 50 kn
+    // silently vanished on reload) must keep its motor, capped.
+    savePolarConfig({ ...defaultPolarConfig(), motorThresholdKn: 15, motorSpeedKn: 50 });
+    const loaded = loadPolarConfig();
+    expect(loaded.motorThresholdKn).toBe(15);
+    expect(loaded.motorSpeedKn).toBe(MOTOR_MAX_KN);
+  });
+
+  it("still drops non-positive or non-numeric motor values", () => {
+    store[STORAGE_KEY] = JSON.stringify({
+      v: 3,
+      base: DEFAULT_BASE,
+      spi: "off",
+      overrides: {},
+      motorThresholdKn: -2,
+      motorSpeedKn: "fast",
+    });
+    const loaded = loadPolarConfig();
+    expect(loaded.motorThresholdKn).toBeUndefined();
+    expect(loaded.motorSpeedKn).toBeUndefined();
   });
 
   it("drops a corrupted imported polar and snaps the source back", () => {

@@ -100,9 +100,17 @@ class TestMotorFields:
         assert polar.motor_threshold_kn is None
         assert polar.motor_speed_kn is None
 
+    def test_fast_boat_pair_accepted(self) -> None:
+        # The 30 kn cap mirrors the polar matrix ceiling; a "motor unless the
+        # sails do better than 15 kn" config is legitimate (fast cat, RIB).
+        polar = app._parse_polar(_payload(motor_threshold_kn=15.0, motor_speed_kn=25.0))
+        assert polar.motor_threshold_kn == 15.0
+        assert polar.motor_speed_kn == 25.0
+
     def test_out_of_range_pair_dropped(self) -> None:
-        # Motor stays tolerant (silent drop), unlike min_upwind_twa_deg.
-        polar = app._parse_polar(_payload(motor_threshold_kn=15.0, motor_speed_kn=5.5))
+        # Motor stays tolerant (silent drop), unlike min_upwind_twa_deg. The
+        # web clamps at input, so anything above 30 here is a bypassing client.
+        polar = app._parse_polar(_payload(motor_threshold_kn=15.0, motor_speed_kn=50.0))
         assert polar.motor_threshold_kn is None
         assert polar.motor_speed_kn is None
 

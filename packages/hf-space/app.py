@@ -404,8 +404,11 @@ def _parse_polar(raw: Any) -> BoatPolar | None:
     # Optional motor config. Both fields must be set together; either alone
     # is dropped silently so a half-filled web form never silently changes
     # the simulation (matches the frontend / backend "both or neither" rule).
-    motor_threshold = _parse_optional_kn(raw.get("motor_threshold_kn"), max_kn=10.0)
-    motor_speed = _parse_optional_kn(raw.get("motor_speed_kn"), max_kn=12.0)
+    # The 30 kn cap mirrors the polar matrix ceiling above and the web's
+    # MOTOR_MAX_KN — keep the three aligned or the web will show a motor the
+    # simulation silently ignores.
+    motor_threshold = _parse_optional_kn(raw.get("motor_threshold_kn"), max_kn=30.0)
+    motor_speed = _parse_optional_kn(raw.get("motor_speed_kn"), max_kn=30.0)
     if motor_threshold is None or motor_speed is None:
         motor_threshold = None
         motor_speed = None
