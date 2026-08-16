@@ -1,0 +1,84 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: fetch-issue-images
+description: >-
+  Télécharge les images jointes à une issue (corps + commentaires) dans
+  /tmp/issue-images pour qu'un agent Claude puisse les lire avec Read.
+  Les agents n'ont ni curl ni WebFetch dans leur allowlist, et c'est voulu
+  (contenu non trusté = pas de canal d'exfiltration) : le téléchargement se
+  fait donc ICI, déterministe et borné — hôtes GitHub uniquement, 10 images
+  max, 10 Mo max chacune, type vérifié par magic bytes (jamais par
+  l'extension de l'URL). Les noms de fichiers produits (image-N.ext) sont
+  générés localement : ils peuvent être interpolés dans un prompt sans
+  risque d'injection, contrairement aux URLs d'origine.
+
+inputs:
+  issue_number:
+    description: Numéro de l'issue à inspecter
+    required: true
+  github_token:
+    description: Token pour lire l'issue via gh (aucune écriture)
+    required: true
+
+outputs:
+  files:
+    description: Chemins des images téléchargées, un par ligne (vide si aucune)
+    value: ${{ steps.download.outputs.files }}
+
+runs:
+  using: composite
+  steps:
+    - id: download
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+        ISSUE: ${{ inputs.issue_number }}
+      # Pas de set -e : une image qui échoue ne doit jamais faire échouer le
+      # job appelant — l'agent dégrade alors en mode texte seul, comme avant.
+      run: |
+        set -uo pipefail
+        dir=/tmp/issue-images
+        mkdir -p "$dir"
+
+        # Corps + commentaires, traités comme du TEXTE : on n'en extrait que
+        # des URLs d'images sur des hôtes GitHub connus (pièces jointes
+        # d'issues, anciens uploads, fichiers de repos publics).
+        bodies=$(gh issue view "$ISSUE" --repo "$GITHUB_REPOSITORY" \
+          --json body,comments --jq '.body // "", .comments[].body' || true)
+
+        urls=$(printf '%s\n' "$bodies" | grep -oE \
+          'https://(github\.com/user-attachments/assets/|(private-)?user-images\.githubusercontent\.com/|raw\.githubusercontent\.com/)[^]"<>() ]+' \
+          | awk '!seen[$0]++' | head -10 || true)
+
+        files=""
+        i=0
+        while IFS= read -r url; do
+          [ -n "$url" ] || continue
+          i=$((i+1))
+          out="$dir/image-$i"
+          # Pas d'en-tête d'auth : inutile sur un repo public, et un token ne
+          # doit pas voyager vers l'hôte signé derrière le redirect.
+          curl -sL --fail --max-filesize 10485760 --max-time 30 \
+            -o "$out" "$url" || { rm -f "$out"; continue; }
+          magic=$(head -c 12 "$out" | od -An -tx1 | tr -d ' \n')
+          ext=""
+          case "$magic" in
+            89504e47*) ext=png ;;
+            ffd8ff*) ext=jpg ;;
+            47494638*) ext=gif ;;
+            52494646????????57454250) ext=webp ;;
+          esac
+          if [ -n "$ext" ]; then
+            mv "$out" "$out.$ext"
+            files="$files$out.$ext"$'\n'
+          else
+            rm -f "$out" # pas une image : vidéo, page d'erreur HTML…
+          fi
+        done <<< "$urls"
+
+        echo "Images téléchargées :"
+        printf '%s' "$files"
+        {
+          echo 'files<<OMW_EOF'
+          printf '%s' "$files"
+          echo 'OMW_EOF'
+        } >> "$GITHUB_OUTPUT"
