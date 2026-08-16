@@ -120,10 +120,18 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
   function setSpiMaxTws(raw: string) {
     const num = Number(raw);
     if (!Number.isFinite(num)) return;
-    onChange({
-      ...config,
-      spiMaxTwsKn: Math.round(Math.min(SPI_MAX_TWS_MAX, Math.max(SPI_MAX_TWS_MIN, num))),
-    });
+    // Only clamp the upper bound while typing. Clamping the lower bound too
+    // would round e.g. a typed "1" (first digit of "18") up to the MIN
+    // (8) immediately, so the next keystroke appends to "8" instead of "1"
+    // and the value gets stuck oscillating between MIN and MAX. The floor is
+    // enforced on blur instead, once the user is done typing.
+    onChange({ ...config, spiMaxTwsKn: Math.round(Math.min(SPI_MAX_TWS_MAX, num)) });
+  }
+
+  function clampSpiMaxTwsOnBlur() {
+    if (config.spiMaxTwsKn < SPI_MAX_TWS_MIN) {
+      onChange({ ...config, spiMaxTwsKn: SPI_MAX_TWS_MIN });
+    }
   }
 
   function setOverride(twsIdx: number, twaIdx: number, speedKn: number) {
@@ -316,6 +324,7 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
                 max={SPI_MAX_TWS_MAX}
                 value={config.spiMaxTwsKn}
                 onChange={(e) => setSpiMaxTws(e.target.value)}
+                onBlur={clampSpiMaxTwsOnBlur}
                 className="polar-motor-input w-20"
               />
               kn
