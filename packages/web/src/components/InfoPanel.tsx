@@ -92,7 +92,19 @@ export function InfoPanel() {
           >
             &copy; CARTO
           </a>
-          . Recherche de lieux :{" "}
+          . Amers (bouées, balises, phares, feux) :{" "}
+          <a
+            href="https://www.openseamap.org"
+            target="_blank"
+            rel="noreferrer"
+            className="underline hover:opacity-80"
+          >
+            &copy; les contributeurs OpenSeaMap
+          </a>
+          , tuiles sous licence CC BY-SA sur données OpenStreetMap. Cette
+          couche est une aide à la préparation, pas un document de navigation :
+          elle ne remplace pas les cartes officielles du SHOM ni les avis aux
+          navigateurs. Recherche de lieux :{" "}
           <a
             href="https://photon.komoot.io"
             target="_blank"
@@ -102,6 +114,21 @@ export function InfoPanel() {
             Photon
           </a>{" "}
           et Open-Meteo Geocoding, tous deux sur données OpenStreetMap.
+        </p>
+        <p className="text-xs leading-relaxed mt-2" style={{ color: "var(--ow-fg-2)" }}>
+          Sondes sous les points de route :{" "}
+          <a
+            href="https://emodnet.ec.europa.eu/en/bathymetry"
+            target="_blank"
+            rel="noreferrer"
+            className="underline hover:opacity-80"
+          >
+            EMODnet Bathymetry
+          </a>{" "}
+          (CC BY 4.0), rapportées au zéro hydrographique comme sur une carte
+          marine. La grille fait environ 115 m : elle répond bien à « combien
+          d'eau sur ce bord », et elle est aveugle au caillou isolé entre deux
+          nœuds. À ne pas utiliser pour la navigation.
         </p>
         <p className="text-xs leading-relaxed mt-2" style={{ color: "var(--ow-fg-2)" }}>
           Aucun compte, aucun traqueur :{" "}
