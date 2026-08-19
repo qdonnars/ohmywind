@@ -10,6 +10,7 @@ import { cxLevel, CX_COLORS } from "./types";
 import { haversineNm, fmtNm } from "../utils/geo";
 import type { UserPosition } from "../hooks/useGeolocation";
 import { syncUserPositionLayer } from "../utils/userPositionLayer";
+import { syncSeamarkLayer } from "../utils/seamarkLayer";
 import type { MapView } from "../utils/mapViewParams";
 
 /** Hide a segment label when the leg is shorter than this on screen (px).
@@ -47,6 +48,9 @@ interface PlanMapProps {
   /** Zoom that goes with `initialCenter`, when the explore map handed one
       over. Ignored as soon as there are waypoints to frame. */
   initialZoom?: number | null;
+  /** OpenSeaMap aids-to-navigation overlay. Owned by the page so the
+      preference survives the switch back to the explore map. */
+  showSeamarks?: boolean;
 }
 
 function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon {
@@ -62,12 +66,13 @@ function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon 
 }
 
 export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
-  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, initialCenter, userPosition, onViewChange, initialZoom }: PlanMapProps,
+  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, initialCenter, userPosition, onViewChange, initialZoom, showSeamarks = false }: PlanMapProps,
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const seamarkLayerRef = useRef<L.TileLayer | null>(null);
   const polylinesRef = useRef<L.Polyline[]>([]);
   const highlightLineRef = useRef<L.Polyline | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
@@ -244,6 +249,15 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Marine-chart overlay. Declared AFTER the init effect on purpose: effects
+  // fire in declaration order, so on mount the map already exists here and a
+  // returning user gets back the overlay they left on. Kept out of the init
+  // effect itself because the toggle also flips while the map is alive.
+  useEffect(() => {
+    if (!mapRef.current) return;
+    syncSeamarkLayer(mapRef.current, seamarkLayerRef, showSeamarks);
+  }, [showSeamarks]);
 
   // Update cursor when onMapClick is active
   useEffect(() => {

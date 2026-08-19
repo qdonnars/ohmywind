@@ -92,7 +92,19 @@ export function InfoPanel() {
           >
             &copy; CARTO
           </a>
-          . Recherche de lieux :{" "}
+          . Amers (bouées, balises, phares, feux) :{" "}
+          <a
+            href="https://www.openseamap.org"
+            target="_blank"
+            rel="noreferrer"
+            className="underline hover:opacity-80"
+          >
+            &copy; les contributeurs OpenSeaMap
+          </a>
+          , tuiles sous licence CC BY-SA sur données OpenStreetMap. Cette
+          couche est une aide à la préparation, pas un document de navigation :
+          elle ne remplace pas les cartes officielles du SHOM ni les avis aux
+          navigateurs. Recherche de lieux :{" "}
           <a
             href="https://photon.komoot.io"
             target="_blank"

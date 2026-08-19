@@ -23,6 +23,8 @@ import { computeLegSegmentRanges } from "../plan/aggregateLegs";
 import { activeModels, loadModelConfig } from "../config/modelConfig";
 import { effectivePolar, initialPlanBoat, isPersoActive, isPolarCustomized, loadPolarConfig, planEfficiency, polarFingerprint, savePolarConfig } from "../config/polarConfig";
 import { LocateButton } from "../components/LocateButton";
+import { SeamarkButton } from "../components/SeamarkButton";
+import { useSeamarks } from "../hooks/useSeamarks";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useMapView } from "../hooks/useMapView";
 import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
@@ -414,6 +416,7 @@ export function PlanPage() {
 
   const { position: userPosition, status: geolocStatus, attempt: geolocAttempt, locate } = useGeolocation();
   const { view: mapView, onViewChange } = useMapView();
+  const { enabled: seamarks, toggle: toggleSeamarks } = useSeamarks();
   // Zoom handed over by the explore map, used only when no route frames the
   // camera itself. Read once: navigating remounts the page.
   const [handedView] = useState(() => parseMapView(window.location.search));
@@ -981,6 +984,7 @@ export function PlanPage() {
             userPosition={userPosition}
             onViewChange={onViewChange}
             initialZoom={handedView?.zoom ?? null}
+            showSeamarks={seamarks}
             highlightedSegmentRange={
               selectedLegIdx != null && passage
                 ? computeLegSegmentRanges(passage.segments as { start: { lat: number; lon: number } }[], waypoints)[selectedLegIdx] ?? null
@@ -996,6 +1000,11 @@ export function PlanPage() {
           >
             <img src="/wind-icon.png" alt="" className="select-none w-[64px] h-[64px] sm:w-[88px] sm:h-[88px]" draggable={false} />
           </a>
+          {/* Marine-chart toggle — top right, the corner a layer control
+              conventionally lives in, and the only one free on this page:
+              the back FAB owns the top left and the locate button plus its
+              error bubble own the bottom right. */}
+          <SeamarkButton enabled={seamarks} onToggle={toggleSeamarks} className="top-3 right-3" />
           {/* Locate FAB — bottom right of the map container, which shrinks as
               the mobile drawer is dragged up, so the button follows it.
               Normally 16 px above the drawer edge, the reference gap reused

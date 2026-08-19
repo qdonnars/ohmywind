@@ -20,6 +20,8 @@ import { TideChart } from "./components/TideChart";
 import { SpotMap } from "./components/SpotMap";
 import { Onboarding } from "./components/Onboarding";
 import { LocateButton } from "./components/LocateButton";
+import { SeamarkButton } from "./components/SeamarkButton";
+import { useSeamarks } from "./hooks/useSeamarks";
 import { useGeolocation } from "./hooks/useGeolocation";
 import { useMapView } from "./hooks/useMapView";
 import { parseMapView, mapViewQuery } from "./utils/mapViewParams";
@@ -62,6 +64,7 @@ function App() {
   const [spot, setSpot] = useState<Spot | null>(() => customSpots[0] ?? null);
   const { position: userPosition, status: geolocStatus, attempt: geolocAttempt, locate } = useGeolocation();
   const { view: mapView, onViewChange } = useMapView();
+  const { enabled: seamarks, toggle: toggleSeamarks } = useSeamarks();
   // Camera handed over by /plan. Read once: later navigations remount.
   const [initialView] = useState(() => parseMapView(window.location.search));
   // Which fix the map is allowed to fly to. Set only on an explicit request
@@ -229,7 +232,12 @@ function App() {
           marine={marine}
           metric={view}
           selectedHour={selectedHour}
+          showSeamarks={seamarks}
         />
+        {/* Marine-chart toggle — top right, the corner a layer control
+            conventionally lives in, and the one free corner here: the plan
+            FAB owns the top left and the data overlay owns the bottom. */}
+        <SeamarkButton enabled={seamarks} onToggle={toggleSeamarks} className="top-3 right-3" />
         {/* Plan FAB — after SpotMap so it renders on top.
             When a spot is active, propagate its lat/lon to /plan via `?center`
             so the planner map opens centered on the spot the user was just
