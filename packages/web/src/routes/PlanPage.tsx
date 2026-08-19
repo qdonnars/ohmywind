@@ -417,7 +417,7 @@ export function PlanPage() {
 
   const { position: userPosition, status: geolocStatus, attempt: geolocAttempt, locate } = useGeolocation();
   const { view: mapView, onViewChange } = useMapView();
-  const { enabled: seamarks, toggle: toggleSeamarks } = useSeamarks();
+  const { enabled: seamarks, toggle: toggleSeamarks } = useSeamarks("plan");
   // Zoom handed over by the explore map, used only when no route frames the
   // camera itself. Read once: navigating remounts the page.
   const [handedView] = useState(() => parseMapView(window.location.search));

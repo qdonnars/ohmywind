@@ -49,8 +49,9 @@ interface PlanMapProps {
   /** Zoom that goes with `initialCenter`, when the explore map handed one
       over. Ignored as soon as there are waypoints to frame. */
   initialZoom?: number | null;
-  /** OpenSeaMap aids-to-navigation overlay. Owned by the page so the
-      preference survives the switch back to the explore map. */
+  /** OpenSeaMap aids-to-navigation overlay. On by default here: placing
+      waypoints in real water is what this map is for. The preference
+      belongs to the page, which persists it. */
   showSeamarks?: boolean;
   /** Sounding under each waypoint, same order as `waypoints`. `undefined`
       is still loading, `null` is nothing to show. Fetching belongs to the

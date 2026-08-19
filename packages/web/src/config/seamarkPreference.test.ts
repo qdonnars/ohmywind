@@ -34,29 +34,55 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("seamarkPreference", () => {
-  it("defaults to off, so a first visit opens on the clean basemap", () => {
+describe("seamarkPreference defaults", () => {
+  it("leaves the explore map clean, so the wind arrows are not competing with beacons on first visit", () => {
     installStorage();
-    expect(loadSeamarksEnabled()).toBe(false);
+    expect(loadSeamarksEnabled("explore")).toBe(false);
   });
 
-  it("round-trips both states", () => {
+  it("opens the planner with the marks on, since placing waypoints in real water is what it is for", () => {
     installStorage();
-    saveSeamarksEnabled(true);
-    expect(loadSeamarksEnabled()).toBe(true);
-    saveSeamarksEnabled(false);
-    expect(loadSeamarksEnabled()).toBe(false);
+    expect(loadSeamarksEnabled("plan")).toBe(true);
   });
 
-  it("persists an explicit off rather than clearing the key: a user who turned the overlay off must not be handed it back by a future default flip", () => {
-    const store = installStorage();
-    saveSeamarksEnabled(false);
-    expect(store.get("ow_seamarks_v1")).toBe("0");
-  });
-
-  it("treats an unreadable storage as off instead of throwing into the render", () => {
+  it("falls back to each map's own default when storage is unreadable", () => {
     installBrokenStorage();
-    expect(loadSeamarksEnabled()).toBe(false);
-    expect(() => saveSeamarksEnabled(true)).not.toThrow();
+    expect(loadSeamarksEnabled("explore")).toBe(false);
+    expect(loadSeamarksEnabled("plan")).toBe(true);
+    expect(() => saveSeamarksEnabled("plan", false)).not.toThrow();
+  });
+});
+
+describe("seamarkPreference persistence", () => {
+  it("round-trips both states on each map", () => {
+    installStorage();
+    for (const surface of ["explore", "plan"] as const) {
+      saveSeamarksEnabled(surface, true);
+      expect(loadSeamarksEnabled(surface)).toBe(true);
+      saveSeamarksEnabled(surface, false);
+      expect(loadSeamarksEnabled(surface)).toBe(false);
+    }
+  });
+
+  it("persists an explicit off rather than clearing the key, so the planner default does not hand the marks back to someone who turned them off", () => {
+    const store = installStorage();
+    saveSeamarksEnabled("plan", false);
+    expect(store.get("ow_seamarks_plan_v1")).toBe("0");
+    expect(loadSeamarksEnabled("plan")).toBe(false);
+  });
+
+  it("keeps the two maps independent: turning the marks off while routing must not strip them from the forecast map", () => {
+    installStorage();
+    saveSeamarksEnabled("explore", true);
+    saveSeamarksEnabled("plan", false);
+    expect(loadSeamarksEnabled("explore")).toBe(true);
+    expect(loadSeamarksEnabled("plan")).toBe(false);
+  });
+
+  it("stores each map under its own key", () => {
+    const store = installStorage();
+    saveSeamarksEnabled("explore", true);
+    saveSeamarksEnabled("plan", true);
+    expect([...store.keys()].sort()).toEqual(["ow_seamarks_explore_v1", "ow_seamarks_plan_v1"]);
   });
 });

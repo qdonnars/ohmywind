@@ -64,7 +64,7 @@ function App() {
   const [spot, setSpot] = useState<Spot | null>(() => customSpots[0] ?? null);
   const { position: userPosition, status: geolocStatus, attempt: geolocAttempt, locate } = useGeolocation();
   const { view: mapView, onViewChange } = useMapView();
-  const { enabled: seamarks, toggle: toggleSeamarks } = useSeamarks();
+  const { enabled: seamarks, toggle: toggleSeamarks } = useSeamarks("explore");
   // Camera handed over by /plan. Read once: later navigations remount.
   const [initialView] = useState(() => parseMapView(window.location.search));
   // Which fix the map is allowed to fly to. Set only on an explicit request

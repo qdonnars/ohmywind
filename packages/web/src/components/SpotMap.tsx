@@ -196,8 +196,9 @@ interface SpotMapProps {
   marine: MarineHourly | null;
   metric: MetricView;
   selectedHour: string | null;
-  /** OpenSeaMap aids-to-navigation overlay. Owned by the page so the
-      preference survives the switch to /plan. */
+  /** OpenSeaMap aids-to-navigation overlay. Off by default here: this map
+      exists to read wind arrows over a clean coastline. The preference
+      belongs to the page, which persists it. */
   showSeamarks?: boolean;
 }
 
