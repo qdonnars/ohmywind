@@ -2,24 +2,35 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 /**
- * How big to draw a lighthouse, in px, for a given zoom.
+ * Size policy for the lighthouse symbol drawn over the OpenSeaMap raster.
  *
  * Split out from the layer that uses it because it is the only part worth
  * arguing about, and because importing Leaflet drags in `window`, which the
  * test environment does not have.
  *
- * Anchored at both ends by what the map actually needs. At z13 and in, the
- * OpenSeaMap raster symbology is legible on its own, so the vector star
- * matches its ~11 px and disappears into its raster twin: there is no
- * threshold to pop across. Zoomed out it grows about 3.8 px per level,
- * putting it near 2x the raster at z10 and near 3x at z9, the two scales
- * this was reported at. The cap stops a whole-France view from turning into
- * a field of stars.
+ * The star does NOT grow. It marks a position, and blowing it up turns a
+ * coastline into a field of stars while saying nothing more than the raster
+ * already said. What earns the space is the flare: the mark that says a
+ * light burns here, in the colour it burns. That is what a navigator reads
+ * from far out, so that is what scales.
  */
-export function lightSizePx(zoom: number): number {
-  const MIN = 11;
-  const MAX = 28;
+
+/** Matches what the raster draws, so the vector star lands on its twin and
+    there is no seam when the two are both on screen. */
+export const STAR_SIZE_PX = 11;
+
+/**
+ * Flare length in px for a zoom level.
+ *
+ * At z13 and in, it matches the raster flare and the two become one symbol.
+ * Zoomed out it grows about 4.5 px per level, so a light reads as a light
+ * across a whole basin. The cap keeps a dense coast, the Finistère being
+ * the worst case, from turning into overlapping streaks.
+ */
+export function flareSizePx(zoom: number): number {
+  const MIN = 16;
+  const MAX = 40;
   const PIVOT_ZOOM = 13;
-  const GROWTH_PER_LEVEL = 3.8;
+  const GROWTH_PER_LEVEL = 4.5;
   return Math.min(MAX, Math.max(MIN, MIN + (PIVOT_ZOOM - zoom) * GROWTH_PER_LEVEL));
 }
