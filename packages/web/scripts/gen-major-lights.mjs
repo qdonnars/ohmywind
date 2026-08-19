@@ -59,6 +59,30 @@ function nominalRangeNm(tags) {
 /** 10 M is where a landfall light parts company with a pierhead light. */
 const LANDFALL_RANGE_NM = 10;
 
+/**
+ * Flare colour, following the rule OpenSeaMap renders with, so our flare
+ * and the raster's are the same symbol where they overlap. Read off its own
+ * tiles: Créac'h, a plain white light, gets a yellow flare; Brescou, white
+ * and red by sector, gets a magenta one.
+ *
+ * That is the chart convention too: a single-colour light shows its colour,
+ * white shows as yellow because white ink does not exist on paper, and a
+ * sectored light shows magenta, meaning "read the sectors".
+ */
+function flareColour(tags) {
+  const colours = new Set(
+    Object.entries(tags)
+      .filter(([k]) => k.startsWith("seamark:light") && k.endsWith(":colour"))
+      .map(([, v]) => v),
+  );
+  if (colours.size !== 1) return "m"; // sectored, or nothing tagged at all
+  const [only] = colours;
+  if (only === "white" || only === "yellow" || only === "orange") return "y";
+  if (only === "red") return "r";
+  if (only === "green") return "g";
+  return "m";
+}
+
 function isLighthouse(tags) {
   if (tags["seamark:type"] === "light_vessel") return false;
   if (tags["seamark:type"] === "light_major") return true;
@@ -108,7 +132,7 @@ const lights = [...byId.values()]
   .sort((a, b) => b.lat - a.lat || a.lon - b.lon)
   // 5 decimals is ~1 m, far finer than anything this layer draws, and it
   // keeps the file diffable.
-  .map((el) => [Number(el.lat.toFixed(5)), Number(el.lon.toFixed(5))]);
+  .map((el) => [Number(el.lat.toFixed(5)), Number(el.lon.toFixed(5)), flareColour(el.tags)]);
 
 // Two OSM nodes sometimes sit on the exact same point, typically a
 // structure mapped once as a lighthouse and once as its light. Stacking two
@@ -143,18 +167,24 @@ const header = `// SPDX-License-Identifier: AGPL-3.0-or-later
 // of the Mediterranean box. A Channel crossing wants the landfall lights on
 // both sides, so they are kept rather than clipped.
 //
-// Positions only: the layer draws a symbol, and carrying names nothing
-// renders would be dead weight.
+// Each entry is [latitude, longitude, flare colour]. Names are left out:
+// the layer draws a symbol, and carrying text nothing renders would be dead
+// weight. The colour is not decoration, it is the light's own, and it has
+// to match the raster flare underneath or the same lighthouse would show
+// two different symbols where they overlap.
 //
 // Drawn as vectors over the OpenSeaMap raster because the raster cannot be
 // resized. Its symbols are baked at one size per tile, so zoomed out to a
-// whole coast a landfall light is a 9 px speck, which is the one zoom where
-// it matters most.
+// whole coast the flare that says "there is a light here" is a few pixels,
+// at the one scale where a landfall light matters most.
 
-/** [latitude, longitude], north to south. */
-export const MAJOR_LIGHTS: readonly (readonly [number, number])[] = [
+/** Flare colour: "y" white or yellow, "r" red, "g" green, "m" sectored. */
+export type FlareColour = "y" | "r" | "g" | "m";
+
+/** [latitude, longitude, flare colour], north to south. */
+export const MAJOR_LIGHTS: readonly (readonly [number, number, FlareColour])[] = [
 `;
 
-const body = unique.map(([lat, lon]) => `  [${lat}, ${lon}],`).join("\n");
+const body = unique.map(([lat, lon, colour]) => `  [${lat}, ${lon}, "${colour}"],`).join("\n");
 fs.writeFileSync(OUT, `${header}${body}\n];\n`);
 console.log(`\n${unique.length} phares écrits dans ${path.relative(process.cwd(), OUT)}`);
