@@ -25,6 +25,7 @@ import { effectivePolar, initialPlanBoat, isPersoActive, isPolarCustomized, load
 import { LocateButton } from "../components/LocateButton";
 import { SeamarkButton } from "../components/SeamarkButton";
 import { useSeamarks } from "../hooks/useSeamarks";
+import { useWaypointDepths } from "../hooks/useWaypointDepths";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useMapView } from "../hooks/useMapView";
 import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
@@ -443,6 +444,7 @@ export function PlanPage() {
     if (useCachedRoute) return cachedAtMount!.waypoints;
     return [];
   });
+  const waypointDepths = useWaypointDepths(waypoints);
   const [archetype, setArchetype] = useState(() =>
     // A customized polar pins the boat to cfg.base — the hull the tuning was
     // built on and the one the selector displays — so a stale URL/cache slug
@@ -985,6 +987,7 @@ export function PlanPage() {
             onViewChange={onViewChange}
             initialZoom={handedView?.zoom ?? null}
             showSeamarks={seamarks}
+            depths={waypointDepths}
             highlightedSegmentRange={
               selectedLegIdx != null && passage
                 ? computeLegSegmentRanges(passage.segments as { start: { lat: number; lon: number } }[], waypoints)[selectedLegIdx] ?? null

@@ -8,6 +8,7 @@ import { useTheme } from "../design/theme";
 import type { SegmentReport } from "./types";
 import { cxLevel, CX_COLORS } from "./types";
 import { haversineNm, fmtNm } from "../utils/geo";
+import { fmtDepthM } from "./format";
 import type { UserPosition } from "../hooks/useGeolocation";
 import { syncUserPositionLayer } from "../utils/userPositionLayer";
 import { syncSeamarkLayer } from "../utils/seamarkLayer";
@@ -51,14 +52,24 @@ interface PlanMapProps {
   /** OpenSeaMap aids-to-navigation overlay. Owned by the page so the
       preference survives the switch back to the explore map. */
   showSeamarks?: boolean;
+  /** Sounding under each waypoint, same order as `waypoints`. `undefined`
+      is still loading, `null` is nothing to show. Fetching belongs to the
+      page: the map only draws what it is handed. */
+  depths?: (number | null | undefined)[];
 }
 
 function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon {
   const xBtn = deletable
     ? `<button type="button" class="ow-wpt-x" aria-label="Supprimer ce point">×</button>`
     : "";
+  // The sounding slot is always rendered, empty until the lookup lands, and
+  // filled in place by its own effect. Carrying it inside the icon rather
+  // than as a separate tooltip layer means it follows the marker through a
+  // drag for free, instead of sitting at the position the waypoint left.
   return L.divIcon({
-    html: `<div class="ow-wpt"><div class="ow-wpt-circle" style="background:${bg}">${label}</div>${xBtn}</div>`,
+    html:
+      `<div class="ow-wpt"><div class="ow-wpt-circle" style="background:${bg}">${label}</div>${xBtn}` +
+      `<span class="ow-wpt-depth"></span></div>`,
     className: "",
     iconSize: [28, 28],
     iconAnchor: [14, 14],
@@ -66,7 +77,7 @@ function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon 
 }
 
 export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
-  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, initialCenter, userPosition, onViewChange, initialZoom, showSeamarks = false }: PlanMapProps,
+  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, initialCenter, userPosition, onViewChange, initialZoom, showSeamarks = false, depths }: PlanMapProps,
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -357,6 +368,21 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [waypoints]);
+
+  // Fill the sounding slot of each waypoint icon.
+  //
+  // Written into the existing DOM rather than folded into the marker effect
+  // above: soundings land one by one, and rebuilding every marker each time
+  // one arrives would drop a drag in progress. Declared after that effect so
+  // a fresh set of markers is filled in the same commit it is created.
+  useEffect(() => {
+    markersRef.current.forEach((marker, i) => {
+      const slot = marker.getElement()?.querySelector<HTMLElement>(".ow-wpt-depth");
+      if (!slot) return;
+      const depth = depths?.[i];
+      slot.textContent = typeof depth === "number" ? fmtDepthM(depth) : "";
+    });
+  }, [depths, waypoints]);
 
   // NB: no auto fit-bounds on waypoint changes. Re-fitting on every placement
   // yanked the camera away while the user was still composing their route.

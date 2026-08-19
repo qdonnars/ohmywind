@@ -116,6 +116,21 @@ export function InfoPanel() {
           et Open-Meteo Geocoding, tous deux sur données OpenStreetMap.
         </p>
         <p className="text-xs leading-relaxed mt-2" style={{ color: "var(--ow-fg-2)" }}>
+          Sondes sous les points de route :{" "}
+          <a
+            href="https://emodnet.ec.europa.eu/en/bathymetry"
+            target="_blank"
+            rel="noreferrer"
+            className="underline hover:opacity-80"
+          >
+            EMODnet Bathymetry
+          </a>{" "}
+          (CC BY 4.0), rapportées au zéro hydrographique comme sur une carte
+          marine. La grille fait environ 115 m : elle répond bien à « combien
+          d'eau sur ce bord », et elle est aveugle au caillou isolé entre deux
+          nœuds. À ne pas utiliser pour la navigation.
+        </p>
+        <p className="text-xs leading-relaxed mt-2" style={{ color: "var(--ow-fg-2)" }}>
           Aucun compte, aucun traqueur :{" "}
           <a href="/confidentialite" className="underline hover:opacity-80">
             politique de confidentialité

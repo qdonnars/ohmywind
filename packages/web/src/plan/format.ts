@@ -29,6 +29,19 @@ export function fmtDurationSafe(h: number | null | undefined): string {
   return fmtDuration(h);
 }
 
+/**
+ * Sounding under a waypoint, in metres below chart datum. Same shape as
+ * ``fmtNm``: French comma, one decimal below 10 m, rounded above, because
+ * the metre that matters under the keel is the shallow one. e.g.
+ * 4.62 → "4,6 m", 23.4 → "23 m".
+ */
+export function fmtDepthM(m: number): string {
+  if (m < 10) {
+    return `${m.toFixed(1).replace(".", ",")} m`;
+  }
+  return `${Math.round(m)} m`;
+}
+
 /** One-decimal French number: 38.2 → "38,2". Matches sailing-French copy. */
 export function fr1(n: number): string {
   return n.toFixed(1).replace(".", ",");

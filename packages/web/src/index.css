@@ -268,6 +268,32 @@ select,
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
   cursor: grab;
 }
+/* Sounding under a waypoint, from the EMODnet grid. Bare text with a halo
+   rather than a chip, same treatment as the leg-length labels: the water
+   around a waypoint is exactly where the user needs to keep seeing the
+   chart. Centred under the marker and non-interactive, so it never steals
+   the drag from the circle above it. Empty until the lookup lands, and
+   :empty drops the halo so a blank span leaves no smudge on the map. */
+.ow-wpt-depth {
+  position: absolute;
+  top: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--ow-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  color: var(--ow-fg-1);
+  text-shadow:
+    0 0 3px var(--ow-bg-1),
+    0 0 3px var(--ow-bg-1),
+    0 1px 2px var(--ow-bg-1);
+}
+.ow-wpt-depth:empty {
+  text-shadow: none;
+}
 .ow-wpt-x {
   position: absolute;
   top: -7px;
