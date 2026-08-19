@@ -10,6 +10,7 @@ import { useTheme } from "../design/theme";
 import type { UserPosition } from "../hooks/useGeolocation";
 import { syncUserPositionLayer } from "../utils/userPositionLayer";
 import { syncSeamarkLayer } from "../utils/seamarkLayer";
+import { syncMajorLightLayer, type MajorLightHandle } from "../utils/majorLightLayer";
 import { centerForBottomInset } from "../utils/visibleCenter";
 import type { MapView } from "../utils/mapViewParams";
 
@@ -274,6 +275,7 @@ export function SpotMap({
   const elementToSpotRef = useRef<Map<Element, Spot>>(new Map());
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const seamarkLayerRef = useRef<L.TileLayer | null>(null);
+  const majorLightRef = useRef<MajorLightHandle | null>(null);
 
   const { resolvedTheme } = useTheme();
 
@@ -642,6 +644,7 @@ export function SpotMap({
   useEffect(() => {
     if (!mapRef.current) return;
     syncSeamarkLayer(mapRef.current, seamarkLayerRef, showSeamarks);
+    syncMajorLightLayer(mapRef.current, majorLightRef, showSeamarks);
   }, [showSeamarks]);
 
   const syncMarkers = useCallback(() => {
