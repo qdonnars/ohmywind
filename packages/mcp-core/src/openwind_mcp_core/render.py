@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Deep-link helper used by ``plan_passage``.
 
 Historically this module also generated a ~5 KB self-contained HTML widget

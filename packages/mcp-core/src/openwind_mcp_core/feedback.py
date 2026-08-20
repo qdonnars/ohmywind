@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Feedback tool: lets a calling LLM log a structured note about a tool
 interaction (an unclear parameter, missing data, a wrong-feeling result,
 a feature request).

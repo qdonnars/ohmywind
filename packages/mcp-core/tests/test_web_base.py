@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Deep-links must point at the environment the server runs in.
 
 The dev Space handed out production links: every plan produced while testing

@@ -1,13 +1,19 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Passage time + complexity estimation along a polyline of waypoints.
 
 V1 design choices:
 
 - **Single-pass approximation** (challenge #7): we do not iterate until convergence
-  on segment timings. We first lay out per-segment mid-times using a constant
-  heuristic speed (6 kn), fetch wind at each mid-time/mid-position, then compute
-  the actual speed and accumulate true durations. The bias is bounded for typical
-  Mediterranean passages because the wind window we hit is shifted by at most a
-  few hours, which is well within the temporal correlation length of the forecast.
+  on segment timings. We first lay out per-segment mid-times using a boat-aware
+  cruising estimate (polar at the reference point x efficiency, through the motor
+  rule — see `_layout_speed_kn`), fetch wind at each mid-time/mid-position, then
+  compute the actual speed and accumulate true durations. Because the layout
+  speed tracks the boat (a 20 kn cat lays out at ~20 kn, a motor-dominant config
+  at motor speed), the wind window we hit is shifted by at most a few hours,
+  well within the temporal correlation length of the forecast.
+  ``PassageReport.max_sampling_drift_h`` reports the residual shift observed.
 - **Efficiency factor 0.75** (challenge #8): polars are ORC theoretical maxima.
   Real-world cruising (sail trim, comfort margins, sea state, helmsman, currents)
   costs ~25%. See `docs/boat-archetypes.md`. Override via the `efficiency` arg.
@@ -53,7 +59,12 @@ from openwind_data.routing.geometry import (
     segment_route,
 )
 
-HEURISTIC_SPEED_KN = 6.0
+# Reference conditions for the boat-aware layout speed (`_layout_speed_kn`):
+# moderate breeze on a broad reach, the regime a coastal passage mostly sails
+# in. For a classic cruiser this lands near the ~6 kn constant the layout
+# used before it became boat-aware.
+LAYOUT_REF_TWS_KN = 12.0
+LAYOUT_REF_TWA_DEG = 110.0
 WIND_FETCH_WINDOW = timedelta(hours=3)
 MIN_BOAT_SPEED_KN = 0.5  # floor to avoid division blow-up in extreme stalls
 
@@ -237,6 +248,11 @@ class PassageReport:
     model: str  # The model actually used (resolved from "auto" if applicable).
     segments: tuple[SegmentReport, ...]
     warnings: tuple[str, ...] = field(default_factory=tuple)
+    # Largest gap (hours) between a segment's weather-sampling mid-time and
+    # its actual mid-passage time. Debug/telemetry for the single-pass layout:
+    # values beyond ~2-3 h are the signal that a second sampling pass at
+    # corrected mid-times would be worth its cost.
+    max_sampling_drift_h: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -386,6 +402,21 @@ def _apply_motor(polar: BoatPolar, sail_speed_kn: float) -> tuple[float, bool]:
     return motor_kn, True
 
 
+def _layout_speed_kn(polar: BoatPolar, efficiency: float) -> float:
+    """Boat-aware cruising estimate used to lay out weather-sampling mid-times.
+
+    Polar speed at the reference point (LAYOUT_REF_TWS_KN / LAYOUT_REF_TWA_DEG)
+    scaled by ``efficiency`` — the motor threshold compares post-efficiency
+    sail speeds — then run through the motor rule. A motor-dominant config
+    (threshold above its sailing speeds) lays out at motor speed, which makes
+    its mid-times near-exact: under power the actual speed does not depend on
+    the wind we haven't fetched yet.
+    """
+    sail = lookup_polar(polar, LAYOUT_REF_TWS_KN, LAYOUT_REF_TWA_DEG) * efficiency
+    speed, _ = _apply_motor(polar, sail)
+    return max(speed, MIN_BOAT_SPEED_KN)
+
+
 def _apply_current(
     boat_speed_kn: float,
     bearing_deg: float,
@@ -416,7 +447,7 @@ async def estimate_passage(
     segment_length_nm: float = 10.0,
     adapter: MarineDataAdapter | None = None,
     model: str = DEFAULT_MODEL,
-    heuristic_speed_kn: float = HEURISTIC_SPEED_KN,
+    heuristic_speed_kn: float | None = None,
     use_wave_correction: bool = False,
     polar_override: BoatPolar | None = None,
     model_chain: tuple[str, ...] | None = None,
@@ -440,7 +471,10 @@ async def estimate_passage(
         model: wind model name. Pass ``"auto"`` to try AROME → ICON → GFS in
             order and use the first one whose horizon covers the passage.
             The model actually used is reported in ``PassageReport.model``.
-        heuristic_speed_kn: speed used for the single-pass timing estimate.
+        heuristic_speed_kn: layout speed for the single-pass timing estimate.
+            Default ``None`` derives it from the boat (`_layout_speed_kn`:
+            polar at the reference point x efficiency, through the motor
+            rule); pass a float to pin it explicitly.
         use_wave_correction: if True, multiply boat speed by ``wave_derate(Hs, TWA)``
             using sea state from the bundle. Default False keeps V1 timings.
 
@@ -504,7 +538,7 @@ async def _estimate_with_model(
     segment_length_nm: float,
     adapter: MarineDataAdapter | None,
     model: str,
-    heuristic_speed_kn: float,
+    heuristic_speed_kn: float | None,
     use_wave_correction: bool,
     polar_override: BoatPolar | None = None,
     model_chain: tuple[str, ...] | None = None,
@@ -522,11 +556,17 @@ async def _estimate_with_model(
     segments = segment_route(waypoints, effective_length_nm)
     departure_utc = departure_time.astimezone(UTC)
 
-    heuristic_speed_kn = max(heuristic_speed_kn, MIN_BOAT_SPEED_KN)
+    # An explicit heuristic_speed_kn wins (caller pin / test hook); otherwise
+    # the layout speed comes from the boat itself.
+    layout_speed_kn = (
+        max(heuristic_speed_kn, MIN_BOAT_SPEED_KN)
+        if heuristic_speed_kn is not None
+        else _layout_speed_kn(polar, efficiency)
+    )
     seg_mid_times: list[datetime] = []
     cumulative = timedelta(0)
     for seg in segments:
-        seg_h = seg.distance_nm / heuristic_speed_kn
+        seg_h = seg.distance_nm / layout_speed_kn
         seg_mid_times.append(departure_utc + cumulative + timedelta(hours=seg_h / 2))
         cumulative += timedelta(hours=seg_h)
 
@@ -611,6 +651,7 @@ async def _estimate_with_model(
     reports: list[SegmentReport] = []
     cumulative_actual = timedelta(0)
     min_boat_speed = float("inf")
+    max_drift_h = 0.0
     for seg, mid_time, mid_pt, bundle, seg_model in zip(
         segments, seg_mid_times, seg_mid_points, bundles, seg_models, strict=True
     ):
@@ -657,6 +698,8 @@ async def _estimate_with_model(
         seg_end = seg_start + seg_duration
         cumulative_actual += seg_duration
         min_boat_speed = min(min_boat_speed, boat_speed)
+        actual_mid = seg_start + seg_duration / 2
+        max_drift_h = max(max_drift_h, abs((actual_mid - mid_time).total_seconds()) / 3600.0)
         reports.append(
             SegmentReport(
                 start=seg.start,
@@ -733,6 +776,7 @@ async def _estimate_with_model(
         model=resolved_model,
         segments=tuple(reports),
         warnings=tuple(warnings),
+        max_sampling_drift_h=round(max_drift_h, 2),
     )
 
 
@@ -745,7 +789,7 @@ async def _estimate_backward_with_model(
     segment_length_nm: float,
     adapter: MarineDataAdapter | None,
     model: str,
-    heuristic_speed_kn: float,
+    heuristic_speed_kn: float | None,
     use_wave_correction: bool,
     polar_override: BoatPolar | None = None,
     model_chain: tuple[str, ...] | None = None,
@@ -757,19 +801,24 @@ async def _estimate_backward_with_model(
     its actual duration is computed from the wind sampled at a mid-time guess.
     By construction, the resulting report has `arrival_time == target_arrival`
     exactly (modulo timedelta microsecond drift), so no fixed-point iteration
-    is needed. Mid-time guesses use `heuristic_speed_kn` like the forward path,
-    same temporal-correlation argument applies.
+    is needed. Mid-time guesses use the same boat-aware layout speed as the
+    forward path, same temporal-correlation argument applies.
     """
     polar = polar_override if polar_override is not None else get_polar(boat_archetype)
     effective_length_nm, capped_route_nm = _resolve_segment_length(waypoints, segment_length_nm)
     segments = segment_route(waypoints, effective_length_nm)
     target_utc = target_arrival.astimezone(UTC)
 
-    heuristic_speed_kn = max(heuristic_speed_kn, MIN_BOAT_SPEED_KN)
+    # Same layout-speed resolution as the forward path.
+    layout_speed_kn = (
+        max(heuristic_speed_kn, MIN_BOAT_SPEED_KN)
+        if heuristic_speed_kn is not None
+        else _layout_speed_kn(polar, efficiency)
+    )
     seg_mid_times: list[datetime] = [target_utc] * len(segments)
     cumulative_back = timedelta(0)
     for idx in range(len(segments) - 1, -1, -1):
-        seg_h = segments[idx].distance_nm / heuristic_speed_kn
+        seg_h = segments[idx].distance_nm / layout_speed_kn
         seg_mid_times[idx] = target_utc - cumulative_back - timedelta(hours=seg_h / 2)
         cumulative_back += timedelta(hours=seg_h)
 
@@ -838,6 +887,7 @@ async def _estimate_backward_with_model(
     reverse_reports: list[SegmentReport] = []
     end_time = target_utc
     min_boat_speed = float("inf")
+    max_drift_h = 0.0
     for seg, mid_time, mid_pt, bundle, seg_model in zip(
         reversed(segments),
         reversed(seg_mid_times),
@@ -874,6 +924,8 @@ async def _estimate_backward_with_model(
         seg_duration = timedelta(hours=seg.distance_nm / ground_speed)
         seg_start = end_time - seg_duration
         min_boat_speed = min(min_boat_speed, boat_speed)
+        actual_mid = seg_start + seg_duration / 2
+        max_drift_h = max(max_drift_h, abs((actual_mid - mid_time).total_seconds()) / 3600.0)
         reverse_reports.append(
             SegmentReport(
                 start=seg.start,
@@ -945,6 +997,7 @@ async def _estimate_backward_with_model(
         model=resolved_model,
         segments=tuple(reports),
         warnings=tuple(warnings),
+        max_sampling_drift_h=round(max_drift_h, 2),
     )
 
 
@@ -1120,7 +1173,7 @@ async def estimate_passage_for_arrival(
     segment_length_nm: float = 10.0,
     adapter: MarineDataAdapter | None = None,
     model: str = AUTO_MODEL,
-    heuristic_speed_kn: float = HEURISTIC_SPEED_KN,
+    heuristic_speed_kn: float | None = None,
     use_wave_correction: bool = False,
     polar_override: BoatPolar | None = None,
     model_chain: tuple[str, ...] | None = None,
@@ -1142,7 +1195,8 @@ async def estimate_passage_for_arrival(
         segment_length_nm: sub-segment length for weather sampling.
         adapter: any `MarineDataAdapter` (defaults to a fresh `OpenMeteoAdapter`).
         model: wind model name; ``"auto"`` tries AROME → ICON → GFS in order.
-        heuristic_speed_kn: speed used to lay out per-segment mid-time guesses.
+        heuristic_speed_kn: layout speed for per-segment mid-time guesses.
+            Default ``None`` derives it from the boat (see `estimate_passage`).
         use_wave_correction: if True, multiply boat speed by `wave_derate(Hs, TWA)`.
 
     Raises:

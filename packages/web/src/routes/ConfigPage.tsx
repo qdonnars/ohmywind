@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ACTIVE_LIMIT,
@@ -232,7 +235,7 @@ export function ConfigPage() {
         <h1 className="text-3xl font-bold mb-2">Modèles météo</h1>
         <p className="text-sm opacity-80 mb-8 leading-relaxed">
           Les {ACTIVE_LIMIT} premiers modèles sont affichés dans la table de
-          prévision, dans cet ordre. Glisse-dépose pour réordonner (sur
+          prévision, dans cet ordre. Glissez-déposez pour réordonner (sur
           mobile, appui maintenu sur une ligne, ou directement la poignée
           ⋮⋮). Cette configuration ne touche pas les plans de passage.
         </p>

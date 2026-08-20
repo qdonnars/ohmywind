@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 import { describe, expect, it } from "vitest";
 import { aggregateLegs, buildLegSummaryCells, type AggregatedLeg } from "./aggregateLegs";
 import type { SegmentReport } from "./types";
@@ -77,6 +80,56 @@ describe("aggregateLegs", () => {
 
   it("returns empty array when there are no segments", () => {
     expect(aggregateLegs([], [[43, 5], [43.1, 5.1]])).toEqual([]);
+  });
+});
+
+describe("aggregateLegs point of sail", () => {
+  // A one-leg route whose direct course sits at `twa` deg off the wind.
+  function legAt(twa: number, minUpwindDeg?: number) {
+    const segments = [seg({ twa_deg: twa })];
+    const waypoints: [number, number][] = [[43.0, 5.0], [43.1, 5.1]];
+    return aggregateLegs(segments, waypoints, 0.75, minUpwindDeg)[0];
+  }
+
+  // #277: a leg whose direct course is inside the no-go zone is billed at the
+  // tacking speed server-side, so calling it plain "Près" told the sailor to
+  // steer an angle the boat cannot hold.
+  it("qualifies the label when the course is below the boat's upwind angle", () => {
+    expect(legAt(30, 45).point_of_sail).toBe("Près (louvoyage)");
+    expect(legAt(44.9, 45).point_of_sail).toBe("Près (louvoyage)");
+  });
+
+  it("stays a bare Près between the upwind angle and the close-hauled bucket", () => {
+    expect(legAt(45, 45).point_of_sail).toBe("Près");
+    expect(legAt(49, 45).point_of_sail).toBe("Près");
+  });
+
+  // A stiffer boat (catamaran, 50 deg) tacks over a wider band than a
+  // racer-cruiser (42 deg) on the very same route.
+  it("moves the boundary with the boat", () => {
+    expect(legAt(47, 50).point_of_sail).toBe("Près (louvoyage)");
+    expect(legAt(47, 42).point_of_sail).toBe("Près");
+  });
+
+  it("leaves the other buckets untouched", () => {
+    expect(legAt(60, 45).point_of_sail).toBe("Travers");
+    expect(legAt(120, 45).point_of_sail).toBe("Largue");
+    expect(legAt(170, 45).point_of_sail).toBe("Arrière");
+    // Signed TWA normalises to the same buckets.
+    expect(legAt(-30, 45).point_of_sail).toBe("Près (louvoyage)");
+    expect(legAt(-120, 45).point_of_sail).toBe("Largue");
+  });
+
+  it("omits the qualifier when no upwind angle is supplied", () => {
+    expect(legAt(30).point_of_sail).toBe("Près");
+  });
+
+  // Under power the allure is irrelevant: the motor label wins whatever the
+  // angle, including inside the no-go zone.
+  it("keeps Moteur over the qualifier when the leg is motored", () => {
+    const segments = [seg({ twa_deg: 20, motor_used: true })];
+    const waypoints: [number, number][] = [[43.0, 5.0], [43.1, 5.1]];
+    expect(aggregateLegs(segments, waypoints, 0.75, 45)[0].point_of_sail).toBe("Moteur");
   });
 });
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 import { useMemo, useRef, useState } from "react";
 import {
   ARCHETYPE_LABELS,
@@ -5,10 +8,12 @@ import {
   MIN_UPWIND_MIN,
   SPI_MAX_TWS_MAX,
   SPI_MAX_TWS_MIN,
+  commitSpiMaxTwsDraft,
   effectiveMinUpwind,
   effectivePolar,
   hasOverrides,
   isImportedActive,
+  parseSpiMaxTwsDraft,
   type PolarConfig,
   type PolarSource,
   type SpiKind,
@@ -34,6 +39,7 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
   );
   const [tuningOpen, setTuningOpen] = useState(false);
   const [selectedTwsIdx, setSelectedTwsIdx] = useState(0);
+  const [spiMaxTwsDraft, setSpiMaxTwsDraft] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importedActive = isImportedActive(config);
 
@@ -114,13 +120,24 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
     onChange({ ...config, spi });
   }
 
+  // While the field is focused the raw text is what gets rendered, so an
+  // empty field stays empty and a typed digit stays the digit that was typed
+  // (see parseSpiMaxTwsDraft for why driving the input straight off the
+  // config paints a zero the user never entered). null = not editing.
   function setSpiMaxTws(raw: string) {
-    const num = Number(raw);
-    if (!Number.isFinite(num)) return;
-    onChange({
-      ...config,
-      spiMaxTwsKn: Math.round(Math.min(SPI_MAX_TWS_MAX, Math.max(SPI_MAX_TWS_MIN, num))),
-    });
+    setSpiMaxTwsDraft(raw);
+    const next = parseSpiMaxTwsDraft(raw);
+    if (next !== null && next !== config.spiMaxTwsKn) {
+      onChange({ ...config, spiMaxTwsKn: next });
+    }
+  }
+
+  function commitSpiMaxTws() {
+    const next = commitSpiMaxTwsDraft(spiMaxTwsDraft ?? "");
+    setSpiMaxTwsDraft(null);
+    if (next !== null && next !== config.spiMaxTwsKn) {
+      onChange({ ...config, spiMaxTwsKn: next });
+    }
   }
 
   function setOverride(twsIdx: number, twaIdx: number, speedKn: number) {
@@ -311,8 +328,9 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
                 step="1"
                 min={SPI_MAX_TWS_MIN}
                 max={SPI_MAX_TWS_MAX}
-                value={config.spiMaxTwsKn}
+                value={spiMaxTwsDraft ?? config.spiMaxTwsKn}
                 onChange={(e) => setSpiMaxTws(e.target.value)}
+                onBlur={commitSpiMaxTws}
                 className="polar-motor-input w-20"
               />
               kn

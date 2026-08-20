@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 import { useEffect, useRef, useCallback, useState, type RefObject } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -6,6 +9,7 @@ import { QUICK_SPOTS } from "../spots";
 import { useTheme } from "../design/theme";
 import type { UserPosition } from "../hooks/useGeolocation";
 import { syncUserPositionLayer } from "../utils/userPositionLayer";
+import { syncSeamarkLayer } from "../utils/seamarkLayer";
 import { centerForBottomInset } from "../utils/visibleCenter";
 import type { MapView } from "../utils/mapViewParams";
 
@@ -192,6 +196,10 @@ interface SpotMapProps {
   marine: MarineHourly | null;
   metric: MetricView;
   selectedHour: string | null;
+  /** OpenSeaMap aids-to-navigation overlay. Off by default here: this map
+      exists to read wind arrows over a clean coastline. The preference
+      belongs to the page, which persists it. */
+  showSeamarks?: boolean;
 }
 
 function spotKey(s: Spot) {
@@ -216,6 +224,7 @@ export function SpotMap({
   marine,
   metric,
   selectedHour,
+  showSeamarks = false,
 }: SpotMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -264,6 +273,7 @@ export function SpotMap({
   // Maps each marker's SVG element → its spot (for native long-press detection)
   const elementToSpotRef = useRef<Map<Element, Spot>>(new Map());
   const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const seamarkLayerRef = useRef<L.TileLayer | null>(null);
 
   const { resolvedTheme } = useTheme();
 
@@ -624,6 +634,15 @@ export function SpotMap({
       mapRef.current = null;
     };
   }, []);
+
+  // Marine-chart overlay. Declared AFTER the init effect on purpose: effects
+  // fire in declaration order, so on mount the map already exists here and a
+  // returning user gets back the overlay they left on. Kept out of the init
+  // effect itself because the toggle also flips while the map is alive.
+  useEffect(() => {
+    if (!mapRef.current) return;
+    syncSeamarkLayer(mapRef.current, seamarkLayerRef, showSeamarks);
+  }, [showSeamarks]);
 
   const syncMarkers = useCallback(() => {
     const map = mapRef.current;

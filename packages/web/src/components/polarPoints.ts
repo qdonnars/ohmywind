@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 // Geometry helper for PolarDiagram, in its own module so the component file
 // only exports components (react-refresh constraint) and tests can import it
 // without touching React.

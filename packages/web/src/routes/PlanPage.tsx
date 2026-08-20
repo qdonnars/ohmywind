@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 import { useState, useEffect, useMemo, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 import { parsePlanUrl, isParsedOk, buildPlanUrl } from "../plan/parseUrl";
 import { PlanMap, type PlanMapHandle } from "../plan/PlanMap";
@@ -20,6 +23,9 @@ import { computeLegSegmentRanges } from "../plan/aggregateLegs";
 import { activeModels, loadModelConfig } from "../config/modelConfig";
 import { effectivePolar, initialPlanBoat, isPersoActive, isPolarCustomized, loadPolarConfig, planEfficiency, polarFingerprint, savePolarConfig } from "../config/polarConfig";
 import { LocateButton } from "../components/LocateButton";
+import { SeamarkButton } from "../components/SeamarkButton";
+import { useSeamarks } from "../hooks/useSeamarks";
+import { useWaypointDepths } from "../hooks/useWaypointDepths";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useMapView } from "../hooks/useMapView";
 import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
@@ -300,6 +306,15 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
         transition: isAnimating ? "height 280ms cubic-bezier(0.4, 0, 0.2, 1)" : undefined,
       }}
     >
+      {/* Grab handle. 28 px of full-width strip rather than the 14 px this
+          shipped with: at 14 px the target was under half a fingertip and
+          users reported missing it outright. The handle sits flush against
+          the map, so the hit area cannot be widened with a negative margin
+          (the drawer is overflow-y-auto and would clip it) — the strip itself
+          has to carry the height. It stays under the 44 px touch guideline on
+          purpose: at DRAWER_MIN_VH the drawer is a peek, and a 44 px handle
+          would eat most of it. `chromePx` in the fit-to-results effect reads
+          the height from the DOM, so nothing else needs updating. */}
       <div
         role="separator"
         aria-orientation="horizontal"
@@ -309,11 +324,11 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         className="shrink-0 flex items-center justify-center cursor-row-resize touch-none"
-        style={{ height: 14, background: "var(--ow-bg-1)" }}
+        style={{ height: 28, background: "var(--ow-bg-1)" }}
       >
         <span
           className="block rounded-full"
-          style={{ width: 36, height: 4, background: "var(--ow-line-2)" }}
+          style={{ width: 44, height: 5, background: "var(--ow-line-2)" }}
         />
       </div>
       <div ref={contentRef} className="flex-1 min-h-0 overflow-y-auto">{children}</div>
@@ -411,6 +426,7 @@ export function PlanPage() {
 
   const { position: userPosition, status: geolocStatus, attempt: geolocAttempt, locate } = useGeolocation();
   const { view: mapView, onViewChange } = useMapView();
+  const { enabled: seamarks, toggle: toggleSeamarks } = useSeamarks("plan");
   // Zoom handed over by the explore map, used only when no route frames the
   // camera itself. Read once: navigating remounts the page.
   const [handedView] = useState(() => parseMapView(window.location.search));
@@ -437,6 +453,7 @@ export function PlanPage() {
     if (useCachedRoute) return cachedAtMount!.waypoints;
     return [];
   });
+  const waypointDepths = useWaypointDepths(waypoints);
   const [archetype, setArchetype] = useState(() =>
     // A customized polar pins the boat to cfg.base — the hull the tuning was
     // built on and the one the selector displays — so a stale URL/cache slug
@@ -978,6 +995,8 @@ export function PlanPage() {
             userPosition={userPosition}
             onViewChange={onViewChange}
             initialZoom={handedView?.zoom ?? null}
+            showSeamarks={seamarks}
+            depths={waypointDepths}
             highlightedSegmentRange={
               selectedLegIdx != null && passage
                 ? computeLegSegmentRanges(passage.segments as { start: { lat: number; lon: number } }[], waypoints)[selectedLegIdx] ?? null
@@ -993,6 +1012,11 @@ export function PlanPage() {
           >
             <img src="/wind-icon.png" alt="" className="select-none w-[64px] h-[64px] sm:w-[88px] sm:h-[88px]" draggable={false} />
           </a>
+          {/* Marine-chart toggle — top right, the corner a layer control
+              conventionally lives in, and the only one free on this page:
+              the back FAB owns the top left and the locate button plus its
+              error bubble own the bottom right. */}
+          <SeamarkButton enabled={seamarks} onToggle={toggleSeamarks} className="top-3 right-3" />
           {/* Locate FAB — bottom right of the map container, which shrinks as
               the mobile drawer is dragged up, so the button follows it.
               Normally 16 px above the drawer edge, the reference gap reused

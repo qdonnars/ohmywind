@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 // Shared number/duration formatters for the /plan panel. Consolidates helpers
 // that had drifted into separate copies across PlanStates.tsx and
 // WindowsTable.tsx so the "12h30" convention and French decimals stay in one
@@ -24,6 +27,19 @@ export function fmtDuration(h: number): string {
 export function fmtDurationSafe(h: number | null | undefined): string {
   if (h == null || !Number.isFinite(h)) return "—";
   return fmtDuration(h);
+}
+
+/**
+ * Sounding under a waypoint, in metres below chart datum. Same shape as
+ * ``fmtNm``: French comma, one decimal below 10 m, rounded above, because
+ * the metre that matters under the keel is the shallow one. e.g.
+ * 4.62 → "4,6 m", 23.4 → "23 m".
+ */
+export function fmtDepthM(m: number): string {
+  if (m < 10) {
+    return `${m.toFixed(1).replace(".", ",")} m`;
+  }
+  return `${Math.round(m)} m`;
 }
 
 /** One-decimal French number: 38.2 → "38,2". Matches sailing-French copy. */

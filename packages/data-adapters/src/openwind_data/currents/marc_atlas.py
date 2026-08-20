@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """MARC PREVIMER atlas runtime loader and predictor.
 
 Reads tiled Parquet datasets produced by ``scripts/build_marc_atlas.py`` (one

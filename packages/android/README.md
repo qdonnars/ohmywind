@@ -6,7 +6,7 @@ Seul `twa-manifest.json` est versionné. Le projet Android (Gradle, `app/`, etc.
 
 ## Prérequis
 
-- `npm i -g @bubblewrap/cli` (JDK 17 et Android SDK sont téléchargés par Bubblewrap au premier lancement, dans `~/.bubblewrap/`)
+- `npm i -g @bubblewrap/cli@latest` (JDK 17 et Android SDK sont téléchargés par Bubblewrap au premier lancement, dans `~/.bubblewrap/`). Mettre la CLI à jour **avant chaque release**: le `targetSdkVersion` du bundle suit la version de la CLI (incident: la 1.0.1 buildée avec la CLI 1.24.1 est partie en targetSdk 35 alors que la v3 était en 36; Google exige targetSdk 36 pour toute mise à jour publiée après le 2026-08-31).
 - `android.keystore` présent dans ce dossier (backup: NordPass, entrée "OhMyWind Android keystore"). Sans lui, impossible de signer une mise à jour: ne jamais le perdre, ne jamais le committer.
 - Attention à `git clean -fdx`: il supprimerait le keystore local. Restaurer depuis NordPass le cas échéant.
 
@@ -22,8 +22,8 @@ bubblewrap build    # produit app-release-bundle.aab (Play) + app-release-signed
 
 ## Publier une mise à jour
 
-1. Incrémenter `appVersionCode` (+1, entier) et `appVersion` (lisible, ex. "1.1.0") dans `twa-manifest.json`.
-2. `bubblewrap update` puis `bubblewrap build`.
+1. Incrémenter `appVersionCode` (+1, entier) et `appVersion` (lisible, ex. "1.1.0") dans `twa-manifest.json`. Attention: c'est `appVersion` que Bubblewrap lit pour le versionName du bundle; si un champ `appVersionName` est aussi présent, le garder synchronisé (incident: la 1.0.1 a failli partir étiquetée 1.0.0 parce que seul `appVersionName` avait été incrémenté).
+2. `bubblewrap update --skipVersionUpgrade` puis `bubblewrap build` (sans le flag, `update` prompte interactivement pour une nouvelle version et pollue les champs en non-interactif).
 3. Uploader `app-release-bundle.aab` sur la Play Console.
 
 Le contenu web, lui, se met à jour tout seul (c'est le site). Un rebuild n'est nécessaire que pour changer le manifest Android (icône, nom, permissions, version affichée sur le Play Store).

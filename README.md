@@ -9,7 +9,7 @@
 > global current model for the SHOM Atlas C2D and MARC PREVIMER atlases.
 > Free, keyless, open source.
 
-[**ohmywind.fr**](https://ohmywind.fr) · [MCP endpoint](https://mcp.ohmywind.fr/mcp) · [MIT](LICENSE) + [trademark](TRADEMARK.md)
+[**ohmywind.fr**](https://ohmywind.fr) · [MCP endpoint](https://mcp.ohmywind.fr/mcp) · [AGPL-3.0](LICENSE) + [trademark](TRADEMARK.md)
 
 ![OhMyWind passage plan rendered in the web app](docs/screenshots/plan.png)
 
@@ -88,7 +88,7 @@ Three prompts, each exercising a different tool:
 | 🗓️ **Window-aware**           | One call sweeps a 14-day departure range and lets your LLM pick the calmest weekend slot, no math by hand. |
 | 🔌 **Client-agnostic**        | One HTTP MCP endpoint. Works in Claude Desktop, Le Chat, Cursor, Goose, Zed, Continue, …     |
 | 🖼️ **Rich on supporting hosts** | On Claude / ChatGPT / VS Code Copilot / Goose, an interactive widget renders inline via [MCP Apps](https://modelcontextprotocol.io/extensions/client-matrix). Other hosts fall back to a clean text summary + deep-link. |
-| 🛠️ **Open source, MIT**       | Self-host on Fly, Modal, or your own VPS: `mcp-core` is deployment-agnostic. The HF Space is one wrapper among many. Fork it under your own name and icons, see [TRADEMARK.md](TRADEMARK.md). |
+| 🛠️ **Open source, AGPL**      | Self-host on Fly, Modal, or your own VPS: `mcp-core` is deployment-agnostic. The HF Space is one wrapper among many. Fork it under your own name and icons, see [TRADEMARK.md](TRADEMARK.md). |
 
 ## What the LLM sees
 
@@ -197,10 +197,14 @@ Wind & sea: [Open-Meteo](https://open-meteo.com/) (CC BY 4.0). Hosting:
 
 ## License and trademark
 
-Code: [MIT](LICENSE). That covers everything under `packages/`, the web app, the
-MCP server and the data adapters alike.
+Code: [AGPL-3.0-or-later](LICENSE). That covers everything under `packages/`,
+the web app, the MCP server and the data adapters alike. Forking and
+redistribution stay free; if you serve a modified instance over the network
+(your own MCP endpoint, a derived web app), you must publish its source.
+Versions up to commit `f276c3c` were MIT-licensed and remain so: see
+[COPYING.MIT](COPYING.MIT).
 
-Two things the MIT licence does **not** cover:
+Two things the AGPL licence does **not** cover:
 
 - **The name "OhMyWind"**, filed as a trademark at the INPI, the French
   industrial property office.

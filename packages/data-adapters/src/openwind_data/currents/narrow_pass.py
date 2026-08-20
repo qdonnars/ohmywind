@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Per-point confidence labelling for current values.
 
 The qualitative tag (``"high"`` / ``"medium"`` / ``"low"`` / ``None``) sits

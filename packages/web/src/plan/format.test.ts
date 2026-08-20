@@ -1,5 +1,24 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 import { describe, expect, it } from "vitest";
-import { fmtDuration, fmtDurationSafe, fr1 } from "./format";
+import { fmtDuration, fmtDurationSafe, fr1, fmtDepthM } from "./format";
+
+describe("fmtDepthM", () => {
+  it("keeps a decimal under 10 m, where the metre under the keel counts", () => {
+    expect(fmtDepthM(4.62)).toBe("4,6 m");
+    expect(fmtDepthM(9.99)).toBe("10,0 m");
+  });
+
+  it("rounds to the metre from 10 m up", () => {
+    expect(fmtDepthM(10)).toBe("10 m");
+    expect(fmtDepthM(23.4)).toBe("23 m");
+  });
+
+  it("uses the French decimal comma, like the rest of the panel", () => {
+    expect(fmtDepthM(3.05)).not.toContain(".");
+  });
+});
 
 describe("fmtDuration", () => {
   it("formats whole hours without minutes", () => {

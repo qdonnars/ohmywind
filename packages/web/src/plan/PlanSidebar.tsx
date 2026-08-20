@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 import { useMemo, useState } from "react";
 import { useTheme } from "../design/theme";
 import type { PassageReport, ComplexityScore, Archetype, PassageWindow } from "./types";
@@ -14,6 +17,7 @@ import {
   isPersoActive,
   isPolarCustomized,
   loadPolarConfig,
+  planMinUpwind,
   savePolarConfig,
 } from "../config/polarConfig";
 import { rememberReturnPath } from "../config/returnPath";
@@ -1252,7 +1256,16 @@ export function PlanSidebar({
         </div>
       ) : (
         (() => {
-          const legs = aggregateLegs(passage.segments, waypoints, passage.efficiency);
+          // Min upwind angle of the boat this plan was computed for, so a
+          // leg whose direct course sits in the no-go zone reads
+          // "Près (louvoyage)" instead of a close-hauled label the boat
+          // cannot hold (#277).
+          const legs = aggregateLegs(
+            passage.segments,
+            waypoints,
+            passage.efficiency,
+            planMinUpwind(recapPolarCfg, currentArchetypeSlug),
+          );
           return (
             <LegList
               legs={legs}

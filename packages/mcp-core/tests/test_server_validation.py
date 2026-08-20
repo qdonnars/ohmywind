@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Boundary validation on the MCP surface.
 
 Mirror of the REST checks in ``hf-space/tests``: the same bad input must be

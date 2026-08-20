@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Upstream 429 handling.
 
 Before this, a 429 from Open-Meteo reached callers as a raw ``HTTPStatusError``

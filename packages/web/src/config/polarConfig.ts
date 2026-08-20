@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 // User-customized polar diagram, persisted in localStorage.
 //
 // Two sources, one active at a time:
@@ -238,15 +241,20 @@ export function defaultPolarConfig(): PolarConfig {
   };
 }
 
-// Motor speed sanity bounds — keep generous enough for a fast trawler-style
-// auxiliary (8 kn) without admitting absurd values typed by accident.
-const MOTOR_SPEED_MAX = 12;
-const MOTOR_THRESHOLD_MAX = 10;
+// Motor bound, aligned on the system-wide 30 kn boat-speed ceiling (imported
+// polars and cell overrides cap there too, and so does the server's
+// `_parse_polar`). Beyond it the single-pass weather sampling assumption
+// breaks down anyway. Exported: the form's `max` attributes and copy must
+// derive from this single source.
+export const MOTOR_MAX_KN = 30;
 
-function sanitizeMotorField(raw: unknown, maxKn: number): number | undefined {
+// Clamp rather than drop out-of-range values: a persisted config from a
+// build with laxer input validation keeps its motor (at the cap) instead of
+// silently losing it. Non-numbers and non-positive values still mean "unset".
+function sanitizeMotorField(raw: unknown): number | undefined {
   if (typeof raw !== "number" || !Number.isFinite(raw)) return undefined;
-  if (raw <= 0 || raw > maxKn) return undefined;
-  return Math.round(raw * 10) / 10;
+  if (raw <= 0) return undefined;
+  return Math.min(MOTOR_MAX_KN, Math.round(raw * 10) / 10);
 }
 
 function isValidBase(x: unknown): x is string {
@@ -302,6 +310,39 @@ function sanitizeMinUpwind(raw: unknown): number | undefined {
 function clampSpiMaxTws(raw: unknown): number {
   if (typeof raw !== "number" || !Number.isFinite(raw)) return SPI_MAX_TWS_DEFAULT;
   return Math.min(SPI_MAX_TWS_MAX, Math.max(SPI_MAX_TWS_MIN, Math.round(raw)));
+}
+
+// ── Spi drop-threshold field parsing ────────────────────────────────────────
+// Kept here rather than in the component so it can be tested: vitest runs
+// without a DOM, so the input itself is untestable.
+//
+// The field is a controlled number input, which makes an empty value a
+// problem: `Number("")` is 0, and writing that 0 back into the config paints
+// a "0" the user never typed, right under the caret. Worse, React compares a
+// number input's value loosely, so once the DOM holds "018" it reads back as
+// 18 and React never corrects it — the field stays visually wrong while the
+// stored value is right (#270 regression, found in QA on 2026-08-20).
+//
+// `null` means "not a committable value": the caller leaves the config alone
+// and keeps rendering the raw text the user typed.
+
+// While typing. The upper bound is enforced, the floor is NOT: clamping up
+// mid-typing would turn the "1" of "18" into the floor and swallow the next
+// keystroke, which is the bug #270 set out to fix in the first place.
+export function parseSpiMaxTwsDraft(raw: string): number | null {
+  const val = raw.trim();
+  if (val === "") return null;
+  const num = Number(val);
+  if (!Number.isFinite(num) || num < 0) return null;
+  return Math.round(Math.min(SPI_MAX_TWS_MAX, num));
+}
+
+// On blur, once the user is done typing: the floor applies. An empty or
+// unparsable draft commits nothing, so the field falls back to the last good
+// config value instead of inventing one.
+export function commitSpiMaxTwsDraft(raw: string): number | null {
+  const parsed = parseSpiMaxTwsDraft(raw);
+  return parsed === null ? null : Math.max(SPI_MAX_TWS_MIN, parsed);
 }
 
 function sanitizeOverrides(raw: unknown, base: PolarData): Record<string, number> {
@@ -367,8 +408,8 @@ export function loadPolarConfig(): PolarConfig {
       spiMaxTwsKn: parsed.v === 3 ? clampSpiMaxTws(parsed.spiMaxTwsKn) : SPI_MAX_TWS_DEFAULT,
       minUpwindDeg: parsed.v === 3 ? sanitizeMinUpwind(parsed.minUpwindDeg) : undefined,
       overrides: sanitizeOverrides(parsed.overrides, BASE_POLARS[base]),
-      motorThresholdKn: sanitizeMotorField(parsed.motorThresholdKn, MOTOR_THRESHOLD_MAX),
-      motorSpeedKn: sanitizeMotorField(parsed.motorSpeedKn, MOTOR_SPEED_MAX),
+      motorThresholdKn: sanitizeMotorField(parsed.motorThresholdKn),
+      motorSpeedKn: sanitizeMotorField(parsed.motorSpeedKn),
       source,
       imported,
       // Absent on pre-existing configs → true: the perso polar stays the
@@ -434,6 +475,18 @@ export function effectiveMinUpwind(cfg: PolarConfig, archetype?: string): number
   if (cfg.minUpwindDeg !== undefined) return cfg.minUpwindDeg;
   if (isImportedActive(cfg)) return derivedMinUpwind(cfg.imported as ImportedPolar);
   const base = BASE_POLARS[archetype ?? cfg.base] ?? BASE_POLARS[DEFAULT_BASE];
+  return base.min_upwind_twa_deg ?? derivedMinUpwind(base);
+}
+
+// The minimum upwind angle the *planned* boat actually sails at, mirroring
+// which polar the server used (see resolveOverrides in PlanPage): with an
+// active perso polar the custom matrix travels, so the config's effective
+// angle applies; otherwise the server planned on its bundled polar for the
+// requested slug, and a pinned angle sitting unused in /config must not leak
+// into the display.
+export function planMinUpwind(cfg: PolarConfig, archetypeSlug: string): number {
+  if (isPersoActive(cfg)) return effectiveMinUpwind(cfg);
+  const base = BASE_POLARS[archetypeSlug] ?? BASE_POLARS[DEFAULT_BASE];
   return base.min_upwind_twa_deg ?? derivedMinUpwind(base);
 }
 

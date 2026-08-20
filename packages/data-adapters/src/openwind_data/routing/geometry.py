@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Spherical geometry helpers — all distances in nautical miles, angles in degrees.
 
 Earth radius is taken as 3440.065 NM (mean radius 6371.0088 km / 1.852).

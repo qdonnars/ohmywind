@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 // One-shot migration of a legacy localStorage key to its renamed successor.
 // Runs at most once per key pair: if the new key is already present, the old
 // value is never copied over it, so a returning user's fresher data always

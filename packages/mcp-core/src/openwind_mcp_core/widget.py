@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Static HTML template consumed by ``render.py`` to produce the passage widget.
 
 Kept in its own module so the visual contract is trivial to inspect / iterate

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Tests for the SHOM Atlas C2D ASCII parser.
 
 The real C2D distribution is large (~6 MB extracted) and held outside the

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 // Visual building blocks for the /plan right panel — keeps PlanSidebar.tsx
 // focused on state wiring while these components stay design-only.
 

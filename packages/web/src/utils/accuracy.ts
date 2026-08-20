@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 /** Below this the accuracy disc is smaller than the position dot itself, so
     drawing it adds nothing. */
 const MIN_ACCURACY_M = 25;

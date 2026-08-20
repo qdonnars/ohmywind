@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """The Dockerfile and pyproject.toml must agree on what the Space needs.
 
 The Space builds from the Dockerfile, not from ``pyproject.toml``: its

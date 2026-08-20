@@ -1,10 +1,17 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   BASE_POLARS,
   COEFF_DEFAULT,
   DEFAULT_BASE,
+  MOTOR_MAX_KN,
   SERVER_DEFAULT_EFFICIENCY,
   SPI_MAX_TWS_DEFAULT,
+  SPI_MAX_TWS_MAX,
+  SPI_MAX_TWS_MIN,
+  commitSpiMaxTwsDraft,
   defaultPolarConfig,
   derivedMinUpwind,
   effectiveMinUpwind,
@@ -14,7 +21,9 @@ import {
   isPersoActive,
   isPolarCustomized,
   loadPolarConfig,
+  parseSpiMaxTwsDraft,
   planEfficiency,
+  planMinUpwind,
   polarFingerprint,
   savePolarConfig,
   spiBoostAt,
@@ -155,6 +164,36 @@ describe("persistence", () => {
     expect(loaded.coefficient).toBe(1.0);
     expect(loaded.spiMaxTwsKn).toBe(30);
     expect(loaded.minUpwindDeg).toBeUndefined();
+  });
+
+  it("round-trips a motor config within the bounds", () => {
+    savePolarConfig({ ...defaultPolarConfig(), motorThresholdKn: 15, motorSpeedKn: 25 });
+    const loaded = loadPolarConfig();
+    expect(loaded.motorThresholdKn).toBe(15);
+    expect(loaded.motorSpeedKn).toBe(25);
+  });
+
+  it("clamps persisted motor values above the cap instead of dropping them", () => {
+    // A config saved by a build with laxer input validation (issue: typed 50 kn
+    // silently vanished on reload) must keep its motor, capped.
+    savePolarConfig({ ...defaultPolarConfig(), motorThresholdKn: 15, motorSpeedKn: 50 });
+    const loaded = loadPolarConfig();
+    expect(loaded.motorThresholdKn).toBe(15);
+    expect(loaded.motorSpeedKn).toBe(MOTOR_MAX_KN);
+  });
+
+  it("still drops non-positive or non-numeric motor values", () => {
+    store[STORAGE_KEY] = JSON.stringify({
+      v: 3,
+      base: DEFAULT_BASE,
+      spi: "off",
+      overrides: {},
+      motorThresholdKn: -2,
+      motorSpeedKn: "fast",
+    });
+    const loaded = loadPolarConfig();
+    expect(loaded.motorThresholdKn).toBeUndefined();
+    expect(loaded.motorSpeedKn).toBeUndefined();
   });
 
   it("drops a corrupted imported polar and snaps the source back", () => {
@@ -303,6 +342,72 @@ describe("min upwind derivation", () => {
   it("follows the archetype passed as override", () => {
     expect(effectiveMinUpwind(defaultPolarConfig(), "catamaran_40ft")).toBe(
       BASE_POLARS.catamaran_40ft.min_upwind_twa_deg,
+    );
+  });
+});
+
+describe("spi drop-threshold draft parsing", () => {
+  // #270 regression found in QA on 2026-08-20: clearing the field wrote
+  // Number("") = 0 into the config, so a "0" appeared under the caret and the
+  // next keystrokes appended to it ("18" typed, "018" displayed).
+  it("commits nothing while the field is empty", () => {
+    expect(parseSpiMaxTwsDraft("")).toBeNull();
+    expect(parseSpiMaxTwsDraft("   ")).toBeNull();
+  });
+
+  it("lets a first digit below the floor stand while typing", () => {
+    // The "1" of "18" must survive: clamping it up to the floor here is what
+    // #270 was opened about.
+    expect(parseSpiMaxTwsDraft("1")).toBe(1);
+    expect(parseSpiMaxTwsDraft("18")).toBe(18);
+  });
+
+  it("still enforces the ceiling while typing", () => {
+    expect(parseSpiMaxTwsDraft("45")).toBe(SPI_MAX_TWS_MAX);
+  });
+
+  it("rejects what is not a usable number", () => {
+    expect(parseSpiMaxTwsDraft("abc")).toBeNull();
+    expect(parseSpiMaxTwsDraft("-5")).toBeNull();
+  });
+
+  it("applies the floor on blur", () => {
+    expect(commitSpiMaxTwsDraft("3")).toBe(SPI_MAX_TWS_MIN);
+    expect(commitSpiMaxTwsDraft("18")).toBe(18);
+    expect(commitSpiMaxTwsDraft("45")).toBe(SPI_MAX_TWS_MAX);
+  });
+
+  it("commits nothing on blur from an empty or unparsable field", () => {
+    // The caller keeps the last good config value rather than inventing one.
+    expect(commitSpiMaxTwsDraft("")).toBeNull();
+    expect(commitSpiMaxTwsDraft("abc")).toBeNull();
+  });
+});
+
+describe("planMinUpwind", () => {
+  it("follows the planned stock archetype, not the parked config", () => {
+    // A pinned angle sitting in /config while perso is parked must not leak:
+    // the server planned on its bundled catamaran polar.
+    const parked: PolarConfig = { ...defaultPolarConfig(), minUpwindDeg: 38, persoActive: false };
+    expect(planMinUpwind(parked, "catamaran_40ft")).toBe(
+      BASE_POLARS.catamaran_40ft.min_upwind_twa_deg,
+    );
+    expect(planMinUpwind(defaultPolarConfig(), "racer_cruiser")).toBe(
+      BASE_POLARS.racer_cruiser.min_upwind_twa_deg,
+    );
+  });
+
+  it("uses the perso polar's angle when perso is the boat of record", () => {
+    // Perso active: the custom matrix travels, so its angle is what the
+    // server swept from — the page slug is irrelevant.
+    const perso: PolarConfig = { ...defaultPolarConfig(), minUpwindDeg: 38, persoActive: true };
+    expect(planMinUpwind(perso, "catamaran_40ft")).toBe(38);
+    expect(planMinUpwind(withImported({ persoActive: true }), "cruiser_20ft")).toBe(45);
+  });
+
+  it("falls back to the default archetype on an unknown slug", () => {
+    expect(planMinUpwind(defaultPolarConfig(), "sloop_of_theseus")).toBe(
+      BASE_POLARS[DEFAULT_BASE].min_upwind_twa_deg,
     );
   });
 });

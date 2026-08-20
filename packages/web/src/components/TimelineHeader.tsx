@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 import { formatHour } from "../utils/format";
 import type { ModelForecast } from "../types";
 import type { TimezoneMode } from "../hooks/useTimezone";

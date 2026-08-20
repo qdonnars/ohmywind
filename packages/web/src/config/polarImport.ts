@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 // Parser for user-supplied polar files (qtVlm / Expedition / MaxSea layout):
 // first line lists the TWS columns (optionally prefixed by a "TWA\TWS"-style
 // label), each following line is a TWA row followed by one boat speed per TWS.

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Deployment-side hardening for the public Space: CORS allowlist, per-IP
 rate limiting, security headers.
 

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 """Endpoint tests for the client-supplied forecast_cache wiring in app.py.
 
 hf-space has no pyproject (it ships via Docker), so we load app.py by path and
