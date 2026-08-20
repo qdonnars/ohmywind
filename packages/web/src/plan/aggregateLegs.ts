@@ -61,7 +61,7 @@ function circularMeanDeg(angles: number[]): number {
 function twaToPointOfSail(twa: number): string {
   // twa_deg is signed (-180..180) or unsigned (0..360), normalise to 0-180
   const a = Math.abs(twa) > 180 ? 360 - Math.abs(twa) : Math.abs(twa);
-  if (a < 50) return "Près";
+  if (a < 50) return "Louvoyage";
   if (a < 90) return "Travers";
   if (a < 135) return "Largue";
   return "Arrière";
@@ -138,9 +138,8 @@ export function buildLegSummaryCells(leg: AggregatedLeg): LegSummaryCells {
 
   return {
     duration: legDurationLabel(leg),
-    // Bare one-word allure ("Près" / "Travers" / "Largue" / "Arrière") to keep
-    // the cell narrow enough for the grid; matches the WindowsTable ALLURE
-    // column copy.
+    // Bare one-word allure ("Louvoyage" / "Travers" / "Largue" / "Arrière") to
+    // keep the cell narrow enough for the grid.
     allure: leg.point_of_sail,
     wind,
     flag,
