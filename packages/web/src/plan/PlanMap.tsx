@@ -12,7 +12,6 @@ import { fmtDepthM } from "./format";
 import type { UserPosition } from "../hooks/useGeolocation";
 import { syncUserPositionLayer } from "../utils/userPositionLayer";
 import { syncSeamarkLayer } from "../utils/seamarkLayer";
-import { syncMajorLightLayer, type MajorLightHandle } from "../utils/majorLightLayer";
 import type { MapView } from "../utils/mapViewParams";
 
 /** Hide a segment label when the leg is shorter than this on screen (px).
@@ -86,7 +85,6 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   const mapRef = useRef<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const seamarkLayerRef = useRef<L.TileLayer | null>(null);
-  const majorLightRef = useRef<MajorLightHandle | null>(null);
   const polylinesRef = useRef<L.Polyline[]>([]);
   const highlightLineRef = useRef<L.Polyline | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
@@ -271,7 +269,6 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   useEffect(() => {
     if (!mapRef.current) return;
     syncSeamarkLayer(mapRef.current, seamarkLayerRef, showSeamarks);
-    syncMajorLightLayer(mapRef.current, majorLightRef, showSeamarks);
   }, [showSeamarks]);
 
   // Update cursor when onMapClick is active
