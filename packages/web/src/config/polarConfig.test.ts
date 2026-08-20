@@ -19,6 +19,7 @@ import {
   isPolarCustomized,
   loadPolarConfig,
   planEfficiency,
+  planMinUpwind,
   polarFingerprint,
   savePolarConfig,
   spiBoostAt,
@@ -337,6 +338,34 @@ describe("min upwind derivation", () => {
   it("follows the archetype passed as override", () => {
     expect(effectiveMinUpwind(defaultPolarConfig(), "catamaran_40ft")).toBe(
       BASE_POLARS.catamaran_40ft.min_upwind_twa_deg,
+    );
+  });
+});
+
+describe("planMinUpwind", () => {
+  it("follows the planned stock archetype, not the parked config", () => {
+    // A pinned angle sitting in /config while perso is parked must not leak:
+    // the server planned on its bundled catamaran polar.
+    const parked: PolarConfig = { ...defaultPolarConfig(), minUpwindDeg: 38, persoActive: false };
+    expect(planMinUpwind(parked, "catamaran_40ft")).toBe(
+      BASE_POLARS.catamaran_40ft.min_upwind_twa_deg,
+    );
+    expect(planMinUpwind(defaultPolarConfig(), "racer_cruiser")).toBe(
+      BASE_POLARS.racer_cruiser.min_upwind_twa_deg,
+    );
+  });
+
+  it("uses the perso polar's angle when perso is the boat of record", () => {
+    // Perso active: the custom matrix travels, so its angle is what the
+    // server swept from — the page slug is irrelevant.
+    const perso: PolarConfig = { ...defaultPolarConfig(), minUpwindDeg: 38, persoActive: true };
+    expect(planMinUpwind(perso, "catamaran_40ft")).toBe(38);
+    expect(planMinUpwind(withImported({ persoActive: true }), "cruiser_20ft")).toBe(45);
+  });
+
+  it("falls back to the default archetype on an unknown slug", () => {
+    expect(planMinUpwind(defaultPolarConfig(), "sloop_of_theseus")).toBe(
+      BASE_POLARS[DEFAULT_BASE].min_upwind_twa_deg,
     );
   });
 });
