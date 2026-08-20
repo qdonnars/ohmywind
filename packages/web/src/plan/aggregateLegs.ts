@@ -58,10 +58,19 @@ function circularMeanDeg(angles: number[]): number {
   return (((Math.atan2(s, c) * 180) / Math.PI) + 360) % 360;
 }
 
-function twaToPointOfSail(twa: number): string {
+// `minUpwindDeg` is the boat's minimum sailable TWA — below it the direct
+// course is in the no-go zone and the planner already bills the leg at the
+// tacking speed (`best_vmg_upwind` in passage.py), so the label says so
+// instead of a bare "Près" the sailor cannot actually steer. Above the angle
+// the boat is genuinely close-hauled. The server tacks from its optimal-VMG
+// angle, which sits at or above `minUpwindDeg`, so the qualifier is
+// conservative: it never claims tacking where the boat could hold the course.
+// Pass 0 to disable the qualifier entirely.
+function twaToPointOfSail(twa: number, minUpwindDeg: number): string {
   // twa_deg is signed (-180..180) or unsigned (0..360), normalise to 0-180
   const a = Math.abs(twa) > 180 ? 360 - Math.abs(twa) : Math.abs(twa);
-  if (a < 50) return "Louvoyage";
+  if (a < minUpwindDeg) return "Près (louvoyage)";
+  if (a < 50) return "Près";
   if (a < 90) return "Travers";
   if (a < 135) return "Largue";
   return "Arrière";
@@ -138,8 +147,11 @@ export function buildLegSummaryCells(leg: AggregatedLeg): LegSummaryCells {
 
   return {
     duration: legDurationLabel(leg),
-    // Bare one-word allure ("Louvoyage" / "Travers" / "Largue" / "Arrière") to
-    // keep the cell narrow enough for the grid.
+    // Short allure ("Près" / "Travers" / "Largue" / "Arrière", or the
+    // "Près (louvoyage)" qualifier) — SummaryCell renders at width:min-content
+    // and breaks on spaces, so the two-word form wraps inside the column
+    // rather than widening it, like "Mer Formée" already does. The one-word
+    // forms match the WindowsTable ALLURE column copy.
     allure: leg.point_of_sail,
     wind,
     flag,
@@ -188,6 +200,7 @@ export function aggregateLegs(
   segments: SegmentReport[],
   waypoints: [number, number][],
   efficiency = 0.75,
+  minUpwindDeg = 0,
 ): AggregatedLeg[] {
   if (waypoints.length < 2 || segments.length === 0) return [];
 
@@ -280,7 +293,7 @@ export function aggregateLegs(
       twd_avg_deg,
       bearing_avg_deg,
       gust_max_kn,
-      point_of_sail: motor_used ? "Moteur" : twaToPointOfSail(twa_avg_deg),
+      point_of_sail: motor_used ? "Moteur" : twaToPointOfSail(twa_avg_deg, minUpwindDeg),
       polar_after_eff_kn,
       wave_delta_kn,
       current_delta_kn,

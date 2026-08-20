@@ -445,6 +445,18 @@ export function effectiveMinUpwind(cfg: PolarConfig, archetype?: string): number
   return base.min_upwind_twa_deg ?? derivedMinUpwind(base);
 }
 
+// The minimum upwind angle the *planned* boat actually sails at, mirroring
+// which polar the server used (see resolveOverrides in PlanPage): with an
+// active perso polar the custom matrix travels, so the config's effective
+// angle applies; otherwise the server planned on its bundled polar for the
+// requested slug, and a pinned angle sitting unused in /config must not leak
+// into the display.
+export function planMinUpwind(cfg: PolarConfig, archetypeSlug: string): number {
+  if (isPersoActive(cfg)) return effectiveMinUpwind(cfg);
+  const base = BASE_POLARS[archetypeSlug] ?? BASE_POLARS[DEFAULT_BASE];
+  return base.min_upwind_twa_deg ?? derivedMinUpwind(base);
+}
+
 // Compute the effective polar payload. Imported source: the uploaded file
 // wins wholesale — spi and overrides are archetype-editor concepts, an
 // imported polar is presumed to already reflect the boat's sail inventory
