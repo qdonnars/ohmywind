@@ -306,6 +306,15 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
         transition: isAnimating ? "height 280ms cubic-bezier(0.4, 0, 0.2, 1)" : undefined,
       }}
     >
+      {/* Grab handle. 28 px of full-width strip rather than the 14 px this
+          shipped with: at 14 px the target was under half a fingertip and
+          users reported missing it outright. The handle sits flush against
+          the map, so the hit area cannot be widened with a negative margin
+          (the drawer is overflow-y-auto and would clip it) — the strip itself
+          has to carry the height. It stays under the 44 px touch guideline on
+          purpose: at DRAWER_MIN_VH the drawer is a peek, and a 44 px handle
+          would eat most of it. `chromePx` in the fit-to-results effect reads
+          the height from the DOM, so nothing else needs updating. */}
       <div
         role="separator"
         aria-orientation="horizontal"
@@ -315,11 +324,11 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         className="shrink-0 flex items-center justify-center cursor-row-resize touch-none"
-        style={{ height: 14, background: "var(--ow-bg-1)" }}
+        style={{ height: 28, background: "var(--ow-bg-1)" }}
       >
         <span
           className="block rounded-full"
-          style={{ width: 36, height: 4, background: "var(--ow-line-2)" }}
+          style={{ width: 44, height: 5, background: "var(--ow-line-2)" }}
         />
       </div>
       <div ref={contentRef} className="flex-1 min-h-0 overflow-y-auto">{children}</div>
