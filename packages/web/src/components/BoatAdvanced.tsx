@@ -8,10 +8,12 @@ import {
   MIN_UPWIND_MIN,
   SPI_MAX_TWS_MAX,
   SPI_MAX_TWS_MIN,
+  commitSpiMaxTwsDraft,
   effectiveMinUpwind,
   effectivePolar,
   hasOverrides,
   isImportedActive,
+  parseSpiMaxTwsDraft,
   type PolarConfig,
   type PolarSource,
   type SpiKind,
@@ -37,6 +39,7 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
   );
   const [tuningOpen, setTuningOpen] = useState(false);
   const [selectedTwsIdx, setSelectedTwsIdx] = useState(0);
+  const [spiMaxTwsDraft, setSpiMaxTwsDraft] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importedActive = isImportedActive(config);
 
@@ -117,20 +120,23 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
     onChange({ ...config, spi });
   }
 
+  // While the field is focused the raw text is what gets rendered, so an
+  // empty field stays empty and a typed digit stays the digit that was typed
+  // (see parseSpiMaxTwsDraft for why driving the input straight off the
+  // config paints a zero the user never entered). null = not editing.
   function setSpiMaxTws(raw: string) {
-    const num = Number(raw);
-    if (!Number.isFinite(num)) return;
-    // Only clamp the upper bound while typing. Clamping the lower bound too
-    // would round e.g. a typed "1" (first digit of "18") up to the MIN
-    // (8) immediately, so the next keystroke appends to "8" instead of "1"
-    // and the value gets stuck oscillating between MIN and MAX. The floor is
-    // enforced on blur instead, once the user is done typing.
-    onChange({ ...config, spiMaxTwsKn: Math.round(Math.min(SPI_MAX_TWS_MAX, num)) });
+    setSpiMaxTwsDraft(raw);
+    const next = parseSpiMaxTwsDraft(raw);
+    if (next !== null && next !== config.spiMaxTwsKn) {
+      onChange({ ...config, spiMaxTwsKn: next });
+    }
   }
 
-  function clampSpiMaxTwsOnBlur() {
-    if (config.spiMaxTwsKn < SPI_MAX_TWS_MIN) {
-      onChange({ ...config, spiMaxTwsKn: SPI_MAX_TWS_MIN });
+  function commitSpiMaxTws() {
+    const next = commitSpiMaxTwsDraft(spiMaxTwsDraft ?? "");
+    setSpiMaxTwsDraft(null);
+    if (next !== null && next !== config.spiMaxTwsKn) {
+      onChange({ ...config, spiMaxTwsKn: next });
     }
   }
 
@@ -322,9 +328,9 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
                 step="1"
                 min={SPI_MAX_TWS_MIN}
                 max={SPI_MAX_TWS_MAX}
-                value={config.spiMaxTwsKn}
+                value={spiMaxTwsDraft ?? config.spiMaxTwsKn}
                 onChange={(e) => setSpiMaxTws(e.target.value)}
-                onBlur={clampSpiMaxTwsOnBlur}
+                onBlur={commitSpiMaxTws}
                 className="polar-motor-input w-20"
               />
               kn

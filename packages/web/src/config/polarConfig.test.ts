@@ -9,6 +9,9 @@ import {
   MOTOR_MAX_KN,
   SERVER_DEFAULT_EFFICIENCY,
   SPI_MAX_TWS_DEFAULT,
+  SPI_MAX_TWS_MAX,
+  SPI_MAX_TWS_MIN,
+  commitSpiMaxTwsDraft,
   defaultPolarConfig,
   derivedMinUpwind,
   effectiveMinUpwind,
@@ -18,6 +21,7 @@ import {
   isPersoActive,
   isPolarCustomized,
   loadPolarConfig,
+  parseSpiMaxTwsDraft,
   planEfficiency,
   planMinUpwind,
   polarFingerprint,
@@ -339,6 +343,44 @@ describe("min upwind derivation", () => {
     expect(effectiveMinUpwind(defaultPolarConfig(), "catamaran_40ft")).toBe(
       BASE_POLARS.catamaran_40ft.min_upwind_twa_deg,
     );
+  });
+});
+
+describe("spi drop-threshold draft parsing", () => {
+  // #270 regression found in QA on 2026-08-20: clearing the field wrote
+  // Number("") = 0 into the config, so a "0" appeared under the caret and the
+  // next keystrokes appended to it ("18" typed, "018" displayed).
+  it("commits nothing while the field is empty", () => {
+    expect(parseSpiMaxTwsDraft("")).toBeNull();
+    expect(parseSpiMaxTwsDraft("   ")).toBeNull();
+  });
+
+  it("lets a first digit below the floor stand while typing", () => {
+    // The "1" of "18" must survive: clamping it up to the floor here is what
+    // #270 was opened about.
+    expect(parseSpiMaxTwsDraft("1")).toBe(1);
+    expect(parseSpiMaxTwsDraft("18")).toBe(18);
+  });
+
+  it("still enforces the ceiling while typing", () => {
+    expect(parseSpiMaxTwsDraft("45")).toBe(SPI_MAX_TWS_MAX);
+  });
+
+  it("rejects what is not a usable number", () => {
+    expect(parseSpiMaxTwsDraft("abc")).toBeNull();
+    expect(parseSpiMaxTwsDraft("-5")).toBeNull();
+  });
+
+  it("applies the floor on blur", () => {
+    expect(commitSpiMaxTwsDraft("3")).toBe(SPI_MAX_TWS_MIN);
+    expect(commitSpiMaxTwsDraft("18")).toBe(18);
+    expect(commitSpiMaxTwsDraft("45")).toBe(SPI_MAX_TWS_MAX);
+  });
+
+  it("commits nothing on blur from an empty or unparsable field", () => {
+    // The caller keeps the last good config value rather than inventing one.
+    expect(commitSpiMaxTwsDraft("")).toBeNull();
+    expect(commitSpiMaxTwsDraft("abc")).toBeNull();
   });
 });
 
