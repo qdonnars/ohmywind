@@ -312,6 +312,39 @@ function clampSpiMaxTws(raw: unknown): number {
   return Math.min(SPI_MAX_TWS_MAX, Math.max(SPI_MAX_TWS_MIN, Math.round(raw)));
 }
 
+// ── Spi drop-threshold field parsing ────────────────────────────────────────
+// Kept here rather than in the component so it can be tested: vitest runs
+// without a DOM, so the input itself is untestable.
+//
+// The field is a controlled number input, which makes an empty value a
+// problem: `Number("")` is 0, and writing that 0 back into the config paints
+// a "0" the user never typed, right under the caret. Worse, React compares a
+// number input's value loosely, so once the DOM holds "018" it reads back as
+// 18 and React never corrects it — the field stays visually wrong while the
+// stored value is right (#270 regression, found in QA on 2026-08-20).
+//
+// `null` means "not a committable value": the caller leaves the config alone
+// and keeps rendering the raw text the user typed.
+
+// While typing. The upper bound is enforced, the floor is NOT: clamping up
+// mid-typing would turn the "1" of "18" into the floor and swallow the next
+// keystroke, which is the bug #270 set out to fix in the first place.
+export function parseSpiMaxTwsDraft(raw: string): number | null {
+  const val = raw.trim();
+  if (val === "") return null;
+  const num = Number(val);
+  if (!Number.isFinite(num) || num < 0) return null;
+  return Math.round(Math.min(SPI_MAX_TWS_MAX, num));
+}
+
+// On blur, once the user is done typing: the floor applies. An empty or
+// unparsable draft commits nothing, so the field falls back to the last good
+// config value instead of inventing one.
+export function commitSpiMaxTwsDraft(raw: string): number | null {
+  const parsed = parseSpiMaxTwsDraft(raw);
+  return parsed === null ? null : Math.max(SPI_MAX_TWS_MIN, parsed);
+}
+
 function sanitizeOverrides(raw: unknown, base: PolarData): Record<string, number> {
   if (raw == null || typeof raw !== "object") return {};
   const out: Record<string, number> = {};
