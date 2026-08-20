@@ -384,43 +384,32 @@ select,
    tile boundary gets one continuous halo instead of two clipped halves.
    Light theme needs none: the tiles already assume a pale background. */
 /* Landfall lights redrawn as vectors over the raster, because the raster
-   cannot be resized and its flare is a few pixels once you zoom out to a
-   whole coast.
-   The star does not grow: it marks a position, and enlarging it would turn
-   a coastline into a field of stars without saying more than the raster
-   already said. The flare does, because "a light burns here, in this
-   colour" is what carries from far out. Both sizes come from custom
-   properties the layer writes on the pane, so one style write per zoom step
-   resizes every flare on the map.
-   The marker is anchored at [0, 0] and each part places itself, so a size
-   change never needs an icon anchor recomputed. */
+   cannot be resized and a lighthouse is a 9 px speck once you zoom out to a
+   whole coast. Sized from a custom property the layer writes on the pane,
+   so one style write per zoom step resizes all of them.
+   Centred on its own anchor: the marker is placed at [0, 0] precisely so
+   the size can change without recomputing an icon anchor. */
 .ow-light {
   position: absolute;
   display: block;
-  width: 0;
-  height: 0;
+  width: var(--ow-light-size, 12px);
+  height: var(--ow-light-size, 12px);
+  transform: translate(-50%, -50%);
   pointer-events: none;
 }
-.ow-light-star-svg {
-  position: absolute;
-  width: var(--ow-star-size, 11px);
-  height: var(--ow-star-size, 11px);
-  /* Centred on the light itself. */
-  transform: translate(-50%, -50%);
+.ow-light svg {
+  width: 100%;
+  height: 100%;
+  display: block;
   overflow: visible;
 }
-.ow-light-flare-svg {
-  position: absolute;
-  width: var(--ow-flare-size, 16px);
-  height: var(--ow-flare-size, 16px);
-  /* Top-left corner on the light, so the teardrop's tip stays pinned there
-     and growing it extends the tail down and to the right, the direction
-     OpenSeaMap draws its own. */
-  overflow: visible;
-}
-/* The star flips with the theme, which is what a chartplotter does in night
-   mode. Using the text and surface tokens flips fill and outline in one
-   rule: dark star outlined light by day, light star outlined dark by night. */
+/* A lit mark is a star with a magenta flare. The flare keeps its chart
+   magenta in both themes because the colour carries meaning; the star flips
+   with the theme, which is what a chartplotter does in night mode, and what
+   the light half of a cardinal cannot do without lying about its colour.
+   Using the text and surface tokens flips both fill and outline in one
+   rule: dark star outlined light by day, light star outlined dark by
+   night. */
 .ow-light-star {
   fill: var(--ow-fg-0);
   stroke: var(--ow-bg-1);
@@ -428,28 +417,12 @@ select,
   stroke-linejoin: round;
   paint-order: stroke;
 }
-/* The flare keeps the light's own colour in both themes, because the colour
-   is the message: a single-colour light shows its colour, white shows as
-   yellow the way it does on paper, and a sectored light shows magenta,
-   meaning "read the sectors". These are the values OpenSeaMap renders, so
-   ours and its are the same symbol where they overlap. */
 .ow-light-flare {
+  fill: #e400e4;
   stroke: var(--ow-bg-1);
   stroke-width: 0.9;
   stroke-linejoin: round;
   paint-order: stroke;
-}
-.ow-flare-y .ow-light-flare {
-  fill: #ffe000;
-}
-.ow-flare-r .ow-light-flare {
-  fill: #e60000;
-}
-.ow-flare-g .ow-light-flare {
-  fill: #00b843;
-}
-.ow-flare-m .ow-light-flare {
-  fill: #e400e4;
 }
 
 [data-theme="dark"] .leaflet-pane.leaflet-seamarks-pane {
