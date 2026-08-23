@@ -639,10 +639,17 @@ def build_server(
         # would hand the tester a link to production.
         return _PLAN_WIDGET_HTML.replace("__WEB_BASE__", WEB_BASE).replace("__WEB_HOST__", WEB_HOST)
 
+    # Every tool below spells out all four hints, including the two the spec
+    # calls meaningful only when ``readOnlyHint`` is false. Redundant here by
+    # the letter of the spec, but directory validators check for four booleans
+    # rather than re-deriving the defaults, and a tool that omits them reads as
+    # unannotated to them. Eight lines is cheaper than a rejected listing.
     @server.tool(
         annotations=ToolAnnotations(
             title="Calculation method",
             readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
             openWorldHint=False,
         ),
     )
@@ -664,6 +671,8 @@ def build_server(
         annotations=ToolAnnotations(
             title="Boat archetypes",
             readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
             openWorldHint=False,
         ),
     )
@@ -679,6 +688,8 @@ def build_server(
         annotations=ToolAnnotations(
             title="Marine forecast",
             readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
             openWorldHint=True,
         ),
     )
@@ -738,6 +749,8 @@ def build_server(
         annotations=ToolAnnotations(
             title="Plan a passage",
             readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
             openWorldHint=True,
         ),
         meta={"ui": {"resourceUri": PLAN_UI_RESOURCE_URI}},
