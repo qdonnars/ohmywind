@@ -37,6 +37,11 @@ RUN --mount=type=secret,id=HF_TOKEN,required=false \
 # crash on startup, not a degraded mode.
 COPY app.py security.py /app/
 
+# Landing assets (demo loop + its poster). Served from this origin by the
+# /static route: GitHub raw would hand the MP4 back as octet-stream and the
+# browser would refuse to play it.
+COPY static /app/static
+
 EXPOSE 7860
 
 CMD ["python", "/app/app.py"]
