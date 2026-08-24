@@ -52,6 +52,7 @@ from openwind_data.routing import (
     build_conditions_summary,
     get_polar,
     list_archetypes,
+    resolve_sweep_interval,
     validate_point,
     validate_waypoints,
 )
@@ -1040,6 +1041,23 @@ def build_server(
             ]
 
             meta_warnings: list[str] = []
+            # The engine widens the interval when windows x segments would blow
+            # the simulation budget, so report what the sweep actually did
+            # rather than what was asked for.
+            effective_interval = sweep_interval_hours
+            if reports:
+                effective_interval, _ = resolve_sweep_interval(
+                    (latest_dep.astimezone(UTC) - dep.astimezone(UTC)).total_seconds() / 3600,
+                    sweep_interval_hours,
+                    len(reports[0].segments),
+                )
+                if effective_interval != sweep_interval_hours:
+                    meta_warnings.append(
+                        f"pas d'échantillonnage élargi à {effective_interval} h "
+                        f"(au lieu de {sweep_interval_hours} h) : la route compte "
+                        f"{len(reports[0].segments)} tronçons, trop pour simuler "
+                        f"autant de créneaux."
+                    )
             if target_eta is not None:
                 target_utc = datetime.fromisoformat(target_eta).astimezone(UTC)
                 tolerance = timedelta(hours=2)
@@ -1062,7 +1080,7 @@ def build_server(
                 "sweep": {
                     "earliest": dep.isoformat(),
                     "latest": latest_dep.isoformat(),
-                    "interval_hours": sweep_interval_hours,
+                    "interval_hours": effective_interval,
                     "window_count": len(windows),
                 },
                 "windows": windows,

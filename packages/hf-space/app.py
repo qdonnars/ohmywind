@@ -43,6 +43,7 @@ from openwind_data.routing.passage import (
     estimate_passage,
     estimate_passage_for_arrival,
     estimate_passage_windows,
+    resolve_sweep_interval,
 )
 from openwind_mcp_core import build_server
 from starlette.applications import Starlette
@@ -674,8 +675,17 @@ async def _api_passage(request: Request) -> JSONResponse:
         # Sweep is partial-tolerant: estimate_passage_windows skips windows
         # that hit ForecastHorizonError. Compute the expected count to surface
         # a meta-warning if some were dropped.
-        expected_windows = (
-            int((latest_departure - departure).total_seconds() / 3600 / sweep_interval) + 1
+        #
+        # Count against the interval the engine actually used, not the one
+        # requested: it widens the spacing when windows x segments would blow
+        # the simulation budget, and counting against the request would report
+        # the windows we never intended to run as lost to a short forecast
+        # horizon.
+        span_hours = (latest_departure - departure).total_seconds() / 3600
+        effective_interval, expected_windows = (
+            resolve_sweep_interval(span_hours, sweep_interval, len(reports[0].segments))
+            if reports
+            else (sweep_interval, int(span_hours / sweep_interval) + 1)
         )
         skipped_count = max(0, expected_windows - len(reports))
 
@@ -706,6 +716,13 @@ async def _api_passage(request: Request) -> JSONResponse:
             )
 
         meta_warnings: list[str] = []
+        if effective_interval != sweep_interval:
+            meta_warnings.append(
+                f"pas d'échantillonnage élargi à {effective_interval} h "
+                f"(au lieu de {sweep_interval} h) : la route compte "
+                f"{len(reports[0].segments)} tronçons, trop pour simuler "
+                f"autant de créneaux."
+            )
         if skipped_count > 0:
             meta_warnings.append(
                 f"{skipped_count} fenêtre(s) ignorée(s) faute de couverture météo "
@@ -733,7 +750,7 @@ async def _api_passage(request: Request) -> JSONResponse:
                 "sweep": {
                     "earliest": departure.isoformat(),
                     "latest": latest_departure.isoformat(),
-                    "interval_hours": sweep_interval,
+                    "interval_hours": effective_interval,
                     "window_count": len(windows),
                 },
                 "windows": windows,

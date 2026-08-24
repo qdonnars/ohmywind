@@ -34,6 +34,7 @@ from openwind_data.routing.passage import (
     estimate_passage,
     estimate_passage_for_arrival,
     estimate_passage_windows,
+    resolve_sweep_interval,
 )
 
 __all__ = [
@@ -60,6 +61,7 @@ __all__ = [
     "lookup_polar",
     "midpoint",
     "normalize_twa",
+    "resolve_sweep_interval",
     "score_complexity",
     "segment_route",
     "validate_point",

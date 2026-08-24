@@ -76,6 +76,23 @@ LIGHT_WIND_THRESHOLD_KN = 3.0  # under this min boat speed, surface "vent faible
 PREWARM_MIN_SPEED_KN = 2.0  # conservative floor to upper-bound passage duration for cache prewarm
 MAX_SWEEP_WINDOWS = 336  # 14 days x 24h hard cap
 
+# A sweep costs windows x segments simulations, and until now only the two
+# factors were bounded (MAX_SWEEP_WINDOWS here, MAX_WAYPOINTS in geometry),
+# never their product. Asking for both maxima at once is what a hostile caller
+# does, and it is reachable without a key: /mcp is deliberately exempt from the
+# REST rate limiter so a legitimate MCP session is never throttled.
+#
+# Measured on a 2026-08 laptop, network stubbed, real cache and slicing:
+#   96 sims (5 wpt, 3 d)      12 ms
+#   1848 sims (12 wpt, 7 d)  146 ms
+#   11760 sims (50 wpt, 10 d) 906 ms
+# so the budget below is roughly 650 ms of CPU, several times that on the
+# Space's shared vCPU. It sits well above any route a human draws (336 windows
+# still allow a 23-segment route) which is why exceeding it widens the
+# interval instead of failing: the same "degrade and warn" contract as
+# _resolve_segment_length, not a refusal the caller cannot act on.
+MAX_SWEEP_SIMULATIONS = 8000
+
 # Sample-cap heuristic: long passages would otherwise issue 20+ Open-Meteo
 # fetches per window. Auto-stretch segment_length_nm so we sample at most
 # MAX_SAMPLED_SEGMENTS points per route, but keep a [MIN, MAX] band so we
@@ -111,6 +128,31 @@ def _resolve_segment_length(
     if effective <= requested_nm:
         return requested_nm, None
     return effective, total
+
+
+def resolve_sweep_interval(
+    span_hours: float, requested_interval_h: int, n_segments: int
+) -> tuple[int, int]:
+    """Return (effective_interval_h, n_windows) fitting MAX_SWEEP_SIMULATIONS.
+
+    Widens the requested interval by whole hours until ``n_windows *
+    n_segments`` fits the budget. Pure function of its inputs, so it can be
+    called before any work is done and asserted on directly in tests.
+
+    Public because the REST and MCP shells have to report the interval they
+    actually got. They re-derive it from the same three inputs rather than
+    diffing the returned departure times, which would read a skipped window as
+    a wider interval.
+    """
+
+    def windows_for(interval_h: int) -> int:
+        return int(span_hours / interval_h) + 1
+
+    interval = max(1, requested_interval_h)
+    budget_windows = max(1, MAX_SWEEP_SIMULATIONS // max(1, n_segments))
+    while windows_for(interval) > budget_windows and windows_for(interval) > 1:
+        interval += 1
+    return interval, windows_for(interval)
 
 
 def wave_derate(hs_m: float, twa_deg: float) -> float:
@@ -1023,6 +1065,14 @@ async def estimate_passage_windows(
     returning one ``PassageReport`` per window. All simulations after the first
     are cache hits API cost is identical to a single ``estimate_passage`` call.
 
+    ``sweep_interval_hours`` is a request, not a guarantee: it is widened by
+    whole hours when the resulting sweep would exceed ``MAX_SWEEP_SIMULATIONS``
+    (windows x segments). Read the effective interval back from the departure
+    times of the returned reports. Exceeding ``MAX_SWEEP_WINDOWS`` still raises
+    instead, on purpose: that cap says the request runs past the useful weather
+    horizon, which is a caller mistake to fix, while the simulation budget is a
+    resource limit a coarser sweep still answers honestly.
+
     Args:
         waypoints: ordered route waypoints (>=2 points).
         earliest_departure: start of sweep window (timezone-aware).
@@ -1065,6 +1115,15 @@ async def estimate_passage_windows(
     segments = segment_route(waypoints, effective_length_nm)
     seg_mid_points = [midpoint(s.start, s.end) for s in segments]
     route_nm = sum(s.distance_nm for s in segments)
+
+    # Fit the simulation budget before doing any work. MAX_SWEEP_WINDOWS above
+    # caps one factor and MAX_WAYPOINTS the other; this caps their product,
+    # which is what the sweep actually costs. Callers read the effective
+    # interval back from the departure times of the returned reports.
+    span_hours = (latest_utc - earliest_utc).total_seconds() / 3600
+    sweep_interval_hours, _ = resolve_sweep_interval(
+        span_hours, sweep_interval_hours, len(segments)
+    )
 
     own_adapter = adapter is None
     fetch_adapter: MarineDataAdapter = adapter or OpenMeteoAdapter()
@@ -1156,6 +1215,12 @@ async def estimate_passage_windows(
                 # decision as ForecastHorizonError above: skip the window
                 # rather than failing the whole sweep.
                 pass
+            # Every window after the first is a cache hit, and a coroutine that
+            # never awaits anything real never yields: without this the whole
+            # sweep runs as one uninterruptible block and the process serves
+            # nothing else meanwhile, landing page and rate-limited REST
+            # included. Yielding per window costs nothing measurable.
+            await asyncio.sleep(0)
             current += timedelta(hours=sweep_interval_hours)
     finally:
         if own_adapter and hasattr(fetch_adapter, "aclose"):

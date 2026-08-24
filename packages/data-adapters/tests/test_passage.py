@@ -22,11 +22,13 @@ from openwind_data.routing.archetypes import BoatPolar, get_polar, lookup_polar
 from openwind_data.routing.geometry import Point
 from openwind_data.routing.passage import (
     LIGHT_WIND_THRESHOLD_KN,
+    MAX_SWEEP_SIMULATIONS,
     MAX_SWEEP_WINDOWS,
     best_vmg_upwind,
     estimate_passage,
     estimate_passage_for_arrival,
     estimate_passage_windows,
+    resolve_sweep_interval,
     wave_derate,
 )
 
@@ -1711,3 +1713,57 @@ class TestBoatAwareLayout:
         assert earliest_fetch_start > target - timedelta(hours=4)
         assert plan.report.max_sampling_drift_h is not None
         assert plan.report.max_sampling_drift_h < 0.1
+
+
+class TestSweepSimulationBudget:
+    """A sweep costs windows x segments. Both factors were capped, their
+    product was not, and the product is what runs on the CPU. Reachable
+    without a key through /mcp, which is exempt from the REST rate limiter.
+    """
+
+    def test_leaves_a_request_within_budget_untouched(self) -> None:
+        # 24 h at 1 h on a 4-segment route: 25 x 4 = 100 sims, nowhere near.
+        interval, windows = resolve_sweep_interval(24, 1, 4)
+        assert interval == 1
+        assert windows == 25
+
+    def test_widens_the_interval_until_the_product_fits(self) -> None:
+        # 14 d at 1 h on a 49-segment route: 337 x 49 = 16513 sims.
+        interval, windows = resolve_sweep_interval(336, 1, 49)
+        assert interval > 1
+        assert windows * 49 <= MAX_SWEEP_SIMULATIONS
+
+    def test_never_narrows_what_the_caller_asked_for(self) -> None:
+        """A caller asking for a coarse sweep keeps it, budget or no budget."""
+        interval, _ = resolve_sweep_interval(336, 6, 4)
+        assert interval == 6
+
+    def test_a_single_window_is_always_allowed(self) -> None:
+        """Degrading must bottom out at one window rather than loop forever
+        on a route so long that even one simulation exceeds the budget."""
+        interval, windows = resolve_sweep_interval(336, 1, MAX_SWEEP_SIMULATIONS * 2)
+        assert windows == 1
+        assert interval >= 1
+
+    async def test_sweep_honours_the_budget_end_to_end(self) -> None:
+        """The public entry point returns fewer, wider-spaced windows rather
+        than refusing, and the departure times carry the effective interval."""
+        adapter = StubAdapter(tws_kn=10.0, twd_deg=0.0)
+        earliest = datetime(2026, 5, 1, 0, 0, tzinfo=UTC)
+        # 50 waypoints ~8 nm apart: 49 segments, no sub-segmentation.
+        route = [Point(43.0 + i * 0.10, 5.0 + i * 0.10) for i in range(50)]
+        reports = await estimate_passage_windows(
+            route,
+            earliest,
+            earliest + timedelta(days=13),
+            "cruiser_40ft",
+            sweep_interval_hours=1,
+            adapter=adapter,
+        )
+        n_segments = len(reports[0].segments)
+        assert len(reports) * n_segments <= MAX_SWEEP_SIMULATIONS
+        # Spacing actually widened, and uniformly.
+        spacing = reports[1].departure_time - reports[0].departure_time
+        assert spacing > timedelta(hours=1)
+        for a, b in pairwise(reports):
+            assert b.departure_time - a.departure_time == spacing
