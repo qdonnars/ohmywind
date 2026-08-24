@@ -216,10 +216,11 @@ LANDING_HTML = """<!doctype html>
   <figure class="demo">
     <video class="hero" src="/static/demo.mp4" poster="/static/demo-poster.jpg"
            autoplay muted loop playsinline controls preload="metadata"
-           aria-label="Screen recording: an assistant plans a Cherbourg to St Peter Port passage through this server, then opens the result on ohmywind.fr."></video>
-    <figcaption>A real session, sped up and silent. The assistant calls this
-      server for a Cherbourg to St Peter Port crossing on a 40 ft cruiser, then
-      opens the plan on ohmywind.fr: 50.6 nm, 15h35, arrival 21:34.</figcaption>
+           aria-label="Screen recording: in a private chat window, the OhMyWind connector is switched on, an assistant plans a Cherbourg to St Peter Port passage through this server, and the result opens on ohmywind.fr."></video>
+    <figcaption>A real session, sped up and silent, in a private window: no
+      history, no memory, nothing set up in advance. Switch the connector on,
+      ask for a Cherbourg to St Peter Port crossing on a 40 ft cruiser, and the
+      passage opens on ohmywind.fr: 50.8 nm, 14h54, arrival 07:53.</figcaption>
   </figure>
 
   <h2>Connect it to your assistant</h2>
