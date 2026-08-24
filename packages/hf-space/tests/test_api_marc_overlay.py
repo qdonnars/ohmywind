@@ -37,6 +37,11 @@ class _FakeRequest:
         self.query_params = params
 
 
+class _FakeAssetRequest:
+    def __init__(self, asset: str) -> None:
+        self.path_params = {"asset": asset}
+
+
 def _params(**extra) -> dict[str, str]:
     params = {
         "lat": str(BREST[0]),
@@ -143,3 +148,31 @@ class TestLanding:
         # land on it to the actual planner rather than leaving them stuck.
         body = bytes(resp.body).decode() if (resp := await app._index(None)) else ""
         assert "wind.fr" in body
+
+    async def test_landing_plays_the_demo_from_this_origin(self) -> None:
+        # Not from raw.githubusercontent.com: it serves MP4s as
+        # application/octet-stream, and nosniff then stops <video> playing it.
+        body = bytes(resp.body).decode() if (resp := await app._index(None)) else ""
+        assert 'src="/static/demo.mp4"' in body
+        assert 'poster="/static/demo-poster.jpg"' in body
+        # Autoplaying with sound is blocked by every browser; muted is what
+        # makes the loop actually start.
+        assert "muted" in body
+
+
+class TestStaticAssets:
+    async def test_every_advertised_asset_is_shipped(self) -> None:
+        # The Dockerfile COPYs an explicit file list, so an asset can be
+        # committed, mirrored to the Space, and still be absent from the image.
+        for name in app._STATIC_ASSETS:
+            assert (app._STATIC_DIR / name).is_file(), name
+
+    async def test_serves_the_demo_with_a_video_content_type(self) -> None:
+        resp = await app._static_asset(_FakeAssetRequest("demo.mp4"))
+        assert resp.status_code == 200
+        assert resp.media_type == "video/mp4"
+        assert "max-age" in resp.headers["cache-control"]
+
+    async def test_unknown_asset_is_a_404(self) -> None:
+        resp = await app._static_asset(_FakeAssetRequest("security.py"))
+        assert resp.status_code == 404

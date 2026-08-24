@@ -24,6 +24,7 @@ import logging
 import math
 import os
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -48,7 +49,13 @@ from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
+from starlette.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+)
 from starlette.routing import Mount, Route
 
 from security import (
@@ -148,6 +155,19 @@ LANDING_HTML = """<!doctype html>
       border-radius: 12px; border: 1px solid var(--border);
       margin: 1rem 0 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     }
+    /* The capture is a full 1920px screen and the reading column is 44rem,
+       so the demo breaks out of the column to stay legible. Clamped against
+       the viewport so a narrow screen never gets a horizontal scrollbar. */
+    figure.demo {
+      width: min(58rem, calc(100vw - 2.5rem));
+      margin: 1.25rem 0 2rem 50%;
+      transform: translateX(-50%);
+    }
+    figure.demo .hero { margin: 0; background: #15140F; }
+    figure.demo figcaption {
+      color: var(--faint); font-size: 0.85rem; line-height: 1.45;
+      margin-top: 0.7rem; text-align: center;
+    }
     .badge {
       display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px;
       background: var(--soft); color: var(--accent); font-size: 0.75rem;
@@ -193,8 +213,14 @@ LANDING_HTML = """<!doctype html>
     high-precision tidal currents on the French Atlantic. Exposed as an MCP
     server so any compatible assistant can use it.</p>
 
-  <img class="hero" src="https://raw.githubusercontent.com/qdonnars/ohmywind/main/docs/screenshots/plan.png"
-       alt="OhMyWind passage plan: 5 waypoints, 48.6 nm, ETA 21:24, complexity 3 of 5.">
+  <figure class="demo">
+    <video class="hero" src="/static/demo.mp4" poster="/static/demo-poster.jpg"
+           autoplay muted loop playsinline controls preload="metadata"
+           aria-label="Screen recording: an assistant plans a Cherbourg to St Peter Port passage through this server, then opens the result on ohmywind.fr."></video>
+    <figcaption>A real session, sped up and silent. The assistant calls this
+      server for a Cherbourg to St Peter Port crossing on a 40 ft cruiser, then
+      opens the plan on ohmywind.fr: 50.6 nm, 15h35, arrival 21:34.</figcaption>
+  </figure>
 
   <h2>Connect it to your assistant</h2>
   <p>Pick yours below (under a minute, no install, no API key).</p>
@@ -479,6 +505,35 @@ async def _icon_redirect(request: Request) -> RedirectResponse:
     target = _ICON_REDIRECTS[request.url.path]
     return RedirectResponse(
         target, status_code=302, headers={"Cache-Control": "public, max-age=86400"}
+    )
+
+
+# The landing demo ships with the Space instead of being linked out of the
+# GitHub repo the way the screenshots are: raw.githubusercontent.com returns
+# MP4s as application/octet-stream, and every response here carries nosniff,
+# so a browser would refuse to play it in a <video>. Two files means an
+# explicit allowlist rather than a StaticFiles mount, which keeps the routing
+# table readable and makes path traversal impossible by construction.
+_STATIC_DIR = Path(__file__).resolve().parent / "static"
+_STATIC_ASSETS = {
+    "demo.mp4": "video/mp4",
+    "demo-poster.jpg": "image/jpeg",
+}
+
+
+async def _static_asset(request: Request) -> FileResponse | PlainTextResponse:
+    name = request.path_params["asset"]
+    media_type = _STATIC_ASSETS.get(name)
+    path = _STATIC_DIR / name
+    if media_type is None or not path.is_file():
+        return PlainTextResponse("Not found", status_code=404)
+    # A new cut ships under the same name on redeploy and the Space restarts
+    # with it, so a week of edge caching costs nothing but a stale week for
+    # anyone who visited mid-deploy.
+    return FileResponse(
+        path,
+        media_type=media_type,
+        headers={"Cache-Control": "public, max-age=604800"},
     )
 
 
@@ -979,6 +1034,7 @@ def build_app(mcp_app: Any) -> Starlette:
         routes=[
             Route("/", _index),
             *[Route(path, _icon_redirect, methods=["GET"]) for path in _ICON_REDIRECTS],
+            Route("/static/{asset}", _static_asset, methods=["GET"]),
             Route("/api/v1/archetypes", _api_archetypes, methods=["GET"]),
             Route("/api/v1/_client", _api_client_debug, methods=["GET"]),
             Route("/api/v1/passage", _api_passage, methods=["POST"]),
