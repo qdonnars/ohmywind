@@ -5,7 +5,8 @@
 
 Reads ``HF_TOKEN`` (mounted as a build secret) and ``HF_DATASET_ID`` from
 the environment, snapshots the dataset under ``ATLAS_DATA_DIR`` (default
-``/app/data/atlas``), and reports what was fetched. Falls back gracefully
+``/app/data/atlas``), and reports what was fetched. The dataset is private by
+obligation, not by convenience, and this script warns when it is not. Falls back gracefully
 (empty dir, runtime uses Open-Meteo SMOC only) when the token is absent
 so contributors can build the image without an HF account.
 
@@ -42,7 +43,23 @@ def main() -> None:
         os.makedirs(target, exist_ok=True)
         return
 
-    from huggingface_hub import snapshot_download
+    from huggingface_hub import HfApi, snapshot_download
+
+    # The dataset must stay private: redistributing the raw MARC PREVIMER
+    # NetCDF is something we committed not to do, and dataset visibility is a
+    # single toggle in the HF settings. Warn loudly rather than fail: breaking
+    # the production build would punish the deployment for a settings mistake
+    # made elsewhere, and the build is not where that gets fixed.
+    try:
+        if HfApi(token=token).dataset_info(dataset_id).private is False:
+            print("=" * 72)
+            print(f"WARNING: dataset {dataset_id} is PUBLIC.")
+            print("It holds raw MARC PREVIMER NetCDF, redistributed under a")
+            print("no-redistribution commitment. Set it back to private in the")
+            print("HF dataset settings.")
+            print("=" * 72)
+    except Exception as exc:
+        print(f"NOTE: could not check dataset visibility ({exc})")
 
     print(f"Fetching {dataset_id} -> {target}")
     snapshot_download(dataset_id, repo_type="dataset", local_dir=target, token=token)
