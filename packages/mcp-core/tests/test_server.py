@@ -359,3 +359,58 @@ class TestDisclaimer:
         assert "official marine forecast" in text
         assert "charts" in text
         assert "responsible" in text
+
+
+class TestSweepBudget:
+    """The engine widens the sweep interval when windows x segments would blow
+    the simulation budget. What the payload advertises has to match what ran,
+    or the client reads a spacing the departure times contradict.
+    """
+
+    async def test_reports_the_interval_actually_used(self) -> None:
+        server = build_server(adapter=StubAdapter())
+        # 30 waypoints -> 29 segments; 13 d at 1 h would be ~9100 simulations.
+        route = [{"lat": 43.0 + i * 0.10, "lon": 5.0 + i * 0.10} for i in range(30)]
+        dep = datetime(2026, 5, 1, 0, 0, tzinfo=UTC)
+        out = await _call(
+            server,
+            "plan_passage",
+            {
+                "waypoints": route,
+                "departure": dep.isoformat(),
+                "latest_departure": (dep + timedelta(days=13)).isoformat(),
+                "sweep_interval_hours": 1,
+                "archetype": "cruiser_40ft",
+            },
+        )
+        advertised = out["sweep"]["interval_hours"]
+        assert advertised > 1, "expected the budget to widen the 1 h request"
+
+        # The advertised spacing is the one between consecutive departures.
+        first = datetime.fromisoformat(out["windows"][0]["departure"])
+        second = datetime.fromisoformat(out["windows"][1]["departure"])
+        assert (second - first) == timedelta(hours=advertised)
+
+    async def test_says_so_in_meta_warnings(self) -> None:
+        """A silently coarser sweep is a silently different answer."""
+        server = build_server(adapter=StubAdapter())
+        route = [{"lat": 43.0 + i * 0.10, "lon": 5.0 + i * 0.10} for i in range(30)]
+        dep = datetime(2026, 5, 1, 0, 0, tzinfo=UTC)
+        out = await _call(
+            server,
+            "plan_passage",
+            {
+                "waypoints": route,
+                "departure": dep.isoformat(),
+                "latest_departure": (dep + timedelta(days=13)).isoformat(),
+                "sweep_interval_hours": 1,
+                "archetype": "cruiser_40ft",
+            },
+        )
+        assert any("élargi" in w for w in out["meta_warnings"])
+
+    async def test_leaves_an_ordinary_sweep_alone(self) -> None:
+        server = build_server(adapter=StubAdapter())
+        out = await _call(server, "plan_passage", _SWEEP_ARGS)
+        assert out["sweep"]["interval_hours"] == _SWEEP_ARGS["sweep_interval_hours"]
+        assert not any("élargi" in w for w in out["meta_warnings"])

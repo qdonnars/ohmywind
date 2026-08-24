@@ -228,6 +228,12 @@ Full report, per-atlas breakdown and method:
 
 ## Credits
 
+Tidal currents on the French Atlantic coast: SHOM Atlas C2D and MARC PREVIMER
+(Ifremer). The prebuilt atlases live in a **private** HF dataset, and stay
+private: the raw MARC NetCDF is used under a no-redistribution commitment, so
+the Space pulls them with a read token rather than shipping them here. Building
+without that token is supported and falls back to the global current model.
+
 Wind & sea: [Open-Meteo](https://open-meteo.com/) (CC BY 4.0). Hosting:
 [Hugging Face Spaces](https://huggingface.co/spaces). Map tiles on
 [ohmywind.fr](https://ohmywind.fr): [CARTO](https://carto.com/) /

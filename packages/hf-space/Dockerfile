@@ -16,7 +16,12 @@ RUN pip install /app/data-adapters /app/mcp-core "uvicorn[standard]>=0.30" \
     "huggingface_hub[hf_xet]>=0.24"
 
 # Pull the tidal atlas dataset at build time (MARC PREVIMER + SHOM Atlas C2D).
-# The dataset is private so we need an HF token with read access. On HF
+# The dataset is private so we need an HF token with read access.
+#
+# It has to STAY private. It holds raw MARC PREVIMER NetCDF, which we are
+# allowed to use under a no-redistribution commitment, and flipping the
+# dataset to public would break that commitment in one click. fetch_atlases.py
+# prints a loud warning at build time when the visibility has changed. On HF
 # Spaces, define the secret in Settings -> Variables and secrets -> Secrets:
 #   HF_TOKEN  (User Access Token with read scope on Qdonnars/openwind-tidal-atlas)
 # Runtime reads MARC subdirs via MARC_ATLAS_DIR and the SHOM Parquet+JSON via

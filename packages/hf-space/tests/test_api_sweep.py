@@ -15,6 +15,7 @@ import importlib.util
 import json
 import pathlib
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 
@@ -99,3 +100,77 @@ async def test_skipped_windows_surface_a_meta_warning(monkeypatch) -> None:
     resp = await app._api_passage(_FakeRequest(_sweep_body()))
     warnings = _payload(resp)["meta_warnings"]
     assert any("ignorée" in w for w in warnings)
+
+
+@pytest.fixture
+def widened_sweep(monkeypatch):
+    """Engine returns a sweep it deliberately ran coarser than requested.
+
+    29 segments over 13 days at 1 h would be ~9100 simulations, past the
+    budget, so the engine widens to 2 h and returns half as many windows. The
+    shell must read that back instead of counting against the request.
+    """
+    n_segments, interval_h = 29, 2
+    span_h = 13 * 24
+    reports = [
+        SimpleNamespace(
+            departure_time=DEPARTURE + timedelta(hours=i * interval_h),
+            arrival_time=DEPARTURE + timedelta(hours=i * interval_h + 8),
+            duration_h=8.0,
+            distance_nm=41.4,
+            warnings=[],
+            segments=[object()] * n_segments,
+        )
+        for i in range(int(span_h / interval_h) + 1)
+    ]
+
+    async def _stub(*args, **kwargs):
+        return reports
+
+    monkeypatch.setattr(app, "estimate_passage_windows", _stub)
+    monkeypatch.setattr(
+        app,
+        "score_complexity",
+        lambda r, **k: SimpleNamespace(
+            level=2, label="modéré", tws_max_kn=14.0, rationale="stub", warnings=[]
+        ),
+    )
+    monkeypatch.setattr(app, "build_conditions_summary", lambda r: {})
+    monkeypatch.setattr(app, "_to_json", lambda o: {})
+    return reports
+
+
+@pytest.mark.asyncio
+async def test_widened_sweep_advertises_the_interval_it_ran(widened_sweep) -> None:
+    body = _payload(
+        await app._api_passage(
+            _FakeRequest(
+                _sweep_body(
+                    latest_departure=(DEPARTURE + timedelta(days=13)).isoformat(),
+                    sweep_interval_hours=1,
+                )
+            )
+        )
+    )
+    assert body["sweep"]["interval_hours"] == 2
+    assert any("élargi" in w for w in body["meta_warnings"])
+
+
+@pytest.mark.asyncio
+async def test_widened_sweep_does_not_report_phantom_dropped_windows(widened_sweep) -> None:
+    """The windows never run are not windows lost to a short forecast horizon.
+
+    Counting the expected total against the requested 1 h interval would
+    invent 156 of them and tell the user the forecast ran out.
+    """
+    body = _payload(
+        await app._api_passage(
+            _FakeRequest(
+                _sweep_body(
+                    latest_departure=(DEPARTURE + timedelta(days=13)).isoformat(),
+                    sweep_interval_hours=1,
+                )
+            )
+        )
+    )
+    assert not any("ignorée" in w for w in body["meta_warnings"])
