@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo, useRef, useCallback, forwardRef, useImper
 import { parsePlanUrl, isParsedOk, buildPlanUrl } from "../plan/parseUrl";
 import { PlanMap, type PlanMapHandle } from "../plan/PlanMap";
 import { PlanSidebar } from "../plan/PlanSidebar";
+import { SafetyNotice } from "../plan/SafetyNotice";
 import { fetchPassage, fetchPassageByEta, fetchPassageWindows, fetchArchetypes, friendlyError, type PlanOverrides } from "../api/passage";
 import { buildForecastCacheSafe, singleWindowMs, sweepWindowMs, etaWindowMs } from "../api/forecastCache";
 import { Header } from "../components/Header";
@@ -1058,6 +1059,7 @@ export function PlanPage() {
         {/* Desktop sidebar — user-resizable via the handle on the left edge. */}
         <ResizableDesktopSidebar defaultPx={384}>
           <PlanSidebar {...sidebarProps} />
+          <SafetyNotice />
         </ResizableDesktopSidebar>
       </div>
 
@@ -1079,6 +1081,7 @@ export function PlanPage() {
         resultsFitKey={resultsFitKey}
       >
         <PlanSidebar {...sidebarProps} />
+        <SafetyNotice />
       </ResizableMobileDrawer>
     </div>
   );
