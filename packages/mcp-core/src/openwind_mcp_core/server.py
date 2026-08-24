@@ -494,6 +494,8 @@ but the underlying complexity is unchanged.
 
 - No automatic routing optimisation (LLM + human choose).
 - No coastal acceleration zones (caller adds intermediate waypoints).
+- No land or obstacle check: the polyline is timed exactly as drawn,
+  so keeping it off the coast is the caller's job.
 - No port/starboard polar asymmetry, no spinnaker-specific curves.
 - No hull condition modelling beyond the `efficiency` knob.
 
@@ -639,10 +641,17 @@ def build_server(
         # would hand the tester a link to production.
         return _PLAN_WIDGET_HTML.replace("__WEB_BASE__", WEB_BASE).replace("__WEB_HOST__", WEB_HOST)
 
+    # Every tool below spells out all four hints, including the two the spec
+    # calls meaningful only when ``readOnlyHint`` is false. Redundant here by
+    # the letter of the spec, but directory validators check for four booleans
+    # rather than re-deriving the defaults, and a tool that omits them reads as
+    # unannotated to them. Eight lines is cheaper than a rejected listing.
     @server.tool(
         annotations=ToolAnnotations(
             title="Calculation method",
             readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
             openWorldHint=False,
         ),
     )
@@ -664,6 +673,8 @@ def build_server(
         annotations=ToolAnnotations(
             title="Boat archetypes",
             readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
             openWorldHint=False,
         ),
     )
@@ -679,6 +690,8 @@ def build_server(
         annotations=ToolAnnotations(
             title="Marine forecast",
             readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
             openWorldHint=True,
         ),
     )
@@ -697,6 +710,10 @@ def build_server(
             start: ISO-8601 datetime, timezone-aware (e.g. "2026-05-01T06:00:00+00:00").
             end: ISO-8601 datetime, timezone-aware.
             models: optional list of model names; defaults to AROME for the Med.
+
+        Pass a point at sea. Over land Open-Meteo still returns wind, but
+        every sea value comes back null, so the ``sea`` array is present and
+        empty of information rather than absent.
 
         Note: the first request after inactivity may incur ~5s of cold-start.
 
@@ -738,6 +755,8 @@ def build_server(
         annotations=ToolAnnotations(
             title="Plan a passage",
             readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
             openWorldHint=True,
         ),
         meta={"ui": {"resourceUri": PLAN_UI_RESOURCE_URI}},
@@ -789,6 +808,40 @@ def build_server(
         Rule of thumb: if the user does NOT give an exact hour, prefer
         compare-windows. The widget renders one of the windows by default
         and the chat lets the user pick another.
+
+        ## Waypoints must stay in the water
+
+        This server does no land check. It samples wind and sea along the
+        polyline you pass, then reports distance, ETA and complexity for that
+        polyline, whatever it crosses. A leg drawn through a peninsula raises
+        no error: it returns a passage that is too short, too fast, and scored
+        on conditions the boat would never meet.
+
+        So the route is yours to draw. Between every consecutive pair of
+        waypoints the straight line must stay at sea. Add intermediate
+        waypoints to round anything the direct line would cut: headlands,
+        peninsulas, islands, shoals.
+
+        - Toulon to Saint-Tropez: the direct line crosses the Massif des
+          Maures. Pass south of the presqu'île de Giens, then round cap Bénat
+          and cap Camarat before turning north into the gulf.
+        - Brest to Douarnenez: the direct line crosses the presqu'île de
+          Crozon. Exit the goulet, round the cap de la Chèvre, then head east
+          into the bay.
+
+        Keep about 1 NM of clearance off headlands, more with onshore wind or
+        swell, and do not shave the inside of islands. Extra waypoints are
+        close to free: the cap is 50, and sampling cost follows
+        ``segment_length_nm`` and total distance, not the waypoint count. When
+        in doubt, add the waypoint.
+
+        A waypoint that lands ashore has a second effect. Open-Meteo returns
+        no sea state over land, so those samples carry a null wave height and
+        the complexity score silently falls back to wind only, dropping the
+        axis that would have flagged a rough passage.
+
+        Name the capes you routed around in your reply ("passage au large du
+        cap Bénat"), so the user can correct a leg you drew wrong.
 
         ## Returned payload
 
@@ -848,9 +901,9 @@ def build_server(
 
         ## Args
 
-            waypoints: list of ``{"lat": ..., "lon": ...}`` dicts (>=2). Caller
-                keeps the polyline off land: add intermediate waypoints to
-                skirt capes and peninsulas.
+            waypoints: list of ``{"lat": ..., "lon": ...}`` dicts, 2 to 50.
+                Used exactly as drawn. Read "Waypoints must stay in the
+                water" above before building it.
             departure: ISO-8601 datetime, timezone-aware.
             archetype: one of ``list_boat_archetypes()`` names.
             efficiency: multiplier on polar speed. ``0.85`` racing, ``0.75``
