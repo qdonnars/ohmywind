@@ -59,3 +59,20 @@ def test_marine_forecast_warns_that_land_points_lose_sea_state(by_name) -> None:
     """
     description = by_name["get_marine_forecast"].description
     assert "Pass a point at sea" in description
+
+
+def test_plan_passage_tells_the_model_to_relay_the_disclaimer(by_name) -> None:
+    """A payload field the model is not told to use is a field it drops.
+
+    The warning only reaches the user if the reply carries it, so the
+    instruction is as load-bearing as the field itself.
+    """
+    description = by_name["plan_passage"].description
+    assert "## ALWAYS relay the disclaimer" in description
+    assert "``disclaimer``" in description
+
+    # After the numbers, not instead of them: the instruction says so, and the
+    # section sits past the payload docs so the model reads it in that order.
+    assert description.index("## Returned payload") < description.index(
+        "## ALWAYS relay the disclaimer"
+    )

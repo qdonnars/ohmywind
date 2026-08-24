@@ -14,6 +14,7 @@ from openwind_data.adapters.base import (
 )
 
 from openwind_mcp_core import build_server
+from openwind_mcp_core.server import PASSAGE_DISCLAIMER
 
 
 class StubAdapter:
@@ -328,3 +329,33 @@ class TestGetMarineForecast:
         assert "wind" in out
         assert "meteofrance_arome_france" in out["wind"]
         assert isinstance(out["wind"]["meteofrance_arome_france"][0]["time"], str)
+
+
+class TestDisclaimer:
+    """The usage warning ships with the numbers, in both modes.
+
+    plan_passage hands back an ETA and a difficulty score a skipper may act on
+    to decide whether to put to sea. The warning is part of the payload rather
+    than documentation so it cannot be lost between the docs and the reply.
+    """
+
+    async def test_single_mode_carries_the_disclaimer(self) -> None:
+        server = build_server(adapter=StubAdapter())
+        out = await _call(server, "plan_passage", _BASE_PLAN_ARGS)
+        assert out["disclaimer"] == PASSAGE_DISCLAIMER
+
+    async def test_sweep_mode_carries_the_disclaimer(self) -> None:
+        server = build_server(adapter=StubAdapter())
+        out = await _call(server, "plan_passage", _SWEEP_ARGS)
+        assert out["disclaimer"] == PASSAGE_DISCLAIMER
+
+    def test_disclaimer_says_the_three_things_that_matter(self) -> None:
+        """Reword it freely, but keep what it is actually for: naming the tool
+        as decision support, pointing at the official forecast and the charts
+        it does not replace, and leaving responsibility with the skipper."""
+        text = PASSAGE_DISCLAIMER.lower()
+        assert "decision-support" in text
+        assert "not a navigation instrument" in text
+        assert "official marine forecast" in text
+        assert "charts" in text
+        assert "responsible" in text

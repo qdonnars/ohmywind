@@ -83,6 +83,22 @@ PLAN_UI_MIME = "text/html;profile=mcp-app"
 # value still on the old brand, because the sweep that renamed everything else
 # matched "OpenWind" and "openwind.fr" and this one is lowercase and bare.
 SERVER_NAME = "ohmywind"
+
+# Usage warning attached to every plan_passage payload, single mode and
+# compare-windows alike. The tool hands back an ETA and a 1-5 complexity score
+# that a skipper may act on to decide whether to put to sea, so the caveat
+# travels with the numbers instead of living in the docs only.
+#
+# English on purpose: it is read by the model, not by the user, and the model
+# relays it in whatever language the conversation runs in. The French wording
+# shown in the web app lives in packages/web/src/plan/SafetyNotice.tsx and the
+# English one in the README. All three say the same thing; keep them in sync.
+PASSAGE_DISCLAIMER = (
+    "Decision-support tool, not a navigation instrument. OhMyWind does not "
+    "replace the official marine forecast from the national weather service, "
+    "up-to-date charts, or the skipper's judgement. Forecast models are "
+    "sometimes wrong: the skipper remains responsible for the passage."
+)
 # unpkg serves the official @modelcontextprotocol/ext-apps SDK bundle that
 # implements the ui/initialize -> ui/notifications/initialized handshake and
 # the ui/notifications/tool-result listener. Same CDN as the official
@@ -853,6 +869,7 @@ def build_server(
           human-readable rationale.
         - ``openwind_url``: deep-link to ohmywind.fr/plan that renders the
           same passage in the standalone web app.
+        - ``disclaimer``: usage warning to relay (see below).
 
         Compare-windows mode (``latest_departure`` set):
 
@@ -865,6 +882,17 @@ def build_server(
           angle, hs_min/max), ``warnings``, ``passage`` (full per-segment
           report), ``complexity_full`` (full score), ``openwind_url``.
         - ``meta_warnings``: top-level notes ("3 fenêtres ignorées …").
+        - ``disclaimer``: usage warning to relay (see below).
+
+        ## ALWAYS relay the disclaimer
+
+        This tool returns an ETA and a difficulty score the user may act on to
+        decide whether to put to sea. Carry the ``disclaimer`` field into your
+        reply, once, in the user's language, phrased naturally rather than
+        quoted verbatim. Put it after the numbers, not before: it qualifies
+        them, it does not replace them. Do not drop it because the plan looks
+        easy, and do not repeat it on every follow-up turn about the same
+        passage.
 
         ## How it renders
 
@@ -1039,6 +1067,7 @@ def build_server(
                 },
                 "windows": windows,
                 "meta_warnings": meta_warnings,
+                "disclaimer": PASSAGE_DISCLAIMER,
             }
 
         # --- SINGLE MODE ---
@@ -1058,6 +1087,7 @@ def build_server(
             "passage": _passage_to_dict(report),
             "complexity": asdict(score),
             "openwind_url": build_ohmywind_url(waypoints, departure, archetype),
+            "disclaimer": PASSAGE_DISCLAIMER,
         }
 
     return server
