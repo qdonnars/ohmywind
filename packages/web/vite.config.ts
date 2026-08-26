@@ -18,6 +18,15 @@ export default defineConfig({
       // keeps a single source of truth for install metadata.
       manifest: false,
       workbox: {
+        // Take over without waiting for every tab to close. `autoUpdate` alone
+        // is not enough here: vite-plugin-pwa only forces these two when
+        // `injectRegister` is 'auto' or left out, and we register the worker
+        // ourselves. Without them a freshly deployed worker installs, then
+        // sits in 'waiting' for as long as one tab controlled by the old one
+        // survives, which on a phone is forever: the app stayed pinned to the
+        // previously precached shell, refresh after refresh.
+        skipWaiting: true,
+        clientsClaim: true,
         // Precache the built app shell. These globs cover the hashed JS/CSS/HTML
         // plus icons and fonts emitted into dist/.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],

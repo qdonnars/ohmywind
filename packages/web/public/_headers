@@ -1,8 +1,14 @@
 # Le service worker doit etre revalide a chaque lancement, sinon le
 # navigateur peut resservir l'ancien pendant des heures et les PWA/TWA
 # installees ne voient pas les deploiements (widget iOS, apps Android).
+#
+# no-store et pas no-cache : avec no-cache, la reponse reste cachable par
+# l'edge (cf-cache-status: REVALIDATED) et le Browser Cache TTL de la zone
+# Cloudflare, a 4 h, reecrit l'en-tete en "max-age=14400" avant de le servir
+# au navigateur. Verifie en prod le 2026-08-26. no-store sort la reponse du
+# cache edge, donc plus rien ne la reecrit.
 /sw.js
-  Cache-Control: no-cache
+  Cache-Control: no-store
 
 https://dev.ohmywind.fr/*
   X-Robots-Tag: noindex, nofollow
