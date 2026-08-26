@@ -85,12 +85,21 @@ export function InfoPanel() {
           </a>{" "}
           (données sous licence ODbL), tuiles{" "}
           <a
-            href="https://carto.com/attributions"
+            href="https://openfreemap.org"
             target="_blank"
             rel="noreferrer"
             className="underline hover:opacity-80"
           >
-            &copy; CARTO
+            OpenFreeMap
+          </a>{" "}
+          sur le schéma{" "}
+          <a
+            href="https://openmaptiles.org"
+            target="_blank"
+            rel="noreferrer"
+            className="underline hover:opacity-80"
+          >
+            &copy; OpenMapTiles
           </a>
           . Amers (bouées, balises, phares, feux) :{" "}
           <a

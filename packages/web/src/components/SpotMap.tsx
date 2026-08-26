@@ -10,6 +10,7 @@ import { useTheme } from "../design/theme";
 import type { UserPosition } from "../hooks/useGeolocation";
 import { syncUserPositionLayer } from "../utils/userPositionLayer";
 import { syncSeamarkLayer } from "../utils/seamarkLayer";
+import { addBasemap, BASEMAP_MAX_ZOOM, type Basemap } from "../utils/basemapLayer";
 import { centerForBottomInset } from "../utils/visibleCenter";
 import type { MapView } from "../utils/mapViewParams";
 
@@ -272,19 +273,14 @@ export function SpotMap({
   const cancelPressRef = useRef<() => void>(() => {});
   // Maps each marker's SVG element → its spot (for native long-press detection)
   const elementToSpotRef = useRef<Map<Element, Spot>>(new Map());
-  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const basemapRef = useRef<Basemap | null>(null);
   const seamarkLayerRef = useRef<L.TileLayer | null>(null);
 
   const { resolvedTheme } = useTheme();
 
-  // Switch Carto tiles when theme changes
+  // Switch the basemap style when the theme changes
   useEffect(() => {
-    if (!mapRef.current) return;
-    const variant = resolvedTheme === "light" ? "light_all" : "dark_all";
-    const url = `https://{s}.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{r}.png`;
-    if (tileLayerRef.current) {
-      tileLayerRef.current.setUrl(url);
-    }
+    basemapRef.current?.setTheme(resolvedTheme);
   }, [resolvedTheme]);
 
   // A previewed point is not in customSpots, so the saved-spot markers never
@@ -403,9 +399,12 @@ export function SpotMap({
         : defaultCenter
           ? [defaultCenter.lat, defaultCenter.lon]
           : [43.3, 5.35];
+    // maxZoom is declared here rather than inherited from the basemap: the
+    // GL layer is not a grid layer, so it hands the map no zoom bound.
     const map = L.map(containerRef.current, {
       zoomControl: false,
       attributionControl: false,
+      maxZoom: BASEMAP_MAX_ZOOM,
     }).setView(initialCenter, initialZoom);
     // A point-centred initial view is an auto-centre like any other: seed
     // the intent so the panel settling (skeleton → loaded table) re-aims it.
@@ -419,11 +418,7 @@ export function SpotMap({
       };
     }
 
-    const variant = resolvedTheme === "light" ? "light_all" : "dark_all";
-    const tile = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{r}.png`, {
-      maxZoom: 19,
-    }).addTo(map);
-    tileLayerRef.current = tile;
+    basemapRef.current = addBasemap(map, resolvedTheme);
 
     // Map credits live in the info panel rather than in the corner. The OSM
     // Foundation allows this as long as they stay findable through an info

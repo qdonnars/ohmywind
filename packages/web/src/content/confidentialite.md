@@ -50,7 +50,7 @@ indique les données applicatives transmises en plus.
 | Backend OhMyWind, hébergé par [Hugging Face](https://huggingface.co/privacy) | Coordonnées et points de passage | Calcul du plan de passage |
 | [Nominatim / OpenStreetMap](https://osmfoundation.org/wiki/Privacy_Policy) | Coordonnées géographiques | Géocodage inverse (nom du lieu affiché) |
 | [Photon (Komoot)](https://photon.komoot.io) | Texte de vos recherches de lieu | Recherche de lieux |
-| [CARTO](https://carto.com/privacy) | Zone de carte affichée | Fonds de carte (tuiles) |
+| [OpenFreeMap](https://openfreemap.org/privacy/) | Zone de carte affichée | Fonds de carte (tuiles) |
 | [Google Fonts](https://policies.google.com/privacy) | Adresse IP | Chargement des polices de caractères |
 | [Ko-fi](https://more.ko-fi.com/privacy) | Rien, sauf si vous cliquez volontairement sur le lien de soutien | Dons |
 
