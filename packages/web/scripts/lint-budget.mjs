@@ -17,7 +17,7 @@
  */
 import { ESLint } from "eslint";
 
-const BUDGET = 26;
+const BUDGET = 25;
 
 const eslint = new ESLint();
 const results = await eslint.lintFiles(["."]);

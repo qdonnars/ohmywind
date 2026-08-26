@@ -5,6 +5,21 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   base: '/',
+  build: {
+    rollupOptions: {
+      output: {
+        // MapLibre GL (the basemap renderer) is bigger than the rest of the
+        // app put together, and it changes only when we bump the dependency.
+        // Left in the entry chunk it blew past workbox's 2 MiB per-file
+        // precache limit and, worse, made every app deploy re-download it.
+        // Its own chunk keeps the hash stable across our releases, so a
+        // returning user pays for it once.
+        advancedChunks: {
+          groups: [{ name: 'maplibre', test: /node_modules[\\/]maplibre-gl[\\/]/ }],
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),
@@ -28,8 +43,9 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
         // Precache the built app shell. These globs cover the hashed JS/CSS/HTML
-        // plus icons and fonts emitted into dist/.
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // plus icons and fonts emitted into dist/. ``mjs`` is there for
+        // MapLibre's tile worker, which ships as its own module file.
+        globPatterns: ['**/*.{js,mjs,css,html,ico,png,svg,woff2}'],
         // Drop stale precaches when a new SW activates.
         cleanupOutdatedCaches: true,
         // SPA fallback so deep links (/plan, /config, ...) resolve offline.
