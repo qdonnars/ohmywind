@@ -24,6 +24,7 @@ createRoot(document.getElementById("root")!).render(
 );
 
 // Register the service worker so the app shell is installable and offline-
-// resilient. Silent by design: `registerType: 'autoUpdate'` swaps in the new
-// SW on the next load, and we intentionally render no update-toast today.
+// resilient. Silent by design: `registerType: 'autoUpdate'` plus `skipWaiting`
+// swap in the new SW as soon as it is found, and we intentionally render no
+// update-toast today.
 registerServiceWorker();
