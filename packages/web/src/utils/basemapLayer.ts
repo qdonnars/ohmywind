@@ -21,7 +21,7 @@
  * marker keep their panes and their code untouched.
  */
 import L from "leaflet";
-import { setWorkerUrl, type Map as MaplibreMap } from "maplibre-gl";
+import { setWorkerUrl, type FilterSpecification, type Map as MaplibreMap } from "maplibre-gl";
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "@maplibre/maplibre-gl-leaflet";
@@ -89,6 +89,35 @@ function hasWebGL2(): boolean {
  * theme. The layer is removed with the map itself: ``map.remove()`` triggers
  * ``onRemove``, which disposes the GL map and frees its WebGL context.
  */
+/**
+ * Drop the administrative boundaries drawn out over the sea.
+ *
+ * OpenStreetMap continues a country's or a region's boundary across the
+ * water, tagged ``maritime=1``: territorial waters, and the offshore
+ * extension of the French régions. Positron filters those out of all three
+ * of its boundary layers; the dark style filters none of them, so switching
+ * to dark drew a line running parallel to the coast a dozen miles out. On a
+ * chart, a line on the water reads as something a boat should care about,
+ * and this one is a jurisdiction, not a hazard.
+ *
+ * Applied to every layer reading the ``boundary`` source rather than to the
+ * three ids the dark style ships today, so a restyle upstream cannot quietly
+ * bring the line back. Boundaries on land are left alone: they cost nothing
+ * and they place a coastline.
+ */
+function hideMaritimeBoundaries(glMap: MaplibreMap): void {
+  const style = glMap.getStyle();
+  for (const layer of style?.layers ?? []) {
+    if (!("source-layer" in layer) || layer["source-layer"] !== "boundary") continue;
+    const notMaritime = ["!=", ["get", "maritime"], 1];
+    const existing = "filter" in layer ? layer.filter : undefined;
+    glMap.setFilter(
+      layer.id,
+      (existing ? ["all", notMaritime, existing] : notMaritime) as FilterSpecification,
+    );
+  }
+}
+
 export function addBasemap(map: L.Map, theme: BasemapTheme): Basemap {
   let current = theme;
 
@@ -115,7 +144,9 @@ export function addBasemap(map: L.Map, theme: BasemapTheme): Basemap {
     // the whole style document, which drops any paint property set on the
     // one before it.
     glMap.on("style.load", () => {
-      if (current !== "dark" || !glMap) return;
+      if (!glMap) return;
+      hideMaritimeBoundaries(glMap);
+      if (current !== "dark") return;
       if (glMap.getLayer("water")) glMap.setPaintProperty("water", "fill-color", DARK_SEA);
       if (glMap.getLayer("waterway")) glMap.setPaintProperty("waterway", "line-color", DARK_SEA);
     });
