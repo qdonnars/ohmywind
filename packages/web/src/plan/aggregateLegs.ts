@@ -123,8 +123,10 @@ export function buildLegSummaryCells(leg: AggregatedLeg): LegSummaryCells {
   const tMax = Math.round(leg.tws_max);
   // NBSP between the number and "kn" so the wind chip stays on one line when
   // SummaryCell renders with width:min-content. Multi-word labels (Mer Formée,
-  // Vent Contre Courant) still break at their normal spaces.
-  const wind = tMin === tMax ? `${tMin} kn` : `${tMin}–${tMax} kn`;
+  // Vent Contre Courant) still break at their normal spaces. Spelled as an
+  // escape: a raw NBSP is invisible in review and reads as a stray space, so
+  // no-irregular-whitespace rejects it.
+  const wind = tMin === tMax ? `${tMin}\u00a0kn` : `${tMin}–${tMax}\u00a0kn`;
 
   const chopIndex =
     leg.hs_avg_m != null && leg.tp_avg_s != null && leg.tp_avg_s > 0

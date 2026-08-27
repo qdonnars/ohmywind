@@ -7,6 +7,7 @@ import { CX_COLORS } from "./types";
 import { fmtDurationSafe } from "./format";
 
 type SortKey = "departure" | "duration" | "complexity";
+type SortDir = "asc" | "desc";
 
 const SAIL_LABELS: Record<string, string> = {
   pres: "Près",
@@ -55,7 +56,7 @@ export interface WindowsTableProps {
 
 export function WindowsTable({ windows, onSelect }: WindowsTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>("departure");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const sorted = useMemo(() => {
     const list = [...windows];
@@ -82,24 +83,6 @@ export function WindowsTable({ windows, onSelect }: WindowsTableProps) {
     }
   }
 
-  function SortHeader({ k, label, align = "left" }: { k: SortKey; label: string; align?: "left" | "right" | "center" }) {
-    const active = sortKey === k;
-    const arrow = active ? (sortDir === "asc" ? "▲" : "▼") : "";
-    return (
-      <button
-        onClick={() => toggleSort(k)}
-        className="flex items-center gap-1 transition-colors w-full"
-        style={{
-          color: active ? "var(--ow-fg-0)" : "var(--ow-fg-3)",
-          justifyContent: align === "right" ? "flex-end" : align === "center" ? "center" : "flex-start",
-          fontWeight: 600,
-        }}
-      >
-        {label} <span className="text-[8px] opacity-60">{arrow || "↕"}</span>
-      </button>
-    );
-  }
-
   return (
     <div>
       <div
@@ -110,13 +93,13 @@ export function WindowsTable({ windows, onSelect }: WindowsTableProps) {
           color: "var(--ow-fg-3)",
         }}
       >
-        <SortHeader k="departure" label="Départ" />
-        <SortHeader k="duration" label="Durée" />
+        <SortHeader k="departure" label="Départ" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
+        <SortHeader k="duration" label="Durée" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
         <span className="text-left">ETA</span>
         <span className="text-left">Allure</span>
         <span className="text-left">Vent (kn)</span>
         <span className="text-left">Mer</span>
-        <SortHeader k="complexity" label="⚡" align="center" />
+        <SortHeader k="complexity" label="⚡" align="center" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
       </div>
 
       <div>
@@ -170,5 +153,41 @@ export function WindowsTable({ windows, onSelect }: WindowsTableProps) {
         })}
       </div>
     </div>
+  );
+}
+
+// Declared at module scope, not inside WindowsTable: a component created during
+// render is a new type on every render, so React unmounts the old one and
+// remounts a fresh instance, losing its state and its DOM node. Harmless for a
+// stateless header today, a real bug the day one of them holds a popover.
+function SortHeader({
+  k,
+  label,
+  align = "left",
+  sortKey,
+  sortDir,
+  onToggle,
+}: {
+  k: SortKey;
+  label: string;
+  align?: "left" | "right" | "center";
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onToggle: (key: SortKey) => void;
+}) {
+  const active = sortKey === k;
+  const arrow = active ? (sortDir === "asc" ? "▲" : "▼") : "";
+  return (
+    <button
+      onClick={() => onToggle(k)}
+      className="flex items-center gap-1 transition-colors w-full"
+      style={{
+        color: active ? "var(--ow-fg-0)" : "var(--ow-fg-3)",
+        justifyContent: align === "right" ? "flex-end" : align === "center" ? "center" : "flex-start",
+        fontWeight: 600,
+      }}
+    >
+      {label} <span className="text-[8px] opacity-60">{arrow || "↕"}</span>
+    </button>
   );
 }

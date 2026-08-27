@@ -6,13 +6,20 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Spot, ModelForecast, MarineHourly, MetricView } from "../types";
 import { QUICK_SPOTS } from "../spots";
-import { useTheme } from "../design/theme";
+import { useTheme } from "../design/useTheme";
 import type { UserPosition } from "../hooks/useGeolocation";
 import { syncUserPositionLayer } from "../utils/userPositionLayer";
 import { syncSeamarkLayer } from "../utils/seamarkLayer";
 import { addBasemap, BASEMAP_MAX_ZOOM, type Basemap } from "../utils/basemapLayer";
 import { centerForBottomInset } from "../utils/visibleCenter";
 import type { MapView } from "../utils/mapViewParams";
+
+// Leaflet renders a CircleMarker into an SVG node it keeps to itself: there is
+// no public accessor, only the internal ``_path``. Hit-testing needs that node
+// to map an element back to its spot, so the field is declared here instead of
+// being reached through ``any`` — same escape hatch, but one that still type
+// checks the property and its type.
+type WithSvgPath = { _path?: Element };
 
 // Spot-map arrows are drawn into a single 300×300 SVG anchored at the spot
 // (centre = 150,150). For ``wind``, each forecast contributes one arrow + label.
@@ -564,7 +571,7 @@ export function SpotMap({
         .on("click", () => onSelectRef.current(spot))
         .addTo(map);
       if (isCustom) {
-        const svgEl = (marker as any)._path as Element | undefined;
+        const svgEl = (marker as unknown as WithSvgPath)._path;
         if (svgEl) elementToSpotRef.current.set(svgEl, spot);
       }
       markersRef.current.set(key, marker);
@@ -649,7 +656,7 @@ export function SpotMap({
     // Remove old markers
     for (const [key, marker] of markersRef.current) {
       if (!desiredKeys.has(key)) {
-        const svgEl = (marker as any)._path as Element | undefined;
+        const svgEl = (marker as unknown as WithSvgPath)._path;
         if (svgEl) elementToSpotRef.current.delete(svgEl);
         marker.remove();
         markersRef.current.delete(key);
@@ -687,7 +694,7 @@ export function SpotMap({
           .on("click", () => onSelectRef.current(s))
           .addTo(map);
         if (isCustom) {
-          const svgEl = (marker as any)._path as Element | undefined;
+          const svgEl = (marker as unknown as WithSvgPath)._path;
           if (svgEl) elementToSpotRef.current.set(svgEl, s);
         }
         markersRef.current.set(key, marker);

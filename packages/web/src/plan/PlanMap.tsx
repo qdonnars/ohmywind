@@ -4,7 +4,7 @@
 import { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { useTheme } from "../design/theme";
+import { useTheme } from "../design/useTheme";
 import type { SegmentReport } from "./types";
 import { cxLevel, CX_COLORS } from "./types";
 import { haversineNm, fmtNm } from "../utils/geo";
