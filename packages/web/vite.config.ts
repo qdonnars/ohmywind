@@ -5,6 +5,21 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   base: '/',
+  build: {
+    rollupOptions: {
+      output: {
+        // MapLibre GL (the basemap renderer) is bigger than the rest of the
+        // app put together, and it changes only when we bump the dependency.
+        // Left in the entry chunk it blew past workbox's 2 MiB per-file
+        // precache limit and, worse, made every app deploy re-download it.
+        // Its own chunk keeps the hash stable across our releases, so a
+        // returning user pays for it once.
+        advancedChunks: {
+          groups: [{ name: 'maplibre', test: /node_modules[\\/]maplibre-gl[\\/]/ }],
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),
@@ -18,9 +33,19 @@ export default defineConfig({
       // keeps a single source of truth for install metadata.
       manifest: false,
       workbox: {
+        // Take over without waiting for every tab to close. `autoUpdate` alone
+        // is not enough here: vite-plugin-pwa only forces these two when
+        // `injectRegister` is 'auto' or left out, and we register the worker
+        // ourselves. Without them a freshly deployed worker installs, then
+        // sits in 'waiting' for as long as one tab controlled by the old one
+        // survives, which on a phone is forever: the app stayed pinned to the
+        // previously precached shell, refresh after refresh.
+        skipWaiting: true,
+        clientsClaim: true,
         // Precache the built app shell. These globs cover the hashed JS/CSS/HTML
-        // plus icons and fonts emitted into dist/.
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // plus icons and fonts emitted into dist/. ``mjs`` is there for
+        // MapLibre's tile worker, which ships as its own module file.
+        globPatterns: ['**/*.{js,mjs,css,html,ico,png,svg,woff2}'],
         // Drop stale precaches when a new SW activates.
         cleanupOutdatedCaches: true,
         // SPA fallback so deep links (/plan, /config, ...) resolve offline.

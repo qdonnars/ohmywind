@@ -14,8 +14,10 @@
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
+    "@maplibre/maplibre-gl-leaflet": "^0.1.4",
     "katex": "^0.16.45",
     "leaflet": "^1.9.4",
+    "maplibre-gl": "^6.6.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-markdown": "^10.1.0",

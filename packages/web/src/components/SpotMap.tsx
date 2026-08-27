@@ -6,12 +6,20 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Spot, ModelForecast, MarineHourly, MetricView } from "../types";
 import { QUICK_SPOTS } from "../spots";
-import { useTheme } from "../design/theme";
+import { useTheme } from "../design/useTheme";
 import type { UserPosition } from "../hooks/useGeolocation";
 import { syncUserPositionLayer } from "../utils/userPositionLayer";
 import { syncSeamarkLayer } from "../utils/seamarkLayer";
+import { addBasemap, BASEMAP_MAX_ZOOM, type Basemap } from "../utils/basemapLayer";
 import { centerForBottomInset } from "../utils/visibleCenter";
 import type { MapView } from "../utils/mapViewParams";
+
+// Leaflet renders a CircleMarker into an SVG node it keeps to itself: there is
+// no public accessor, only the internal ``_path``. Hit-testing needs that node
+// to map an element back to its spot, so the field is declared here instead of
+// being reached through ``any`` — same escape hatch, but one that still type
+// checks the property and its type.
+type WithSvgPath = { _path?: Element };
 
 // Spot-map arrows are drawn into a single 300×300 SVG anchored at the spot
 // (centre = 150,150). For ``wind``, each forecast contributes one arrow + label.
@@ -272,19 +280,14 @@ export function SpotMap({
   const cancelPressRef = useRef<() => void>(() => {});
   // Maps each marker's SVG element → its spot (for native long-press detection)
   const elementToSpotRef = useRef<Map<Element, Spot>>(new Map());
-  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const basemapRef = useRef<Basemap | null>(null);
   const seamarkLayerRef = useRef<L.TileLayer | null>(null);
 
   const { resolvedTheme } = useTheme();
 
-  // Switch Carto tiles when theme changes
+  // Switch the basemap style when the theme changes
   useEffect(() => {
-    if (!mapRef.current) return;
-    const variant = resolvedTheme === "light" ? "light_all" : "dark_all";
-    const url = `https://{s}.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{r}.png`;
-    if (tileLayerRef.current) {
-      tileLayerRef.current.setUrl(url);
-    }
+    basemapRef.current?.setTheme(resolvedTheme);
   }, [resolvedTheme]);
 
   // A previewed point is not in customSpots, so the saved-spot markers never
@@ -403,9 +406,12 @@ export function SpotMap({
         : defaultCenter
           ? [defaultCenter.lat, defaultCenter.lon]
           : [43.3, 5.35];
+    // maxZoom is declared here rather than inherited from the basemap: the
+    // GL layer is not a grid layer, so it hands the map no zoom bound.
     const map = L.map(containerRef.current, {
       zoomControl: false,
       attributionControl: false,
+      maxZoom: BASEMAP_MAX_ZOOM,
     }).setView(initialCenter, initialZoom);
     // A point-centred initial view is an auto-centre like any other: seed
     // the intent so the panel settling (skeleton → loaded table) re-aims it.
@@ -419,11 +425,7 @@ export function SpotMap({
       };
     }
 
-    const variant = resolvedTheme === "light" ? "light_all" : "dark_all";
-    const tile = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{r}.png`, {
-      maxZoom: 19,
-    }).addTo(map);
-    tileLayerRef.current = tile;
+    basemapRef.current = addBasemap(map, resolvedTheme);
 
     // Map credits live in the info panel rather than in the corner. The OSM
     // Foundation allows this as long as they stay findable through an info
@@ -569,7 +571,7 @@ export function SpotMap({
         .on("click", () => onSelectRef.current(spot))
         .addTo(map);
       if (isCustom) {
-        const svgEl = (marker as any)._path as Element | undefined;
+        const svgEl = (marker as unknown as WithSvgPath)._path;
         if (svgEl) elementToSpotRef.current.set(svgEl, spot);
       }
       markersRef.current.set(key, marker);
@@ -654,7 +656,7 @@ export function SpotMap({
     // Remove old markers
     for (const [key, marker] of markersRef.current) {
       if (!desiredKeys.has(key)) {
-        const svgEl = (marker as any)._path as Element | undefined;
+        const svgEl = (marker as unknown as WithSvgPath)._path;
         if (svgEl) elementToSpotRef.current.delete(svgEl);
         marker.remove();
         markersRef.current.delete(key);
@@ -692,7 +694,7 @@ export function SpotMap({
           .on("click", () => onSelectRef.current(s))
           .addTo(map);
         if (isCustom) {
-          const svgEl = (marker as any)._path as Element | undefined;
+          const svgEl = (marker as unknown as WithSvgPath)._path;
           if (svgEl) elementToSpotRef.current.set(svgEl, s);
         }
         markersRef.current.set(key, marker);

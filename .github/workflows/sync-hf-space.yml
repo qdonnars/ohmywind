@@ -110,6 +110,13 @@ jobs:
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           cp -R "$BUILD_DIR/." ./
           git lfs install --local || true
+          # The Hub's pre-receive hook rejects binary blobs that aren't in
+          # Xet/LFS storage, whatever their size, and the wholesale copy above
+          # takes the Space's default .gitattributes down with it. Re-declare
+          # tracking for the binaries we actually ship (the landing demo), or
+          # the push dies with "your push was rejected because it contains
+          # binary files". Written before `git add` so the filter runs.
+          printf '%s\n' '*.mp4 filter=lfs diff=lfs merge=lfs -text' > .gitattributes
           git config user.name  "$GIT_USER_NAME"
           git config user.email "$GIT_USER_EMAIL"
           git add -A

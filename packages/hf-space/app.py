@@ -24,6 +24,7 @@ import logging
 import math
 import os
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -42,13 +43,20 @@ from openwind_data.routing.passage import (
     estimate_passage,
     estimate_passage_for_arrival,
     estimate_passage_windows,
+    resolve_sweep_interval,
 )
 from openwind_mcp_core import build_server
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
+from starlette.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+)
 from starlette.routing import Mount, Route
 
 from security import (
@@ -148,6 +156,19 @@ LANDING_HTML = """<!doctype html>
       border-radius: 12px; border: 1px solid var(--border);
       margin: 1rem 0 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     }
+    /* The capture is a full 1920px screen and the reading column is 44rem,
+       so the demo breaks out of the column to stay legible. Clamped against
+       the viewport so a narrow screen never gets a horizontal scrollbar. */
+    figure.demo {
+      width: min(58rem, calc(100vw - 2.5rem));
+      margin: 1.25rem 0 2rem 50%;
+      transform: translateX(-50%);
+    }
+    figure.demo .hero { margin: 0; background: #15140F; }
+    figure.demo figcaption {
+      color: var(--faint); font-size: 0.85rem; line-height: 1.45;
+      margin-top: 0.7rem; text-align: center;
+    }
     .badge {
       display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px;
       background: var(--soft); color: var(--accent); font-size: 0.75rem;
@@ -193,8 +214,15 @@ LANDING_HTML = """<!doctype html>
     high-precision tidal currents on the French Atlantic. Exposed as an MCP
     server so any compatible assistant can use it.</p>
 
-  <img class="hero" src="https://raw.githubusercontent.com/qdonnars/ohmywind/main/docs/screenshots/plan.png"
-       alt="OhMyWind passage plan: 5 waypoints, 48.6 nm, ETA 21:24, complexity 3 of 5.">
+  <figure class="demo">
+    <video class="hero" src="/static/demo.mp4" poster="/static/demo-poster.jpg"
+           autoplay muted loop playsinline controls preload="metadata"
+           aria-label="Screen recording: in a private chat window, the OhMyWind connector is switched on, an assistant plans a Cherbourg to St Peter Port passage through this server, and the result opens on ohmywind.fr."></video>
+    <figcaption>A real session, sped up and silent, in a private window: no
+      history, no memory, nothing set up in advance. Switch the connector on,
+      ask for a Cherbourg to St Peter Port crossing on a 40 ft cruiser, and the
+      passage opens on ohmywind.fr: 50.8 nm, 14h54, arrival 07:53.</figcaption>
+  </figure>
 
   <h2>Connect it to your assistant</h2>
   <p>Pick yours below (under a minute, no install, no API key).</p>
@@ -482,6 +510,35 @@ async def _icon_redirect(request: Request) -> RedirectResponse:
     )
 
 
+# The landing demo ships with the Space instead of being linked out of the
+# GitHub repo the way the screenshots are: raw.githubusercontent.com returns
+# MP4s as application/octet-stream, and every response here carries nosniff,
+# so a browser would refuse to play it in a <video>. Two files means an
+# explicit allowlist rather than a StaticFiles mount, which keeps the routing
+# table readable and makes path traversal impossible by construction.
+_STATIC_DIR = Path(__file__).resolve().parent / "static"
+_STATIC_ASSETS = {
+    "demo.mp4": "video/mp4",
+    "demo-poster.jpg": "image/jpeg",
+}
+
+
+async def _static_asset(request: Request) -> FileResponse | PlainTextResponse:
+    name = request.path_params["asset"]
+    media_type = _STATIC_ASSETS.get(name)
+    path = _STATIC_DIR / name
+    if media_type is None or not path.is_file():
+        return PlainTextResponse("Not found", status_code=404)
+    # A new cut ships under the same name on redeploy and the Space restarts
+    # with it, so a week of edge caching costs nothing but a stale week for
+    # anyone who visited mid-deploy.
+    return FileResponse(
+        path,
+        media_type=media_type,
+        headers={"Cache-Control": "public, max-age=604800"},
+    )
+
+
 async def _api_archetypes(_request: Request) -> JSONResponse:
     return JSONResponse(list_archetypes_metadata())
 
@@ -618,8 +675,17 @@ async def _api_passage(request: Request) -> JSONResponse:
         # Sweep is partial-tolerant: estimate_passage_windows skips windows
         # that hit ForecastHorizonError. Compute the expected count to surface
         # a meta-warning if some were dropped.
-        expected_windows = (
-            int((latest_departure - departure).total_seconds() / 3600 / sweep_interval) + 1
+        #
+        # Count against the interval the engine actually used, not the one
+        # requested: it widens the spacing when windows x segments would blow
+        # the simulation budget, and counting against the request would report
+        # the windows we never intended to run as lost to a short forecast
+        # horizon.
+        span_hours = (latest_departure - departure).total_seconds() / 3600
+        effective_interval, expected_windows = (
+            resolve_sweep_interval(span_hours, sweep_interval, len(reports[0].segments))
+            if reports
+            else (sweep_interval, int(span_hours / sweep_interval) + 1)
         )
         skipped_count = max(0, expected_windows - len(reports))
 
@@ -650,6 +716,13 @@ async def _api_passage(request: Request) -> JSONResponse:
             )
 
         meta_warnings: list[str] = []
+        if effective_interval != sweep_interval:
+            meta_warnings.append(
+                f"pas d'échantillonnage élargi à {effective_interval} h "
+                f"(au lieu de {sweep_interval} h) : la route compte "
+                f"{len(reports[0].segments)} tronçons, trop pour simuler "
+                f"autant de créneaux."
+            )
         if skipped_count > 0:
             meta_warnings.append(
                 f"{skipped_count} fenêtre(s) ignorée(s) faute de couverture météo "
@@ -677,7 +750,7 @@ async def _api_passage(request: Request) -> JSONResponse:
                 "sweep": {
                     "earliest": departure.isoformat(),
                     "latest": latest_departure.isoformat(),
-                    "interval_hours": sweep_interval,
+                    "interval_hours": effective_interval,
                     "window_count": len(windows),
                 },
                 "windows": windows,
@@ -979,6 +1052,7 @@ def build_app(mcp_app: Any) -> Starlette:
         routes=[
             Route("/", _index),
             *[Route(path, _icon_redirect, methods=["GET"]) for path in _ICON_REDIRECTS],
+            Route("/static/{asset}", _static_asset, methods=["GET"]),
             Route("/api/v1/archetypes", _api_archetypes, methods=["GET"]),
             Route("/api/v1/_client", _api_client_debug, methods=["GET"]),
             Route("/api/v1/passage", _api_passage, methods=["POST"]),

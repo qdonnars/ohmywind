@@ -9,7 +9,15 @@
 > global current model for the SHOM Atlas C2D and MARC PREVIMER atlases.
 > Free, keyless, open source.
 
+[![CI](https://github.com/qdonnars/ohmywind/actions/workflows/ci.yml/badge.svg)](https://github.com/qdonnars/ohmywind/actions/workflows/ci.yml)
+
 [**ohmywind.fr**](https://ohmywind.fr) · [MCP endpoint](https://mcp.ohmywind.fr/mcp) · [AGPL-3.0](LICENSE) + [trademark](TRADEMARK.md)
+
+> [!WARNING]
+> **Decision-support tool, not a navigation instrument.** OhMyWind does not
+> replace the official marine forecast from your national weather service,
+> up-to-date charts, or the skipper's judgement. Forecast models are sometimes
+> wrong: you remain responsible for your passage.
 
 ![OhMyWind passage plan rendered in the web app](docs/screenshots/plan.png)
 
@@ -145,8 +153,8 @@ npm run build          # outputs packages/web/dist
 
 Wind, sea (`Hs` max), per-leg ETA, 1–5 complexity. Tides and currents ignored
 on the Med (negligible). No automatic routing optimisation: the LLM and the
-human stay in the loop. Roadmap and scope decisions live in
-[`plan/`](plan/) (local).
+human stay in the loop. Roadmap and scope decisions live in a `plan/` directory kept
+local to the working copy, not published here.
 
 ## Calculation method
 
@@ -175,6 +183,36 @@ Implementation: [`packages/data-adapters/src/openwind_data/routing/passage.py`](
 
 `plan_passage` accepts an optional `latest_departure` that turns the call into a window comparison: it walks N hourly departures over the same route and returns one entry per window. Weather is fetched once (cache prewarm), simulations are in-memory. Hard cap: 14 d × 24 h = 336 windows. The LLM (not the server) picks the best option qualitatively.
 
+### Currents: why SHOM and MARC, not just the global model
+
+Open-Meteo's SMOC current field is global and 8 km wide. On the French Atlantic
+coast that is not enough: the passes where a current decides the passage are
+narrower than one grid cell. The adapter therefore stacks two coastal sources on
+top of it, the SHOM Atlas C2D and the MARC PREVIMER atlases, and falls back to
+SMOC outside their coverage.
+
+The gap is measured, not assumed. Over 120 SHOM-covered points and 24 hourly
+snapshots each (2880 pairs, seed 42), pairwise speed disagreement in knots:
+
+| Pair | mean | median | p95 | max |
+|---|---:|---:|---:|---:|
+| SHOM vs MARC | 0.293 | 0.177 | 0.951 | 2.879 |
+| SHOM vs SMOC | 0.549 | 0.385 | 1.606 | 3.907 |
+| MARC vs SMOC | 0.490 | 0.347 | 1.460 | 4.068 |
+
+Read the first row against the second. The MARC harmonic engine tracks the SHOM
+reference about twice as closely as the global model does, and direction tells
+the same story (7.3° median between SHOM and MARC, 23.6° between SHOM and SMOC).
+A p95 spread of 1.6 kn against a 5 kn boat is the difference between carrying a
+pass and fighting it. Note what this is not: SMOC adds wind-driven and Stokes
+components that SHOM's harmonic atlas leaves out, so the second row mixes
+predictor skill with a genuine physical difference and is not a pure error
+metric. The third row is the one that decided the 5 GB payload was worth
+shipping.
+
+Full report, per-atlas breakdown and method:
+[`docs/bench/currents_3way_2026-05-10_1818.md`](docs/bench/currents_3way_2026-05-10_1818.md).
+
 ### Mediterranean defaults
 
 - **Tides ignored.** < 40 cm in the Med, negligible vs. forecast uncertainty.
@@ -189,6 +227,12 @@ Implementation: [`packages/data-adapters/src/openwind_data/routing/passage.py`](
 - No port/starboard polar asymmetry, no spinnaker-specific curves, no hull condition modelling beyond the `efficiency` knob.
 
 ## Credits
+
+Tidal currents on the French Atlantic coast: SHOM Atlas C2D and MARC PREVIMER
+(Ifremer). The prebuilt atlases live in a **private** HF dataset, and stay
+private: the raw MARC NetCDF is used under a no-redistribution commitment, so
+the Space pulls them with a read token rather than shipping them here. Building
+without that token is supported and falls back to the global current model.
 
 Wind & sea: [Open-Meteo](https://open-meteo.com/) (CC BY 4.0). Hosting:
 [Hugging Face Spaces](https://huggingface.co/spaces). Map tiles on

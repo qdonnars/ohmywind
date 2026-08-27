@@ -4,7 +4,7 @@
 import { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { useTheme } from "../design/theme";
+import { useTheme } from "../design/useTheme";
 import type { SegmentReport } from "./types";
 import { cxLevel, CX_COLORS } from "./types";
 import { haversineNm, fmtNm } from "../utils/geo";
@@ -12,6 +12,7 @@ import { fmtDepthM } from "./format";
 import type { UserPosition } from "../hooks/useGeolocation";
 import { syncUserPositionLayer } from "../utils/userPositionLayer";
 import { syncSeamarkLayer } from "../utils/seamarkLayer";
+import { addBasemap, BASEMAP_MAX_ZOOM, type Basemap } from "../utils/basemapLayer";
 import type { MapView } from "../utils/mapViewParams";
 
 /** Hide a segment label when the leg is shorter than this on screen (px).
@@ -83,7 +84,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
-  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const basemapRef = useRef<Basemap | null>(null);
   const seamarkLayerRef = useRef<L.TileLayer | null>(null);
   const polylinesRef = useRef<L.Polyline[]>([]);
   const highlightLineRef = useRef<L.Polyline | null>(null);
@@ -162,23 +163,22 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
 
   // Switch tiles on theme change
   useEffect(() => {
-    if (!tileLayerRef.current) return;
-    const variant = resolvedTheme === "light" ? "light_all" : "dark_all";
-    tileLayerRef.current.setUrl(`https://{s}.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{r}.png`);
+    basemapRef.current?.setTheme(resolvedTheme);
   }, [resolvedTheme]);
 
   // Init map once
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    const map = L.map(containerRef.current, { zoomControl: false, attributionControl: false });
+    // maxZoom is declared here rather than inherited from the basemap: the
+    // GL layer is not a grid layer, so it hands the map no zoom bound.
+    const map = L.map(containerRef.current, {
+      zoomControl: false,
+      attributionControl: false,
+      maxZoom: BASEMAP_MAX_ZOOM,
+    });
 
-
-    const variant = resolvedTheme === "light" ? "light_all" : "dark_all";
-    const tile = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{r}.png`, {
-      maxZoom: 19,
-    }).addTo(map);
-    tileLayerRef.current = tile;
+    basemapRef.current = addBasemap(map, resolvedTheme);
 
     // Map credits live in the info panel rather than in the corner. The OSM
     // Foundation allows this as long as they stay findable through an info

@@ -2,11 +2,17 @@
 /**
  * Lint ratchet.
  *
- * `npm run lint` reports 26 pre-existing errors, all of the same few kinds:
- * refs written during render, setState called straight from an effect body,
- * a handful of `any`, empty catch blocks. Clearing them is not a lint chore,
- * it is the frontend work of phase 4 of the refacto plan, which lifts state
- * and effects out of the big components.
+ * `npm run lint` reports 11 pre-existing errors, now of only two kinds:
+ * refs written during render (SpotMap) and setState called straight from an
+ * effect body (App, PlanPage). Both are the frontend work of phase 4 of the
+ * refacto plan, which lifts state and effects out of the big components: the
+ * first changes when a Leaflet handler sees a fresh callback, the second means
+ * deriving during render instead of cascading. Neither is a lint chore.
+ *
+ * The other 14 were: `any` reaching into Leaflet internals, empty catch blocks,
+ * a raw NBSP, a dead local, a component declared inside a render, and two
+ * modules mixing components with plain exports. All cleared, none of them
+ * touching behaviour.
  *
  * Making lint blocking today would therefore mean either a red CI forever or
  * a rushed rewrite of the components. Neither is acceptable, so CI enforces a
@@ -17,7 +23,7 @@
  */
 import { ESLint } from "eslint";
 
-const BUDGET = 26;
+const BUDGET = 11;
 
 const eslint = new ESLint();
 const results = await eslint.lintFiles(["."]);

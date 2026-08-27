@@ -38,8 +38,10 @@ export function registerServiceWorker(): void {
  * Ask the browser whether a newer worker exists.
  *
  * Safe to call on every navigation: throttled, and failures are swallowed.
- * An update found here is applied on the next load, per the `autoUpdate`
- * registration, so nothing is swapped under the running page.
+ * A worker found here activates straight away (`skipWaiting` in the Workbox
+ * config) and the registration then reloads the page. Pages read their state
+ * from the URL at mount, so the reload lands the reader back where they were,
+ * on the new build.
  */
 export function checkForAppUpdate(): void {
   if (!registration) return;

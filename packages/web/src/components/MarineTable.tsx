@@ -156,7 +156,6 @@ function MarineCell({
   // wave is going is direction + 180. For "to" (current), no offset.
   let arrowFlip = 0;
   let renderArrow = false;
-  let renderHeader = false;
   let degText: string | null = null;
 
   switch (row.kind) {
@@ -239,8 +238,8 @@ function MarineCell({
       break;
     }
   }
-  // touch unused symbol so TS doesn't drop it (silences noUnusedLocals).
-  void renderHeader;
+  // secondary is assigned per row kind above but only read by the arrow branch;
+  // touched here so noUnusedLocals stays on for the rest of the file.
   void secondary;
 
   if (value == null) {

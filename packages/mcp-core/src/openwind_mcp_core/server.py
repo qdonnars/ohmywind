@@ -52,6 +52,7 @@ from openwind_data.routing import (
     build_conditions_summary,
     get_polar,
     list_archetypes,
+    resolve_sweep_interval,
     validate_point,
     validate_waypoints,
 )
@@ -83,6 +84,22 @@ PLAN_UI_MIME = "text/html;profile=mcp-app"
 # value still on the old brand, because the sweep that renamed everything else
 # matched "OpenWind" and "openwind.fr" and this one is lowercase and bare.
 SERVER_NAME = "ohmywind"
+
+# Usage warning attached to every plan_passage payload, single mode and
+# compare-windows alike. The tool hands back an ETA and a 1-5 complexity score
+# that a skipper may act on to decide whether to put to sea, so the caveat
+# travels with the numbers instead of living in the docs only.
+#
+# English on purpose: it is read by the model, not by the user, and the model
+# relays it in whatever language the conversation runs in. The French wording
+# shown in the web app lives in packages/web/src/plan/SafetyNotice.tsx and the
+# English one in the README. All three say the same thing; keep them in sync.
+PASSAGE_DISCLAIMER = (
+    "Decision-support tool, not a navigation instrument. OhMyWind does not "
+    "replace the official marine forecast from the national weather service, "
+    "up-to-date charts, or the skipper's judgement. Forecast models are "
+    "sometimes wrong: the skipper remains responsible for the passage."
+)
 # unpkg serves the official @modelcontextprotocol/ext-apps SDK bundle that
 # implements the ui/initialize -> ui/notifications/initialized handshake and
 # the ui/notifications/tool-result listener. Same CDN as the official
@@ -494,6 +511,8 @@ but the underlying complexity is unchanged.
 
 - No automatic routing optimisation (LLM + human choose).
 - No coastal acceleration zones (caller adds intermediate waypoints).
+- No land or obstacle check: the polyline is timed exactly as drawn,
+  so keeping it off the coast is the caller's job.
 - No port/starboard polar asymmetry, no spinnaker-specific curves.
 - No hull condition modelling beyond the `efficiency` knob.
 
@@ -639,10 +658,17 @@ def build_server(
         # would hand the tester a link to production.
         return _PLAN_WIDGET_HTML.replace("__WEB_BASE__", WEB_BASE).replace("__WEB_HOST__", WEB_HOST)
 
+    # Every tool below spells out all four hints, including the two the spec
+    # calls meaningful only when ``readOnlyHint`` is false. Redundant here by
+    # the letter of the spec, but directory validators check for four booleans
+    # rather than re-deriving the defaults, and a tool that omits them reads as
+    # unannotated to them. Eight lines is cheaper than a rejected listing.
     @server.tool(
         annotations=ToolAnnotations(
             title="Calculation method",
             readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
             openWorldHint=False,
         ),
     )
@@ -664,6 +690,8 @@ def build_server(
         annotations=ToolAnnotations(
             title="Boat archetypes",
             readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
             openWorldHint=False,
         ),
     )
@@ -679,6 +707,8 @@ def build_server(
         annotations=ToolAnnotations(
             title="Marine forecast",
             readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
             openWorldHint=True,
         ),
     )
@@ -697,6 +727,10 @@ def build_server(
             start: ISO-8601 datetime, timezone-aware (e.g. "2026-05-01T06:00:00+00:00").
             end: ISO-8601 datetime, timezone-aware.
             models: optional list of model names; defaults to AROME for the Med.
+
+        Pass a point at sea. Over land Open-Meteo still returns wind, but
+        every sea value comes back null, so the ``sea`` array is present and
+        empty of information rather than absent.
 
         Note: the first request after inactivity may incur ~5s of cold-start.
 
@@ -738,6 +772,8 @@ def build_server(
         annotations=ToolAnnotations(
             title="Plan a passage",
             readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
             openWorldHint=True,
         ),
         meta={"ui": {"resourceUri": PLAN_UI_RESOURCE_URI}},
@@ -790,6 +826,40 @@ def build_server(
         compare-windows. The widget renders one of the windows by default
         and the chat lets the user pick another.
 
+        ## Waypoints must stay in the water
+
+        This server does no land check. It samples wind and sea along the
+        polyline you pass, then reports distance, ETA and complexity for that
+        polyline, whatever it crosses. A leg drawn through a peninsula raises
+        no error: it returns a passage that is too short, too fast, and scored
+        on conditions the boat would never meet.
+
+        So the route is yours to draw. Between every consecutive pair of
+        waypoints the straight line must stay at sea. Add intermediate
+        waypoints to round anything the direct line would cut: headlands,
+        peninsulas, islands, shoals.
+
+        - Toulon to Saint-Tropez: the direct line crosses the Massif des
+          Maures. Pass south of the presqu'île de Giens, then round cap Bénat
+          and cap Camarat before turning north into the gulf.
+        - Brest to Douarnenez: the direct line crosses the presqu'île de
+          Crozon. Exit the goulet, round the cap de la Chèvre, then head east
+          into the bay.
+
+        Keep about 1 NM of clearance off headlands, more with onshore wind or
+        swell, and do not shave the inside of islands. Extra waypoints are
+        close to free: the cap is 50, and sampling cost follows
+        ``segment_length_nm`` and total distance, not the waypoint count. When
+        in doubt, add the waypoint.
+
+        A waypoint that lands ashore has a second effect. Open-Meteo returns
+        no sea state over land, so those samples carry a null wave height and
+        the complexity score silently falls back to wind only, dropping the
+        axis that would have flagged a rough passage.
+
+        Name the capes you routed around in your reply ("passage au large du
+        cap Bénat"), so the user can correct a leg you drew wrong.
+
         ## Returned payload
 
         Single mode:
@@ -800,6 +870,7 @@ def build_server(
           human-readable rationale.
         - ``openwind_url``: deep-link to ohmywind.fr/plan that renders the
           same passage in the standalone web app.
+        - ``disclaimer``: usage warning to relay (see below).
 
         Compare-windows mode (``latest_departure`` set):
 
@@ -812,6 +883,17 @@ def build_server(
           angle, hs_min/max), ``warnings``, ``passage`` (full per-segment
           report), ``complexity_full`` (full score), ``openwind_url``.
         - ``meta_warnings``: top-level notes ("3 fenêtres ignorées …").
+        - ``disclaimer``: usage warning to relay (see below).
+
+        ## ALWAYS relay the disclaimer
+
+        This tool returns an ETA and a difficulty score the user may act on to
+        decide whether to put to sea. Carry the ``disclaimer`` field into your
+        reply, once, in the user's language, phrased naturally rather than
+        quoted verbatim. Put it after the numbers, not before: it qualifies
+        them, it does not replace them. Do not drop it because the plan looks
+        easy, and do not repeat it on every follow-up turn about the same
+        passage.
 
         ## How it renders
 
@@ -848,9 +930,9 @@ def build_server(
 
         ## Args
 
-            waypoints: list of ``{"lat": ..., "lon": ...}`` dicts (>=2). Caller
-                keeps the polyline off land: add intermediate waypoints to
-                skirt capes and peninsulas.
+            waypoints: list of ``{"lat": ..., "lon": ...}`` dicts, 2 to 50.
+                Used exactly as drawn. Read "Waypoints must stay in the
+                water" above before building it.
             departure: ISO-8601 datetime, timezone-aware.
             archetype: one of ``list_boat_archetypes()`` names.
             efficiency: multiplier on polar speed. ``0.85`` racing, ``0.75``
@@ -959,6 +1041,23 @@ def build_server(
             ]
 
             meta_warnings: list[str] = []
+            # The engine widens the interval when windows x segments would blow
+            # the simulation budget, so report what the sweep actually did
+            # rather than what was asked for.
+            effective_interval = sweep_interval_hours
+            if reports:
+                effective_interval, _ = resolve_sweep_interval(
+                    (latest_dep.astimezone(UTC) - dep.astimezone(UTC)).total_seconds() / 3600,
+                    sweep_interval_hours,
+                    len(reports[0].segments),
+                )
+                if effective_interval != sweep_interval_hours:
+                    meta_warnings.append(
+                        f"pas d'échantillonnage élargi à {effective_interval} h "
+                        f"(au lieu de {sweep_interval_hours} h) : la route compte "
+                        f"{len(reports[0].segments)} tronçons, trop pour simuler "
+                        f"autant de créneaux."
+                    )
             if target_eta is not None:
                 target_utc = datetime.fromisoformat(target_eta).astimezone(UTC)
                 tolerance = timedelta(hours=2)
@@ -981,11 +1080,12 @@ def build_server(
                 "sweep": {
                     "earliest": dep.isoformat(),
                     "latest": latest_dep.isoformat(),
-                    "interval_hours": sweep_interval_hours,
+                    "interval_hours": effective_interval,
                     "window_count": len(windows),
                 },
                 "windows": windows,
                 "meta_warnings": meta_warnings,
+                "disclaimer": PASSAGE_DISCLAIMER,
             }
 
         # --- SINGLE MODE ---
@@ -1005,6 +1105,7 @@ def build_server(
             "passage": _passage_to_dict(report),
             "complexity": asdict(score),
             "openwind_url": build_ohmywind_url(waypoints, departure, archetype),
+            "disclaimer": PASSAGE_DISCLAIMER,
         }
 
     return server
