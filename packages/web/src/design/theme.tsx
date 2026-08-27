@@ -1,29 +1,32 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
-type ThemeMode = 'light' | 'dark';
+import { ThemeCtx, useTheme, type ThemeMode } from './useTheme';
 
 const STORAGE_KEY = 'ow_theme';
 
+// Every access below is guarded because both APIs throw outright, rather than
+// returning null, when the browser blocks site data: Safari in private mode
+// for localStorage, and any embedder that denies matchMedia. A theme is a
+// preference, so failing to read one falls back to the default instead of
+// taking the app down.
 function getInitialMode(): ThemeMode {
   try {
     const stored = localStorage.getItem(STORAGE_KEY) as ThemeMode | null;
     if (stored === 'light' || stored === 'dark') return stored;
-  } catch {}
+  } catch {
+    // Storage denied: fall through to the system preference.
+  }
   // No stored preference — follow system
   try {
     return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-  } catch {}
+  } catch {
+    // matchMedia denied: fall through to the default below.
+  }
   return 'dark';
 }
-
-const ThemeCtx = createContext<{
-  mode: ThemeMode;
-  resolvedTheme: ThemeMode;
-  setMode: (m: ThemeMode) => void;
-}>({ mode: 'dark', resolvedTheme: 'dark', setMode: () => {} });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>(getInitialMode);
@@ -34,7 +37,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   function setMode(m: ThemeMode) {
     setModeState(m);
-    try { localStorage.setItem(STORAGE_KEY, m); } catch {}
+    try {
+      localStorage.setItem(STORAGE_KEY, m);
+    } catch {
+      // Storage denied: the theme still applies, it just will not survive a reload.
+    }
   }
 
   return (
@@ -43,8 +50,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     </ThemeCtx.Provider>
   );
 }
-
-export function useTheme() { return useContext(ThemeCtx); }
 
 function SunIcon() {
   return (
