@@ -26,6 +26,7 @@ import { useGeolocation } from "./hooks/useGeolocation";
 import { useMapView } from "./hooks/useMapView";
 import { parseMapView, mapViewQuery } from "./utils/mapViewParams";
 import { hasDeclinedGeolocation } from "./config/geolocPreference";
+import { loadLastSpot, saveLastSpot } from "./config/lastSpot";
 
 const DEFAULT_MAP_CENTER: { lat: number; lon: number } = { lat: 43.3, lon: 5.35 };
 
@@ -57,11 +58,18 @@ function EmptyState() {
 
 function App() {
   const { customSpots, addSpot, removeSpot, renameSpot } = useCustomSpots();
-  // New users (no saved spots) land with no active spot — no auto-loaded
-  // forecasts, no wind arrows on the map. The onboarding tour invites them
-  // to drop their first one. Returning users with saved spots resume on
-  // their first favorite.
-  const [spot, setSpot] = useState<Spot | null>(() => customSpots[0] ?? null);
+  // New users (no saved spots, nothing consulted yet) land with no active
+  // spot — no auto-loaded forecasts, no wind arrows on the map. The
+  // onboarding tour invites them to drop their first one. Returning users
+  // resume on the last spot they looked at (issue #301), falling back to
+  // their first favorite if nothing was recorded yet (e.g. cleared storage).
+  const [spot, setSpot] = useState<Spot | null>(() => loadLastSpot() ?? customSpots[0] ?? null);
+  // Persist every spot the user looks at (saved or previewed) so the next
+  // visit can resume there. Skipped on null: losing the active spot (e.g.
+  // deleting the current favorite) should not erase the last useful memory.
+  useEffect(() => {
+    if (spot) saveLastSpot(spot);
+  }, [spot]);
   const { position: userPosition, status: geolocStatus, attempt: geolocAttempt, locate } = useGeolocation();
   const { view: mapView, onViewChange } = useMapView();
   const { enabled: seamarks, toggle: toggleSeamarks } = useSeamarks("explore");
@@ -148,6 +156,10 @@ function App() {
   // waking the GPS unprompted on a first visit is a poor trade.
   useEffect(() => {
     if (customSpots.length > 0) return;
+    // A restored last-consulted spot (issue #301) already gives this visit a
+    // focus, saved or not — asking for location on top of it would just be
+    // an unprompted permission popup for a returning user.
+    if (spotRef.current) return;
     // Arriving with a camera handed over by /plan: honour it. Flying to the
     // user would defeat the point of carrying the view across.
     if (initialView) return;
