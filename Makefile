@@ -16,9 +16,17 @@ help: ## Show this help
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: install
-install: ## Install every package's dependencies
+install: hooks ## Install every package's dependencies
 	@for p in $(PY_PACKAGES); do echo "→ $$p"; (cd $$p && uv sync --extra dev); done
 	npm ci
+
+# core.hooksPath est une config locale, donc absente d'un clone frais : sans
+# cette cible, chaque nouveau clone recommence à produire des commits non
+# signés. Accrochée à `install` pour qu'on n'ait jamais à y penser.
+.PHONY: hooks
+hooks: ## Activer les hooks du dépôt (signature DCO automatique)
+	git config core.hooksPath .githooks
+	@echo "hooks actifs : .githooks (Signed-off-by ajouté automatiquement)"
 
 .PHONY: test
 test: test-py test-web ## Run every test suite

@@ -43,6 +43,14 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      # core.hooksPath est une config LOCALE : elle ne voyage pas avec le
+      # clone, donc le runner repart sans hook et l'agent produit des commits
+      # non signés, exactement ce que le contrôle DCO signale ensuite sur sa
+      # propre PR. Une ligne ici couvre la seule source de commits qui échappe
+      # au `make hooks` des postes de travail.
+      - name: Activer les hooks du dépôt (signature DCO)
+        run: git config core.hooksPath .githooks
+
       # L'agent ne peut pas ouvrir les pièces jointes (pas de curl/WebFetch
       # dans son allowlist, et c'est voulu) : les images sont téléchargées
       # ICI, avant son lancement, de façon déterministe et bornée. En cas de

@@ -38,6 +38,22 @@ En signant, vous certifiez trois choses :
 Si vous avez oublié de signer, `git commit --amend -s` corrige le dernier
 commit, et `git rebase --signoff origin/dev` reprend toute la branche.
 
+### Ne plus y penser
+
+`git commit -s` fonctionne tant qu'on s'en souvient, et le dépôt a accumulé
+46 commits non signés sur 60. Le hook `.githooks/prepare-commit-msg` ajoute la
+ligne à votre place, sans doublon si vous avez déjà passé `-s`, et sans rien
+poser sur les commits de merge, que le contrôle exempte. Activez-le une fois
+par clone :
+
+```
+make hooks
+```
+
+`make install` le fait déjà, donc une installation normale suffit. Le hook
+utilise l'identité que git résoudrait de toute façon (`user.name` et
+`user.email`) : signer reste votre acte, il n'est plus votre corvée.
+
 ## Vos droits d'auteur restent les vôtres
 
 Le DCO n'est pas un CLA : vous ne cédez rien. Vous restez titulaire du droit
