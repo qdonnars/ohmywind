@@ -42,6 +42,16 @@ export function statusFromErrorCode(code: number): GeolocStatus {
   }
 }
 
+/** Status to surface after a failed request. A silent request (the app asked
+    on its own, the user asked for nothing) swallows the failure and returns
+    to idle: error bubbles are reserved for explicit taps. Notably, the very
+    first launch of the Android TWA can fail with a technical "denied" before
+    Chrome has registered the app for permission delegation, and that must
+    not greet the user with an error they did nothing to cause. */
+export function statusAfterFailure(code: number, silent: boolean): GeolocStatus {
+  return silent ? "idle" : statusFromErrorCode(code);
+}
+
 /** User-facing French copy for the failure states. Returns null when there
     is nothing to say (idle, locating, ready). */
 export function geolocMessage(status: GeolocStatus): string | null {
@@ -83,16 +93,27 @@ export function useGeolocation() {
   const [attempt, setAttempt] = useState(0);
   const stampRef = useRef(0);
   const inFlightRef = useRef<Promise<UserPosition | null> | null>(null);
+  /** Whether the in-flight request may fail without surfacing an error. */
+  const silentRef = useRef(false);
 
   const locate = useCallback(
-    (options?: PositionOptions): Promise<UserPosition | null> => {
+    (
+      options?: PositionOptions,
+      { silent = false }: { silent?: boolean } = {},
+    ): Promise<UserPosition | null> => {
       if (typeof navigator === "undefined" || !navigator.geolocation) {
-        setStatus("unavailable");
+        setStatus(silent ? "idle" : "unavailable");
         return Promise.resolve(null);
       }
       // Rapid double-taps share one browser prompt rather than queueing a
       // second permission dialog behind the first.
-      if (inFlightRef.current) return inFlightRef.current;
+      if (inFlightRef.current) {
+        // A manual tap joining an in-flight silent request lifts the
+        // silence: the user now expects feedback for this very request.
+        if (!silent) silentRef.current = false;
+        return inFlightRef.current;
+      }
+      silentRef.current = silent;
 
       setStatus("locating");
       setAttempt((n) => n + 1);
@@ -114,12 +135,13 @@ export function useGeolocation() {
             resolve(next);
           },
           (err) => {
-            const failure = statusFromErrorCode(err.code);
-            setStatus(failure);
+            setStatus(statusAfterFailure(err.code, silentRef.current));
             // Only an outright refusal is remembered. A timeout or a
             // temporarily unavailable fix says nothing about consent and
             // must not silence the automatic request forever.
-            if (failure === "denied") rememberGeolocationDecline();
+            if (statusFromErrorCode(err.code) === "denied") {
+              rememberGeolocationDecline();
+            }
             resolve(null);
           },
           { ...DEFAULT_OPTIONS, ...options },
