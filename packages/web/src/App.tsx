@@ -167,7 +167,9 @@ function App() {
     // same error bubble on every visit. The locate button still retries on
     // demand, so changing one's mind in the browser settings is enough.
     if (hasDeclinedGeolocation()) return;
-    locate({ enableHighAccuracy: false, maximumAge: 5 * 60 * 1000 }).then((fix) => {
+    // silent: an automatic request the user never made must not surface an
+    // error bubble when it fails; only the locate button reports failures.
+    locate({ enableHighAccuracy: false, maximumAge: 5 * 60 * 1000 }, { silent: true }).then((fix) => {
       // A spot picked while the fix was in flight means the user already
       // chose their focus — leave the viewport and their selection alone.
       if (fix && !spotRef.current) {

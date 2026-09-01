@@ -2,7 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { describe, it, expect } from "vitest";
-import { statusFromErrorCode, geolocMessage } from "./useGeolocation";
+import {
+  statusFromErrorCode,
+  statusAfterFailure,
+  geolocMessage,
+} from "./useGeolocation";
 
 describe("statusFromErrorCode", () => {
   it("maps PERMISSION_DENIED to denied", () => {
@@ -22,6 +26,24 @@ describe("statusFromErrorCode", () => {
     // "unavailable" beats crashing on an unmapped value.
     expect(statusFromErrorCode(0)).toBe("unavailable");
     expect(statusFromErrorCode(42)).toBe("unavailable");
+  });
+});
+
+describe("statusAfterFailure", () => {
+  it("swallows every failure of a silent request back to idle", () => {
+    // The app asked on its own (first-visit auto-locate); the user asked for
+    // nothing and must not be shown an error. Seed: the Android TWA's first
+    // launch fails with a technical "denied" before Chrome registers the
+    // app for permission delegation (no user ever saw a prompt).
+    for (const code of [1, 2, 3, 0]) {
+      expect(statusAfterFailure(code, true)).toBe("idle");
+    }
+  });
+
+  it("reports failures of an explicit request untouched", () => {
+    expect(statusAfterFailure(1, false)).toBe("denied");
+    expect(statusAfterFailure(2, false)).toBe("unavailable");
+    expect(statusAfterFailure(3, false)).toBe("timeout");
   });
 });
 
