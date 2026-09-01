@@ -15,13 +15,14 @@
   "startUrl": "/",
   "iconUrl": "https://ohmywind.fr/icon-512.png",
   "maskableIconUrl": "https://ohmywind.fr/icon-maskable-512.png",
+  "monochromeIconUrl": "https://ohmywind.fr/icon-monochrome-512.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "./android.keystore",
     "alias": "android"
   },
-  "appVersionName": "1.0.2",
-  "appVersionCode": 5,
+  "appVersionName": "1.0.3",
+  "appVersionCode": 6,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://ohmywind.fr/manifest.json",
@@ -54,5 +55,5 @@
   "additionalTrustedOrigins": [],
   "retainedBundles": [],
   "displayOverride": [],
-  "appVersion": "1.0.2"
+  "appVersion": "1.0.3"
 }
