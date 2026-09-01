@@ -14,6 +14,44 @@ export function InfoPanel() {
         À propos d'OhMyWind
       </h2>
 
+      {/* Usage disclaimer. Used to be a sticky band at the bottom of the plan
+          panel; it now lives here, first thing in the panel, so the plan view
+          stays free of a permanent warning while the caveat remains one tap
+          away. The same text also lives in the README and in the `disclaimer`
+          field of every `plan_passage` payload. Keep them in sync. */}
+      <section
+        className="mb-5 rounded-xl p-4"
+        style={{
+          background: "color-mix(in srgb, var(--ow-warn) 12%, var(--ow-bg-0))",
+          border: "1px solid var(--ow-warn-line)",
+        }}
+      >
+        <h3 className="text-sm font-semibold mb-1.5 inline-flex items-center gap-2" style={{ color: "var(--ow-fg-0)" }}>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="var(--ow-warn)"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="shrink-0"
+            aria-hidden="true"
+          >
+            <path d="M8 2 14 13H2z" />
+            <path d="M8 7v3" />
+            <circle cx="8" cy="12" r="0.5" fill="var(--ow-warn)" />
+          </svg>
+          Aide à la décision, pas un instrument de navigation.
+        </h3>
+        <p className="text-sm leading-relaxed" style={{ color: "var(--ow-fg-1)" }}>
+          OhMyWind ne remplace ni le bulletin météo marine officiel, ni des
+          cartes à jour, ni votre jugement de chef de bord. Les modèles se
+          trompent parfois : vous restez responsable de votre navigation.
+        </p>
+      </section>
+
       <section className="mb-5">
         <h3
           className="text-sm font-semibold mb-1.5 uppercase tracking-wider"
