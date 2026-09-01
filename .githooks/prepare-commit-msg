@@ -1,0 +1,42 @@
+#!/bin/sh
+# Ajoute la ligne Signed-off-by (DCO) si elle manque.
+#
+# Le contrôle DCO de CI signalait 46 commits non signés sur les 60 derniers :
+# `git commit -s` marche très bien tant qu'on y pense, et on n'y pense pas.
+# Le hook retire la question de la mémoire de qui commite, session Claude
+# comprise.
+#
+# Activé par `core.hooksPath`, que `make hooks` positionne (voir CONTRIBUTING).
+#
+# $1 = fichier du message, $2 = origine (message|template|merge|squash|commit).
+
+msg_file="$1"
+source="$2"
+
+# Les commits de merge et de squash sont exemptés par le contrôle CI, qui ne
+# regarde que les commits à un seul parent. Les signer n'ajouterait qu'un
+# trailer sur un message que personne n'a rédigé.
+case "$source" in
+  merge | squash) exit 0 ;;
+esac
+
+# L'identité du committer, pas celle de l'auteur : c'est elle que `git commit
+# -s` utilise, et c'est le committer qui atteste du DCO. `git var` applique la
+# même résolution que git (env, config locale, globale).
+ident=$(git var GIT_COMMITTER_IDENT) || exit 0
+name=${ident%% <*}
+rest=${ident#*<}
+email=${rest%%>*}
+
+[ -n "$name" ] && [ -n "$email" ] || exit 0
+
+# --if-exists addIfDifferent : `git commit -s` a déjà posé le trailer avant que
+# ce hook tourne, et un amend relit un message qui le porte déjà. Dans les deux
+# cas on ne veut pas d'un doublon, mais on veut quand même pouvoir ajouter sa
+# propre signature à côté de celle d'un autre committer.
+git interpret-trailers \
+  --in-place \
+  --where end \
+  --if-exists addIfDifferent \
+  --trailer "Signed-off-by: $name <$email>" \
+  "$msg_file"
