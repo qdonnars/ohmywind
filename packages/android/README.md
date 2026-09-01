@@ -17,13 +17,18 @@ cd packages/android
 export BUBBLEWRAP_KEYSTORE_PASSWORD='<NordPass>'
 export BUBBLEWRAP_KEY_PASSWORD='<NordPass>'
 bubblewrap update   # régénère le projet Android depuis twa-manifest.json
+./patch-monochrome.sh   # injecte l'icône thémée Android 13+ (voir ci-dessous)
 bubblewrap build    # produit app-release-bundle.aab (Play) + app-release-signed.apk (device)
 ```
+
+### Icône thémée Android 13+ (patch obligatoire)
+
+Bubblewrap (1.25.0) ne lit `monochromeIconUrl` que pour l'icône de notification, jamais pour la couche `<monochrome>` de l'icône adaptative du launcher. Sans elle, l'icône reste non thémée quand l'utilisateur active les icônes thémées. `patch-monochrome.sh` corrige le projet généré: il copie `packages/web/public/icon-monochrome-512.png` dans les ressources et ajoute la couche dans `ic_launcher.xml`. À lancer **entre** `bubblewrap update` (qui écrase le projet, donc le patch) et `bubblewrap build`. Le script est idempotent et échoue fort si le template Bubblewrap change; si une future version de la CLI gère la couche launcher nativement, le supprimer.
 
 ## Publier une mise à jour
 
 1. Incrémenter `appVersionCode` (+1, entier) et `appVersion` (lisible, ex. "1.1.0") dans `twa-manifest.json`. Attention: c'est `appVersion` que Bubblewrap lit pour le versionName du bundle; si un champ `appVersionName` est aussi présent, le garder synchronisé (incident: la 1.0.1 a failli partir étiquetée 1.0.0 parce que seul `appVersionName` avait été incrémenté).
-2. `bubblewrap update --skipVersionUpgrade` puis `bubblewrap build` (sans le flag, `update` prompte interactivement pour une nouvelle version et pollue les champs en non-interactif).
+2. `bubblewrap update --skipVersionUpgrade`, puis `./patch-monochrome.sh`, puis `bubblewrap build` (sans le flag, `update` prompte interactivement pour une nouvelle version et pollue les champs en non-interactif).
 3. Uploader `app-release-bundle.aab` sur la Play Console.
 
 Le contenu web, lui, se met à jour tout seul (c'est le site). Un rebuild n'est nécessaire que pour changer le manifest Android (icône, nom, permissions, version affichée sur le Play Store).
