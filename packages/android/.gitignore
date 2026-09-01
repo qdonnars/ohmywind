@@ -5,3 +5,4 @@
 !.gitignore
 !twa-manifest.json
 !README.md
+!patch-monochrome.sh
