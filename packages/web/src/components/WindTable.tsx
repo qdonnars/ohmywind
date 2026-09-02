@@ -10,6 +10,7 @@ import { nowParisHourPrefix } from "../domain/datetime";
 import { useTimelineScroll } from "../hooks/useTimelineScroll";
 import { useOnline } from "../hooks/useOnline";
 import { MODEL_META, type ModelName } from "../config/modelConfig";
+import { ArrowConventionNote } from "./ArrowConventionNote";
 
 function modelStep(name: string): number {
   const meta = MODEL_META[name as ModelName];
@@ -134,8 +135,11 @@ export function WindTable({
   }
 
   return (
-    <div className="animate-fade-in h-full">
-      <div className={`scroll-container h-full ${scrolledEnd ? "scrolled-end" : ""}`}>
+    // Same shape as MarineTable: a column whose scroller takes the space the
+    // note leaves, so the note sits on the bottom edge instead of scrolling
+    // away with the cells.
+    <div className="animate-fade-in min-h-0 flex flex-col">
+      <div className={`scroll-container flex-1 min-h-0 ${scrolledEnd ? "scrolled-end" : ""}`}>
         <div ref={scrollRef} className="h-full overflow-auto wind-table-scroll">
           <table className="border-collapse" role="table">
             <thead className="sticky top-0 z-20">
@@ -209,6 +213,7 @@ export function WindTable({
           </table>
         </div>
       </div>
+      <ArrowConventionNote metric="wind" />
     </div>
   );
 }
