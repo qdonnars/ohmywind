@@ -26,7 +26,8 @@ vi.mock("../../api/passage", () => ({
   fetchPassage: (...args: unknown[]) => fetchPassage(...args),
   fetchPassageWindows: (...args: unknown[]) => fetchPassageWindows(...args),
   fetchPassageByEta: (...args: unknown[]) => fetchPassageByEta(...args),
-  friendlyError: (raw: string) => `traduit: ${raw}`,
+  friendlyError: (raw: string | Error) =>
+    `traduit: ${typeof raw === "string" ? raw : raw.message}`,
 }));
 
 // The corridor sampler talks to Open-Meteo; the plan under test does not care

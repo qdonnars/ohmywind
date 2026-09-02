@@ -6,7 +6,7 @@
 
 import type { PassageReport, SegmentReport } from "./types";
 import { CX_COLORS, cxLevel } from "./types";
-import { fmtDuration, fr1 } from "./format";
+import { fmtDurationSafe, fr1 } from "./format";
 
 // ── EmptyState ────────────────────────────────────────────────────────────────
 // Shown when fewer than 2 waypoints are placed: invites the user to draw a
@@ -238,7 +238,7 @@ export function HeroStats({
     <div>
       <div className="grid grid-cols-3 gap-3 mb-3">
         <HeroCell label="Distance" value={fr1(passage.distance_nm)} unit="nm" />
-        <HeroCell label="Durée" value={fmtDuration(passage.duration_h)} />
+        <HeroCell label="Durée" value={fmtDurationSafe(passage.duration_h)} />
         <HeroCell label="Arrivée" value={fmtTime(passage.arrival_time)} />
       </div>
       <SegmentBar segments={passage.segments} />

@@ -27,7 +27,11 @@ export function SingleResults({
   const { departure, timeAnchor, isStale, forecastUpdatedAt } = state;
   const [isEditingParams, setIsEditingParams] = useState(false);
 
-  const hasWarnings = (complexity.warnings?.length ?? 0) > 0 || passage.warnings.length > 0;
+  // Both lists are guarded rather than read straight: `parse.ts` checks the
+  // shape of a live response, but a passage restored from `ow_last_simulation_v1`
+  // was written by whatever build the reader had last week.
+  const hasWarnings =
+    (complexity.warnings?.length ?? 0) > 0 || (passage.warnings?.length ?? 0) > 0;
 
   return (
     <div className="animate-fade-in">
@@ -74,7 +78,7 @@ export function SingleResults({
       {hasWarnings && (
         <div className="px-4 py-2.5 space-y-1.5" style={{ borderBottom: "1px solid var(--ow-line)" }}>
           {complexity.warnings?.map((w, i) => <Warn key={i}>{w.message}</Warn>)}
-          {passage.warnings.map((w, i) => <Warn key={`pw-${i}`}>{w}</Warn>)}
+          {passage.warnings?.map((w, i) => <Warn key={`pw-${i}`}>{w}</Warn>)}
         </div>
       )}
 

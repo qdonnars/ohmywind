@@ -1,0 +1,241 @@
+{
+  "mode": "multi_window",
+  "sweep": {
+    "earliest": "2026-09-04T08:00:00+02:00",
+    "latest": "2026-09-04T14:00:00+02:00",
+    "interval_hours": 6,
+    "window_count": 2
+  },
+  "windows": [
+    {
+      "departure": "2026-09-04T06:00:00+00:00",
+      "arrival": "2026-09-04T12:22:12.630233+00:00",
+      "duration_h": 6.37,
+      "distance_nm": 12.7,
+      "complexity": {
+        "level": 1,
+        "label": "facile",
+        "tws_max_kn": 1.3,
+        "rationale": "vent max 1 kn (calme), mer max Hs=0.2 m (plate)"
+      },
+      "conditions_summary": {
+        "tws_min_kn": 1.3,
+        "tws_max_kn": 1.3,
+        "predominant_sail_angle": "pres",
+        "hs_min_m": 0.18,
+        "hs_max_m": 0.2
+      },
+      "warnings": [
+        "vent faible : vitesse mini 2.1 kn, passage très lent",
+        "modèle meteofrance_arome_france sans données sur 1/2 points (probable hors zone de couverture) ; fallback automatique sur icon_eu"
+      ],
+      "passage": {
+        "archetype": "cruiser_30ft",
+        "departure_time": "2026-09-04T06:00:00+00:00",
+        "arrival_time": "2026-09-04T12:22:12.630233+00:00",
+        "duration_h": 6.370175064722222,
+        "distance_nm": 12.734765791098233,
+        "efficiency": 0.75,
+        "model": "meteofrance_arome_france",
+        "segments": [
+          {
+            "start": {
+              "lat": 43.29,
+              "lon": 5.37
+            },
+            "end": {
+              "lat": 43.22505759419766,
+              "lon": 5.4851226206367985
+            },
+            "distance_nm": 6.367382895548951,
+            "bearing_deg": 127.72134959289406,
+            "start_time": "2026-09-04T06:00:00+00:00",
+            "end_time": "2026-09-04T10:11:04.751238+00:00",
+            "tws_kn": 1.3,
+            "twd_deg": 117,
+            "twa_deg": 10.721349592894057,
+            "polar_speed_kn": 3,
+            "boat_speed_kn": 2.0572091949101687,
+            "duration_h": 4.184653121666667,
+            "hs_m": 0.2,
+            "wave_derate_factor": 1,
+            "current_speed_kn": 0.5399568034557235,
+            "current_direction_to_deg": 315,
+            "sog_kn": 1.5216035142240538,
+            "current_source": "openmeteo_smoc",
+            "current_confidence": "medium",
+            "gust_kn": 2.3,
+            "wave_period_s": 3.4,
+            "model_used": "meteofrance_arome_france",
+            "motor_used": false
+          },
+          {
+            "start": {
+              "lat": 43.22505759419766,
+              "lon": 5.4851226206367985
+            },
+            "end": {
+              "lat": 43.16,
+              "lon": 5.6
+            },
+            "distance_nm": 6.367382895549282,
+            "bearing_deg": 127.80024069876822,
+            "start_time": "2026-09-04T10:11:04.751238+00:00",
+            "end_time": "2026-09-04T12:22:12.630233+00:00",
+            "tws_kn": 1.3,
+            "twd_deg": 207,
+            "twa_deg": 79.19975930123178,
+            "polar_speed_kn": 4.45599679068309,
+            "boat_speed_kn": 3.3419975930123176,
+            "duration_h": 2.1855219430555555,
+            "hs_m": 0.18,
+            "wave_derate_factor": 1,
+            "current_speed_kn": 0.4319654427645788,
+            "current_direction_to_deg": 315,
+            "sog_kn": 2.9134380993497326,
+            "current_source": "openmeteo_smoc",
+            "current_confidence": "medium",
+            "gust_kn": 3.7,
+            "wave_period_s": 3.35,
+            "model_used": "icon_eu",
+            "motor_used": false
+          }
+        ],
+        "warnings": [
+          "vent faible : vitesse mini 2.1 kn, passage très lent",
+          "modèle meteofrance_arome_france sans données sur 1/2 points (probable hors zone de couverture) ; fallback automatique sur icon_eu"
+        ],
+        "max_sampling_drift_h": 3.32
+      },
+      "complexity_full": {
+        "level": 1,
+        "label": "facile",
+        "wind_level": 1,
+        "wind_label": "calme",
+        "sea_level": 1,
+        "sea_label": "plate",
+        "tws_max_kn": 1.3,
+        "hs_max_m": 0.2,
+        "rationale": "vent max 1 kn (calme), mer max Hs=0.2 m (plate)",
+        "warnings": [],
+        "wind_against_current": false,
+        "chop_present": false
+      }
+    },
+    {
+      "departure": "2026-09-04T12:00:00+00:00",
+      "arrival": "2026-09-04T16:55:07.939217+00:00",
+      "duration_h": 4.92,
+      "distance_nm": 12.7,
+      "complexity": {
+        "level": 1,
+        "label": "facile",
+        "tws_max_kn": 3.9,
+        "rationale": "vent max 4 kn (calme), mer max Hs=0.2 m (plate)"
+      },
+      "conditions_summary": {
+        "tws_min_kn": 3.5,
+        "tws_max_kn": 3.9,
+        "predominant_sail_angle": "travers",
+        "hs_min_m": 0.14,
+        "hs_max_m": 0.16
+      },
+      "warnings": [
+        "vent faible : vitesse mini 2.9 kn, passage très lent"
+      ],
+      "passage": {
+        "archetype": "cruiser_30ft",
+        "departure_time": "2026-09-04T12:00:00+00:00",
+        "arrival_time": "2026-09-04T16:55:07.939217+00:00",
+        "duration_h": 4.918872004722222,
+        "distance_nm": 12.734765791098233,
+        "efficiency": 0.75,
+        "model": "icon_eu",
+        "segments": [
+          {
+            "start": {
+              "lat": 43.29,
+              "lon": 5.37
+            },
+            "end": {
+              "lat": 43.22505759419766,
+              "lon": 5.4851226206367985
+            },
+            "distance_nm": 6.367382895548951,
+            "bearing_deg": 127.72134959289406,
+            "start_time": "2026-09-04T12:00:00+00:00",
+            "end_time": "2026-09-04T14:25:50.173715+00:00",
+            "tws_kn": 3.9,
+            "twd_deg": 198,
+            "twa_deg": 70.27865040710594,
+            "polar_speed_kn": 4.274097344189492,
+            "boat_speed_kn": 3.205573008142119,
+            "duration_h": 2.4306038097222222,
+            "hs_m": 0.16,
+            "wave_derate_factor": 1,
+            "current_speed_kn": 0.6479481641468682,
+            "current_direction_to_deg": 333,
+            "sog_kn": 2.619671239713519,
+            "current_source": "openmeteo_smoc",
+            "current_confidence": "medium",
+            "gust_kn": 13,
+            "wave_period_s": 3.2,
+            "model_used": "icon_eu",
+            "motor_used": false
+          },
+          {
+            "start": {
+              "lat": 43.22505759419766,
+              "lon": 5.4851226206367985
+            },
+            "end": {
+              "lat": 43.16,
+              "lon": 5.6
+            },
+            "distance_nm": 6.367382895549282,
+            "bearing_deg": 127.80024069876822,
+            "start_time": "2026-09-04T14:25:50.173715+00:00",
+            "end_time": "2026-09-04T16:55:07.939217+00:00",
+            "tws_kn": 3.5,
+            "twd_deg": 183,
+            "twa_deg": 55.19975930123178,
+            "polar_speed_kn": 3.807990372049271,
+            "boat_speed_kn": 2.8559927790369533,
+            "duration_h": 2.488268195,
+            "hs_m": 0.14,
+            "wave_derate_factor": 1,
+            "current_speed_kn": 0.3779697624190064,
+            "current_direction_to_deg": 346,
+            "sog_kn": 2.5589616538936273,
+            "current_source": "openmeteo_smoc",
+            "current_confidence": "medium",
+            "gust_kn": 8.6,
+            "wave_period_s": 3.2,
+            "model_used": "icon_eu",
+            "motor_used": false
+          }
+        ],
+        "warnings": [
+          "vent faible : vitesse mini 2.9 kn, passage très lent"
+        ],
+        "max_sampling_drift_h": 1.72
+      },
+      "complexity_full": {
+        "level": 1,
+        "label": "facile",
+        "wind_level": 1,
+        "wind_label": "calme",
+        "sea_level": 1,
+        "sea_label": "plate",
+        "tws_max_kn": 3.9,
+        "hs_max_m": 0.16,
+        "rationale": "vent max 4 kn (calme), mer max Hs=0.2 m (plate)",
+        "warnings": [],
+        "wind_against_current": false,
+        "chop_present": false
+      }
+    }
+  ],
+  "meta_warnings": [],
+  "forecast_updated_at": "2026-09-02T08:41:10.947160+00:00"
+}

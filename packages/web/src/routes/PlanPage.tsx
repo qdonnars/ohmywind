@@ -8,7 +8,7 @@ import { PlanSidebar } from "../plan/PlanSidebar";
 import { fetchArchetypes } from "../api/passage";
 import { Header } from "../components/Header";
 import type { PassageReport, Archetype } from "../plan/types";
-import { fmtDuration, fr1 } from "../plan/format";
+import { fmtDurationSafe, fr1 } from "../plan/format";
 import { HeroCell } from "../plan/PlanStates";
 import { loadPlanDraft } from "../plan/draft";
 import { loadLastSimulation } from "../plan/lastSimulation";
@@ -58,7 +58,7 @@ function PlanHeroStats({ passage, onOpen }: { passage: PassageReport; onOpen?: (
       style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)" }}
     >
       <HeroCell label="Distance" value={fr1(passage.distance_nm)} unit="nm" />
-      <HeroCell label="Durée" value={fmtDuration(passage.duration_h)} />
+      <HeroCell label="Durée" value={fmtDurationSafe(passage.duration_h)} />
       <HeroCell label="Arrivée" value={fmtTime(passage.arrival_time)} />
     </div>
   );
