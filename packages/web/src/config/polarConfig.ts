@@ -21,7 +21,9 @@ import cruiser40ft from "../data/polars/cruiser_40ft.json";
 import cruiser50ft from "../data/polars/cruiser_50ft.json";
 import racerCruiser from "../data/polars/racer_cruiser.json";
 
-const STORAGE_KEY = "ow_polar_config_v1";
+/** Exported so a subscriber can tell this key apart in a `storage` event. */
+export const POLAR_CONFIG_KEY = "ow_polar_config_v1";
+const STORAGE_KEY = POLAR_CONFIG_KEY;
 
 export interface PolarData {
   name: string;
@@ -441,6 +443,27 @@ export function savePolarConfig(cfg: PolarConfig): void {
   } catch {
     // localStorage unavailable / full — silent miss; next load returns default.
   }
+  // Notify in every case, including the failed write: a reader that decided
+  // what to show from this config has to re-read either way.
+  for (const listener of listeners) listener();
+}
+
+// ── change notification ──────────────────────────────────────────────────────
+//
+// The browser fires `storage` for other tabs only, so a page that both writes
+// this config and displays it (the /plan boat selector writes through to
+// /config) would never hear its own change. Readers used to cope by parsing
+// localStorage on every render. This registry is the other half of
+// `usePolarConfig`: same-tab writes come from here, cross-tab ones from the
+// `storage` event.
+
+const listeners = new Set<() => void>();
+
+export function subscribePolarConfig(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 // True when planning runs on the uploaded polar file rather than the

@@ -14,6 +14,7 @@ import { loadPlanDraft } from "../plan/draft";
 import { loadLastSimulation } from "../plan/lastSimulation";
 import { resolveInitialSession, type InitialSession } from "../plan/session/initial";
 import { usePlanSession, currentConfigFingerprint } from "../plan/session/usePlanSession";
+import { PlanProvider } from "../plan/session/PlanProvider";
 import { computeLegSegmentRanges } from "../plan/aggregateLegs";
 import { loadPolarConfig } from "../config/polarConfig";
 import { LocateButton } from "../components/LocateButton";
@@ -398,25 +399,9 @@ export function PlanPage() {
   // The whole domain state of the planner, plus the two computations and the
   // single effect that persists. See plan/session/reducer.ts.
   const { state, actions, isLoading } = usePlanSession(initial);
-  const {
-    waypoints,
-    archetype,
-    departure,
-    timeAnchor,
-    mode: planMode,
-    sweepEarliest,
-    sweepLatest,
-    sweepIntervalHours: sweepInterval,
-    passage,
-    complexity,
-    windows,
-    metaWarnings,
-    forecastUpdatedAt,
-    selectedLegIdx,
-    actionTaken,
-    isStale,
-    apiError,
-  } = state;
+  // The page itself only needs what the map and the drawer are built on; the
+  // panel reads everything else from the context below.
+  const { waypoints, passage, windows, mode: planMode, selectedLegIdx, actionTaken, isStale } = state;
 
   const waypointDepths = useWaypointDepths(waypoints);
   const [archetypes, setArchetypes] = useState<Archetype[]>([]);
@@ -512,45 +497,10 @@ export function PlanPage() {
     );
   }
 
-  // Single source of truth for PlanSidebar's props — spread into both the
-  // desktop and mobile renders below so they can't silently drift apart.
-  const sidebarProps = {
-    passage,
-    complexity,
-    isLoading,
-    error: apiError,
-    archetypes,
-    currentArchetypeSlug: archetype,
-    onArchetypeChange: actions.setArchetype,
-    onPersoSelect: actions.selectPerso,
-    departure,
-    onDepartureChange: actions.setDeparture,
-    isStale,
-    onRefetch: handleRefetch,
-    forecastUpdatedAt,
-    waypointCount: waypoints.length,
-    waypoints,
-    timeAnchor,
-    onTimeAnchorChange: actions.setTimeAnchor,
-    mode: planMode,
-    onModeChange: actions.setMode,
-    sweepEarliest,
-    sweepLatest,
-    sweepIntervalHours: sweepInterval,
-    onSweepEarliestChange: actions.setSweepEarliest,
-    onSweepLatestChange: actions.setSweepLatest,
-    onSweepIntervalChange: actions.setSweepInterval,
-    windows,
-    metaWarnings,
-    onCompareFetch: handleCompareFetch,
-    onWindowSelect: actions.selectWindow,
-    selectedLegIdx,
-    onSelectedLegChange: actions.selectLeg,
-    onReset: actions.reset,
-    actionTaken,
-  };
-
   return (
+    <PlanProvider
+      value={{ state, actions, archetypes, isLoading, compute: handleRefetch, computeWindows: handleCompareFetch }}
+    >
     <div
       className="h-dvh flex flex-col overflow-hidden"
       style={{ background: "var(--ow-bg-0)", color: "var(--ow-fg-0)" }}
@@ -651,7 +601,7 @@ export function PlanPage() {
             the planner existed twice for assistive technology. */}
         {isDesktop && (
           <ResizableDesktopSidebar defaultPx={384}>
-            <PlanSidebar {...sidebarProps} />
+            <PlanSidebar />
           </ResizableDesktopSidebar>
         )}
       </div>
@@ -674,9 +624,10 @@ export function PlanPage() {
           }
           resultsFitKey={resultsFitKey}
         >
-          <PlanSidebar {...sidebarProps} />
+          <PlanSidebar />
         </ResizableMobileDrawer>
       )}
     </div>
+    </PlanProvider>
   );
 }

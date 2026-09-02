@@ -46,3 +46,23 @@ export function fmtDepthM(m: number): string {
 export function fr1(n: number): string {
   return n.toFixed(1).replace(".", ",");
 }
+
+/** Short French weekday + date, e.g. "jeu. 3 sept.". Feeds the recap strips. */
+export function fmtDay(iso: string): string {
+  return new Date(iso).toLocaleDateString("fr-FR", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+}
+
+/** Wall clock, e.g. "08:00". */
+export function fmtClock(iso: string): string {
+  return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+}
+
+/** First letter upper-cased. `toLocaleDateString` lower-cases the weekday, and
+    the recap strip starts a sentence with it. */
+export function capitalise(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
