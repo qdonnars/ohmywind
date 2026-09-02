@@ -163,8 +163,10 @@ export function usePlanSession(initial: InitialSession): PlanSession {
   const onFailure = useCallback((requestId: number, error: unknown) => {
     // An abort is not a failure: the request was replaced or the page left.
     if (error instanceof DOMException && error.name === "AbortError") return;
-    const message = error instanceof Error ? error.message : String(error);
-    dispatch({ type: "FETCH_FAILED", requestId, error: friendlyError(message) });
+    // An ApiError carries the server's stable code; anything else only has
+    // words, and `friendlyError` falls back to matching them.
+    const reported = error instanceof Error ? error : String(error);
+    dispatch({ type: "FETCH_FAILED", requestId, error: friendlyError(reported) });
   }, []);
 
   const runSingle = useCallback(
