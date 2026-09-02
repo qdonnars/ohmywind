@@ -349,13 +349,20 @@ class OpenMeteoAdapter:
                     self._fetch_wind(client, lat, lon, fetch_start, fetch_end, m) for m in models
                 ]
                 sea_task = self._fetch_sea(client, lat, lon, fetch_start, fetch_end)
-                results = await asyncio.gather(*wind_tasks, sea_task)
+                # Two gathers rather than one flat ``gather(*wind_tasks,
+                # sea_task)``: everything still starts at once and waits
+                # together, but the wind results come back as a list of
+                # ``WindSeries`` and the sea one as a ``SeaSeries``, instead
+                # of one ``list[WindSeries | SeaSeries]`` that only an
+                # index convention told apart.
+                wind_series_list, sea_series = await asyncio.gather(
+                    asyncio.gather(*wind_tasks),
+                    sea_task,
+                )
             finally:
                 if owns_client:
                     await client.aclose()
 
-            wind_series_list: list[WindSeries] = list(results[:-1])
-            sea_series: SeaSeries = results[-1]
             full_bundle = ForecastBundle(
                 lat=lat,
                 lon=lon,

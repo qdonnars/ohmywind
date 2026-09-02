@@ -22,7 +22,7 @@ from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
-from starlette.routing import Mount, Route
+from starlette.routing import BaseRoute, Mount, Route
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from openwind_api.access import AccessLogMiddleware
@@ -137,7 +137,9 @@ def create_app(
     if services is None:
         services = Services.from_settings(settings)
 
-    routes = [
+    # ``list[BaseRoute]`` and not the inferred ``list[Route]``: the MCP app
+    # below is a ``Mount``, and Starlette takes both as ``BaseRoute``.
+    routes: list[BaseRoute] = [
         Route("/", index),
         *[Route(path, icon_redirect, methods=["GET"]) for path in ICON_REDIRECTS],
         Route("/static/{asset}", static_asset_route(settings.static_dir), methods=["GET"]),
