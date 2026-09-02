@@ -25,6 +25,7 @@ from starlette.middleware.gzip import GZipMiddleware
 from starlette.routing import Mount, Route
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from openwind_api.access import AccessLogMiddleware
 from openwind_api.routes.archetypes import api_archetypes, api_client_debug
 from openwind_api.routes.landing import ICON_REDIRECTS, icon_redirect, index, static_asset_route
 from openwind_api.routes.marine import api_marc_coverage, api_marc_overlay
@@ -157,6 +158,10 @@ def create_app(
         # headers, otherwise the browser reports an opaque CORS failure and
         # the real cause never reaches the user.
         middleware=[
+            # Outermost, so the line it logs carries the status the client
+            # really got (a 429 never reaches a handler) and the byte count
+            # that really left (compression happens inside it).
+            Middleware(AccessLogMiddleware),
             Middleware(
                 CORSMiddleware,
                 allow_origins=ALLOWED_ORIGINS,
@@ -167,7 +172,10 @@ def create_app(
                 # opts the rest in here. Without this the web app cannot tell
                 # the user how long to wait and has to guess, which is how the
                 # copy ended up hard-coding "une minute" for a 5-minute window.
-                expose_headers=["Retry-After"],
+                # X-Request-Id joins it for the same reason: the web app
+                # cannot quote an identifier in a bug report if the browser
+                # will not let it read one.
+                expose_headers=["Retry-After", "X-Request-Id"],
             ),
             # Compression sits inside CORS (so the negotiated headers are
             # never rewritten by the compressor) and outside everything that

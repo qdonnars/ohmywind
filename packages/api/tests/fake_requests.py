@@ -23,7 +23,7 @@ from openwind_data.testing import DeterministicMarineAdapter
 
 
 class FakeRequest:
-    """A JSON body, and the services a handler resolves its adapter from.
+    """A JSON body, the services a handler resolves its adapter from, a scope.
 
     ``body`` may be an ``Exception``, which ``json()`` then raises: that is how
     a malformed payload is simulated, since Starlette surfaces a decode
@@ -32,6 +32,10 @@ class FakeRequest:
     The default adapter is the deterministic stub rather than a live one, so a
     test that reaches the engine by accident fails on an assertion rather than
     on a network call.
+
+    ``scope`` is where the handler tells the access log which door the request
+    came through; see ``_note_forecast_cache``. The point of having one class
+    was that the next field would cost one edit, and this is the next field.
     """
 
     def __init__(self, body: Any, *, marine: Any = None) -> None:
@@ -41,6 +45,7 @@ class FakeRequest:
                 services=SimpleNamespace(marine=marine or DeterministicMarineAdapter())
             )
         )
+        self.scope: dict = {}
 
     async def json(self) -> Any:
         if isinstance(self._body, Exception):

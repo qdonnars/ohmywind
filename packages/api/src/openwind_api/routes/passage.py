@@ -68,6 +68,17 @@ def _adapter(request: Request, parsed: PassageRequest) -> MarineDataAdapter:
     return parsed.adapter or request.app.state.services.marine
 
 
+def _note_forecast_cache(request: Request, parsed: PassageRequest) -> None:
+    """Record which of those two doors this one came through, for the log.
+
+    From outside they are the same POST to the same path, and the ratio
+    between them is what says whether the web app's client-side sampling is
+    working in the field: one costs us CPU only, the other fans out to
+    Open-Meteo.
+    """
+    request.scope.setdefault("state", {})["forecast_cache"] = parsed.adapter is not None
+
+
 async def api_passage(request: Request) -> JSONResponse:
     """Plan a passage from a departure time, or sweep a range of them.
 
@@ -79,6 +90,7 @@ async def api_passage(request: Request) -> JSONResponse:
         body = await _json_body(request)
         departure, parsed = parse_passage_request(body, timestamp_field="departure")
         adapter = _adapter(request, parsed)
+        _note_forecast_cache(request, parsed)
         latest_raw = body.get("latest_departure")
         if latest_raw is not None:
             return await _sweep(body, departure, parsed, latest_raw, adapter)
@@ -100,6 +112,7 @@ async def api_passage_by_eta(request: Request) -> JSONResponse:
         body = await _json_body(request)
         target_arrival, parsed = parse_passage_request(body, timestamp_field="target_arrival")
         adapter = _adapter(request, parsed)
+        _note_forecast_cache(request, parsed)
     except RequestError as exc:
         return exc.response()
 

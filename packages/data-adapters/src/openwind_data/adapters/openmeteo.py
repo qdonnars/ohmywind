@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -20,6 +21,15 @@ from openwind_data.adapters.base import (
     WindPoint,
     WindSeries,
 )
+
+# Every upstream call, at DEBUG. The line carries the host, the status and
+# the duration, and never the query string: it holds the coordinates of a
+# passage, which is where a boat is going, and that does not belong in a log
+# file. Cache hits and misses are logged here too, because the ratio between
+# them is the only way to tell a deployment that is warming its cache from one
+# that is paying Open-Meteo for the same point over and over. Refusals (429)
+# and timeouts are WARNING: they change what the user sees.
+_logger = logging.getLogger(__name__)
 
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 MARINE_URL = "https://marine-api.open-meteo.com/v1/marine"
@@ -186,19 +196,48 @@ class OpenMeteoAdapter:
         the caller turns it into ``UpstreamRateLimitError`` so the reason
         reaches the user instead of being slept through.
         """
-        await self._pace_http()
-        resp = await client.get(url, params=params)
+        resp = await self._get_logged(client, url, params)
         if resp.status_code != 429:
             return resp
 
         advertised = _retry_after_seconds(resp)
         wait = RATE_LIMIT_RETRY_DEFAULT_WAIT_S if advertised is None else advertised
+        _logger.warning(
+            "open-meteo refused a request: host=%s reason=%r retry_after=%s retrying=%s",
+            httpx.URL(url).host,
+            _error_reason(resp),
+            "-" if advertised is None else f"{advertised:g}s",
+            wait <= RATE_LIMIT_RETRY_MAX_WAIT_S,
+        )
         if wait > RATE_LIMIT_RETRY_MAX_WAIT_S:
             return resp
 
         await asyncio.sleep(wait)
+        return await self._get_logged(client, url, params)
+
+    async def _get_logged(
+        self, client: httpx.AsyncClient, url: str, params: dict[str, Any]
+    ) -> httpx.Response:
+        """One paced GET, timed and logged. Never logs the query string."""
         await self._pace_http()
-        return await client.get(url, params=params)
+        started = time.perf_counter()
+        host = httpx.URL(url).host
+        try:
+            resp = await client.get(url, params=params)
+        except httpx.TimeoutException:
+            _logger.warning(
+                "open-meteo timed out: host=%s after=%.0fms",
+                host,
+                (time.perf_counter() - started) * 1000,
+            )
+            raise
+        _logger.debug(
+            "open-meteo call: host=%s status=%d dur_ms=%.0f",
+            host,
+            resp.status_code,
+            (time.perf_counter() - started) * 1000,
+        )
+        return resp
 
     async def fetch(
         self,
@@ -236,7 +275,15 @@ class OpenMeteoAdapter:
             and cached.bundle.start <= start_utc
             and cached.bundle.end >= end_utc
         ):
+            _logger.debug("forecast cache hit: lat=%.2f lon=%.2f", key.lat_round, key.lon_round)
             return _slice_bundle(cached.bundle, start_utc, end_utc)
+        _logger.debug(
+            "forecast cache miss: lat=%.2f lon=%.2f models=%d stale=%s",
+            key.lat_round,
+            key.lon_round,
+            len(models),
+            cached is not None,
+        )
 
         # Fetch a wide window so future calls with later `departure` can be served
         # from cache. If a stale-but-narrower entry exists, widen to cover both.
@@ -257,6 +304,12 @@ class OpenMeteoAdapter:
         # not cancel the fetch every other follower is waiting on.
         flight = self._inflight.get(key)
         if flight is not None and flight.start <= start_utc and flight.end >= end_utc:
+            # Logged separately from the miss above: the cache really did not
+            # answer, and what saved the round-trip was the join. Counting the
+            # two together would make the cache look better than it is.
+            _logger.debug(
+                "forecast single-flight join: lat=%.2f lon=%.2f", key.lat_round, key.lon_round
+            )
             joined = await asyncio.shield(flight.future)
             return _slice_bundle(joined, start_utc, end_utc)
 
