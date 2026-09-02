@@ -31,7 +31,7 @@
  * | mode | draft > cache > single |
  * | sweep range and step | draft > cache > derived from the departure |
  *
- * Two rules cut across the table:
+ * Three rules cut across the table:
  *
  * - **Freshness.** A departure already behind us is never seeded, whatever
  *   supplied it: a draft left overnight or a bookmarked link from last week
@@ -40,6 +40,23 @@
  *   so a link is authoritative over what this browser last computed; the cache
  *   is then read only to *restore results* for that same route, never to seed
  *   the route itself.
+ * - **A draft only outranks the URL on its own route.** The draft is read at
+ *   all only when the URL carries no waypoints, or when the URL's waypoints
+ *   are the ones the draft was started from (`draft.originWaypoints`). A URL
+ *   naming another route is a different plan, and following a link has to land
+ *   on that link. Everything the draft holds is dropped together in that case,
+ *   boat and departure included: half a draft would be neither plan.
+ *
+ *   A draft written before `originWaypoints` existed has an unknown origin and
+ *   therefore loses to any URL that carries a route.
+ *
+ * | URL waypoints | Draft origin | Who seeds the session |
+ * |---|---|---|
+ * | none | anything | the draft |
+ * | A, B | A, B | the draft |
+ * | A, B | C, D | the URL |
+ * | A, B | empty (drawn from scratch) | the URL |
+ * | A, B | unknown (pre-`originWaypoints`) | the URL |
  *
  * ## Restoring results
  *
@@ -89,6 +106,9 @@ export interface InitialSessionInput {
 
 export interface InitialSession {
   waypoints: [number, number][];
+  /** The route the next draft will say it is an edit of: the restored draft's
+      own origin, or the route this session was seeded with. */
+  originWaypoints: [number, number][];
   archetype: string;
   /** Naive local "YYYY-MM-DDTHH:MM". In arrival mode this is a target ETA. */
   departure: string;
@@ -158,6 +178,14 @@ export function resolveInitialSession(input: InitialSessionInput): InitialSessio
   const urlWaypoints = urlOk ? url.waypoints : [];
   const urlHasWaypoints = urlWaypoints.length >= 2;
 
+  // A draft speaks for the route it was started from and for no other. An
+  // unknown origin (a draft written before the field existed, or one drawn on
+  // a blank page) loses to any URL that carries a route.
+  const draftOwnsUrlRoute =
+    !urlHasWaypoints ||
+    (draft?.originWaypoints != null && waypointsEqual(draft.originWaypoints, urlWaypoints));
+  const seedDraft = draftOwnsUrlRoute ? draft : null;
+
   // The cache seeds nothing while the URL carries a route: a shared link wins
   // over what this browser happens to have computed last.
   const seedCache = urlHasWaypoints ? null : cache;
@@ -166,8 +194,8 @@ export function resolveInitialSession(input: InitialSessionInput): InitialSessio
   // ── route ──────────────────────────────────────────────────────────────────
   let waypoints: [number, number][] = [];
   let routeSource: RouteSource = "none";
-  if (draft) {
-    waypoints = draft.waypoints;
+  if (seedDraft) {
+    waypoints = seedDraft.waypoints;
     routeSource = "draft";
   } else if (urlHasWaypoints) {
     waypoints = urlWaypoints;
@@ -181,13 +209,13 @@ export function resolveInitialSession(input: InitialSessionInput): InitialSessio
   // A customized polar pins the boat to cfg.base, the hull the tuning was built
   // on and the one the selector displays, so a stale URL or cache slug from an
   // earlier session cannot silently re-board the plan on another boat (#220).
-  const draftOrUrlSlug = draft?.archetype ?? (urlOk ? url.archetype : null);
+  const draftOrUrlSlug = seedDraft?.archetype ?? (urlOk ? url.archetype : null);
   const cachedSlug = useCachedRoute ? seedCache.archetype : null;
   const archetype = initialPlanBoat(polarConfig, draftOrUrlSlug, cachedSlug);
   const boatSource: BoatSource = isPersoActive(polarConfig)
     ? "polar"
     : draftOrUrlSlug
-      ? draft?.archetype
+      ? seedDraft?.archetype
         ? "draft"
         : "url"
       : cachedSlug
@@ -200,8 +228,8 @@ export function resolveInitialSession(input: InitialSessionInput): InitialSessio
   const cachedDeparture = seedCache?.single?.departure ?? seedCache?.compare?.sweepEarliest;
   let departure: string;
   let departureSource: DepartureSource;
-  if (isFuture(draft?.departure, now)) {
-    departure = draft.departure;
+  if (isFuture(seedDraft?.departure, now)) {
+    departure = seedDraft.departure;
     departureSource = "draft";
   } else if (urlOk && isFuture(url.departure, now)) {
     departure = url.departure;
@@ -215,17 +243,20 @@ export function resolveInitialSession(input: InitialSessionInput): InitialSessio
   }
 
   // ── mode, anchor, sweep ────────────────────────────────────────────────────
-  const timeAnchor: TimeAnchor = draft?.timeAnchor ?? "departure";
-  const mode: PlanMode = draft?.mode ?? seedCache?.mode ?? "single";
+  const timeAnchor: TimeAnchor = seedDraft?.timeAnchor ?? "departure";
+  const mode: PlanMode = seedDraft?.mode ?? seedCache?.mode ?? "single";
   const sweepEarliest =
-    draft?.sweepEarliest ?? seedCache?.compare?.sweepEarliest ?? departure;
+    seedDraft?.sweepEarliest ?? seedCache?.compare?.sweepEarliest ?? departure;
   const sweepLatest =
-    draft?.sweepLatest ?? seedCache?.compare?.sweepLatest ?? defaultSweepLatest(departure);
+    seedDraft?.sweepLatest ?? seedCache?.compare?.sweepLatest ?? defaultSweepLatest(departure);
   const sweepIntervalHours =
-    draft?.sweepIntervalHours ?? seedCache?.compare?.sweepIntervalHours ?? 3;
+    seedDraft?.sweepIntervalHours ?? seedCache?.compare?.sweepIntervalHours ?? 3;
 
   const base = {
     waypoints,
+    // A restored draft keeps pointing at the route it was started from; a
+    // session seeded from the URL or the cache makes that route its own origin.
+    originWaypoints: seedDraft ? (seedDraft.originWaypoints ?? []) : waypoints,
     archetype,
     departure,
     timeAnchor,
@@ -238,8 +269,9 @@ export function resolveInitialSession(input: InitialSessionInput): InitialSessio
     windows: null,
     metaWarnings: [] as string[],
     forecastUpdatedAt: null,
-    isStale: draft != null,
-    actionTaken: urlHasWaypoints || useCachedRoute || (draft?.waypoints.length ?? 0) >= 2,
+    isStale: seedDraft != null,
+    actionTaken:
+      urlHasWaypoints || useCachedRoute || (seedDraft?.waypoints.length ?? 0) >= 2,
     center: urlOk ? url.center : null,
     urlError: urlOk ? null : url.error,
     mount: { rewriteUrl: false, fetch: false },
@@ -248,11 +280,12 @@ export function resolveInitialSession(input: InitialSessionInput): InitialSessio
 
   // ── results ────────────────────────────────────────────────────────────────
 
-  // Path 0, a draft was restored. It is this tab's most recent state, and by
-  // definition it has no results yet. Hydrating the URL's or the cache's
+  // Path 0, a draft was restored, meaning it also owns the route the URL asks
+  // for. It is this tab's most recent state, and by definition it has no
+  // results yet. Hydrating the URL's or the cache's
   // results on top would show a passage that does not match the route on
   // screen, and computing would spend a request the user did not ask for.
-  if (draft) return base;
+  if (seedDraft) return base;
 
   // Path A, the URL carries a route. Respect it, restore from cache when the
   // cache is about the same route + boat + preferences, otherwise compute. The

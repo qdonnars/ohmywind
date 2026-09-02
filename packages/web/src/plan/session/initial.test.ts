@@ -92,6 +92,9 @@ const compareBlock = (over: Partial<NonNullable<LastSimulation["compare"]>> = {}
 
 const draft = (over: Partial<PlanDraft> = {}): PlanDraft => ({
   waypoints: [TOULON, PORQUEROLLES],
+  // Par defaut le brouillon est parti de la meme route que celle qu'il porte :
+  // les tests d'avant la precedence n'avaient pas d'URL concurrente.
+  originWaypoints: over.waypoints ?? [TOULON, PORQUEROLLES],
   departure: FUTURE,
   timeAnchor: "departure",
   archetype: "racer_35ft",
@@ -121,8 +124,12 @@ function resolve(over: Partial<InitialSessionInput> = {}, polar?: PolarConfig) {
 describe("resolveInitialSession: route precedence", () => {
   it.each([
     [
-      "draft over URL and cache",
-      { draft: draft(), url: parsePlanUrl(`?wpts=${wptsParam([MARSEILLE, PORQUEROLLES])}`), cache: cache() },
+      "draft over URL and cache, quand l'URL porte la route d'origine du brouillon",
+      {
+        draft: draft({ originWaypoints: [MARSEILLE, PORQUEROLLES] }),
+        url: parsePlanUrl(`?wpts=${wptsParam([MARSEILLE, PORQUEROLLES])}`),
+        cache: cache(),
+      },
       "draft",
       [TOULON, PORQUEROLLES],
     ],
@@ -158,6 +165,72 @@ describe("resolveInitialSession: route precedence", () => {
   });
 });
 
+describe("resolveInitialSession: brouillon contre URL", () => {
+  const urlRoute = parsePlanUrl(
+    `?wpts=${wptsParam([MARSEILLE, PORQUEROLLES])}&archetype=cata_38ft&departure=${FUTURE}`,
+  );
+
+  // Le brouillon parle pour la route dont il est parti et pour aucune autre.
+  // Chaque ligne : origine du brouillon, URL, qui seme la session.
+  it.each([
+    ["URL muette, origine quelconque", [TOULON, MARSEILLE] as [number, number][], parsePlanUrl(""), "draft"],
+    ["URL muette, origine inconnue", null, parsePlanUrl(""), "draft"],
+    ["URL egale a l'origine", [MARSEILLE, PORQUEROLLES] as [number, number][], urlRoute, "draft"],
+    ["URL differente de l'origine", [TOULON, MARSEILLE] as [number, number][], urlRoute, "url"],
+    ["origine vide, dessin parti de zero", [] as [number, number][], urlRoute, "url"],
+    ["origine inconnue, brouillon d'avant le champ", null, urlRoute, "url"],
+  ])("%s => %s", (_label, origin, url, expected) => {
+    const s = resolve({ draft: draft({ originWaypoints: origin }), url });
+    expect(s.sources.route).toBe(expected);
+  });
+
+  it("laisse tomber le brouillon en entier, pas seulement sa route", () => {
+    const s = resolve({
+      draft: draft({ originWaypoints: [TOULON, MARSEILLE] }),
+      url: urlRoute,
+    });
+    expect(s.sources.route).toBe("url");
+    // Bateau, depart, mode, plage de balayage : rien du brouillon ne subsiste.
+    expect(s.archetype).toBe("cata_38ft");
+    expect(s.sources.boat).toBe("url");
+    expect(s.departure).toBe(FUTURE);
+    expect(s.sources.departure).toBe("url");
+    expect(s.mode).toBe("single");
+    expect(s.sweepIntervalHours).toBe(3);
+    // Et la page n'ouvre pas en etat perime : elle calcule ce que le lien demande.
+    expect(s.isStale).toBe(false);
+    expect(s.mount.fetch).toBe(true);
+  });
+
+  it("restaure le resultat en cache quand l'URL gagne contre le brouillon", () => {
+    const s = resolve({
+      draft: draft({ originWaypoints: [TOULON, MARSEILLE] }),
+      url: parsePlanUrl(
+        `?wpts=${wptsParam([MARSEILLE, PORQUEROLLES])}&departure=${FUTURE}`,
+      ),
+      cache: cache(),
+    });
+    expect(s.sources.route).toBe("url");
+    expect(s.passage).not.toBeNull();
+    expect(s.mount.fetch).toBe(false);
+  });
+
+  it("garde l'origine du brouillon restaure, et non sa route courante", () => {
+    const origin: [number, number][] = [MARSEILLE, PORQUEROLLES];
+    const s = resolve({ draft: draft({ originWaypoints: origin }), url: urlRoute });
+    expect(s.waypoints).toEqual([TOULON, PORQUEROLLES]);
+    expect(s.originWaypoints).toEqual(origin);
+  });
+
+  it("fait de la route semee l'origine quand il n'y a pas de brouillon", () => {
+    const fromUrl = resolve({ url: urlRoute });
+    expect(fromUrl.originWaypoints).toEqual(fromUrl.waypoints);
+    const fromCache = resolve({ cache: cache() });
+    expect(fromCache.originWaypoints).toEqual(fromCache.waypoints);
+    expect(resolve().originWaypoints).toEqual([]);
+  });
+});
+
 describe("resolveInitialSession: boat precedence", () => {
   const customized: PolarConfig = { ...defaultPolarConfig(), base: "racer_40ft", spi: "asymmetric" };
 
@@ -170,14 +243,24 @@ describe("resolveInitialSession: boat precedence", () => {
       "polar",
     ],
     [
-      "the draft over the URL",
+      "the draft over the URL, sur la route dont il est parti",
       undefined,
       {
-        draft: draft(),
+        draft: draft({ originWaypoints: [MARSEILLE, PORQUEROLLES] }),
         url: parsePlanUrl(`?wpts=${wptsParam([MARSEILLE, PORQUEROLLES])}&archetype=cata_38ft`),
       },
       "racer_35ft",
       "draft",
+    ],
+    [
+      "the URL over a draft parti d'une autre route",
+      undefined,
+      {
+        draft: draft({ originWaypoints: [TOULON, MARSEILLE] }),
+        url: parsePlanUrl(`?wpts=${wptsParam([MARSEILLE, PORQUEROLLES])}&archetype=cata_38ft`),
+      },
+      "cata_38ft",
+      "url",
     ],
     [
       "the URL over the cache",
