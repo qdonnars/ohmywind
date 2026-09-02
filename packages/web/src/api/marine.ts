@@ -267,6 +267,134 @@ function fetchMarcOverlayIfCovered(
   return fetchMarcOverlay(lat, lon, startUtcIso, endUtcIso);
 }
 
+// ── MARC overlays for a whole corridor ───────────────────────────────────────
+//
+// Coverage (#322) removed the calls that could never have carried data. What
+// remains is an Atlantic route, where every corridor point *is* covered and
+// each one was still a round trip of its own: fifteen requests, fifteen
+// harmonic evaluations, fifteen rate-limit hits, for one route. The Space now
+// takes the whole corridor in one POST and answers in the same order, one
+// element per point, each element exactly the per-point GET's body. Same
+// rate-limit bucket, one hit.
+//
+// Availability is discovered rather than configured: a deployment that
+// predates the route answers 404 or 405, and the client falls back to the
+// per-point path and remembers for the page load. Every other failure is
+// treated as "no overlay", which is what a failed per-point GET already did:
+// the corridor keeps its Open-Meteo SMOC values rather than losing its marine
+// data altogether.
+
+const MARC_BATCH_URL = `${MARC_URL}/batch`;
+
+/** Server cap. A corridor is far under it; chunking is belt and braces. */
+const MARC_BATCH_MAX_POINTS = 120;
+
+/** `null` while nothing is known, then the verdict for this page load. */
+let marcBatchAvailable: boolean | null = null;
+
+/** Test seam: the verdict is a page-load fact, and tests need several. */
+export function resetMarcBatchSupport(): void {
+  marcBatchAvailable = null;
+}
+
+/**
+ * One POST for up to `MARC_BATCH_MAX_POINTS` points.
+ *
+ * Returns `null` when the route is absent, so the caller can fall back;
+ * returns an array of nulls when the route is there but the call failed, which
+ * is the per-point behaviour on a failed GET.
+ */
+async function fetchMarcOverlayBatch(
+  points: { lat: number; lon: number }[],
+  startUtcIso: string,
+  endUtcIso: string,
+): Promise<(MarcOverlay | null)[] | null> {
+  let resp: Response;
+  try {
+    resp = await fetch(MARC_BATCH_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        points: points.map((p) => [p.lat, p.lon]),
+        start: startUtcIso,
+        end: endUtcIso,
+        step_minutes: 60,
+      }),
+    });
+  } catch {
+    // Transport failure. Not a verdict on the route: the next corridor may
+    // well succeed, so the availability flag is left alone.
+    return points.map(() => null);
+  }
+  if (resp.status === 404 || resp.status === 405) return null;
+  if (!resp.ok) return points.map(() => null);
+  let body: unknown;
+  try {
+    body = await resp.json();
+  } catch {
+    return points.map(() => null);
+  }
+  const overlays = (body as { overlays?: unknown })?.overlays;
+  // A length mismatch would silently attach one point's tide to another's
+  // position, so it is rejected whole.
+  if (!Array.isArray(overlays) || overlays.length !== points.length) {
+    return points.map(() => null);
+  }
+  return overlays.map((o) =>
+    o && typeof o === "object" ? (o as MarcOverlay) : null,
+  );
+}
+
+/**
+ * Overlays for a corridor, aligned with `points`, `null` where none applies.
+ *
+ * Points the atlases cannot cover never leave the browser. When none is
+ * covered, nothing is requested at all.
+ */
+async function fetchMarcOverlays(
+  points: { lat: number; lon: number }[],
+  startUtcIso: string,
+  endUtcIso: string,
+  atlases: MarcAtlasBox[] | null,
+): Promise<(MarcOverlay | null)[]> {
+  const out: (MarcOverlay | null)[] = points.map(() => null);
+  const covered: number[] = [];
+  for (let i = 0; i < points.length; i++) {
+    if (marcMayCover(points[i].lat, points[i].lon, atlases)) covered.push(i);
+  }
+  if (covered.length === 0) return out;
+
+  if (marcBatchAvailable !== false) {
+    const chunks: number[][] = [];
+    for (let i = 0; i < covered.length; i += MARC_BATCH_MAX_POINTS) {
+      chunks.push(covered.slice(i, i + MARC_BATCH_MAX_POINTS));
+    }
+    const answers = await Promise.all(
+      chunks.map((chunk) =>
+        fetchMarcOverlayBatch(chunk.map((i) => points[i]), startUtcIso, endUtcIso),
+      ),
+    );
+    if (answers.every((a) => a !== null)) {
+      marcBatchAvailable = true;
+      chunks.forEach((chunk, c) => {
+        chunk.forEach((i, k) => {
+          out[i] = answers[c]![k];
+        });
+      });
+      return out;
+    }
+    marcBatchAvailable = false;
+  }
+
+  const perPoint = await Promise.all(
+    covered.map((i) => fetchMarcOverlay(points[i].lat, points[i].lon, startUtcIso, endUtcIso)),
+  );
+  covered.forEach((i, k) => {
+    out[i] = perPoint[k];
+  });
+  return out;
+}
+
 // Merge MARC overlay into the OM-shaped MarineHourly, index-by-index. Tide
 // and current arrays from MARC override SMOC on matching hours; uncovered or
 // non-matching hours keep SMOC. Always populates ``tide_height_zh_m`` when
@@ -413,8 +541,9 @@ export async function fetchMarine(lat: number, lon: number): Promise<MarineHourl
  * point: 14 of them measured on a 63 NM Mediterranean leg, each a round trip
  * of its own on a browser that opens six connections at a time.
  *
- * The MARC overlay stays per point, because it is per location by nature, but
- * it is now only requested where an atlas could answer.
+ * The MARC overlay is per location by nature, but it no longer costs a request
+ * per location: it is asked only where an atlas could answer, and those points
+ * travel together in one POST (see `fetchMarcOverlays`).
  *
  * Results land in the same 30-minute per-point cache `fetchMarine` uses, so a
  * spot already looked at costs nothing here, and a corridor point looked at
@@ -470,10 +599,11 @@ export async function fetchMarineCorridor(
 
   const [startIso, endIso] = marcWindow();
   const atlases = await coveragePromise;
-  const overlays = await Promise.all(
-    missing.map((i) =>
-      fetchMarcOverlayIfCovered(coords[i].lat, coords[i].lon, startIso, endIso, atlases),
-    ),
+  const overlays = await fetchMarcOverlays(
+    missing.map((i) => coords[i]),
+    startIso,
+    endIso,
+    atlases,
   );
 
   const fetchedAt = Date.now();
