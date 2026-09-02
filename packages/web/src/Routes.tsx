@@ -5,6 +5,8 @@ import App from "./App";
 import { PlanPage } from "./routes/PlanPage";
 import { ConfigPage } from "./routes/ConfigPage";
 import { LazyPageBoundary } from "./components/LazyPageBoundary";
+import { NotFoundPage } from "./routes/NotFoundPage";
+import { matchRoute } from "./routeTable";
 import { useRouter } from "./router";
 
 // Les deux pages de documentation tirent react-markdown, remark/rehype, KaTeX
@@ -43,20 +45,31 @@ const docFallback = (
  * fast refresh stays happy.
  */
 export function Routes() {
-  const { path, search } = useRouter();
+  const { path } = useRouter();
 
-  // Keyed on the full URL so a navigation remounts the page, which is what
-  // the pages already expect: each reads its query string once, at mount.
-  // What changes versus the previous full document load is everything around
-  // it. The shell, the theme and the parsed script all survive, so switching
-  // mode no longer blanks the app.
-  const key = path + search;
+  // Keyed on the path alone, deliberately not on the full URL. A navigation
+  // still remounts the page, which is what the pages expect: each reads its
+  // query string once, at mount. What must not remount it is a *rewrite* of
+  // the query string on the page one is already on, and `/plan` does exactly
+  // that at mount when it restores a route from the cache. Keyed on the full
+  // URL, the next back press (closing a panel) re-read the location, saw a
+  // new key, and remounted the planner from its draft with the computed
+  // results gone. No link in the app goes from one query string to another
+  // under the same path, so the path is a sufficient key.
+  const key = path;
 
-  if (path === "/plan") return <PlanPage key={key} />;
-  if (path === "/methodologie")
-    return <LazyPageBoundary key={key} load={loadMethodologie} fallback={docFallback} />;
-  if (path === "/config") return <ConfigPage key={key} />;
-  if (path === "/confidentialite")
-    return <LazyPageBoundary key={key} load={loadConfidentialite} fallback={docFallback} />;
-  return <App key={key} />;
+  switch (matchRoute(path)) {
+    case "plan":
+      return <PlanPage key={key} />;
+    case "config":
+      return <ConfigPage key={key} />;
+    case "methodologie":
+      return <LazyPageBoundary key={key} load={loadMethodologie} fallback={docFallback} />;
+    case "confidentialite":
+      return <LazyPageBoundary key={key} load={loadConfidentialite} fallback={docFallback} />;
+    case "not-found":
+      return <NotFoundPage key={key} />;
+    case "explore":
+      return <App key={key} />;
+  }
 }
