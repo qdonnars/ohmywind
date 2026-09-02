@@ -10,7 +10,7 @@
  * for something the context does not carry fails here rather than at runtime.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PlanSidebar } from "./PlanSidebar";
 import { PlanProvider } from "./session/PlanProvider";
@@ -20,6 +20,7 @@ import type { InitialSession } from "./session/initial";
 import type { PlanActions } from "./session/usePlanSession";
 import type { PassageReport, ComplexityScore, PassageWindow, Archetype } from "./types";
 import { resetPolarConfigSnapshot } from "../config/usePolarConfig";
+import { fmtClock } from "../domain/datetime";
 
 const MARSEILLE: [number, number] = [43.29, 5.37];
 const PORQUEROLLES: [number, number] = [43.0, 6.2];
@@ -131,6 +132,7 @@ function stubActions(): PlanActions {
     setSweepLatest: vi.fn(),
     setSweepInterval: vi.fn(),
     selectLeg: vi.fn(),
+    selectStep: vi.fn(),
     compute: vi.fn(),
     computeWindows: vi.fn(),
     selectWindow: vi.fn(),
@@ -210,19 +212,19 @@ describe("PlanSidebar views", () => {
     expect(screen.getByText("vent faible : passage très lent")).toBeTruthy();
     expect(screen.getByText(/Croiseur 30 pieds/)).toBeTruthy();
     // One row per leg, opening the build-up on click.
-    expect(screen.getByRole("button", { name: /1→2/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^1→2/ })).toBeTruthy();
     expect(screen.getByText(/Données fraîches au/)).toBeTruthy();
   });
 
   it("hides the legs behind a recompute prompt once the route moved", () => {
     mount({ passage: passage(), complexity: complexity(), isStale: true });
     expect(screen.getByText(/Itinéraire modifié/)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /1→2/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^1→2/ })).toBeNull();
   });
 
   it("opens a leg through the session, not through local state", async () => {
     const value = mount({ passage: passage(), complexity: complexity() });
-    await userEvent.click(screen.getByRole("button", { name: /1→2/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^1→2/ }));
     expect(value.actions.selectLeg).toHaveBeenCalledWith(0);
   });
 
@@ -245,5 +247,108 @@ describe("PlanSidebar views", () => {
     const withRoute = mount();
     expect(screen.getByRole("button", { name: "Nouveau plan" })).toBeTruthy();
     expect(withRoute.actions.reset).not.toHaveBeenCalled();
+  });
+});
+
+// ── The open leg: average by default, one step on demand ─────────────────────
+// Two server segments between the two waypoints, so the single leg has two
+// steps whose wind disagrees. The actions are stubs: each test mounts the
+// session in the state the previous click would have produced.
+
+const MID: [number, number] = [43.15, 5.8];
+
+const twoStepPassage = (): PassageReport => {
+  const base = passage();
+  const [only] = base.segments;
+  return {
+    ...base,
+    segments: [
+      {
+        ...only,
+        end: { lat: MID[0], lon: MID[1] },
+        distance_nm: 27,
+        end_time: "2026-09-10T13:00:00+02:00",
+        duration_h: 5,
+        tws_kn: 6,
+        twd_deg: 290,
+      },
+      {
+        ...only,
+        start: { lat: MID[0], lon: MID[1] },
+        distance_nm: 28,
+        start_time: "2026-09-10T13:00:00+02:00",
+        duration_h: 5,
+        tws_kn: 9,
+        twd_deg: 330,
+        gust_kn: 18,
+      },
+    ],
+  };
+};
+
+describe("open leg", () => {
+  it("shows the average of the steps, and offers the detail", async () => {
+    const value = mount({ passage: twoStepPassage(), complexity: complexity(), selectedLegIdx: 0 });
+    expect(screen.getByText(/Moyenne · /)).toBeTruthy();
+    expect(screen.getByText("moyenne de 2 pas")).toBeTruthy();
+    // The wind range the average hides, and no gust in it: 18 sits on step 2.
+    expect(screen.getByText("6–9 (18) kn")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: /^Pas \d sur 2/ })).toHaveLength(2);
+
+    await userEvent.click(screen.getByRole("button", { name: "Détail" }));
+    expect(value.actions.selectStep).toHaveBeenCalledWith(0);
+  });
+
+  it("walks the steps with the arrows and the strip", async () => {
+    const value = mount({
+      passage: twoStepPassage(),
+      complexity: complexity(),
+      selectedLegIdx: 0,
+      selectedStepIdx: 1,
+    });
+    // Rendered through the same formatter as the card: the runner's clock is
+    // not Paris (a CI box sits on UTC), so the literal would read two hours off.
+    expect(screen.getByText(`${fmtClock("2026-09-10T13:00:00+02:00")} → ${fmtClock("2026-09-10T18:00:00+02:00")}`)).toBeTruthy();
+    expect(screen.getByText(/2\/2$/)).toBeTruthy();
+    expect(screen.getByText("9 (18) kn")).toBeTruthy();
+    // Last step: no next.
+    expect((screen.getByRole("button", { name: "Pas suivant" }) as HTMLButtonElement).disabled).toBe(true);
+
+    await userEvent.click(screen.getByRole("button", { name: "Pas précédent" }));
+    expect(value.actions.selectStep).toHaveBeenCalledWith(0);
+
+    // Tapping the open block returns to the average.
+    await userEvent.click(screen.getByRole("button", { name: /^Pas 2 sur 2/ }));
+    expect(value.actions.selectStep).toHaveBeenCalledWith(null);
+  });
+
+  it("opens a step from the bar under the totals, and closes it from there too", async () => {
+    const value = mount({ passage: twoStepPassage(), complexity: complexity() });
+    const cells = screen.getAllByRole("button", { name: /^Tronçon 1→2, pas \d sur 2/ });
+    expect(cells).toHaveLength(2);
+    await userEvent.click(cells[1]);
+    expect(value.actions.selectLeg).toHaveBeenCalledWith(0);
+    expect(value.actions.selectStep).toHaveBeenCalledWith(1);
+
+    cleanup();
+    const open = mount({
+      passage: twoStepPassage(),
+      complexity: complexity(),
+      selectedLegIdx: 0,
+      selectedStepIdx: 1,
+    });
+    const ringed = screen.getByRole("button", { name: /^Tronçon 1→2, pas 2 sur 2/ });
+    expect(ringed.getAttribute("aria-pressed")).toBe("true");
+    await userEvent.click(ringed);
+    expect(open.actions.selectStep).toHaveBeenCalledWith(null);
+    expect(open.actions.selectLeg).not.toHaveBeenCalled();
+  });
+
+  it("shows a single-step leg as the step itself: no average, no strip, no arrows", () => {
+    mount({ passage: passage(), complexity: complexity(), selectedLegIdx: 0 });
+    expect(screen.queryByText(/Moyenne/)).toBeNull();
+    expect(screen.getByText(`${fmtClock("2026-09-10T08:00:00+02:00")} → ${fmtClock("2026-09-10T18:00:00+02:00")}`)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Détail" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Pas / })).toBeNull();
   });
 });
