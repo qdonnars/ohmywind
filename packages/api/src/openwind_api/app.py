@@ -34,6 +34,7 @@ from openwind_api.security import (
     ALLOWED_ORIGINS,
     BodySizeLimitMiddleware,
     RateLimitMiddleware,
+    RequestDecompressionMiddleware,
     SecurityHeadersMiddleware,
 )
 from openwind_api.services import Services
@@ -186,9 +187,15 @@ def create_app(
             Middleware(PathScopedGZipMiddleware),
             Middleware(SecurityHeadersMiddleware),
             Middleware(RateLimitMiddleware),
-            # Innermost: an over-sized body is refused after it has been
-            # counted against the caller's quota, never before.
+            # An over-sized body is refused after it has been counted
+            # against the caller's quota, never before.
             Middleware(BodySizeLimitMiddleware),
+            # Innermost, so it sees the bytes the ceiling above already
+            # accepted and applies the same ceiling again to what they expand
+            # to. The order is load-bearing: a compressed body's declared
+            # length says nothing about its decompressed size, so the outer
+            # check alone would let a 40 KB request become 4 GB of JSON.
+            Middleware(RequestDecompressionMiddleware),
         ],
         lifespan=_lifespan(services, mcp_app),
     )

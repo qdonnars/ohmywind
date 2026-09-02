@@ -23,6 +23,7 @@ import logging
 import math
 import os
 import time
+import zlib
 from collections import OrderedDict, deque
 from collections.abc import Iterable
 
@@ -456,6 +457,22 @@ MAX_BODY_BYTES = int(os.environ.get("OPENWIND_MAX_BODY_BYTES", str(4 * 1024 * 10
 DEFAULT_BODY_LIMITED_PREFIX = "/api/v1"
 
 
+def body_too_large_response(max_bytes: int) -> JSONResponse:
+    """The one 413 body, wherever the ceiling is enforced.
+
+    Shared with ``RequestDecompressionMiddleware`` below: a caller who blows
+    the ceiling with 4 MiB of JSON and one who blows it with 40 KB of gzip
+    that expands past it have hit the same rule, so they read the same
+    sentence and branch on the same code.
+    """
+    megabytes = max_bytes / (1024 * 1024)
+    rendered = f"{megabytes:.0f}" if megabytes >= 1 else f"{megabytes:.2f}"
+    return JSONResponse(
+        {"error": f"request body too large (max {rendered} MB)", "code": "body_too_large"},
+        status_code=413,
+    )
+
+
 class BodySizeLimitMiddleware:
     """Refuse an over-sized request body on the REST routes with a 413.
 
@@ -489,12 +506,7 @@ class BodySizeLimitMiddleware:
         self._prefix = prefix
 
     def _too_large_response(self) -> JSONResponse:
-        megabytes = self._max_bytes / (1024 * 1024)
-        rendered = f"{megabytes:.0f}" if megabytes >= 1 else f"{megabytes:.2f}"
-        return JSONResponse(
-            {"error": f"request body too large (max {rendered} MB)", "code": "body_too_large"},
-            status_code=413,
-        )
+        return body_too_large_response(self._max_bytes)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if (
@@ -552,6 +564,240 @@ def _content_length(scope: Scope) -> int | None:
             except ValueError:
                 return None
     return None
+
+
+# ------------------------------------------------ compressed request bodies
+
+# What a caller may say it compressed the body with. ``x-gzip`` is the
+# pre-RFC-2616 spelling and still turns up in older HTTP libraries; it names
+# the same format. Anything else, ``br`` and ``zstd`` included, is refused
+# rather than guessed at: a body we cannot read is not a body we should hand
+# a JSON parser.
+GZIP_ENCODINGS = frozenset({"gzip", "x-gzip"})
+DEFLATE_ENCODINGS = frozenset({"deflate"})
+SUPPORTED_REQUEST_ENCODINGS = GZIP_ENCODINGS | DEFLATE_ENCODINGS
+
+# ``identity`` is the explicit absence of compression, and so is a missing
+# header. Both go straight through.
+_NO_ENCODING = frozenset({"", "identity"})
+
+
+class _DecompressionError(Exception):
+    """Raised inside the read loop, turned into a response by the caller."""
+
+
+class _BodyTooLargeError(_DecompressionError):
+    pass
+
+
+class _BodyNotDecodableError(_DecompressionError):
+    pass
+
+
+def unsupported_encoding_response() -> JSONResponse:
+    """415 for a Content-Encoding we do not implement."""
+    return JSONResponse(
+        {"error": "unsupported content encoding", "code": "unsupported_encoding"},
+        status_code=415,
+        # RFC 9110 5.3.4: a 415 caused by the content coding may carry the
+        # codings that would have worked, which is the only machine-readable
+        # way to say "send it plain or send it gzipped".
+        headers={"Accept-Encoding": "gzip, deflate, identity"},
+    )
+
+
+def invalid_body_encoding_response(encoding: str) -> JSONResponse:
+    """422 for a body that claims an encoding it does not actually carry."""
+    named = "gzip" if encoding in GZIP_ENCODINGS else encoding
+    return JSONResponse(
+        {"error": f"invalid {named} body", "code": "invalid_body_encoding"},
+        status_code=422,
+    )
+
+
+def _deflate_window_bits(head: bytes) -> int:
+    """zlib-wrapped or raw deflate, decided by the first two bytes.
+
+    ``Content-Encoding: deflate`` is specified as the zlib format (RFC 1950)
+    and is sent as a bare deflate stream (RFC 1951) by a long tail of clients
+    that read the name literally. Both are unambiguous on the wire: a zlib
+    header is a byte whose low nibble is 8 followed by a byte that makes the
+    pair a multiple of 31, and no raw deflate block can start that way often
+    enough to matter. Sniffing costs two bytes; refusing half the callers over
+    a naming accident from 1996 costs more.
+    """
+    if len(head) >= 2:
+        cmf, flg = head[0], head[1]
+        if cmf & 0x0F == 8 and ((cmf << 8) | flg) % 31 == 0:
+            return zlib.MAX_WBITS
+    return -zlib.MAX_WBITS
+
+
+class RequestDecompressionMiddleware:
+    """Decompress a ``Content-Encoding: gzip`` request body, under the ceiling.
+
+    The web client posts a ``forecast_cache`` that measured 48 KB in clear
+    text and 1.5 KB gzipped, which is the difference between a plan that
+    starts immediately on a marina 4G link and one that spends a second
+    uploading. The responses have been compressed since PR 0.5; this is the
+    other direction.
+
+    Why this cannot simply be ``BodySizeLimitMiddleware`` with a decompressor
+    bolted on: that middleware's whole job is to decide from
+    ``Content-Length``, and the declared length of a compressed body says
+    nothing about what it expands to. gzip's maximum ratio is about 1030:1, so
+    a 4 MiB body the ceiling happily accepts can carry 4 GiB of zeroes. **The
+    ceiling that matters here is on the decompressed bytes**, and it is
+    enforced as they are produced: ``decompress(max_length=...)`` never
+    materialises more than what is left of the budget, so a bomb is refused
+    having allocated a few kilobytes, not a few gigabytes.
+
+    Placed innermost, inside ``BodySizeLimitMiddleware``, which therefore
+    still bounds the *compressed* bytes we agree to read at all, and inside
+    the rate limiter, so a caller shovelling bombs still burns quota.
+
+    ``/mcp`` never reaches here: the prefix is the REST surface, and the MCP
+    transport owns its own framing.
+    """
+
+    _BODYLESS_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "DELETE"})
+
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        max_bytes: int = MAX_BODY_BYTES,
+        prefix: str = DEFAULT_BODY_LIMITED_PREFIX,
+    ) -> None:
+        self.app = app
+        self._max_bytes = max_bytes
+        self._prefix = prefix
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if (
+            scope["type"] != "http"
+            or scope.get("method", "").upper() in self._BODYLESS_METHODS
+            or not scope.get("path", "").startswith(self._prefix)
+        ):
+            await self.app(scope, receive, send)
+            return
+
+        encoding = _content_encoding(scope)
+        if encoding in _NO_ENCODING:
+            await self.app(scope, receive, send)
+            return
+
+        # Recorded before the support check, so the access log can say what a
+        # 415 was refused for without the header having to be logged.
+        scope.setdefault("state", {})["request_encoding"] = encoding
+
+        if encoding not in SUPPORTED_REQUEST_ENCODINGS:
+            await unsupported_encoding_response()(scope, receive, send)
+            return
+
+        try:
+            chunks, total = await self._read_decompressed(receive, encoding)
+        except _BodyTooLargeError:
+            await body_too_large_response(self._max_bytes)(scope, receive, send)
+            return
+        except _BodyNotDecodableError:
+            await invalid_body_encoding_response(encoding)(scope, receive, send)
+            return
+
+        # The app downstream must see the body it is about to read: the
+        # encoding is gone, and the length is the decompressed one. Leaving
+        # the compressed Content-Length in place would misinform anything that
+        # trusts it, starting with a future middleware of our own.
+        scope["headers"] = [
+            (name, value)
+            for name, value in scope.get("headers", ())
+            if name not in (b"content-encoding", b"content-length")
+        ] + [(b"content-length", str(total).encode("latin-1"))]
+
+        queued = list(chunks) or [b""]
+
+        async def replay() -> Message:
+            if queued:
+                body = queued.pop(0)
+                return {"type": "http.request", "body": body, "more_body": bool(queued)}
+            return await receive()
+
+        await self.app(scope, replay, send)
+
+    async def _read_decompressed(self, receive: Receive, encoding: str) -> tuple[list[bytes], int]:
+        """Drain the compressed stream into decompressed chunks, or refuse.
+
+        Never holds more than ``max_bytes`` of output, and never asks zlib for
+        more than the budget still allows in a single call.
+        """
+        decompressor: zlib._Decompress | None = None
+        chunks: list[bytes] = []
+        total = 0
+        more = True
+        while more:
+            message = await receive()
+            if message["type"] != "http.request":
+                # A disconnect mid-upload. Stop reading; the eof check below
+                # will call the truncated body what it is, and the response
+                # goes nowhere because the client has gone.
+                break
+            data = message.get("body", b"")
+            more = message.get("more_body", False)
+            if not data:
+                continue
+            if decompressor is None:
+                window = (
+                    zlib.MAX_WBITS | 16
+                    if encoding in GZIP_ENCODINGS
+                    else _deflate_window_bits(data)
+                )
+                decompressor = zlib.decompressobj(window)
+            while data:
+                budget = self._max_bytes - total
+                try:
+                    # ``max_length=budget + 1`` is the bomb guard: one byte
+                    # over the ceiling is all that is ever allocated, and it
+                    # is enough to know the body is over it.
+                    produced = decompressor.decompress(data, max_length=budget + 1)
+                except zlib.error as exc:
+                    raise _BodyNotDecodableError(str(exc)) from exc
+                total += len(produced)
+                if total > self._max_bytes:
+                    raise _BodyTooLargeError()
+                if produced:
+                    chunks.append(produced)
+                # Non-empty only when ``max_length`` cut the call short, so
+                # the budget strictly shrinks each time round and this ends.
+                data = decompressor.unconsumed_tail
+
+        if decompressor is None:
+            # ``Content-Encoding: gzip`` and nothing to decode: an empty
+            # stream is not a valid member of either format.
+            raise _BodyNotDecodableError("empty body")
+        if not decompressor.eof:
+            # zlib does not raise on a stream that simply stops early, so a
+            # truncated upload would otherwise reach the handler as a
+            # half-parsed body and be reported as invalid JSON.
+            raise _BodyNotDecodableError("truncated stream")
+        if decompressor.unused_data:
+            # Bytes after the end of the stream. Concatenated gzip members are
+            # legal in the format and are not something any client of this API
+            # produces; silently dropping them would truncate the body.
+            raise _BodyNotDecodableError("trailing data after the compressed stream")
+        return chunks, total
+
+
+def _content_encoding(scope: Scope) -> str:
+    """Declared body encoding, lowercased and trimmed, ``""`` when absent.
+
+    A list of codings (``gzip, gzip``) is refused rather than unwrapped: it
+    does not occur outside a test suite, and layered decompression is a second
+    place for a bomb to hide.
+    """
+    for name, value in scope.get("headers", ()):
+        if name == b"content-encoding":
+            return value.decode("latin-1").strip().lower()
+    return ""
 
 
 # ---------------------------------------------------------- security headers

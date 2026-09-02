@@ -40,6 +40,12 @@ If a collector ever appears, this is the single place to change.
     it separates the requests that cost us an upstream fan-out from the ones
     that cost us only CPU.
 ``bucket`` the rate-limit bucket's fingerprint, ``sha256(ip)[:8]``.
+``enc`` the ``Content-Encoding`` the request declared, and only when it
+    declared one. Absent from the overwhelming majority of lines on purpose:
+    a plain request logs exactly what it logged before compressed bodies
+    existed, and ``enc=gzip`` reads as the exception it is. It is what tells
+    a 415 caused by ``br`` apart from one caused by anything else, without
+    the header itself ever being logged.
 
 ## Addresses
 
@@ -155,9 +161,11 @@ class AccessLogMiddleware:
         self, scope: Scope, request_id: str, status: int, started: float, body_bytes: int
     ) -> None:
         duration_ms = (time.perf_counter() - started) * 1000
-        cached = scope.get("state", {}).get("forecast_cache")
+        state = scope.get("state", {})
+        cached = state.get("forecast_cache")
+        encoding = state.get("request_encoding")
         _logger.info(
-            "id=%s method=%s path=%s status=%d dur_ms=%.1f bytes=%d cache=%s bucket=%s",
+            "id=%s method=%s path=%s status=%d dur_ms=%.1f bytes=%d cache=%s bucket=%s%s",
             _field(request_id),
             _field(scope.get("method", "-")),
             _field(scope.get("path", "-")),
@@ -166,4 +174,5 @@ class AccessLogMiddleware:
             body_bytes,
             "-" if cached is None else ("yes" if cached else "no"),
             _field(bucket_id(scope)),
+            "" if encoding is None else f" enc={_field(encoding)}",
         )
