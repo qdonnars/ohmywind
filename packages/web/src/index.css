@@ -12,7 +12,17 @@
    sortir aucune requete vers Google.
 
    Les deux familles sont sous SIL Open Font License 1.1, texte complet
-   dans public/fonts/inter-OFL.txt et jetbrains-mono-OFL.txt.
+   dans public/fonts/inter-OFL.txt et jetbrains-mono-OFL.txt (les licences
+   restent dans public/ pour etre servies telles quelles ; seuls les .woff2
+   sont passes par src/assets).
+
+   Les fichiers vivent dans src/assets/fonts/ et non dans public/fonts/ :
+   Vite les hache et reecrit ces url(), ce qui les fait entrer dans le
+   precache du service worker en revision nulle. Depuis public/, leur nom
+   etant fixe, Workbox les precachait avec une requete ?__WB_REVISION__ qui
+   contourne le cache HTTP : la police du premier ecran etait telechargee
+   deux fois a chaque visite a froid. En /assets/ elles heritent en prime du
+   Cache-Control immutable d'un an pose par _headers.
 
    Fichiers recuperes depuis l'API Google Fonts css2 (Inter v20,
    JetBrains Mono v24), sous-ensembles latin et latin-ext seulement.
@@ -27,7 +37,7 @@
   font-style: normal;
   font-weight: 400 800;
   font-display: swap;
-  src: url('/fonts/inter-latin.woff2') format('woff2');
+  src: url('./assets/fonts/inter-latin.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
@@ -36,7 +46,7 @@
   font-style: normal;
   font-weight: 400 800;
   font-display: swap;
-  src: url('/fonts/inter-latin-ext.woff2') format('woff2');
+  src: url('./assets/fonts/inter-latin-ext.woff2') format('woff2');
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
@@ -45,7 +55,7 @@
   font-style: normal;
   font-weight: 400 500;
   font-display: swap;
-  src: url('/fonts/jetbrains-mono-latin.woff2') format('woff2');
+  src: url('./assets/fonts/jetbrains-mono-latin.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
@@ -54,7 +64,7 @@
   font-style: normal;
   font-weight: 400 500;
   font-display: swap;
-  src: url('/fonts/jetbrains-mono-latin-ext.woff2') format('woff2');
+  src: url('./assets/fonts/jetbrains-mono-latin-ext.woff2') format('woff2');
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 

@@ -58,7 +58,49 @@ export default defineConfig({
         // precacher coutait ~330 KB de reseau a la premiere visite et autant
         // de stockage, pour des pages que la plupart des visiteurs n'ouvrent
         // jamais et qui n'ont pas besoin de fonctionner hors ligne.
-        globIgnores: ['**/KaTeX_*', 'methodologie/**', 'polars/**'],
+        // /methodologie et /confidentialite sont chargees a la demande et n'ont
+        // aucune raison de fonctionner hors ligne : ce sont des pages de
+        // lecture, pas la coque de l'application. Restent donc hors precache
+        // leurs chunks, leur CSS, le schema de segmentation et les polices
+        // KaTeX. Le chunk partage lib-*.js n'est importe que par ces deux
+        // pages (verifie sur la sortie de build : le chunk d'entree n'importe
+        // que maplibre et le runtime rolldown) ; si un jour l'entree en
+        // dependait, il faudrait le remettre au precache sous peine de casser
+        // le mode hors ligne.
+        globIgnores: [
+          '**/KaTeX_*',
+          'methodologie/**',
+          'polars/**',
+          '**/MethodologiePage-*',
+          '**/ConfidentialitePage-*',
+          '**/lib-*.js',
+          '**/segmentation-*.svg',
+        ],
+        // compass.png et favicon.svg vivent dans public/ : leur nom ne porte
+        // pas de hash, donc Workbox les precache avec une requete
+        // ?__WB_REVISION__=... qui contourne le cache HTTP et les retelecharge
+        // alors que la page vient tout juste de les tirer. Les declarer ici les
+        // fait entrer au precache en revision nulle : une seule requete, servie
+        // depuis le cache HTTP du navigateur.
+        //
+        // Le `^assets/` reprend la valeur que vite-plugin-pwa pose par defaut
+        // (`new RegExp('^' + assetsDir)`). Cette option remplace ce defaut au
+        // lieu de s'y ajouter : l'oublier redonnerait une revision a tout le
+        // bundle hache, soit un precache entierement reconstruit a chaque
+        // deploiement.
+        //
+        // Contrepartie a connaitre pour les deux fichiers de public/ : ils
+        // deviennent immuables aux yeux du precache. Si leur contenu change un
+        // jour, il faut changer leur nom (suffixe de version), sinon les
+        // installations existantes gardent l'ancienne version. index.html n'est
+        // volontairement pas de la partie, son contenu change a chaque
+        // deploiement.
+        //
+        // Les polices, elles, sont passees par src/assets : Vite les hache et
+        // les sert depuis /assets/, ou elles entrent au precache en revision
+        // nulle sans rien declarer et heritent du Cache-Control immutable d'un
+        // an de _headers.
+        dontCacheBustURLsMatching: /^assets\/|^(compass\.png|favicon\.svg)$/,
         // Drop stale precaches when a new SW activates.
         cleanupOutdatedCaches: true,
         // SPA fallback so deep links (/plan, /config, ...) resolve offline.
