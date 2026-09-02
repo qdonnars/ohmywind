@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo } from "react";
 import type { MarineHourly, ModelForecast, MetricView } from "../types";
 import { TimelineHeader } from "./TimelineHeader";
 import { useTimezone } from "../hooks/useTimezone";
 import { nowParisHourPrefix } from "../domain/datetime";
 import { currentsLevel, tidesLevel, wavesLevel, windLevelVar } from "../domain/thresholds";
+import { useTimelineScroll } from "../hooks/useTimelineScroll";
 
 type MarineMetric = Exclude<MetricView, "wind">;
 
@@ -48,13 +49,18 @@ const CELL_W = 36;
 interface MarineCellProps {
   row: RowConfig;
   marine: MarineHourly;
+  /** The hour this cell reads, handed back to `onSelect`. */
+  time: string;
   timeIdx: number | undefined;
   // Previous tide value at this position; powers the rising/falling indicator.
   prevTide: number | null;
   selected: boolean;
   isNow: boolean;
   isDayStart: boolean;
-  onSelect: () => void;
+  /** Takes the hour rather than closing over it, so the parent can pass one
+      stable function for the whole table instead of one closure per cell.
+      Without that, `memo` below would miss on every render. */
+  onSelect: (time: string) => void;
 }
 
 function NullCell({
@@ -79,9 +85,10 @@ function NullCell({
   );
 }
 
-function MarineCell({
+function MarineCellImpl({
   row,
   marine,
+  time,
   timeIdx,
   prevTide,
   selected,
@@ -92,6 +99,7 @@ function MarineCell({
   const nowBorder = isNow ? "border-l-2 border-l-teal-400" : "";
   const daySepClass = !isNow && isDayStart ? "ow-day-sep" : "";
   const selectedStyle = selected ? "ring-2 ring-teal-400/70 ring-inset bg-teal-400/10" : "";
+  const select = () => onSelect(time);
 
   if (timeIdx == null) {
     return (
@@ -99,7 +107,7 @@ function MarineCell({
         nowBorder={nowBorder}
         daySepClass={daySepClass}
         selectedStyle={selectedStyle}
-        onSelect={onSelect}
+        onSelect={select}
       />
     );
   }
@@ -207,7 +215,7 @@ function MarineCell({
         nowBorder={nowBorder}
         daySepClass={daySepClass}
         selectedStyle={selectedStyle}
-        onSelect={onSelect}
+        onSelect={select}
       />
     );
   }
@@ -219,7 +227,7 @@ function MarineCell({
         role="cell"
         className={`wind-cell min-w-[32px] lg:min-w-[56px] h-10 lg:h-14 text-center align-middle p-0 cursor-pointer ${nowBorder} ${daySepClass} ${selectedStyle}`}
         style={{ background: "var(--ow-bg-1)", color: "var(--ow-fg-1)" }}
-        onClick={onSelect}
+        onClick={select}
         aria-label={aria}
       >
         <div className="flex flex-col items-center justify-center leading-none gap-[1px]">
@@ -256,7 +264,7 @@ function MarineCell({
         role="cell"
         className={`wind-cell min-w-[32px] lg:min-w-[56px] h-10 lg:h-14 text-center align-middle p-0 cursor-pointer ${nowBorder} ${daySepClass} ${selectedStyle}`}
         style={{ background: "var(--ow-bg-1)", color: "var(--ow-fg-1)" }}
-        onClick={onSelect}
+        onClick={select}
         aria-label={aria}
       >
         <div className="flex flex-col items-center justify-center leading-none">
@@ -279,7 +287,7 @@ function MarineCell({
       role="cell"
       className={`wind-cell min-w-[32px] lg:min-w-[56px] h-10 lg:h-14 text-center align-middle p-0 cursor-pointer ${nowBorder} ${daySepClass} ${selectedStyle}`}
       style={{ backgroundColor: bg, color }}
-      onClick={onSelect}
+      onClick={select}
       aria-label={aria}
     >
       <div className="flex flex-col items-center justify-center leading-none gap-[2px]">
@@ -318,6 +326,44 @@ function MarineCell({
   );
 }
 
+/**
+ * A 7-day marine timeline is 168 cells per row, and up to three rows, so
+ * tapping one hour used to re-render 500 cells to change two. Every prop is a
+ * scalar except `row` and `marine`, which the table memoises so the default
+ * shallow comparison holds.
+ */
+const MarineCell = memo(MarineCellImpl);
+
+/**
+ * Which way the arrows read, said out loud (issue #269).
+ *
+ * The two rows do not share a convention, and nothing on screen said so. The
+ * arrow always follows the movement, but the degrees follow the convention of
+ * the source: a wave direction is where the swell comes FROM, a current
+ * direction is where the water sets TO. A reader comparing the two numbers
+ * without that key concludes the figures contradict each other.
+ */
+function ArrowConventionNote({ metric }: { metric: MarineMetric }) {
+  const text =
+    metric === "waves"
+      ? "Les flèches suivent le déplacement de la houle. Les degrés donnent la direction d'où elle vient, comme le vent."
+      : metric === "currents"
+        ? "La flèche et les degrés donnent tous deux la direction vers laquelle le courant porte, à l'inverse du vent et des vagues qui se lisent d'où ils viennent."
+        : "Hauteurs d'eau au-dessus du niveau de référence indiqué.";
+  return (
+    <p
+      className="shrink-0 px-3 py-1.5 text-[10px] leading-snug border-t"
+      style={{
+        color: "var(--ow-fg-2)",
+        borderColor: "var(--ow-line-2)",
+        background: "var(--ow-bg-1)",
+      }}
+    >
+      {text}
+    </p>
+  );
+}
+
 interface MarineTableProps {
   metric: MarineMetric;
   marine: MarineHourly;
@@ -335,9 +381,6 @@ export function MarineTable({
   selectedHour,
   onSelectHour,
 }: MarineTableProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [scrolledEnd, setScrolledEnd] = useState(false);
-  const [visibleDay, setVisibleDay] = useState("");
   const [timezoneMode] = useTimezone();
 
   const masterTimeline = useMemo(() => {
@@ -352,76 +395,25 @@ export function MarineTable({
     return m;
   }, [marine.time]);
 
-  const dayStarts = useMemo(() => {
-    const set = new Set<string>();
-    let prev = "";
-    for (const t of masterTimeline) {
-      const day = t.slice(0, 10);
-      if (day !== prev) {
-        set.add(t);
-        prev = day;
-      }
-    }
-    return set;
-  }, [masterTimeline]);
-
   const nowHour = nowParisHourPrefix();
-
-  // Persisted across spot switches: see WindTable for the same pattern.
-  const leftmostHourRef = useRef<string | null>(null);
-
-  const updateVisibleDay = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el || masterTimeline.length === 0) return;
-    const leftmostIdx = Math.max(0, Math.floor(el.scrollLeft / CELL_W));
-    const t = masterTimeline[Math.min(leftmostIdx, masterTimeline.length - 1)];
-    if (t) {
-      setVisibleDay(t.slice(0, 10));
-      leftmostHourRef.current = t;
-    }
-  }, [masterTimeline]);
-
-  const checkScrollEnd = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 10;
-    setScrolledEnd(atEnd);
-    updateVisibleDay();
-  }, [updateVisibleDay]);
-
-  useEffect(() => {
-    if (!scrollRef.current || masterTimeline.length === 0) return;
-    // Same anchor restoration as WindTable. Initial scroll-to-now keeps a
-    // 60px context offset; restoration from an anchor lands exactly on
-    // the leftmost cell to avoid pixel drift across spot switches.
-    const hasAnchor = leftmostHourRef.current != null;
-    const anchor = leftmostHourRef.current ?? nowHour;
-    const idx = masterTimeline.findIndex((t) => t.startsWith(anchor.slice(0, 13)));
-    const nearestIdx =
-      idx >= 0 ? idx : masterTimeline.findIndex((t) => t > anchor.slice(0, 13));
-    if (nearestIdx > 0) {
-      const offset = hasAnchor ? 0 : 60;
-      scrollRef.current.scrollLeft = Math.max(0, nearestIdx * CELL_W - offset);
-    }
-    checkScrollEnd();
-  }, [masterTimeline, nowHour, checkScrollEnd]);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.addEventListener("scroll", checkScrollEnd, { passive: true });
-    return () => el.removeEventListener("scroll", checkScrollEnd);
-  }, [checkScrollEnd]);
-
-  const rows = rowsForMetric(metric, marine);
+  const { scrollRef, scrolledEnd, visibleDay, dayStarts } = useTimelineScroll(
+    masterTimeline,
+    CELL_W,
+    nowHour,
+  );
+  // Memoised so the identity of `row` does not defeat MarineCell's memo.
+  const rows = useMemo(() => rowsForMetric(metric, marine), [metric, marine]);
   // The series powering the rising/falling indicator follows the same source
   // as the displayed cell (ZH when MARC covers, MSL otherwise). Linear shift
   // doesn't change the sign of deltas, but we keep the references consistent.
   const tideSeries = marine.tide_height_zh_m ?? marine.tide_height_m;
 
+  // One function for the whole table, not one closure per cell.
+  const selectHour = useCallback((t: string) => onSelectHour(t), [onSelectHour]);
+
   return (
-    <div className="animate-fade-in h-full">
-      <div className={`scroll-container h-full ${scrolledEnd ? "scrolled-end" : ""}`}>
+    <div className="animate-fade-in h-full flex flex-col">
+      <div className={`scroll-container flex-1 min-h-0 ${scrolledEnd ? "scrolled-end" : ""}`}>
         <div ref={scrollRef} className="h-full overflow-auto wind-table-scroll">
           <table className="border-collapse" role="table">
             <thead className="sticky top-0 z-20">
@@ -479,7 +471,8 @@ export function MarineTable({
                         selected={t === selectedHour}
                         isNow={t.startsWith(nowHour)}
                         isDayStart={dayStarts.has(t) && i > 0}
-                        onSelect={() => onSelectHour(t)}
+                        time={t}
+                        onSelect={selectHour}
                       />
                     );
                   })}
@@ -489,6 +482,7 @@ export function MarineTable({
           </table>
         </div>
       </div>
+      <ArrowConventionNote metric={metric} />
     </div>
   );
 }
