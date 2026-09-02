@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import ipaddress
 import logging
 import math
 import os
@@ -173,6 +174,43 @@ def forwarded_hop_count(scope: Scope) -> int:
     return 0
 
 
+# A single address is not what a caller controls. A phone on IPv6 gets a /64
+# from its carrier and picks its own interface identifier inside it, rotating
+# it on a timer (RFC 8981 temporary addresses) or on demand. Keying the
+# limiter on the full address therefore hands one subscriber 2^64 buckets:
+# the quota is unenforceable, and worse, the LRU store that tracks at most
+# 5 000 addresses is evicted out from under every legitimate caller by one
+# client cycling through its own prefix.
+#
+# The prefix is the unit an operator actually assigns, so it is the unit the
+# limiter counts. /64 for IPv6, which is the smallest allocation any carrier
+# or ISP hands to a customer site and the smallest that cannot be picked by
+# the customer. /32 for IPv4, i.e. the address itself: NAT already collapses
+# a household or a marina onto one address, and grouping further would put a
+# whole carrier behind one bucket.
+IPV6_PREFIX_BITS = 64
+IPV4_PREFIX_BITS = 32
+
+
+def rate_limit_key(scope: Scope) -> str:
+    """The network this caller counts against, as a stable string.
+
+    ``"203.0.113.7/32"`` or ``"2001:db8:dead:beef::/64"``. An address the
+    stdlib cannot parse is used verbatim: that covers ``"unknown"`` (no
+    header, no transport address) and any malformed entry a client managed to
+    place at the trusted position, and both must still be counted rather than
+    waved through. Grouping every unparseable value into one bucket is the
+    safe direction: it can throttle unfairly, never exempt.
+    """
+    raw = resolve_client_ip(scope)
+    try:
+        address = ipaddress.ip_address(raw)
+    except ValueError:
+        return raw
+    bits = IPV4_PREFIX_BITS if address.version == 4 else IPV6_PREFIX_BITS
+    return str(ipaddress.ip_network(f"{address}/{bits}", strict=False))
+
+
 def bucket_id(scope: Scope) -> str:
     """Short, stable fingerprint of the rate-limit key for this caller.
 
@@ -181,11 +219,16 @@ def bucket_id(scope: Scope) -> str:
     all callers collapse into a single bucket? Two clients on different
     networks comparing this value settle it in one request each.
 
+    Hashes the *key*, not the address, so what it reports is the bucket that
+    actually exists: two devices sharing an IPv6 /64 do share a quota, and a
+    fingerprint that said otherwise would send the next diagnosis down the
+    wrong path.
+
     Only ever reports the caller's own bucket, and never the address itself.
     Unsalted on purpose: a salt would change on every process restart and
     would make two clients' readings incomparable, which is the whole point.
     """
-    return hashlib.sha256(resolve_client_ip(scope).encode()).hexdigest()[:8]
+    return hashlib.sha256(rate_limit_key(scope).encode()).hexdigest()[:8]
 
 
 # -------------------------------------------------------------- rate limiter
@@ -368,7 +411,7 @@ class RateLimitMiddleware:
             await self.app(scope, receive, send)
             return
 
-        retry_after = counter.check(resolve_client_ip(scope))
+        retry_after = counter.check(rate_limit_key(scope))
         if retry_after is None:
             await self.app(scope, receive, send)
             return
