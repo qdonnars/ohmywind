@@ -218,6 +218,52 @@ class ShomC2dRegistry:
         idx, dist_km = self._nearest(lat, lon)
         return idx is not None and dist_km <= self._MAX_NEAREST_KM
 
+    def coverage_zones(self) -> tuple[tuple[str, tuple[float, float, float, float]], ...]:
+        """One bounding box per SHOM zone, sorted by zone name.
+
+        Exists so a caller can decide *not* to ask. The point cloud covers a
+        few French Atlantic cartouches and nothing else, so a client planning
+        in the Mediterranean can skip the round trip entirely rather than
+        collect ``covered: false`` once per corridor point.
+
+        Each box is the zone's own extent padded by the same tolerance
+        :meth:`covers` applies, which buys the invariant that makes the
+        endpoint safe to trust: **a point outside every returned box is a
+        point ``covers`` refuses**. The converse does not hold, and cannot:
+        the cloud is scattered, so a box contains land and gaps that
+        ``covers`` rejects on the distance test. Skipping outside the boxes
+        loses nothing; a call inside one may still come back uncovered.
+
+        Boxes are ``(lat_min, lon_min, lat_max, lon_max)`` in WGS84 degrees,
+        matching :attr:`bbox` and ``AtlasMeta.bbox`` on the MARC side.
+        Returns an empty tuple for an empty registry.
+        """
+        if not self.lats.size:
+            return ()
+        # The tolerance is expressed in the same scaled space _nearest uses:
+        # latitude degrees straight, longitude degrees divided by the mean
+        # cosine. Padding in that space is what keeps the invariant exact
+        # rather than approximately right.
+        lat_pad = self._MAX_NEAREST_KM / 111.0
+        lon_pad = lat_pad / max(self._cos_mean_lat, 1e-6)
+        boxes: list[tuple[str, tuple[float, float, float, float]]] = []
+        for name in sorted({str(z) for z in self.zone_names}):
+            mask = self.zone_names == name
+            lats = self.lats[mask]
+            lons = self.lons[mask]
+            boxes.append(
+                (
+                    name,
+                    (
+                        float(lats.min()) - lat_pad,
+                        float(lons.min()) - lon_pad,
+                        float(lats.max()) + lat_pad,
+                        float(lons.max()) + lon_pad,
+                    ),
+                )
+            )
+        return tuple(boxes)
+
     def _nearest(self, lat: float, lon: float) -> tuple[int | None, float]:
         """Index of the nearest C2D point + distance in km, or ``(None, inf)``.
 

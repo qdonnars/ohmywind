@@ -185,6 +185,114 @@ class TestNaiveTimestamps:
         assert resp.status_code == 200
 
 
+class TestCoverage:
+    """``GET /api/v1/marine/marc/coverage``: where it is worth asking at all.
+
+    The overlay answers 200 with ``covered: false`` outside coverage, once per
+    corridor point. A Mediterranean plan measured 14 such answers out of 14
+    calls. This endpoint exists so the client can skip them, which only works
+    if the boxes are complete, ordered, and cheap to cache.
+    """
+
+    class _StubMarcAtlas:
+        def __init__(self, name, bbox):
+            self.name = name
+            self.bbox = bbox
+
+    class _StubMarcRegistry:
+        def __init__(self, atlases):
+            self.atlases = tuple(atlases)
+
+    class _StubShomRegistry:
+        def __init__(self, zones):
+            self._zones = tuple(zones)
+
+        def coverage_zones(self):
+            return self._zones
+
+    @pytest.fixture
+    def loaded(self, monkeypatch):
+        """A Space with both datasets, declared out of alphabetical order."""
+        monkeypatch.setattr(
+            app,
+            "_MARC_REGISTRY",
+            self._StubMarcRegistry(
+                [
+                    self._StubMarcAtlas("MANGA", (48.0, -5.0, 50.0, 0.0)),
+                    self._StubMarcAtlas("FINIS", (47.5, -5.5, 48.9, -3.5)),
+                ]
+            ),
+        )
+        monkeypatch.setattr(
+            app,
+            "_SHOM_REGISTRY",
+            self._StubShomRegistry(
+                [
+                    ("MORBIHAN", (47.4, -3.2, 47.7, -2.6)),
+                    ("BREST", (48.2, -4.8, 48.5, -4.2)),
+                ]
+            ),
+        )
+
+    async def test_reports_every_loaded_atlas_and_zone(self, loaded) -> None:
+        payload = _payload(await app._api_marc_coverage(None))
+        assert [(a["source"], a["name"]) for a in payload["atlases"]] == [
+            ("marc", "FINIS"),
+            ("marc", "MANGA"),
+            ("shom", "BREST"),
+            ("shom", "MORBIHAN"),
+        ]
+
+    async def test_boxes_are_lat_lon_in_that_order(self, loaded) -> None:
+        # Same order as the overlay's own lat/lon query params. Swapping them
+        # would put every French box in the Indian Ocean and the client would
+        # skip every call.
+        finis = next(a for a in _payload(await app._api_marc_coverage(None))["atlases"])
+        lat_min, lon_min, lat_max, lon_max = finis["bbox"]
+        assert 47.0 < lat_min < lat_max < 49.0
+        assert -6.0 < lon_min < lon_max < -3.0
+
+    async def test_ordering_is_stable_across_calls(self, loaded) -> None:
+        first = _payload(await app._api_marc_coverage(None))
+        second = _payload(await app._api_marc_coverage(None))
+        assert first == second
+
+    async def test_rounding_only_ever_widens_a_box(self, monkeypatch) -> None:
+        # A box is a promise that there is nothing outside it. Rounding a
+        # bound inward would shave metres off that promise and silently drop
+        # a covered point.
+        raw = (47.123456789, -3.987654321, 48.111111111, -2.000000001)
+        monkeypatch.setattr(
+            app, "_MARC_REGISTRY", self._StubMarcRegistry([self._StubMarcAtlas("X", raw)])
+        )
+        monkeypatch.setattr(app, "_SHOM_REGISTRY", self._StubShomRegistry([]))
+        lat_min, lon_min, lat_max, lon_max = _payload(await app._api_marc_coverage(None))[
+            "atlases"
+        ][0]["bbox"]
+        assert lat_min <= raw[0] and lon_min <= raw[1]
+        assert lat_max >= raw[2] and lon_max >= raw[3]
+
+    async def test_answers_an_empty_list_without_a_dataset(self) -> None:
+        # The registries are empty in CI, which is also the Space's state
+        # whenever the dataset was not pulled at build time.
+        resp = await app._api_marc_coverage(None)
+        assert resp.status_code == 200
+        assert _payload(resp) == {"atlases": []}
+
+    async def test_an_empty_answer_is_only_cached_briefly(self) -> None:
+        # Attaching the dataset must not take a day to become visible.
+        assert app._MARC_REGISTRY.atlases == ()
+        assert _payload(await app._api_marc_coverage(None)) == {"atlases": []}
+        assert (await app._api_marc_coverage(None)).headers["cache-control"] == (
+            "public, max-age=300"
+        )
+
+    async def test_a_loaded_answer_is_cached_for_a_day(self, loaded) -> None:
+        # It only changes when a new image ships, and that restarts the Space.
+        resp = await app._api_marc_coverage(None)
+        assert resp.headers["cache-control"] == "public, max-age=86400"
+
+
 class TestLanding:
     async def test_landing_serves_html(self) -> None:
         resp = await app._index(None)

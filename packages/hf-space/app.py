@@ -1109,6 +1109,74 @@ class PathScopedGZipMiddleware:
         await self.app(scope, receive, send)
 
 
+# One ten-thousandth of a degree, about 11 m. Fine enough that rounding is
+# invisible to a client deciding whether to call, coarse enough to keep the
+# payload readable.
+_BBOX_QUANTUM = 1e-4
+
+
+def _widen_to_quantum(bbox: tuple[float, float, float, float]) -> list[float]:
+    """Round a bounding box outward, never inward.
+
+    The boxes carry a promise: a point outside every one of them is a point
+    the atlases do not cover. Rounding a bound the wrong way would shave a
+    few metres off that promise and silently drop a covered point, so the
+    minima floor and the maxima ceil.
+    """
+    lat_min, lon_min, lat_max, lon_max = bbox
+    return [
+        math.floor(lat_min / _BBOX_QUANTUM) * _BBOX_QUANTUM,
+        math.floor(lon_min / _BBOX_QUANTUM) * _BBOX_QUANTUM,
+        math.ceil(lat_max / _BBOX_QUANTUM) * _BBOX_QUANTUM,
+        math.ceil(lon_max / _BBOX_QUANTUM) * _BBOX_QUANTUM,
+    ]
+
+
+async def _api_marc_coverage(_request: Request) -> JSONResponse:
+    """Where the tidal atlases have anything to say, as bounding boxes.
+
+    Exists so a client can decide not to ask. ``/api/v1/marine/marc`` answers
+    200 with ``covered: false`` outside coverage, which is the right contract
+    for a single point and the wrong cost for a route: a Mediterranean plan
+    measured 14 uncovered answers out of 14 calls, one per corridor point,
+    every one of them a round trip that could not have returned anything.
+
+    Response::
+
+        {"atlases": [{"name": "FINIS", "source": "marc",
+                      "bbox": [lat_min, lon_min, lat_max, lon_max]}, ...]}
+
+    Degrees WGS84, latitude first, matching the ``lat``/``lon`` order of the
+    overlay's own query parameters. Sorted by source then name so a client can
+    diff two answers, and an empty list when the Space ships without the
+    dataset (the same state the overlay reports as ``covered: false``).
+
+    What the boxes promise is one-directional: outside every box there is
+    nothing to fetch, inside one there may still be nothing. MARC boxes come
+    from each atlas's coverage polygon, which the registry itself tests before
+    looking at a tile; SHOM boxes wrap a scattered point cloud that contains
+    land and gaps. A client skipping outside them loses no data; a client
+    assuming coverage inside them would be wrong.
+    """
+    atlases: list[dict[str, Any]] = [
+        {"name": atlas.name, "source": "marc", "bbox": _widen_to_quantum(atlas.bbox)}
+        for atlas in _MARC_REGISTRY.atlases
+    ]
+    atlases += [
+        {"name": name, "source": "shom", "bbox": _widen_to_quantum(bbox)}
+        for name, bbox in _SHOM_REGISTRY.coverage_zones()
+    ]
+    atlases.sort(key=lambda entry: (entry["source"], entry["name"]))
+    # An empty answer is cached briefly, exactly like the overlay's "no atlas
+    # dataset loaded" case: a Space that boots before the dataset is attached
+    # would otherwise tell every client to skip the atlases for a whole day.
+    max_age = 86400 if atlases else 300
+    return JSONResponse(
+        {"atlases": atlases},
+        headers={"Cache-Control": f"public, max-age={max_age}"},
+    )
+
+
 def build_app(mcp_app: Any) -> Starlette:
     """Assemble the parent Starlette app around a mounted FastMCP app.
 
@@ -1125,6 +1193,7 @@ def build_app(mcp_app: Any) -> Starlette:
             Route("/api/v1/passage", _api_passage, methods=["POST"]),
             Route("/api/v1/passage-by-eta", _api_passage_by_eta, methods=["POST"]),
             Route("/api/v1/marine/marc", _api_marc_overlay, methods=["GET"]),
+            Route("/api/v1/marine/marc/coverage", _api_marc_coverage, methods=["GET"]),
             Mount("/", app=mcp_app),
         ],
         # Order matters: the first entry is the outermost wrapper. CORS sits
