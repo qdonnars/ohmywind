@@ -60,6 +60,7 @@ export function formatRetryDelay(seconds: number | null): string {
  * | `sweep_too_large` | the sweep would produce too many windows |
  * | `upstream_timeout` | the weather service did not answer in time |
  * | `upstream_rate_limited` | the weather service is throttling *us* |
+ * | `upstream_unavailable` | the edge proxy could not reach our own backend |
  * | `body_too_large` | request body over the cap |
  * | `invalid_forecast_cache` | the attached corridor did not check out |
  *
@@ -191,6 +192,14 @@ const ERROR_COPY: Record<string, (retryAfter: number | null) => string> = {
   // is our own limiter and IS about the caller's pace.
   upstream_rate_limited: () =>
     "Le service météo limite temporairement nos requêtes. Ce n'est pas lié à votre usage, réessayez dans quelques minutes.",
+  // Emis par le proxy de bord (Worker Cloudflare), pas par le Space : le
+  // backend n'a pas repondu du tout. A ne pas confondre avec les deux
+  // `upstream_*` ci-dessus, ou le service amont est Open-Meteo ; ici l'amont
+  // vu du bord, c'est nous. Cause la plus frequente : le Space dort et se
+  // reveille, ce qui prend une trentaine de secondes, d'ou le delai que le
+  // bord envoie et que l'on relaie plutot que d'en inventer un.
+  upstream_unavailable: (retryAfter) =>
+    `Le serveur est momentanément injoignable, il redémarre peut-être. ${formatRetryDelay(retryAfter)}`,
   body_too_large: () =>
     "La route est trop détaillée pour être envoyée. Retirez quelques waypoints ou raccourcissez la période.",
   invalid_forecast_cache: () =>
@@ -238,6 +247,12 @@ function matchErrorText(raw: string): string {
   }
   if (/upstream weather service rate limit/i.test(raw)) {
     return ERROR_COPY.upstream_rate_limited(null);
+  }
+  if (/backend temporarily unavailable/i.test(raw)) {
+    // Meme forme que la regle de limitation : le delai est ajoute par
+    // `toError` en suffixe, pas par le bord dans sa phrase.
+    const retryIn = /retry in (\d+)s/i.exec(raw);
+    return ERROR_COPY.upstream_unavailable(retryIn ? Number(retryIn[1]) : null);
   }
   if (/Erreur serveur 5\d\d/.test(raw) || /HTTP 5\d\d/.test(raw)) {
     return ERROR_COPY.server_unavailable(null);
