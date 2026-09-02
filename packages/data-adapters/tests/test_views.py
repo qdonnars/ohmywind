@@ -125,6 +125,15 @@ class TestTargetEtaFilter:
         assert len(kept) == 1
         assert warning is None
 
+    def test_a_naive_target_is_refused_rather_than_read_locally(self) -> None:
+        # Audit Mo5. ``astimezone`` on a naive value silently adopts the
+        # server's own offset, so the same request filtered differently on a
+        # developer's machine and in the container. The guard sits here, in
+        # the shared view, so neither shell can lose it.
+        naive = (DEPARTURE + timedelta(hours=8)).replace(tzinfo=None)
+        with pytest.raises(ValueError, match="target_eta must be timezone-aware"):
+            filter_windows_by_target_eta([_window(DEPARTURE)], naive, "T")
+
 
 class TestSweepEnvelope:
     def test_counts_the_windows_it_actually_carries(self) -> None:

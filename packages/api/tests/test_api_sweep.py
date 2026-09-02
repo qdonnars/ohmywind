@@ -79,6 +79,31 @@ async def test_invalid_target_eta_returns_422() -> None:
 
 
 @pytest.mark.asyncio
+async def test_naive_target_eta_is_refused_like_a_naive_departure() -> None:
+    """Audit Mo5: it used to be read in the container's local time.
+
+    Every other timestamp of this request is already refused without an
+    offset, so accepting this one meant the same body filtered differently
+    depending on where the process ran, silently.
+    """
+    resp = await passage_routes.api_passage(
+        FakeRequest(_sweep_body(target_eta="2026-05-01T16:30:00"))
+    )
+    assert resp.status_code == 422
+    body = _payload(resp)
+    assert body["error"] == "target_eta must be timezone-aware"
+    assert body["code"] == "naive_datetime"
+
+
+@pytest.mark.asyncio
+async def test_aware_target_eta_is_still_accepted(no_windows) -> None:
+    resp = await passage_routes.api_passage(
+        FakeRequest(_sweep_body(target_eta="2026-05-01T16:30:00+02:00"))
+    )
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
 async def test_skipped_windows_surface_a_meta_warning(monkeypatch) -> None:
     # estimate_passage_windows is partial-tolerant: it drops windows past the
     # forecast horizon. The shell must tell the user some were dropped.
