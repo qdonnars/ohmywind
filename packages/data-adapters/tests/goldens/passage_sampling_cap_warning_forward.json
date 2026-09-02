@@ -1,0 +1,326 @@
+{
+  "archetype": "cruiser_40ft",
+  "departure_time": "2026-05-14T06:00:00+00:00",
+  "arrival_time": "2026-05-15T23:32:26.835254+00:00",
+  "duration_h": 41.54078757055556,
+  "distance_nm": 154.2071381402308,
+  "efficiency": 0.75,
+  "model": "meteofrance_arome_france",
+  "segments": [
+    {
+      "start": {
+        "lat": 43.29,
+        "lon": 5.37
+      },
+      "end": {
+        "lat": 43.22550293644618,
+        "lon": 5.711365179421999
+      },
+      "distance_nm": 15.42071381402319,
+      "bearing_deg": 104.42671544236691,
+      "start_time": "2026-05-14T06:00:00+00:00",
+      "end_time": "2026-05-14T09:13:31.028298+00:00",
+      "tws_kn": 15.456,
+      "twd_deg": 63.396,
+      "twa_deg": 41.0307154423669,
+      "polar_speed_kn": 5.907442926542014,
+      "boat_speed_kn": 4.558072323288952,
+      "duration_h": 3.2252856383333333,
+      "hs_m": 0.577,
+      "wave_derate_factor": 1.0,
+      "current_speed_kn": 0.22462203023758096,
+      "current_direction_to_deg": 97.799,
+      "sog_kn": 4.7811932160275,
+      "current_source": "openmeteo_smoc",
+      "current_confidence": "medium",
+      "gust_kn": 21.638,
+      "wave_period_s": 3.587,
+      "model_used": "meteofrance_arome_france",
+      "motor_used": false
+    },
+    {
+      "start": {
+        "lat": 43.22550293644618,
+        "lon": 5.711365179421999
+      },
+      "end": {
+        "lat": 43.15999306225655,
+        "lon": 6.0520031155020515
+      },
+      "distance_nm": 15.420713814022923,
+      "bearing_deg": 104.66064709696485,
+      "start_time": "2026-05-14T09:13:31.028298+00:00",
+      "end_time": "2026-05-14T12:39:11.169808+00:00",
+      "tws_kn": 12.199,
+      "twd_deg": 73.224,
+      "twa_deg": 31.43664709696486,
+      "polar_speed_kn": 5.429850000000001,
+      "boat_speed_kn": 4.150568714068217,
+      "duration_h": 3.427817086111111,
+      "hs_m": 0.714,
+      "wave_derate_factor": 1.0,
+      "current_speed_kn": 0.3488120950323974,
+      "current_direction_to_deg": 101.075,
+      "sog_kn": 4.498697983779471,
+      "current_source": "openmeteo_smoc",
+      "current_confidence": "medium",
+      "gust_kn": 17.079,
+      "wave_period_s": 3.751,
+      "model_used": "meteofrance_arome_france",
+      "motor_used": false
+    },
+    {
+      "start": {
+        "lat": 43.15999306225655,
+        "lon": 6.0520031155020515
+      },
+      "end": {
+        "lat": 43.09347486235601,
+        "lon": 6.391905772662855
+      },
+      "distance_nm": 15.420713814023209,
+      "bearing_deg": 104.89379878206535,
+      "start_time": "2026-05-14T12:39:11.169808+00:00",
+      "end_time": "2026-05-14T17:24:32.047337+00:00",
+      "tws_kn": 8.115,
+      "twd_deg": 83.047,
+      "twa_deg": 21.84679878206532,
+      "polar_speed_kn": 4.2402500000000005,
+      "boat_speed_kn": 3.1399201077612666,
+      "duration_h": 4.755799313611112,
+      "hs_m": 1.277,
+      "wave_derate_factor": 1.0,
+      "current_speed_kn": 0.10259179265658747,
+      "current_direction_to_deg": 104.349,
+      "sog_kn": 3.242507262678448,
+      "current_source": "openmeteo_smoc",
+      "current_confidence": "medium",
+      "gust_kn": 11.361,
+      "wave_period_s": 4.792,
+      "model_used": "meteofrance_arome_france",
+      "motor_used": false
+    },
+    {
+      "start": {
+        "lat": 43.09347486235601,
+        "lon": 6.391905772662855
+      },
+      "end": {
+        "lat": 43.02595286568102,
+        "lon": 6.731065298015315
+      },
+      "distance_nm": 15.420713814023037,
+      "bearing_deg": 105.12616153179329,
+      "start_time": "2026-05-14T17:24:32.047337+00:00",
+      "end_time": "2026-05-14T23:04:32.966637+00:00",
+      "tws_kn": 6.025,
+      "twd_deg": 92.864,
+      "twa_deg": 12.262161531793254,
+      "polar_speed_kn": 3.41,
+      "boat_speed_kn": 2.328463848460562,
+      "duration_h": 5.666922027777778,
+      "hs_m": 0.979,
+      "wave_derate_factor": 1.0,
+      "current_speed_kn": 0.3930885529157667,
+      "current_direction_to_deg": 107.621,
+      "sog_kn": 2.721179811216937,
+      "current_source": "openmeteo_smoc",
+      "current_confidence": "medium",
+      "gust_kn": 8.435,
+      "wave_period_s": 5.491,
+      "model_used": "meteofrance_arome_france",
+      "motor_used": false
+    },
+    {
+      "start": {
+        "lat": 43.02595286568102,
+        "lon": 6.731065298015315
+      },
+      "end": {
+        "lat": 42.9574316439108,
+        "lon": 7.069474021674995
+      },
+      "distance_nm": 15.420713814023125,
+      "bearing_deg": 105.35772656135669,
+      "start_time": "2026-05-14T23:04:32.966637+00:00",
+      "end_time": "2026-05-15T05:11:12.382856+00:00",
+      "tws_kn": 7.366,
+      "twd_deg": 102.677,
+      "twa_deg": 2.680726561356664,
+      "polar_speed_kn": 3.9463999999999997,
+      "boat_speed_kn": 2.3735107635211685,
+      "duration_h": 6.110948949722222,
+      "hs_m": 0.501,
+      "wave_derate_factor": 1.0,
+      "current_speed_kn": 0.15064794816414687,
+      "current_direction_to_deg": 110.892,
+      "sog_kn": 2.523456494423942,
+      "current_source": "openmeteo_smoc",
+      "current_confidence": "medium",
+      "gust_kn": 10.312,
+      "wave_period_s": 5.032,
+      "model_used": "meteofrance_arome_france",
+      "motor_used": false
+    },
+    {
+      "start": {
+        "lat": 42.9574316439108,
+        "lon": 7.069474021674995
+      },
+      "end": {
+        "lat": 42.88791581020051,
+        "lon": 7.407124456988099
+      },
+      "distance_nm": 15.42071381402298,
+      "bearing_deg": 105.58848526728798,
+      "start_time": "2026-05-15T05:11:12.382856+00:00",
+      "end_time": "2026-05-15T09:33:21.892699+00:00",
+      "tws_kn": 11.211,
+      "twd_deg": 112.484,
+      "twa_deg": 6.8955147327120585,
+      "polar_speed_kn": 5.202750000000001,
+      "boat_speed_kn": 3.265033525387329,
+      "duration_h": 4.369308289722222,
+      "hs_m": 0.934,
+      "wave_derate_factor": 1.0,
+      "current_speed_kn": 0.26727861771058314,
+      "current_direction_to_deg": 114.161,
+      "sog_kn": 3.5293261065518293,
+      "current_source": "openmeteo_smoc",
+      "current_confidence": "medium",
+      "gust_kn": 15.695,
+      "wave_period_s": 3.952,
+      "model_used": "meteofrance_arome_france",
+      "motor_used": false
+    },
+    {
+      "start": {
+        "lat": 42.88791581020051,
+        "lon": 7.407124456988099
+      },
+      "end": {
+        "lat": 42.81741001791668,
+        "lon": 7.744009300668407
+      },
+      "distance_nm": 15.42071381402318,
+      "bearing_deg": 105.8184292276843,
+      "start_time": "2026-05-15T09:33:21.892699+00:00",
+      "end_time": "2026-05-15T13:07:36.320993+00:00",
+      "tws_kn": 14.909,
+      "twd_deg": 122.285,
+      "twa_deg": 16.466570772315663,
+      "polar_speed_kn": 5.790900000000001,
+      "boat_speed_kn": 4.010885966314462,
+      "duration_h": 3.570674526111111,
+      "hs_m": 1.29,
+      "wave_derate_factor": 1.0,
+      "current_speed_kn": 0.31425485961123106,
+      "current_direction_to_deg": 117.428,
+      "sog_kn": 4.318711689257346,
+      "current_source": "openmeteo_smoc",
+      "current_confidence": "medium",
+      "gust_kn": 20.873,
+      "wave_period_s": 3.511,
+      "model_used": "meteofrance_arome_france",
+      "motor_used": false
+    },
+    {
+      "start": {
+        "lat": 42.81741001791668,
+        "lon": 7.744009300668407
+      },
+      "end": {
+        "lat": 42.74591895937596,
+        "lon": 8.080121432846633
+      },
+      "distance_nm": 15.420713814022989,
+      "bearing_deg": 106.04755020227134,
+      "start_time": "2026-05-15T13:07:36.320993+00:00",
+      "end_time": "2026-05-15T16:37:59.996533+00:00",
+      "tws_kn": 15.984,
+      "twd_deg": 129.082,
+      "twa_deg": 23.034449797728712,
+      "polar_speed_kn": 5.8984000000000005,
+      "boat_speed_kn": 4.299008785936893,
+      "duration_h": 3.506576538888889,
+      "hs_m": 0.964,
+      "wave_derate_factor": 1.0,
+      "current_speed_kn": 0.10151187904967601,
+      "current_direction_to_deg": 119.694,
+      "sog_kn": 4.397654989821679,
+      "current_source": "openmeteo_smoc",
+      "current_confidence": "medium",
+      "gust_kn": 22.378,
+      "wave_period_s": 3.911,
+      "model_used": "meteofrance_arome_france",
+      "motor_used": false
+    },
+    {
+      "start": {
+        "lat": 42.74591895937596,
+        "lon": 8.080121432846633
+      },
+      "end": {
+        "lat": 42.67344736458754,
+        "lon": 8.415453917033778
+      },
+      "distance_nm": 15.420713814023102,
+      "bearing_deg": 106.27584013246224,
+      "start_time": "2026-05-15T16:37:59.996533+00:00",
+      "end_time": "2026-05-15T19:52:57.168699+00:00",
+      "tws_kn": 14.574,
+      "twd_deg": 138.873,
+      "twa_deg": 32.59715986753781,
+      "polar_speed_kn": 5.7574000000000005,
+      "boat_speed_kn": 4.409264680561229,
+      "duration_h": 3.2492144905555556,
+      "hs_m": 0.5,
+      "wave_derate_factor": 1.0,
+      "current_speed_kn": 0.351511879049676,
+      "current_direction_to_deg": 122.958,
+      "sog_kn": 4.745982100784787,
+      "current_source": "openmeteo_smoc",
+      "current_confidence": "medium",
+      "gust_kn": 20.404,
+      "wave_period_s": 4.987,
+      "model_used": "meteofrance_arome_france",
+      "motor_used": false
+    },
+    {
+      "start": {
+        "lat": 42.67344736458754,
+        "lon": 8.415453917033778
+      },
+      "end": {
+        "lat": 42.6,
+        "lon": 8.75
+      },
+      "distance_nm": 15.420713814023072,
+      "bearing_deg": 106.5032911412626,
+      "start_time": "2026-05-15T19:52:57.168699+00:00",
+      "end_time": "2026-05-15T23:32:26.835254+00:00",
+      "tws_kn": 10.713,
+      "twd_deg": 148.659,
+      "twa_deg": 42.1557088587374,
+      "polar_speed_kn": 5.22146451803022,
+      "boat_speed_kn": 4.005916281286995,
+      "duration_h": 3.658240709722222,
+      "hs_m": 0.946,
+      "wave_derate_factor": 1.0,
+      "current_speed_kn": 0.22246220302375808,
+      "current_direction_to_deg": 126.22,
+      "sog_kn": 4.215336014655345,
+      "current_source": "openmeteo_smoc",
+      "current_confidence": "medium",
+      "gust_kn": 14.998,
+      "wave_period_s": 5.497,
+      "model_used": "meteofrance_arome_france",
+      "motor_used": false
+    }
+  ],
+  "warnings": [
+    "trajet long (154 nm) : 10 points météo échantillonnés (~15 nm entre points) au lieu de 10 nm pour limiter les requêtes API.",
+    "vent faible : vitesse mini 2.3 kn, passage très lent"
+  ],
+  "max_sampling_drift_h": 12.58
+}
