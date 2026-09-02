@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { Suspense, lazy } from "react";
-
 import App from "./App";
 import { PlanPage } from "./routes/PlanPage";
 import { ConfigPage } from "./routes/ConfigPage";
+import { LazyPageBoundary } from "./components/LazyPageBoundary";
 import { useRouter } from "./router";
 
 // Les deux pages de documentation tirent react-markdown, remark/rehype, KaTeX
@@ -14,12 +13,19 @@ import { useRouter } from "./router";
 // Chargees a la demande, elles sortent du chemin critique du premier rendu.
 // Les autres routes restent statiques : /plan est la destination principale,
 // la retarder d'un aller-retour reseau ne servirait rien.
-const MethodologiePage = lazy(() =>
-  import("./routes/MethodologiePage").then((m) => ({ default: m.MethodologiePage })),
-);
-const ConfidentialitePage = lazy(() =>
-  import("./routes/ConfidentialitePage").then((m) => ({ default: m.ConfidentialitePage })),
-);
+//
+// Elles sont aussi tenues hors du precache du service worker, donc leur chunk
+// peut manquer : hors ligne, l'import echoue. LazyPageBoundary porte le
+// Suspense et rattrape cet echec, sinon l'erreur remonte jusqu'a la racine et
+// React demonte toute l'application.
+//
+// Les fonctions de chargement sont definies au niveau du module pour rester
+// stables d'un rendu a l'autre : c'est leur identite qui sert de cle au cache
+// de payloads lazy de la boundary.
+const loadMethodologie = () =>
+  import("./routes/MethodologiePage").then((m) => ({ default: m.MethodologiePage }));
+const loadConfidentialite = () =>
+  import("./routes/ConfidentialitePage").then((m) => ({ default: m.ConfidentialitePage }));
 
 // Les deux pages imposent un fond "papier blanc" quel que soit le theme.
 // L'attente reprend ce fond pour eviter un clignotement sombre puis clair
@@ -48,17 +54,9 @@ export function Routes() {
 
   if (path === "/plan") return <PlanPage key={key} />;
   if (path === "/methodologie")
-    return (
-      <Suspense fallback={docFallback}>
-        <MethodologiePage key={key} />
-      </Suspense>
-    );
+    return <LazyPageBoundary key={key} load={loadMethodologie} fallback={docFallback} />;
   if (path === "/config") return <ConfigPage key={key} />;
   if (path === "/confidentialite")
-    return (
-      <Suspense fallback={docFallback}>
-        <ConfidentialitePage key={key} />
-      </Suspense>
-    );
+    return <LazyPageBoundary key={key} load={loadConfidentialite} fallback={docFallback} />;
   return <App key={key} />;
 }
