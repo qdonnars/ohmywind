@@ -282,3 +282,34 @@ def test_the_atlas_coverage_route_answers_cross_origin(client) -> None:
     assert resp.status_code == 200
     assert resp.headers["access-control-allow-origin"] == "*"
     assert "atlases" in resp.json()
+
+
+def test_the_app_starts_and_stops_with_the_coverage_warm_up() -> None:
+    """The warm-up runs beside the MCP lifespan, never instead of it.
+
+    FastMCP's session manager is started by the inner lifespan the parent app
+    borrows; losing it while wrapping the lifespan would leave /mcp answering
+    500 with nothing in the logs. Entering TestClient as a context manager is
+    what actually runs startup and shutdown.
+    """
+    app = _load_app()
+    with TestClient(app.build_app(_StubMcpApp())) as client:
+        assert client.get("/api/v1/archetypes").status_code == 200
+        assert client.get("/mcp-probe").text == _MCP_BODY
+        assert client.get("/api/v1/marine/marc/coverage").json() == {"atlases": []}
+
+
+def test_the_warm_up_survives_a_broken_registry(monkeypatch) -> None:
+    # A dataset that fails to read must not take the Space down at boot: the
+    # endpoint would simply pay the cost itself on the first call.
+    app = _load_app()
+
+    class _BrokenRegistry:
+        atlases = ()
+
+        def coverage_cells(self):
+            raise OSError("dataset volume not mounted")
+
+    monkeypatch.setattr(app, "_MARC_REGISTRY", _BrokenRegistry())
+    with TestClient(app.build_app(_StubMcpApp())) as client:
+        assert client.get("/api/v1/archetypes").status_code == 200

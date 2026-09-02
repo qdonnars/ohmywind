@@ -19,10 +19,13 @@ Re-evaluate if traffic plateaus.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import dataclasses
 import logging
 import math
 import os
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -1124,11 +1127,16 @@ def _widen_to_quantum(bbox: tuple[float, float, float, float]) -> list[float]:
     minima floor and the maxima ceil.
     """
     lat_min, lon_min, lat_max, lon_max = bbox
+    # The final round only cancels the binary representation error the
+    # multiplication leaves behind (-20.0295 came out as -20.029500000000002
+    # on the deployed answer). It moves a bound by ~1e-15 degrees, fifteen
+    # orders of magnitude below the quantum the floor and ceil just added, so
+    # the outward guarantee survives it intact.
     return [
-        math.floor(lat_min / _BBOX_QUANTUM) * _BBOX_QUANTUM,
-        math.floor(lon_min / _BBOX_QUANTUM) * _BBOX_QUANTUM,
-        math.ceil(lat_max / _BBOX_QUANTUM) * _BBOX_QUANTUM,
-        math.ceil(lon_max / _BBOX_QUANTUM) * _BBOX_QUANTUM,
+        round(math.floor(lat_min / _BBOX_QUANTUM) * _BBOX_QUANTUM, 4),
+        round(math.floor(lon_min / _BBOX_QUANTUM) * _BBOX_QUANTUM, 4),
+        round(math.ceil(lat_max / _BBOX_QUANTUM) * _BBOX_QUANTUM, 4),
+        round(math.ceil(lon_max / _BBOX_QUANTUM) * _BBOX_QUANTUM, 4),
     ]
 
 
@@ -1144,26 +1152,55 @@ async def _api_marc_coverage(_request: Request) -> JSONResponse:
     Response::
 
         {"atlases": [{"name": "FINIS", "source": "marc",
-                      "bbox": [lat_min, lon_min, lat_max, lon_max]}, ...]}
+                      "bbox": [lat_min, lon_min, lat_max, lon_max],
+                      "cells": [[lat_min, lon_min, lat_max, lon_max], ...]}, ...]}
 
     Degrees WGS84, latitude first, matching the ``lat``/``lon`` order of the
     overlay's own query parameters. Sorted by source then name so a client can
     diff two answers, and an empty list when the Space ships without the
     dataset (the same state the overlay reports as ``covered: false``).
 
-    What the boxes promise is one-directional: outside every box there is
-    nothing to fetch, inside one there may still be nothing. MARC boxes come
-    from each atlas's coverage polygon, which the registry itself tests before
-    looking at a tile; SHOM boxes wrap a scattered point cloud that contains
-    land and gaps. A client skipping outside them loses no data; a client
-    assuming coverage inside them would be wrong.
+    **Filter on ``cells``, not on ``bbox``.** A point outside every ``cells``
+    entry is a point the atlases refuse; ``bbox`` is only the outer envelope
+    and it is far too coarse to decide with. MARC coverage polygons are
+    written as bounding boxes at build time, so ATLNE's runs from 39.98 N to
+    64.99 N and from 20.03 W to 15.00 E and swallows the whole Mediterranean,
+    where the model holds no valid cell: filtering on ``bbox`` alone skips
+    nothing there, which is exactly where skipping pays (14 uncovered answers
+    out of 14 in the live measurement). ``cells`` is the set of tiles that
+    actually hold data, merged into rectangles; for SHOM it is the single
+    zone box, which is already tight.
+
+    The promise runs one way only, for both fields: outside every box there
+    is nothing to fetch, inside one there may still be nothing. A MARC tile is
+    half a degree wide and contains land; the SHOM cloud is scattered and has
+    gaps. A client skipping outside them loses no data; a client assuming
+    coverage inside them would be wrong.
+
+    ``bbox`` is kept unchanged for the clients already reading it.
     """
+    # Off the event loop: on a cold cache this walks one Parquet footer per
+    # tile, measured 2.4 s for an ATLNE-sized 3500-tile atlas. The startup
+    # warm-up below normally gets there first and this returns in microseconds.
+    marc_cells = dict(await asyncio.to_thread(_MARC_REGISTRY.coverage_cells))
     atlases: list[dict[str, Any]] = [
-        {"name": atlas.name, "source": "marc", "bbox": _widen_to_quantum(atlas.bbox)}
+        {
+            "name": atlas.name,
+            "source": "marc",
+            "bbox": _widen_to_quantum(atlas.bbox),
+            "cells": [_widen_to_quantum(cell) for cell in marc_cells.get(atlas.name, ())],
+        }
         for atlas in _MARC_REGISTRY.atlases
     ]
     atlases += [
-        {"name": name, "source": "shom", "bbox": _widen_to_quantum(bbox)}
+        {
+            "name": name,
+            "source": "shom",
+            "bbox": _widen_to_quantum(bbox),
+            # The zone box already wraps the points themselves rather than a
+            # build-time envelope, so there is nothing finer to say.
+            "cells": [_widen_to_quantum(bbox)],
+        }
         for name, bbox in _SHOM_REGISTRY.coverage_zones()
     ]
     atlases.sort(key=lambda entry: (entry["source"], entry["name"]))
@@ -1175,6 +1212,67 @@ async def _api_marc_coverage(_request: Request) -> JSONResponse:
         {"atlases": atlases},
         headers={"Cache-Control": f"public, max-age={max_age}"},
     )
+
+
+async def _warm_atlas_coverage() -> None:
+    """Compute the MARC coverage rectangles once, in a worker thread.
+
+    The walk reads one Parquet footer per tile and nothing else, but an
+    ATLNE-sized atlas has thousands of them: 2.4 s measured over 3500 tiles.
+    Doing it at startup rather than on the first request keeps that cost off
+    the critical path of whoever asks first, and doing it in a thread keeps it
+    off the event loop, where 2.4 s would stall every MCP session on the
+    single worker.
+
+    Deliberately not awaited before the app starts serving: the Space already
+    takes ~5 s to wake, and delaying the first request by another 2.4 s to
+    pre-compute an answer it may never ask for is the wrong trade. A request
+    landing mid-warm-up recomputes rather than waiting on this task, which
+    costs one duplicated walk in a thread and never a wrong answer.
+
+    Never raises: a warm-up that fails must not take the Space down with it,
+    the endpoint would simply pay the cost itself.
+    """
+    started = time.perf_counter()
+    try:
+        cells = await asyncio.to_thread(_MARC_REGISTRY.coverage_cells)
+    except Exception:
+        _logger.exception("atlas coverage warm-up failed; the endpoint will compute on demand")
+        return
+    # The one number that says whether this dataset still fits the design.
+    # 2.4 s over 3500 tiles locally; if it ever creeps into the tens of
+    # seconds the walk needs an index rather than a bigger thread.
+    _logger.info(
+        "atlas coverage warmed in %.2f s: %d atlas(es), %d rectangle(s)",
+        time.perf_counter() - started,
+        len(cells),
+        sum(len(boxes) for _, boxes in cells),
+    )
+
+
+def _lifespan_with_warm_coverage(mcp_app: Any) -> Any:
+    """The MCP app's own lifespan, plus the coverage warm-up alongside it.
+
+    The inner lifespan is what starts and stops FastMCP's session manager, so
+    it must still run exactly as before: without it the MCP endpoint answers
+    500. This only adds a background task around it.
+    """
+
+    @contextlib.asynccontextmanager
+    async def _lifespan(app: Starlette):
+        warm = asyncio.create_task(_warm_atlas_coverage())
+        try:
+            async with mcp_app.router.lifespan_context(app):
+                yield
+        finally:
+            warm.cancel()
+            # The thread it may be sitting in cannot be interrupted, but
+            # awaiting the cancellation keeps shutdown free of "task was
+            # destroyed but it is pending".
+            with contextlib.suppress(asyncio.CancelledError):
+                await warm
+
+    return _lifespan
 
 
 def build_app(mcp_app: Any) -> Starlette:
@@ -1224,7 +1322,7 @@ def build_app(mcp_app: Any) -> Starlette:
             # counted against the caller's quota, never before.
             Middleware(BodySizeLimitMiddleware),
         ],
-        lifespan=mcp_app.router.lifespan_context,
+        lifespan=_lifespan_with_warm_coverage(mcp_app),
     )
 
 
