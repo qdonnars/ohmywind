@@ -30,7 +30,7 @@ export function SeamarkButton({ enabled, onToggle, className = "" }: SeamarkButt
         background: enabled ? "var(--ow-accent)" : "var(--ow-surface-glass)",
         backdropFilter: "blur(8px)",
         border: enabled ? "1px solid var(--ow-accent)" : "1px solid var(--ow-line-2)",
-        color: enabled ? "#fff" : "var(--ow-fg-1)",
+        color: enabled ? "var(--ow-on-accent)" : "var(--ow-fg-1)",
       }}
     >
       {/* East cardinal beacon: two cones base to base on a staff, standing
