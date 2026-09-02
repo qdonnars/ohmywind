@@ -39,8 +39,8 @@ interface PlanMapProps {
   onMapClick?: (lat: number, lon: number) => void;
   /** Inclusive-exclusive range of segment indices to highlight (selected leg). */
   highlightedSegmentRange?: [number, number] | null;
-  /** Index into `segments` of the step open in the panel, drawn as a dot at
-      its midpoint in the colour of its block in the strip. */
+  /** Index into `segments` of the step open in the panel, drawn over the leg
+      highlight as a segment in the colour of its block in the strip. */
   focusedSegmentIdx?: number | null;
   /** Optional hint for the initial view when there are no waypoints yet
       (typically propagated from the home spot via `?center=lat,lon`). */
@@ -92,7 +92,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   const seamarkLayerRef = useRef<L.TileLayer | null>(null);
   const polylinesRef = useRef<L.Polyline[]>([]);
   const highlightLayerRef = useRef<L.LayerGroup | null>(null);
-  const focusMarkerRef = useRef<L.CircleMarker | null>(null);
+  const focusLayerRef = useRef<L.LayerGroup | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
   const dragLineRef = useRef<L.Polyline | null>(null);
   const segLabelsRef = useRef<L.Tooltip[]>([]);
@@ -505,33 +505,44 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     highlightLayerRef.current = group;
   }, [highlightedSegmentRange, segments, resolvedTheme]);
 
-  // The step open in the panel: a dot at its midpoint, filled with the wind
-  // band of that step so it matches the block the user tapped in the strip.
-  // Declared after the highlight effect so that, when both redraw in one
-  // commit, the dot ends up above the line.
+  // The step open in the panel: its own segment drawn over the leg
+  // highlight, in the wind band of that step so it matches the block the
+  // user tapped in the strip, with a white casing so it reads as a piece
+  // laid on the line rather than a change of the line's colour. Declared
+  // after the highlight effect so that, when both redraw in one commit, the
+  // step ends up above the leg.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    if (focusMarkerRef.current) {
-      focusMarkerRef.current.remove();
-      focusMarkerRef.current = null;
+    if (focusLayerRef.current) {
+      focusLayerRef.current.remove();
+      focusLayerRef.current = null;
     }
     if (focusedSegmentIdx == null || !segments) return;
     const seg = segments[focusedSegmentIdx];
     if (!seg) return;
-    const marker = L.circleMarker(
-      [(seg.start.lat + seg.end.lat) / 2, (seg.start.lon + seg.end.lon) / 2],
-      {
-        radius: 8,
-        color: "#fff",
-        weight: 2.5,
-        fillColor: readToken(cxLevelToken(cxLevel(seg.tws_kn))),
-        fillOpacity: 1,
-        interactive: false,
-      },
-    ).addTo(map);
-    marker.bringToFront();
-    focusMarkerRef.current = marker;
+    const path: L.LatLngExpression[] = [
+      L.latLng(seg.start.lat, seg.start.lon),
+      L.latLng(seg.end.lat, seg.end.lon),
+    ];
+    const casing = L.polyline(path, {
+      color: "#fff",
+      weight: 14,
+      opacity: 0.95,
+      lineCap: "round",
+      interactive: false,
+    });
+    const step = L.polyline(path, {
+      color: readToken(cxLevelToken(cxLevel(seg.tws_kn))),
+      weight: 8,
+      opacity: 1,
+      lineCap: "round",
+      interactive: false,
+    });
+    const group = L.layerGroup([casing, step]).addTo(map);
+    casing.bringToFront();
+    step.bringToFront();
+    focusLayerRef.current = group;
   }, [focusedSegmentIdx, segments, resolvedTheme]);
 
   return <div ref={containerRef} className="w-full h-full" />;
