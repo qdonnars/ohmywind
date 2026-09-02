@@ -15,6 +15,7 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from fake_requests import FakeRequest
 from openwind_data.adapters.cache_backed import CacheBackedAdapter
 from openwind_data.routing.passage import NoModelCoveredError
 
@@ -23,14 +24,6 @@ from openwind_api.routes import passage as passage_routes
 DEPARTURE = datetime(2026, 5, 1, 6, 0, tzinfo=UTC)
 MARSEILLE = (43.30, 5.35)
 PORQUEROLLES = (43.00, 6.20)
-
-
-class _FakeRequest:
-    def __init__(self, body: dict) -> None:
-        self._body = body
-
-    async def json(self) -> dict:
-        return self._body
 
 
 def _resp_json(resp) -> dict:
@@ -101,7 +94,7 @@ async def test_single_with_cache_returns_200_from_cache(monkeypatch) -> None:
     monkeypatch.setattr(httpx.AsyncClient, "get", _boom)
 
     resp = await passage_routes.api_passage(
-        _FakeRequest(_single_body(forecast_cache=_corridor_cache()))
+        FakeRequest(_single_body(forecast_cache=_corridor_cache()))
     )
     assert resp.status_code == 200
     payload = _resp_json(resp)
@@ -112,7 +105,7 @@ async def test_single_with_cache_returns_200_from_cache(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_malformed_cache_returns_422(monkeypatch) -> None:
     resp = await passage_routes.api_passage(
-        _FakeRequest(
+        FakeRequest(
             _single_body(
                 forecast_cache={"version": 999, "models": [], "times_ms": [], "points": []}
             )
@@ -140,7 +133,7 @@ async def test_oversized_cache_returns_422_naming_the_ceiling() -> None:
         {**origin, "lat": origin["lat"] + i / 1000} for i in range(MAX_CACHE_POINTS + 1)
     ]
 
-    resp = await passage_routes.api_passage(_FakeRequest(_single_body(forecast_cache=cache)))
+    resp = await passage_routes.api_passage(FakeRequest(_single_body(forecast_cache=cache)))
     assert resp.status_code == 422
     error = _resp_json(resp)["error"]
     assert error.startswith("invalid forecast_cache: ")
@@ -162,14 +155,18 @@ async def test_single_passes_cache_adapter(monkeypatch) -> None:
     monkeypatch.setattr(passage_routes, "estimate_passage", _stub)
 
     # With cache -> CacheBackedAdapter + chain from cache models.
-    await passage_routes.api_passage(_FakeRequest(_single_body(forecast_cache=_corridor_cache())))
+    await passage_routes.api_passage(FakeRequest(_single_body(forecast_cache=_corridor_cache())))
     assert isinstance(captured["adapter"], CacheBackedAdapter)
     assert captured["model_chain"] == ("meteofrance_arome_france", "icon_eu")
 
-    # Without cache -> adapter None (MCP/live path unchanged).
+    # Without cache -> the process-wide adapter, the same object the MCP
+    # tools fetch through. It used to be None, which left the engine to build
+    # itself a bare Open-Meteo client per request: no atlases, no shared
+    # cache, no shared connection pool (audit M2).
     captured.clear()
-    await passage_routes.api_passage(_FakeRequest(_single_body()))
-    assert captured["adapter"] is None
+    request = FakeRequest(_single_body())
+    await passage_routes.api_passage(request)
+    assert captured["adapter"] is request.app.state.services.marine
 
 
 @pytest.mark.asyncio
@@ -186,7 +183,7 @@ async def test_sweep_passes_cache_adapter(monkeypatch) -> None:
         latest_departure=(DEPARTURE + timedelta(hours=6)).isoformat(),
         sweep_interval_hours=3,
     )
-    await passage_routes.api_passage(_FakeRequest(body))
+    await passage_routes.api_passage(FakeRequest(body))
     assert isinstance(captured["adapter"], CacheBackedAdapter)
 
 
@@ -205,5 +202,5 @@ async def test_by_eta_passes_cache_adapter(monkeypatch) -> None:
         "archetype": "cruiser_40ft",
         "forecast_cache": _corridor_cache(),
     }
-    await passage_routes.api_passage_by_eta(_FakeRequest(body))
+    await passage_routes.api_passage_by_eta(FakeRequest(body))
     assert isinstance(captured["adapter"], CacheBackedAdapter)

@@ -14,6 +14,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+from openwind_data.adapters.base import MarineDataAdapter
 from openwind_data.routing.complexity import score_complexity
 from openwind_data.routing.passage import (
     estimate_passage,
@@ -51,6 +52,22 @@ async def _json_body(request: Request) -> Any:
         raise RequestError("invalid JSON body", "invalid_json") from exc
 
 
+def _adapter(request: Request, parsed: PassageRequest) -> MarineDataAdapter:
+    """Where the weather for this request comes from.
+
+    Two doors, and the request picks which one. A ``forecast_cache`` in the
+    body means the browser already sampled the corridor from its own IP, and
+    reading it back costs no upstream call at all. Without one, the passage is
+    planned live, and it goes through the process-wide adapter: the same
+    connection pool, the same 30 min cache, and the same SHOM > MARC > SMOC
+    cascade the MCP tools use. Until PR 2.3 this branch let the engine build
+    itself a bare ``OpenMeteoAdapter`` instead, so a live REST plan through
+    the Raz de Sein read its currents off an 8 km global model while the
+    identical plan asked over MCP read them off the SHOM atlas (audit M2).
+    """
+    return parsed.adapter or request.app.state.services.marine
+
+
 async def api_passage(request: Request) -> JSONResponse:
     """Plan a passage from a departure time, or sweep a range of them.
 
@@ -61,10 +78,11 @@ async def api_passage(request: Request) -> JSONResponse:
     try:
         body = await _json_body(request)
         departure, parsed = parse_passage_request(body, timestamp_field="departure")
+        adapter = _adapter(request, parsed)
         latest_raw = body.get("latest_departure")
         if latest_raw is not None:
-            return await _sweep(body, departure, parsed, latest_raw)
-        return await _single(departure, parsed)
+            return await _sweep(body, departure, parsed, latest_raw, adapter)
+        return await _single(departure, parsed, adapter)
     except RequestError as exc:
         return exc.response()
 
@@ -81,6 +99,7 @@ async def api_passage_by_eta(request: Request) -> JSONResponse:
     try:
         body = await _json_body(request)
         target_arrival, parsed = parse_passage_request(body, timestamp_field="target_arrival")
+        adapter = _adapter(request, parsed)
     except RequestError as exc:
         return exc.response()
 
@@ -93,7 +112,7 @@ async def api_passage_by_eta(request: Request) -> JSONResponse:
             model="auto",
             polar_override=parsed.polar_override,
             model_chain=parsed.model_chain,
-            adapter=parsed.adapter,
+            adapter=adapter,
         )
     except Exception as exc:
         response = engine_error_response(exc)
@@ -111,7 +130,9 @@ async def api_passage_by_eta(request: Request) -> JSONResponse:
     )
 
 
-async def _single(departure: datetime, parsed: PassageRequest) -> JSONResponse:
+async def _single(
+    departure: datetime, parsed: PassageRequest, adapter: MarineDataAdapter
+) -> JSONResponse:
     try:
         passage = await estimate_passage(
             parsed.waypoints,
@@ -121,7 +142,7 @@ async def _single(departure: datetime, parsed: PassageRequest) -> JSONResponse:
             model="auto",
             polar_override=parsed.polar_override,
             model_chain=parsed.model_chain,
-            adapter=parsed.adapter,
+            adapter=adapter,
         )
     except Exception as exc:
         response = engine_error_response(exc)
@@ -137,7 +158,11 @@ async def _single(departure: datetime, parsed: PassageRequest) -> JSONResponse:
 
 
 async def _sweep(
-    body: Any, departure: datetime, parsed: PassageRequest, latest_raw: Any
+    body: Any,
+    departure: datetime,
+    parsed: PassageRequest,
+    latest_raw: Any,
+    adapter: MarineDataAdapter,
 ) -> JSONResponse:
     latest_departure = parse_timestamp(latest_raw, "latest_departure")
     sweep_interval = parse_sweep_interval(body.get("sweep_interval_hours"))
@@ -155,7 +180,7 @@ async def _sweep(
             model="auto",
             polar_override=parsed.polar_override,
             model_chain=parsed.model_chain,
-            adapter=parsed.adapter,
+            adapter=adapter,
         )
     except Exception as exc:
         response = engine_error_response(exc)

@@ -75,13 +75,17 @@ class PathScopedGZipMiddleware:
 
 
 def _lifespan(services: Services, mcp_app: ASGIApp | None):
-    """Warm the atlas coverage, and run the mounted app's own lifespan.
+    """Warm the atlas coverage, run the mounted app's lifespan, close the pool.
 
     FastMCP's session manager is started and stopped by the inner app's
     lifespan, and a parent Starlette does NOT propagate a child's: without
     handing it through here the MCP endpoint answers 500 because the
     streamable-http session manager never initialised. With no ``mcp_app``
     there is nothing to hand through, and the warm-up runs alone.
+
+    The shared HTTP client is closed last. It outlives every request by
+    design, so no request is in a position to close it, and a process that
+    exits without doing so leaves sockets open in the container.
     """
 
     @contextlib.asynccontextmanager
@@ -100,11 +104,17 @@ def _lifespan(services: Services, mcp_app: ASGIApp | None):
             # destroyed but it is pending".
             with contextlib.suppress(asyncio.CancelledError):
                 await warm
+            await services.aclose()
 
     return lifespan
 
 
-def create_app(settings: Settings, mcp_app: ASGIApp | None = None) -> Starlette:
+def create_app(
+    settings: Settings,
+    mcp_app: ASGIApp | None = None,
+    *,
+    services: Services | None = None,
+) -> Starlette:
     """Build the REST application.
 
     Args:
@@ -112,11 +122,19 @@ def create_app(settings: Settings, mcp_app: ASGIApp | None = None) -> Starlette:
         mcp_app: an ASGI app to mount at ``/``, or ``None``. Mounted last so
             the exact-match routes above are tried first: MCP traffic on
             ``/mcp`` is unaffected either way.
+        services: already-built process-wide objects, or ``None`` to build
+            them here. A deployment that also runs an MCP server needs them
+            *before* this call, because the same marine adapter has to reach
+            ``build_server()`` for the two shells to share one cache, one
+            connection pool and one set of atlases. Everyone else leaves it
+            out.
 
     The application keeps its ``Services`` on ``app.state.services``, which is
-    how a handler reaches the atlases and how a test replaces them.
+    how a handler reaches the atlases and the adapter, and how a test replaces
+    them.
     """
-    services = Services.from_settings(settings)
+    if services is None:
+        services = Services.from_settings(settings)
 
     routes = [
         Route("/", index),

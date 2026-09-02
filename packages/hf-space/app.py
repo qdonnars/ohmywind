@@ -31,7 +31,7 @@ from typing import Any
 
 import uvicorn
 from mcp.server.transport_security import TransportSecuritySettings
-from openwind_api import Settings, create_app
+from openwind_api import Services, Settings, create_app
 from openwind_api.security import warn_if_edge_secret_missing
 from openwind_mcp_core import build_server
 
@@ -70,9 +70,16 @@ def settings_from_env() -> Settings:
     )
 
 
-def build_mcp_app() -> Any:
-    """The FastMCP streamable-http app, with the Space's hosts allowed."""
-    server = build_server()
+def build_mcp_app(adapter: Any) -> Any:
+    """The FastMCP streamable-http app, with the Space's hosts allowed.
+
+    The adapter is the API's ``MarineDataAdapter``, handed in rather than
+    built here. Passing it is what makes this one process hold one HTTP
+    connection pool, one forecast cache and one copy of the tidal atlases
+    instead of two of each, and what makes a passage planned over REST and
+    the same passage planned over MCP read their currents off one source.
+    """
+    server = build_server(adapter=adapter)
     server.settings.transport_security = TransportSecuritySettings(
         enable_dns_rebinding_protection=True,
         allowed_hosts=ALLOWED_HOSTS,
@@ -80,10 +87,22 @@ def build_mcp_app() -> Any:
     return server.streamable_http_app()
 
 
+def build_app() -> Any:
+    """The whole deployment, assembled: REST in front, MCP mounted behind.
+
+    The atlases, the HTTP connection pool and the forecast cache are built
+    once here and handed to both shells. Freezing the MCP surface is dropping
+    the ``mcp_app`` argument; nothing else in this function would change.
+    """
+    settings = settings_from_env()
+    services = Services.from_settings(settings)
+    return create_app(settings, mcp_app=build_mcp_app(services.marine), services=services)
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
     warn_if_edge_secret_missing()
-    app = create_app(settings_from_env(), mcp_app=build_mcp_app())
+    app = build_app()
     # Run uvicorn explicitly (rather than ``server.run(transport=...)``) so we
     # can enable ``proxy_headers``/``forwarded_allow_ips``. HF terminates TLS
     # at the edge; without these flags ASGI sees ``http`` + the internal Host

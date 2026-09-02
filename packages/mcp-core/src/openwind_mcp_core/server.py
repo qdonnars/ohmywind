@@ -44,7 +44,7 @@ from mcp.types import ToolAnnotations
 from openwind_data.adapters.base import MarineDataAdapter
 from openwind_data.adapters.openmeteo import AUTO_MODEL, OpenMeteoAdapter
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
-from openwind_data.currents.router import CompositeMarineAdapter
+from openwind_data.currents.router import compose_marine_adapter
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
 from openwind_data.routing import (
     BoatPolar,
@@ -564,6 +564,13 @@ def build_server(
             ``MARC_ATLAS_DIR``. Either or both can be absent; the cascade
             degrades gracefully (SHOM > MARC > SMOC). Override the whole
             adapter in tests.
+
+            A deployment that also serves the REST API passes the adapter
+            the API built, so the two shells share one HTTP connection pool,
+            one 30 min forecast cache and one copy of the atlases. Left to
+            itself this factory loads its own registries, which is right for
+            the stdio runner (the only process where it is alone) and was
+            5 MB and 51 ms of pure duplication in the Space (audit M5).
     """
     # ``stateless_http=True`` disables the in-memory session table that
     # otherwise tracks an ``mcp-session-id`` per client across requests.
@@ -590,26 +597,17 @@ def build_server(
     if adapter is not None:
         fetch_adapter: MarineDataAdapter = adapter
     else:
-        upstream = OpenMeteoAdapter()
         marc_dir = os.environ.get("MARC_ATLAS_DIR")
         shom_dir = os.environ.get("SHOM_C2D_DIR")
-        marc_registry = MarcAtlasRegistry.from_directory(marc_dir) if marc_dir else None
-        shom_registry = ShomC2dRegistry.from_directory(shom_dir) if shom_dir else None
-        marc_available = marc_registry is not None and bool(marc_registry.atlases)
-        shom_available = shom_registry is not None and shom_registry.lats.size > 0
-        if marc_available:
-            fetch_adapter = CompositeMarineAdapter(
-                upstream=upstream,
-                marc=marc_registry,  # type: ignore[arg-type]
-                shom=shom_registry if shom_available else None,
-            )
-        else:
-            # Without MARC the composite adapter has nothing to override
-            # currents with on the shelf; we keep upstream Open-Meteo only.
-            # (SHOM alone in the composite would still work, but mixing
-            # SHOM-only zones with raw SMOC elsewhere is more readable
-            # via the existing two-tier composite once MARC lands.)
-            fetch_adapter = upstream
+        # ``compose_marine_adapter`` owns the "which tiers can this deployment
+        # actually feed" rule. It used to be written out here and nowhere on
+        # the REST side, which is how the same waypoint got SHOM currents over
+        # MCP and 8 km SMOC over REST (audit M2).
+        fetch_adapter = compose_marine_adapter(
+            OpenMeteoAdapter(),
+            MarcAtlasRegistry.from_directory(marc_dir) if marc_dir else None,
+            ShomC2dRegistry.from_directory(shom_dir) if shom_dir else None,
+        )
 
     @server.resource(
         PLAN_UI_RESOURCE_URI,

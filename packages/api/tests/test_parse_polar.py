@@ -13,6 +13,7 @@ import json
 from datetime import UTC, datetime
 
 import pytest
+from fake_requests import FakeRequest
 from openwind_data.routing.archetypes import effective_min_upwind_twa
 
 from openwind_api import parsing
@@ -142,19 +143,12 @@ class TestMinUpwind:
 
 @pytest.mark.asyncio
 async def test_endpoint_returns_422_on_bad_min_upwind() -> None:
-    class _FakeRequest:
-        def __init__(self, body: dict) -> None:
-            self._body = body
-
-        async def json(self) -> dict:
-            return self._body
-
     body = {
         "waypoints": [[43.30, 5.35], [43.00, 6.20]],
         "departure": datetime(2026, 5, 1, 6, 0, tzinfo=UTC).isoformat(),
         "archetype": "cruiser_40ft",
         "polar": _payload(min_upwind_twa_deg=120),
     }
-    resp = await passage_routes.api_passage(_FakeRequest(body))
+    resp = await passage_routes.api_passage(FakeRequest(body))
     assert resp.status_code == 422
     assert "min_upwind_twa_deg" in json.loads(bytes(resp.body))["error"]

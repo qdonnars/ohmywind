@@ -105,6 +105,21 @@ class _CacheEntry:
     bundle: ForecastBundle  # bundle.start / bundle.end define the cached window
 
 
+@dataclass(frozen=True, slots=True)
+class _Flight:
+    """A fetch already in the air for one cache key.
+
+    ``start``/``end`` are the *widened* window that request asked upstream
+    for, not the caller's: a second caller joins only when the answer coming
+    back will cover what it needs. One that needs more issues its own request
+    rather than waiting for a result it would have to throw away.
+    """
+
+    start: datetime
+    end: datetime
+    future: asyncio.Future[ForecastBundle]
+
+
 class OpenMeteoAdapter:
     """Fetches wind (multi-model) and sea state from Open-Meteo's keyless APIs.
 
@@ -116,6 +131,18 @@ class OpenMeteoAdapter:
     [start, end] ever requested for a given key and slices on read; subsequent
     requests that fall inside a cached window are served without an HTTP call,
     even if the requested time window differs from the original.
+
+    Single-flight: concurrent identical fetches share one HTTP round-trip.
+    The cache only helps callers that arrive *after* an answer landed, and a
+    passage fans its segments out with ``asyncio.gather``, so several of them
+    routinely ask for the same AROME cell at the same instant and every one of
+    them used to pay for its own request. The first caller registers its
+    flight, the others await it and slice the same bundle.
+
+    Client lifecycle: an injected ``httpx.AsyncClient`` is borrowed, never
+    closed — the process that opened it decides when it dies. Without one, a
+    client is opened and closed around every call, which is what the local
+    stdio runner and the tests get.
 
     Default model is AROME (Mediterranean focus, high-resolution capture of thermal
     and local winds).
@@ -131,6 +158,7 @@ class OpenMeteoAdapter:
         self._client = client
         self._timeout = timeout
         self._cache: dict[_CacheKey, _CacheEntry] = {}
+        self._inflight: dict[_CacheKey, _Flight] = {}
         self._http_min_interval_s = http_min_interval_s
         self._http_lock = asyncio.Lock()
         self._last_http_at: float = 0.0
@@ -222,33 +250,80 @@ class OpenMeteoAdapter:
             fetch_end = max(fetch_end, cached.bundle.end)
         fetch_end = min(fetch_end, api_max_end)
 
-        owns_client = self._client is None
-        client = self._client or httpx.AsyncClient(timeout=self._timeout)
-        try:
-            wind_tasks = [
-                self._fetch_wind(client, lat, lon, fetch_start, fetch_end, m) for m in models
-            ]
-            sea_task = self._fetch_sea(client, lat, lon, fetch_start, fetch_end)
-            results = await asyncio.gather(*wind_tasks, sea_task)
-        finally:
-            if owns_client:
-                await client.aclose()
+        # Single-flight. A request already in the air for this key, over a
+        # window that covers ours, answers us too: we wait for it instead of
+        # opening a second identical round-trip. ``shield`` because the future
+        # belongs to the caller that created it — a cancelled follower must
+        # not cancel the fetch every other follower is waiting on.
+        flight = self._inflight.get(key)
+        if flight is not None and flight.start <= start_utc and flight.end >= end_utc:
+            joined = await asyncio.shield(flight.future)
+            return _slice_bundle(joined, start_utc, end_utc)
 
-        wind_series_list: list[WindSeries] = list(results[:-1])
-        sea_series: SeaSeries = results[-1]
-        full_bundle = ForecastBundle(
-            lat=lat,
-            lon=lon,
-            start=fetch_start,
-            end=fetch_end,
-            wind_by_model={w.model: w for w in wind_series_list},
-            sea=sea_series,
-            requested_at=now,
+        full_bundle = await self._fetch_and_cache(
+            key, lat, lon, fetch_start, fetch_end, models, now
         )
-        if len(self._cache) >= CACHE_MAX_ENTRIES and key not in self._cache:
-            self._cache.pop(next(iter(self._cache)))  # FIFO eviction
-        self._cache[key] = _CacheEntry(fetched_at=now, bundle=full_bundle)
         return _slice_bundle(full_bundle, start_utc, end_utc)
+
+    async def _fetch_and_cache(
+        self,
+        key: _CacheKey,
+        lat: float,
+        lon: float,
+        fetch_start: datetime,
+        fetch_end: datetime,
+        models: list[str],
+        now: datetime,
+    ) -> ForecastBundle:
+        """Run one upstream round-trip, publish it to the cache and to joiners.
+
+        Registered as the in-flight request for ``key`` for its whole
+        duration, including the failure path: a follower that joined inherits
+        the same exception rather than firing a second doomed request at an
+        upstream that just refused us.
+        """
+        future: asyncio.Future[ForecastBundle] = asyncio.get_running_loop().create_future()
+        # Nobody may ever join, and an unretrieved exception on a discarded
+        # future is logged by asyncio at shutdown as an unhandled error. The
+        # callback reads it so the real one, raised below, is the only one.
+        future.add_done_callback(lambda f: None if f.cancelled() else f.exception())
+        self._inflight[key] = _Flight(fetch_start, fetch_end, future)
+        try:
+            owns_client = self._client is None
+            client = self._client or httpx.AsyncClient(timeout=self._timeout)
+            try:
+                wind_tasks = [
+                    self._fetch_wind(client, lat, lon, fetch_start, fetch_end, m) for m in models
+                ]
+                sea_task = self._fetch_sea(client, lat, lon, fetch_start, fetch_end)
+                results = await asyncio.gather(*wind_tasks, sea_task)
+            finally:
+                if owns_client:
+                    await client.aclose()
+
+            wind_series_list: list[WindSeries] = list(results[:-1])
+            sea_series: SeaSeries = results[-1]
+            full_bundle = ForecastBundle(
+                lat=lat,
+                lon=lon,
+                start=fetch_start,
+                end=fetch_end,
+                wind_by_model={w.model: w for w in wind_series_list},
+                sea=sea_series,
+                requested_at=now,
+            )
+            self._cache_put(key, now, full_bundle)
+            # Publish before deregistering, and with no await in between, so
+            # a joiner either waits on a future that is about to resolve or
+            # reads the cache entry that resolved it. Never neither.
+            future.set_result(full_bundle)
+            return full_bundle
+        except BaseException as exc:
+            if not future.done():
+                future.set_exception(exc)
+            raise
+        finally:
+            self._inflight.pop(key, None)
 
     async def _fetch_wind(
         self,

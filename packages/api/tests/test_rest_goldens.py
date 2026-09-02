@@ -26,6 +26,7 @@ below is produced without an MCP server in the process.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import polars as pl
@@ -81,10 +82,24 @@ def _frozen_datetime(instant: datetime) -> type[datetime]:
 def deterministic_world(monkeypatch):
     """No clock, no network, no atlas dataset. Only arithmetic."""
     monkeypatch.setattr(passage_routes, "datetime", _frozen_datetime(FROZEN_NOW))
-    # The engine builds its own adapter when the request carries no
-    # ``forecast_cache``; substituting the class is what makes the live REST
-    # path deterministic without changing a line of the handler.
+    # Belt and braces: nothing should reach for the engine's own adapter now
+    # that the live path is handed one, but a regression that put the old
+    # branch back would otherwise dial Open-Meteo from CI rather than fail.
     monkeypatch.setattr(passage_engine, "OpenMeteoAdapter", DeterministicMarineAdapter)
+
+
+def _deterministic_app(settings: Settings) -> TestClient:
+    """The real app, with the stub adapter in the place of the live one.
+
+    A request without a ``forecast_cache`` is planned through
+    ``app.state.services.marine``, so that is where the determinism has to be
+    installed. Swapping it here rather than patching a module global is the
+    same gesture a deployment makes when it hands its own services in, and it
+    keeps every other part of the app genuinely real.
+    """
+    app = create_app(settings)
+    app.state.services = replace(app.state.services, marine=DeterministicMarineAdapter())
+    return TestClient(app)
 
 
 @pytest.fixture
@@ -95,7 +110,7 @@ def client():
     counter: the goldens fire more requests at ``/api/v1/passage`` than one
     bucket allows in a minute.
     """
-    return TestClient(create_app(Settings()))
+    return _deterministic_app(Settings())
 
 
 def _passage_body(**extra) -> dict:
@@ -272,7 +287,7 @@ def atlas_client(atlas_dir):
     deployment says it, and it is the only path that exercises
     ``Services.from_settings``.
     """
-    return TestClient(create_app(Settings(marc_atlas_dir=str(atlas_dir))))
+    return _deterministic_app(Settings(marc_atlas_dir=str(atlas_dir)))
 
 
 class TestMarineOverlay:

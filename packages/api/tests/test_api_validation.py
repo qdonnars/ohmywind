@@ -17,6 +17,8 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+from fake_requests import FakeRequest
+from openwind_data.adapters.openmeteo import OpenMeteoAdapter
 from openwind_data.routing import MAX_WAYPOINTS
 
 from openwind_api.routes import marine as marine_routes
@@ -27,14 +29,6 @@ from openwind_api.settings import Settings
 DEPARTURE = datetime(2026, 5, 1, 6, 0, tzinfo=UTC)
 MARSEILLE = [43.30, 5.35]
 PORQUEROLLES = [43.00, 6.20]
-
-
-class _FakeRequest:
-    def __init__(self, body: dict) -> None:
-        self._body = body
-
-    async def json(self) -> dict:
-        return self._body
 
 
 class _FakeQueryRequest:
@@ -77,7 +71,7 @@ def _no_network(monkeypatch):
 @pytest.mark.asyncio
 async def test_lat_out_of_range_returns_422() -> None:
     resp = await passage_routes.api_passage(
-        _FakeRequest(_body(waypoints=[[999, 5.35], PORQUEROLLES]))
+        FakeRequest(_body(waypoints=[[999, 5.35], PORQUEROLLES]))
     )
     assert resp.status_code == 422
     assert "out of range [-90, 90]" in _error(resp)
@@ -85,7 +79,7 @@ async def test_lat_out_of_range_returns_422() -> None:
 
 @pytest.mark.asyncio
 async def test_lon_out_of_range_returns_422() -> None:
-    resp = await passage_routes.api_passage(_FakeRequest(_body(waypoints=[MARSEILLE, [43.0, 999]])))
+    resp = await passage_routes.api_passage(FakeRequest(_body(waypoints=[MARSEILLE, [43.0, 999]])))
     assert resp.status_code == 422
     assert "out of range [-180, 180]" in _error(resp)
 
@@ -95,7 +89,7 @@ async def test_nan_coordinate_returns_422() -> None:
     # json.loads accepts the bare NaN literal, so this really is reachable
     # from a hand-rolled POST body.
     resp = await passage_routes.api_passage(
-        _FakeRequest(_body(waypoints=[[float("nan"), 5.35], PORQUEROLLES]))
+        FakeRequest(_body(waypoints=[[float("nan"), 5.35], PORQUEROLLES]))
     )
     assert resp.status_code == 422
     assert "out of range" in _error(resp)
@@ -104,7 +98,7 @@ async def test_nan_coordinate_returns_422() -> None:
 @pytest.mark.asyncio
 async def test_single_waypoint_message_unchanged() -> None:
     # Byte-identical to the pre-existing wording: the web maps this string.
-    resp = await passage_routes.api_passage(_FakeRequest(_body(waypoints=[MARSEILLE])))
+    resp = await passage_routes.api_passage(FakeRequest(_body(waypoints=[MARSEILLE])))
     assert resp.status_code == 422
     assert _error(resp) == "at least 2 waypoints required"
 
@@ -112,7 +106,7 @@ async def test_single_waypoint_message_unchanged() -> None:
 @pytest.mark.asyncio
 async def test_too_many_waypoints_returns_422() -> None:
     route = [[43.0 + i * 0.001, 5.0] for i in range(MAX_WAYPOINTS + 1)]
-    resp = await passage_routes.api_passage(_FakeRequest(_body(waypoints=route)))
+    resp = await passage_routes.api_passage(FakeRequest(_body(waypoints=route)))
     assert resp.status_code == 422
     assert "too many waypoints" in _error(resp)
 
@@ -120,9 +114,14 @@ async def test_too_many_waypoints_returns_422() -> None:
 @pytest.mark.asyncio
 async def test_waypoint_count_at_cap_is_not_rejected_by_bounds() -> None:
     # Must fail for some *other* reason (no network here), never for the cap.
+    # A live adapter on purpose: reaching the upstream is the proof that the
+    # bounds check let this route through, so the stub every other test in
+    # this module gets would make the assertion vacuous.
     route = [[43.0 + i * 0.001, 5.0] for i in range(MAX_WAYPOINTS)]
     with pytest.raises(AssertionError, match="before any upstream fetch"):
-        await passage_routes.api_passage(_FakeRequest(_body(waypoints=route)))
+        await passage_routes.api_passage(
+            FakeRequest(_body(waypoints=route), marine=OpenMeteoAdapter())
+        )
 
 
 # ----------------------------------------------------- POST /passage-by-eta
@@ -131,7 +130,7 @@ async def test_waypoint_count_at_cap_is_not_rejected_by_bounds() -> None:
 @pytest.mark.asyncio
 async def test_by_eta_lat_out_of_range_returns_422() -> None:
     resp = await passage_routes.api_passage_by_eta(
-        _FakeRequest(
+        FakeRequest(
             {
                 "waypoints": [[999, 5.35], PORQUEROLLES],
                 "target_arrival": DEPARTURE.isoformat(),
@@ -146,7 +145,7 @@ async def test_by_eta_lat_out_of_range_returns_422() -> None:
 @pytest.mark.asyncio
 async def test_by_eta_single_waypoint_message_unchanged() -> None:
     resp = await passage_routes.api_passage_by_eta(
-        _FakeRequest(
+        FakeRequest(
             {
                 "waypoints": [MARSEILLE],
                 "target_arrival": DEPARTURE.isoformat(),

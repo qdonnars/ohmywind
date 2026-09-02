@@ -22,6 +22,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
+from fake_requests import FakeRequest
 from openwind_data.adapters.base import ForecastHorizonError, UpstreamRateLimitError
 from starlette.responses import PlainTextResponse
 from starlette.testclient import TestClient
@@ -47,16 +48,6 @@ def _body(**extra) -> dict:
     return body
 
 
-class _FakeRequest:
-    def __init__(self, body: object) -> None:
-        self._body = body
-
-    async def json(self) -> object:
-        if isinstance(self._body, Exception):
-            raise self._body
-        return self._body
-
-
 def _payload(resp) -> dict:
     import json
 
@@ -79,7 +70,7 @@ class TestEngineFailures:
             "estimate_passage",
             _raising(ForecastHorizonError("meteofrance_arome_france", DEPARTURE)),
         )
-        resp = await passage_routes.api_passage(_FakeRequest(_body()))
+        resp = await passage_routes.api_passage(FakeRequest(_body()))
         assert resp.status_code == 422
         assert _payload(resp)["code"] == "forecast_horizon"
 
@@ -87,7 +78,7 @@ class TestEngineFailures:
         monkeypatch.setattr(
             passage_routes, "estimate_passage", _raising(httpx.ReadTimeout("too slow"))
         )
-        resp = await passage_routes.api_passage(_FakeRequest(_body()))
+        resp = await passage_routes.api_passage(FakeRequest(_body()))
         assert resp.status_code == 503
         assert _payload(resp)["code"] == "upstream_timeout"
 
@@ -99,14 +90,14 @@ class TestEngineFailures:
             "estimate_passage",
             _raising(UpstreamRateLimitError("Minutely API request limit exceeded.")),
         )
-        resp = await passage_routes.api_passage(_FakeRequest(_body()))
+        resp = await passage_routes.api_passage(FakeRequest(_body()))
         assert resp.status_code == 503
         assert _payload(resp)["code"] == "upstream_rate_limited"
 
     async def test_sweep_too_large(self) -> None:
         # 14 days of hourly departures is the documented cap; ask for a month.
         resp = await passage_routes.api_passage(
-            _FakeRequest(
+            FakeRequest(
                 _body(
                     latest_departure=(DEPARTURE + timedelta(days=30)).isoformat(),
                     sweep_interval_hours=1,
@@ -122,18 +113,18 @@ class TestEngineFailures:
         # their own mistake.
         monkeypatch.setattr(passage_routes, "estimate_passage", _raising(ZeroDivisionError("bug")))
         with pytest.raises(ZeroDivisionError):
-            await passage_routes.api_passage(_FakeRequest(_body()))
+            await passage_routes.api_passage(FakeRequest(_body()))
 
 
 class TestMalformedBody:
     async def test_unparseable_json(self) -> None:
-        resp = await passage_routes.api_passage(_FakeRequest(ValueError("not json")))
+        resp = await passage_routes.api_passage(FakeRequest(ValueError("not json")))
         assert resp.status_code == 422
         assert _payload(resp)["code"] == "invalid_json"
 
     async def test_a_body_that_is_not_an_object(self) -> None:
         # A JSON array used to reach ``body.get`` and surface as a 500.
-        resp = await passage_routes.api_passage(_FakeRequest([1, 2, 3]))
+        resp = await passage_routes.api_passage(FakeRequest([1, 2, 3]))
         assert resp.status_code == 422
         assert _payload(resp)["code"] == "invalid_json"
 

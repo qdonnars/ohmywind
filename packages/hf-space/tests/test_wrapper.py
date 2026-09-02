@@ -15,6 +15,7 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import pathlib
+import types
 
 import pytest
 from starlette.responses import PlainTextResponse
@@ -90,3 +91,43 @@ def test_the_space_hostnames_are_allowed_through_the_rebinding_guard(wrapper) ->
     # FastMCP refuses any Host outside localhost by default; on HF that is a
     # 421 on every request, which is how this was found the first time.
     assert "mcp.ohmywind.fr" in wrapper.ALLOWED_HOSTS
+
+
+def test_the_rest_api_and_the_mcp_server_share_one_marine_adapter(wrapper, monkeypatch) -> None:
+    """The point of the wiring, and invisible from either library's own tests.
+
+    ``openwind_api`` knows nothing about MCP and ``openwind_mcp_core`` knows
+    nothing about the REST app, so neither can notice this coming apart. Here
+    it is the difference between one HTTP connection pool, one 30 min
+    forecast cache and one copy of the tidal atlases, and two of each in a
+    container sized for one (audit M5) -- with the two halves answering
+    different currents for the same waypoint (audit M2).
+    """
+    captured: dict = {}
+
+    class _StubServer:
+        settings = types.SimpleNamespace(transport_security=None)
+
+        @staticmethod
+        def streamable_http_app():
+            return _StubMcpApp()
+
+    def _fake_build_server(*, adapter=None):
+        captured["adapter"] = adapter
+        return _StubServer()
+
+    monkeypatch.setattr(wrapper, "build_server", _fake_build_server)
+    app = wrapper.build_app()
+
+    assert captured["adapter"] is app.state.services.marine
+    assert captured["adapter"] is not None
+
+
+def test_the_shared_client_is_closed_when_the_process_stops(wrapper, monkeypatch) -> None:
+    """Nothing else can close it: it outlives every request by construction."""
+    monkeypatch.setattr(wrapper, "build_mcp_app", lambda _adapter: _StubMcpApp())
+    app = wrapper.build_app()
+    with TestClient(app) as client:
+        assert client.get("/api/v1/archetypes").status_code == 200
+        assert not app.state.services.http.is_closed
+    assert app.state.services.http.is_closed

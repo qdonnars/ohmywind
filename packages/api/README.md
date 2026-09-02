@@ -4,10 +4,16 @@ The OhMyWind REST API as a library: a Starlette application, and nothing about
 where it runs.
 
 ```python
-from openwind_api import Settings, create_app
+from openwind_api import Services, Settings, create_app
 
 app = create_app(Settings.from_env())  # REST only
 app = create_app(settings, mcp_app=mounted_mcp)  # REST + an MCP server at "/"
+
+# A deployment that serves both hands the same objects to both shells, so one
+# process holds one HTTP connection pool, one forecast cache and one copy of
+# the tidal atlases.
+services = Services.from_settings(settings)
+app = create_app(settings, mcp_app=build_mcp(services.marine), services=services)
 ```
 
 ## Why it is its own package
@@ -38,7 +44,9 @@ test asserts it by importing the package with the name `mcp` blocked.
 - `routes/`: one module per resource. Handlers stay thin.
 - `parsing.py`: reading an untrusted request, once for both passage routes.
 - `errors.py`: one mapping from exception to `(status, message, code)`.
-- `services.py`: the tidal atlases, loaded once, on `app.state.services`.
+- `services.py`: the tidal atlases and the marine adapter, built once, on
+  `app.state.services`. A request with no `forecast_cache` is planned through
+  that adapter, so a live REST plan reads the same currents as the MCP tools.
 - `security.py`: rate limiting, body ceiling, security headers, client IP.
 - `static/landing.html`: the landing page. Its media ship with the deployment.
 
