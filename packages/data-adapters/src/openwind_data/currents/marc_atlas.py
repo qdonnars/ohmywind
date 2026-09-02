@@ -21,6 +21,7 @@ convention "to" (0° = current setting toward the north).
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
@@ -111,6 +112,99 @@ def _tile_path(atlas: AtlasMeta, lat: float, lon: float) -> Path:
     )
 
 
+# One rectangle in degrees, ``(lat_min, lon_min, lat_max, lon_max)``, same
+# order as ``AtlasMeta.bbox``.
+_Box = tuple[float, float, float, float]
+_Boxes = tuple[_Box, ...]
+
+
+def _tile_origin(dir_name: str) -> float | None:
+    """Read the degree value out of a ``tile_lat=48.0`` / ``tile_lon=-5.0`` name."""
+    _, _, raw = dir_name.partition("=")
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
+def _tile_has_rows(parquet_path: Path) -> bool:
+    """Whether a tile holds at least one cell, from the footer alone.
+
+    ``pl.len()`` over a scan is answered from the Parquet metadata: measured
+    1.0 ms on a 41 MB tile against 52 ms for a full read, and the same 0.9 ms
+    on a 3-row tile, so the cost is the file open and not the payload. Reading
+    the columns here would be catastrophic: a single 250 m tile is 30 k cells
+    x 183 columns, and an atlas has thousands of tiles.
+    """
+    try:
+        return pl.scan_parquet(parquet_path).select(pl.len()).collect().item() > 0
+    except Exception:
+        # A truncated or half-written tile is not coverage. ``covers`` would
+        # skip it too (``_read_tile`` -> empty frame -> next candidate), so
+        # dropping it here keeps the two consistent.
+        return False
+
+
+def _merge_tiles_into_rectangles(tiles: Iterable[tuple[float, float]]) -> _Boxes:
+    """Coalesce ``(tile_lat, tile_lon)`` origins into as few boxes as possible.
+
+    Run-length along longitude inside each latitude row: a row of adjacent
+    tiles becomes one rectangle, a gap starts a new one. Rows stay separate,
+    which keeps the merge O(n log n) and its output stable whatever order the
+    filesystem hands the tiles back.
+
+    Boxes are ``(lat_min, lon_min, lat_max, lon_max)``, sorted by latitude
+    then longitude, and closed on all four sides where a tile is half-open on
+    its upper edges. That makes a point on a seam belong to both neighbours
+    rather than to neither, which is the direction that never loses coverage.
+    """
+    rows: dict[float, list[float]] = {}
+    for tile_lat, tile_lon in tiles:
+        rows.setdefault(tile_lat, []).append(tile_lon)
+
+    boxes: list[_Box] = []
+    for tile_lat in sorted(rows):
+        lons = sorted(rows[tile_lat])
+        run_start = run_end = lons[0]
+        for lon in lons[1:]:
+            if abs(lon - run_end - _TILE_SIZE_DEG) < 1e-9:
+                run_end = lon
+                continue
+            boxes.append((tile_lat, run_start, tile_lat + _TILE_SIZE_DEG, run_end + _TILE_SIZE_DEG))
+            run_start = run_end = lon
+        boxes.append((tile_lat, run_start, tile_lat + _TILE_SIZE_DEG, run_end + _TILE_SIZE_DEG))
+    return tuple(boxes)
+
+
+@lru_cache(maxsize=32)
+def _atlas_coverage_cells(parquet_dir: str) -> _Boxes:
+    """Rectangles covering the non-empty tiles of one atlas directory.
+
+    Module-level cache rather than per-instance state on purpose: the
+    registries are built twice in the current deployment (once for the REST
+    routes, once inside ``build_server``), and both copies of the same atlas
+    directory should pay the directory walk once between them. Keyed by path,
+    so a test building a fresh atlas under a new ``tmp_path`` never reads a
+    previous one's answer.
+    """
+    root = Path(parquet_dir)
+    if not root.is_dir():
+        return ()
+    tiles: list[tuple[float, float]] = []
+    for lat_dir in sorted(root.glob("tile_lat=*")):
+        tile_lat = _tile_origin(lat_dir.name)
+        if tile_lat is None or not lat_dir.is_dir():
+            continue
+        for lon_dir in sorted(lat_dir.glob("tile_lon=*")):
+            tile_lon = _tile_origin(lon_dir.name)
+            if tile_lon is None:
+                continue
+            parquet = lon_dir / "data.parquet"
+            if parquet.is_file() and _tile_has_rows(parquet):
+                tiles.append((tile_lat, tile_lon))
+    return _merge_tiles_into_rectangles(tiles)
+
+
 def _nearest_cell_in_tile(
     df: pl.DataFrame, lat: float, lon: float, required_col: str | None = None
 ) -> int | None:
@@ -181,6 +275,34 @@ class MarcAtlasRegistry:
             if atlas is not None:
                 found.append(atlas)
         return cls(atlases=tuple(found))
+
+    def coverage_cells(self) -> tuple[tuple[str, _Boxes], ...]:
+        """Where each atlas actually holds data, as rectangles of whole tiles.
+
+        Exists because :attr:`AtlasMeta.bbox` is far too coarse to decide with.
+        The build writes coverage polygons as bounding boxes, so ATLNE's runs
+        from 39.98 N to 64.99 N and from 20.03 W to 15.00 E: it swallows the
+        entire Mediterranean, where the model has no valid cell at all. A
+        client filtering on ``bbox`` alone skips nothing in the Med, which is
+        precisely the case worth skipping (14 uncovered answers out of 14 in
+        the live measurement).
+
+        The contract, and it is exact rather than approximate: **a point
+        outside every rectangle is a point :meth:`covers` refuses**;
+        :attr:`AtlasMeta.bbox` stays the outer envelope. ``covers`` reads the
+        single tile the point falls in and moves on when that tile is missing
+        or empty, so a point outside every non-empty tile cannot be covered.
+        The converse still does not hold: a tile is 0.5 degrees wide and
+        contains land, so a point inside a rectangle may sit further than the
+        distance threshold from any real cell.
+
+        Result is ``(atlas name, boxes)`` per atlas, boxes as
+        ``(lat_min, lon_min, lat_max, lon_max)``, ordered by latitude then
+        longitude. Cached for the life of the process, keyed by atlas
+        directory: the walk reads one Parquet footer per tile and nothing
+        else, but that is still thousands of file opens on a large atlas.
+        """
+        return tuple((a.name, _atlas_coverage_cells(str(a.parquet_dir))) for a in self.atlases)
 
     # Tolerance for "the nearest cell is close enough to be considered valid".
     # Coverage polygons are bbox-only at build time, so the bbox can extend

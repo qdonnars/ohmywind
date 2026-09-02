@@ -225,3 +225,195 @@ def test_finer_atlas_wins_when_overlap(tmp_path: Path) -> None:
     assert chosen is not None
     assert chosen.name == "FINIS"
     assert chosen.rank == 2
+
+
+# ------------------------------------------------------------- coverage cells
+
+
+def _write_tile(atlas_dir: Path, tile_lat: float, tile_lon: float, *, rows: int) -> None:
+    """Write one tile at a partition path the runtime will look for.
+
+    ``rows=0`` writes a real Parquet file with the right schema and no cell,
+    which is what a partial or interrupted build leaves behind.
+    """
+    tile_dir = atlas_dir / f"tile_lat={tile_lat:.1f}" / f"tile_lon={tile_lon:.1f}"
+    tile_dir.mkdir(parents=True, exist_ok=True)
+    lats = [tile_lat + 0.25] * rows
+    lons = [tile_lon + 0.25] * rows
+    pl.DataFrame(
+        {
+            "lat": pl.Series(lats, dtype=pl.Float64),
+            "lon": pl.Series(lons, dtype=pl.Float64),
+            "z0_hydro_m": pl.Series([0.0] * rows, dtype=pl.Float64),
+            "M2_h_amp": pl.Series([1.0] * rows, dtype=pl.Float64),
+            "M2_h_g": pl.Series([0.0] * rows, dtype=pl.Float64),
+        }
+    ).write_parquet(tile_dir / "data.parquet", compression="zstd")
+
+
+def _write_atlas(root: Path, name: str, bbox: tuple[float, float, float, float]) -> Path:
+    """An atlas directory with metadata and a bbox coverage polygon, no tiles."""
+    atlas_dir = root / name
+    atlas_dir.mkdir(parents=True, exist_ok=True)
+    (atlas_dir / "metadata.json").write_text(
+        json.dumps(
+            {
+                "atlas": name,
+                "rank": 0,
+                "resolution_m": 2000,
+                "constituents_h": ["M2"],
+                "constituents_u": [],
+                "constituents_v": [],
+                "schema_version": 2,
+            }
+        )
+    )
+    lat_min, lon_min, lat_max, lon_max = bbox
+    (atlas_dir / "coverage.geojson").write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {"atlas": name},
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [
+                                [
+                                    [lon_min, lat_min],
+                                    [lon_max, lat_min],
+                                    [lon_max, lat_max],
+                                    [lon_min, lat_max],
+                                    [lon_min, lat_min],
+                                ]
+                            ],
+                        },
+                    }
+                ],
+            }
+        )
+    )
+    return atlas_dir
+
+
+def test_coverage_cells_merges_a_contiguous_run(tmp_path: Path) -> None:
+    # Three tiles side by side along one latitude row collapse into one
+    # rectangle. Without the merge the response would carry a box per tile,
+    # and a real atlas has thousands of them.
+    atlas_dir = _write_atlas(tmp_path, "RUN", (48.0, -5.0, 48.5, -3.5))
+    for tile_lon in (-5.0, -4.5, -4.0):
+        _write_tile(atlas_dir, 48.0, tile_lon, rows=2)
+
+    cells = MarcAtlasRegistry.from_directory(tmp_path).coverage_cells()
+    assert cells == (("RUN", ((48.0, -5.0, 48.5, -3.5),)),)
+
+
+def test_coverage_cells_keeps_a_gap_as_two_rectangles(tmp_path: Path) -> None:
+    # A hole in the middle of a row must stay a hole: merging across it would
+    # claim coverage where the atlas has no tile at all.
+    atlas_dir = _write_atlas(tmp_path, "GAP", (48.0, -6.0, 48.5, -3.5))
+    for tile_lon in (-6.0, -4.0):
+        _write_tile(atlas_dir, 48.0, tile_lon, rows=1)
+
+    boxes = MarcAtlasRegistry.from_directory(tmp_path).coverage_cells()[0][1]
+    assert boxes == ((48.0, -6.0, 48.5, -5.5), (48.0, -4.0, 48.5, -3.5))
+
+
+def test_coverage_cells_skips_an_empty_tile(tmp_path: Path) -> None:
+    # An interrupted build can leave a tile file with the right schema and no
+    # row. ``covers`` skips it (empty frame, next candidate), so the coverage
+    # answer has to skip it too or the two disagree.
+    atlas_dir = _write_atlas(tmp_path, "EMPTY", (48.0, -6.0, 48.5, -3.5))
+    _write_tile(atlas_dir, 48.0, -6.0, rows=3)
+    _write_tile(atlas_dir, 48.0, -5.5, rows=0)
+
+    boxes = MarcAtlasRegistry.from_directory(tmp_path).coverage_cells()[0][1]
+    assert boxes == ((48.0, -6.0, 48.5, -5.5),)
+
+
+def test_coverage_cells_keeps_latitude_rows_separate(tmp_path: Path) -> None:
+    atlas_dir = _write_atlas(tmp_path, "ROWS", (47.5, -5.0, 48.5, -4.0))
+    _write_tile(atlas_dir, 47.5, -5.0, rows=1)
+    _write_tile(atlas_dir, 48.0, -5.0, rows=1)
+    _write_tile(atlas_dir, 48.0, -4.5, rows=1)
+
+    boxes = MarcAtlasRegistry.from_directory(tmp_path).coverage_cells()[0][1]
+    assert boxes == ((47.5, -5.0, 48.0, -4.5), (48.0, -5.0, 48.5, -4.0))
+
+
+def test_coverage_cells_is_empty_for_an_atlas_without_tiles(tmp_path: Path) -> None:
+    _write_atlas(tmp_path, "NOTILES", (48.0, -5.0, 48.5, -4.5))
+    assert MarcAtlasRegistry.from_directory(tmp_path).coverage_cells() == (("NOTILES", ()),)
+
+
+def test_a_mediterranean_point_sits_in_the_bbox_but_in_no_cell(tmp_path: Path) -> None:
+    """The reason this method exists, reproduced at fixture scale.
+
+    ATLNE's coverage polygon is a bounding box spanning 39.98 N to 64.99 N and
+    20.03 W to 15.00 E, so Porquerolles (43.0, 6.2) falls inside it while the
+    overlay answers ``covered: false`` there, 14 times out of 14 in the live
+    measurement. A client filtering on the bbox skips nothing in the
+    Mediterranean; filtering on the cells, it skips every call.
+    """
+    atlas_dir = _write_atlas(tmp_path, "ATLNE", (39.98, -20.03, 64.99, 15.0))
+    # Atlantic tiles only, exactly like the real atlas.
+    for tile_lon in (-5.0, -4.5):
+        _write_tile(atlas_dir, 48.0, tile_lon, rows=2)
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+
+    med = (43.0, 6.2)
+    atlas = registry.atlases[0]
+    assert atlas.bbox[0] <= med[0] <= atlas.bbox[2]
+    assert atlas.bbox[1] <= med[1] <= atlas.bbox[3]
+
+    boxes = registry.coverage_cells()[0][1]
+    assert not any(
+        lat_min <= med[0] <= lat_max and lon_min <= med[1] <= lon_max
+        for lat_min, lon_min, lat_max, lon_max in boxes
+    )
+    # And the endpoint's promise holds where it matters: no cell, no coverage.
+    assert registry.covers(*med) is None
+
+
+def test_no_point_outside_the_cells_is_ever_covered(tmp_path: Path) -> None:
+    """The invariant the client relies on to skip a call.
+
+    Swept over a grid that straddles the tiles, their seams and the empty
+    tile, so a rectangle that is one tile too narrow fails here rather than in
+    production as a silently missing current.
+    """
+    atlas_dir = _write_atlas(tmp_path, "SWEEP", (47.0, -6.0, 49.0, -3.0))
+    for tile_lat, tile_lon in ((48.0, -5.0), (48.0, -4.5), (47.5, -3.5)):
+        _write_tile(atlas_dir, tile_lat, tile_lon, rows=4)
+    _write_tile(atlas_dir, 48.5, -5.0, rows=0)
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    boxes = registry.coverage_cells()[0][1]
+
+    covered_seen = 0
+    for i in range(41):
+        for j in range(61):
+            lat = 47.0 + i * 0.05
+            lon = -6.0 + j * 0.05
+            if registry.covers(lat, lon) is None:
+                continue
+            covered_seen += 1
+            assert any(
+                lat_min <= lat <= lat_max and lon_min <= lon <= lon_max
+                for lat_min, lon_min, lat_max, lon_max in boxes
+            ), (lat, lon)
+    assert covered_seen > 0
+
+
+def test_coverage_cells_is_memoised_per_directory(tmp_path: Path) -> None:
+    # Two registries over the same atlas share the answer: the deployment
+    # builds one for the REST routes and one inside build_server, and the
+    # directory walk should not happen twice.
+    atlas_dir = _write_atlas(tmp_path, "MEMO", (48.0, -5.0, 48.5, -4.5))
+    _write_tile(atlas_dir, 48.0, -5.0, rows=1)
+
+    first = MarcAtlasRegistry.from_directory(tmp_path).coverage_cells()
+    # Add a tile behind its back: a cached answer must not see it.
+    _write_tile(atlas_dir, 48.0, -4.5, rows=1)
+    second = MarcAtlasRegistry.from_directory(tmp_path).coverage_cells()
+    assert first == second

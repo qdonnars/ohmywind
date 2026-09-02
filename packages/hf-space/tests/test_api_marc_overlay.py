@@ -195,13 +195,17 @@ class TestCoverage:
     """
 
     class _StubMarcAtlas:
-        def __init__(self, name, bbox):
+        def __init__(self, name, bbox, cells=()):
             self.name = name
             self.bbox = bbox
+            self.cells = tuple(cells)
 
     class _StubMarcRegistry:
         def __init__(self, atlases):
             self.atlases = tuple(atlases)
+
+        def coverage_cells(self):
+            return tuple((a.name, a.cells) for a in self.atlases)
 
     class _StubShomRegistry:
         def __init__(self, zones):
@@ -218,8 +222,17 @@ class TestCoverage:
             "_MARC_REGISTRY",
             self._StubMarcRegistry(
                 [
-                    self._StubMarcAtlas("MANGA", (48.0, -5.0, 50.0, 0.0)),
-                    self._StubMarcAtlas("FINIS", (47.5, -5.5, 48.9, -3.5)),
+                    # Declared out of alphabetical order, and with a coverage
+                    # envelope wider than the tiles that hold data, which is
+                    # the real shape of every MARC atlas.
+                    self._StubMarcAtlas(
+                        "MANGA", (48.0, -5.0, 50.0, 0.0), [(49.0, -2.0, 49.5, -1.0)]
+                    ),
+                    self._StubMarcAtlas(
+                        "FINIS",
+                        (47.5, -5.5, 48.9, -3.5),
+                        [(48.0, -5.0, 48.5, -4.0), (48.5, -5.0, 49.0, -4.5)],
+                    ),
                 ]
             ),
         )
@@ -263,7 +276,7 @@ class TestCoverage:
         # a covered point.
         raw = (47.123456789, -3.987654321, 48.111111111, -2.000000001)
         monkeypatch.setattr(
-            app, "_MARC_REGISTRY", self._StubMarcRegistry([self._StubMarcAtlas("X", raw)])
+            app, "_MARC_REGISTRY", self._StubMarcRegistry([self._StubMarcAtlas("X", raw, [raw])])
         )
         monkeypatch.setattr(app, "_SHOM_REGISTRY", self._StubShomRegistry([]))
         lat_min, lon_min, lat_max, lon_max = _payload(await app._api_marc_coverage(None))[
@@ -271,6 +284,172 @@ class TestCoverage:
         ][0]["bbox"]
         assert lat_min <= raw[0] and lon_min <= raw[1]
         assert lat_max >= raw[2] and lon_max >= raw[3]
+
+    async def test_every_entry_carries_its_cells(self, loaded) -> None:
+        payload = _payload(await app._api_marc_coverage(None))
+        by_name = {a["name"]: a for a in payload["atlases"]}
+        assert by_name["FINIS"]["cells"] == [
+            [48.0, -5.0, 48.5, -4.0],
+            [48.5, -5.0, 49.0, -4.5],
+        ]
+        # SHOM has nothing finer than its zone box, which already wraps the
+        # points themselves rather than a build-time envelope.
+        assert by_name["MORBIHAN"]["cells"] == [by_name["MORBIHAN"]["bbox"]]
+
+    async def test_bbox_is_unchanged_by_the_arrival_of_cells(self, loaded) -> None:
+        # A client already reads bbox off the deployed answer; cells is added
+        # beside it, not in its place.
+        finis = next(
+            a
+            for a in _payload(await app._api_marc_coverage(None))["atlases"]
+            if a["name"] == "FINIS"
+        )
+        assert finis["bbox"] == [47.5, -5.5, 48.9, -3.5]
+
+    async def test_cells_stay_within_one_tile_of_the_bbox_they_refine(self, loaded) -> None:
+        """A cell may overrun the envelope, by at most one tile.
+
+        Tiles are aligned on a half-degree grid while a coverage polygon ends
+        wherever the model grid ends, so the topmost tile of an atlas whose
+        bbox stops at 48.9 legitimately reaches 49.0. Anything further than
+        that means the two are describing different atlases.
+        """
+        tile = 0.5
+        for entry in _payload(await app._api_marc_coverage(None))["atlases"]:
+            lat_min, lon_min, lat_max, lon_max = entry["bbox"]
+            for cell in entry["cells"]:
+                assert cell[0] >= lat_min - tile and cell[2] <= lat_max + tile, entry["name"]
+                assert cell[1] >= lon_min - tile and cell[3] <= lon_max + tile, entry["name"]
+
+    async def test_a_mediterranean_point_is_in_the_bbox_and_in_no_cell(self, monkeypatch) -> None:
+        """The whole reason ``cells`` exists, at the endpoint level.
+
+        ATLNE's build-time coverage polygon is a bounding box that reaches
+        from Madeira's latitude to Norway and from mid-Atlantic to Poland, so
+        Porquerolles sits inside it while the overlay answers uncovered there,
+        14 times out of 14 in the live measurement. Filtering on ``bbox`` a
+        Mediterranean client skips nothing; filtering on ``cells`` it skips
+        every call.
+        """
+        monkeypatch.setattr(
+            app,
+            "_MARC_REGISTRY",
+            self._StubMarcRegistry(
+                [
+                    self._StubMarcAtlas(
+                        "ATLNE",
+                        (39.982, -20.0295, 64.9911, 15.0004),
+                        [(48.0, -5.0, 48.5, -4.0)],
+                    )
+                ]
+            ),
+        )
+        monkeypatch.setattr(app, "_SHOM_REGISTRY", self._StubShomRegistry([]))
+        entry = _payload(await app._api_marc_coverage(None))["atlases"][0]
+
+        porquerolles = (43.0, 6.2)
+
+        def contains(box):
+            return box[0] <= porquerolles[0] <= box[2] and box[1] <= porquerolles[1] <= box[3]
+
+        assert contains(entry["bbox"])
+        assert not any(contains(cell) for cell in entry["cells"])
+
+    async def test_no_float_artefacts_in_the_answer(self, monkeypatch) -> None:
+        # The deployed answer carried -20.029500000000002. It is harmless
+        # arithmetically and it makes the payload look broken.
+        monkeypatch.setattr(
+            app,
+            "_MARC_REGISTRY",
+            self._StubMarcRegistry(
+                [
+                    self._StubMarcAtlas(
+                        "ATLNE", (39.982, -20.0295, 64.9911, 15.0004), [(48.0, -5.0, 48.5, -4.0)]
+                    )
+                ]
+            ),
+        )
+        monkeypatch.setattr(app, "_SHOM_REGISTRY", self._StubShomRegistry([]))
+        raw = bytes((await app._api_marc_coverage(None)).body).decode()
+        assert "-20.0295," in raw
+        assert "0000000" not in raw
+
+    async def test_reads_real_tiles_off_disk(self, monkeypatch, tmp_path) -> None:
+        """End to end through the real registry, not a stub.
+
+        The handler joins ``registry.atlases`` to ``coverage_cells()`` by
+        atlas name. A stub cannot catch that join going wrong, and if it did
+        every atlas would silently report an empty ``cells`` list, which a
+        client would read as "skip everything".
+        """
+        import json
+
+        import polars as pl
+        from openwind_data.currents.marc_atlas import MarcAtlasRegistry
+
+        atlas_dir = tmp_path / "FINIS"
+        atlas_dir.mkdir()
+        (atlas_dir / "metadata.json").write_text(
+            json.dumps(
+                {
+                    "atlas": "FINIS",
+                    "rank": 2,
+                    "resolution_m": 250,
+                    "constituents_h": ["M2"],
+                    "constituents_u": [],
+                    "constituents_v": [],
+                    "schema_version": 2,
+                }
+            )
+        )
+        (atlas_dir / "coverage.geojson").write_text(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {},
+                            "geometry": {
+                                "type": "Polygon",
+                                "coordinates": [
+                                    [
+                                        [-5.5, 47.5],
+                                        [-4.5, 47.5],
+                                        [-4.5, 49.0],
+                                        [-5.5, 49.0],
+                                        [-5.5, 47.5],
+                                    ]
+                                ],
+                            },
+                        }
+                    ],
+                }
+            )
+        )
+        tile = atlas_dir / "tile_lat=48.0" / "tile_lon=-5.0"
+        tile.mkdir(parents=True)
+        pl.DataFrame(
+            {
+                "lat": [48.35],
+                "lon": [-4.80],
+                "z0_hydro_m": [0.0],
+                "M2_h_amp": [1.0],
+                "M2_h_g": [0.0],
+            }
+        ).write_parquet(tile / "data.parquet", compression="zstd")
+
+        monkeypatch.setattr(app, "_MARC_REGISTRY", MarcAtlasRegistry.from_directory(tmp_path))
+        monkeypatch.setattr(app, "_SHOM_REGISTRY", self._StubShomRegistry([]))
+
+        entry = _payload(await app._api_marc_coverage(None))["atlases"][0]
+        assert entry["name"] == "FINIS"
+        assert entry["cells"] == [[48.0, -5.0, 48.5, -4.5]]
+        assert entry["bbox"] == [47.5, -5.5, 49.0, -4.5]
+
+    async def test_an_empty_answer_still_has_no_cells_to_report(self) -> None:
+        payload = _payload(await app._api_marc_coverage(None))
+        assert payload == {"atlases": []}
 
     async def test_answers_an_empty_list_without_a_dataset(self) -> None:
         # The registries are empty in CI, which is also the Space's state

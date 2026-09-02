@@ -123,11 +123,20 @@ on the deployment.
 
 `/api/v1/marine/marc/coverage` answers
 `{"atlases": [{"name": "FINIS", "source": "marc", "bbox": [lat_min, lon_min,
-lat_max, lon_max]}, ...]}`, in WGS84 degrees, latitude first, sorted by source
-then name. It is an empty list on a Space that ships without the tidal atlas
-dataset. The promise runs one way only: outside every box there is nothing to
-fetch, inside one there may still be nothing (the SHOM boxes wrap a scattered
-point cloud that contains land and gaps).
+lat_max, lon_max], "cells": [[lat_min, lon_min, lat_max, lon_max], ...]}, ...]}`,
+in WGS84 degrees, latitude first, sorted by source then name. It is an empty
+list on a Space that ships without the tidal atlas dataset.
+
+**Filter on `cells`, not on `bbox`.** MARC coverage polygons are written as
+bounding boxes at build time, so the ATLNE envelope spans 39.98 N to 64.99 N
+and 20.03 W to 15.00 E and swallows the whole Mediterranean, where the model
+holds no cell at all. `cells` lists the tiles that actually carry data, merged
+into rectangles; for SHOM it is the zone box, which is already tight. `bbox` is
+kept for the clients already reading it.
+
+The promise runs one way only, for both fields: outside every box there is
+nothing to fetch, inside one there may still be nothing (a MARC tile is half a
+degree wide and contains land, and the SHOM cloud is scattered).
 
 The overlay endpoint has its own, wider bucket because the web app calls it
 once per corridor point, up to 60 times for one computation. Its step ceiling
