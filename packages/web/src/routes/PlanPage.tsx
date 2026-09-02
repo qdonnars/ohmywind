@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useState, useEffect, useMemo, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
-import { parsePlanUrl, isParsedOk, buildPlanUrl } from "../plan/parseUrl";
+import { parsePlanUrl, buildPlanUrl } from "../plan/parseUrl";
 import { PlanMap, type PlanMapHandle } from "../plan/PlanMap";
 import { PlanSidebar } from "../plan/PlanSidebar";
 import { fetchPassage, fetchPassageByEta, fetchPassageWindows, fetchArchetypes, friendlyError, type PlanOverrides } from "../api/passage";
@@ -17,13 +17,19 @@ import {
   saveLastSimulation,
   clearLastSimulation,
   waypointsEqual,
-  type LastSimulation,
 } from "../plan/lastSimulation";
+import {
+  resolveInitialSession,
+  toNaiveLocal,
+  tomorrowRoundedLocal,
+  defaultSweepLatest,
+  type InitialSession,
+} from "../plan/session/initial";
 import { type TimeAnchor } from "../plan/ModeToggle";
 import { computeLegSegmentRanges } from "../plan/aggregateLegs";
 import { toTzAware } from "../plan/departureTz";
 import { activeModels, loadModelConfig } from "../config/modelConfig";
-import { effectivePolar, initialPlanBoat, isPersoActive, isPolarCustomized, loadPolarConfig, planEfficiency, polarFingerprint, savePolarConfig } from "../config/polarConfig";
+import { effectivePolar, isPersoActive, isPolarCustomized, loadPolarConfig, planEfficiency, polarFingerprint, savePolarConfig } from "../config/polarConfig";
 import { LocateButton } from "../components/LocateButton";
 import { SeamarkButton } from "../components/SeamarkButton";
 import { useSeamarks } from "../hooks/useSeamarks";
@@ -77,20 +83,7 @@ function currentConfigFingerprint(): string {
 // `toTzAware`'s inverse — used to round-trip a server-resolved departure
 // back into the slider/URL format.
 function isoToLocal(iso: string): string {
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-// Slider lands on J+1 by default — a now-anchored start is rarely what a
-// sailor wants when planning, and the "Maintenant" tick under the slider
-// remains one click away.
-function tomorrowRoundedLocal(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  d.setMinutes(0, 0, 0);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return toNaiveLocal(new Date(iso));
 }
 
 function fmtTime(iso: string) {
@@ -432,85 +425,46 @@ export function PlanPage() {
     });
   }, [locate]);
   const drawerRef = useRef<DrawerHandle>(null);
-  const initialParsed = parsePlanUrl(window.location.search);
 
-  // If the URL is empty (typical after a /plan FAB click from the home page),
-  // fall back to the cached last simulation so the user lands back on their
-  // route + archetype + departure instead of an empty plan. Captured once at
-  // mount so all useState initializers see the same snapshot.
-  const urlHasWaypoints = isParsedOk(initialParsed) && initialParsed.waypoints.length >= 2;
-  const cachedAtMount = !urlHasWaypoints ? loadLastSimulation() : null;
-  const useCachedRoute = !!(cachedAtMount && cachedAtMount.waypoints.length >= 2);
-  // Uncommitted state of THIS tab, if any. It outranks both the URL and the
-  // cache because both are written only after a successful computation, so a
-  // draft is by construction the more recent of the three. Read once at mount.
-  const [draftAtMount] = useState(loadPlanDraft);
+  // Everything the three persistence media (this tab's draft, the URL, the
+  // cached last simulation) have to say about the page, decided once, in one
+  // pure place. `plan/session/initial.ts` carries the precedence table and the
+  // freshness rules; here we only spread the answer into React state.
+  const [initial] = useState<InitialSession>(() =>
+    resolveInitialSession({
+      url: parsePlanUrl(window.location.search),
+      draft: loadPlanDraft(),
+      cache: loadLastSimulation(),
+      polarConfig: loadPolarConfig(),
+      configFingerprint: currentConfigFingerprint(),
+      now: Date.now(),
+    }),
+  );
 
-  const [waypoints, setWaypoints] = useState<[number, number][]>(() => {
-    if (draftAtMount) return draftAtMount.waypoints;
-    if (urlHasWaypoints) return (initialParsed as { waypoints: [number, number][] }).waypoints;
-    if (useCachedRoute) return cachedAtMount!.waypoints;
-    return [];
-  });
+  const [waypoints, setWaypoints] = useState<[number, number][]>(initial.waypoints);
   const waypointDepths = useWaypointDepths(waypoints);
-  const [archetype, setArchetype] = useState(() =>
-    // A customized polar pins the boat to cfg.base — the hull the tuning was
-    // built on and the one the selector displays — so a stale URL/cache slug
-    // from an earlier session can't silently re-board the plan on another
-    // boat (#220). Otherwise: URL, then cache, then the /config default.
-    initialPlanBoat(
-      loadPolarConfig(),
-      draftAtMount?.archetype ?? (isParsedOk(initialParsed) ? initialParsed.archetype : null),
-      useCachedRoute ? cachedAtMount!.archetype : null,
-    ),
-  );
-  const [departure, setDeparture] = useState(() => {
-    // Same freshness rule as the URL below: a draft left overnight must not
-    // seed the slider with a departure that is already behind us.
-    const drafted = draftAtMount?.departure;
-    if (drafted && new Date(drafted) >= new Date()) return drafted;
-    const raw = isParsedOk(initialParsed) ? initialParsed.departure : "";
-    if (raw && new Date(raw) >= new Date()) return raw;
-    // Try cache: prefer the single-mode departure, then fall back to the
-    // sweep's earliest timestamp so compare-only caches still seed the slider.
-    const cachedDep =
-      cachedAtMount?.single?.departure ?? cachedAtMount?.compare?.sweepEarliest;
-    if (cachedDep && new Date(cachedDep) >= new Date()) return cachedDep;
-    return tomorrowRoundedLocal();
-  });
-  const [timeAnchor, setTimeAnchor] = useState<TimeAnchor>(
-    () => draftAtMount?.timeAnchor ?? "departure",
-  );
+  const [archetype, setArchetype] = useState(initial.archetype);
+  const [departure, setDeparture] = useState(initial.departure);
+  const [timeAnchor, setTimeAnchor] = useState<TimeAnchor>(initial.timeAnchor);
 
-  const [passage, setPassage] = useState<PassageReport | null>(null);
-  const [complexity, setComplexity] = useState<ComplexityScore | null>(null);
+  const [passage, setPassage] = useState<PassageReport | null>(initial.passage);
+  const [complexity, setComplexity] = useState<ComplexityScore | null>(initial.complexity);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [archetypes, setArchetypes] = useState<Archetype[]>([]);
-  const [forecastUpdatedAt, setForecastUpdatedAt] = useState<string | null>(null);
+  const [forecastUpdatedAt, setForecastUpdatedAt] = useState<string | null>(
+    initial.forecastUpdatedAt,
+  );
   // "Edits not yet computed". A restored draft is exactly that, so it starts
   // the page stale: the sidebar offers Recalculer instead of pretending the
   // route on screen has results behind it.
-  const [isStale, setIsStale] = useState(() => draftAtMount != null);
+  const [isStale, setIsStale] = useState(initial.isStale);
 
   // Compare-windows mode (lifted from PlanSidebar in step 2)
-  const [planMode, setPlanMode] = useState<"single" | "compare">(
-    () => draftAtMount?.mode ?? cachedAtMount?.mode ?? "single",
-  );
-  const [sweepEarliest, setSweepEarliest] = useState(
-    () => draftAtMount?.sweepEarliest ?? cachedAtMount?.compare?.sweepEarliest ?? departure,
-  );
-  const [sweepLatest, setSweepLatest] = useState(() => {
-    if (draftAtMount?.sweepLatest) return draftAtMount.sweepLatest;
-    if (cachedAtMount?.compare?.sweepLatest) return cachedAtMount.compare.sweepLatest;
-    const d = new Date(departure);
-    d.setDate(d.getDate() + 2);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  });
-  const [sweepInterval, setSweepInterval] = useState<number>(
-    () => draftAtMount?.sweepIntervalHours ?? cachedAtMount?.compare?.sweepIntervalHours ?? 3,
-  );
+  const [planMode, setPlanMode] = useState<"single" | "compare">(initial.mode);
+  const [sweepEarliest, setSweepEarliest] = useState(initial.sweepEarliest);
+  const [sweepLatest, setSweepLatest] = useState(initial.sweepLatest);
+  const [sweepInterval, setSweepInterval] = useState<number>(initial.sweepIntervalHours);
   // Selected leg for the sidebar's expanded "Comment c'est calculé" — also
   // drives the highlight overlay on the map. Cleared whenever the route or
   // its segments change so we never highlight stale ranges.
@@ -519,16 +473,14 @@ export function PlanPage() {
   // Back collapses the open leg rather than leaving the planner (issue #300).
   const collapseLeg = useCallback(() => setSelectedLegIdx(null), []);
   useBackDismiss(selectedLegIdx !== null, collapseLeg);
-  const [windows, setWindows] = useState<PassageWindow[] | null>(null);
-  const [metaWarnings, setMetaWarnings] = useState<string[]>([]);
+  const [windows, setWindows] = useState<PassageWindow[] | null>(initial.windows);
+  const [metaWarnings, setMetaWarnings] = useState<string[]>(initial.metaWarnings);
   // Compact "pick a mode" state on mobile: drops the sidebar to just the
   // mode pills + reset button (and shrinks the bottom drawer) until the
   // user actively confirms their mode choice. Initialised true when we
   // already have a route to display (cached / URL) so reload doesn't hide
   // the user's previous context.
-  const [actionTaken, setActionTaken] = useState<boolean>(
-    () => urlHasWaypoints || useCachedRoute || (draftAtMount?.waypoints.length ?? 0) >= 2,
-  );
+  const [actionTaken, setActionTaken] = useState<boolean>(initial.actionTaken);
   // Reset to compact whenever the user drops back below 2 waypoints so the
   // next time they reach 2 they get the pick-a-mode step again.
   useEffect(() => {
@@ -660,80 +612,20 @@ export function PlanPage() {
     sweepInterval,
   ]);
 
+  // Everything the resolved session could seed synchronously already is, in
+  // the initializers above. What is left needs the outside world: syncing the
+  // address bar when the cache supplied the route (so reload and share work),
+  // and computing when nothing usable could be restored.
   useEffect(() => {
-    // Path 0 — a draft was restored: it is this tab's most recent state, and
-    // by definition it has no results yet. Seeding already happened in the
-    // initializers above; hydrating the URL's or the cache's results on top
-    // would show a passage that does not match the route on screen, and
-    // fetching would spend a computation the user did not ask for.
-    if (draftAtMount) return;
-
-    // Path A — URL has waypoints: respect the URL, restore from cache if it
-    // matches the same route + boat, otherwise fetch fresh. The boat is the
-    // seeded `archetype` state, not the raw URL slug: a customized polar
-    // overrides the URL's boat (see initialPlanBoat), and the results shown
-    // must be the ones computed on the boat the recap displays (#220).
-    if (urlHasWaypoints) {
-      const cached: LastSimulation | null = loadLastSimulation();
-      const cacheMatches =
-        cached &&
-        waypointsEqual(cached.waypoints, initialParsed.waypoints) &&
-        cached.archetype === archetype &&
-        // Reject the cache if the user tweaked /config since the simulation
-        // ran — the persisted result is stale relative to the active
-        // preferences. Treat missing fingerprint as "pre-config-era" cache.
-        cached.configFingerprint === currentConfigFingerprint();
-      if (cacheMatches) {
-        if (cached.single && cached.single.departure === departure) {
-          setPassage(cached.single.passage);
-          setComplexity(cached.single.complexity);
-          setForecastUpdatedAt(cached.single.forecastUpdatedAt);
-        }
-        // Always restore compare-mode windows + sweep params if present —
-        // sweep range isn't encoded in the URL, so we trust the cache.
-        if (cached.compare) {
-          setWindows(cached.compare.windows);
-          setMetaWarnings(cached.compare.metaWarnings);
-          if (!cached.single || cached.single.departure !== departure) {
-            setForecastUpdatedAt(cached.compare.forecastUpdatedAt);
-          }
-        }
-        if (cached.single || cached.compare) return;
-      }
-      doFetch(initialParsed.waypoints, archetype, departure);
-      return;
+    if (initial.mount.rewriteUrl) {
+      window.history.replaceState(
+        null,
+        "",
+        buildPlanUrl(initial.waypoints, initial.departure, initial.archetype),
+      );
     }
-
-    // Path B — URL is empty: state was already seeded from cache by the
-    // useState initializers above. Hydrate the simulation results, sync the
-    // URL so reload/share works, and skip any network call.
-    if (useCachedRoute && cachedAtMount) {
-      const url = buildPlanUrl(cachedAtMount.waypoints, departure, archetype);
-      window.history.replaceState(null, "", url);
-      // Discard the persisted results and refetch when /config changed since
-      // the cache was written, or when the cached simulation ran on another
-      // boat than the seeded one (a customized polar re-pins the boat to its
-      // base — the cached run may predate the fix for #220). Route + boat +
-      // departure remain seeded.
-      if (
-        cachedAtMount.configFingerprint !== currentConfigFingerprint() ||
-        cachedAtMount.archetype !== archetype
-      ) {
-        doFetch(cachedAtMount.waypoints, archetype, departure);
-        return;
-      }
-      if (cachedAtMount.single) {
-        setPassage(cachedAtMount.single.passage);
-        setComplexity(cachedAtMount.single.complexity);
-        setForecastUpdatedAt(cachedAtMount.single.forecastUpdatedAt);
-      }
-      if (cachedAtMount.compare) {
-        setWindows(cachedAtMount.compare.windows);
-        setMetaWarnings(cachedAtMount.compare.metaWarnings);
-        if (!cachedAtMount.single) {
-          setForecastUpdatedAt(cachedAtMount.compare.forecastUpdatedAt);
-        }
-      }
+    if (initial.mount.fetch) {
+      doFetch(initial.waypoints, initial.archetype, initial.departure);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -875,13 +767,10 @@ export function PlanPage() {
     setPlanMode("single");
     setTimeAnchor("departure");
     setArchetype(loadPolarConfig().base);
-    const dep = tomorrowRoundedLocal();
+    const dep = tomorrowRoundedLocal(Date.now());
     setDeparture(dep);
     setSweepEarliest(dep);
-    const d = new Date(dep);
-    d.setDate(d.getDate() + 2);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    setSweepLatest(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+    setSweepLatest(defaultSweepLatest(dep));
     setSweepInterval(3);
     window.history.replaceState(null, "", "/plan");
   }
@@ -905,9 +794,7 @@ export function PlanPage() {
   // Fallback: older HF Space deployments don't include those fields → call
   // doFetch as before so the UX still works during deployment lag.
   function handleWindowSelect(w: PassageWindow) {
-    const d = new Date(w.departure);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const naiveDep = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const naiveDep = toNaiveLocal(new Date(w.departure));
 
     setPlanMode("single");
     setDeparture(naiveDep);
@@ -955,7 +842,7 @@ export function PlanPage() {
     }
   }
 
-  if (!isParsedOk(initialParsed)) {
+  if (initial.urlError !== null) {
     return (
       <div
         className="h-dvh flex flex-col items-center justify-center px-6"
@@ -964,7 +851,7 @@ export function PlanPage() {
         <div className="max-w-sm text-center space-y-4">
           <p className="text-4xl">⚓</p>
           <h1 className="text-xl font-bold">URL invalide</h1>
-          <p className="text-sm leading-relaxed" style={{ color: "var(--ow-fg-1)" }}>{initialParsed.error}</p>
+          <p className="text-sm leading-relaxed" style={{ color: "var(--ow-fg-1)" }}>{initial.urlError}</p>
           <a
             href={`/${mapViewQuery(mapView)}`}
             className="inline-block mt-4 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
@@ -1049,7 +936,7 @@ export function PlanPage() {
             onWptAdd={waypoints.length >= 2 ? handleWptAdd : undefined}
             onWptDelete={handleWptDelete}
             onMapClick={handleMapClick}
-            initialCenter={isParsedOk(initialParsed) ? initialParsed.center : null}
+            initialCenter={initial.center}
             userPosition={userPosition}
             onViewChange={onViewChange}
             initialZoom={handedView?.zoom ?? null}

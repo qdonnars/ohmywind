@@ -4,10 +4,10 @@
 import { useCallback, useEffect, useState, type RefObject } from "react";
 import { STORAGE_KEY as CUSTOM_SPOTS_KEY } from "../hooks/useCustomSpots";
 import { migrateLegacyKey } from "../utils/localStorageMigration";
+import { LAST_SIMULATION_KEY } from "../plan/lastSimulation";
 
 const STORAGE_KEY = "ohmywind:onboarding-v1";
 const LEGACY_STORAGE_KEY = "openwind:onboarding-v1";
-const LAST_SIMULATION_KEY = "ow_last_simulation_v1";
 // Time between page load and the planner hint surfacing — for first-time
 // users only. The check is a snapshot at mount; subsequent state changes
 // (adding/removing spots during the 15 s) don't cancel the popup.
