@@ -87,6 +87,44 @@ asks you for credentials is guessing rather than reading the server.
 | `plan_passage`            | End-to-end: per-leg timing + 1–5 complexity + ohmywind.fr deep-link, in one call. Pass `latest_departure` and it walks every hourly window up to 14 days out so the LLM can compare side-by-side. Declares an MCP Apps UI resource; supporting hosts auto-render the live plan in a sandboxed iframe. |
 | `read_me`                 | Returns OhMyWind's calculation methodology. Call it when the user asks how things are computed. |
 
+## REST API
+
+The web app talks to the same deployment over plain HTTP. Every response is
+JSON, no key and no account required.
+
+| Route | Method | Notes |
+|---|---|---|
+| `/api/v1/archetypes` | GET | The seven boat archetypes. `Cache-Control: public, max-age=86400`. |
+| `/api/v1/passage` | POST | Passage plan from a departure time. Sweeps departures when `latest_departure` is set. |
+| `/api/v1/passage-by-eta` | POST | Passage plan from a target arrival. |
+| `/api/v1/marine/marc` | GET | SHOM and MARC tidal atlas overlay for one point. Always 200, `covered` tells you whether there was anything to give. |
+| `/api/v1/_client` | GET | How this deployment sees the caller, for rate-limit diagnosis. |
+| `/mcp` | POST | The MCP endpoint. Streaming transport, never compressed. |
+
+Responses under `/api/v1` are gzipped when the client asks for it and the body
+exceeds 1 KB. `/mcp` is deliberately excluded.
+
+### Limits
+
+A single free CPU worker serves everything, MCP sessions included, so each
+route carries a ceiling. All of them are configurable by environment variable
+on the deployment.
+
+| Limit | Default | Environment variable |
+|---|---|---|
+| Requests per IP per minute on the POST planners | 30 | `OPENWIND_RATE_LIMIT_REQUESTS` |
+| Requests per IP per minute on `/api/v1/marine/marc` | 120 | `OPENWIND_MARC_RATE_LIMIT` |
+| Rate-limit window | 60 s | `OPENWIND_RATE_LIMIT_WINDOW_S` |
+| Request body on `/api/v1/*` | 4 MiB, `413` beyond | `OPENWIND_MAX_BODY_BYTES` |
+| `forecast_cache` corridor points | 120, `422` beyond | fixed in `openwind-data` |
+| `forecast_cache` time axis | 400 hours, `422` beyond | fixed in `openwind-data` |
+| Steps per `/api/v1/marine/marc` call | 800, `422` beyond | fixed in the wrapper |
+
+The overlay endpoint has its own, wider bucket because the web app calls it
+once per corridor point, up to 60 times for one computation. Its step ceiling
+allows 30 days of hourly predictions (721 steps) and refuses the shapes that
+would block the worker for seconds, such as a month at a 5-minute step.
+
 ## About this Space
 
 > ⚠️ This Space uses the **Docker SDK** (not Gradio). It does **not** carry
