@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { useMemo } from "react";
 import { formatHour } from "../utils/format";
 import type { ModelForecast } from "../types";
 import type { TimezoneMode } from "../hooks/useTimezone";
@@ -32,12 +33,101 @@ function wmoIcon(code: number | null, isDay: boolean): string {
   return "";
 }
 
+// Built once at module load. `toLocaleDateString` builds a formatter on every
+// call, and this header formats one label per day plus one per visible day
+// change, on a component that re-renders on every scroll tick.
+const WEEKDAY_DTF = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" });
+const DAYNUM_DTF = new Intl.DateTimeFormat("en-US", { day: "numeric", timeZone: "UTC" });
+
 function formatStickyDay(isoDate: string): [string, string] {
   if (!isoDate) return ["", ""];
   const d = new Date(isoDate + "T12:00:00Z");
-  const weekday = d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" }).toUpperCase();
-  const day = d.toLocaleDateString("en-US", { day: "numeric", timeZone: "UTC" });
-  return [weekday, day];
+  return [WEEKDAY_DTF.format(d).toUpperCase(), DAYNUM_DTF.format(d)];
+}
+
+/** Everything a column needs, resolved once per timeline instead of per render.
+ *
+ * The two lookups this replaces were the expensive part: `weatherCode` and
+ * `isDayHour` each walked `indexOf` over every model's time series, for every
+ * one of the 168 columns, on every render. An index per model turns that from
+ * quadratic into a map read, and the result is cached until the timeline, the
+ * forecasts or the clock mode actually change. */
+interface Column {
+  time: string;
+  icon: string;
+  hourLabel: string;
+  isDayStart: boolean;
+}
+
+function buildColumns(
+  times: string[],
+  forecasts: ModelForecast[],
+  timezoneMode: TimezoneMode,
+): Column[] {
+  const indexes = forecasts.map((f) => {
+    const m = new Map<string, number>();
+    f.hourly.time.forEach((t, i) => m.set(t, i));
+    return { forecast: f, index: m };
+  });
+
+  const weatherCode = (t: string): number | null => {
+    for (const { forecast, index } of indexes) {
+      const idx = index.get(t);
+      if (idx !== undefined && forecast.hourly.weather_code?.[idx] != null) {
+        return forecast.hourly.weather_code[idx];
+      }
+    }
+    return null;
+  };
+
+  const isDayHour = (t: string): boolean => {
+    for (const { forecast, index } of indexes) {
+      const idx = index.get(t);
+      if (idx !== undefined && forecast.hourly.is_day?.[idx] != null) {
+        return forecast.hourly.is_day[idx] === 1;
+      }
+    }
+    // Fallback when is_day is missing: treat 07:00-20:59 as day.
+    const hour = parseInt(t.slice(11, 13));
+    return hour >= 7 && hour < 21;
+  };
+
+  let prevDay = "";
+  return times.map((t, i) => {
+    const day = t.slice(0, 10);
+    const isDayStart = day !== prevDay && i > 0;
+    prevDay = day;
+    return {
+      time: t,
+      icon: wmoIcon(weatherCode(t), isDayHour(t)),
+      hourLabel: formatHour(t, timezoneMode),
+      isDayStart,
+    };
+  });
+}
+
+/** Consecutive columns grouped by day, for the desktop-only day-label row. */
+interface DayGroup {
+  dayIso: string;
+  count: number;
+  weekday: string;
+  dayNum: string;
+}
+
+function buildDayGroups(times: string[]): DayGroup[] {
+  const groups: DayGroup[] = [];
+  let curDay = "";
+  for (const t of times) {
+    const day = t.slice(0, 10);
+    if (day !== curDay) {
+      const [weekday, dayNum] = formatStickyDay(day);
+      groups.push({ dayIso: day, count: 1, weekday, dayNum });
+      curDay = day;
+    } else {
+      groups[groups.length - 1].count++;
+    }
+  }
+  return groups;
 }
 
 export function TimelineHeader({
@@ -49,52 +139,11 @@ export function TimelineHeader({
   timezoneMode,
   visibleDay,
 }: TimelineHeaderProps) {
-  function weatherCode(timeStr: string): number | null {
-    for (const f of forecasts) {
-      const idx = f.hourly.time.indexOf(timeStr);
-      if (idx !== -1 && f.hourly.weather_code?.[idx] != null) {
-        return f.hourly.weather_code[idx];
-      }
-    }
-    return null;
-  }
-
-  function isDayHour(timeStr: string): boolean {
-    for (const f of forecasts) {
-      const idx = f.hourly.time.indexOf(timeStr);
-      if (idx !== -1 && f.hourly.is_day?.[idx] != null) {
-        return f.hourly.is_day[idx] === 1;
-      }
-    }
-    // Fallback when is_day is missing: treat 07:00–20:59 as day.
-    const hour = parseInt(timeStr.slice(11, 13));
-    return hour >= 7 && hour < 21;
-  }
-
-  // Mark the first column of each new day for subtle separators
-  const dayStarts = new Set<string>();
-  let prevDay = "";
-  for (const t of times) {
-    const day = t.slice(0, 10);
-    if (day !== prevDay) { dayStarts.add(t); prevDay = day; }
-  }
-
-  // Group consecutive hours by day for the desktop-only day-label row.
-  type DayGroup = { dayIso: string; count: number; weekday: string; dayNum: string };
-  const dayGroupsArr: DayGroup[] = [];
-  {
-    let curDay = "";
-    for (const t of times) {
-      const day = t.slice(0, 10);
-      if (day !== curDay) {
-        const [w, d] = formatStickyDay(day);
-        dayGroupsArr.push({ dayIso: day, count: 1, weekday: w, dayNum: d });
-        curDay = day;
-      } else {
-        dayGroupsArr[dayGroupsArr.length - 1].count++;
-      }
-    }
-  }
+  const columns = useMemo(
+    () => buildColumns(times, forecasts, timezoneMode),
+    [times, forecasts, timezoneMode],
+  );
+  const dayGroups = useMemo(() => buildDayGroups(times), [times]);
 
   const [weekday, dayNum] = formatStickyDay(visibleDay);
 
@@ -108,7 +157,7 @@ export function TimelineHeader({
           className="sticky left-0 z-30 min-w-[56px] border-r border-b"
           style={{ background: 'var(--ow-bg-1)', borderColor: 'var(--ow-line-2)' }}
         />
-        {dayGroupsArr.map((g, gi) => (
+        {dayGroups.map((g, gi) => (
           <td
             key={g.dayIso}
             colSpan={g.count}
@@ -151,35 +200,31 @@ export function TimelineHeader({
             </span>
           </div>
         </td>
-        {times.map((t, i) => {
-          const isStart = dayStarts.has(t) && i > 0;
-          return (
-            <td
-              key={i}
-              className={`text-center p-0 ow-tbl-bg cursor-pointer leading-none ${isStart ? 'ow-day-sep' : ''}`}
-              style={{
-                fontSize: "13px",
-                lineHeight: "20px",
-              }}
-              onClick={() => onSelectHour(t)}
-            >
-              {wmoIcon(weatherCode(t), isDayHour(t))}
-            </td>
-          );
-        })}
+        {columns.map((col, i) => (
+          <td
+            key={i}
+            className={`text-center p-0 ow-tbl-bg cursor-pointer leading-none ${col.isDayStart ? 'ow-day-sep' : ''}`}
+            style={{
+              fontSize: "13px",
+              lineHeight: "20px",
+            }}
+            onClick={() => onSelectHour(col.time)}
+          >
+            {col.icon}
+          </td>
+        ))}
       </tr>
 
       {/* Row 2: hour numbers — no sticky left (spanned by row above) */}
       <tr>
-        {times.map((t, i) => {
-          const isNow = t.startsWith(nowHour);
-          const isDayStart = dayStarts.has(t) && i > 0;
+        {columns.map((col, i) => {
+          const isNow = col.time.startsWith(nowHour);
           return (
             <th
               key={i}
               scope="col"
-              className={`text-[10px] lg:text-xs font-semibold py-1 cursor-pointer transition-colors relative border-b ${isDayStart ? 'ow-day-sep' : ''} ${
-                t === selectedHour
+              className={`text-[10px] lg:text-xs font-semibold py-1 cursor-pointer transition-colors relative border-b ${col.isDayStart ? 'ow-day-sep' : ''} ${
+                col.time === selectedHour
                   ? "text-white bg-teal-600"
                   : isNow
                   ? "text-teal-100 bg-teal-700/70 font-bold"
@@ -188,9 +233,9 @@ export function TimelineHeader({
               style={{
                 borderColor: 'var(--ow-line-2)',
               }}
-              onClick={() => onSelectHour(t)}
+              onClick={() => onSelectHour(col.time)}
             >
-              {formatHour(t, timezoneMode)}
+              {col.hourLabel}
               {isNow && (
                 <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-teal-400" />
               )}

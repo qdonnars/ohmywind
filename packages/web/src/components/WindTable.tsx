@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import type { ModelForecast } from "../types";
 import { TimelineHeader } from "./TimelineHeader";
 import { WindCell } from "./WindCell";
 import { useTimezone } from "../hooks/useTimezone";
 import { nowParisHourPrefix } from "../domain/datetime";
+import { useTimelineScroll } from "../hooks/useTimelineScroll";
 import { MODEL_META, type ModelName } from "../config/modelConfig";
 
 function modelStep(name: string): number {
@@ -84,9 +85,6 @@ export function WindTable({
   selectedHour,
   onSelectHour,
 }: WindTableProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [scrolledEnd, setScrolledEnd] = useState(false);
-  const [visibleDay, setVisibleDay] = useState("");
   const [timezoneMode] = useTimezone();
 
   const masterTimeline = useMemo(() => {
@@ -97,70 +95,15 @@ export function WindTable({
     );
   }, [forecasts]);
 
-  const dayStarts = useMemo(() => {
-    const set = new Set<string>();
-    let prev = "";
-    for (const t of masterTimeline) {
-      const day = t.slice(0, 10);
-      if (day !== prev) { set.add(t); prev = day; }
-    }
-    return set;
-  }, [masterTimeline]);
-
   const nowHour = nowParisHourPrefix();
+  const { scrollRef, scrolledEnd, visibleDay, dayStarts } = useTimelineScroll(
+    masterTimeline,
+    CELL_W,
+    nowHour,
+  );
 
-  // Remember the leftmost visible hour across spot switches so the table's
-  // horizontal scroll position is preserved. Independent from ``selectedHour``
-  // (which only drives the arrow on the map and the highlighted cell):
-  // dragging the slider scrolls the table without selecting an hour, and the
-  // user expects the same "+3 days" window to come back on the next spot.
-  const leftmostHourRef = useRef<string | null>(null);
-
-  const updateVisibleDay = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el || masterTimeline.length === 0) return;
-    const leftmostIdx = Math.max(0, Math.floor(el.scrollLeft / CELL_W));
-    const t = masterTimeline[Math.min(leftmostIdx, masterTimeline.length - 1)];
-    if (t) {
-      setVisibleDay(t.slice(0, 10));
-      leftmostHourRef.current = t;
-    }
-  }, [masterTimeline]);
-
-  const checkScrollEnd = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 10;
-    setScrolledEnd(atEnd);
-    updateVisibleDay();
-  }, [updateVisibleDay]);
-
-  useEffect(() => {
-    if (!scrollRef.current || masterTimeline.length === 0) return;
-    // Restore the previously visible window when the timeline changes
-    // (typical case: user switched spots). On the very first render of a
-    // session the ref is null, fall back to "now" with a small context
-    // offset so the user sees one cell of "past" on the left. When
-    // restoring an anchor, we DON'T apply that offset: the anchor hour
-    // already IS the leftmost cell we want to land on, so subtracting 60
-    // would drift the table to the left a few pixels every switch.
-    const hasAnchor = leftmostHourRef.current != null;
-    const anchor = leftmostHourRef.current ?? nowHour;
-    const idx = masterTimeline.findIndex((t) => t.startsWith(anchor.slice(0, 13)));
-    const nearestIdx = idx >= 0 ? idx : masterTimeline.findIndex((t) => t > anchor.slice(0, 13));
-    if (nearestIdx > 0) {
-      const offset = hasAnchor ? 0 : 60;
-      scrollRef.current.scrollLeft = Math.max(0, nearestIdx * CELL_W - offset);
-    }
-    checkScrollEnd();
-  }, [masterTimeline, nowHour, checkScrollEnd]);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.addEventListener("scroll", checkScrollEnd, { passive: true });
-    return () => el.removeEventListener("scroll", checkScrollEnd);
-  }, [checkScrollEnd]);
+  // One function for the whole table, not one closure per cell.
+  const selectHour = useCallback((t: string) => onSelectHour(t), [onSelectHour]);
 
   if (isLoading) {
     return <SkeletonTable />;
@@ -238,7 +181,8 @@ export function WindTable({
                           selected={t === selectedHour}
                           isNow={t.startsWith(nowHour)}
                           isDayStart={dayStarts.has(t) && i > 0}
-                          onSelect={() => onSelectHour(t)}
+                          time={t}
+                          onSelect={selectHour}
                         />
                       );
                     })}

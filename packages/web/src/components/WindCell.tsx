@@ -1,19 +1,25 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { memo } from "react";
 import { beaufortLevel, windLevelVar } from "../domain/thresholds";
 
 interface WindCellProps {
+  /** The hour this cell reads, handed back to `onSelect`. */
+  time: string;
   speed: number | null;
   gusts: number | null;
   direction: number | null;
   selected: boolean;
   isNow: boolean;
   isDayStart?: boolean;
-  onSelect: () => void;
+  /** Takes the hour rather than closing over it, so the parent can pass one
+      stable function for the whole table instead of one closure per cell.
+      Without that, `memo` below would miss on every render. */
+  onSelect: (time: string) => void;
 }
 
-export function WindCell({ speed, gusts, direction, selected, isNow, isDayStart, onSelect }: WindCellProps) {
+function WindCellImpl({ time, speed, gusts, direction, selected, isNow, isDayStart, onSelect }: WindCellProps) {
   // `isNow` border takes precedence over the day separator (the now marker is more salient).
   const nowBorder = isNow ? "border-l-2 border-l-teal-400" : "";
   const daySepClass = !isNow && isDayStart ? "ow-day-sep" : "";
@@ -24,7 +30,7 @@ export function WindCell({ speed, gusts, direction, selected, isNow, isDayStart,
       <td
         role="cell"
         className={`wind-cell ow-null-cell min-w-[32px] lg:min-w-[56px] h-10 lg:h-14 text-center text-xs align-middle cursor-pointer ${nowBorder} ${daySepClass} ${selectedStyle}`}
-        onClick={onSelect}
+        onClick={() => onSelect(time)}
       >
         —
       </td>
@@ -43,7 +49,7 @@ export function WindCell({ speed, gusts, direction, selected, isNow, isDayStart,
       role="cell"
       className={`wind-cell min-w-[32px] lg:min-w-[56px] h-10 lg:h-14 text-center align-middle p-0 cursor-pointer ${nowBorder} ${daySepClass} ${selectedStyle}`}
       style={{ backgroundColor: bg, color }}
-      onClick={onSelect}
+      onClick={() => onSelect(time)}
       aria-label={`${Math.round(speed)} knots${gusts != null ? `, gusts ${Math.round(gusts)}` : ""}${direction != null ? `, direction ${direction}°` : ""}`}
     >
       <div className="flex flex-col items-center justify-center leading-none gap-[2px]">
@@ -77,3 +83,10 @@ export function WindCell({ speed, gusts, direction, selected, isNow, isDayStart,
     </td>
   );
 }
+
+/**
+ * A 7-day timeline is 168 cells per model, so tapping one hour used to
+ * re-render close to 700 of them to change two. Every prop here is a scalar,
+ * which makes the default shallow comparison exactly right.
+ */
+export const WindCell = memo(WindCellImpl);
