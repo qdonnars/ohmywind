@@ -19,6 +19,7 @@ from openwind_data.adapters.base import (
     ForecastBundle,
     ForecastHorizonError,
     MarineDataAdapter,
+    PrewarmingAdapter,
     SeaPoint,
     WindPoint,
 )
@@ -42,17 +43,23 @@ from openwind_data.routing.passage.models import NoModelCoveredError
 from openwind_data.routing.passage.physics import _layout_speed_kn
 
 
-def resolve_fetch_adapter(
-    adapter: MarineDataAdapter | None,
-) -> tuple[bool, MarineDataAdapter]:
-    """Return ``(we built it, the adapter to fetch through)``.
+def resolve_fetch_adapter(adapter: MarineDataAdapter | None) -> MarineDataAdapter:
+    """The adapter to fetch through: the caller's, or a fresh Open-Meteo one.
 
-    The single place the engine ever constructs an ``OpenMeteoAdapter``, so
-    the boolean that decides who closes it is computed next to the object it
-    talks about, and so a test that wants a passage planned without a network
-    has exactly one name to replace.
+    The single place the engine ever constructs an ``OpenMeteoAdapter``, so a
+    test that wants a passage planned without a network has exactly one name
+    to replace.
+
+    Nothing is closed afterwards, and nothing needs to be: the engine used to
+    carry an ``own_adapter`` flag and a ``finally`` that called ``aclose`` on
+    the adapter it had built, except no ``MarineDataAdapter`` in this codebase
+    has ever had an ``aclose``. ``OpenMeteoAdapter`` closes the httpx client
+    it opens per fetch, from inside its own ``fetch``, and the routing adapter
+    documents that it forwards no lifecycle method. The branch was unreachable
+    (it carried a ``# pragma: no cover`` that said so) and the audit filed it
+    as dead code under Mo6.
     """
-    return adapter is None, adapter or OpenMeteoAdapter()
+    return adapter or OpenMeteoAdapter()
 
 
 def _resolve_segment_length(
@@ -277,62 +284,58 @@ async def _sample_route(
     if model_chain:
         chain_tail = tuple(m for m in model_chain if m != model)
 
-    own_adapter, fetch_adapter = resolve_fetch_adapter(adapter)
-    try:
-        # Adapters without prewarm_batch (cache-backed, stubs) skip straight to
-        # the gather; for the others this is a pure speedup, one HTTP call for
-        # all points instead of one per point.
-        if hasattr(fetch_adapter, "prewarm_batch"):
-            await fetch_adapter.prewarm_batch(
-                [(pt.lat, pt.lon) for pt in mid_points],
-                min(mid_times) - WIND_FETCH_WINDOW / 2,
-                max(mid_times) + WIND_FETCH_WINDOW / 2,
-                [model],
-            )
-        bundles = await asyncio.gather(
-            *[
-                fetch_adapter.fetch(
-                    pt.lat,
-                    pt.lon,
-                    mid - WIND_FETCH_WINDOW / 2,
-                    mid + WIND_FETCH_WINDOW / 2,
-                    models=[model],
-                )
-                for pt, mid in zip(mid_points, mid_times, strict=True)
-            ]
+    fetch_adapter = resolve_fetch_adapter(adapter)
+    # Adapters without prewarm_batch (cache-backed, stubs) skip straight to
+    # the gather; for the others this is a pure speedup, one HTTP call for
+    # all points instead of one per point.
+    if isinstance(fetch_adapter, PrewarmingAdapter):
+        await fetch_adapter.prewarm_batch(
+            [(pt.lat, pt.lon) for pt in mid_points],
+            min(mid_times) - WIND_FETCH_WINDOW / 2,
+            max(mid_times) + WIND_FETCH_WINDOW / 2,
+            [model],
         )
+    bundles = await asyncio.gather(
+        *[
+            fetch_adapter.fetch(
+                pt.lat,
+                pt.lon,
+                mid - WIND_FETCH_WINDOW / 2,
+                mid + WIND_FETCH_WINDOW / 2,
+                models=[model],
+            )
+            for pt, mid in zip(mid_points, mid_times, strict=True)
+        ]
+    )
 
-        # Per-segment models default to the primary; the fallback below may
-        # overwrite individual entries.
-        seg_models: list[str] = [model] * len(segments)
-        if chain_tail:
-            fallback_indices = [
-                i
-                for i, (b, mid) in enumerate(zip(bundles, mid_times, strict=True))
-                if not _segment_has_wind(b, model, mid)
-            ]
-            if fallback_indices:
-                fallback_results = await asyncio.gather(
-                    *[
-                        _fetch_segment_with_fallback(
-                            fetch_adapter,
-                            mid_points[i].lat,
-                            mid_points[i].lon,
-                            mid_times[i],
-                            primary_model=chain_tail[0],
-                            chain=chain_tail,
-                        )
-                        for i in fallback_indices
-                    ]
-                )
-                for idx, (used_model, used_bundle) in zip(
-                    fallback_indices, fallback_results, strict=True
-                ):
-                    seg_models[idx] = used_model
-                    bundles[idx] = used_bundle
-    finally:
-        if own_adapter and hasattr(fetch_adapter, "aclose"):
-            await fetch_adapter.aclose()  # pragma: no cover
+    # Per-segment models default to the primary; the fallback below may
+    # overwrite individual entries.
+    seg_models: list[str] = [model] * len(segments)
+    if chain_tail:
+        fallback_indices = [
+            i
+            for i, (b, mid) in enumerate(zip(bundles, mid_times, strict=True))
+            if not _segment_has_wind(b, model, mid)
+        ]
+        if fallback_indices:
+            fallback_results = await asyncio.gather(
+                *[
+                    _fetch_segment_with_fallback(
+                        fetch_adapter,
+                        mid_points[i].lat,
+                        mid_points[i].lon,
+                        mid_times[i],
+                        primary_model=chain_tail[0],
+                        chain=chain_tail,
+                    )
+                    for i in fallback_indices
+                ]
+            )
+            for idx, (used_model, used_bundle) in zip(
+                fallback_indices, fallback_results, strict=True
+            ):
+                seg_models[idx] = used_model
+                bundles[idx] = used_bundle
 
     return RouteSampling(
         segments=segments,

@@ -389,9 +389,6 @@ def test_the_engine_builds_its_default_adapter_in_one_place(monkeypatch) -> None
             super().__init__()
             built.append("yes")
 
-        async def aclose(self) -> None:
-            return None
-
     monkeypatch.setattr(sampling, "OpenMeteoAdapter", _Recorded)
     assert not hasattr(sweep, "OpenMeteoAdapter"), "the sweep must go through sampling"
 

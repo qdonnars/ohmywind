@@ -14,7 +14,11 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime, timedelta
 
-from openwind_data.adapters.base import ForecastHorizonError, MarineDataAdapter
+from openwind_data.adapters.base import (
+    ForecastHorizonError,
+    MarineDataAdapter,
+    PrewarmingAdapter,
+)
 from openwind_data.adapters.openmeteo import AUTO_FALLBACK_CHAIN, AUTO_MODEL
 from openwind_data.routing.archetypes import BoatPolar
 from openwind_data.routing.geometry import Point, midpoint, segment_route
@@ -139,104 +143,98 @@ async def estimate_passage_windows(
         span_hours, sweep_interval_hours, len(segments)
     )
 
-    own_adapter, fetch_adapter = resolve_fetch_adapter(adapter)
-    try:
-        # Simulate the first window to resolve the model (needed before prewarm).
-        first = await estimate_passage(
-            waypoints,
+    fetch_adapter = resolve_fetch_adapter(adapter)
+    # Simulate the first window to resolve the model (needed before prewarm).
+    first = await estimate_passage(
+        waypoints,
+        earliest_utc,
+        boat_archetype,
+        efficiency=efficiency,
+        segment_length_nm=segment_length_nm,
+        adapter=fetch_adapter,
+        model=model,
+        use_wave_correction=use_wave_correction,
+        polar_override=polar_override,
+        model_chain=model_chain,
+    )
+    resolved_model = first.model
+    reports: list[PassageReport] = [first]
+
+    # Prewarm cache for the entire sweep horizon so all remaining calls are
+    # hits. One batched multi-coordinate call when the adapter supports it
+    # (all points in ~2 HTTP requests), else the per-point gather.
+    prewarm_end = latest_utc + timedelta(hours=route_nm / PREWARM_MIN_SPEED_KN) + WIND_FETCH_WINDOW
+    if isinstance(fetch_adapter, PrewarmingAdapter):
+        await fetch_adapter.prewarm_batch(
+            [(pt.lat, pt.lon) for pt in seg_mid_points],
             earliest_utc,
-            boat_archetype,
-            efficiency=efficiency,
-            segment_length_nm=segment_length_nm,
-            adapter=fetch_adapter,
-            model=model,
-            use_wave_correction=use_wave_correction,
-            polar_override=polar_override,
-            model_chain=model_chain,
+            prewarm_end,
+            [resolved_model],
         )
-        resolved_model = first.model
-        reports: list[PassageReport] = [first]
-
-        # Prewarm cache for the entire sweep horizon so all remaining calls are
-        # hits. One batched multi-coordinate call when the adapter supports it
-        # (all points in ~2 HTTP requests), else the per-point gather.
-        prewarm_end = (
-            latest_utc + timedelta(hours=route_nm / PREWARM_MIN_SPEED_KN) + WIND_FETCH_WINDOW
-        )
-        if hasattr(fetch_adapter, "prewarm_batch"):
-            await fetch_adapter.prewarm_batch(
-                [(pt.lat, pt.lon) for pt in seg_mid_points],
-                earliest_utc,
-                prewarm_end,
-                [resolved_model],
-            )
-        else:
-            await asyncio.gather(
-                *[
-                    fetch_adapter.fetch(
-                        pt.lat, pt.lon, earliest_utc, prewarm_end, models=[resolved_model]
-                    )
-                    for pt in seg_mid_points
-                ]
-            )
-
-        # Sweep remaining departure windows sequentially. The first window's
-        # resolved model is the cache-warmed default; later windows that fall
-        # past its horizon retry with the AUTO chain so we escalate to
-        # ICON-EU / ECMWF / GFS instead of dropping them. Cost: a non-cached
-        # fetch per fallback window (Open-Meteo is keyless and fast). When
-        # the user pinned a specific model (model != "auto"), we respect that
-        # and skip out-of-horizon windows — explicit choice wins.
-        # ValueError / KeyError still bubble (caller-side bugs).
-        effective_chain = model_chain if model_chain else AUTO_FALLBACK_CHAIN
-        current = earliest_utc + timedelta(hours=sweep_interval_hours)
-        while current <= latest_utc:
-            try:
-                report = await estimate_passage(
-                    waypoints,
-                    current,
-                    boat_archetype,
-                    efficiency=efficiency,
-                    segment_length_nm=segment_length_nm,
-                    adapter=fetch_adapter,
-                    model=resolved_model,
-                    use_wave_correction=use_wave_correction,
-                    polar_override=polar_override,
+    else:
+        await asyncio.gather(
+            *[
+                fetch_adapter.fetch(
+                    pt.lat, pt.lon, earliest_utc, prewarm_end, models=[resolved_model]
                 )
-                reports.append(report)
-            except ForecastHorizonError:
-                if model == AUTO_MODEL and resolved_model != effective_chain[-1]:
-                    try:
-                        report = await estimate_passage(
-                            waypoints,
-                            current,
-                            boat_archetype,
-                            efficiency=efficiency,
-                            segment_length_nm=segment_length_nm,
-                            adapter=fetch_adapter,
-                            model=AUTO_MODEL,
-                            use_wave_correction=use_wave_correction,
-                            polar_override=polar_override,
-                            model_chain=model_chain,
-                        )
-                        reports.append(report)
-                    except (ForecastHorizonError, NoModelCoveredError):
-                        pass  # No model in the chain covers it.
-            except NoModelCoveredError:
-                # Per-segment fallback exhausted for this departure (no model
-                # in the chain has data for at least one point). Same UX
-                # decision as ForecastHorizonError above: skip the window
-                # rather than failing the whole sweep.
-                pass
-            # Every window after the first is a cache hit, and a coroutine that
-            # never awaits anything real never yields: without this the whole
-            # sweep runs as one uninterruptible block and the process serves
-            # nothing else meanwhile, landing page and rate-limited REST
-            # included. Yielding per window costs nothing measurable.
-            await asyncio.sleep(0)
-            current += timedelta(hours=sweep_interval_hours)
-    finally:
-        if own_adapter and hasattr(fetch_adapter, "aclose"):
-            await fetch_adapter.aclose()  # pragma: no cover
+                for pt in seg_mid_points
+            ]
+        )
+
+    # Sweep remaining departure windows sequentially. The first window's
+    # resolved model is the cache-warmed default; later windows that fall
+    # past its horizon retry with the AUTO chain so we escalate to
+    # ICON-EU / ECMWF / GFS instead of dropping them. Cost: a non-cached
+    # fetch per fallback window (Open-Meteo is keyless and fast). When
+    # the user pinned a specific model (model != "auto"), we respect that
+    # and skip out-of-horizon windows — explicit choice wins.
+    # ValueError / KeyError still bubble (caller-side bugs).
+    effective_chain = model_chain if model_chain else AUTO_FALLBACK_CHAIN
+    current = earliest_utc + timedelta(hours=sweep_interval_hours)
+    while current <= latest_utc:
+        try:
+            report = await estimate_passage(
+                waypoints,
+                current,
+                boat_archetype,
+                efficiency=efficiency,
+                segment_length_nm=segment_length_nm,
+                adapter=fetch_adapter,
+                model=resolved_model,
+                use_wave_correction=use_wave_correction,
+                polar_override=polar_override,
+            )
+            reports.append(report)
+        except ForecastHorizonError:
+            if model == AUTO_MODEL and resolved_model != effective_chain[-1]:
+                try:
+                    report = await estimate_passage(
+                        waypoints,
+                        current,
+                        boat_archetype,
+                        efficiency=efficiency,
+                        segment_length_nm=segment_length_nm,
+                        adapter=fetch_adapter,
+                        model=AUTO_MODEL,
+                        use_wave_correction=use_wave_correction,
+                        polar_override=polar_override,
+                        model_chain=model_chain,
+                    )
+                    reports.append(report)
+                except (ForecastHorizonError, NoModelCoveredError):
+                    pass  # No model in the chain covers it.
+        except NoModelCoveredError:
+            # Per-segment fallback exhausted for this departure (no model
+            # in the chain has data for at least one point). Same UX
+            # decision as ForecastHorizonError above: skip the window
+            # rather than failing the whole sweep.
+            pass
+        # Every window after the first is a cache hit, and a coroutine that
+        # never awaits anything real never yields: without this the whole
+        # sweep runs as one uninterruptible block and the process serves
+        # nothing else meanwhile, landing page and rate-limited REST
+        # included. Yielding per window costs nothing measurable.
+        await asyncio.sleep(0)
+        current += timedelta(hours=sweep_interval_hours)
 
     return reports

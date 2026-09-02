@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 CURRENT_RELEVANCE_THRESHOLD_KN = 0.3
 TIDE_RANGE_RELEVANCE_THRESHOLD_M = 0.5
@@ -147,3 +147,30 @@ class MarineDataAdapter(Protocol):
         end: datetime,
         models: list[str] | None = None,
     ) -> ForecastBundle: ...
+
+
+@runtime_checkable
+class PrewarmingAdapter(MarineDataAdapter, Protocol):
+    """A ``MarineDataAdapter`` that can warm a whole corridor in one go.
+
+    Open-Meteo answers a multi-coordinate request, so the engine can pay one
+    HTTP call for a route instead of one per sampled point. Not every adapter
+    can: a browser-cache adapter has nothing to warm, and a stub has nothing
+    to call. So the capability is optional, and the engine asks before using
+    it.
+
+    It asks with ``isinstance``, which is why this is ``runtime_checkable``.
+    That is the same test the engine ran with ``hasattr`` before, on exactly
+    the same attribute, but a type checker can read this one: the audit filed
+    the untyped probe as Mo6, and the point of writing the capability down is
+    that a wrong argument list here becomes an error rather than an
+    ``AttributeError`` in production.
+    """
+
+    async def prewarm_batch(
+        self,
+        points: list[tuple[float, float]],
+        start: datetime,
+        end: datetime,
+        models: list[str] | None = None,
+    ) -> None: ...

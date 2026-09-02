@@ -129,9 +129,10 @@ def hourly_axis(start: datetime, end: datetime) -> list[datetime]:
 class DeterministicMarineAdapter:
     """A ``MarineDataAdapter`` whose answers depend only on their arguments.
 
-    Deliberately without ``prewarm_batch`` and ``aclose``: the engine probes
-    for both with ``hasattr``, and the absent-attribute path is the one every
-    cache-backed and stubbed adapter takes in production.
+    Deliberately without ``prewarm_batch``: the engine asks whether an adapter
+    is a ``PrewarmingAdapter`` before batching a corridor, and the "it is not"
+    path is the one every cache-backed and stubbed adapter takes in
+    production.
 
     ``fetch_calls`` records how many times the engine asked, which is how a
     sweep proves it does not refetch per window.
