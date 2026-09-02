@@ -66,6 +66,21 @@ jobs:
           uvx ruff check packages/data-adapters packages/api packages/mcp-core packages/hf-space
           uvx ruff format --check packages/data-adapters packages/api packages/mcp-core packages/hf-space
 
+      # Bloquant, lui. Mode basic : ce qu'on veut attraper, c'est l'attribut
+      # sondé qu'aucune classe ne définit, la méthode appelée à travers un
+      # Protocol qui ne la déclare pas, l'Optional utilisé sans être filtré.
+      # Les deux paquets sont à zéro erreur ; le mode strict, qui exige une
+      # annotation sur chaque variable locale, les noierait sous le bruit.
+      # Seul le code de `src/` est analysé (voir `include` dans les
+      # pyproject) : les tests montent des doublures partielles exprès.
+      - name: Types data-adapters (pyright)
+        working-directory: packages/data-adapters
+        run: uv run pyright
+
+      - name: Types api (pyright)
+        working-directory: packages/api
+        run: uv run pyright
+
       - name: Test data-adapters
         working-directory: packages/data-adapters
         run: uv run pytest -q

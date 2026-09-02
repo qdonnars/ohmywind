@@ -17,6 +17,7 @@ dev = [
     "pytest-asyncio>=0.23",
     "respx>=0.21",
     "ruff>=0.5",
+    "pyright>=1.1.390",
 ]
 
 [build-system]
@@ -37,3 +38,14 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "N", "RUF"]
 ignore = ["E501"]
+
+
+# Basic mode, not strict. The point is to catch the class of bug the 2026-09
+# audit found by reading: an attribute probed with `hasattr` that no class in
+# the codebase defines, a method called through a Protocol that does not
+# declare it, an `Optional` used without being filtered. Strict mode would
+# also demand annotations on every local and would drown those in noise.
+[tool.pyright]
+include = ["src"]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
