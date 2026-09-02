@@ -31,12 +31,25 @@ export const CACHE_MODEL_SLUGS: Partial<Record<ModelName, string>> = {
 };
 const GFS_SLUG = "gfs_seamless";
 
-// Generous cap on corridor sample points. The browser has its own Open-Meteo
-// quota (~600/min per IP), so we sample far denser than the server's ~10-segment
-// budget; this only guards pathologically long routes from issuing hundreds of
-// requests. Beyond it, spacing stretches.
+// Guard on corridor sample points, not the working rule: the corridor is now
+// derived from the server's own segmentation (see serverSegmentLengthNm). It
+// only catches routes where that rule cannot fit under the cap, typically a
+// very long passage or so many waypoints that one point per leg already
+// overflows. Beyond it, spacing stretches.
 const MAX_CORRIDOR_POINTS = 60;
 const DEFAULT_SPACING_NM = 5;
+
+// Mirror of the server's sampling rule, `_resolve_segment_length` in
+// packages/data-adapters/src/openwind_data/routing/passage.py. Keep these three
+// in step with MAX_SAMPLED_SEGMENTS / MIN_SEG_LENGTH_NM / MAX_SEG_LENGTH_NM
+// there; the test asserts the resulting geometry, not the constants.
+const MAX_SAMPLED_SEGMENTS = 10;
+const MIN_SEG_LENGTH_NM = 10;
+const MAX_SEG_LENGTH_NM = 30;
+
+// Default `segment_length_nm` of `estimate_passage`. The web never overrides
+// it, so this is what the server will resolve against.
+const SERVER_REQUESTED_SEGMENT_NM = 10;
 
 export interface CacheWindSeries {
   speed_kn: (number | null)[];
@@ -88,10 +101,11 @@ function roundOrNull(v: number | null | undefined, dp: number): number | null {
   return Number(v.toFixed(dp));
 }
 
-// Interpolate sample points along the waypoint polyline at ~spacingNm, denser
-// than the server's segmentation so every server segment midpoint has a near
-// corridor sample. Mirrors segment_route: n = max(1, ceil(d/spacing)) per leg,
-// endpoints hit the waypoints, shared waypoints between legs are not duplicated.
+// Interpolate sample points along the waypoint polyline at ~spacingNm. Mirrors
+// segment_route: n = max(1, ceil(d/spacing)) per leg, endpoints hit the
+// waypoints, shared waypoints between legs are not duplicated. Kept as the
+// fallback path and for callers that pass an explicit spacing; the corridor a
+// plan actually samples comes from planCorridor below.
 export function interpolateCorridor(
   waypoints: [number, number][],
   spacingNm: number = DEFAULT_SPACING_NM,
@@ -122,6 +136,65 @@ export function routeLengthNm(waypoints: [number, number][]): number {
     );
   }
   return total;
+}
+
+// Effective sub-segment length the server will use for this route, in NM.
+//
+// Mirrors `_resolve_segment_length`: the requested length is stretched so the
+// route yields at most MAX_SAMPLED_SEGMENTS samples, clamped to
+// [MIN_SEG_LENGTH_NM, MAX_SEG_LENGTH_NM], and never shortened below what was
+// asked. In practice: 10 NM up to a 100 NM route, total/10 from there to 300
+// NM, 30 NM beyond.
+export function serverSegmentLengthNm(
+  waypoints: [number, number][],
+  requestedNm: number = SERVER_REQUESTED_SEGMENT_NM,
+): number {
+  const total = routeLengthNm(waypoints);
+  const target = total / MAX_SAMPLED_SEGMENTS;
+  if (target <= requestedNm) return requestedNm;
+  const effective = Math.min(MAX_SEG_LENGTH_NM, Math.max(MIN_SEG_LENGTH_NM, target));
+  return effective <= requestedNm ? requestedNm : effective;
+}
+
+// Corridor sampled so that every point the server will read sits exactly on a
+// sample, rather than merely near one.
+//
+// The server splits each leg into n = max(1, ceil(d / L)) sub-segments of equal
+// length (`segment_route`) and fetches at each sub-segment's midpoint, which
+// the cache adapter resolves by nearest neighbour. Splitting the same leg into
+// 2n instead of n therefore lands a corridor point on every sub-segment
+// boundary AND on every midpoint: the nearest-neighbour lookup is exact, with
+// no distance error to argue about. Halving a spacing and rounding up would
+// not do it, since ceil(d / (L/2)) is not always 2 * ceil(d / L).
+export function serverAlignedCorridor(
+  waypoints: [number, number][],
+  segmentNm: number,
+): GeoPoint[] {
+  if (waypoints.length < 2) throw new Error("need at least 2 waypoints");
+  if (segmentNm <= 0) throw new Error("segmentNm must be > 0");
+  const out: GeoPoint[] = [];
+  for (let leg = 0; leg < waypoints.length - 1; leg++) {
+    const a: GeoPoint = { lat: waypoints[leg][0], lon: waypoints[leg][1] };
+    const b: GeoPoint = { lat: waypoints[leg + 1][0], lon: waypoints[leg + 1][1] };
+    const n = Math.max(1, Math.ceil(haversineNm(a, b) / segmentNm)) * 2;
+    for (let i = 0; i <= n; i++) {
+      // Skip every leg's start except the first: it is the previous leg's end.
+      if (i === 0 && leg > 0) continue;
+      out.push(interpolateGreatCircle(a, b, i / n));
+    }
+  }
+  return out;
+}
+
+// The corridor `buildForecastCache` actually samples. Server-aligned by
+// default; falls back to plain spacing when the aligned corridor cannot fit
+// under MAX_CORRIDOR_POINTS, which needs either a passage well past 800 NM or
+// a route with dozens of legs.
+export function planCorridor(waypoints: [number, number][]): GeoPoint[] {
+  const aligned = serverAlignedCorridor(waypoints, serverSegmentLengthNm(waypoints));
+  if (aligned.length <= MAX_CORRIDOR_POINTS) return aligned;
+  const spacing = Math.max(DEFAULT_SPACING_NM, routeLengthNm(waypoints) / MAX_CORRIDOR_POINTS);
+  return interpolateCorridor(waypoints, spacing);
 }
 
 // Coverage contract (mirrors the server): each segment fetch asks for
@@ -278,9 +351,15 @@ export async function buildForecastCache(
   waypoints: [number, number][],
   opts: { spacingNm?: number; window?: CacheWindow } = {},
 ): Promise<ForecastCache> {
-  const totalNm = routeLengthNm(waypoints);
-  const spacing = Math.max(opts.spacingNm ?? DEFAULT_SPACING_NM, totalNm / MAX_CORRIDOR_POINTS);
-  const corridor = interpolateCorridor(waypoints, spacing);
+  // An explicit spacing still wins (nothing in the app passes one today); the
+  // default is the server-aligned corridor.
+  const corridor =
+    opts.spacingNm === undefined
+      ? planCorridor(waypoints)
+      : interpolateCorridor(
+          waypoints,
+          Math.max(opts.spacingNm, routeLengthNm(waypoints) / MAX_CORRIDOR_POINTS),
+        );
   const models = mappableActiveModels();
   // Wind: ONE request per model for the whole corridor (multi-coordinate).
   // Marine: kept per-point because fetchMarine merges the per-location MARC/SHOM
