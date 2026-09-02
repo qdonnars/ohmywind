@@ -8,11 +8,11 @@ export type PlanMode = "single" | "compare";
 // (server.estimate_passage_for_arrival via /api/v1/passage-by-eta).
 export type TimeAnchor = "departure" | "arrival";
 
-// Per-mode accent palette — picked up by tab icons so the two modes feel
-// distinct at a glance (cyan = simulate, amber = compare windows).
+// Per-mode accent, picked up by tab icons so the two modes feel distinct at
+// a glance (teal = simulate, amber = compare windows).
 const MODE_ACCENT: Record<PlanMode, string> = {
   single: "var(--ow-accent)",
-  compare: "#F4C25C",
+  compare: "var(--ow-compare)",
 };
 
 const MODE_META: Record<PlanMode, { title: string; sub: string; icon: "route" | "clock" }> = {

@@ -247,7 +247,7 @@ export function InfoPanel() {
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-transform hover:scale-105 active:scale-95"
           style={{
             background: "var(--ow-accent)",
-            color: "#fff",
+            color: "var(--ow-on-accent)",
           }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>

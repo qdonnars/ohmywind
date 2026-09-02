@@ -72,7 +72,7 @@ export function SpotEditDialog({
           Renommer
         </button>
         <button
-          className="w-full min-h-[44px] py-2.5 rounded-lg bg-red-700/80 text-white text-sm font-medium hover:bg-red-600 active:bg-red-500 active:scale-[0.98] transition-all"
+          className="w-full min-h-[44px] py-2.5 rounded-lg bg-danger text-on-danger text-sm font-medium hover:bg-danger-hover active:bg-danger-active active:scale-[0.98] transition-all"
           onClick={onDelete}
         >
           Supprimer
@@ -124,7 +124,7 @@ export function SpotNameDialog({
           Annuler
         </button>
         <button
-          className="flex-1 min-h-[44px] py-2.5 rounded-lg bg-teal-600 text-white text-sm font-semibold hover:bg-teal-500 active:scale-[0.98] transition-all"
+          className="flex-1 min-h-[44px] py-2.5 rounded-lg bg-accent-strong text-on-accent text-sm font-semibold hover:bg-accent-strong-hover active:scale-[0.98] transition-all"
           onClick={onConfirm}
         >
           {renaming ? "Renommer" : "Créer"}

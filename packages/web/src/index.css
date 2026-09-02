@@ -1,6 +1,63 @@
 @import "tailwindcss";
 @import './design/tokens.css';
 
+/* Le pont entre Tailwind et les jetons de design.
+
+   Il manquait, et l'audit de septembre 2026 (annexe B, Mo3) a compte quatre
+   systemes de couleur vivant cote a cote : les classes Tailwind, les jetons
+   ecrits a la main en style={{ var() }}, cette feuille, et des blocs <style>
+   dans le JSX. Le probleme n'est pas l'inelegance : une classe de la palette
+   Tailwind par defaut, bg-teal-600 par exemple, ne connait pas
+   [data-theme] et garde donc la meme valeur dans les deux themes, la ou le
+   jeton correspondant change expres.
+
+   @theme declare les jetons a Tailwind, qui en tire des utilitaires. Les
+   valeurs sont des var(--ow-*), donc l'utilitaire genere pointe vers la
+   variable et non vers une couleur figee : bg-surface-1 suit le theme comme
+   le fait style={{ background: 'var(--ow-bg-1)' }}, sans quitter les classes.
+
+   Nommage : ce sont les roles, pas les teintes. surface-* pour les fonds,
+   ink-* pour le texte, line* pour les traits. Une couleur nommee par sa
+   teinte est une couleur qu'on ne peut plus changer. */
+@theme {
+  --color-surface-0: var(--ow-bg-0);
+  --color-surface-1: var(--ow-bg-1);
+  --color-surface-2: var(--ow-bg-2);
+  --color-surface-3: var(--ow-bg-3);
+
+  --color-ink-0: var(--ow-fg-0);
+  --color-ink-1: var(--ow-fg-1);
+  --color-ink-2: var(--ow-fg-2);
+  --color-ink-3: var(--ow-fg-3);
+
+  --color-accent: var(--ow-accent);
+  --color-accent-soft: var(--ow-accent-soft);
+  --color-accent-line: var(--ow-accent-line);
+  --color-accent-strong: var(--ow-accent-strong);
+  --color-accent-strong-hover: var(--ow-accent-strong-hover);
+  --color-accent-deep: var(--ow-accent-deep);
+  --color-on-accent: var(--ow-on-accent);
+  --color-on-accent-muted: var(--ow-on-accent-muted);
+
+  --color-compare: var(--ow-compare);
+  --color-on-compare: var(--ow-on-compare);
+
+  --color-danger: var(--ow-danger);
+  --color-danger-hover: var(--ow-danger-hover);
+  --color-danger-active: var(--ow-danger-active);
+  --color-on-danger: var(--ow-on-danger);
+
+  --color-line: var(--ow-line);
+  --color-line-2: var(--ow-line-2);
+
+  --font-ui: var(--ow-font-ui);
+  --font-mono: var(--ow-font-mono);
+
+  --radius-ow-sm: var(--ow-r-sm);
+  --radius-ow-md: var(--ow-r-md);
+  --radius-ow-lg: var(--ow-r-lg);
+}
+
 /* Polices auto-hebergees.
 
    Elles venaient de deux @import vers fonts.googleapis.com. Chacun

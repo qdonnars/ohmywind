@@ -36,8 +36,8 @@ export function CompareResults({
         onClick={computeWindows}
         disabled={!canCalculate}
         style={{
-          background: canCalculate ? "#F4C25C" : "var(--ow-bg-2)",
-          color: canCalculate ? "#3a2a08" : "var(--ow-fg-3)",
+          background: canCalculate ? "var(--ow-compare)" : "var(--ow-bg-2)",
+          color: canCalculate ? "var(--ow-on-compare)" : "var(--ow-fg-3)",
           border: `1px solid ${canCalculate ? "transparent" : "var(--ow-line)"}`,
         }}
       />
