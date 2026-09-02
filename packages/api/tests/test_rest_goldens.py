@@ -25,6 +25,7 @@ below is produced without an MCP server in the process.
 
 from __future__ import annotations
 
+import gzip
 import json
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -154,6 +155,23 @@ class TestPassage:
         )
         assert resp.status_code == 200
         assert_golden("passage_single_forecast_cache.json", resp.content)
+
+    def test_a_gzipped_request_produces_the_very_same_bytes(self, client) -> None:
+        """The contract for compressed request bodies, stated as an equality.
+
+        The request that produced ``passage_single.json`` is posted again,
+        gzipped, and has to come back byte for byte identical. Anything the
+        decompression path does to the body other than decompress it, a lost
+        final chunk, a stray BOM, a re-encoded string, shows up here as a
+        golden diff rather than as a subtly different plan.
+        """
+        resp = client.post(
+            "/api/v1/passage",
+            content=gzip.compress(json.dumps(_passage_body()).encode()),
+            headers={"Content-Type": "application/json", "Content-Encoding": "gzip"},
+        )
+        assert resp.status_code == 200
+        assert_golden("passage_single.json", resp.content)
 
     def test_sweep_mode(self, client) -> None:
         resp = client.post(
