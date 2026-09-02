@@ -125,16 +125,28 @@ def parse_passage_request(body: Any, *, timestamp_field: str) -> tuple[datetime,
     )
 
 
-def parse_timestamp(raw: Any, field: str) -> datetime:
-    """ISO-8601, or a refusal naming the field the caller sent."""
+def parse_timestamp(raw: Any, field: str, *, require_aware: bool = False) -> datetime:
+    """ISO-8601, or a refusal naming the field the caller sent.
+
+    ``require_aware`` refuses a value without an offset. The engine already
+    does that for ``departure``, ``latest_departure`` and ``target_arrival``,
+    and answers the same 422 ``naive_datetime``; the fields the engine never
+    sees have to be checked here or they get read in the container's local
+    time instead (audit Mo5).
+    """
     try:
-        return datetime.fromisoformat(raw)
+        parsed = datetime.fromisoformat(raw)
     except (ValueError, TypeError) as exc:
         raise RequestError(f"invalid {field}: {exc}", "invalid_datetime") from exc
+    if require_aware and parsed.tzinfo is None:
+        raise RequestError(f"{field} must be timezone-aware", "naive_datetime")
+    return parsed
 
 
-def parse_optional_timestamp(raw: Any, field: str) -> datetime | None:
-    return None if raw is None else parse_timestamp(raw, field)
+def parse_optional_timestamp(
+    raw: Any, field: str, *, require_aware: bool = False
+) -> datetime | None:
+    return None if raw is None else parse_timestamp(raw, field, require_aware=require_aware)
 
 
 def parse_sweep_interval(raw: Any) -> int:

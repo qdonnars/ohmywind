@@ -35,6 +35,11 @@ from openwind_data.currents.harmonic import predict as schureman_predict
 _TILE_SIZE_DEG = 0.5
 # m/s to knots — conversion shared with the runtime adapters layer.
 _MS_TO_KN = 1.0 / 0.514444
+# Metres per degree of latitude, the flat-earth constant the cell-distance
+# check has always used. Named here because the tile-edge search compares
+# distances to tile boundaries against distances to cells and the two have to
+# be measured with the same ruler.
+_M_PER_DEG = 111_000.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,12 +109,57 @@ def _read_tile(parquet_path: str) -> pl.DataFrame | None:
     return pl.read_parquet(parquet_path)
 
 
-def _tile_path(atlas: AtlasMeta, lat: float, lon: float) -> Path:
-    tile_lat = np.floor(lat / _TILE_SIZE_DEG) * _TILE_SIZE_DEG
-    tile_lon = np.floor(lon / _TILE_SIZE_DEG) * _TILE_SIZE_DEG
+def _tile_origin_of(lat: float, lon: float) -> tuple[float, float]:
+    """South-west corner of the tile a point falls in, in degrees."""
+    return (
+        float(np.floor(lat / _TILE_SIZE_DEG) * _TILE_SIZE_DEG),
+        float(np.floor(lon / _TILE_SIZE_DEG) * _TILE_SIZE_DEG),
+    )
+
+
+def _tile_path_at(atlas: AtlasMeta, tile_lat: float, tile_lon: float) -> Path:
     return (
         atlas.parquet_dir / f"tile_lat={tile_lat:.1f}" / f"tile_lon={tile_lon:.1f}" / "data.parquet"
     )
+
+
+def _neighbour_tiles(lat: float, lon: float) -> list[tuple[float, float, float]]:
+    """The eight tiles around the one holding ``(lat, lon)``, nearest first.
+
+    Each entry is ``(tile_lat, tile_lon, floor_distance_m)`` where the floor is
+    the shortest possible distance from the query point to *any* point of that
+    tile: the distance to the shared edge for a side neighbour, the diagonal
+    to the shared corner for a diagonal one. That floor is what makes the
+    search exact and cheap at the same time. A cell in a neighbour cannot be
+    nearer than the floor, so a caller holding a cell closer than the floor
+    can skip the tile without opening it, and a caller holding nothing has a
+    sound order to try them in.
+
+    Distances use the same flat-earth ruler as the cell-distance check, so a
+    tile is never opened for a cell the threshold would then reject.
+    """
+    tile_lat, tile_lon = _tile_origin_of(lat, lon)
+    m_per_deg_lon = _M_PER_DEG * float(np.cos(np.deg2rad(lat)))
+    to_south = (lat - tile_lat) * _M_PER_DEG
+    to_north = (tile_lat + _TILE_SIZE_DEG - lat) * _M_PER_DEG
+    to_west = (lon - tile_lon) * m_per_deg_lon
+    to_east = (tile_lon + _TILE_SIZE_DEG - lon) * m_per_deg_lon
+
+    out: list[tuple[float, float, float]] = []
+    for di, d_lat_m in ((-1, to_south), (0, 0.0), (1, to_north)):
+        for dj, d_lon_m in ((-1, to_west), (0, 0.0), (1, to_east)):
+            if di == 0 and dj == 0:
+                continue
+            floor_m = float(np.hypot(d_lat_m if di else 0.0, d_lon_m if dj else 0.0))
+            out.append(
+                (
+                    tile_lat + di * _TILE_SIZE_DEG,
+                    tile_lon + dj * _TILE_SIZE_DEG,
+                    floor_m,
+                )
+            )
+    out.sort(key=lambda t: t[2])
+    return out
 
 
 # One rectangle in degrees, ``(lat_min, lon_min, lat_max, lon_max)``, same
@@ -205,10 +255,10 @@ def _atlas_coverage_cells(parquet_dir: str) -> _Boxes:
     return _merge_tiles_into_rectangles(tiles)
 
 
-def _nearest_cell_in_tile(
+def _nearest_cell_with_distance(
     df: pl.DataFrame, lat: float, lon: float, required_col: str | None = None
-) -> int | None:
-    """Return index of metric-nearest cell, or None if no valid cell qualifies.
+) -> tuple[int, float] | None:
+    """Metric-nearest cell of one tile and its distance in metres, or None.
 
     Uses local-tangent-plane distance: degrees-lon are scaled by cos(lat) so
     we don't bias toward longitudinal neighbours at high latitude. When
@@ -218,6 +268,11 @@ def _nearest_cell_in_tile(
     have an on-land U face (NaN) even when XE itself is valid sea. ~50 cells
     in FINIS exhibit this; routing through a slightly further cell with
     finite U/V is a sub-resolution shift, well within harmonic precision.
+
+    Selection is exactly what it always was. The distance is the same
+    flat-earth hypotenuse the caller used to recompute on the winning row,
+    returned here so the tile-edge search can rank candidates coming from
+    different tiles without redoing the trigonometry each time.
     """
     lats = df["lat"].to_numpy()
     lons = df["lon"].to_numpy()
@@ -230,7 +285,10 @@ def _nearest_cell_in_tile(
         if not valid.any():
             return None
         d2 = np.where(valid, d2, np.inf)
-    return int(np.argmin(d2))
+    idx = int(np.argmin(d2))
+    dlat_m = (float(lats[idx]) - lat) * _M_PER_DEG
+    dlon_m = (float(lons[idx]) - lon) * _M_PER_DEG * cos_lat
+    return idx, float(np.hypot(dlat_m, dlon_m))
 
 
 def _extract_constants(df: pl.DataFrame, idx: int, suffix: str) -> dict[str, tuple[float, float]]:
@@ -310,28 +368,84 @@ class MarcAtlasRegistry:
     # the model has no valid cells).
     _MAX_CELL_DISTANCE_M = 5000.0  # 5 km, generous
 
-    def _cell_with_finite(
+    def _cell_threshold_m(self, atlas: AtlasMeta) -> float:
+        """How far a cell may sit from the query and still answer for it."""
+        return max(self._MAX_CELL_DISTANCE_M, 5.0 * atlas.resolution_m)
+
+    def _best_cell(
         self,
         atlas: AtlasMeta,
-        df: pl.DataFrame,
         lat: float,
         lon: float,
         required_col: str | None = None,
-    ) -> int | None:
-        """Return idx of the nearest cell within distance threshold whose
-        ``required_col`` is finite (when given). Returns None if the closest
-        valid cell is beyond max(5 km, 5x atlas resolution) of the query.
+        *,
+        neighbours: bool = False,
+    ) -> tuple[pl.DataFrame, int] | None:
+        """Nearest qualifying cell of ``atlas``, optionally across tile seams.
+
+        Returns the frame it was found in and its row index, or ``None`` when
+        no cell with a finite ``required_col`` sits within
+        ``max(5 km, 5x atlas resolution)`` of the query.
+
+        Tiles are 0.5 degrees, so a point can sit a few hundred metres inside
+        one and have its true nearest cell in the next: reading only the
+        containing tile, which is what this did everywhere until now, handed
+        such a point a cell further away than the one it should have got,
+        precisely along the coastlines where the 250 m atlases are worth
+        having. The audit filed this as Mo4.
+
+        ``neighbours`` is what fixes it, and it is deliberately off by
+        default. Two invariants would break if the seam search also decided
+        *whether* a point is covered:
+
+        - :meth:`coverage_cells` publishes whole non-empty tiles and promises
+          that a point outside all of them is a point :meth:`covers` refuses.
+          The web client skips its request on that promise, so a neighbour
+          rescuing a point standing in an empty tile would make the server
+          answer where the client has already been told not to ask.
+        - the cascade picks the finest atlas that covers, so letting a
+          neighbour tile establish coverage would promote a fine atlas whose
+          nearest cell is kilometres away over a coarser one with a cell a few
+          hundred metres away. Measured on the real atlases: 40 points of an
+          Iroise grid would have moved from MANGA at 160 to 280 m to FINIS at
+          3 to 5 km. Finer grid, worse answer.
+
+        So coverage stays decided by the containing tile alone, exactly as
+        before, and the seam search only changes *which* cell answers inside
+        coverage. That makes the effect provably one-directional: the search
+        starts from the containing tile's own candidate and replaces it only
+        with something strictly nearer, so a cell can never come out further
+        than it used to be.
+
+        When it does look around, neighbours are visited in order of their
+        floor distance (see `_neighbour_tiles`) and the loop stops as soon as
+        the best cell held is nearer than the next tile could possibly offer.
+        The usual case, a dense grid with a cell a few dozen metres away,
+        opens exactly one tile.
         """
-        idx = _nearest_cell_in_tile(df, lat, lon, required_col=required_col)
-        if idx is None:
+        threshold = self._cell_threshold_m(atlas)
+        tile_lat, tile_lon = _tile_origin_of(lat, lon)
+        df = _read_tile(str(_tile_path_at(atlas, tile_lat, tile_lon)))
+        if df is None or df.height == 0:
             return None
-        cell_lat = float(df["lat"].to_numpy()[idx])
-        cell_lon = float(df["lon"].to_numpy()[idx])
-        dlat_m = (cell_lat - lat) * 111_000
-        dlon_m = (cell_lon - lon) * 111_000 * np.cos(np.deg2rad(lat))
-        d_m = np.hypot(dlat_m, dlon_m)
-        threshold = max(self._MAX_CELL_DISTANCE_M, 5.0 * atlas.resolution_m)
-        return idx if d_m <= threshold else None
+        best: tuple[pl.DataFrame, int] | None = None
+        best_d = threshold
+        found = _nearest_cell_with_distance(df, lat, lon, required_col=required_col)
+        if found is not None and found[1] <= best_d:
+            best, best_d = (df, found[0]), found[1]
+        if not neighbours:
+            return best
+        for n_lat, n_lon, floor_m in _neighbour_tiles(lat, lon):
+            if floor_m >= best_d:
+                # Sorted by floor distance, so nothing further can win either.
+                break
+            n_df = _read_tile(str(_tile_path_at(atlas, n_lat, n_lon)))
+            if n_df is None or n_df.height == 0:
+                continue
+            found = _nearest_cell_with_distance(n_df, lat, lon, required_col=required_col)
+            if found is not None and found[1] < best_d:
+                best, best_d = (n_df, found[0]), found[1]
+        return best
 
     def covers(self, lat: float, lon: float) -> AtlasMeta | None:
         """Return the finest atlas with actual data near (lat, lon), or None.
@@ -339,18 +453,18 @@ class MarcAtlasRegistry:
         Filters by bbox first, then verifies the nearest cell in the matching
         tile is within distance threshold. This catches false bbox matches
         (e.g. ATLNE bbox spuriously covering the Mediterranean).
+
+        Reads the containing tile only, on purpose: see `_best_cell` for why
+        the seam search must not reach the coverage decision.
         """
         candidates = [a for a in self.atlases if _bbox_contains(a.bbox, lat, lon)]
         if not candidates:
             return None
         candidates.sort(key=lambda a: (-a.rank, a.resolution_m))
         for atlas in candidates:
-            df = _read_tile(str(_tile_path(atlas, lat, lon)))
-            if df is None or df.height == 0:
-                continue
             # Use the unfiltered metric-nearest as the coverage signal; the
             # variable-specific lookup happens at predict time.
-            if self._cell_with_finite(atlas, df, lat, lon, required_col=None) is not None:
+            if self._best_cell(atlas, lat, lon, required_col=None) is not None:
                 return atlas
         return None
 
@@ -361,25 +475,36 @@ class MarcAtlasRegistry:
         The metric-nearest XE cell may have an on-land U or V face (NaN);
         in that case we fall back to the nearest cell whose U / V is finite.
         Anchor lat/lon and z0 come from the height cell.
+
+        Memoised per ``(atlas registry, lat, lon)``: one overlay request calls
+        this three times for the same point (once directly, once through each
+        of the height and current series), and the tidal router twice more.
+        The key is the exact pair of floats the caller passed, never a rounded
+        one, so the memo can only return what a recomputation would.
         """
+        return _cell_at_cached(self, lat, lon)
+
+    def _cell_at_uncached(self, lat: float, lon: float) -> CellPrediction | None:
         atlas = self.covers(lat, lon)
         if atlas is None:
             return None
-        df = _read_tile(str(_tile_path(atlas, lat, lon)))
-        if df is None or df.height == 0:
-            return None
         # Per-variable nearest cell with finite data. M2 is the canonical
-        # proxy (always present in every MARC atlas).
-        h_idx = self._cell_with_finite(atlas, df, lat, lon, required_col="M2_h_amp")
-        u_idx = self._cell_with_finite(atlas, df, lat, lon, required_col="M2_u_amp")
-        v_idx = self._cell_with_finite(atlas, df, lat, lon, required_col="M2_v_amp")
-        anchor = h_idx if h_idx is not None else (u_idx if u_idx is not None else v_idx)
+        # proxy (always present in every MARC atlas). Each may land in a
+        # different tile when the query sits near a boundary, so each carries
+        # the frame it was found in.
+        h_found = self._best_cell(atlas, lat, lon, required_col="M2_h_amp", neighbours=True)
+        u_found = self._best_cell(atlas, lat, lon, required_col="M2_u_amp", neighbours=True)
+        v_found = self._best_cell(atlas, lat, lon, required_col="M2_v_amp", neighbours=True)
+        anchor = h_found if h_found is not None else (u_found or v_found)
         if anchor is None:
             return None
-        cell_lat = float(df["lat"].to_numpy()[anchor])
-        cell_lon = float(df["lon"].to_numpy()[anchor])
+        anchor_df, anchor_idx = anchor
+        cell_lat = float(anchor_df["lat"].to_numpy()[anchor_idx])
+        cell_lon = float(anchor_df["lon"].to_numpy()[anchor_idx])
         z0_hydro = (
-            df.get_column("z0_hydro_m").to_numpy()[anchor] if "z0_hydro_m" in df.columns else None
+            anchor_df.get_column("z0_hydro_m").to_numpy()[anchor_idx]
+            if "z0_hydro_m" in anchor_df.columns
+            else None
         )
         return CellPrediction(
             atlas_name=atlas.name,
@@ -388,9 +513,9 @@ class MarcAtlasRegistry:
             z0_hydro_m=(
                 float(z0_hydro) if z0_hydro is not None and np.isfinite(z0_hydro) else None
             ),
-            h_constants=_extract_constants(df, h_idx, "h") if h_idx is not None else {},
-            u_constants=_extract_constants(df, u_idx, "u") if u_idx is not None else {},
-            v_constants=_extract_constants(df, v_idx, "v") if v_idx is not None else {},
+            h_constants=_extract_constants(h_found[0], h_found[1], "h") if h_found else {},
+            u_constants=_extract_constants(u_found[0], u_found[1], "u") if u_found else {},
+            v_constants=_extract_constants(v_found[0], v_found[1], "v") if v_found else {},
         )
 
     def predict_height(self, lat: float, lon: float, t: datetime) -> tuple[float, str] | None:
@@ -447,3 +572,16 @@ class MarcAtlasRegistry:
         speeds_kn = np.hypot(u_ms, v_ms) * _MS_TO_KN
         dirs_to_deg = (np.rad2deg(np.arctan2(u_ms, v_ms))) % 360.0
         return speeds_kn, dirs_to_deg, cell.atlas_name
+
+
+@lru_cache(maxsize=512)
+def _cell_at_cached(registry: MarcAtlasRegistry, lat: float, lon: float) -> CellPrediction | None:
+    """Process-wide memo behind :meth:`MarcAtlasRegistry.cell_at`.
+
+    Module-level rather than per-instance because the registry is a frozen
+    dataclass and because the same atlas directory is opened by both shells:
+    keying on the registry itself lets the two share one answer. Bounded at
+    512 points, roughly twenty corridors' worth, and never keyed on anything
+    the caller did not pass verbatim.
+    """
+    return registry._cell_at_uncached(lat, lon)

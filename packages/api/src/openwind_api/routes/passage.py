@@ -180,7 +180,7 @@ async def _sweep(
     latest_departure = parse_timestamp(latest_raw, "latest_departure")
     sweep_interval = parse_sweep_interval(body.get("sweep_interval_hours"))
     target_eta_raw = body.get("target_eta")
-    target_eta_dt = parse_optional_timestamp(target_eta_raw, "target_eta")
+    target_eta_dt = parse_optional_timestamp(target_eta_raw, "target_eta", require_aware=True)
 
     try:
         reports = await estimate_passage_windows(

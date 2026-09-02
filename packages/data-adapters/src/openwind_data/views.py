@@ -162,7 +162,20 @@ def filter_windows_by_target_eta(
 
     ``target_eta_label`` is echoed verbatim into that warning, so the user
     reads back the string they sent rather than a normalised rewrite of it.
+
+    Raises:
+        ValueError: when ``target_eta`` carries no offset. ``astimezone``
+            would otherwise read a naive value in the *server's* local time,
+            so the same request would filter differently depending on the
+            container's clock, silently and only by a few hours. Every other
+            timestamp on this request is already refused when naive
+            (``departure``, ``latest_departure``, ``target_arrival``); this
+            one used to slip through, which the 2026-09 audit filed as Mo5.
+            The guard lives here rather than in each shell so a third one
+            cannot reintroduce it.
     """
+    if target_eta.tzinfo is None:
+        raise ValueError("target_eta must be timezone-aware")
     target_utc = target_eta.astimezone(UTC)
     tolerance_s = TARGET_ETA_TOLERANCE.total_seconds()
     filtered = [
