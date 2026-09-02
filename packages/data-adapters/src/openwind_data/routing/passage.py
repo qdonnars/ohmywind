@@ -53,6 +53,7 @@ from openwind_data.routing.archetypes import (
 )
 from openwind_data.routing.geometry import (
     Point,
+    Segment,
     haversine_distance,
     midpoint,
     normalize_twa,
@@ -550,6 +551,7 @@ async def estimate_passage(
                     use_wave_correction=use_wave_correction,
                     polar_override=polar_override,
                     model_chain=chain[idx:],
+                    backward=False,
                 )
             except ForecastHorizonError as exc:
                 last_err = exc
@@ -568,35 +570,94 @@ async def estimate_passage(
         use_wave_correction=use_wave_correction,
         polar_override=polar_override,
         model_chain=model_chain,
+        backward=False,
     )
 
 
-async def _estimate_with_model(
+@dataclass(frozen=True, slots=True)
+class RouteSampling:
+    """Everything the engine needs to know about the route and its weather.
+
+    Produced by `_sample_route`, consumed by the walk. Holds five parallel
+    lists, all in route order whichever direction the walk will take: a
+    segment, the mid-time its weather was sampled at, its mid-point, the
+    bundle that came back, and the model that bundle's wind actually came
+    from (the primary for most segments, a fallback for the ones the primary
+    could not cover).
+    """
+
+    segments: list[Segment]
+    mid_times: list[datetime]
+    mid_points: list[Point]
+    bundles: list[ForecastBundle]
+    models: list[str]
+    effective_length_nm: float
+    # Route length in nm when `_resolve_segment_length` stretched the spacing,
+    # `None` when the requested spacing was kept. Feeds the sampling warning.
+    capped_route_nm: float | None
+
+
+def _layout_mid_times(
+    segments: list[Segment], anchor_utc: datetime, layout_speed_kn: float, *, backward: bool
+) -> list[datetime]:
+    """Lay out one weather-sampling mid-time per segment from a fixed anchor.
+
+    Forward the anchor is the departure and the walk accumulates into the
+    future; backward it is the target arrival and the walk accumulates into
+    the past. Both use the same boat-aware cruising estimate, so the same
+    temporal-correlation argument covers them (see the module docstring).
+    """
+    out: list[datetime] = []
+    cumulative = timedelta(0)
+    order = range(len(segments) - 1, -1, -1) if backward else range(len(segments))
+    for idx in order:
+        seg_h = segments[idx].distance_nm / layout_speed_kn
+        half = timedelta(hours=seg_h / 2)
+        if backward:
+            out.append(anchor_utc - cumulative - half)
+        else:
+            out.append(anchor_utc + cumulative + half)
+        cumulative += timedelta(hours=seg_h)
+    return list(reversed(out)) if backward else out
+
+
+async def _sample_route(
     waypoints: list[Point],
-    departure_time: datetime,
-    boat_archetype: str,
+    anchor_utc: datetime,
+    polar: BoatPolar,
     *,
     efficiency: float,
     segment_length_nm: float,
     adapter: MarineDataAdapter | None,
     model: str,
     heuristic_speed_kn: float | None,
-    use_wave_correction: bool,
-    polar_override: BoatPolar | None = None,
-    model_chain: tuple[str, ...] | None = None,
-) -> PassageReport:
-    """Estimate a passage using a single primary ``model`` for wind sampling.
+    model_chain: tuple[str, ...] | None,
+    backward: bool,
+) -> RouteSampling:
+    """Split the route, lay out sampling times, and fetch the weather.
 
-    When ``model_chain`` is provided, segments where the primary model
-    returns null wind (typical: waypoint outside the model's geographic
-    coverage — AROME France queried in the North Sea) fall back to the next
-    model in the chain, one segment at a time. The primary model is used
-    when it works, so routes fully covered by it pay zero extra cost.
+    The single I/O phase of a passage estimate, shared by both directions:
+    everything after it is arithmetic. Three steps, in order:
+
+    1. Resolve the effective segment spacing (stretched on long routes) and
+       cut the polyline, then lay out one mid-time per segment from
+       ``anchor_utc`` in the direction the walk will take.
+    2. Warm the cache for every mid-point in one batched multi-coordinate
+       call when the adapter supports it, then gather the primary model for
+       all segments at once. Routes fully covered by the primary pay exactly
+       one batched gather, as before the per-segment fallback existed.
+    3. For the segments where the primary returned null wind (typically an
+       off-coverage waypoint: AROME asked outside France), walk the rest of
+       the chain point by point. Border legs cost one call per fallback step,
+       covered routes cost nothing.
+
+    ``model_chain`` empty or ``None`` disables step 3 entirely: a segment the
+    primary cannot serve then surfaces as ``ForecastHorizonError`` from the
+    walk, which is what lets the ``model="auto"`` loop in ``estimate_passage``
+    advance to the next candidate.
     """
-    polar = polar_override if polar_override is not None else get_polar(boat_archetype)
     effective_length_nm, capped_route_nm = _resolve_segment_length(waypoints, segment_length_nm)
     segments = segment_route(waypoints, effective_length_nm)
-    departure_utc = departure_time.astimezone(UTC)
 
     # An explicit heuristic_speed_kn wins (caller pin / test hook); otherwise
     # the layout speed comes from the boat itself.
@@ -605,20 +666,12 @@ async def _estimate_with_model(
         if heuristic_speed_kn is not None
         else _layout_speed_kn(polar, efficiency)
     )
-    seg_mid_times: list[datetime] = []
-    cumulative = timedelta(0)
-    for seg in segments:
-        seg_h = seg.distance_nm / layout_speed_kn
-        seg_mid_times.append(departure_utc + cumulative + timedelta(hours=seg_h / 2))
-        cumulative += timedelta(hours=seg_h)
-
-    seg_mid_points = [midpoint(s.start, s.end) for s in segments]
+    mid_times = _layout_mid_times(segments, anchor_utc, layout_speed_kn, backward=backward)
+    mid_points = [midpoint(s.start, s.end) for s in segments]
 
     # When a chain is provided, drop the primary so we don't redundantly try
     # it twice in the per-segment fallback. Empty tuple (no fallback) is the
-    # back-compat path: segments where primary returns null raise
-    # ForecastHorizonError exactly as before, so the outer ``estimate_passage``
-    # AUTO loop can advance to the next model.
+    # back-compat path described in the docstring.
     chain_tail: tuple[str, ...] = ()
     if model_chain:
         chain_tail = tuple(m for m in model_chain if m != model)
@@ -626,20 +679,16 @@ async def _estimate_with_model(
     own_adapter = adapter is None
     fetch_adapter: MarineDataAdapter = adapter or OpenMeteoAdapter()
     try:
-        # Warm the cache for every segment point in one batched multi-coordinate
-        # call (adapters that support it), so the per-segment gather below is
-        # served from cache instead of one HTTP call per point. Pure speedup;
-        # adapters without prewarm_batch (cache-backed, stubs) skip it.
+        # Adapters without prewarm_batch (cache-backed, stubs) skip straight to
+        # the gather; for the others this is a pure speedup, one HTTP call for
+        # all points instead of one per point.
         if hasattr(fetch_adapter, "prewarm_batch"):
             await fetch_adapter.prewarm_batch(
-                [(pt.lat, pt.lon) for pt in seg_mid_points],
-                min(seg_mid_times) - WIND_FETCH_WINDOW / 2,
-                max(seg_mid_times) + WIND_FETCH_WINDOW / 2,
+                [(pt.lat, pt.lon) for pt in mid_points],
+                min(mid_times) - WIND_FETCH_WINDOW / 2,
+                max(mid_times) + WIND_FETCH_WINDOW / 2,
                 [model],
             )
-        # First pass: batch-fetch all segments with the primary model. Same
-        # request shape as before — routes 100% covered by the primary see
-        # exactly one batched gather (preserves cache prewarm behaviour).
         bundles = await asyncio.gather(
             *[
                 fetch_adapter.fetch(
@@ -649,22 +698,17 @@ async def _estimate_with_model(
                     mid + WIND_FETCH_WINDOW / 2,
                     models=[model],
                 )
-                for pt, mid in zip(seg_mid_points, seg_mid_times, strict=True)
+                for pt, mid in zip(mid_points, mid_times, strict=True)
             ]
         )
 
-        # Per-segment models default to the primary; fallback may overwrite
-        # individual entries below.
+        # Per-segment models default to the primary; the fallback below may
+        # overwrite individual entries.
         seg_models: list[str] = [model] * len(segments)
-
-        # Identify segments where the primary model returned null wind and
-        # walk the rest of the chain for those points only. The chain_tail
-        # is empty in single-model mode (no fallback), so this loop is a
-        # no-op for the existing behaviour.
         if chain_tail:
             fallback_indices = [
                 i
-                for i, (b, mid) in enumerate(zip(bundles, seg_mid_times, strict=True))
+                for i, (b, mid) in enumerate(zip(bundles, mid_times, strict=True))
                 if not _segment_has_wind(b, model, mid)
             ]
             if fallback_indices:
@@ -672,9 +716,9 @@ async def _estimate_with_model(
                     *[
                         _fetch_segment_with_fallback(
                             fetch_adapter,
-                            seg_mid_points[i].lat,
-                            seg_mid_points[i].lon,
-                            seg_mid_times[i],
+                            mid_points[i].lat,
+                            mid_points[i].lon,
+                            mid_times[i],
                             primary_model=chain_tail[0],
                             chain=chain_tail,
                         )
@@ -690,102 +734,141 @@ async def _estimate_with_model(
         if own_adapter and hasattr(fetch_adapter, "aclose"):
             await fetch_adapter.aclose()  # pragma: no cover
 
-    reports: list[SegmentReport] = []
-    cumulative_actual = timedelta(0)
-    min_boat_speed = float("inf")
-    max_drift_h = 0.0
-    for seg, mid_time, mid_pt, bundle, seg_model in zip(
-        segments, seg_mid_times, seg_mid_points, bundles, seg_models, strict=True
-    ):
-        wind_series = bundle.wind_by_model.get(seg_model)
-        if wind_series is None or not wind_series.points:
-            # Primary returned null AND no fallback chain or chain exhausted:
-            # preserve the existing horizon-error semantics so the outer
-            # AUTO loop in ``estimate_passage`` can advance to the next
-            # candidate model.
-            raise ForecastHorizonError(seg_model, mid_time)
-        wp = _closest_wind_point(wind_series.points, mid_time)
-        twa = normalize_twa(twd=wp.direction_deg, course=seg.bearing_deg)
-        polar_speed = lookup_polar(polar, wp.speed_kn, twa)
-        opt_twa, opt_polar_speed = best_vmg_upwind(polar, wp.speed_kn)
-        if twa < opt_twa:
-            # Sailor tacks at optimal VMG angle; effective speed toward destination:
-            #   v_eff = polar(opt) * cos(opt - twa)
-            # At twa=0 reduces to VMG_pure_upwind; at twa->opt transitions smoothly.
-            effective_polar = opt_polar_speed * math.cos(math.radians(opt_twa - twa))
-        else:
-            effective_polar = polar_speed
-        # Always surface Hs and currents from the bundle so callers see sea
-        # state and ground-track corrections, even if wave correction is off.
-        sea_pt = _closest_sea_point(bundle.sea.points, mid_time)
-        hs_m = sea_pt.wave_height_m if sea_pt else None
-        tp_s = sea_pt.wave_period_s if sea_pt else None
-        cur_kn = sea_pt.current_speed_kn if sea_pt else None
-        cur_to = sea_pt.current_direction_to_deg if sea_pt else None
-        cur_src = sea_pt.current_source if sea_pt else None
-        cur_conf = confidence_for_point(mid_pt.lat, mid_pt.lon, cur_src)
-        derate = 1.0
-        if use_wave_correction and hs_m is not None:
-            derate = wave_derate(hs_m, twa)
-        sail_speed = max(effective_polar * efficiency * derate, MIN_BOAT_SPEED_KN)
-        # Motor kicks in when the user configured a threshold AND the polar
-        # estimate falls below it. The check happens on the post-efficiency /
-        # post-derate sail speed — that's the value the user actually sees in
-        # the UI, so it's the one the threshold should refer to.
-        boat_speed, motor_used = _apply_motor(polar, sail_speed)
-        sog = _apply_current(boat_speed, seg.bearing_deg, cur_kn, cur_to)
-        ground_speed = sog if sog is not None else boat_speed
-        seg_duration = timedelta(hours=seg.distance_nm / ground_speed)
-        seg_start = departure_utc + cumulative_actual
-        seg_end = seg_start + seg_duration
-        cumulative_actual += seg_duration
-        min_boat_speed = min(min_boat_speed, boat_speed)
-        actual_mid = seg_start + seg_duration / 2
-        max_drift_h = max(max_drift_h, abs((actual_mid - mid_time).total_seconds()) / 3600.0)
-        reports.append(
-            SegmentReport(
-                start=seg.start,
-                end=seg.end,
-                distance_nm=seg.distance_nm,
-                bearing_deg=seg.bearing_deg,
-                start_time=seg_start,
-                end_time=seg_end,
-                tws_kn=wp.speed_kn,
-                twd_deg=wp.direction_deg,
-                twa_deg=twa,
-                polar_speed_kn=polar_speed,
-                boat_speed_kn=boat_speed,
-                duration_h=seg_duration.total_seconds() / 3600.0,
-                hs_m=hs_m,
-                wave_derate_factor=derate,
-                current_speed_kn=cur_kn,
-                current_direction_to_deg=cur_to,
-                sog_kn=sog,
-                current_source=cur_src,
-                current_confidence=cur_conf,
-                gust_kn=wp.gust_kn,
-                wave_period_s=tp_s,
-                model_used=seg_model,
-                motor_used=motor_used,
-            )
-        )
+    return RouteSampling(
+        segments=segments,
+        mid_times=mid_times,
+        mid_points=mid_points,
+        bundles=list(bundles),
+        models=seg_models,
+        effective_length_nm=effective_length_nm,
+        capped_route_nm=capped_route_nm,
+    )
 
+
+def _segment_report(
+    seg: Segment,
+    *,
+    mid_time: datetime,
+    mid_point: Point,
+    bundle: ForecastBundle,
+    model: str,
+    polar: BoatPolar,
+    efficiency: float,
+    use_wave_correction: bool,
+    anchor: datetime,
+    backward: bool,
+) -> SegmentReport:
+    """Compute one segment: wind, sail geometry, sea, current, duration.
+
+    Pure. ``anchor`` is the end of the segment when walking backward and its
+    start when walking forward, which is the only way the direction of the
+    walk reaches this function: everything else, from the tacking correction
+    to the motor rule, is the same physics either way.
+
+    Raises:
+        ForecastHorizonError: when ``bundle`` carries no wind for ``model``.
+            The primary returned null and either no chain was supplied or the
+            chain was exhausted; re-raising here preserves the semantics the
+            ``model="auto"`` loop relies on to advance to the next candidate.
+    """
+    wind_series = bundle.wind_by_model.get(model)
+    if wind_series is None or not wind_series.points:
+        raise ForecastHorizonError(model, mid_time)
+    wp = _closest_wind_point(wind_series.points, mid_time)
+    twa = normalize_twa(twd=wp.direction_deg, course=seg.bearing_deg)
+    polar_speed = lookup_polar(polar, wp.speed_kn, twa)
+    opt_twa, opt_polar_speed = best_vmg_upwind(polar, wp.speed_kn)
+    if twa < opt_twa:
+        # Sailor tacks at optimal VMG angle; effective speed toward destination:
+        #   v_eff = polar(opt) * cos(opt - twa)
+        # At twa=0 reduces to VMG_pure_upwind; at twa->opt transitions smoothly.
+        effective_polar = opt_polar_speed * math.cos(math.radians(opt_twa - twa))
+    else:
+        effective_polar = polar_speed
+
+    # Always surface Hs and currents from the bundle so callers see sea state
+    # and ground-track corrections, even if wave correction is off.
+    sea_pt = _closest_sea_point(bundle.sea.points, mid_time)
+    hs_m = sea_pt.wave_height_m if sea_pt else None
+    tp_s = sea_pt.wave_period_s if sea_pt else None
+    cur_kn = sea_pt.current_speed_kn if sea_pt else None
+    cur_to = sea_pt.current_direction_to_deg if sea_pt else None
+    cur_src = sea_pt.current_source if sea_pt else None
+    cur_conf = confidence_for_point(mid_point.lat, mid_point.lon, cur_src)
+
+    derate = 1.0
+    if use_wave_correction and hs_m is not None:
+        derate = wave_derate(hs_m, twa)
+    sail_speed = max(effective_polar * efficiency * derate, MIN_BOAT_SPEED_KN)
+    # Motor kicks in when the user configured a threshold AND the polar
+    # estimate falls below it. The check happens on the post-efficiency /
+    # post-derate sail speed, the value the user actually sees in the UI, so
+    # it is the one the threshold should refer to.
+    boat_speed, motor_used = _apply_motor(polar, sail_speed)
+    sog = _apply_current(boat_speed, seg.bearing_deg, cur_kn, cur_to)
+    ground_speed = sog if sog is not None else boat_speed
+    seg_duration = timedelta(hours=seg.distance_nm / ground_speed)
+
+    start_time = anchor - seg_duration if backward else anchor
+    end_time = anchor if backward else anchor + seg_duration
+    return SegmentReport(
+        start=seg.start,
+        end=seg.end,
+        distance_nm=seg.distance_nm,
+        bearing_deg=seg.bearing_deg,
+        start_time=start_time,
+        end_time=end_time,
+        tws_kn=wp.speed_kn,
+        twd_deg=wp.direction_deg,
+        twa_deg=twa,
+        polar_speed_kn=polar_speed,
+        boat_speed_kn=boat_speed,
+        duration_h=seg_duration.total_seconds() / 3600.0,
+        hs_m=hs_m,
+        wave_derate_factor=derate,
+        current_speed_kn=cur_kn,
+        current_direction_to_deg=cur_to,
+        sog_kn=sog,
+        current_source=cur_src,
+        current_confidence=cur_conf,
+        gust_kn=wp.gust_kn,
+        wave_period_s=tp_s,
+        model_used=model,
+        motor_used=motor_used,
+    )
+
+
+def _collect_warnings(
+    sampling: RouteSampling,
+    *,
+    requested_length_nm: float,
+    min_boat_speed_kn: float,
+    model: str,
+) -> tuple[list[str], str]:
+    """Return the route-level warnings and the model to report.
+
+    Three sources, in the order they are appended to the report: the sampling
+    cap, the light-wind stall, and the per-segment model fallback.
+
+    The fallback has two outcomes. When every segment ended up on the *same*
+    alternative model, it is promoted to ``report.model`` with no warning:
+    that is one coherent label for the whole route, and it matches what the
+    outer AUTO loop did before the per-segment fallback existed. When the
+    route is split across models, the primary stays the reported one and a
+    warning names how many points fell through and to what.
+    """
     warnings: list[str] = []
-    if capped_route_nm is not None:
+    if sampling.capped_route_nm is not None:
         warnings.append(
-            f"trajet long ({capped_route_nm:.0f} nm) : {len(segments)} points météo "
-            f"échantillonnés (~{effective_length_nm:.0f} nm entre points) au lieu de "
-            f"{segment_length_nm:.0f} nm pour limiter les requêtes API."
+            f"trajet long ({sampling.capped_route_nm:.0f} nm) : "
+            f"{len(sampling.segments)} points météo "
+            f"échantillonnés (~{sampling.effective_length_nm:.0f} nm entre points) au lieu de "
+            f"{requested_length_nm:.0f} nm pour limiter les requêtes API."
         )
-    if min_boat_speed < LIGHT_WIND_THRESHOLD_KN:
-        warnings.append(f"vent faible : vitesse mini {min_boat_speed:.1f} kn, passage très lent")
-    # Per-segment fallback bookkeeping. Two cases:
-    # 1) every segment fell back to the SAME alternative model — promote it
-    #    to ``report.model`` so the UI / LLM sees a single coherent label
-    #    (matches the pre-fallback behaviour of the outer AUTO loop, which
-    #    used to swap the whole route when the primary couldn't deliver).
-    # 2) mixed — keep the primary as ``report.model`` and warn that the
-    #    route is split across models.
+    if min_boat_speed_kn < LIGHT_WIND_THRESHOLD_KN:
+        warnings.append(f"vent faible : vitesse mini {min_boat_speed_kn:.1f} kn, passage très lent")
+
+    seg_models = sampling.models
     used_distinct: list[str] = []
     for m in seg_models:
         if m not in used_distinct:
@@ -793,9 +876,6 @@ async def _estimate_with_model(
     resolved_model = model
     if used_distinct and used_distinct != [model]:
         if len(used_distinct) == 1 and used_distinct[0] != model:
-            # Full route swap — promote, no warning needed (this matches the
-            # outer AUTO loop's behaviour before the per-segment fallback
-            # was introduced).
             resolved_model = used_distinct[0]
         else:
             fallback_count = sum(1 for m in seg_models if m != model)
@@ -805,26 +885,12 @@ async def _estimate_with_model(
                 f"points (probable hors zone de couverture) ; fallback automatique sur "
                 f"{', '.join(others)}"
             )
-
-    arrival = departure_utc + cumulative_actual
-    total_distance = sum(s.distance_nm for s in segments)
-    return PassageReport(
-        archetype=boat_archetype,
-        departure_time=departure_utc,
-        arrival_time=arrival,
-        duration_h=cumulative_actual.total_seconds() / 3600.0,
-        distance_nm=total_distance,
-        efficiency=efficiency,
-        model=resolved_model,
-        segments=tuple(reports),
-        warnings=tuple(warnings),
-        max_sampling_drift_h=round(max_drift_h, 2),
-    )
+    return warnings, resolved_model
 
 
-async def _estimate_backward_with_model(
+async def _estimate_with_model(
     waypoints: list[Point],
-    target_arrival: datetime,
+    anchor_time: datetime,
     boat_archetype: str,
     *,
     efficiency: float,
@@ -833,208 +899,86 @@ async def _estimate_backward_with_model(
     model: str,
     heuristic_speed_kn: float | None,
     use_wave_correction: bool,
-    polar_override: BoatPolar | None = None,
-    model_chain: tuple[str, ...] | None = None,
+    polar_override: BoatPolar | None,
+    model_chain: tuple[str, ...] | None,
+    backward: bool,
 ) -> PassageReport:
-    """Mirror of `_estimate_with_model` anchored at arrival, solving backward.
+    """The one passage engine, run in either direction.
 
-    Walks segments from last to first: each segment's end_time is fixed (the
-    next segment's start_time, or `target_arrival` for the last segment), and
-    its actual duration is computed from the wind sampled at a mid-time guess.
-    By construction, the resulting report has `arrival_time == target_arrival`
-    exactly (modulo timedelta microsecond drift), so no fixed-point iteration
-    is needed. Mid-time guesses use the same boat-aware layout speed as the
-    forward path, same temporal-correlation argument applies.
+    ``anchor_time`` is the departure when ``backward`` is false and the target
+    arrival when it is true. Sampling, per-segment physics and warnings are
+    the same code either way (see `_sample_route`, `_segment_report`,
+    `_collect_warnings`); what differs is which end of the passage is known,
+    and therefore which way the walk chains segment times together. Forward,
+    each segment starts where the previous one ended, from the departure.
+    Backward, each segment ends where the next one started, from the arrival,
+    so ``report.arrival_time == target_arrival`` exactly by construction and
+    no fixed-point iteration is needed.
     """
     polar = polar_override if polar_override is not None else get_polar(boat_archetype)
-    effective_length_nm, capped_route_nm = _resolve_segment_length(waypoints, segment_length_nm)
-    segments = segment_route(waypoints, effective_length_nm)
-    target_utc = target_arrival.astimezone(UTC)
-
-    # Same layout-speed resolution as the forward path.
-    layout_speed_kn = (
-        max(heuristic_speed_kn, MIN_BOAT_SPEED_KN)
-        if heuristic_speed_kn is not None
-        else _layout_speed_kn(polar, efficiency)
+    anchor_utc = anchor_time.astimezone(UTC)
+    sampling = await _sample_route(
+        waypoints,
+        anchor_utc,
+        polar,
+        efficiency=efficiency,
+        segment_length_nm=segment_length_nm,
+        adapter=adapter,
+        model=model,
+        heuristic_speed_kn=heuristic_speed_kn,
+        model_chain=model_chain,
+        backward=backward,
     )
-    seg_mid_times: list[datetime] = [target_utc] * len(segments)
-    cumulative_back = timedelta(0)
-    for idx in range(len(segments) - 1, -1, -1):
-        seg_h = segments[idx].distance_nm / layout_speed_kn
-        seg_mid_times[idx] = target_utc - cumulative_back - timedelta(hours=seg_h / 2)
-        cumulative_back += timedelta(hours=seg_h)
 
-    seg_mid_points = [midpoint(s.start, s.end) for s in segments]
-
-    chain_tail: tuple[str, ...] = ()
-    if model_chain:
-        chain_tail = tuple(m for m in model_chain if m != model)
-
-    own_adapter = adapter is None
-    fetch_adapter: MarineDataAdapter = adapter or OpenMeteoAdapter()
-    try:
-        # Batched multi-coordinate prewarm so the per-segment gather is cache-
-        # served (one HTTP call for all points instead of one per point).
-        if hasattr(fetch_adapter, "prewarm_batch"):
-            await fetch_adapter.prewarm_batch(
-                [(pt.lat, pt.lon) for pt in seg_mid_points],
-                min(seg_mid_times) - WIND_FETCH_WINDOW / 2,
-                max(seg_mid_times) + WIND_FETCH_WINDOW / 2,
-                [model],
-            )
-        bundles = await asyncio.gather(
-            *[
-                fetch_adapter.fetch(
-                    pt.lat,
-                    pt.lon,
-                    mid - WIND_FETCH_WINDOW / 2,
-                    mid + WIND_FETCH_WINDOW / 2,
-                    models=[model],
-                )
-                for pt, mid in zip(seg_mid_points, seg_mid_times, strict=True)
-            ]
+    # The walk. Forward it runs in route order anchored at the departure,
+    # backward in reverse order anchored at the arrival; either way each
+    # segment's free end becomes the next anchor, so the chain of times is
+    # exact rather than a sum of rounded hours.
+    order = list(range(len(sampling.segments)))
+    if backward:
+        order.reverse()
+    walked: list[SegmentReport] = []
+    anchor = anchor_utc
+    for i in order:
+        seg_report = _segment_report(
+            sampling.segments[i],
+            mid_time=sampling.mid_times[i],
+            mid_point=sampling.mid_points[i],
+            bundle=sampling.bundles[i],
+            model=sampling.models[i],
+            polar=polar,
+            efficiency=efficiency,
+            use_wave_correction=use_wave_correction,
+            anchor=anchor,
+            backward=backward,
         )
+        walked.append(seg_report)
+        anchor = seg_report.start_time if backward else seg_report.end_time
+    reports = list(reversed(walked)) if backward else walked
 
-        seg_models: list[str] = [model] * len(segments)
-        if chain_tail:
-            fallback_indices = [
-                i
-                for i, (b, mid) in enumerate(zip(bundles, seg_mid_times, strict=True))
-                if not _segment_has_wind(b, model, mid)
-            ]
-            if fallback_indices:
-                fallback_results = await asyncio.gather(
-                    *[
-                        _fetch_segment_with_fallback(
-                            fetch_adapter,
-                            seg_mid_points[i].lat,
-                            seg_mid_points[i].lon,
-                            seg_mid_times[i],
-                            primary_model=chain_tail[0],
-                            chain=chain_tail,
-                        )
-                        for i in fallback_indices
-                    ]
-                )
-                for idx, (used_model, used_bundle) in zip(
-                    fallback_indices, fallback_results, strict=True
-                ):
-                    seg_models[idx] = used_model
-                    bundles[idx] = used_bundle
-    finally:
-        if own_adapter and hasattr(fetch_adapter, "aclose"):
-            await fetch_adapter.aclose()  # pragma: no cover
+    min_boat_speed = min((r.boat_speed_kn for r in reports), default=float("inf"))
+    max_drift_h = max(
+        (
+            abs(((r.start_time + (r.end_time - r.start_time) / 2) - mid).total_seconds()) / 3600.0
+            for r, mid in zip(reports, sampling.mid_times, strict=True)
+        ),
+        default=0.0,
+    )
+    warnings, resolved_model = _collect_warnings(
+        sampling,
+        requested_length_nm=segment_length_nm,
+        min_boat_speed_kn=min_boat_speed,
+        model=model,
+    )
 
-    # Backward pass: walk segments in reverse, anchoring end_time at arrival.
-    reverse_reports: list[SegmentReport] = []
-    end_time = target_utc
-    min_boat_speed = float("inf")
-    max_drift_h = 0.0
-    for seg, mid_time, mid_pt, bundle, seg_model in zip(
-        reversed(segments),
-        reversed(seg_mid_times),
-        reversed(seg_mid_points),
-        reversed(bundles),
-        reversed(seg_models),
-        strict=True,
-    ):
-        wind_series = bundle.wind_by_model.get(seg_model)
-        if wind_series is None or not wind_series.points:
-            raise ForecastHorizonError(seg_model, mid_time)
-        wp = _closest_wind_point(wind_series.points, mid_time)
-        twa = normalize_twa(twd=wp.direction_deg, course=seg.bearing_deg)
-        polar_speed = lookup_polar(polar, wp.speed_kn, twa)
-        opt_twa, opt_polar_speed = best_vmg_upwind(polar, wp.speed_kn)
-        if twa < opt_twa:
-            effective_polar = opt_polar_speed * math.cos(math.radians(opt_twa - twa))
-        else:
-            effective_polar = polar_speed
-        sea_pt = _closest_sea_point(bundle.sea.points, mid_time)
-        hs_m = sea_pt.wave_height_m if sea_pt else None
-        tp_s = sea_pt.wave_period_s if sea_pt else None
-        cur_kn = sea_pt.current_speed_kn if sea_pt else None
-        cur_to = sea_pt.current_direction_to_deg if sea_pt else None
-        cur_src = sea_pt.current_source if sea_pt else None
-        cur_conf = confidence_for_point(mid_pt.lat, mid_pt.lon, cur_src)
-        derate = 1.0
-        if use_wave_correction and hs_m is not None:
-            derate = wave_derate(hs_m, twa)
-        sail_speed = max(effective_polar * efficiency * derate, MIN_BOAT_SPEED_KN)
-        boat_speed, motor_used = _apply_motor(polar, sail_speed)
-        sog = _apply_current(boat_speed, seg.bearing_deg, cur_kn, cur_to)
-        ground_speed = sog if sog is not None else boat_speed
-        seg_duration = timedelta(hours=seg.distance_nm / ground_speed)
-        seg_start = end_time - seg_duration
-        min_boat_speed = min(min_boat_speed, boat_speed)
-        actual_mid = seg_start + seg_duration / 2
-        max_drift_h = max(max_drift_h, abs((actual_mid - mid_time).total_seconds()) / 3600.0)
-        reverse_reports.append(
-            SegmentReport(
-                start=seg.start,
-                end=seg.end,
-                distance_nm=seg.distance_nm,
-                bearing_deg=seg.bearing_deg,
-                start_time=seg_start,
-                end_time=end_time,
-                tws_kn=wp.speed_kn,
-                twd_deg=wp.direction_deg,
-                twa_deg=twa,
-                polar_speed_kn=polar_speed,
-                boat_speed_kn=boat_speed,
-                duration_h=seg_duration.total_seconds() / 3600.0,
-                hs_m=hs_m,
-                wave_derate_factor=derate,
-                current_speed_kn=cur_kn,
-                current_source=cur_src,
-                current_direction_to_deg=cur_to,
-                sog_kn=sog,
-                current_confidence=cur_conf,
-                gust_kn=wp.gust_kn,
-                wave_period_s=tp_s,
-                model_used=seg_model,
-                motor_used=motor_used,
-            )
-        )
-        end_time = seg_start
-
-    reports = list(reversed(reverse_reports))
-    departure = reports[0].start_time
-    duration = target_utc - departure
-
-    warnings: list[str] = []
-    if capped_route_nm is not None:
-        warnings.append(
-            f"trajet long ({capped_route_nm:.0f} nm) : {len(segments)} points météo "
-            f"échantillonnés (~{effective_length_nm:.0f} nm entre points) au lieu de "
-            f"{segment_length_nm:.0f} nm pour limiter les requêtes API."
-        )
-    if min_boat_speed < LIGHT_WIND_THRESHOLD_KN:
-        warnings.append(f"vent faible : vitesse mini {min_boat_speed:.1f} kn, passage très lent")
-    # See forward path for rationale.
-    used_distinct: list[str] = []
-    for m in seg_models:
-        if m not in used_distinct:
-            used_distinct.append(m)
-    resolved_model = model
-    if used_distinct and used_distinct != [model]:
-        if len(used_distinct) == 1 and used_distinct[0] != model:
-            resolved_model = used_distinct[0]
-        else:
-            fallback_count = sum(1 for m in seg_models if m != model)
-            others = [m for m in used_distinct if m != model]
-            warnings.append(
-                f"modèle {model} sans données sur {fallback_count}/{len(seg_models)} "
-                f"points (probable hors zone de couverture) ; fallback automatique sur "
-                f"{', '.join(others)}"
-            )
-
-    total_distance = sum(s.distance_nm for s in segments)
+    departure = anchor if backward else anchor_utc
+    arrival = anchor_utc if backward else anchor
     return PassageReport(
         archetype=boat_archetype,
         departure_time=departure,
-        arrival_time=target_utc,
-        duration_h=duration.total_seconds() / 3600.0,
-        distance_nm=total_distance,
+        arrival_time=arrival,
+        duration_h=(arrival - departure).total_seconds() / 3600.0,
+        distance_nm=sum(s.distance_nm for s in sampling.segments),
         efficiency=efficiency,
         model=resolved_model,
         segments=tuple(reports),
@@ -1281,7 +1225,7 @@ async def estimate_passage_for_arrival(
         last_err: ForecastHorizonError | None = None
         for idx, candidate in enumerate(chain):
             try:
-                report = await _estimate_backward_with_model(
+                report = await _estimate_with_model(
                     waypoints,
                     target_utc,
                     boat_archetype,
@@ -1293,6 +1237,7 @@ async def estimate_passage_for_arrival(
                     use_wave_correction=use_wave_correction,
                     polar_override=polar_override,
                     model_chain=chain[idx:],
+                    backward=True,
                 )
                 return EtaPassagePlan(report=report, target_arrival=target_utc)
             except ForecastHorizonError as exc:
@@ -1301,7 +1246,7 @@ async def estimate_passage_for_arrival(
         assert last_err is not None
         raise last_err
 
-    report = await _estimate_backward_with_model(
+    report = await _estimate_with_model(
         waypoints,
         target_utc,
         boat_archetype,
@@ -1313,5 +1258,6 @@ async def estimate_passage_for_arrival(
         use_wave_correction=use_wave_correction,
         polar_override=polar_override,
         model_chain=model_chain,
+        backward=True,
     )
     return EtaPassagePlan(report=report, target_arrival=target_utc)
