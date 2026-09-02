@@ -1,6 +1,6 @@
 # Politique de confidentialité
 
-*Dernière mise à jour : 6 août 2026*
+*Dernière mise à jour : 2 septembre 2026*
 
 OhMyWind est un planificateur de navigation à la voile open-source, disponible sur
 [ohmywind.fr](https://ohmywind.fr) et sous forme d'application Android. Il est édité à
@@ -51,11 +51,13 @@ indique les données applicatives transmises en plus.
 | [Nominatim / OpenStreetMap](https://osmfoundation.org/wiki/Privacy_Policy) | Coordonnées géographiques | Géocodage inverse (nom du lieu affiché) |
 | [Photon (Komoot)](https://photon.komoot.io) | Texte de vos recherches de lieu | Recherche de lieux |
 | [OpenFreeMap](https://openfreemap.org/privacy/) | Zone de carte affichée | Fonds de carte (tuiles) |
-| [Google Fonts](https://policies.google.com/privacy) | Adresse IP | Chargement des polices de caractères |
 | [Ko-fi](https://more.ko-fi.com/privacy) | Rien, sauf si vous cliquez volontairement sur le lien de soutien | Dons |
 
 Ces services sont des sous-traitants techniques indépendants, régis par leurs propres
 politiques de confidentialité (liens dans le tableau).
+
+Les polices de caractères sont servies depuis ohmywind.fr : afficher une page
+n'envoie aucune requête à Google Fonts, et donc aucune adresse IP.
 
 ## Permissions Android
 
