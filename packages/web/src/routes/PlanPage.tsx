@@ -20,6 +20,7 @@ import {
 } from "../plan/lastSimulation";
 import { type TimeAnchor } from "../plan/ModeToggle";
 import { computeLegSegmentRanges } from "../plan/aggregateLegs";
+import { toTzAware } from "../plan/departureTz";
 import { activeModels, loadModelConfig } from "../config/modelConfig";
 import { effectivePolar, initialPlanBoat, isPersoActive, isPolarCustomized, loadPolarConfig, planEfficiency, polarFingerprint, savePolarConfig } from "../config/polarConfig";
 import { LocateButton } from "../components/LocateButton";
@@ -88,18 +89,6 @@ function tomorrowRoundedLocal(): string {
   d.setMinutes(0, 0, 0);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-// Append local timezone offset to a naive "YYYY-MM-DDTHH:MM" string.
-// If already timezone-aware (ends with Z or ±HH:MM), return as-is.
-function toTzAware(iso: string): string {
-  if (/Z$|[+-]\d{2}:\d{2}$/.test(iso)) return iso;
-  const off = -new Date().getTimezoneOffset();
-  const sign = off >= 0 ? "+" : "-";
-  const abs = Math.abs(off);
-  const hh = String(Math.floor(abs / 60)).padStart(2, "0");
-  const mm = String(abs % 60).padStart(2, "0");
-  return `${iso}:00${sign}${hh}:${mm}`;
 }
 
 function fmtTime(iso: string) {
