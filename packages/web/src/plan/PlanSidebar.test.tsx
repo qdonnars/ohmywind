@@ -10,7 +10,7 @@
  * for something the context does not carry fails here rather than at runtime.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PlanSidebar } from "./PlanSidebar";
 import { PlanProvider } from "./session/PlanProvider";
@@ -210,19 +210,19 @@ describe("PlanSidebar views", () => {
     expect(screen.getByText("vent faible : passage très lent")).toBeTruthy();
     expect(screen.getByText(/Croiseur 30 pieds/)).toBeTruthy();
     // One row per leg, opening the build-up on click.
-    expect(screen.getByRole("button", { name: /1→2/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^1→2/ })).toBeTruthy();
     expect(screen.getByText(/Données fraîches au/)).toBeTruthy();
   });
 
   it("hides the legs behind a recompute prompt once the route moved", () => {
     mount({ passage: passage(), complexity: complexity(), isStale: true });
     expect(screen.getByText(/Itinéraire modifié/)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /1→2/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^1→2/ })).toBeNull();
   });
 
   it("opens a leg through the session, not through local state", async () => {
     const value = mount({ passage: passage(), complexity: complexity() });
-    await userEvent.click(screen.getByRole("button", { name: /1→2/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^1→2/ }));
     expect(value.actions.selectLeg).toHaveBeenCalledWith(0);
   });
 
@@ -316,6 +316,28 @@ describe("open leg", () => {
     // Tapping the open block returns to the average.
     await userEvent.click(screen.getByRole("button", { name: /^Pas 2 sur 2/ }));
     expect(value.actions.selectStep).toHaveBeenCalledWith(null);
+  });
+
+  it("opens a step from the bar under the totals, and closes it from there too", async () => {
+    const value = mount({ passage: twoStepPassage(), complexity: complexity() });
+    const cells = screen.getAllByRole("button", { name: /^Tronçon 1→2, pas \d sur 2/ });
+    expect(cells).toHaveLength(2);
+    await userEvent.click(cells[1]);
+    expect(value.actions.selectLeg).toHaveBeenCalledWith(0);
+    expect(value.actions.selectStep).toHaveBeenCalledWith(1);
+
+    cleanup();
+    const open = mount({
+      passage: twoStepPassage(),
+      complexity: complexity(),
+      selectedLegIdx: 0,
+      selectedStepIdx: 1,
+    });
+    const ringed = screen.getByRole("button", { name: /^Tronçon 1→2, pas 2 sur 2/ });
+    expect(ringed.getAttribute("aria-pressed")).toBe("true");
+    await userEvent.click(ringed);
+    expect(open.actions.selectStep).toHaveBeenCalledWith(null);
+    expect(open.actions.selectLeg).not.toHaveBeenCalled();
   });
 
   it("shows a single-step leg as the step itself: no average, no strip, no arrows", () => {

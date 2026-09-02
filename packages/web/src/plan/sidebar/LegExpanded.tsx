@@ -18,7 +18,7 @@
  * map draws it too.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { AggregatedLeg } from "../aggregateLegs";
 import { aggregateSteps, buildLegSummaryCells, legDurationLabel, legSpread } from "../aggregateLegs";
 import { LegDetailCard, type LegDetailHeader, type LegDetailNote } from "../LegDetailCard";
@@ -49,6 +49,16 @@ export function LegExpanded({
   minUpwindDeg: number;
 }) {
   const { state, actions } = usePlan();
+
+  // Opened from the bar under the totals, the leg may sit below the fold of
+  // the panel: bring it into view, moving as little as possible. `nearest`
+  // leaves a leg that is already visible where it is. Guarded because jsdom
+  // has no scrollIntoView.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    rootRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, []);
+
   const steps = useMemo(
     () => aggregateSteps(segments, leg.segment_range, leg.efficiency, minUpwindDeg),
     [segments, leg.segment_range, leg.efficiency, minUpwindDeg],
@@ -97,7 +107,7 @@ export function LegExpanded({
   }
 
   return (
-    <div className="space-y-2.5">
+    <div ref={rootRef} className="space-y-2.5">
       {n > 1 && <StepStrip steps={steps} selected={selected} onSelect={select} />}
       <LegDetailCard
         view={view}

@@ -17,7 +17,7 @@ import { loadLastSimulation } from "../plan/lastSimulation";
 import { resolveInitialSession, type InitialSession } from "../plan/session/initial";
 import { usePlanSession, currentConfigFingerprint } from "../plan/session/usePlanSession";
 import { PlanProvider } from "../plan/session/PlanProvider";
-import { computeLegSegmentRanges } from "../plan/aggregateLegs";
+import { computeLegSegmentRanges, focusedSegmentIndex } from "../plan/aggregateLegs";
 import { loadPolarConfig } from "../config/polarConfig";
 import { LocateButton } from "../components/LocateButton";
 import { SeamarkButton } from "../components/SeamarkButton";
@@ -429,26 +429,16 @@ export function PlanPage() {
   // Memoised: PlanMap keys an effect on this tuple, and a fresh one on every
   // render made it destroy and redraw the highlight polyline each time a
   // slider ticked.
-  const highlightedSegmentRange = useMemo(
-    () =>
-      selectedLegIdx != null && passage
-        ? computeLegSegmentRanges(
-            passage.segments as { start: { lat: number; lon: number } }[],
-            waypoints,
-          )[selectedLegIdx] ?? null
-        : null,
-    [selectedLegIdx, passage, waypoints],
+  const legRanges = useMemo(
+    () => (passage ? computeLegSegmentRanges(passage.segments, waypoints) : []),
+    [passage, waypoints],
   );
-
-  // The step open in the panel, as an index into the passage's segments. The
-  // reducer drops the step with its leg, so a range and a step that disagree
-  // can only be a stale index past a shorter leg: ignored rather than drawn
-  // on the next leg.
-  const focusedSegmentIdx = useMemo(() => {
-    if (selectedStepIdx == null || !highlightedSegmentRange) return null;
-    const idx = highlightedSegmentRange[0] + selectedStepIdx;
-    return idx < highlightedSegmentRange[1] ? idx : null;
-  }, [selectedStepIdx, highlightedSegmentRange]);
+  const highlightedSegmentRange = useMemo(
+    () => (selectedLegIdx != null ? legRanges[selectedLegIdx] ?? null : null),
+    [selectedLegIdx, legRanges],
+  );
+  // The step open in the panel, as an index into the passage's segments.
+  const focusedSegmentIdx = focusedSegmentIndex(legRanges, selectedLegIdx, selectedStepIdx);
 
   // Route edited after a result: the drawer content flips to the "Cliquez
   // sur Recalculer" placeholders while the results fit above may have left

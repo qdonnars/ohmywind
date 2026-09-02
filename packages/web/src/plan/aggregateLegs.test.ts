@@ -6,6 +6,7 @@ import {
   aggregateLegs,
   aggregateSteps,
   buildLegSummaryCells,
+  focusedSegmentIndex,
   legSpread,
   type AggregatedLeg,
 } from "./aggregateLegs";
@@ -303,5 +304,21 @@ describe("legSpread", () => {
     expect(legSpread(stepsAt([300, 300], { hs_m: 0.4 })).hs_range).toEqual([0.4, 0.4]);
     expect(legSpread(stepsAt([300, 300], { hs_m: null })).hs_range).toBeNull();
     expect(legSpread(stepsAt([300, 300], { hs_m: null })).current_speed_range).toBeNull();
+  });
+});
+
+describe("focusedSegmentIndex", () => {
+  const ranges: Array<[number, number]> = [[0, 3], [3, 5]];
+
+  it("adds the step to the start of its leg", () => {
+    expect(focusedSegmentIndex(ranges, 0, 2)).toBe(2);
+    expect(focusedSegmentIndex(ranges, 1, 1)).toBe(4);
+  });
+
+  it("is null without a leg, without a step, or past the leg", () => {
+    expect(focusedSegmentIndex(ranges, null, 1)).toBeNull();
+    expect(focusedSegmentIndex(ranges, 0, null)).toBeNull();
+    expect(focusedSegmentIndex(ranges, 1, 2)).toBeNull();
+    expect(focusedSegmentIndex(ranges, 5, 0)).toBeNull();
   });
 });

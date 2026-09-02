@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { ComplexityScore, PassageReport } from "../types";
+import { computeLegSegmentRanges, focusedSegmentIndex } from "../aggregateLegs";
 import { TimeAnchorToggle } from "../ModeToggle";
 import { Warn, RecapButton, HeroStats } from "../PlanStates";
 import { usePlan } from "../session/planContext";
@@ -24,8 +25,31 @@ export function SingleResults({
   boatLabel: string;
 }) {
   const { state, actions, compute } = usePlan();
-  const { departure, timeAnchor, isStale, forecastUpdatedAt } = state;
+  const { departure, timeAnchor, isStale, forecastUpdatedAt, waypoints, selectedLegIdx, selectedStepIdx } = state;
   const [isEditingParams, setIsEditingParams] = useState(false);
+
+  // The bar under the totals opens a step from the overview: the leg it
+  // belongs to unfolds and the card lands on that step. A click on the step
+  // already open returns to the leg average, as in the strip.
+  const legRanges = useMemo(
+    () => computeLegSegmentRanges(passage.segments, waypoints),
+    [passage.segments, waypoints],
+  );
+  const focusedSegmentIdx = focusedSegmentIndex(legRanges, selectedLegIdx, selectedStepIdx);
+  const onSegmentClick = useCallback(
+    (segIdx: number, legIdx: number) => {
+      if (legIdx < 0) return;
+      if (segIdx === focusedSegmentIdx) {
+        actions.selectStep(null);
+        return;
+      }
+      // Two intents, one after the other: the reducer drops the step with
+      // the leg, so the leg has to be opened first.
+      actions.selectLeg(legIdx);
+      actions.selectStep(segIdx - legRanges[legIdx][0]);
+    },
+    [actions, focusedSegmentIdx, legRanges],
+  );
 
   // Both lists are guarded rather than read straight: `parse.ts` checks the
   // shape of a live response, but a passage restored from `ow_last_simulation_v1`
@@ -71,7 +95,12 @@ export function SingleResults({
           recalculating, same rule as the mobile overlay. */}
       {!isStale && (
         <div className="hidden lg:block px-4 py-3.5" style={{ borderBottom: "1px solid var(--ow-line)" }}>
-          <HeroStats passage={passage} />
+          <HeroStats
+            passage={passage}
+            legRanges={legRanges}
+            focusedSegmentIdx={focusedSegmentIdx}
+            onSegmentClick={onSegmentClick}
+          />
         </div>
       )}
 

@@ -192,6 +192,24 @@ export function computeLegSegmentRanges(
   return legStarts.slice(0, -1).map((s, i) => [s, legStarts[i + 1]]);
 }
 
+/**
+ * Passage-wide index of the step open in the panel, or null when nothing is
+ * open. Null too when the step falls past its leg: the reducer drops the
+ * step with the leg, so a range and a step that disagree can only be a stale
+ * index past a shorter leg, better ignored than drawn on the next leg.
+ */
+export function focusedSegmentIndex(
+  ranges: Array<[number, number]>,
+  legIdx: number | null,
+  stepIdx: number | null,
+): number | null {
+  if (legIdx == null || stepIdx == null) return null;
+  const range = ranges[legIdx];
+  if (!range) return null;
+  const idx = range[0] + stepIdx;
+  return idx < range[1] ? idx : null;
+}
+
 function twaToSeaDirection(twa: number): "face" | "travers" | "arrière" {
   // 3-bucket split (vs 4 for point_of_sail) — sailors call out sea state in
   // coarser terms than sail trim.
