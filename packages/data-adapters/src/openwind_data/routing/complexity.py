@@ -172,9 +172,11 @@ def score_complexity(
         if not affected_sea:
             affected_sea = tuple(range(len(passage.segments)))
         affected_sea_nm = sum(passage.segments[i].distance_nm for i in affected_sea)
-        affected_hs = [
-            passage.segments[i].hs_m for i in affected_sea if passage.segments[i].hs_m is not None
-        ]
+        # Bound to a name in the guard: reading ``passage.segments[i].hs_m``
+        # twice is two subscripts, and nothing tells a reader (or a type
+        # checker) that the second one still holds the value the first one
+        # tested. The walrus makes the filtered list actually ``list[float]``.
+        affected_hs = [hs for i in affected_sea if (hs := passage.segments[i].hs_m) is not None]
         hs_range = _compact_range(affected_hs, 1) if affected_hs else f"{max_hs_m:.1f}"
         warnings.append(
             ComplexityWarning(

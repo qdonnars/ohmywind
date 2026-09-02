@@ -85,7 +85,10 @@ def deterministic_world(monkeypatch):
     # Belt and braces: nothing should reach for the engine's own adapter now
     # that the live path is handed one, but a regression that put the old
     # branch back would otherwise dial Open-Meteo from CI rather than fail.
-    monkeypatch.setattr(passage_engine, "OpenMeteoAdapter", DeterministicMarineAdapter)
+    # Patched on ``sampling``, the engine's single construction site for it
+    # (``resolve_fetch_adapter``), so this stays a real net rather than a
+    # rebinding nobody reads.
+    monkeypatch.setattr(passage_engine.sampling, "OpenMeteoAdapter", DeterministicMarineAdapter)
 
 
 def _deterministic_app(settings: Settings) -> TestClient:

@@ -22,6 +22,7 @@ dev = [
     "pytest>=8.2",
     "pytest-asyncio>=0.23",
     "ruff>=0.5",
+    "pyright>=1.1.390",
     # The MARC golden writes a one-cell atlas to disk; polars is already a
     # transitive dependency through openwind-data, declared here so the test
     # dependency is visible rather than inherited by luck.
@@ -49,3 +50,10 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "N", "RUF"]
 ignore = ["E501"]
+
+
+# See packages/data-adapters/pyproject.toml for why basic and not strict.
+[tool.pyright]
+include = ["src"]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"

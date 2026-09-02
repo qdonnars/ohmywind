@@ -66,6 +66,33 @@ jobs:
           uvx ruff check packages/data-adapters packages/api packages/mcp-core packages/hf-space
           uvx ruff format --check packages/data-adapters packages/api packages/mcp-core packages/hf-space
 
+      # Informatif, jamais bloquant. Ces règles mesurent la taille et le
+      # nombre de branches d'une fonction : utile comme thermomètre entre
+      # deux refactos, inutile comme barrière, parce que découper une
+      # fonction du moteur pour passer sous un seuil est exactement le genre
+      # de changement qu'on ne fait pas sous la pression d'une CI rouge.
+      # Le compte du jour est dans la description de la PR qui a ajouté
+      # cette étape ; il sert de repère, pas de budget.
+      - name: Complexité (informatif)
+        run: |
+          uvx ruff check --select C901,PLR0912,PLR0913,PLR0915 --statistics \
+            packages/data-adapters packages/api packages/mcp-core packages/hf-space || true
+
+      # Bloquant, lui. Mode basic : ce qu'on veut attraper, c'est l'attribut
+      # sondé qu'aucune classe ne définit, la méthode appelée à travers un
+      # Protocol qui ne la déclare pas, l'Optional utilisé sans être filtré.
+      # Les deux paquets sont à zéro erreur ; le mode strict, qui exige une
+      # annotation sur chaque variable locale, les noierait sous le bruit.
+      # Seul le code de `src/` est analysé (voir `include` dans les
+      # pyproject) : les tests montent des doublures partielles exprès.
+      - name: Types data-adapters (pyright)
+        working-directory: packages/data-adapters
+        run: uv run pyright
+
+      - name: Types api (pyright)
+        working-directory: packages/api
+        run: uv run pyright
+
       - name: Test data-adapters
         working-directory: packages/data-adapters
         run: uv run pytest -q

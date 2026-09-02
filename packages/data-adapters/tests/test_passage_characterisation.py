@@ -370,3 +370,40 @@ def test_every_model_blind_raises_no_model_covered_in_both_directions() -> None:
                 adapter_factory=lambda: BlindModelAdapter(blind_everywhere=blind_all),
             )
         )
+
+
+def test_the_engine_builds_its_default_adapter_in_one_place(monkeypatch) -> None:
+    """``sampling.resolve_fetch_adapter`` is the only ``OpenMeteoAdapter()``.
+
+    The REST goldens replace that name so a regression cannot dial Open-Meteo
+    from CI, and a net nobody checks is not a net: this asserts that replacing
+    it really does decide which adapter a caller-less estimate fetches
+    through, for the single passage and for the sweep alike.
+    """
+    from openwind_data.routing.passage import sampling, sweep
+
+    built: list[str] = []
+
+    class _Recorded(DeterministicMarineAdapter):
+        def __init__(self) -> None:
+            super().__init__()
+            built.append("yes")
+
+    monkeypatch.setattr(sampling, "OpenMeteoAdapter", _Recorded)
+    assert not hasattr(sweep, "OpenMeteoAdapter"), "the sweep must go through sampling"
+
+    asyncio.run(estimate_passage(MED, DEPARTURE, "cruiser_30ft"))
+    assert built == ["yes"]
+
+    asyncio.run(
+        sweep.estimate_passage_windows(
+            MED,
+            DEPARTURE,
+            DEPARTURE,
+            "cruiser_30ft",
+            model=AROME,
+        )
+    )
+    # One for the sweep's own adapter; the nested single estimates are handed
+    # that one and build nothing.
+    assert built == ["yes", "yes"]
