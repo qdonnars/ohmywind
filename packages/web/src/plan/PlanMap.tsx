@@ -6,7 +6,8 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useTheme } from "../design/useTheme";
 import type { SegmentReport } from "./types";
-import { cxLevel, CX_COLORS } from "./types";
+import { cxLevel, cxLevelToken } from "../domain/thresholds";
+import { readToken } from "../design/tokens";
 import { haversineNm, fmtNm } from "../utils/geo";
 import { fmtDepthM } from "./format";
 import type { UserPosition } from "../hooks/useGeolocation";
@@ -440,7 +441,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     drawSegLabels(map, []);
 
     segments.forEach((seg, i) => {
-      const color = CX_COLORS[cxLevel(seg.tws_kn)];
+      const color = readToken(cxLevelToken(cxLevel(seg.tws_kn)));
       const line = L.polyline(
         [L.latLng(seg.start.lat, seg.start.lon), L.latLng(seg.end.lat, seg.end.lon)],
         { color, weight: 6, opacity: 0.9 }
@@ -472,7 +473,9 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
       L.latLng(slice[0].start.lat, slice[0].start.lon),
       ...slice.map((seg) => L.latLng(seg.end.lat, seg.end.lon)),
     ];
-    const accent = resolvedTheme === "light" ? "#0f766e" : "#2dd4bf";
+    // Re-read on every theme change: the light palette darkens the accent,
+    // and this overlay used to carry its own copy of both hex values.
+    const accent = readToken("--ow-accent");
     const overlay = L.polyline(path, {
       color: accent,
       weight: 10,

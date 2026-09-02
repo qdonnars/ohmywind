@@ -65,11 +65,6 @@ export interface MarineHourly {
   tide_coefficient?: number | null;
 }
 
-// Surfacing thresholds, mirror of openwind_data.adapters.base. Below these,
-// the data is noise — pills are hidden.
-export const CURRENT_RELEVANCE_THRESHOLD_KN = 0.3;
-export const TIDE_RANGE_RELEVANCE_THRESHOLD_M = 0.5;
-
 export type MetricView = "wind" | "waves" | "tides" | "currents";
 
 export interface GeocodingResult {

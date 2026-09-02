@@ -15,7 +15,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { useBackDismiss } from "../../hooks/useBackDismiss";
 import type { PassageReport, ComplexityScore, PassageWindow } from "../types";
 import type { InitialSession } from "./initial";
-import { toTzAware } from "../departureTz";
+import { toTzAware } from "../../domain/datetime";
 import { usePlanSession } from "./usePlanSession";
 
 const fetchPassage = vi.fn();

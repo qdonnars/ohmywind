@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import type { SegmentReport } from "./types";
+import { SEA_FORMED_HS_M } from "../domain/thresholds";
+import { COEFF_DEFAULT } from "../config/polarConfig";
 
 export interface AggregatedLeg {
   // ── Distances & timing (carried from the segment span) ─────────────────────
@@ -144,7 +146,7 @@ export function buildLegSummaryCells(leg: AggregatedLeg): LegSummaryCells {
       // hide it because broaching / accidental gybe risks remain.
       flag = leg.sea_direction === "arrière" ? "Clapot Suiveur" : "Clapot";
     }
-    else if (leg.hs_avg_m > 1.25) flag = "Mer Formée";
+    else if (leg.hs_avg_m > SEA_FORMED_HS_M) flag = "Mer Formée";
   }
 
   return {
@@ -201,7 +203,7 @@ function classifyCurrent(deltaKn: number, currentSpeedKn: number | null): "porta
 export function aggregateLegs(
   segments: SegmentReport[],
   waypoints: [number, number][],
-  efficiency = 0.75,
+  efficiency = COEFF_DEFAULT,
   minUpwindDeg = 0,
 ): AggregatedLeg[] {
   if (waypoints.length < 2 || segments.length === 0) return [];

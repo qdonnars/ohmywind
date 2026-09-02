@@ -9,6 +9,8 @@ import { fetchArchetypes } from "../api/passage";
 import { Header } from "../components/Header";
 import type { PassageReport, Archetype } from "../plan/types";
 import { fmtDurationSafe, fr1 } from "../plan/format";
+import { fmtClock } from "../domain/datetime";
+import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { HeroCell } from "../plan/PlanStates";
 import { loadPlanDraft } from "../plan/draft";
 import { loadLastSimulation } from "../plan/lastSimulation";
@@ -29,9 +31,6 @@ import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
 
 // ── local helpers (mobile components) ────────────────────────────────────────
 
-function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-}
 // Hero stats overlay — absolute, bottom of map, mobile only.
 // Renders the exact same HeroCell as the desktop sidebar block
 // (Distance / Durée / Arrivée) inside a single glass strip, so both
@@ -59,7 +58,7 @@ function PlanHeroStats({ passage, onOpen }: { passage: PassageReport; onOpen?: (
     >
       <HeroCell label="Distance" value={fr1(passage.distance_nm)} unit="nm" />
       <HeroCell label="Durée" value={fmtDurationSafe(passage.duration_h)} />
-      <HeroCell label="Arrivée" value={fmtTime(passage.arrival_time)} />
+      <HeroCell label="Arrivée" value={fmtClock(passage.arrival_time)} />
     </div>
   );
 }
@@ -73,7 +72,7 @@ function PlanHeroStats({ passage, onOpen }: { passage: PassageReport; onOpen?: (
 // can pop the drawer up to a sensible reading height when the panel content
 // gets richer.
 
-const DRAWER_HEIGHT_KEY = "ow_drawer_vh_v1";
+const DRAWER_HEIGHT_KEY = LOCAL_STORAGE_KEYS.drawerHeight;
 const DRAWER_MIN_VH = 12;
 const DRAWER_MAX_VH = 90;
 const DRAWER_EXPANDED_VH = 75;
@@ -280,7 +279,7 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
 // edge adjusts width in px. Persists in localStorage so reload feels stable.
 // Useful when comparing windows — the 7-column table is cramped at 320–384 px.
 
-const SIDEBAR_WIDTH_KEY = "ow_sidebar_px_v1";
+const SIDEBAR_WIDTH_KEY = LOCAL_STORAGE_KEYS.sidebarWidth;
 const SIDEBAR_MIN_PX = 280;
 const SIDEBAR_MAX_PX = 800;
 

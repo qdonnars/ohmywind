@@ -47,7 +47,7 @@ import {
   polarFingerprint,
   savePolarConfig,
 } from "../../config/polarConfig";
-import { toTzAware } from "../departureTz";
+import { toTzAware } from "../../domain/datetime";
 import type { PassageWindow } from "../types";
 import type { PlanMode, TimeAnchor } from "../ModeToggle";
 import {
@@ -58,7 +58,8 @@ import {
   type PlanState,
 } from "./reducer";
 import type { InitialSession } from "./initial";
-import { defaultSweepLatest, toNaiveLocal, tomorrowRoundedLocal } from "./initial";
+import { defaultSweepLatest, tomorrowRoundedLocal } from "./initial";
+import { toNaiveLocal } from "../../domain/datetime";
 import { applyCacheCommand, applyUrlWrite, syncDraft } from "./persist";
 
 // Build the plan-time overrides payload from current /config preferences.

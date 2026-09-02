@@ -40,7 +40,7 @@ import type { PassageReport, ComplexityScore, PassageWindow } from "../types";
 import type { PlanMode, TimeAnchor } from "../ModeToggle";
 import { buildPlanUrl } from "../parseUrl";
 import type { InitialSession } from "./initial";
-import { toNaiveLocal } from "./initial";
+import { toNaiveLocal } from "../../domain/datetime";
 
 export type FetchKind = "single" | "sweep";
 

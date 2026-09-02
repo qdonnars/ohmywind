@@ -4,6 +4,7 @@
 import type { PassageResponse, PassageByEtaResponse, MultiWindowResponse, Archetype } from "../plan/types";
 import type { ModelName } from "../config/modelConfig";
 import type { PolarData } from "../config/polarConfig";
+import { COEFF_DEFAULT } from "../config/polarConfig";
 import { API_BASE } from "./config";
 import type { ForecastCache } from "./forecastCache";
 import {
@@ -230,7 +231,7 @@ export async function fetchPassage(params: {
     waypoints: params.waypoints,
     departure: params.departure,
     archetype: params.archetype,
-    efficiency: params.efficiency ?? 0.75,
+    efficiency: params.efficiency ?? COEFF_DEFAULT,
   };
   if (params.overrides?.models?.length) body["models"] = params.overrides.models;
   if (params.overrides?.polar) body["polar"] = params.overrides.polar;
@@ -262,7 +263,7 @@ export async function fetchPassageWindows(params: {
     waypoints: params.waypoints,
     departure: params.earliest,
     archetype: params.archetype,
-    efficiency: params.efficiency ?? 0.75,
+    efficiency: params.efficiency ?? COEFF_DEFAULT,
     latest_departure: params.latest,
     sweep_interval_hours: params.intervalHours,
   };
@@ -295,7 +296,7 @@ export async function fetchPassageByEta(params: {
     waypoints: params.waypoints,
     target_arrival: params.targetArrival,
     archetype: params.archetype,
-    efficiency: params.efficiency ?? 0.75,
+    efficiency: params.efficiency ?? COEFF_DEFAULT,
   };
   if (params.overrides?.models?.length) body["models"] = params.overrides.models;
   if (params.overrides?.polar) body["polar"] = params.overrides.polar;

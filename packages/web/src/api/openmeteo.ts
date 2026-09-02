@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import type { ModelForecast, HourlyData, GeocodingResult } from "../types";
+import type { ModelForecast, HourlyData } from "../types";
 import {
   ACTIVE_LIMIT,
   activeModels,
@@ -293,14 +293,4 @@ export async function fetchWindCorridor(
     }
   }
   return out;
-}
-
-export async function searchSpots(
-  query: string
-): Promise<GeocodingResult[]> {
-  const res = await fetch(
-    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=fr`
-  );
-  const data = await res.json();
-  return data.results || [];
 }

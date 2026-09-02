@@ -10,7 +10,9 @@
 // Only affects the web client. Server-side `plan_passage` still uses its own
 // `model="auto"` chain.
 
-const STORAGE_KEY = "ow_model_config_v1";
+import { LOCAL_STORAGE_KEYS } from "../storage/keys";
+
+const STORAGE_KEY = LOCAL_STORAGE_KEYS.modelConfig;
 
 export const ACTIVE_LIMIT = 4;
 

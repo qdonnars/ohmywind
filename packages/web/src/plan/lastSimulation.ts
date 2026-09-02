@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import type {
   PassageReport,
   ComplexityScore,
@@ -15,7 +16,7 @@ import type {
 /** Exported so the one other reader of this cache (the onboarding hint, which
     only probes for existence) cannot drift from the writer. It used to repeat
     the literal. */
-export const LAST_SIMULATION_KEY = "ow_last_simulation_v1";
+export const LAST_SIMULATION_KEY = LOCAL_STORAGE_KEYS.lastSimulation;
 
 /** Payload version. Absent in everything written before this module started
     validating, which is why `undefined` is accepted as "legacy v1" rather

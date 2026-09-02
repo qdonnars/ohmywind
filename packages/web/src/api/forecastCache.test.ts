@@ -12,7 +12,7 @@ import {
   CACHE_MODEL_SLUGS,
   type SampledPoint,
 } from "./forecastCache";
-import { parisIsoToUtcMs } from "./marine";
+import { parisIsoToUtcMs } from "../domain/datetime";
 import { haversineNm, interpolateGreatCircle, type GeoPoint } from "../plan/geo";
 import type { ModelForecast, MarineHourly } from "../types";
 

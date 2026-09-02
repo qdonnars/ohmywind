@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import type { Spot } from "../types";
 
 /**
@@ -12,7 +13,7 @@ import type { Spot } from "../types";
  * resume than an arbitrary favourite.
  */
 
-const STORAGE_KEY = "ow_last_spot_v1";
+const STORAGE_KEY = LOCAL_STORAGE_KEYS.lastSpot;
 
 export function loadLastSpot(): Spot | null {
   try {

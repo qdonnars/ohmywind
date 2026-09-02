@@ -10,7 +10,7 @@ import { PlanHeaderRow } from "./PlanHeaderRow";
 import { SweepForm } from "./SweepForm";
 import { ArchetypeSelector } from "./ArchetypeSelector";
 import { RecomputeBar, ResultsAnchor, StalePlaceholder } from "./parts";
-import { fmtClock, fmtDay } from "../format";
+import { fmtClock, fmtDay } from "../../domain/datetime";
 
 /** Compare mode with a sweep behind it: the table of windows plus its recap. */
 export function CompareResults({

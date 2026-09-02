@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import type { TimezoneMode } from "../hooks/useTimezone";
+import { parisOffsetMinAt } from "../domain/datetime";
 
 const DAYS_EN = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
@@ -10,42 +11,10 @@ const DAYS_EN = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 // Boat mode: read hours directly from the string (= Paris time as-is).
 // UTC mode: append the Paris UTC offset so Date can convert to UTC.
 // Local mode: interpret as-is via Date (current browser local time).
-
-// Hoisted out of parisTzOffsetMin: building an Intl.DateTimeFormat costs
-// ~70 us and the timeline header formats 168 cells per render, so a per-call
-// constructor showed up as 50 to 100 ms of jank per render on mobile.
-const PARIS_HHMM_DTF = new Intl.DateTimeFormat("en-US", {
-  timeZone: "Europe/Paris",
-  hour: "numeric",
-  minute: "numeric",
-  hour12: false,
-});
-
-// One entry per distinct timestamp rendered. A 7-day timeline is 168 keys, so
-// the cap is only there to bound a tab left open across many spots; past it we
-// drop everything rather than evict one by one, the entries being cheap.
-const PARIS_OFFSET_MEMO_MAX = 4096;
-const parisOffsetMemo = new Map<string, number>();
-
-/** UTC offset in minutes for Europe/Paris at the given ISO date-time string */
-function parisTzOffsetMin(iso: string): number {
-  const hit = parisOffsetMemo.get(iso);
-  if (hit !== undefined) return hit;
-  // Append a fake UTC marker to get a Date object, then compute the offset
-  // by comparing Paris wall-clock to UTC wall-clock.
-  const utcMs = new Date(iso + "Z").getTime();
-  // Format the UTC timestamp in Europe/Paris to read the displayed hour/minute
-  const parts = PARIS_HHMM_DTF.formatToParts(new Date(utcMs));
-  const parisHour = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
-  const parisMin = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
-  const utcHour = new Date(utcMs).getUTCHours();
-  const utcMin = new Date(utcMs).getUTCMinutes();
-  const offset = (parisHour * 60 + parisMin) - (utcHour * 60 + utcMin);
-
-  if (parisOffsetMemo.size >= PARIS_OFFSET_MEMO_MAX) parisOffsetMemo.clear();
-  parisOffsetMemo.set(iso, offset);
-  return offset;
-}
+//
+// The offset itself is `domain/datetime.ts`'s business: this module used to
+// carry a second implementation of it, with its own memo and its own
+// daylight-saving edge case.
 
 /**
  * Format the hour for a timeline cell.
@@ -58,14 +27,14 @@ export function formatHour(iso: string, mode: TimezoneMode = "local"): string {
   }
   if (mode === "utc") {
     // The string represents Paris time. To get UTC, subtract the Paris offset.
-    const offsetMin = parisTzOffsetMin(iso);
+    const offsetMin = parisOffsetMinAt(iso);
     const parisHour = parseInt(iso.slice(11, 13), 10);
     const parisMin = parseInt(iso.slice(14, 16), 10);
     const totalUTCMin = (parisHour * 60 + parisMin - offsetMin + 1440) % 1440;
     return String(Math.floor(totalUTCMin / 60));
   }
   // local: iso is Paris time without offset — convert Paris→UTC→browser-local
-  const offsetMin = parisTzOffsetMin(iso);
+  const offsetMin = parisOffsetMinAt(iso);
   const realUtcMs = new Date(iso + "Z").getTime() - offsetMin * 60000;
   return String(new Date(realUtcMs).getHours());
 }
@@ -83,26 +52,10 @@ export function formatDayHeader(iso: string, mode: TimezoneMode = "local"): stri
     const d = new Date(Date.UTC(year, month - 1, day));
     return `${DAYS_EN[d.getUTCDay()]} ${day}`;
   }
-  const offsetMin = parisTzOffsetMin(iso);
+  const offsetMin = parisOffsetMinAt(iso);
   const realUtcMs = new Date(iso + "Z").getTime() - offsetMin * 60000;
   const d = new Date(realUtcMs);
   return `${DAYS_EN[d.getDay()]} ${d.getDate()}`;
-}
-
-/** Return "YYYY-MM-DDTHH" for the current moment in Europe/Paris time.
- * The heatmap timeline is keyed in Paris time, so nowHour must match. */
-export function nowParisHourPrefix(): string {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Europe/Paris",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    hour12: false,
-  }).formatToParts(new Date());
-  const get = (t: string) => parts.find(p => p.type === t)?.value ?? "";
-  const h = get("hour");
-  return `${get("year")}-${get("month")}-${get("day")}T${h === "24" ? "00" : h}`;
 }
 
 export function groupHoursByDay(times: string[]): Map<string, number[]> {

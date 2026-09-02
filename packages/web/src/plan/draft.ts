@@ -18,10 +18,12 @@
  * than both.
  */
 
+import { SESSION_STORAGE_KEYS } from "../storage/keys";
+
 /** Versioned: a shape change must not resurrect a draft written by an older
     build, and the SW update this feature protects is exactly the moment two
     builds meet. */
-const STORAGE_KEY = "ow_plan_draft_v1";
+const STORAGE_KEY = SESSION_STORAGE_KEYS.planDraft;
 
 /** Beyond this, "what I was drawing a moment ago" stops being true. Belt and
     braces on top of sessionStorage's own tab lifetime: a tab restored by the

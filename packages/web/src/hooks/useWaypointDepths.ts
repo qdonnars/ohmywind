@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { useEffect, useMemo, useState } from "react";
 import { fetchDepthM, depthGridKey } from "../api/bathymetry";
 
@@ -14,7 +15,7 @@ import { fetchDepthM, depthGridKey } from "../api/bathymetry";
  * `localStorage`: this is a convenience for the plan in front of the reader,
  * not a dataset worth keeping across visits.
  */
-const STORAGE_KEY = "ow_waypoint_depths_v1";
+const STORAGE_KEY = LOCAL_STORAGE_KEYS.waypointDepths;
 
 /** A route has a handful of waypoints. The cap only guards a tab that keeps
     planning all day from growing the entry without bound. */

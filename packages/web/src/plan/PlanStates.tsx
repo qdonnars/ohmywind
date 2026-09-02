@@ -5,8 +5,9 @@
 // focused on state wiring while these components stay design-only.
 
 import type { PassageReport, SegmentReport } from "./types";
-import { CX_COLORS, cxLevel } from "./types";
+import { cxLevel, cxLevelVar } from "../domain/thresholds";
 import { fmtDurationSafe, fr1 } from "./format";
+import { fmtClock } from "../domain/datetime";
 
 // ── EmptyState ────────────────────────────────────────────────────────────────
 // Shown when fewer than 2 waypoints are placed: invites the user to draw a
@@ -168,10 +169,6 @@ export function ModePicker({
 // 4-cell stats row with a segmented complexity bar underneath; matches the
 // design's "Sim filled" header block.
 
-function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-}
-
 export function HeroCell({
   label,
   value,
@@ -218,7 +215,7 @@ function SegmentBar({ segments }: { segments: SegmentReport[] }) {
           key={i}
           style={{
             width: `${(seg.distance_nm / total) * 100}%`,
-            background: CX_COLORS[cxLevel(seg.tws_kn)],
+            background: cxLevelVar(cxLevel(seg.tws_kn)),
             minWidth: 2,
           }}
         />
@@ -239,7 +236,7 @@ export function HeroStats({
       <div className="grid grid-cols-3 gap-3 mb-3">
         <HeroCell label="Distance" value={fr1(passage.distance_nm)} unit="nm" />
         <HeroCell label="Durée" value={fmtDurationSafe(passage.duration_h)} />
-        <HeroCell label="Arrivée" value={fmtTime(passage.arrival_time)} />
+        <HeroCell label="Arrivée" value={fmtClock(passage.arrival_time)} />
       </div>
       <SegmentBar segments={passage.segments} />
       <div

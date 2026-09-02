@@ -13,7 +13,8 @@ import type { ModelForecast, MarineHourly } from "../types";
 import type { ModelName } from "../config/modelConfig";
 import { activeModels, loadModelConfig } from "../config/modelConfig";
 import { fetchWindCorridor } from "./openmeteo";
-import { fetchMarineCorridor, parisIsoToUtcMs } from "./marine";
+import { fetchMarineCorridor } from "./marine";
+import { parisIsoToUtcMs } from "../domain/datetime";
 import { haversineNm, interpolateGreatCircle, type GeoPoint } from "../plan/geo";
 
 export const CACHE_VERSION = 1;

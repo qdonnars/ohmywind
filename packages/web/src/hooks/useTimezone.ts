@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { useState, useEffect } from "react";
 
 export type TimezoneMode = "local" | "utc" | "boat";
 
-const STORAGE_KEY = "ow_tz";
+const STORAGE_KEY = LOCAL_STORAGE_KEYS.timezone;
 const MODES: TimezoneMode[] = ["local", "utc", "boat"];
 
 function readStored(): TimezoneMode {

@@ -6,7 +6,6 @@ import {
   resolveInitialSession,
   tomorrowRoundedLocal,
   defaultSweepLatest,
-  toNaiveLocal,
   type InitialSessionInput,
 } from "./initial";
 import { parsePlanUrl } from "../parseUrl";
@@ -390,9 +389,5 @@ describe("date helpers", () => {
 
   it("ends a default sweep two days after its start", () => {
     expect(defaultSweepLatest("2026-09-03T10:00")).toBe("2026-09-05T10:00");
-  });
-
-  it("formats a Date as the naive local string the slider and the URL share", () => {
-    expect(toNaiveLocal(new Date("2026-01-05T07:04:00"))).toBe("2026-01-05T07:04");
   });
 });

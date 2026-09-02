@@ -4,7 +4,8 @@
 import { useMemo } from "react";
 import type { AggregatedLeg } from "../aggregateLegs";
 import { aggregateLegs, buildLegSummaryCells } from "../aggregateLegs";
-import { cxLevel, CX_COLORS } from "../types";
+import { fmtClock } from "../../domain/datetime";
+import { cxLevel, cxLevelVar, SEA_FORMED_HS_M } from "../../domain/thresholds";
 import { LegDetailCard } from "../LegDetailCard";
 import type { PassageReport } from "../types";
 import { planMinUpwind } from "../../config/polarConfig";
@@ -16,10 +17,6 @@ import { usePlan } from "../session/planContext";
 // line ("Tronçon 1 : 45 mn au près avec mer formée"). Expanded = a 4-block KPI
 // grid (vent / mer / distance / temps) above the existing compass-and-build-up
 // LegDetailCard so the user can scan or drill.
-
-function fmtHM(iso: string): string {
-  return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-}
 
 function SummaryCell({ value }: { value: string | null }) {
   if (!value) return null;
@@ -106,7 +103,7 @@ function LegRow({
 
   // Warn tint when sea state notable. Mirrors the same Hs threshold the
   // summary line uses, so "Mer Formée" badge and warn-coloured KPI agree.
-  const seaWarn = leg.hs_avg_m != null && leg.hs_avg_m > 1.25;
+  const seaWarn = leg.hs_avg_m != null && leg.hs_avg_m > SEA_FORMED_HS_M;
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -145,7 +142,7 @@ function LegRow({
           <div className="flex flex-col items-start gap-0.5">
             <span
               className="inline-flex h-6 px-1.5 rounded-md items-center justify-center text-[10px] font-bold tabular-nums whitespace-nowrap"
-              style={{ background: CX_COLORS[cx], color: "#0B1D14", fontFamily: "var(--ow-font-mono)" }}
+              style={{ background: cxLevelVar(cx), color: "#0B1D14", fontFamily: "var(--ow-font-mono)" }}
             >
               {index + 1}→{index + 2}
             </span>
@@ -192,7 +189,7 @@ function LegRow({
                 appear in the collapsed row above; repeating them in the
                 expand was visual noise. */}
             <div className="grid grid-cols-2 gap-2 mb-3">
-              <KpiBlock value={`${fmtHM(leg.start_time)} → ${fmtHM(leg.end_time)}`} label="dep → arr" />
+              <KpiBlock value={`${fmtClock(leg.start_time)} → ${fmtClock(leg.end_time)}`} label="dep → arr" />
               <KpiBlock value={seaValue} label={seaLabel} tone={seaWarn ? "warn" : "default"} />
             </div>
             <LegDetailCard leg={leg} />
