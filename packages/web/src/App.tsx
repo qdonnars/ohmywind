@@ -327,7 +327,13 @@ function App() {
                   showCurrents={showCurrents}
                 />
               </div>
-              <div ref={dataPanelRef} className="flex-1 min-h-0 overflow-hidden">
+              {/* Colonne flex, pour que la table qui depasse se comprime au
+                  lieu d'etre rognee. La hauteur du panneau est bornee par un
+                  max-h en vh : une hauteur en pourcentage ne s'y resout pas,
+                  donc h-full sur l'enfant ne bornait rien et la note de
+                  convention sortait par le bas quand la table du vent
+                  affichait quatre modeles. */}
+              <div ref={dataPanelRef} className="flex-1 min-h-0 overflow-hidden flex flex-col">
                 {effectiveView === "wind" || !marine ? (
                   <WindTable
                     forecasts={forecasts}
