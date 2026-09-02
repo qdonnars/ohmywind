@@ -124,7 +124,33 @@ export function friendlyError(raw: string | Error): string {
     return ERROR_COPY[raw.code](raw.retryAfter);
   }
   if (raw instanceof ApiShapeError) return ERROR_COPY.invalid_response(null);
+  // Avant la lecture du texte : une requete qui n'a jamais atteint de serveur
+  // n'a pas de contrat d'erreur a lire, et son message est celui du moteur du
+  // navigateur, en anglais.
+  if (isNetworkFailure(raw)) return ERROR_COPY.network_unreachable(null);
   return matchErrorText(raw.message);
+}
+
+/**
+ * Une panne de transport, par opposition a une reponse du serveur.
+ *
+ * `fetch` rejette avec un `TypeError` quand la requete n'est jamais partie ou
+ * n'est jamais revenue : coupure reseau, DNS, TLS, origine injoignable. Le
+ * libelle differe d'un moteur a l'autre (« Failed to fetch » sur Chrome,
+ * « NetworkError when attempting to fetch resource. » sur Firefox, « Load
+ * failed » sur Safari), d'ou la liste. Le nom de l'erreur est teste en plus
+ * du type parce qu'un `DOMException` d'abandon n'est pas un `TypeError` :
+ * `AbortSignal.timeout` rejette en `TimeoutError`, un abandon explicite en
+ * `AbortError`. Les abandons volontaires (un calcul plus recent remplace
+ * celui en vol) ne passent jamais par ici : `usePlanSession` les ecarte avant
+ * d'appeler cette fonction.
+ */
+function isNetworkFailure(error: Error): boolean {
+  if (error.name === "AbortError" || error.name === "TimeoutError") return true;
+  if (!(error instanceof TypeError)) return false;
+  return /failed to fetch|network\s?error|load failed|network request failed|fetch failed/i.test(
+    error.message,
+  );
 }
 
 /** French copy per stable code. `retryAfter` is only read by `rate_limited`. */
@@ -171,6 +197,11 @@ const ERROR_COPY: Record<string, (retryAfter: number | null) => string> = {
     "Les données météo préparées par le navigateur ont été refusées. Réessayez : le calcul repartira des données du serveur.",
   server_unavailable: () =>
     "Le serveur météo est indisponible. Réessayez dans quelques instants.",
+  // Pas un code du serveur : la requete n'a jamais abouti (reseau coupe,
+  // portail captif, delai depasse). Rien a dire sur la meteo, tout a dire sur
+  // le lien. Voir `isNetworkFailure`.
+  network_unreachable: () =>
+    "Impossible de joindre le serveur. Vérifiez votre connexion puis réessayez.",
   // Not a server code: a 200 whose body is not the contract (see parse.ts).
   invalid_response: () =>
     "Le serveur a renvoyé une réponse inattendue. Réessayez dans quelques instants.",

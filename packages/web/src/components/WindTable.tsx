@@ -8,6 +8,7 @@ import { WindCell } from "./WindCell";
 import { useTimezone } from "../hooks/useTimezone";
 import { nowParisHourPrefix } from "../domain/datetime";
 import { useTimelineScroll } from "../hooks/useTimelineScroll";
+import { useOnline } from "../hooks/useOnline";
 import { MODEL_META, type ModelName } from "../config/modelConfig";
 
 function modelStep(name: string): number {
@@ -79,6 +80,25 @@ function SkeletonTable() {
   );
 }
 
+/**
+ * Aucun modele n'a repondu pour ce point.
+ *
+ * `fetchAllModels` avale les echecs reseau et rend une liste vide, exactement
+ * comme un point hors de toutes les grilles : le tableau ne peut donc pas
+ * distinguer les deux cas tout seul. Le navigateur, lui, le sait. Hors ligne,
+ * on nomme la cause au lieu de laisser croire que la mer n'a pas de meteo.
+ */
+function EmptyForecast() {
+  const online = useOnline();
+  return (
+    <div className="text-center py-8 px-4 text-sm" style={{ color: 'var(--ow-fg-2)' }}>
+      {online
+        ? "Aucune donnée disponible pour ce point."
+        : "Hors connexion : impossible de récupérer les prévisions. Reconnectez-vous puis touchez à nouveau ce point."}
+    </div>
+  );
+}
+
 export function WindTable({
   forecasts,
   isLoading,
@@ -110,11 +130,7 @@ export function WindTable({
   }
 
   if (forecasts.length === 0) {
-    return (
-      <div className="text-center py-8 text-sm" style={{ color: 'var(--ow-fg-2)' }}>
-        No data available
-      </div>
-    );
+    return <EmptyForecast />;
   }
 
   return (

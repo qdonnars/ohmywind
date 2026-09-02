@@ -251,3 +251,45 @@ describe("toError", () => {
     expect(friendlyError(error)).toMatch(/indisponible/);
   });
 });
+
+// Une requete qui n'atteint jamais de serveur n'a pas de corps a lire : elle
+// rejette avec l'erreur du moteur du navigateur, en anglais, et c'est ce
+// texte brut qui s'affichait ("Failed to fetch"). C'est pourtant le cas le
+// plus frequent en mer, ou le reseau tombe pour de bon.
+describe("panne de transport", () => {
+  const sentence = "Impossible de joindre le serveur. Vérifiez votre connexion puis réessayez.";
+
+  it("reconnait le rejet de fetch de chaque moteur", () => {
+    // Chrome, Firefox, Safari, undici (Node) : meme panne, quatre libelles.
+    for (const message of [
+      "Failed to fetch",
+      "NetworkError when attempting to fetch resource.",
+      "Load failed",
+      "fetch failed",
+    ]) {
+      expect(friendlyError(new TypeError(message))).toBe(sentence);
+    }
+  });
+
+  it("reconnait un delai depasse et un abandon", () => {
+    const timeout = new Error("signal timed out");
+    timeout.name = "TimeoutError";
+    const aborted = new Error("aborted");
+    aborted.name = "AbortError";
+    expect(friendlyError(timeout)).toBe(sentence);
+    expect(friendlyError(aborted)).toBe(sentence);
+  });
+
+  it("laisse passer un TypeError qui n'a rien a voir avec le reseau", () => {
+    // Un bug a nous ne doit pas se deguiser en probleme de connexion : le
+    // message d'origine reste lisible pour qui debogue.
+    const bug = new TypeError("x.map is not a function");
+    expect(friendlyError(bug)).toBe("x.map is not a function");
+  });
+
+  it("laisse la priorite au contrat d'erreur du serveur", () => {
+    // Un serveur qui a repondu a toujours raison sur la cause.
+    const answered = new ApiError("rate limit exceeded", "rate_limited", 60);
+    expect(friendlyError(answered)).toContain("Trop de calculs");
+  });
+});
