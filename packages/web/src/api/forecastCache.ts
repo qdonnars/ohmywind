@@ -13,7 +13,7 @@ import type { ModelForecast, MarineHourly } from "../types";
 import type { ModelName } from "../config/modelConfig";
 import { activeModels, loadModelConfig } from "../config/modelConfig";
 import { fetchWindCorridor } from "./openmeteo";
-import { fetchMarine, parisIsoToUtcMs } from "./marine";
+import { fetchMarineCorridor, parisIsoToUtcMs } from "./marine";
 import { haversineNm, interpolateGreatCircle, type GeoPoint } from "../plan/geo";
 
 export const CACHE_VERSION = 1;
@@ -263,9 +263,10 @@ function buildSea(
 }
 
 // Sample the route corridor in the browser and assemble the cache. Reuses
-// fetchAllModels (multi-model wind, kn, 30-min cache, fallback chain) and
-// fetchMarine (waves + SMOC currents + MARC overlay) — both already per-point
-// cached and deduped. Throws on no mappable model so the caller can fall back.
+// fetchWindCorridor (multi-model wind, kn, 30-min cache, fallback chain) and
+// fetchMarineCorridor (waves + SMOC currents + MARC overlay) — both one request
+// for the whole corridor, both per-point cached and deduped. Throws on no
+// mappable model so the caller can fall back.
 // Backend-mappable models among the user's active set, in priority order. The
 // cache only carries models the server can route on; an empty result means the
 // user disabled every mappable model, so buildForecastCache yields no usable
@@ -283,12 +284,13 @@ export async function buildForecastCache(
   const corridor = interpolateCorridor(waypoints, spacing);
   const models = mappableActiveModels();
   // Wind: ONE request per model for the whole corridor (multi-coordinate).
-  // Marine: kept per-point because fetchMarine merges the per-location MARC/SHOM
-  // overlay; both are already 30-min cached and run in parallel. Far fewer
+  // Marine: ONE request for the whole corridor too, the endpoint taking the
+  // same comma-separated coordinates. The per-location MARC/SHOM overlay stays
+  // per point, but is only asked for where an atlas could answer. Far fewer
   // requests than models×points → fewer browser connection waves → faster.
   const [windByCoord, marineByCoord] = await Promise.all([
     fetchWindCorridor(corridor, models),
-    Promise.all(corridor.map((p) => fetchMarine(p.lat, p.lon))),
+    fetchMarineCorridor(corridor),
   ]);
   const samples: SampledPoint[] = corridor.map((p, i) => ({
     lat: p.lat,
