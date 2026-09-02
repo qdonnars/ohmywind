@@ -46,6 +46,13 @@ export default defineConfig({
         // plus icons and fonts emitted into dist/. ``mjs`` is there for
         // MapLibre's tile worker, which ships as its own module file.
         globPatterns: ['**/*.{js,mjs,css,html,ico,png,svg,woff2}'],
+        // Ce qui n'appartient qu'aux pages de documentation reste en ligne:
+        // les polices KaTeX, la carte de couverture et les diagrammes de
+        // polaires ne servent qu'a /methodologie, chargee a la demande. Les
+        // precacher coutait ~330 KB de reseau a la premiere visite et autant
+        // de stockage, pour des pages que la plupart des visiteurs n'ouvrent
+        // jamais et qui n'ont pas besoin de fonctionner hors ligne.
+        globIgnores: ['**/KaTeX_*', 'methodologie/**', 'polars/**'],
         // Drop stale precaches when a new SW activates.
         cleanupOutdatedCaches: true,
         // SPA fallback so deep links (/plan, /config, ...) resolve offline.
