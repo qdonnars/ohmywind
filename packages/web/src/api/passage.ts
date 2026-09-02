@@ -192,8 +192,25 @@ export async function fetchPassageByEta(params: {
   return res.json() as Promise<PassageByEtaResponse>;
 }
 
-export async function fetchArchetypes(): Promise<Archetype[]> {
-  const res = await fetch(`${API_BASE}/api/v1/archetypes`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json() as Promise<Archetype[]>;
+// The boat catalogue is static for the life of a deploy, yet it was refetched
+// on every mount of /plan: a round trip to the Space measured at 0.6 to 0.7 s
+// on mobile, paid again on every trip back from the explore map. Cached as the
+// promise rather than the value so two mounts in the same frame share one
+// request. Keyed by URL so a future variant cannot collide with this one.
+const archetypesInFlight = new Map<string, Promise<Archetype[]>>();
+
+export function fetchArchetypes(): Promise<Archetype[]> {
+  const url = `${API_BASE}/api/v1/archetypes`;
+  const cached = archetypesInFlight.get(url);
+  if (cached) return cached;
+  const promise = (async () => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return (await res.json()) as Archetype[];
+  })();
+  // A failure must not be remembered: the Space may simply have been cold, and
+  // the next mount deserves a real attempt rather than the same rejection.
+  promise.catch(() => archetypesInFlight.delete(url));
+  archetypesInFlight.set(url, promise);
+  return promise;
 }
