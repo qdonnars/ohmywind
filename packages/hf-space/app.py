@@ -49,6 +49,7 @@ from openwind_mcp_core import build_server
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.requests import Request
 from starlette.responses import (
     FileResponse,
@@ -58,10 +59,12 @@ from starlette.responses import (
     RedirectResponse,
 )
 from starlette.routing import Mount, Route
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from security import (
     ALLOWED_ORIGINS,
     TRUSTED_PROXY_HOPS,
+    BodySizeLimitMiddleware,
     RateLimitMiddleware,
     SecurityHeadersMiddleware,
     bucket_id,
@@ -539,8 +542,18 @@ async def _static_asset(request: Request) -> FileResponse | PlainTextResponse:
     )
 
 
+# The archetype table is compiled into the image: it only ever changes when a
+# new build ships, and a build restarts the Space anyway. A day of edge and
+# browser caching removes one request from every /plan mount (the web app
+# re-fetches it on each mount) at no freshness cost.
+_ARCHETYPES_CACHE_CONTROL = "public, max-age=86400"
+
+
 async def _api_archetypes(_request: Request) -> JSONResponse:
-    return JSONResponse(list_archetypes_metadata())
+    return JSONResponse(
+        list_archetypes_metadata(),
+        headers={"Cache-Control": _ARCHETYPES_CACHE_CONTROL},
+    )
 
 
 async def _api_client_debug(request: Request) -> JSONResponse:
@@ -903,6 +916,10 @@ _MARC_REGISTRY = MarcAtlasRegistry.from_directory(os.environ.get("MARC_ATLAS_DIR
 # heights so the tide_height_m + z0_hydro_m fields stay on MARC regardless.
 _SHOM_REGISTRY = ShomC2dRegistry.from_directory(os.environ.get("SHOM_C2D_DIR", ""))
 
+# Hard ceiling on the number of instants a single overlay call may ask for.
+# See the comment at the check site in ``_api_marc_overlay``.
+MAX_MARC_STEPS = 800
+
 
 # ---------------------------------------------------------------------------
 async def _api_marc_overlay(request: Request) -> JSONResponse:
@@ -965,6 +982,24 @@ async def _api_marc_overlay(request: Request) -> JSONResponse:
     if span_days > 30:
         return JSONResponse({"error": "time window must be at most 30 days"}, status_code=422)
 
+    # The two ceilings above bound the window and the step separately, and
+    # their product is what actually costs: the SHOM predictor runs a Python
+    # loop per instant (~1 ms each, measured 2026-09), so 30 days at a 5-minute
+    # step is 8641 instants and ~8.8 s of blocking CPU on the single worker,
+    # MCP sessions included. 800 steps keeps the worst case under a second and
+    # still allows every shape the web app asks for: 30 days hourly is 721.
+    n_steps = int((end - start).total_seconds() // (step_minutes * 60)) + 1
+    if n_steps > MAX_MARC_STEPS:
+        return JSONResponse(
+            {
+                "error": (
+                    f"requested {n_steps} steps, at most {MAX_MARC_STEPS}: "
+                    f"shorten the window or widen step_minutes"
+                )
+            },
+            status_code=422,
+        )
+
     marc_loaded = bool(_MARC_REGISTRY.atlases)
     shom_covers = _SHOM_REGISTRY.covers(lat, lon)
     cell = _MARC_REGISTRY.cell_at(lat, lon) if marc_loaded else None
@@ -981,7 +1016,6 @@ async def _api_marc_overlay(request: Request) -> JSONResponse:
             headers={"Cache-Control": "public, max-age=86400"},
         )
 
-    n_steps = int((end - start).total_seconds() // (step_minutes * 60)) + 1
     times = [start + timedelta(minutes=step_minutes * i) for i in range(n_steps)]
 
     # MARC gives heights + currents on a regular grid (when covered); SHOM
@@ -1042,6 +1076,39 @@ async def _api_marc_overlay(request: Request) -> JSONResponse:
     )
 
 
+class PathScopedGZipMiddleware:
+    """Compress the REST responses, and only those.
+
+    ``/mcp`` is a streaming transport: FastMCP answers with a long-lived SSE
+    body, and a blanket GZipMiddleware would either buffer it or stamp a
+    ``Content-Encoding`` on a stream clients read incrementally. Rather than
+    reason about which of the two happens in the current SDK version, the
+    compressor never sees that path at all.
+
+    Everything under ``/api/v1`` is JSON that compresses 5 to 10x (a sweep
+    response reaches several MB in clear text, and the overlay endpoint was
+    measured at 8.4 KB uncompressed per corridor point), which is the whole
+    point of the exercise for a mobile client on a marina 4G link.
+    """
+
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        prefix: str = "/api/v1",
+        minimum_size: int = 1024,
+    ) -> None:
+        self.app = app
+        self._prefix = prefix
+        self._gzip = GZipMiddleware(app, minimum_size=minimum_size)
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and scope.get("path", "").startswith(self._prefix):
+            await self._gzip(scope, receive, send)
+            return
+        await self.app(scope, receive, send)
+
+
 def build_app(mcp_app: Any) -> Starlette:
     """Assemble the parent Starlette app around a mounted FastMCP app.
 
@@ -1077,8 +1144,16 @@ def build_app(mcp_app: Any) -> Starlette:
                 # copy ended up hard-coding "une minute" for a 5-minute window.
                 expose_headers=["Retry-After"],
             ),
+            # Compression sits inside CORS (so the negotiated headers are
+            # never rewritten by the compressor) and outside everything that
+            # can answer on its own, so a 429 or a 413 is compressed on the
+            # same terms as a 200.
+            Middleware(PathScopedGZipMiddleware),
             Middleware(SecurityHeadersMiddleware),
             Middleware(RateLimitMiddleware),
+            # Innermost: an over-sized body is refused after it has been
+            # counted against the caller's quota, never before.
+            Middleware(BodySizeLimitMiddleware),
         ],
         lifespan=mcp_app.router.lifespan_context,
     )

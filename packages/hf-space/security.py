@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 """Deployment-side hardening for the public Space: CORS allowlist, per-IP
-rate limiting, security headers.
+rate limiting, request-body ceiling, security headers.
 
 This lives in ``hf-space/`` on purpose. It is infrastructure for *this*
 deployment, not domain logic — a Fly.io or Modal wrapper would solve the same
@@ -266,13 +266,26 @@ class _SlidingWindowCounter:
         return len(self._hits)
 
 
-# Only the POST planners are limited. They are the sole routes that can fan out
-# into many upstream Open-Meteo calls (a sweep walks up to MAX_SWEEP_WINDOWS
-# departures), which is what actually needs protecting — both for our own CPU
-# and to stay a good citizen on a keyless public API. GET /archetypes is a
-# constant, /marine/marc reads local atlases, and /mcp is left alone so a
-# legitimate MCP session doing many tool calls is never throttled.
+# Only the POST planners are on the strict bucket. They are the sole routes
+# that can fan out into many upstream Open-Meteo calls (a sweep walks up to
+# MAX_SWEEP_WINDOWS departures), which is what actually needs protecting —
+# both for our own CPU and to stay a good citizen on a keyless public API.
+# GET /archetypes is a constant and /mcp is left alone so a legitimate MCP
+# session doing many tool calls is never throttled.
 DEFAULT_LIMITED_PATHS = ("/api/v1/passage", "/api/v1/passage-by-eta")
+
+# The tidal-atlas overlay gets its own, wider bucket rather than the blanket
+# exemption it used to have. It reads local atlases so it never touches an
+# upstream API, but it is not free either: the SHOM predictor runs a Python
+# loop per requested instant (~1 ms each, measured 2026-09) on the event loop,
+# so an unthrottled caller can hold the single worker hostage and stall MCP
+# sessions along with it.
+#
+# It cannot share the 30/min bucket: the web app calls it once per corridor
+# point, up to 60 per computation, so the planners' quota would reject a
+# single legitimate plan. 120/min leaves room for two full computations a
+# minute per IP while still bounding a scripted loop.
+DEFAULT_MARC_LIMITED_PATHS = ("/api/v1/marine/marc",)
 
 # 30 requests per 60s, not per 300s. The bucket key is an IP, so everyone
 # behind one NAT shares it: a marina wifi, an office, a mobile carrier on
@@ -290,10 +303,20 @@ DEFAULT_LIMITED_PATHS = ("/api/v1/passage", "/api/v1/passage-by-eta")
 RATE_LIMIT_MAX_REQUESTS = int(os.environ.get("OPENWIND_RATE_LIMIT_REQUESTS", "30"))
 RATE_LIMIT_WINDOW_S = float(os.environ.get("OPENWIND_RATE_LIMIT_WINDOW_S", "60"))
 RATE_LIMIT_MAX_IPS = int(os.environ.get("OPENWIND_RATE_LIMIT_MAX_IPS", "5000"))
+# Same window and same tracked-IP ceiling as the strict bucket above; only
+# the threshold differs.
+MARC_RATE_LIMIT_MAX_REQUESTS = int(os.environ.get("OPENWIND_MARC_RATE_LIMIT", "120"))
 
 
 class RateLimitMiddleware:
-    """Per-IP sliding-window limit on the expensive POST routes."""
+    """Per-IP sliding-window limits, on two buckets with different thresholds.
+
+    The strict bucket covers the POST planners (upstream fan-out); the wide
+    one covers the tidal-atlas overlay, which is CPU-bound rather than
+    upstream-bound and is called once per corridor point by the web app. The
+    two never share a counter: a plan would otherwise spend the planners'
+    whole quota on its overlay calls.
+    """
 
     def __init__(
         self,
@@ -301,6 +324,8 @@ class RateLimitMiddleware:
         *,
         limited_paths: Iterable[str] = DEFAULT_LIMITED_PATHS,
         max_requests: int = RATE_LIMIT_MAX_REQUESTS,
+        marc_paths: Iterable[str] = DEFAULT_MARC_LIMITED_PATHS,
+        marc_max_requests: int = MARC_RATE_LIMIT_MAX_REQUESTS,
         window_s: float = RATE_LIMIT_WINDOW_S,
         max_tracked_ips: int = RATE_LIMIT_MAX_IPS,
     ) -> None:
@@ -311,20 +336,39 @@ class RateLimitMiddleware:
             window_s=window_s,
             max_tracked_ips=max_tracked_ips,
         )
+        self._marc_limited = frozenset(marc_paths)
+        # A second store, so the memory bound stated on _SlidingWindowCounter
+        # becomes (max_requests + marc_max_requests) x max_tracked_ips
+        # timestamps in the worst case. Reaching it would require thousands of
+        # distinct IPs each saturating both buckets inside one window, which
+        # is far beyond what this single worker can serve at all.
+        self._marc_counter = _SlidingWindowCounter(
+            max_requests=marc_max_requests,
+            window_s=window_s,
+            max_tracked_ips=max_tracked_ips,
+        )
+
+    def _counter_for(self, path: str) -> _SlidingWindowCounter | None:
+        if path in self._limited:
+            return self._counter
+        if path in self._marc_limited:
+            return self._marc_counter
+        return None
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         # Preflight is never limited: an OPTIONS carries no body and no cost,
         # and 429-ing it would surface in the browser as an opaque CORS
         # failure rather than the real reason.
-        if (
-            scope["type"] != "http"
-            or scope.get("method") == "OPTIONS"
-            or scope.get("path") not in self._limited
-        ):
+        counter = (
+            self._counter_for(scope.get("path", ""))
+            if scope["type"] == "http" and scope.get("method") != "OPTIONS"
+            else None
+        )
+        if counter is None:
             await self.app(scope, receive, send)
             return
 
-        retry_after = self._counter.check(resolve_client_ip(scope))
+        retry_after = counter.check(resolve_client_ip(scope))
         if retry_after is None:
             await self.app(scope, receive, send)
             return
@@ -340,6 +384,124 @@ class RateLimitMiddleware:
             },
         )
         await response(scope, receive, send)
+
+
+# ------------------------------------------------------------- body ceiling
+
+# 4 MiB. The web client's biggest legitimate POST measured 811 KB (61 corridor
+# points x 168 h of forecast_cache), so this leaves a factor of five of head
+# room while keeping the worst case an order of magnitude below the 65 MB
+# payload the 2026-09 audit showed one caller could push through
+# ``request.json()``: 768 ms of blocking JSON decode before a single
+# validation ran, on a single-worker deployment.
+#
+# The per-payload ceilings in ``cache_backed.py`` (points, hours) are the
+# domain-side guard and stay where the payload is parsed; this one is the
+# transport-side guard and refuses the bytes before anything reads them.
+MAX_BODY_BYTES = int(os.environ.get("OPENWIND_MAX_BODY_BYTES", str(4 * 1024 * 1024)))
+
+# Scoped to the REST surface on purpose. ``/mcp`` is left untouched: its
+# transport owns its own framing, and buffering a request body there would
+# interfere with a streaming session for no benefit.
+DEFAULT_BODY_LIMITED_PREFIX = "/api/v1"
+
+
+class BodySizeLimitMiddleware:
+    """Refuse an over-sized request body on the REST routes with a 413.
+
+    Two paths, because a client may or may not announce the size:
+
+    - ``Content-Length`` present: the verdict is immediate and no byte of the
+      body is read. The server it sits behind enforces the declared length, so
+      the header cannot under-report the real payload.
+    - ``Content-Length`` absent (chunked upload): the body is buffered here up
+      to the ceiling and replayed to the app. Buffering costs nothing extra,
+      since the handlers call ``request.json()`` and read the whole body
+      anyway, and it is the only way to stop a chunked stream before the
+      handler has committed to it.
+
+    Placed inside the rate limiter so an over-sized request still counts
+    against its quota: a caller hammering the endpoint with 4 MB bodies is
+    exactly who the limiter is for.
+    """
+
+    _BODYLESS_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "DELETE"})
+
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        max_bytes: int = MAX_BODY_BYTES,
+        prefix: str = DEFAULT_BODY_LIMITED_PREFIX,
+    ) -> None:
+        self.app = app
+        self._max_bytes = max_bytes
+        self._prefix = prefix
+
+    def _too_large_response(self) -> JSONResponse:
+        megabytes = self._max_bytes / (1024 * 1024)
+        rendered = f"{megabytes:.0f}" if megabytes >= 1 else f"{megabytes:.2f}"
+        return JSONResponse(
+            {"error": f"request body too large (max {rendered} MB)"},
+            status_code=413,
+        )
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if (
+            scope["type"] != "http"
+            or scope.get("method", "").upper() in self._BODYLESS_METHODS
+            or not scope.get("path", "").startswith(self._prefix)
+        ):
+            await self.app(scope, receive, send)
+            return
+
+        declared = _content_length(scope)
+        if declared is not None:
+            if declared > self._max_bytes:
+                await self._too_large_response()(scope, receive, send)
+                return
+            # Announced and within budget: nothing to buffer, the transport
+            # will not deliver more bytes than it declared.
+            await self.app(scope, receive, send)
+            return
+
+        buffered: list[Message] = []
+        total = 0
+        more = True
+        while more:
+            message = await receive()
+            if message["type"] != "http.request":
+                # A disconnect mid-upload: hand it straight to the app, which
+                # already knows how to unwind.
+                buffered.append(message)
+                break
+            total += len(message.get("body", b""))
+            if total > self._max_bytes:
+                await self._too_large_response()(scope, receive, send)
+                return
+            buffered.append(message)
+            more = message.get("more_body", False)
+
+        queued = iter(buffered)
+
+        async def replay() -> Message:
+            try:
+                return next(queued)
+            except StopIteration:
+                return await receive()
+
+        await self.app(scope, replay, send)
+
+
+def _content_length(scope: Scope) -> int | None:
+    """Declared body length, or None when absent or unparseable."""
+    for name, value in scope.get("headers", ()):
+        if name == b"content-length":
+            try:
+                return int(value)
+            except ValueError:
+                return None
+    return None
 
 
 # ---------------------------------------------------------- security headers

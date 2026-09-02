@@ -122,6 +122,54 @@ class TestRejectedQueries:
         assert resp.status_code == 422
         assert "must be an integer" in _payload(resp)["error"]
 
+    async def test_too_many_steps_for_one_call(self) -> None:
+        # The window and the step were each bounded, their product was not:
+        # 30 days at a 5-minute step is 8641 instants, and the SHOM predictor
+        # runs a Python loop per instant on the event loop (~1 ms each), so
+        # one request could block the single worker for ~9 s, MCP included.
+        resp = await app._api_marc_overlay(
+            _FakeRequest(_params(end=(START + timedelta(days=30)).isoformat(), step_minutes="5"))
+        )
+        assert resp.status_code == 422
+        error = _payload(resp)["error"]
+        assert f"at most {app.MAX_MARC_STEPS}" in error
+        assert "step_minutes" in error
+
+    async def test_a_month_of_hourly_steps_is_still_allowed(self) -> None:
+        # 721 instants: the longest window the web app asks for, and the shape
+        # the 30-day ceiling was written to permit. It must stay under the
+        # step ceiling or the two rules contradict each other.
+        resp = await app._api_marc_overlay(
+            _FakeRequest(_params(end=(START + timedelta(days=30)).isoformat()))
+        )
+        assert resp.status_code == 200
+
+    async def test_the_step_ceiling_is_checked_before_any_prediction(self) -> None:
+        # Cheap-check-first: an over-sized request must cost arithmetic, not a
+        # registry lookup followed by a series materialisation.
+        called = False
+
+        class _ExplodingRegistry:
+            atlases = ()
+
+            def cell_at(self, *_args):
+                nonlocal called
+                called = True
+                raise AssertionError("coverage lookup ran on a rejected request")
+
+        original = app._MARC_REGISTRY
+        app._MARC_REGISTRY = _ExplodingRegistry()
+        try:
+            resp = await app._api_marc_overlay(
+                _FakeRequest(
+                    _params(end=(START + timedelta(days=30)).isoformat(), step_minutes="5")
+                )
+            )
+        finally:
+            app._MARC_REGISTRY = original
+        assert resp.status_code == 422
+        assert called is False
+
 
 class TestNaiveTimestamps:
     async def test_naive_timestamps_are_read_as_utc_not_rejected(self) -> None:

@@ -127,6 +127,31 @@ async def test_malformed_cache_returns_422(monkeypatch) -> None:
     assert "forecast_cache" in _resp_json(resp)["error"]
 
 
+@pytest.mark.asyncio
+async def test_oversized_cache_returns_422_naming_the_ceiling() -> None:
+    """A payload the domain refuses must surface as 422, not 500.
+
+    The ceilings live in ``cache_backed.from_payload`` (that is where the
+    payload is parsed and where the cost is), and reach the client through the
+    same ValueError channel as every other shape error. What this pins is that
+    the message says which ceiling was hit: "invalid forecast_cache" alone
+    would send a caller hunting for a typo that is not there.
+    """
+    from openwind_data.adapters.cache_backed import MAX_CACHE_POINTS
+
+    cache = _corridor_cache()
+    origin = cache["points"][0]
+    cache["points"] = [
+        {**origin, "lat": origin["lat"] + i / 1000} for i in range(MAX_CACHE_POINTS + 1)
+    ]
+
+    resp = await app._api_passage(_FakeRequest(_single_body(forecast_cache=cache)))
+    assert resp.status_code == 422
+    error = _resp_json(resp)["error"]
+    assert error.startswith("invalid forecast_cache: ")
+    assert f"at most {MAX_CACHE_POINTS} accepted" in error
+
+
 # --------------------------------------------------------------- wiring capture
 
 
