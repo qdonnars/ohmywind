@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useMemo } from "react";
-import { toNaiveLocal } from "../session/initial";
+import { toNaiveLocal } from "../../domain/datetime";
 import { DepartureRangeSlider } from "./DepartureRangeSlider";
 import { usePlan } from "../session/planContext";
 import { validateSweep } from "../validateSweep";

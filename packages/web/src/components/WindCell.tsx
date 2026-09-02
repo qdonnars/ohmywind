@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { getBeaufortLevel } from "../utils/colors";
+import { beaufortLevel, windLevelVar } from "../domain/thresholds";
 
 interface WindCellProps {
   speed: number | null;
@@ -31,8 +31,8 @@ export function WindCell({ speed, gusts, direction, selected, isNow, isDayStart,
     );
   }
 
-  const level = getBeaufortLevel(speed);
-  const bg = `var(--ow-w-${level})`;
+  const level = beaufortLevel(speed);
+  const bg = windLevelVar(level);
   const color = `var(--ow-cell-text-${level})`;
 
   const gustClose = gusts != null && gusts <= speed + 5;

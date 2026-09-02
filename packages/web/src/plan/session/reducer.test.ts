@@ -11,7 +11,7 @@ import {
   type PlanState,
 } from "./reducer";
 import type { InitialSession } from "./initial";
-import { toTzAware } from "../departureTz";
+import { toTzAware } from "../../domain/datetime";
 import type { PassageReport, ComplexityScore, PassageWindow } from "../types";
 
 /**

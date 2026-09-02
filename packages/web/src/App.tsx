@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { nowParisHourPrefix } from "./utils/format";
+import { nowParisHourPrefix } from "./domain/datetime";
 import type { Spot, ModelForecast, MarineHourly, MetricView } from "./types";
 import { fetchAllModels } from "./api/openmeteo";
 import {

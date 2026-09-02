@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { useEffect, useState } from 'react';
 
 import { ThemeCtx, useTheme, type ThemeMode } from './useTheme';
 
-const STORAGE_KEY = 'ow_theme';
+const STORAGE_KEY = LOCAL_STORAGE_KEYS.theme;
 
 // Every access below is guarded because both APIs throw outright, rather than
 // returning null, when the browser blocks site data: Safari in private mode

@@ -65,6 +65,7 @@ import type { PassageReport, ComplexityScore, PassageWindow } from "../types";
 import type { PolarConfig } from "../../config/polarConfig";
 import { initialPlanBoat, isPersoActive } from "../../config/polarConfig";
 import type { TimeAnchor, PlanMode } from "../ModeToggle";
+import { toNaiveLocal } from "../../domain/datetime";
 
 export type RouteSource = "draft" | "url" | "cache" | "none";
 export type BoatSource = "polar" | "draft" | "url" | "cache" | "default";
@@ -126,12 +127,6 @@ export interface InitialSession {
     boat: BoatSource;
     departure: DepartureSource;
   };
-}
-
-/** "YYYY-MM-DDTHH:MM" in local time, the format the slider and the URL share. */
-export function toNaiveLocal(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 /** Slider lands on J+1 by default: a now-anchored start is rarely what a

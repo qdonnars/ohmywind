@@ -6,7 +6,7 @@ import type { ModelForecast } from "../types";
 import { TimelineHeader } from "./TimelineHeader";
 import { WindCell } from "./WindCell";
 import { useTimezone } from "../hooks/useTimezone";
-import { nowParisHourPrefix } from "../utils/format";
+import { nowParisHourPrefix } from "../domain/datetime";
 import { MODEL_META, type ModelName } from "../config/modelConfig";
 
 function modelStep(name: string): number {

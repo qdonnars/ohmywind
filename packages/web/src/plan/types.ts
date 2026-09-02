@@ -139,20 +139,3 @@ export interface Archetype {
   performance_class: string;
 }
 
-// Complexity level 1-5 derived from per-segment TWS
-export function cxLevel(tws_kn: number): 1 | 2 | 3 | 4 | 5 {
-  if (tws_kn < 10) return 1;
-  if (tws_kn < 15) return 2;
-  if (tws_kn < 20) return 3;
-  if (tws_kn < 25) return 4;
-  return 5;
-}
-
-// Same values in both themes (tokens.css --ow-c-1..5)
-export const CX_COLORS: Record<number, string> = {
-  1: "#2dc97a",
-  2: "#8fcc30",
-  3: "#e8c432",
-  4: "#e87a18",
-  5: "#e84118",
-};

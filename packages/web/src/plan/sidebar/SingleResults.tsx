@@ -11,7 +11,7 @@ import { DepartureSlider } from "./DepartureSlider";
 import { ArchetypeSelector } from "./ArchetypeSelector";
 import { LegList } from "./LegList";
 import { RecomputeBar, ResultsAnchor, StalePlaceholder } from "./parts";
-import { capitalise, fmtClock, fmtDay } from "../format";
+import { capitalise, fmtClock, fmtDay } from "../../domain/datetime";
 
 /** Single mode with a passage behind it: recap, totals, warnings, legs. */
 export function SingleResults({

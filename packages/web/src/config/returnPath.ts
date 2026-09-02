@@ -7,7 +7,9 @@
 // within the current tab session — a fresh tab opened on /config has no
 // meaningful "previous page".
 
-const KEY = "ow_config_return_to";
+import { SESSION_STORAGE_KEYS } from "../storage/keys";
+
+const KEY = SESSION_STORAGE_KEYS.configReturnPath;
 
 export function rememberReturnPath(): void {
   try {

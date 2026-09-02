@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useMemo, useState } from "react";
-import { toNaiveLocal } from "../session/initial";
+import { fmtClock, fmtDayLong, toNaiveLocal } from "../../domain/datetime";
 import { useTheme } from "../../design/useTheme";
 import { usePlan } from "../session/planContext";
 
@@ -47,8 +47,8 @@ export function DepartureSlider() {
   // Display labels: the section header changes with the time anchor.
   const sectionLabel = timeAnchor === "arrival" ? "Arrivée" : "Départ";
   const ariaLabel = timeAnchor === "arrival" ? "Heure d'arrivée souhaitée" : "Date de départ";
-  const dateLabel = valueDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
-  const timeLabel = valueDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  const dateLabel = fmtDayLong(valueDate);
+  const timeLabel = fmtClock(valueDate);
   const dayDelta = Math.floor((valueDate.getTime() - anchor.getTime()) / 86_400_000);
   const offsetLabel =
     dayDelta <= 0 ? "Aujourd'hui" :

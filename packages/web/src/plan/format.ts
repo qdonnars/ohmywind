@@ -5,6 +5,9 @@
 // that had drifted into separate copies across PlanStates.tsx and
 // WindowsTable.tsx so the "12h30" convention and French decimals stay in one
 // tested place.
+//
+// Dates and clocks are not here: they live in `domain/datetime.ts`, alongside
+// the timezone rules they depend on.
 
 /**
  * Duration in decimal hours to the compact "12h30" convention.
@@ -45,24 +48,4 @@ export function fmtDepthM(m: number): string {
 /** One-decimal French number: 38.2 → "38,2". Matches sailing-French copy. */
 export function fr1(n: number): string {
   return n.toFixed(1).replace(".", ",");
-}
-
-/** Short French weekday + date, e.g. "jeu. 3 sept.". Feeds the recap strips. */
-export function fmtDay(iso: string): string {
-  return new Date(iso).toLocaleDateString("fr-FR", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
-}
-
-/** Wall clock, e.g. "08:00". */
-export function fmtClock(iso: string): string {
-  return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-}
-
-/** First letter upper-cased. `toLocaleDateString` lower-cases the weekday, and
-    the recap strip starts a sentence with it. */
-export function capitalise(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
 }

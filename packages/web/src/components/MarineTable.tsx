@@ -5,7 +5,8 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import type { MarineHourly, ModelForecast, MetricView } from "../types";
 import { TimelineHeader } from "./TimelineHeader";
 import { useTimezone } from "../hooks/useTimezone";
-import { nowParisHourPrefix } from "../utils/format";
+import { nowParisHourPrefix } from "../domain/datetime";
+import { currentsLevel, tidesLevel, wavesLevel, windLevelVar } from "../domain/thresholds";
 
 type MarineMetric = Exclude<MetricView, "wind">;
 
@@ -43,48 +44,6 @@ function rowsForMetric(
 }
 
 const CELL_W = 36;
-
-// Hs bands aligned with packages/data-adapters/.../complexity._SEA_BANDS:
-// plate <0.5, belle <1, agitée <2, forte <3, très forte +∞.
-function wavesLevel(hs: number): number {
-  if (hs < 0.5) return 1;
-  if (hs < 1.0) return 2;
-  if (hs < 2.0) return 4;
-  if (hs < 3.0) return 6;
-  return 8;
-}
-
-// Currents in kn. Red (level 8) reserved for ≥10 kn (Raz Blanchard /
-// Goulet de Brest spring-tide territory) so a typical Med 0.7 kn doesn't
-// alarm the user. Spread the intermediate range so 1–3 kn (atlantic
-// coastal current) is visibly hotter than the Med baseline without
-// reaching extreme colours.
-function currentsLevel(kn: number): number {
-  if (kn < 0.3) return 0;
-  if (kn < 1.0) return 1;
-  if (kn < 2.0) return 2;
-  if (kn < 3.0) return 3;
-  if (kn < 4.0) return 4;
-  if (kn < 5.0) return 5;
-  if (kn < 7.0) return 6;
-  if (kn < 10.0) return 7;
-  return 8;
-}
-
-// Tide oscillates around 0; colour by magnitude so high tide and low tide are
-// equally salient.
-function tidesLevel(absM: number): number {
-  if (absM < 0.5) return 1;
-  if (absM < 1.5) return 2;
-  if (absM < 3.0) return 4;
-  if (absM < 5.0) return 6;
-  return 8;
-}
-
-// Wave period is informational (chop vs swell) rather than a hazard axis —
-// a 4 s period at 0.6 m Hs is benign wind chop, not danger. Render the row
-// uncoloured (neutral) so the user reads the *number* without the colour
-// implying a risk that isn't there.
 
 interface MarineCellProps {
   row: RowConfig;
@@ -312,7 +271,7 @@ function MarineCell({
     );
   }
 
-  const bg = `var(--ow-w-${level})`;
+  const bg = windLevelVar(level);
   const color = `var(--ow-cell-text-${level})`;
 
   return (

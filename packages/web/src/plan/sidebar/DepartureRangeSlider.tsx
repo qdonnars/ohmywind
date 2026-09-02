@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useMemo } from "react";
+import { fmtClock, fmtDay } from "../../domain/datetime";
 
 // ── DepartureRangeSlider ─────────────────────────────────────────────────────
 // Dual-thumb slider for the compare-windows form. Two overlapping native ranges
@@ -42,8 +43,8 @@ export function DepartureRangeSlider({
   function fmt(hours: number): { date: string; time: string; offset: string } {
     const d = new Date(anchor.getTime() + hours * 3_600_000);
     return {
-      date: d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" }),
-      time: d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+      date: fmtDay(d),
+      time: fmtClock(d),
       offset: (() => {
         const days = Math.floor(hours / 24);
         if (days === 0) return "Aujourd'hui";

@@ -16,7 +16,9 @@
  * successful fix clears it.
  */
 
-const STORAGE_KEY = "ow_geoloc_declined_v1";
+import { LOCAL_STORAGE_KEYS } from "../storage/keys";
+
+const STORAGE_KEY = LOCAL_STORAGE_KEYS.geolocDeclined;
 
 export function hasDeclinedGeolocation(): boolean {
   try {
