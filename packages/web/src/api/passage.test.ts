@@ -2,8 +2,55 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, formatRetryDelay, friendlyError } from "./passage";
+import { ApiError, fetchPassage, formatRetryDelay, friendlyError } from "./passage";
 import { ApiShapeError } from "./parse";
+import { resetBodyEncoding } from "./postJson";
+
+// Les trois POST passent par postJson, qui decide de la compression. Ce test
+// verifie le cablage, pas la negociation : celle-ci a son propre fichier.
+describe("cablage de la compression", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    resetBodyEncoding();
+  });
+
+  it("envoie le forecast_cache en gzip", async () => {
+    let sentBody: ArrayBuffer | null = null;
+    let sentEncoding: string | null = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        sentEncoding = new Headers(init.headers).get("Content-Encoding");
+        sentBody = init.body as ArrayBuffer;
+        return new Response("{}", { status: 200 });
+      }),
+    );
+    const forecastCache = {
+      points: Array.from({ length: 15 }, (_, i) => ({
+        lat: 43.3 - i * 0.02,
+        lon: 5.35 + i * 0.06,
+        models: [{ model: "arome", wind_kn: Array.from({ length: 48 }, (_, h) => 8 + (h % 7)) }],
+      })),
+    } as never;
+    // La reponse vide echoue au parsing : c'est la requete qui nous interesse.
+    await expect(
+      fetchPassage({
+        waypoints: [
+          [43.3, 5.35],
+          [43.0, 6.2],
+        ],
+        departure: "2026-09-03T09:00",
+        archetype: "cruiser_30ft",
+        forecastCache,
+      }),
+    ).rejects.toBeInstanceOf(ApiShapeError);
+    expect(sentEncoding).toBe("gzip");
+    const stream = new Blob([sentBody!]).stream().pipeThrough(new DecompressionStream("gzip"));
+    const back = JSON.parse(await new Response(stream).text());
+    expect(back.forecast_cache.points).toHaveLength(15);
+    expect(back.archetype).toBe("cruiser_30ft");
+  });
+});
 
 // Regression guard for the dev incident of 2026-08-01: the rate-limit copy
 // hard-coded "une minute" while the server ran a 300 s window, so the user

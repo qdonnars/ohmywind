@@ -6,6 +6,7 @@ import type { ModelName } from "../config/modelConfig";
 import type { PolarData } from "../config/polarConfig";
 import { COEFF_DEFAULT } from "../config/polarConfig";
 import { API_BASE } from "./config";
+import { postJson } from "./postJson";
 import type { ForecastCache } from "./forecastCache";
 import {
   ApiShapeError,
@@ -282,12 +283,7 @@ export async function fetchPassage(params: {
   if (params.overrides?.models?.length) body["models"] = params.overrides.models;
   if (params.overrides?.polar) body["polar"] = params.overrides.polar;
   if (params.forecastCache) body["forecast_cache"] = params.forecastCache;
-  const res = await fetch(`${API_BASE}/api/v1/passage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal: params.signal,
-  });
+  const res = await postJson(`${API_BASE}/api/v1/passage`, body, params.signal);
   if (!res.ok) throw await toError(res);
   return parsePassageResponse(await res.json());
 }
@@ -318,12 +314,7 @@ export async function fetchPassageWindows(params: {
   if (params.overrides?.polar) body["polar"] = params.overrides.polar;
   if (params.forecastCache) body["forecast_cache"] = params.forecastCache;
 
-  const res = await fetch(`${API_BASE}/api/v1/passage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal: params.signal,
-  });
+  const res = await postJson(`${API_BASE}/api/v1/passage`, body, params.signal);
   if (!res.ok) throw await toError(res);
   return parseMultiWindowResponse(await res.json());
 }
@@ -348,12 +339,7 @@ export async function fetchPassageByEta(params: {
   if (params.overrides?.polar) body["polar"] = params.overrides.polar;
   if (params.forecastCache) body["forecast_cache"] = params.forecastCache;
 
-  const res = await fetch(`${API_BASE}/api/v1/passage-by-eta`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal: params.signal,
-  });
+  const res = await postJson(`${API_BASE}/api/v1/passage-by-eta`, body, params.signal);
   if (!res.ok) throw await toError(res);
   return parsePassageByEtaResponse(await res.json());
 }
