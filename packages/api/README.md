@@ -40,6 +40,8 @@ test asserts it by importing the package with the name `mcp` blocked.
 - `errors.py`: one mapping from exception to `(status, message, code)`.
 - `services.py`: the tidal atlases, loaded once, on `app.state.services`.
 - `security.py`: rate limiting, body ceiling, security headers, client IP.
+  The limiter counts per network, `/32` for IPv4 and `/64` for IPv6, because a
+  phone picks its own address inside the prefix its carrier assigned.
 - `static/landing.html`: the landing page. Its media ship with the deployment.
 
 Serialising a passage is not here: that is `openwind_data.views`, shared with

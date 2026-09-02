@@ -74,6 +74,83 @@ def test_client_ip_unknown_when_no_header_and_no_peer() -> None:
     assert security.resolve_client_ip(scope) == "unknown"
 
 
+# ----------------------------------------------------- rate-limit key
+
+# The address is not the unit an operator assigns. A phone on IPv6 picks its
+# own interface identifier inside the /64 its carrier gave it and rotates it
+# (RFC 8981), so keying on the full address hands one subscriber 2^64 buckets
+# and lets it walk the 5 000-entry LRU store out from under everyone else.
+
+
+def test_ipv4_counts_as_itself() -> None:
+    # /32 is the address: NAT already collapses a marina or a household onto
+    # one, and grouping further would put a whole carrier in one bucket.
+    key = security.rate_limit_key(_scope(**{"x-forwarded-for": "203.0.113.7"}))
+    assert key == "203.0.113.7/32"
+
+
+def test_two_ipv4_addresses_never_share_a_bucket() -> None:
+    neighbour = security.rate_limit_key(_scope(**{"x-forwarded-for": "203.0.113.8"}))
+    assert security.rate_limit_key(_scope(**{"x-forwarded-for": "203.0.113.7"})) != neighbour
+
+
+def test_ipv6_counts_by_prefix() -> None:
+    key = security.rate_limit_key(_scope(**{"x-forwarded-for": "2001:db8:dead:beef:1:2:3:4"}))
+    assert key == "2001:db8:dead:beef::/64"
+
+
+def test_an_ipv6_client_cannot_mint_buckets_inside_its_own_prefix() -> None:
+    """The bug this fixes, stated as the property it broke.
+
+    Four addresses a single handset produces over an afternoon of privacy
+    rotation. Before, four quotas; now, one.
+    """
+    keys = {
+        security.rate_limit_key(_scope(**{"x-forwarded-for": suffix}))
+        for suffix in (
+            "2001:db8:dead:beef::1",
+            "2001:db8:dead:beef:abcd:ef01:2345:6789",
+            "2001:db8:dead:beef:ffff:ffff:ffff:ffff",
+            "2001:db8:dead:beef:0:0:0:2",
+        )
+    }
+    assert len(keys) == 1
+
+
+def test_a_neighbouring_ipv6_prefix_is_a_different_bucket() -> None:
+    # /64 is the smallest allocation a customer site gets, so two of them are
+    # two customers and must not share a quota.
+    here = security.rate_limit_key(_scope(**{"x-forwarded-for": "2001:db8:dead:beef::1"}))
+    next_door = security.rate_limit_key(_scope(**{"x-forwarded-for": "2001:db8:dead:bef0::1"}))
+    assert here != next_door
+
+
+def test_an_ipv4_mapped_ipv6_address_stays_one_client() -> None:
+    # ::ffff:203.0.113.7 is how a dual-stack proxy sometimes writes an IPv4
+    # caller. Python parses it as IPv6, so it lands on a /64 of its own
+    # rather than merging with the whole mapped range.
+    key = security.rate_limit_key(_scope(**{"x-forwarded-for": "::ffff:203.0.113.7"}))
+    assert key.endswith("/64")
+
+
+@pytest.mark.parametrize("unparseable", ["unknown", "not-an-address", "203.0.113.999", ""])
+def test_an_unparseable_address_is_still_counted(unparseable) -> None:
+    """Never an exemption. Grouping the unreadable together can only throttle."""
+    scope = _scope(**{"x-forwarded-for": unparseable}) if unparseable else _scope()
+    if not unparseable:
+        scope["client"] = None
+    key = security.rate_limit_key(scope)
+    assert key
+    assert "/" not in key
+
+
+def test_the_bucket_fingerprint_reports_the_bucket_that_exists() -> None:
+    """Two devices on one /64 do share a quota; the diagnostic must say so."""
+    a = security.bucket_id(_scope(**{"x-forwarded-for": "2001:db8:dead:beef::1"}))
+    b = security.bucket_id(_scope(**{"x-forwarded-for": "2001:db8:dead:beef::2"}))
+    assert a == b
+
+
 # --------------------------------------------------------- sliding window
 
 
@@ -482,3 +559,36 @@ def test_single_hop_deployment_is_unaffected(monkeypatch) -> None:
     monkeypatch.setattr(security, "TRUSTED_PROXY_HOPS", 1)
     scope = _edge_scope(None, "1.1.1.1, 203.0.113.7")
     assert security.resolve_client_ip(scope) == "203.0.113.7"
+
+
+def test_the_limiter_uses_the_normalised_key(monkeypatch) -> None:
+    """End to end: a rotating IPv6 client fills one bucket, not four."""
+    from starlette.testclient import TestClient
+
+    monkeypatch.setattr(security.RateLimitMiddleware, "__init__", _init_with_limit(2))
+    client = TestClient(create_app(Settings(), _StubMcpApp()))
+    statuses = [
+        client.post(
+            "/api/v1/passage",
+            json={},
+            headers={"X-Forwarded-For": f"2001:db8:dead:beef::{n}"},
+        ).status_code
+        for n in range(1, 5)
+    ]
+    assert statuses == [422, 422, 429, 429]
+
+
+def test_two_prefixes_still_get_their_own_quota(monkeypatch) -> None:
+    from starlette.testclient import TestClient
+
+    monkeypatch.setattr(security.RateLimitMiddleware, "__init__", _init_with_limit(1))
+    client = TestClient(create_app(Settings(), _StubMcpApp()))
+
+    def post(prefix: str) -> int:
+        return client.post(
+            "/api/v1/passage", json={}, headers={"X-Forwarded-For": f"{prefix}::1"}
+        ).status_code
+
+    assert post("2001:db8:1:1") == 422
+    assert post("2001:db8:1:1") == 429
+    assert post("2001:db8:1:2") == 422

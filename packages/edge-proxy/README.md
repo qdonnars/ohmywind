@@ -100,6 +100,18 @@ curl -s https://qdonnars-openwind-mcp.hf.space/api/v1/_client -H 'X-Forwarded-Fo
 curl -s https://mcp.ohmywind.fr/api/v1/_client
 ```
 
+The `bucket` value is a hash of the *network* the origin counts against, not
+of the address: `/32` for an IPv4 caller, `/64` for an IPv6 one. Two devices on
+one IPv6 prefix therefore report the same bucket and share one quota, which is
+correct and deliberate (a handset rotates its address inside its prefix, so
+counting addresses would count nothing). Nothing about the hop chain changed
+with it: the origin still reads the same entry of `X-Forwarded-For` it always
+did, and a direct caller still cannot buy an extra hop.
+
+Note for anyone comparing against a reading taken before 2026-09: the hashes
+changed once, when the key became the network. Two readings are comparable
+only if both were taken on the same side of that change.
+
 `TRUSTED_PROXY_HOPS` is 2 because the chain reaching the app is
 `<client>, <cloudflare egress>`: Cloudflare adds one hop in front of Hugging
 Face. The Worker overwrites `X-Forwarded-For` with `CF-Connecting-IP` so that
