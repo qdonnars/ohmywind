@@ -13,6 +13,7 @@
 // performance coefficient never touches the matrix: it travels as the
 // request's `efficiency` parameter.
 
+import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import catamaran40ft from "../data/polars/catamaran_40ft.json";
 import cruiser20ft from "../data/polars/cruiser_20ft.json";
 import cruiser25ft from "../data/polars/cruiser_25ft.json";
@@ -21,7 +22,9 @@ import cruiser40ft from "../data/polars/cruiser_40ft.json";
 import cruiser50ft from "../data/polars/cruiser_50ft.json";
 import racerCruiser from "../data/polars/racer_cruiser.json";
 
-const STORAGE_KEY = "ow_polar_config_v1";
+/** Exported so a subscriber can tell this key apart in a `storage` event. */
+export const POLAR_CONFIG_KEY = LOCAL_STORAGE_KEYS.polarConfig;
+const STORAGE_KEY = POLAR_CONFIG_KEY;
 
 export interface PolarData {
   name: string;
@@ -72,15 +75,24 @@ export const DEFAULT_BASE = "cruiser_30ft";
 // Performance coefficient applied at plan time (the server's `efficiency`
 // parameter). 100% = a race crew sailing the polar; cruising realistically
 // loses ~25% (sail trim, comfort margins, helm attention). The default
-// matches the server-side plan_passage default so web and MCP plans agree.
+// matches the server-side plan_passage default so web and MCP plans agree
+// (openwind_api/parsing.py:DEFAULT_EFFICIENCY, routing/passage.py).
+//
+// This is the only 0.75 the client sends: `api/passage.ts` fills the three
+// request bodies from it, and `aggregateLegs` derates its speeds with it.
 export const COEFF_MIN = 0.5;
 export const COEFF_MAX = 1.0;
 export const COEFF_STEP = 0.01;
 export const COEFF_DEFAULT = 0.75;
 
-// Historical plan_passage default efficiency — what pre-v3 configs implicitly
+// Historical plan_passage default efficiency: what pre-v3 configs implicitly
 // planned with when they didn't pin 1.0. Consumed by the v1/v2 migration so
 // existing users keep their ETAs; fresh installs start at COEFF_DEFAULT.
+//
+// Equal to COEFF_DEFAULT today and deliberately NOT aliased to it: this one is
+// a fact about what old stored configs meant, frozen in the past. Should the
+// server ever move its default, COEFF_DEFAULT follows it and this stays 0.75,
+// or every existing user's ETAs shift under them at the next load.
 export const SERVER_DEFAULT_EFFICIENCY = 0.75;
 
 // User override bounds for the minimum upwind angle (deg TWA). Mirrors the
@@ -441,6 +453,27 @@ export function savePolarConfig(cfg: PolarConfig): void {
   } catch {
     // localStorage unavailable / full — silent miss; next load returns default.
   }
+  // Notify in every case, including the failed write: a reader that decided
+  // what to show from this config has to re-read either way.
+  for (const listener of listeners) listener();
+}
+
+// ── change notification ──────────────────────────────────────────────────────
+//
+// The browser fires `storage` for other tabs only, so a page that both writes
+// this config and displays it (the /plan boat selector writes through to
+// /config) would never hear its own change. Readers used to cope by parsing
+// localStorage on every render. This registry is the other half of
+// `usePolarConfig`: same-tab writes come from here, cross-tab ones from the
+// `storage` event.
+
+const listeners = new Set<() => void>();
+
+export function subscribePolarConfig(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 // True when planning runs on the uploaded polar file rather than the

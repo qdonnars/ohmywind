@@ -5,6 +5,9 @@
 // that had drifted into separate copies across PlanStates.tsx and
 // WindowsTable.tsx so the "12h30" convention and French decimals stay in one
 // tested place.
+//
+// Dates and clocks are not here: they live in `domain/datetime.ts`, alongside
+// the timezone rules they depend on.
 
 /**
  * Duration in decimal hours to the compact "12h30" convention.

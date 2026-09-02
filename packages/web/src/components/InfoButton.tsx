@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { InfoPanel } from "./InfoPanel";
+import { useBackDismiss } from "../hooks/useBackDismiss";
 
 function InfoIcon() {
   return (
@@ -69,6 +70,10 @@ function InfoModal({ onClose }: { onClose: () => void }) {
 
 export function InfoButton() {
   const [open, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
+  // Android's back button closes the modal instead of leaving the app, the
+  // same as the ✕ and Escape (issue #300).
+  useBackDismiss(open, close);
   return (
     <>
       <button
@@ -80,7 +85,7 @@ export function InfoButton() {
       >
         <InfoIcon />
       </button>
-      {open && <InfoModal onClose={() => setOpen(false)} />}
+      {open && <InfoModal onClose={close} />}
     </>
   );
 }

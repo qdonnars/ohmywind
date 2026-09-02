@@ -35,8 +35,8 @@ by design (see PR #74 for the full reasoning).
 from __future__ import annotations
 
 import os
-from dataclasses import asdict, replace
-from datetime import UTC, datetime, timedelta
+from dataclasses import replace
+from datetime import UTC, datetime
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
@@ -44,17 +44,15 @@ from mcp.types import ToolAnnotations
 from openwind_data.adapters.base import MarineDataAdapter
 from openwind_data.adapters.openmeteo import AUTO_MODEL, OpenMeteoAdapter
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
-from openwind_data.currents.router import CompositeMarineAdapter
+from openwind_data.currents.router import compose_marine_adapter
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
 from openwind_data.routing import (
     BoatPolar,
-    Point,
-    build_conditions_summary,
     get_polar,
     list_archetypes,
+    parse_waypoints,
     resolve_sweep_interval,
     validate_point,
-    validate_waypoints,
 )
 from openwind_data.routing import (
     estimate_passage as _estimate_passage,
@@ -64,6 +62,13 @@ from openwind_data.routing import (
 )
 from openwind_data.routing import (
     score_complexity as _score_complexity,
+)
+from openwind_data.views import (
+    filter_windows_by_target_eta,
+    passage_envelope,
+    sweep_view,
+    widened_interval_warning,
+    window_view,
 )
 
 from .render import WEB_BASE, WEB_HOST, build_ohmywind_url
@@ -388,17 +393,6 @@ def _archetype_summary(p: Any) -> dict[str, Any]:
     }
 
 
-def _passage_to_dict(report: Any) -> dict[str, Any]:
-    """asdict() but with datetimes serialized to ISO strings."""
-    d = asdict(report)
-    d["departure_time"] = report.departure_time.isoformat()
-    d["arrival_time"] = report.arrival_time.isoformat()
-    for seg, out in zip(report.segments, d["segments"], strict=True):
-        out["start_time"] = seg.start_time.isoformat()
-        out["end_time"] = seg.end_time.isoformat()
-    return d
-
-
 _METHODOLOGY = """\
 # OhMyWind calculation method
 
@@ -540,26 +534,19 @@ https://github.com/qdonnars/ohmywind/blob/main/TRADEMARK.md
 """
 
 
-def _build_window_dict(
+def _window_with_link(
     report: Any, score: Any, waypoints_raw: list[dict[str, float]]
 ) -> dict[str, Any]:
-    dep_iso = report.departure_time.isoformat()
-    warnings = list(report.warnings) + [w.message for w in score.warnings]
-    return {
-        "departure": dep_iso,
-        "arrival": report.arrival_time.isoformat(),
-        "duration_h": round(report.duration_h, 2),
-        "distance_nm": round(report.distance_nm, 1),
-        "complexity": {
-            "level": score.level,
-            "label": score.label,
-            "tws_max_kn": round(score.tws_max_kn, 1),
-            "rationale": score.rationale,
-        },
-        "conditions_summary": build_conditions_summary(report),
-        "warnings": warnings,
-        "openwind_url": build_ohmywind_url(waypoints_raw, dep_iso, report.archetype),
-    }
+    """A sweep row, plus the deep-link only this shell can build.
+
+    Appended after the shared fields rather than woven in: the key order is
+    what the goldens record, on both shells.
+    """
+    window = window_view(report, score)
+    window["openwind_url"] = build_ohmywind_url(
+        waypoints_raw, window["departure"], report.archetype
+    )
+    return window
 
 
 def build_server(
@@ -577,6 +564,13 @@ def build_server(
             ``MARC_ATLAS_DIR``. Either or both can be absent; the cascade
             degrades gracefully (SHOM > MARC > SMOC). Override the whole
             adapter in tests.
+
+            A deployment that also serves the REST API passes the adapter
+            the API built, so the two shells share one HTTP connection pool,
+            one 30 min forecast cache and one copy of the atlases. Left to
+            itself this factory loads its own registries, which is right for
+            the stdio runner (the only process where it is alone) and was
+            5 MB and 51 ms of pure duplication in the Space (audit M5).
     """
     # ``stateless_http=True`` disables the in-memory session table that
     # otherwise tracks an ``mcp-session-id`` per client across requests.
@@ -603,26 +597,17 @@ def build_server(
     if adapter is not None:
         fetch_adapter: MarineDataAdapter = adapter
     else:
-        upstream = OpenMeteoAdapter()
         marc_dir = os.environ.get("MARC_ATLAS_DIR")
         shom_dir = os.environ.get("SHOM_C2D_DIR")
-        marc_registry = MarcAtlasRegistry.from_directory(marc_dir) if marc_dir else None
-        shom_registry = ShomC2dRegistry.from_directory(shom_dir) if shom_dir else None
-        marc_available = marc_registry is not None and bool(marc_registry.atlases)
-        shom_available = shom_registry is not None and shom_registry.lats.size > 0
-        if marc_available:
-            fetch_adapter = CompositeMarineAdapter(
-                upstream=upstream,
-                marc=marc_registry,  # type: ignore[arg-type]
-                shom=shom_registry if shom_available else None,
-            )
-        else:
-            # Without MARC the composite adapter has nothing to override
-            # currents with on the shelf; we keep upstream Open-Meteo only.
-            # (SHOM alone in the composite would still work, but mixing
-            # SHOM-only zones with raw SMOC elsewhere is more readable
-            # via the existing two-tier composite once MARC lands.)
-            fetch_adapter = upstream
+        # ``compose_marine_adapter`` owns the "which tiers can this deployment
+        # actually feed" rule. It used to be written out here and nowhere on
+        # the REST side, which is how the same waypoint got SHOM currents over
+        # MCP and 8 km SMOC over REST (audit M2).
+        fetch_adapter = compose_marine_adapter(
+            OpenMeteoAdapter(),
+            MarcAtlasRegistry.from_directory(marc_dir) if marc_dir else None,
+            ShomC2dRegistry.from_directory(shom_dir) if shom_dir else None,
+        )
 
     @server.resource(
         PLAN_UI_RESOURCE_URI,
@@ -987,11 +972,7 @@ def build_server(
         # Same guards, same wording as the REST layer. FastMCP turns any
         # exception raised in a tool into an isError result carrying str(exc),
         # so the LLM reads the identical message a browser client would get.
-        try:
-            pts = [Point(float(w["lat"]), float(w["lon"])) for w in waypoints]
-        except (KeyError, TypeError, ValueError) as exc:
-            raise ValueError(f"invalid waypoints: {exc}") from exc
-        validate_waypoints(pts)
+        pts = parse_waypoints(waypoints)
 
         # Resolved up front so an unknown archetype reads as
         # "unknown archetype: 'foo'" (REST's wording) rather than the bare
@@ -1036,7 +1017,7 @@ def build_server(
                 polar_override=polar_override,
             )
             windows = [
-                _build_window_dict(r, _score_complexity(r, max_hs_m=max_hs_m), waypoints)
+                _window_with_link(r, _score_complexity(r, max_hs_m=max_hs_m), waypoints)
                 for r in reports
             ]
 
@@ -1053,40 +1034,24 @@ def build_server(
                 )
                 if effective_interval != sweep_interval_hours:
                     meta_warnings.append(
-                        f"pas d'échantillonnage élargi à {effective_interval} h "
-                        f"(au lieu de {sweep_interval_hours} h) : la route compte "
-                        f"{len(reports[0].segments)} tronçons, trop pour simuler "
-                        f"autant de créneaux."
+                        widened_interval_warning(
+                            effective_interval, sweep_interval_hours, len(reports[0].segments)
+                        )
                     )
             if target_eta is not None:
-                target_utc = datetime.fromisoformat(target_eta).astimezone(UTC)
-                tolerance = timedelta(hours=2)
-                filtered = [
-                    w
-                    for w in windows
-                    if abs((datetime.fromisoformat(w["arrival"]) - target_utc).total_seconds())
-                    <= tolerance.total_seconds()
-                ]
-                if not filtered:
-                    meta_warnings.append(
-                        f"aucune fenêtre n'arrive dans ±2h de target_eta={target_eta} ; "
-                        f"toutes les {len(windows)} fenêtres retournées"
-                    )
-                else:
-                    windows = filtered
+                windows, unmatched = filter_windows_by_target_eta(
+                    windows, datetime.fromisoformat(target_eta), target_eta
+                )
+                if unmatched is not None:
+                    meta_warnings.append(unmatched)
 
-            return {
-                "mode": "multi_window",
-                "sweep": {
-                    "earliest": dep.isoformat(),
-                    "latest": latest_dep.isoformat(),
-                    "interval_hours": effective_interval,
-                    "window_count": len(windows),
-                },
-                "windows": windows,
-                "meta_warnings": meta_warnings,
-                "disclaimer": PASSAGE_DISCLAIMER,
-            }
+            return sweep_view(
+                earliest=dep,
+                latest=latest_dep,
+                interval_hours=effective_interval,
+                windows=windows,
+                meta_warnings=meta_warnings,
+            ) | {"disclaimer": PASSAGE_DISCLAIMER}
 
         # --- SINGLE MODE ---
         report = await _estimate_passage(
@@ -1101,9 +1066,7 @@ def build_server(
         )
         score = _score_complexity(report, max_hs_m=max_hs_m)
 
-        return {
-            "passage": _passage_to_dict(report),
-            "complexity": asdict(score),
+        return passage_envelope(report, score) | {
             "openwind_url": build_ohmywind_url(waypoints, departure, archetype),
             "disclaimer": PASSAGE_DISCLAIMER,
         }

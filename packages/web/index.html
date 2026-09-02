@@ -28,10 +28,20 @@
     <!-- Canonical -->
     <link rel="canonical" href="https://ohmywind.fr/">
 
-    <!-- Geocoders used by the search box. Opening the TLS connection at page
-         load removes the ~200 ms handshake from the first keystroke. -->
-    <link rel="preconnect" href="https://photon.komoot.io" crossorigin>
-    <link rel="preconnect" href="https://geocoding-api.open-meteo.com" crossorigin>
+    <!-- Fond de carte. C'est la seule origine tierce sollicitee au
+         chargement, et elle l'est tot : ouvrir la connexion des l'analyse du
+         document evite la poignee de main TLS sur le chemin critique. Les
+         geocodeurs, eux, n'etaient jamais contactes avant une frappe au
+         clavier : leurs preconnect ne servaient a rien et consommaient un
+         emplacement de connexion. -->
+    <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin>
+
+    <!-- Inter est une police variable : un seul fichier porte toutes les
+         graisses du premier ecran (400 du texte courant, 600 des intertitres,
+         800 du logo), donc un seul preload les couvre. Le sous-ensemble
+         latin-ext n'est tire que si un caractere le reclame, et JetBrains Mono
+         ne sert que dans la vue plan : ni l'un ni l'autre n'est preloade. -->
+    <link rel="preload" href="/src/assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">

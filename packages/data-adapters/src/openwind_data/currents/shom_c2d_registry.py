@@ -18,7 +18,12 @@ Pipeline at query time:
    ``hour_offset`` ∈ [-6, +6] used to linear-interp the 13-sample series.
 4. Linear interpolation in time over the 13-hour series, twice (coef 45
    and coef 95), and finally a linear interpolation in coefficient based
-   on the predicted tide range at the reference port for that day.
+   on the tide range predicted at Brest around that instant.
+
+Steps 3 and 4 are evaluated for a whole series at once: both sample the
+harmonic on a 5-minute grid around each instant, the grids of neighbouring
+instants overlap almost entirely, and the union of them is one call instead of
+220 per instant. See the block comment on the scan lattice below.
 
 All harmonic constants live in the JSON file shipped alongside the
 Parquet, so this module never imports MARC at runtime — the MARC
@@ -52,6 +57,114 @@ _TIDE_SCAN_HALFWINDOW = timedelta(hours=7.0)
 # Sampling step inside the scan window (minutes). 5-min step gives < 1 min
 # of error on the located extremum, well below the harmonic resolution.
 _TIDE_SCAN_STEP_MIN = 5
+
+# ---------------------------------------------------------------------------
+# The scan lattice
+#
+# Both searches below sample the same harmonic on a regular grid around each
+# query time: the tide event every 5 minutes over +-7 h, the day's range every
+# 30 minutes over +-12.5 h. Done one query at a time, that is 169 + 51 = 220
+# harmonic predictions per instant, and a 30-day hourly series pays it 721
+# times over. Measured 1.4 ms per instant, 1.03 s for the series (audit C2),
+# on the event loop, blocking every other request on the single worker.
+#
+# The windows of neighbouring instants overlap almost entirely, and they all
+# fall on one 5-minute lattice: 30 minutes is 6 steps of it, and every query
+# time in a series is a whole number of steps from the first. So the whole
+# series needs the harmonic evaluated once, on the union of its windows, and
+# everything after that is indexing. Same samples, same order, same numbers.
+# ---------------------------------------------------------------------------
+_LATTICE_STEP = timedelta(minutes=_TIDE_SCAN_STEP_MIN)
+_LATTICE_STEP_US = _TIDE_SCAN_STEP_MIN * 60 * 1_000_000
+# Lattice offsets of the tide-event window: +-7 h in 5-minute steps.
+_EVENT_HALF_STEPS = int(_TIDE_SCAN_HALFWINDOW.total_seconds() / 60 / _TIDE_SCAN_STEP_MIN)
+_EVENT_STEPS = np.arange(-_EVENT_HALF_STEPS, _EVENT_HALF_STEPS + 1)
+# Lattice offsets of the coefficient window: +-12.5 h in 30-minute steps,
+# which is +-25 steps of 6. A 25 h span covers two semi-diurnal cycles.
+_COEF_STEPS = np.arange(-25, 26) * (30 // _TIDE_SCAN_STEP_MIN)
+# How many lattice samples the harmonic sees at once. 16 384 keeps its
+# working set around 30 MB whatever the caller asks for, and is well past the
+# 9 000 a 30-day hourly series needs, so the common case runs in one block.
+_HARMONIC_BLOCK = 16384
+
+
+def _as_utc(t: datetime) -> datetime:
+    """Match what the scalar helpers did: assume UTC when the caller was vague."""
+    return t if t.tzinfo is not None else t.replace(tzinfo=UTC)
+
+
+@dataclass(frozen=True, slots=True)
+class _ScanGroup:
+    """Query times that share one 5-minute lattice, and where each one sits on it.
+
+    A series is normally one group: Open-Meteo answers on the hour, and the
+    overlay endpoint steps by whole minutes from a single start. Two instants
+    land in different groups only when they are not a whole number of
+    5-minute steps apart, which costs nothing but a second, smaller lattice.
+    """
+
+    at: np.ndarray  # indices into the caller's list of times
+    origin: datetime  # lattice point zero
+    steps: np.ndarray  # lattice step of each query time, int64
+
+
+def _scan_groups(times: list[datetime]) -> list[_ScanGroup]:
+    """Partition ``times`` into groups sharing a 5-minute lattice.
+
+    Integer microseconds throughout: a residual computed in floating-point
+    seconds would scatter a perfectly regular series across groups on the
+    rounding of a millisecond.
+
+    Naive instants are read as UTC here rather than at each call site, which
+    is what the scalar helpers this replaced did one by one.
+    """
+    times = [_as_utc(t) for t in times]
+    anchor = times[0]
+    deltas = np.array(
+        [(t - anchor) // timedelta(microseconds=1) for t in times],
+        dtype=np.int64,
+    )
+    residuals = deltas % _LATTICE_STEP_US
+    groups: list[_ScanGroup] = []
+    for residual in np.unique(residuals):
+        at = np.flatnonzero(residuals == residual)
+        groups.append(
+            _ScanGroup(
+                at=at,
+                origin=anchor + timedelta(microseconds=int(residual)),
+                steps=deltas[at] // _LATTICE_STEP_US,
+            )
+        )
+    return groups
+
+
+def _sampled_windows(
+    group: _ScanGroup,
+    offsets: np.ndarray,
+    constants: dict[str, tuple[float, float]],
+) -> np.ndarray:
+    """Harmonic heights over each query's window, shape ``(len(group), len(offsets))``.
+
+    The union of the windows is evaluated once. For a 30-day hourly series
+    that is about 9 000 samples instead of 721 x 169.
+
+    Evaluated in blocks, because the predictor allocates several
+    ``(samples, 60)`` float64 arrays and the overlay endpoint accepts 800
+    steps of up to 6 h: a 4 800 h span sampled every 5 minutes is 57 000
+    points, and letting one anonymous request allocate a quarter of a
+    gigabyte in a container sized for a single worker is a denial of service
+    with extra steps. Blocking changes nothing about the values: each sample's
+    harmonic depends on its own instant and on nothing else.
+    """
+    wanted = group.steps[:, None] + offsets
+    needed = np.unique(wanted)
+    heights = np.empty(needed.size, dtype=float)
+    for begin in range(0, needed.size, _HARMONIC_BLOCK):
+        block = needed[begin : begin + _HARMONIC_BLOCK]
+        heights[begin : begin + block.size] = harmonic_predict(
+            [group.origin + int(step) * _LATTICE_STEP for step in block], constants
+        )
+    return heights[np.searchsorted(needed, wanted)]
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,6 +331,52 @@ class ShomC2dRegistry:
         idx, dist_km = self._nearest(lat, lon)
         return idx is not None and dist_km <= self._MAX_NEAREST_KM
 
+    def coverage_zones(self) -> tuple[tuple[str, tuple[float, float, float, float]], ...]:
+        """One bounding box per SHOM zone, sorted by zone name.
+
+        Exists so a caller can decide *not* to ask. The point cloud covers a
+        few French Atlantic cartouches and nothing else, so a client planning
+        in the Mediterranean can skip the round trip entirely rather than
+        collect ``covered: false`` once per corridor point.
+
+        Each box is the zone's own extent padded by the same tolerance
+        :meth:`covers` applies, which buys the invariant that makes the
+        endpoint safe to trust: **a point outside every returned box is a
+        point ``covers`` refuses**. The converse does not hold, and cannot:
+        the cloud is scattered, so a box contains land and gaps that
+        ``covers`` rejects on the distance test. Skipping outside the boxes
+        loses nothing; a call inside one may still come back uncovered.
+
+        Boxes are ``(lat_min, lon_min, lat_max, lon_max)`` in WGS84 degrees,
+        matching :attr:`bbox` and ``AtlasMeta.bbox`` on the MARC side.
+        Returns an empty tuple for an empty registry.
+        """
+        if not self.lats.size:
+            return ()
+        # The tolerance is expressed in the same scaled space _nearest uses:
+        # latitude degrees straight, longitude degrees divided by the mean
+        # cosine. Padding in that space is what keeps the invariant exact
+        # rather than approximately right.
+        lat_pad = self._MAX_NEAREST_KM / 111.0
+        lon_pad = lat_pad / max(self._cos_mean_lat, 1e-6)
+        boxes: list[tuple[str, tuple[float, float, float, float]]] = []
+        for name in sorted({str(z) for z in self.zone_names}):
+            mask = self.zone_names == name
+            lats = self.lats[mask]
+            lons = self.lons[mask]
+            boxes.append(
+                (
+                    name,
+                    (
+                        float(lats.min()) - lat_pad,
+                        float(lons.min()) - lon_pad,
+                        float(lats.max()) + lat_pad,
+                        float(lons.max()) + lon_pad,
+                    ),
+                )
+            )
+        return tuple(boxes)
+
     def _nearest(self, lat: float, lon: float) -> tuple[int | None, float]:
         """Index of the nearest C2D point + distance in km, or ``(None, inf)``.
 
@@ -240,30 +399,28 @@ class ShomC2dRegistry:
     # Tide-event helpers (PM / BM at reference ports)
     # ------------------------------------------------------------------
 
-    def _tide_event_time(self, port: _RefPortMeta, target_t: datetime) -> datetime:
-        """Find the nearest ``port.ref_tide`` event (PM or BM) to ``target_t``.
+    def _event_offsets_h(self, port: _RefPortMeta, times: list[datetime]) -> np.ndarray:
+        """Hours from each query time to its nearest ``port.ref_tide`` event.
 
-        Sample tide height every 5 min over a ±7 h window around target_t,
-        spot the global maximum (PM) or minimum (BM) within that window
-        — a 14 h span exceeds the M2 period (12.42 h) so it always
-        contains exactly one event of each type. Returns a UTC datetime.
+        The event is the global maximum (PM) or minimum (BM) of the harmonic
+        over a +-7 h window sampled every 5 minutes: a 14 h span exceeds the
+        M2 period (12.42 h), so it always contains exactly one of each. The
+        result is what indexes the SHOM 13-sample series, which runs from
+        -6 h to +6 h around the event.
 
-        The approach is brute force on purpose: vectorised over ~170
-        sample points x 6 constituents = ~1000 cosines, well under a
-        millisecond per call. No bisection required.
+        Sign convention: the offset is ``query - event``, negative before the
+        event, matching the series' own axis.
         """
-        if target_t.tzinfo is None:
-            target_t = target_t.replace(tzinfo=UTC)
-        n_steps = int(2 * _TIDE_SCAN_HALFWINDOW.total_seconds() / 60 / _TIDE_SCAN_STEP_MIN) + 1
-        offsets_min = np.linspace(
-            -_TIDE_SCAN_HALFWINDOW.total_seconds() / 60,
-            _TIDE_SCAN_HALFWINDOW.total_seconds() / 60,
-            n_steps,
-        )
-        scan_times = [target_t + timedelta(minutes=float(m)) for m in offsets_min]
-        heights = harmonic_predict(scan_times, port.constants)
-        idx = int(np.argmax(heights) if port.ref_tide == "PM" else np.argmin(heights))
-        return scan_times[idx]
+        offsets = np.empty(len(times), dtype=float)
+        take = np.argmax if port.ref_tide == "PM" else np.argmin
+        for group in _scan_groups(times):
+            windows = _sampled_windows(group, _EVENT_STEPS, port.constants)
+            picked = _EVENT_STEPS[take(windows, axis=1)]
+            # ``(query - event).total_seconds() / 3600`` written out: the
+            # event sits ``picked`` lattice steps *after* the query, so the
+            # offset is the negative of that, in hours.
+            offsets[group.at] = -(picked * _LATTICE_STEP.total_seconds()) / 3600.0
+        return offsets
 
     def tide_coefficient(self, target_t: datetime) -> int:
         """National tidal coefficient (Brest-anchored) at ``target_t``.
@@ -306,17 +463,26 @@ class ShomC2dRegistry:
         local port only when Brest is absent (defensive — should never
         happen in practice since Brest is one of the SHOM ref ports).
         """
-        if target_t.tzinfo is None:
-            target_t = target_t.replace(tzinfo=UTC)
+        return float(self._coefficients(port, [target_t])[0])
+
+    def _coefficients(self, port: _RefPortMeta, times: list[datetime]) -> np.ndarray:
+        """The coefficient at each of ``times``, vectorised over the series.
+
+        Not once per calendar day: the window is a rolling 25 h centred on
+        each instant, so two instants an hour apart see slightly different
+        ranges. Rounding that to one value per day would move every current
+        on the shoulders of a springs-to-neaps transition, which is where the
+        coefficient matters most. Sampling it per instant costs nothing now
+        that the harmonic is evaluated once for the whole series.
+        """
         brest = self.ref_ports.get("BREST")
         anchor = brest if brest is not None else port
-        # 25 h window with 30-min step covers two semi-diurnal cycles.
-        offsets_min = np.linspace(-12.5 * 60, 12.5 * 60, 51)
-        scan_times = [target_t + timedelta(minutes=float(m)) for m in offsets_min]
-        heights = harmonic_predict(scan_times, anchor.constants)
-        rng = float(heights.max() - heights.min())
-        coef = 100.0 * rng / _BREST_MEAN_RANGE_M
-        return max(20.0, min(120.0, coef))
+        coefs = np.empty(len(times), dtype=float)
+        for group in _scan_groups(times):
+            windows = _sampled_windows(group, _COEF_STEPS, anchor.constants)
+            ranges = windows.max(axis=1) - windows.min(axis=1)
+            coefs[group.at] = np.clip(100.0 * ranges / _BREST_MEAN_RANGE_M, 20.0, 120.0)
+        return coefs
 
     # ------------------------------------------------------------------
     # Public predictor
@@ -332,11 +498,10 @@ class ShomC2dRegistry:
         atlas id and zone name so downstream code can attribute the value,
         e.g. ``"shom_c2d_558_morbihan"``.
 
-        The prediction is per-time independent: each query time gets its
-        own nearest tide event and its own day's coefficient. This costs
-        a handful of harmonic predictions per series and keeps the code
-        simple; if ever the call rate justifies it, a vectorised
-        per-series optimisation is straightforward.
+        Each query time still gets its own nearest tide event and its own
+        rolling coefficient window; what changed in PR 2.4 is that the
+        harmonic behind both is evaluated once for the whole series instead
+        of 220 times per instant. Same samples, same numbers, ~40x less time.
         """
         idx, dist_km = self._nearest(lat, lon)
         if idx is None or dist_km > self._MAX_NEAREST_KM:
@@ -347,31 +512,28 @@ class ShomC2dRegistry:
         if port is None:
             return None  # build artefact mismatch — fail closed
 
-        u_ve = self.u_ve[idx]
-        v_ve = self.v_ve[idx]
-        u_me = self.u_me[idx]
-        v_me = self.v_me[idx]
         atlas_id = int(self.atlas_ids[idx])
         zone = str(self.zone_names[idx])
         source_label = f"shom_c2d_{atlas_id}_{zone.lower()}"
+        if not times:
+            return (
+                np.empty(0, dtype=np.float32),
+                np.empty(0, dtype=np.float32),
+                source_label,
+            )
 
-        speeds = np.empty(len(times), dtype=np.float32)
-        dirs = np.empty(len(times), dtype=np.float32)
-        for i, t in enumerate(times):
-            event_t = self._tide_event_time(port, t)
-            offset_h = (t - event_t).total_seconds() / 3600.0
-            # Clamp to the sampled range; np.interp already clips at the
-            # ends, but clamping explicitly keeps the intent clear.
-            offset_h = max(-6.0, min(6.0, offset_h))
-            u_ve_t = float(np.interp(offset_h, _HOUR_OFFSETS, u_ve))
-            v_ve_t = float(np.interp(offset_h, _HOUR_OFFSETS, v_ve))
-            u_me_t = float(np.interp(offset_h, _HOUR_OFFSETS, u_me))
-            v_me_t = float(np.interp(offset_h, _HOUR_OFFSETS, v_me))
-            coef = self._coefficient_for_day(port, t)
-            w = (coef - 45.0) / 50.0
-            u = u_me_t + w * (u_ve_t - u_me_t)
-            v = v_me_t + w * (v_ve_t - v_me_t)
-            speeds[i] = float(np.hypot(u, v))
-            # Convert (u east, v north) to compass "to" direction.
-            dirs[i] = float(np.rad2deg(np.arctan2(u, v)) % 360.0)
+        # Clamp to the sampled range; np.interp already clips at the ends,
+        # but clamping explicitly keeps the intent clear.
+        offsets_h = np.clip(self._event_offsets_h(port, times), -6.0, 6.0)
+        u_ve_t = np.interp(offsets_h, _HOUR_OFFSETS, self.u_ve[idx])
+        v_ve_t = np.interp(offsets_h, _HOUR_OFFSETS, self.v_ve[idx])
+        u_me_t = np.interp(offsets_h, _HOUR_OFFSETS, self.u_me[idx])
+        v_me_t = np.interp(offsets_h, _HOUR_OFFSETS, self.v_me[idx])
+
+        w = (self._coefficients(port, times) - 45.0) / 50.0
+        u = u_me_t + w * (u_ve_t - u_me_t)
+        v = v_me_t + w * (v_ve_t - v_me_t)
+        speeds = np.hypot(u, v).astype(np.float32)
+        # Convert (u east, v north) to compass "to" direction.
+        dirs = (np.rad2deg(np.arctan2(u, v)) % 360.0).astype(np.float32)
         return speeds, dirs, source_label

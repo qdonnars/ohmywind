@@ -4,9 +4,10 @@
 import { useState } from "react";
 import type { Spot } from "../types";
 import { migrateLegacyKey } from "../utils/localStorageMigration";
+import { LEGACY_STORAGE_KEYS, LOCAL_STORAGE_KEYS } from "../storage/keys";
 
-export const STORAGE_KEY = "ohmywind_custom_spots";
-const LEGACY_STORAGE_KEY = "openwind_custom_spots";
+export const STORAGE_KEY = LOCAL_STORAGE_KEYS.customSpots;
+const LEGACY_STORAGE_KEY = LEGACY_STORAGE_KEYS.customSpots;
 
 function loadSpots(): Spot[] {
   migrateLegacyKey(LEGACY_STORAGE_KEY, STORAGE_KEY);

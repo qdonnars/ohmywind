@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { sanitizeHourly, fetchWindCorridor } from "./openmeteo";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import { clearWindCorridorCache, sanitizeHourly, fetchWindCorridor } from "./openmeteo";
 import type { HourlyData } from "../types";
 
 function makeHourly(
@@ -102,6 +102,8 @@ describe("sanitizeHourly", () => {
 });
 
 describe("fetchWindCorridor", () => {
+  // The point cache lives at module scope, so each test starts from cold.
+  beforeEach(() => clearWindCorridorCache());
   afterEach(() => vi.restoreAllMocks());
 
   function elementWithHourly(speed: number): { hourly: HourlyData } {
@@ -151,5 +153,83 @@ describe("fetchWindCorridor", () => {
     expect(await fetchWindCorridor([], ["AROME"])).toEqual([]);
     expect(await fetchWindCorridor([{ lat: 1, lon: 2 }], [])).toEqual([[]]);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("serves a fully cached corridor without a single request", async () => {
+    const coords = [
+      { lat: 43.3, lon: 5.35 },
+      { lat: 43.0, lon: 6.2 },
+    ];
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => [elementWithHourly(10), elementWithHourly(12)],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const first = await fetchWindCorridor(coords, ["AROME"]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    const second = await fetchWindCorridor(coords, ["AROME"]);
+    expect(fetchMock).toHaveBeenCalledTimes(1); // no second request
+    expect(second[0][0].hourly.wind_speed_10m).toEqual([10, 10]);
+    expect(second[1][0].hourly.wind_speed_10m).toEqual([12, 12]);
+    expect(second).toEqual(first);
+  });
+
+  it("requests only the points it is missing, and maps them back in order", async () => {
+    const a = { lat: 43.3, lon: 5.35 };
+    const b = { lat: 43.0, lon: 6.2 };
+    const c = { lat: 42.8, lon: 6.9 };
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ json: async () => [elementWithHourly(10), elementWithHourly(12)] })
+      .mockResolvedValueOnce({ json: async () => [elementWithHourly(14)] });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchWindCorridor([a, b], ["AROME"]);
+    const out = await fetchWindCorridor([a, b, c], ["AROME"]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // Second request carries the missing point only.
+    const secondUrl = String(fetchMock.mock.calls[1][0]);
+    expect(secondUrl).toContain("latitude=42.8&longitude=6.9");
+    // ...and its single element lands on index 2, not index 0.
+    expect(out[0][0].hourly.wind_speed_10m).toEqual([10, 10]);
+    expect(out[1][0].hourly.wind_speed_10m).toEqual([12, 12]);
+    expect(out[2][0].hourly.wind_speed_10m).toEqual([14, 14]);
+  });
+
+  it("keys the cache on the model chain, not on the coordinates alone", async () => {
+    const coords = [{ lat: 43.3, lon: 5.35 }];
+    const fetchMock = vi.fn().mockResolvedValue({ json: async () => [elementWithHourly(9)] });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchWindCorridor(coords, ["AROME"]);
+    await fetchWindCorridor(coords, ["AROME", "ICON"]);
+    expect(fetchMock).toHaveBeenCalledTimes(3); // 1 for AROME, then 2 for the pair
+  });
+
+  it("does not cache a batch whose request threw", async () => {
+    const coords = [{ lat: 43.3, lon: 5.35 }];
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("network down"))
+      .mockResolvedValueOnce({ json: async () => [elementWithHourly(8)] });
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await fetchWindCorridor(coords, ["AROME"])).toEqual([[]]);
+    const retry = await fetchWindCorridor(coords, ["AROME"]);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // retried, not served from cache
+    expect(retry[0][0].hourly.wind_speed_10m).toEqual([8, 8]);
+  });
+
+  it("caches an empty answer: a point outside every grid is a real answer", async () => {
+    const coords = [{ lat: 55.7, lon: 12.6 }]; // Danish coast, outside AROME
+    const fetchMock = vi.fn().mockResolvedValue({ json: async () => [{}] });
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await fetchWindCorridor(coords, ["AROME"])).toEqual([[]]);
+    expect(await fetchWindCorridor(coords, ["AROME"])).toEqual([[]]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

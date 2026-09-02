@@ -1,3 +1,26 @@
+# En-tetes de securite communs a toutes les reponses.
+#
+# HSTS : le domaine est deja en HTTPS force cote zone, l'en-tete evite le
+# premier aller-retour en clair sur les visites suivantes, sous-domaines
+# compris (dev.ohmywind.fr).
+#
+# Permissions-Policy : la geolocalisation sert au bouton "ma position", donc
+# self ; ni la camera ni le micro ne sont utilises, on les ferme.
+#
+# Volontairement absent : frame-ancestors / X-Frame-Options. Les hotes MCP
+# Apps peuvent afficher la vue plan dans une iframe, les bloquer casserait
+# cet usage.
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Permissions-Policy: geolocation=(self), camera=(), microphone=()
+
+# Les fichiers de /assets/ portent un hash de contenu dans leur nom : un
+# changement produit un nouveau nom. Ils peuvent donc etre caches un an sans
+# revalidation. Sans cet en-tete, le TTL de zone Cloudflare a 4 h forcait une
+# revalidation de tout le bundle a chaque lancement passe ce delai.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
 # Le service worker doit etre revalide a chaque lancement, sinon le
 # navigateur peut resservir l'ancien pendant des heures et les PWA/TWA
 # installees ne voient pas les deploiements (widget iOS, apps Android).
@@ -10,6 +33,8 @@
 /sw.js
   Cache-Control: no-store
 
+# Les environnements de preview et les anciens domaines ne doivent pas etre
+# indexes : seule ohmywind.fr est canonique.
 https://dev.ohmywind.fr/*
   X-Robots-Tag: noindex, nofollow
 

@@ -87,6 +87,62 @@ asks you for credentials is guessing rather than reading the server.
 | `plan_passage`            | End-to-end: per-leg timing + 1–5 complexity + ohmywind.fr deep-link, in one call. Pass `latest_departure` and it walks every hourly window up to 14 days out so the LLM can compare side-by-side. Declares an MCP Apps UI resource; supporting hosts auto-render the live plan in a sandboxed iframe. |
 | `read_me`                 | Returns OhMyWind's calculation methodology. Call it when the user asks how things are computed. |
 
+## REST API
+
+The web app talks to the same deployment over plain HTTP. Every response is
+JSON, no key and no account required.
+
+| Route | Method | Notes |
+|---|---|---|
+| `/api/v1/archetypes` | GET | The seven boat archetypes. `Cache-Control: public, max-age=86400`. |
+| `/api/v1/passage` | POST | Passage plan from a departure time. Sweeps departures when `latest_departure` is set. |
+| `/api/v1/passage-by-eta` | POST | Passage plan from a target arrival. |
+| `/api/v1/marine/marc` | GET | SHOM and MARC tidal atlas overlay for one point. Always 200, `covered` tells you whether there was anything to give. |
+| `/api/v1/marine/marc/coverage` | GET | Bounding boxes of the loaded atlases, so a client can skip the calls that cannot return anything. `Cache-Control: public, max-age=86400`. |
+| `/api/v1/_client` | GET | How this deployment sees the caller, for rate-limit diagnosis. |
+| `/mcp` | POST | The MCP endpoint. Streaming transport, never compressed. |
+
+Responses under `/api/v1` are gzipped when the client asks for it and the body
+exceeds 1 KB. `/mcp` is deliberately excluded.
+
+### Limits
+
+A single free CPU worker serves everything, MCP sessions included, so each
+route carries a ceiling. All of them are configurable by environment variable
+on the deployment.
+
+| Limit | Default | Environment variable |
+|---|---|---|
+| Requests per IP per minute on the POST planners | 30 | `OPENWIND_RATE_LIMIT_REQUESTS` |
+| Requests per IP per minute on `/api/v1/marine/marc` | 120 | `OPENWIND_MARC_RATE_LIMIT` |
+| Rate-limit window | 60 s | `OPENWIND_RATE_LIMIT_WINDOW_S` |
+| Request body on `/api/v1/*` | 4 MiB, `413` beyond | `OPENWIND_MAX_BODY_BYTES` |
+| `forecast_cache` corridor points | 120, `422` beyond | fixed in `openwind-data` |
+| `forecast_cache` time axis | 400 hours, `422` beyond | fixed in `openwind-data` |
+| Steps per `/api/v1/marine/marc` call | 800, `422` beyond | fixed in the wrapper |
+
+`/api/v1/marine/marc/coverage` answers
+`{"atlases": [{"name": "FINIS", "source": "marc", "bbox": [lat_min, lon_min,
+lat_max, lon_max], "cells": [[lat_min, lon_min, lat_max, lon_max], ...]}, ...]}`,
+in WGS84 degrees, latitude first, sorted by source then name. It is an empty
+list on a Space that ships without the tidal atlas dataset.
+
+**Filter on `cells`, not on `bbox`.** MARC coverage polygons are written as
+bounding boxes at build time, so the ATLNE envelope spans 39.98 N to 64.99 N
+and 20.03 W to 15.00 E and swallows the whole Mediterranean, where the model
+holds no cell at all. `cells` lists the tiles that actually carry data, merged
+into rectangles; for SHOM it is the zone box, which is already tight. `bbox` is
+kept for the clients already reading it.
+
+The promise runs one way only, for both fields: outside every box there is
+nothing to fetch, inside one there may still be nothing (a MARC tile is half a
+degree wide and contains land, and the SHOM cloud is scattered).
+
+The overlay endpoint has its own, wider bucket because the web app calls it
+once per corridor point, up to 60 times for one computation. Its step ceiling
+allows 30 days of hourly predictions (721 steps) and refuses the shapes that
+would block the worker for seconds, such as a month at a 5-minute step.
+
 ## About this Space
 
 > ⚠️ This Space uses the **Docker SDK** (not Gradio). It does **not** carry
@@ -99,11 +155,17 @@ auto-deployed by GitHub Actions from `packages/hf-space/` on `main`. Don't
 commit directly to the Space repo; your changes will be overwritten at the
 next push.
 
-The wrapper carries the HTTP surface (landing page, REST endpoints, CORS,
-rate limiting) and nothing else. All domain logic lives in `openwind-mcp-core`
-and `openwind-data` upstream, re-deployable on Fly, Modal, or a VPS by writing
-a different wrapper. Neither upstream package imports Gradio or
+The wrapper is about a hundred lines: it reads the environment, allows the
+Space's own hostnames through FastMCP's DNS-rebinding guard, and runs uvicorn
+with the proxy flags HF's TLS edge requires. Everything else lives upstream in
+three packages that know nothing about Hugging Face: `openwind-api` (the HTTP
+surface, landing page, CORS, rate limiting), `openwind-mcp-core` (the four
+tools) and `openwind-data` (the domain). None of them imports Gradio or
 `huggingface_hub`.
+
+Re-deploying on Fly, Modal or a VPS is a different file of about this size,
+calling the same `create_app()` and `build_server()`. Freezing the MCP surface
+is dropping one argument.
 
 ## Cold-start
 

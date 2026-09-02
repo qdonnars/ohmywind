@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import type { ModelForecast, HourlyData, GeocodingResult } from "../types";
+import type { ModelForecast, HourlyData } from "../types";
 import {
   ACTIVE_LIMIT,
   activeModels,
@@ -178,6 +178,43 @@ export async function fetchAllModels(
   return models;
 }
 
+// Per-point cache for corridor wind, mirroring the 30 min TTL of
+// `fetchAllModels`. Without it, every recompute of a plan (boat change,
+// departure tweak, switch to arrival-time mode) refetched the whole corridor:
+// up to 4 requests and ~1.1 MB uncompressed for a 200 NM route whose points
+// had not moved. Keyed per point rather than per corridor so two plans that
+// only differ by a waypoint still reuse everything they have in common.
+const corridorCache = new Map<string, { models: ModelForecast[]; fetchedAt: number }>();
+
+// ~600 points is about ten long corridors kept warm. Beyond that we drop the
+// oldest insertions first; the Map preserves insertion order, so its own key
+// iteration is the eviction queue.
+const CORRIDOR_CACHE_MAX = 600;
+
+// 4 decimals is ~11 m, well under the finest model grid (AROME, 1.5 km), so
+// two keys that differ below that resolution would have returned the same
+// forecast anyway. The model list is part of the key because an entry holds
+// exactly the chain that was asked for.
+function corridorKey(coord: { lat: number; lon: number }, models: ModelName[]): string {
+  return `${coord.lat.toFixed(4)},${coord.lon.toFixed(4)}|${models.join(",")}`;
+}
+
+function storeCorridorPoint(key: string, models: ModelForecast[], fetchedAt: number): void {
+  // Delete first so a refresh moves the key back to the tail of the queue.
+  corridorCache.delete(key);
+  corridorCache.set(key, { models, fetchedAt });
+  while (corridorCache.size > CORRIDOR_CACHE_MAX) {
+    const oldest = corridorCache.keys().next();
+    if (oldest.done) break;
+    corridorCache.delete(oldest.value);
+  }
+}
+
+/** Test seam: drop every cached corridor point. Not used by the app. */
+export function clearWindCorridorCache(): void {
+  corridorCache.clear();
+}
+
 // Fetch wind for a whole route corridor in one request PER MODEL, using
 // Open-Meteo's multi-coordinate support (comma-separated latitude/longitude →
 // a JSON array, one element per coordinate, order preserved). This collapses
@@ -198,8 +235,23 @@ export async function fetchWindCorridor(
   const out: ModelForecast[][] = coords.map(() => []);
   if (coords.length === 0 || models.length === 0) return out;
 
-  const lats = coords.map((c) => c.lat).join(",");
-  const lons = coords.map((c) => c.lon).join(",");
+  // Split the corridor into what the cache already holds and what is missing.
+  // Two successive plans over the same route share most of their points, so a
+  // boat change or a departure tweak usually finds everything here.
+  const now = Date.now();
+  const missing: number[] = [];
+  for (let i = 0; i < coords.length; i++) {
+    const hit = corridorCache.get(corridorKey(coords[i], models));
+    if (hit && now - hit.fetchedAt < CACHE_TTL) {
+      out[i] = hit.models;
+    } else {
+      missing.push(i);
+    }
+  }
+  if (missing.length === 0) return out;
+
+  const lats = missing.map((i) => coords[i].lat).join(",");
+  const lons = missing.map((i) => coords[i].lon).join(",");
   const base = `?latitude=${lats}&longitude=${lons}&${PARAMS}`;
 
   const perModel = await Promise.all(
@@ -209,32 +261,36 @@ export async function fetchWindCorridor(
         const resp = await fetch(`${endpoint.endpoint}${base}${endpoint.extraParams || ""}`);
         const data = await resp.json();
         // Multi-coordinate → array; a 1-coord request may come back as a bare
-        // object, so normalize to an array aligned to `coords`.
+        // object, so normalize to an array aligned to `missing`.
         const arr: unknown[] = Array.isArray(data) ? data : [data];
-        return { name, arr };
+        return { name, arr, ok: true };
       } catch {
-        return { name, arr: [] as unknown[] };
+        return { name, arr: [] as unknown[], ok: false };
       }
     }),
   );
 
+  // The response array is aligned to `missing`, not to `coords`: map back
+  // through the index list before writing into `out`.
+  const fetched: ModelForecast[][] = missing.map(() => []);
   for (const { name, arr } of perModel) {
-    for (let i = 0; i < coords.length; i++) {
-      const el = arr[i] as { hourly?: HourlyData } | undefined;
+    for (let k = 0; k < missing.length; k++) {
+      const el = arr[k] as { hourly?: HourlyData } | undefined;
       if (el && el.hourly) {
-        out[i].push({ modelName: name, hourly: sanitizeHourly(el.hourly) });
+        fetched[k].push({ modelName: name, hourly: sanitizeHourly(el.hourly) });
       }
     }
   }
-  return out;
-}
 
-export async function searchSpots(
-  query: string
-): Promise<GeocodingResult[]> {
-  const res = await fetch(
-    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=fr`
-  );
-  const data = await res.json();
-  return data.results || [];
+  // An empty list is a legitimate answer (point outside every grid), so it is
+  // worth caching. A request that threw is not: caching it would pin a network
+  // blip for half an hour, so a failed batch is served but not stored.
+  const cacheable = perModel.every((m) => m.ok);
+  for (let k = 0; k < missing.length; k++) {
+    out[missing[k]] = fetched[k];
+    if (cacheable) {
+      storeCorridorPoint(corridorKey(coords[missing[k]], models), fetched[k], now);
+    }
+  }
+  return out;
 }

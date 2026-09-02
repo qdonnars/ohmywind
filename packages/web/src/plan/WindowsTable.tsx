@@ -3,8 +3,9 @@
 
 import { useMemo, useState } from "react";
 import type { PassageWindow } from "./types";
-import { CX_COLORS } from "./types";
+import { cxLevelVar } from "../domain/thresholds";
 import { fmtDurationSafe } from "./format";
+import { fmtClock, fmtDay } from "../domain/datetime";
 
 type SortKey = "departure" | "duration" | "complexity";
 type SortDir = "asc" | "desc";
@@ -18,13 +19,7 @@ const SAIL_LABELS: Record<string, string> = {
 
 function fmtDeparture(iso: string): string {
   const d = new Date(iso);
-  const day = d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
-  const hh = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-  return `${day} · ${hh}`;
-}
-
-function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  return `${fmtDay(d)} · ${fmtClock(d)}`;
 }
 
 function fmtRange(min: number | null | undefined, max: number | null | undefined, unit: string, decimals = 0): string {
@@ -46,7 +41,7 @@ function fmtHsRange(min: number | null | undefined, max: number | null | undefin
 
 function fmtTimeSafe(iso: string | null | undefined): string {
   if (!iso) return "—";
-  return fmtTime(iso);
+  return fmtClock(iso);
 }
 
 export interface WindowsTableProps {
@@ -111,7 +106,8 @@ export function WindowsTable({ windows, onSelect }: WindowsTableProps) {
           const cx = w.complexity ?? {} as Partial<typeof w.complexity>;
           const sail = cs.predominant_sail_angle;
           const cxLvl = typeof cx.level === "number" ? cx.level : 0;
-          const cxColor = CX_COLORS[cxLvl] ?? "var(--ow-fg-3)";
+          // A window with no complexity block reads level 0, outside the palette.
+          const cxColor = cxLvl >= 1 && cxLvl <= 5 ? cxLevelVar(cxLvl) : "var(--ow-fg-3)";
           return (
             <button
               key={w.departure}

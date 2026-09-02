@@ -8,13 +8,6 @@ import { Routes } from "./Routes";
 import { ThemeProvider } from "./design/theme";
 import { registerServiceWorker } from "./sw";
 
-// GitHub Pages 404.html redirect: restore original path stored in sessionStorage
-const spaRedirect = sessionStorage.getItem("spa_redirect");
-if (spaRedirect) {
-  sessionStorage.removeItem("spa_redirect");
-  window.history.replaceState(null, "", spaRedirect);
-}
-
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider>
@@ -24,7 +17,7 @@ createRoot(document.getElementById("root")!).render(
 );
 
 // Register the service worker so the app shell is installable and offline-
-// resilient. Silent by design: `registerType: 'autoUpdate'` plus `skipWaiting`
-// swap in the new SW as soon as it is found, and we intentionally render no
-// update-toast today.
+// resilient. Still silent, still no update-toast: src/sw.ts takes the new
+// worker as soon as it is found, but holds it back while a route is being
+// drawn so a deploy cannot reload the page under the reader.
 registerServiceWorker();

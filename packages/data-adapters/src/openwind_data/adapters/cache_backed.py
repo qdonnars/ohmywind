@@ -44,6 +44,21 @@ from openwind_data.routing.geometry import Point, haversine_distance
 # mis-parses against a newer server.
 SUPPORTED_VERSION = 1
 
+# Payload ceilings. Parsing cost is O(points x hours x series) and every
+# ``fetch`` then walks the points linearly, once per segment and per sweep
+# window, so an unbounded payload turns one HTTP request into tens of seconds
+# of CPU on a single-worker deployment. Measured during the 2026-09 audit:
+# 5000 points x 336 h is 65 MB of JSON, 768 ms to decode and 590 ms to parse,
+# before any simulation runs.
+#
+# Both ceilings sit well above what the web client sends (60 corridor points,
+# capped in ``forecastCache.ts``, over a 336 h sweep horizon at the very
+# most), so they guard against abuse and against a client bug, never against a
+# legitimate caller. Raise them together with the client caps if the corridor
+# sampling ever widens.
+MAX_CACHE_POINTS = 120
+MAX_CACHE_HOURS = 400
+
 # Sea field names carried per corridor point, index-aligned to the shared time
 # axis. Mirrors ``SeaPoint`` minus ``time``/``current_source`` (handled
 # separately) and the openmeteo ``_parse_sea`` output.
@@ -144,6 +159,12 @@ class CacheBackedAdapter:
             isinstance(times_raw, list) and len(times_raw) > 0,
             "times_ms must be a non-empty list",
         )
+        # Checked before the loop below, not after: the point of the ceiling
+        # is to refuse the work, not to do it and then complain.
+        _require(
+            len(times_raw) <= MAX_CACHE_HOURS,
+            f"times_ms has {len(times_raw)} entries, at most {MAX_CACHE_HOURS} accepted",
+        )
         times: list[datetime] = []
         for ms in times_raw:
             _require(isinstance(ms, (int, float)), "times_ms entries must be numbers")
@@ -152,6 +173,10 @@ class CacheBackedAdapter:
 
         points_raw = payload.get("points")
         _require(isinstance(points_raw, list), "points must be a list")
+        _require(
+            len(points_raw) <= MAX_CACHE_POINTS,
+            f"points has {len(points_raw)} entries, at most {MAX_CACHE_POINTS} accepted",
+        )
         points: list[_CachePoint] = []
         for i, pt in enumerate(points_raw):
             _require(isinstance(pt, dict), f"points[{i}] must be an object")

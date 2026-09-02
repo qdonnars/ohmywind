@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import type { MarineHourly, ModelForecast } from "../types";
 import { TimelineHeader } from "./TimelineHeader";
 import { useTimezone } from "../hooks/useTimezone";
-import { nowParisHourPrefix, formatHour } from "../utils/format";
+import { nowParisHourPrefix } from "../domain/datetime";
+import { formatHour } from "../utils/format";
+import { useTimelineScroll } from "../hooks/useTimelineScroll";
 
 // Fixed cell width for the chart so the SVG aligns perfectly with the timeline
 // header. 36 px shows ~30 hours per viewport on a typical mobile (good for
@@ -52,73 +54,16 @@ export function TideChart({
   selectedHour,
   onSelectHour,
 }: TideChartProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [scrolledEnd, setScrolledEnd] = useState(false);
-  const [visibleDay, setVisibleDay] = useState("");
   const [timezoneMode] = useTimezone();
 
   const masterTimeline = useMemo(() => marine.time, [marine.time]);
 
-  const dayStarts = useMemo(() => {
-    const set = new Set<string>();
-    let prev = "";
-    for (const t of masterTimeline) {
-      const day = t.slice(0, 10);
-      if (day !== prev) {
-        set.add(t);
-        prev = day;
-      }
-    }
-    return set;
-  }, [masterTimeline]);
-
   const nowHour = nowParisHourPrefix();
-
-  // Persisted across spot switches: see WindTable for the same pattern.
-  const leftmostHourRef = useRef<string | null>(null);
-
-  const updateVisibleDay = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el || masterTimeline.length === 0) return;
-    const leftmostIdx = Math.max(0, Math.floor(el.scrollLeft / CELL_W));
-    const t = masterTimeline[Math.min(leftmostIdx, masterTimeline.length - 1)];
-    if (t) {
-      setVisibleDay(t.slice(0, 10));
-      leftmostHourRef.current = t;
-    }
-  }, [masterTimeline]);
-
-  const checkScrollEnd = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 10;
-    setScrolledEnd(atEnd);
-    updateVisibleDay();
-  }, [updateVisibleDay]);
-
-  useEffect(() => {
-    if (!scrollRef.current || masterTimeline.length === 0) return;
-    // Same anchor restoration as WindTable; see comment there for the
-    // hasAnchor offset rationale.
-    const hasAnchor = leftmostHourRef.current != null;
-    const anchor = leftmostHourRef.current ?? nowHour;
-    const idx = masterTimeline.findIndex((t) => t.startsWith(anchor.slice(0, 13)));
-    const nearestIdx =
-      idx >= 0 ? idx : masterTimeline.findIndex((t) => t > anchor.slice(0, 13));
-    if (nearestIdx > 0) {
-      const offset = hasAnchor ? 0 : 60;
-      scrollRef.current.scrollLeft = Math.max(0, nearestIdx * CELL_W - offset);
-    }
-    checkScrollEnd();
-  }, [masterTimeline, nowHour, checkScrollEnd]);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.addEventListener("scroll", checkScrollEnd, { passive: true });
-    return () => el.removeEventListener("scroll", checkScrollEnd);
-  }, [checkScrollEnd]);
-
+  const { scrollRef, scrolledEnd, visibleDay, dayStarts } = useTimelineScroll(
+    masterTimeline,
+    CELL_W,
+    nowHour,
+  );
   // Tide curve geometry. Prefer the chart-datum (ZH) series when MARC covers
   // the spot — that's what nautical charts and SHOM annuals display, and it's
   // always ≥ 0 so users don't see negative heights at low tide.

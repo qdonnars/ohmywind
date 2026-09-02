@@ -505,6 +505,31 @@ wheels = [
 ]
 
 [[package]]
+name = "openwind-api"
+version = "0.1.0"
+source = { editable = "../api" }
+dependencies = [
+    { name = "httpx" },
+    { name = "openwind-data" },
+    { name = "starlette" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "openwind-data", editable = "../data-adapters" },
+    { name = "polars", marker = "extra == 'dev'", specifier = ">=1.0" },
+    { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.390" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.2" },
+    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5" },
+    { name = "starlette", specifier = ">=0.37" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+]
+provides-extras = ["dev"]
+
+[[package]]
 name = "openwind-data"
 version = "0.1.0"
 source = { editable = "../data-adapters" }
@@ -521,6 +546,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=1.26" },
     { name = "polars", specifier = ">=1.0" },
     { name = "pydantic", specifier = ">=2.7" },
+    { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.390" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.2" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
     { name = "respx", marker = "extra == 'dev'", specifier = ">=0.21" },
@@ -533,11 +559,9 @@ name = "openwind-hf-space"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "httpx" },
     { name = "huggingface-hub", extra = ["hf-xet"] },
-    { name = "openwind-data" },
+    { name = "openwind-api" },
     { name = "openwind-mcp-core" },
-    { name = "starlette" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -550,14 +574,12 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "httpx", specifier = ">=0.27" },
     { name = "huggingface-hub", extras = ["hf-xet"], specifier = ">=0.24" },
-    { name = "openwind-data", editable = "../data-adapters" },
+    { name = "openwind-api", editable = "../api" },
     { name = "openwind-mcp-core", editable = "../mcp-core" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.2" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5" },
-    { name = "starlette", specifier = ">=0.37" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
 provides-extras = ["dev"]

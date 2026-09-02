@@ -1,13 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import {
+  clearMarcCoverageCache,
+  clearMarineCache,
+  fetchMarineCorridor,
   isCurrentsRelevant,
   isTidesRelevant,
   isWavesRelevant,
+  marcMayCover,
   mergeMarcOverlay,
-  parisIsoToUtcMs,
+  parseMarcCoverage,
+  type MarcAtlasBox,
   type MarcOverlay,
 } from "./marine";
 import type { MarineHourly } from "../types";
@@ -89,25 +94,6 @@ describe("isWavesRelevant", () => {
 
   it("returns false when no Hs anywhere (no Marine coverage)", () => {
     expect(isWavesRelevant(emptyMarine())).toBe(false);
-  });
-});
-
-describe("parisIsoToUtcMs", () => {
-  it("CEST (summer): Paris midnight is 22:00 UTC the day before", () => {
-    // 2026-07-01 is well inside CEST (+02:00)
-    const ms = parisIsoToUtcMs("2026-07-01T00:00");
-    expect(new Date(ms).toISOString()).toBe("2026-06-30T22:00:00.000Z");
-  });
-
-  it("CET (winter): Paris midnight is 23:00 UTC the day before", () => {
-    // 2026-01-15 is well inside CET (+01:00)
-    const ms = parisIsoToUtcMs("2026-01-15T00:00");
-    expect(new Date(ms).toISOString()).toBe("2026-01-14T23:00:00.000Z");
-  });
-
-  it("CEST mid-day: 12:00 Paris = 10:00 UTC", () => {
-    const ms = parisIsoToUtcMs("2026-07-01T12:00");
-    expect(new Date(ms).toISOString()).toBe("2026-07-01T10:00:00.000Z");
   });
 });
 
@@ -231,5 +217,317 @@ describe("isTidesRelevant with MARC ZH", () => {
     const m = emptyMarine();
     m.tide_height_zh_m = [1.0, 1.1, 1.2]; // range = 0.20, below 0.5 m
     expect(isTidesRelevant(m)).toBe(false);
+  });
+});
+
+// ── MARC coverage and the corridor batch ─────────────────────────────────────
+
+const MED_BOX: MarcAtlasBox = {
+  // Deliberately nowhere near the Mediterranean: the audit measured 14 MARC
+  // answers out of 14 saying `covered: false` on a Corsican leg.
+  name: "FINIS",
+  source: "marc",
+  bbox: [47.5, -6.0, 49.0, -3.5],
+};
+
+describe("parseMarcCoverage", () => {
+  it("reads the documented body", () => {
+    expect(parseMarcCoverage({ atlases: [MED_BOX] })).toEqual([MED_BOX]);
+  });
+
+  it("accepts an empty list, which is a real answer", () => {
+    // A Space that booted without the atlas dataset. Nothing to ask.
+    expect(parseMarcCoverage({ atlases: [] })).toEqual([]);
+  });
+
+  it("rejects a body that is not the documented shape", () => {
+    // The caller then falls back to asking MARC, point by point, as before.
+    expect(parseMarcCoverage(null)).toBeNull();
+    expect(parseMarcCoverage("Not Found")).toBeNull();
+    expect(parseMarcCoverage({})).toBeNull();
+    expect(parseMarcCoverage({ atlases: {} })).toBeNull();
+  });
+
+  it("drops an unreadable entry instead of the whole answer", () => {
+    // One atlas we cannot read is no reason to spend a request on every point
+    // of every other one. Dropping it can only make the client ask more.
+    const body = {
+      atlases: [
+        { name: "X", source: "marc" },
+        { name: "Y", source: "marc", bbox: [1, 2, 3] },
+        { name: "Z", source: "marc", bbox: [1, 2, 3, "4"] },
+        { name: "W", source: "marc", bbox: [9, 2, 1, 4] },
+        MED_BOX,
+      ],
+    };
+    expect(parseMarcCoverage(body)).toEqual([MED_BOX]);
+  });
+
+  it("reads the exact tiles when the entry carries them", () => {
+    const withCells = {
+      ...MED_BOX,
+      cells: [
+        [47.5, -6.0, 48.0, -5.0],
+        [48.0, -5.0, 49.0, -3.5],
+      ],
+    };
+    expect(parseMarcCoverage({ atlases: [withCells] })).toEqual([withCells]);
+  });
+
+  it("keeps the bbox in charge when the tiles are unreadable", () => {
+    const parsed = parseMarcCoverage({
+      atlases: [{ ...MED_BOX, cells: [[1, 2, 3], "nope"] }],
+    });
+    expect(parsed).toEqual([MED_BOX]);
+    expect(parsed![0].cells).toBeUndefined();
+  });
+
+  it("keeps only the readable tiles of a partly broken list", () => {
+    const parsed = parseMarcCoverage({
+      atlases: [{ ...MED_BOX, cells: [[47.5, -6.0, 48.0, -5.0], [1, 2, 3]] }],
+    });
+    expect(parsed![0].cells).toEqual([[47.5, -6.0, 48.0, -5.0]]);
+  });
+});
+
+describe("marcMayCover", () => {
+  it("says yes inside a box", () => {
+    expect(marcMayCover(48.3, -4.5, [MED_BOX])).toBe(true);
+  });
+
+  it("says no outside every box", () => {
+    expect(marcMayCover(42.1, 6.9, [MED_BOX])).toBe(false);
+  });
+
+  it("includes the edges, the boxes being widened server-side already", () => {
+    expect(marcMayCover(47.5, -6.0, [MED_BOX])).toBe(true);
+    expect(marcMayCover(49.0, -3.5, [MED_BOX])).toBe(true);
+  });
+
+  it("asks when coverage is unknown, which is the old behaviour", () => {
+    expect(marcMayCover(42.1, 6.9, null)).toBe(true);
+  });
+
+  it("asks nothing when the server publishes no atlas at all", () => {
+    expect(marcMayCover(48.3, -4.5, [])).toBe(false);
+  });
+
+  // MARC's ATLNE bbox spans [39.98, -20.03] to [64.99, 15.00]: it swallows the
+  // whole western Mediterranean while holding no tile there. The bbox alone
+  // would send every Corsican corridor point back to MARC for nothing.
+  const ATLNE: MarcAtlasBox = {
+    name: "ATLNE",
+    source: "marc",
+    bbox: [39.98, -20.03, 64.99, 15.0],
+    cells: [
+      [47.0, -6.0, 51.0, 0.0],
+      [43.0, -3.0, 47.0, 0.0],
+    ],
+  };
+
+  it("tests the tiles, not the bbox, when the entry carries them", () => {
+    // Corsica: inside the bbox, outside every tile.
+    expect(marcMayCover(42.1, 6.9, [ATLNE])).toBe(false);
+    // Iroise: inside a tile.
+    expect(marcMayCover(48.3, -4.5, [ATLNE])).toBe(true);
+  });
+
+  it("falls back to the bbox for an entry without tiles", () => {
+    const noCells: MarcAtlasBox = { name: ATLNE.name, source: ATLNE.source, bbox: ATLNE.bbox };
+    expect(marcMayCover(42.1, 6.9, [noCells])).toBe(true);
+  });
+
+  it("still covers a point any single atlas covers", () => {
+    expect(marcMayCover(48.3, -4.5, [MED_BOX, ATLNE])).toBe(true);
+  });
+});
+
+describe("fetchMarineCorridor", () => {
+  /** One Open-Meteo Marine element: three hours, one usable wave height. */
+  function omPoint(waveHeight: number) {
+    return {
+      hourly: {
+        time: ["2026-05-08T00:00", "2026-05-08T01:00", "2026-05-08T02:00"],
+        wave_height: [waveHeight, waveHeight, waveHeight],
+        ocean_current_velocity: [1.852, 1.852, 1.852],
+      },
+    };
+  }
+
+  interface Calls {
+    marine: string[];
+    marc: string[];
+    coverage: number;
+  }
+
+  /** Stubs fetch and records what was asked of whom. */
+  function stubFetch(coverage: { status: number; body?: unknown }, points: number): Calls {
+    const calls: Calls = { marine: [], marc: [], coverage: 0 };
+    vi.stubGlobal("fetch", async (input: string) => {
+      const url = String(input);
+      if (url.includes("/marine/marc/coverage")) {
+        calls.coverage += 1;
+        return {
+          ok: coverage.status === 200,
+          status: coverage.status,
+          json: async () => coverage.body,
+        };
+      }
+      if (url.includes("/marine/marc")) {
+        calls.marc.push(url);
+        return { ok: true, status: 200, json: async () => ({ covered: false }) };
+      }
+      calls.marine.push(url);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => Array.from({ length: points }, (_, i) => omPoint(0.5 + i / 10)),
+      };
+    });
+    return calls;
+  }
+
+  const MED_CORRIDOR = [
+    { lat: 41.903, lon: 6.284 },
+    { lat: 42.006, lon: 6.609 },
+    { lat: 42.109, lon: 6.934 },
+    { lat: 42.212, lon: 7.257 },
+  ];
+
+  beforeEach(() => {
+    clearMarineCache();
+    clearMarcCoverageCache();
+    vi.stubGlobal("localStorage", {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {},
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("asks Open-Meteo once for the whole corridor", async () => {
+    const calls = stubFetch({ status: 200, body: { atlases: [MED_BOX] } }, 4);
+    const out = await fetchMarineCorridor(MED_CORRIDOR);
+    expect(calls.marine).toHaveLength(1);
+    // Coordinates travel comma-separated, in order, latitudes and longitudes
+    // in parallel lists — the same shape the wind corridor uses.
+    expect(calls.marine[0]).toContain("latitude=41.903,42.006,42.109,42.212");
+    expect(calls.marine[0]).toContain("longitude=6.284,6.609,6.934,7.257");
+    expect(out).toHaveLength(4);
+    expect(out.every((m) => m !== null)).toBe(true);
+    // Order preserved: element k of the answer belongs to coordinate k.
+    expect(out[0]!.wave_height_m[0]).toBe(0.5);
+    expect(out[3]!.wave_height_m[0]).toBeCloseTo(0.8);
+  });
+
+  it("converts currents from km/h to knots, like the single-point path", async () => {
+    // 1.852 km/h is exactly one knot.
+    stubFetch({ status: 200, body: { atlases: [MED_BOX] } }, 1);
+    const out = await fetchMarineCorridor(MED_CORRIDOR.slice(0, 1));
+    expect(out[0]!.current_speed_kn[0]).toBeCloseTo(1);
+  });
+
+  it("skips MARC entirely outside every atlas", async () => {
+    const calls = stubFetch({ status: 200, body: { atlases: [MED_BOX] } }, 4);
+    await fetchMarineCorridor(MED_CORRIDOR);
+    // The measured case: 14 calls for 14 answers that could not carry data.
+    expect(calls.marc).toEqual([]);
+    expect(calls.coverage).toBe(1);
+  });
+
+  it("still asks MARC inside an atlas", async () => {
+    const calls = stubFetch({ status: 200, body: { atlases: [MED_BOX] } }, 2);
+    await fetchMarineCorridor([
+      { lat: 48.3, lon: -4.5 },
+      { lat: 48.4, lon: -4.6 },
+    ]);
+    expect(calls.marc).toHaveLength(2);
+    expect(calls.marc[0]).toContain("lat=48.3");
+  });
+
+  it("falls back to asking every point when the endpoint is missing", async () => {
+    // A Space deployed before the coverage route exists answers 404.
+    const calls = stubFetch({ status: 404 }, 4);
+    await fetchMarineCorridor(MED_CORRIDOR);
+    expect(calls.marc).toHaveLength(4);
+  });
+
+  it("falls back the same way on a malformed body", async () => {
+    const calls = stubFetch({ status: 200, body: { oops: true } }, 4);
+    await fetchMarineCorridor(MED_CORRIDOR);
+    expect(calls.marc).toHaveLength(4);
+  });
+
+  it("asks the coverage endpoint once per session, not once per point", async () => {
+    const calls = stubFetch({ status: 200, body: { atlases: [MED_BOX] } }, 4);
+    await fetchMarineCorridor(MED_CORRIDOR);
+    clearMarineCache();
+    await fetchMarineCorridor(MED_CORRIDOR);
+    expect(calls.coverage).toBe(1);
+    expect(calls.marine).toHaveLength(2);
+  });
+
+  it("serves a second plan over the same route from cache, no request at all", async () => {
+    const calls = stubFetch({ status: 200, body: { atlases: [MED_BOX] } }, 4);
+    await fetchMarineCorridor(MED_CORRIDOR);
+    const again = await fetchMarineCorridor(MED_CORRIDOR);
+    expect(calls.marine).toHaveLength(1);
+    expect(again.every((m) => m !== null)).toBe(true);
+  });
+
+  it("asks once for two corridor points in the same grid cell", async () => {
+    const calls = stubFetch({ status: 200, body: { atlases: [MED_BOX] } }, 1);
+    const out = await fetchMarineCorridor([
+      { lat: 42.10001, lon: 6.9 },
+      { lat: 42.10002, lon: 6.9 },
+    ]);
+    expect(calls.marine[0]).toContain("latitude=42.10001&");
+    expect(out[0]).toBe(out[1]);
+  });
+
+  it("returns nulls rather than throwing when Open-Meteo refuses", async () => {
+    vi.stubGlobal("fetch", async (input: string) => {
+      if (String(input).includes("coverage")) {
+        return { ok: true, status: 200, json: async () => ({ atlases: [] }) };
+      }
+      return { ok: false, status: 429, json: async () => ({}) };
+    });
+    expect(await fetchMarineCorridor(MED_CORRIDOR)).toEqual([null, null, null, null]);
+  });
+
+  it("skips MARC on a bbox that swallows the route but holds no tile there", async () => {
+    // ATLNE's bbox reaches the Balearics; its tiles stop at the Bay of Biscay.
+    const atlne: MarcAtlasBox = {
+      name: "ATLNE",
+      source: "marc",
+      bbox: [39.98, -20.03, 64.99, 15.0],
+      cells: [[43.0, -6.0, 51.0, 0.0]],
+    };
+    const calls = stubFetch({ status: 200, body: { atlases: [atlne] } }, 4);
+    await fetchMarineCorridor(MED_CORRIDOR);
+    expect(calls.marc).toEqual([]);
+  });
+
+  it("still asks on the same bbox when the entry carries no tile list", async () => {
+    // The contract before `cells` existed: the bbox is all we have, so we ask.
+    const calls = stubFetch(
+      {
+        status: 200,
+        body: { atlases: [{ name: "ATLNE", source: "marc", bbox: [39.98, -20.03, 64.99, 15.0] }] },
+      },
+      4,
+    );
+    await fetchMarineCorridor(MED_CORRIDOR);
+    expect(calls.marc).toHaveLength(4);
+  });
+
+  it("returns an empty result for an empty corridor without asking anything", async () => {
+    const calls = stubFetch({ status: 200, body: { atlases: [] } }, 0);
+    expect(await fetchMarineCorridor([])).toEqual([]);
+    expect(calls.marine).toEqual([]);
+    expect(calls.coverage).toBe(0);
   });
 });

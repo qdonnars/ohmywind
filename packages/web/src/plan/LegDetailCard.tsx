@@ -427,6 +427,18 @@ export function LegDetailCard({ leg }: { leg: AggregatedLeg }) {
           )}
         </svg>
       </div>
+
+      {/* Which way to read the diagram (issue #269). The wind and the wave
+          markers sit on the side the weather comes FROM, the current arrow
+          points where the water sets TO. Both are the conventions of their
+          own data, and nothing said so on screen. */}
+      <p
+        className="mt-1 text-center text-[10px] leading-snug"
+        style={{ color: "var(--ow-fg-2)" }}
+      >
+        Vent et vagues sont placés du côté d'où ils viennent. La flèche de
+        courant montre où il porte.
+      </p>
     </div>
   );
 }

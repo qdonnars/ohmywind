@@ -7,7 +7,12 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from openwind_data.adapters.cache_backed import SUPPORTED_VERSION, CacheBackedAdapter
+from openwind_data.adapters.cache_backed import (
+    MAX_CACHE_HOURS,
+    MAX_CACHE_POINTS,
+    SUPPORTED_VERSION,
+    CacheBackedAdapter,
+)
 from openwind_data.adapters.openmeteo import AUTO_MODEL
 from openwind_data.routing.geometry import Point
 from openwind_data.routing.passage import estimate_passage
@@ -98,6 +103,57 @@ def test_from_payload_rejects_bad_shape(mutate) -> None:
 def test_non_dict_payload_rejected() -> None:
     with pytest.raises(ValueError):
         CacheBackedAdapter.from_payload([1, 2, 3])
+
+
+# ----------------------------------------------------------------- ceilings
+
+
+def _oversized_points(count):
+    """``count`` corridor points, each carrying one model on the shared axis."""
+    n = len(_TIMES_MS)
+    return [
+        _point(43.0 + i / 1000, 5.0, {"meteofrance_arome_france": _wind([10.0] * n, [180.0] * n)})
+        for i in range(count)
+    ]
+
+
+def test_accepts_a_payload_right_at_the_point_ceiling() -> None:
+    adapter = CacheBackedAdapter.from_payload(_payload(_oversized_points(MAX_CACHE_POINTS)))
+    assert isinstance(adapter, CacheBackedAdapter)
+
+
+def test_rejects_more_points_than_the_ceiling() -> None:
+    # Unbounded here means one request buys tens of seconds of CPU on a
+    # single-worker deployment: the nearest-neighbour scan is linear and runs
+    # once per segment and per sweep window.
+    with pytest.raises(ValueError) as exc:
+        CacheBackedAdapter.from_payload(_payload(_oversized_points(MAX_CACHE_POINTS + 1)))
+    assert f"at most {MAX_CACHE_POINTS} accepted" in str(exc.value)
+    assert str(MAX_CACHE_POINTS + 1) in str(exc.value)
+
+
+def test_rejects_a_longer_time_axis_than_the_ceiling() -> None:
+    payload = _payload(_oversized_points(1))
+    payload["times_ms"] = [
+        int((_T0 + timedelta(hours=h)).timestamp() * 1000) for h in range(MAX_CACHE_HOURS + 1)
+    ]
+    with pytest.raises(ValueError) as exc:
+        CacheBackedAdapter.from_payload(payload)
+    assert f"at most {MAX_CACHE_HOURS} accepted" in str(exc.value)
+
+
+def test_the_time_ceiling_is_checked_before_the_axis_is_materialised() -> None:
+    """An oversized axis must cost a length check, not N datetime conversions.
+
+    Pinned with entries that would raise a different error if they were
+    parsed: reaching the "must be numbers" message would mean the ceiling ran
+    too late to protect anything.
+    """
+    payload = _payload(_oversized_points(1))
+    payload["times_ms"] = ["not-a-number"] * (MAX_CACHE_HOURS + 1)
+    with pytest.raises(ValueError) as exc:
+        CacheBackedAdapter.from_payload(payload)
+    assert f"at most {MAX_CACHE_HOURS} accepted" in str(exc.value)
 
 
 # ---------------------------------------------------------------------- fetch

@@ -10,6 +10,23 @@
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-monochrome-512.png", "sizes": "512x512", "type": "image/png", "purpose": "monochrome" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Planifier une route",
+      "short_name": "Planifier",
+      "description": "Estimer la durée d'un trajet et la météo en route",
+      "url": "/plan",
+      "icons": [{ "src": "/shortcut-plan-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Réglages",
+      "short_name": "Réglages",
+      "description": "Choisir vos modèles météo et votre bateau",
+      "url": "/config",
+      "icons": [{ "src": "/shortcut-config-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
   ]
 }

@@ -11,8 +11,10 @@ under 0.5% and is ignored.
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 from itertools import pairwise
+from typing import Any
 
 EARTH_RADIUS_NM = 3440.065
 
@@ -62,6 +64,38 @@ def validate_waypoints(points: list[Point]) -> None:
             raise ValueError(f"waypoint {i}: lat={p.lat} out of range [-90, 90]")
         if not math.isfinite(p.lon) or not -180.0 <= p.lon <= 180.0:
             raise ValueError(f"waypoint {i}: lon={p.lon} out of range [-180, 180]")
+
+
+def parse_waypoints(raw: Any) -> list[Point]:
+    """Read a route off an untrusted payload, then validate it.
+
+    Both public shells reach the engine through here. They receive the route
+    in two different notations, because two different clients write it: the
+    web app posts ``[[lat, lon], ...]`` (compact, and already the shape of the
+    ``wpts`` query parameter of a deep-link) while an MCP tool call carries
+    ``[{"lat": ..., "lon": ...}, ...]``, which is what a schema-driven caller
+    produces. Both are read here so the failure wording is written once.
+
+    Bounds are checked before returning, and before any upstream call: an
+    out-of-range point that slipped past used to reach Open-Meteo and come
+    back as a misleading "forecast horizon exceeded".
+
+    Raises:
+        ValueError: on a malformed entry, prefixed ``invalid waypoints:``
+            (the wording the web client's error mapping reads), or from
+            ``validate_waypoints`` on a route that parses but is out of range.
+    """
+    try:
+        points = [
+            Point(lat=float(w["lat"]), lon=float(w["lon"]))
+            if isinstance(w, Mapping)
+            else Point(lat=float(w[0]), lon=float(w[1]))
+            for w in raw
+        ]
+    except (KeyError, TypeError, IndexError, ValueError) as exc:
+        raise ValueError(f"invalid waypoints: {exc}") from exc
+    validate_waypoints(points)
+    return points
 
 
 def validate_point(lat: float, lon: float) -> None:
