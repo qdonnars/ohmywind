@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useEffect, useState } from "react";
-import { checkForAppUpdate } from "./sw";
+import { checkForAppUpdate, flushPendingUpdate } from "./sw";
 import { backStack, isLayerEntry } from "./hooks/useBackDismiss";
 
 /**
@@ -77,6 +77,11 @@ export function useRouter(): { path: string; search: string } {
       backStack.detachAll();
       window.scrollTo(0, 0);
       sync();
+      // Safest occasion to apply an update already found and held back: the
+      // reader asked to change view, so a reload here reads as that
+      // navigation. Deliberately not in `sync`, which also runs on `popstate`
+      // — a back press that only dismisses a panel must not reload the page.
+      flushPendingUpdate();
     };
 
     window.addEventListener("popstate", onPopState);

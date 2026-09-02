@@ -17,7 +17,7 @@ createRoot(document.getElementById("root")!).render(
 );
 
 // Register the service worker so the app shell is installable and offline-
-// resilient. Silent by design: `registerType: 'autoUpdate'` plus `skipWaiting`
-// swap in the new SW as soon as it is found, and we intentionally render no
-// update-toast today.
+// resilient. Still silent, still no update-toast: src/sw.ts takes the new
+// worker as soon as it is found, but holds it back while a route is being
+// drawn so a deploy cannot reload the page under the reader.
 registerServiceWorker();

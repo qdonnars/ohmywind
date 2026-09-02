@@ -11,6 +11,7 @@ import { Header } from "../components/Header";
 import type { PassageReport, ComplexityScore, Archetype, PassageWindow } from "../plan/types";
 import { fmtDuration, fr1 } from "../plan/format";
 import { HeroCell } from "../plan/PlanStates";
+import { clearPlanDraft, loadPlanDraft, savePlanDraft } from "../plan/draft";
 import {
   loadLastSimulation,
   saveLastSimulation,
@@ -437,8 +438,13 @@ export function PlanPage() {
   const urlHasWaypoints = isParsedOk(initialParsed) && initialParsed.waypoints.length >= 2;
   const cachedAtMount = !urlHasWaypoints ? loadLastSimulation() : null;
   const useCachedRoute = !!(cachedAtMount && cachedAtMount.waypoints.length >= 2);
+  // Uncommitted state of THIS tab, if any. It outranks both the URL and the
+  // cache because both are written only after a successful computation, so a
+  // draft is by construction the more recent of the three. Read once at mount.
+  const [draftAtMount] = useState(loadPlanDraft);
 
   const [waypoints, setWaypoints] = useState<[number, number][]>(() => {
+    if (draftAtMount) return draftAtMount.waypoints;
     if (urlHasWaypoints) return (initialParsed as { waypoints: [number, number][] }).waypoints;
     if (useCachedRoute) return cachedAtMount!.waypoints;
     return [];
@@ -451,11 +457,15 @@ export function PlanPage() {
     // boat (#220). Otherwise: URL, then cache, then the /config default.
     initialPlanBoat(
       loadPolarConfig(),
-      isParsedOk(initialParsed) ? initialParsed.archetype : null,
+      draftAtMount?.archetype ?? (isParsedOk(initialParsed) ? initialParsed.archetype : null),
       useCachedRoute ? cachedAtMount!.archetype : null,
     ),
   );
   const [departure, setDeparture] = useState(() => {
+    // Same freshness rule as the URL below: a draft left overnight must not
+    // seed the slider with a departure that is already behind us.
+    const drafted = draftAtMount?.departure;
+    if (drafted && new Date(drafted) >= new Date()) return drafted;
     const raw = isParsedOk(initialParsed) ? initialParsed.departure : "";
     if (raw && new Date(raw) >= new Date()) return raw;
     // Try cache: prefer the single-mode departure, then fall back to the
@@ -465,7 +475,9 @@ export function PlanPage() {
     if (cachedDep && new Date(cachedDep) >= new Date()) return cachedDep;
     return tomorrowRoundedLocal();
   });
-  const [timeAnchor, setTimeAnchor] = useState<TimeAnchor>("departure");
+  const [timeAnchor, setTimeAnchor] = useState<TimeAnchor>(
+    () => draftAtMount?.timeAnchor ?? "departure",
+  );
 
   const [passage, setPassage] = useState<PassageReport | null>(null);
   const [complexity, setComplexity] = useState<ComplexityScore | null>(null);
@@ -473,16 +485,20 @@ export function PlanPage() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [archetypes, setArchetypes] = useState<Archetype[]>([]);
   const [forecastUpdatedAt, setForecastUpdatedAt] = useState<string | null>(null);
-  const [isStale, setIsStale] = useState(false);
+  // "Edits not yet computed". A restored draft is exactly that, so it starts
+  // the page stale: the sidebar offers Recalculer instead of pretending the
+  // route on screen has results behind it.
+  const [isStale, setIsStale] = useState(() => draftAtMount != null);
 
   // Compare-windows mode (lifted from PlanSidebar in step 2)
   const [planMode, setPlanMode] = useState<"single" | "compare">(
-    () => cachedAtMount?.mode ?? "single",
+    () => draftAtMount?.mode ?? cachedAtMount?.mode ?? "single",
   );
   const [sweepEarliest, setSweepEarliest] = useState(
-    () => cachedAtMount?.compare?.sweepEarliest ?? departure,
+    () => draftAtMount?.sweepEarliest ?? cachedAtMount?.compare?.sweepEarliest ?? departure,
   );
   const [sweepLatest, setSweepLatest] = useState(() => {
+    if (draftAtMount?.sweepLatest) return draftAtMount.sweepLatest;
     if (cachedAtMount?.compare?.sweepLatest) return cachedAtMount.compare.sweepLatest;
     const d = new Date(departure);
     d.setDate(d.getDate() + 2);
@@ -490,7 +506,7 @@ export function PlanPage() {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   });
   const [sweepInterval, setSweepInterval] = useState<number>(
-    () => cachedAtMount?.compare?.sweepIntervalHours ?? 3,
+    () => draftAtMount?.sweepIntervalHours ?? cachedAtMount?.compare?.sweepIntervalHours ?? 3,
   );
   // Selected leg for the sidebar's expanded "Comment c'est calculé" — also
   // drives the highlight overlay on the map. Cleared whenever the route or
@@ -508,7 +524,7 @@ export function PlanPage() {
   // already have a route to display (cached / URL) so reload doesn't hide
   // the user's previous context.
   const [actionTaken, setActionTaken] = useState<boolean>(
-    () => urlHasWaypoints || useCachedRoute,
+    () => urlHasWaypoints || useCachedRoute || (draftAtMount?.waypoints.length ?? 0) >= 2,
   );
   // Reset to compact whenever the user drops back below 2 waypoints so the
   // next time they reach 2 they get the pick-a-mode step again.
@@ -597,7 +613,46 @@ export function PlanPage() {
       .finally(() => setIsLoading(false));
   }
 
+  // Keep this tab's uncommitted state recoverable. `isStale` is exactly the
+  // "edited since the last computation" signal, so it decides whether there is
+  // a draft at all: every success path clears it, and clearing it here erases
+  // the draft in the same beat. Cheap enough (a few hundred bytes of JSON) to
+  // run on every input change without debouncing.
   useEffect(() => {
+    if (!isStale) {
+      clearPlanDraft();
+      return;
+    }
+    savePlanDraft({
+      waypoints,
+      departure,
+      timeAnchor,
+      archetype,
+      mode: planMode,
+      sweepEarliest,
+      sweepLatest,
+      sweepIntervalHours: sweepInterval,
+    });
+  }, [
+    isStale,
+    waypoints,
+    departure,
+    timeAnchor,
+    archetype,
+    planMode,
+    sweepEarliest,
+    sweepLatest,
+    sweepInterval,
+  ]);
+
+  useEffect(() => {
+    // Path 0 — a draft was restored: it is this tab's most recent state, and
+    // by definition it has no results yet. Seeding already happened in the
+    // initializers above; hydrating the URL's or the cache's results on top
+    // would show a passage that does not match the route on screen, and
+    // fetching would spend a computation the user did not ask for.
+    if (draftAtMount) return;
+
     // Path A — URL has waypoints: respect the URL, restore from cache if it
     // matches the same route + boat, otherwise fetch fresh. The boat is the
     // seeded `archetype` state, not the raw URL slug: a customized polar
