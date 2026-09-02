@@ -18,6 +18,7 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
+from openwind_data import views
 
 _APP_PATH = (pathlib.Path(__file__).parents[1] / "app.py").resolve()
 _spec = importlib.util.spec_from_file_location("hf_app_sweep", _APP_PATH)
@@ -135,8 +136,10 @@ def widened_sweep(monkeypatch):
             level=2, label="modéré", tws_max_kn=14.0, rationale="stub", warnings=[]
         ),
     )
-    monkeypatch.setattr(app, "build_conditions_summary", lambda r: {})
-    monkeypatch.setattr(app, "_to_json", lambda o: {})
+    # The serialisers now live in ``openwind_data.views``, shared with the MCP
+    # shell; the stub reports here are namespaces the real ones cannot walk.
+    monkeypatch.setattr(views, "build_conditions_summary", lambda r: {})
+    monkeypatch.setattr(views, "to_json", lambda o: {})
     return reports
 
 

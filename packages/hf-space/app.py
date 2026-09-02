@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import dataclasses
 import logging
 import math
 import os
@@ -39,14 +38,23 @@ from openwind_data.currents.marc_atlas import MarcAtlasRegistry
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
 from openwind_data.routing.archetypes import BoatPolar, list_archetypes_metadata
 from openwind_data.routing.complexity import score_complexity
-from openwind_data.routing.geometry import Point, validate_point, validate_waypoints
+from openwind_data.routing.geometry import parse_waypoints, validate_point
 from openwind_data.routing.passage import (
     NoModelCoveredError,
-    build_conditions_summary,
     estimate_passage,
     estimate_passage_for_arrival,
     estimate_passage_windows,
     resolve_sweep_interval,
+)
+from openwind_data.views import (
+    complexity_view,
+    filter_windows_by_target_eta,
+    passage_envelope,
+    passage_view,
+    skipped_windows_warning,
+    sweep_view,
+    widened_interval_warning,
+    window_view,
 )
 from openwind_mcp_core import build_server
 from starlette.applications import Starlette
@@ -333,17 +341,6 @@ LANDING_HTML = """<!doctype html>
 """
 
 
-def _to_json(obj: Any) -> Any:
-    """Recursively convert dataclasses and datetimes to JSON-serializable types."""
-    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
-        return {f.name: _to_json(getattr(obj, f.name)) for f in dataclasses.fields(obj)}
-    if isinstance(obj, datetime):
-        return obj.isoformat()
-    if isinstance(obj, (tuple, list)):
-        return [_to_json(v) for v in obj]
-    return obj
-
-
 # Maps the web client's user-facing model names (see packages/web/src/config/
 # modelConfig.ts) to the Open-Meteo unified-API slugs that the data-adapter
 # already exercises in AUTO_FALLBACK_CHAIN. V1 scope: only the four chain
@@ -604,17 +601,10 @@ async def _api_passage(request: Request) -> JSONResponse:
     except (ValueError, TypeError) as exc:
         return JSONResponse({"error": f"invalid departure: {exc}"}, status_code=422)
 
+    # Parsing and bounds together, in the helper both shells call, so the
+    # wording stays byte-identical for the front's error mapping.
     try:
-        waypoints = [Point(lat=float(w[0]), lon=float(w[1])) for w in body["waypoints"]]
-    except (TypeError, IndexError, ValueError) as exc:
-        return JSONResponse({"error": f"invalid waypoints: {exc}"}, status_code=422)
-
-    # Bounds are checked before any upstream call: an out-of-range point used
-    # to reach Open-Meteo and come back as a misleading "forecast horizon
-    # exceeded". Message passed through verbatim so "at least 2 waypoints
-    # required" stays byte-identical for the front's error mapping.
-    try:
-        validate_waypoints(waypoints)
+        waypoints = parse_waypoints(body["waypoints"])
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=422)
 
@@ -708,71 +698,39 @@ async def _api_passage(request: Request) -> JSONResponse:
         windows: list[dict[str, Any]] = []
         for report in reports:
             score = score_complexity(report)
-            # Include the full passage + complexity per window so a frontend
+            window = window_view(report, score)
+            # The full passage + complexity per window, so a frontend
             # drill-down ("click a row → see detail") needs zero re-fetch.
-            # The summary fields above (`complexity` partial, `conditions_summary`,
-            # `duration_h`, `distance_nm`) stay for compact table rendering.
-            windows.append(
-                {
-                    "departure": report.departure_time.isoformat(),
-                    "arrival": report.arrival_time.isoformat(),
-                    "duration_h": round(report.duration_h, 2),
-                    "distance_nm": round(report.distance_nm, 1),
-                    "complexity": {
-                        "level": score.level,
-                        "label": score.label,
-                        "tws_max_kn": round(score.tws_max_kn, 1),
-                        "rationale": score.rationale,
-                    },
-                    "conditions_summary": build_conditions_summary(report),
-                    "warnings": list(report.warnings) + [w.message for w in score.warnings],
-                    "passage": _to_json(report),
-                    "complexity_full": _to_json(score),
-                }
-            )
+            # Appended after the shared fields: the order is the contract.
+            window["passage"] = passage_view(report)
+            window["complexity_full"] = complexity_view(score)
+            windows.append(window)
 
         meta_warnings: list[str] = []
         if effective_interval != sweep_interval:
             meta_warnings.append(
-                f"pas d'échantillonnage élargi à {effective_interval} h "
-                f"(au lieu de {sweep_interval} h) : la route compte "
-                f"{len(reports[0].segments)} tronçons, trop pour simuler "
-                f"autant de créneaux."
+                widened_interval_warning(
+                    effective_interval, sweep_interval, len(reports[0].segments)
+                )
             )
         if skipped_count > 0:
-            meta_warnings.append(
-                f"{skipped_count} fenêtre(s) ignorée(s) faute de couverture météo "
-                f"(horizon dépassé) : affichage des {len(windows)} restantes."
-            )
+            meta_warnings.append(skipped_windows_warning(skipped_count, len(windows)))
         if target_eta_dt is not None:
-            tol = timedelta(hours=2).total_seconds()
-            target_utc = target_eta_dt.astimezone(UTC)
-            filtered = [
-                w
-                for w in windows
-                if abs((datetime.fromisoformat(w["arrival"]) - target_utc).total_seconds()) <= tol
-            ]
-            if not filtered:
-                meta_warnings.append(
-                    f"aucune fenêtre n'arrive dans ±2h de target_eta={target_eta_raw} ; "
-                    f"toutes les {len(windows)} fenêtres retournées"
-                )
-            else:
-                windows = filtered
+            windows, unmatched = filter_windows_by_target_eta(
+                windows, target_eta_dt, target_eta_raw
+            )
+            if unmatched is not None:
+                meta_warnings.append(unmatched)
 
         return JSONResponse(
-            {
-                "mode": "multi_window",
-                "sweep": {
-                    "earliest": departure.isoformat(),
-                    "latest": latest_departure.isoformat(),
-                    "interval_hours": effective_interval,
-                    "window_count": len(windows),
-                },
-                "windows": windows,
-                "meta_warnings": meta_warnings,
-                "forecast_updated_at": datetime.now(UTC).isoformat(),
-            }
+            sweep_view(
+                earliest=departure,
+                latest=latest_departure,
+                interval_hours=effective_interval,
+                windows=windows,
+                meta_warnings=meta_warnings,
+            )
+            | {"forecast_updated_at": datetime.now(UTC).isoformat()}
         )
 
     # Single mode.
@@ -806,11 +764,8 @@ async def _api_passage(request: Request) -> JSONResponse:
     complexity = score_complexity(passage)
 
     return JSONResponse(
-        {
-            "passage": _to_json(passage),
-            "complexity": _to_json(complexity),
-            "forecast_updated_at": datetime.now(UTC).isoformat(),
-        }
+        passage_envelope(passage, complexity)
+        | {"forecast_updated_at": datetime.now(UTC).isoformat()}
     )
 
 
@@ -838,17 +793,10 @@ async def _api_passage_by_eta(request: Request) -> JSONResponse:
     except (ValueError, TypeError) as exc:
         return JSONResponse({"error": f"invalid target_arrival: {exc}"}, status_code=422)
 
+    # Parsing and bounds together, in the helper both shells call, so the
+    # wording stays byte-identical for the front's error mapping.
     try:
-        waypoints = [Point(lat=float(w[0]), lon=float(w[1])) for w in body["waypoints"]]
-    except (TypeError, IndexError, ValueError) as exc:
-        return JSONResponse({"error": f"invalid waypoints: {exc}"}, status_code=422)
-
-    # Bounds are checked before any upstream call: an out-of-range point used
-    # to reach Open-Meteo and come back as a misleading "forecast horizon
-    # exceeded". Message passed through verbatim so "at least 2 waypoints
-    # required" stays byte-identical for the front's error mapping.
-    try:
-        validate_waypoints(waypoints)
+        waypoints = parse_waypoints(body["waypoints"])
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=422)
 
@@ -900,9 +848,8 @@ async def _api_passage_by_eta(request: Request) -> JSONResponse:
     complexity = score_complexity(plan.report)
 
     return JSONResponse(
-        {
-            "passage": _to_json(plan.report),
-            "complexity": _to_json(complexity),
+        passage_envelope(plan.report, complexity)
+        | {
             "eta": {"target_arrival": plan.target_arrival.isoformat()},
             "forecast_updated_at": datetime.now(UTC).isoformat(),
         }
