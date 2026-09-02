@@ -21,6 +21,10 @@ bubblewrap update   # régénère le projet Android depuis twa-manifest.json
 bubblewrap build    # produit app-release-bundle.aab (Play) + app-release-signed.apk (device)
 ```
 
+### Raccourcis d'application
+
+Les raccourcis (appui long sur l'icône du launcher) sont déclarés dans `packages/web/public/manifest.json` et recopiés dans `twa-manifest.json` sous une autre forme: `name`, `shortName`, `url` et `chosenIconUrl` absolus. Attention, contrairement à `monochromeIconUrl`, Bubblewrap **télécharge** chaque `chosenIconUrl` pendant le build: l'icône doit déjà être servie par l'hôte visé (donc promue en prod) sinon le build échoue. Le test `packages/web/src/manifest.test.ts` verrouille ce contrat côté dépôt (champs présents, icône >= 96 px, fichier présent dans `public/`, URL alignée sur l'hôte du flavor).
+
 ### Icône thémée Android 13+ (patch obligatoire)
 
 Bubblewrap (1.25.0) ne lit `monochromeIconUrl` que pour l'icône de notification, jamais pour la couche `<monochrome>` de l'icône adaptative du launcher. Sans elle, l'icône reste non thémée quand l'utilisateur active les icônes thémées. `patch-monochrome.sh` corrige le projet généré: il copie `packages/web/public/icon-monochrome-512.png` dans les ressources et ajoute la couche dans `ic_launcher.xml`. À lancer **entre** `bubblewrap update` (qui écrase le projet, donc le patch) et `bubblewrap build`. Le script est idempotent et échoue fort si le template Bubblewrap change; si une future version de la CLI gère la couche launcher nativement, le supprimer.

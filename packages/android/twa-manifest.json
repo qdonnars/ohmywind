@@ -21,9 +21,22 @@
     "path": "./android.keystore",
     "alias": "android"
   },
-  "appVersionName": "1.0.3",
-  "appVersionCode": 6,
-  "shortcuts": [],
+  "appVersionName": "1.0.4",
+  "appVersionCode": 7,
+  "shortcuts": [
+    {
+      "name": "Planifier une route",
+      "shortName": "Planifier",
+      "url": "https://ohmywind.fr/plan",
+      "chosenIconUrl": "https://ohmywind.fr/shortcut-plan-192.png"
+    },
+    {
+      "name": "Réglages",
+      "shortName": "Réglages",
+      "url": "https://ohmywind.fr/config",
+      "chosenIconUrl": "https://ohmywind.fr/shortcut-config-192.png"
+    }
+  ],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://ohmywind.fr/manifest.json",
   "fallbackType": "customtabs",
@@ -55,5 +68,5 @@
   "additionalTrustedOrigins": [],
   "retainedBundles": [],
   "displayOverride": [],
-  "appVersion": "1.0.3"
+  "appVersion": "1.0.4"
 }
