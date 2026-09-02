@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTheme } from "../design/useTheme";
+import { useBackDismiss } from "../hooks/useBackDismiss";
 import { validateSweep, type SweepValidation } from "./validateSweep";
 import type { PassageReport, ComplexityScore, Archetype, PassageWindow } from "./types";
 import { aggregateLegs, buildLegSummaryCells, type AggregatedLeg } from "./aggregateLegs";
@@ -401,6 +402,10 @@ function ArchetypeSelector({
   onCustomCleared?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  // Back closes the boat picker instead of leaving the planner (issue #300),
+  // like the click-away overlay below.
+  const close = useCallback(() => setOpen(false), []);
+  useBackDismiss(open, close);
   // Re-read the polar config every render. Cheap (localStorage parse + a few
   // boolean checks) and ensures the « Perso » entry appears immediately after
   // the user edits /config in another tab and comes back here.
