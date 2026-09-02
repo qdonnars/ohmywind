@@ -109,6 +109,66 @@ describe("parisIsoToUtcMs", () => {
     const ms = parisIsoToUtcMs("2026-07-01T12:00");
     expect(new Date(ms).toISOString()).toBe("2026-07-01T10:00:00.000Z");
   });
+
+  it("is memoized: repeated calls return the very same value", () => {
+    // The result is cached per input string, so a second call must not drift
+    // (and, incidentally, must not depend on the formatter being rebuilt).
+    const first = parisIsoToUtcMs("2026-05-08T07:00");
+    for (let i = 0; i < 5; i++) {
+      expect(parisIsoToUtcMs("2026-05-08T07:00")).toBe(first);
+    }
+    // Interleaving other keys must not evict or corrupt the first one.
+    parisIsoToUtcMs("2026-05-08T08:00");
+    parisIsoToUtcMs("2026-01-15T00:00");
+    expect(parisIsoToUtcMs("2026-05-08T07:00")).toBe(first);
+  });
+
+  it("stays cold-path identical across the spring-forward boundary", () => {
+    // 2026-03-29: Paris jumps 02:00 CET to 03:00 CEST. These expectations lock
+    // in the existing single-pass behaviour (the hour right at the switch is
+    // ambiguous by construction), so the memo cannot silently change it.
+    const cases: [string, string][] = [
+      ["2026-03-29T00:00", "2026-03-28T23:00:00.000Z"],
+      ["2026-03-29T01:00", "2026-03-28T23:00:00.000Z"],
+      ["2026-03-29T02:00", "2026-03-29T00:00:00.000Z"],
+      ["2026-03-29T03:00", "2026-03-29T01:00:00.000Z"],
+      ["2026-03-29T04:00", "2026-03-29T02:00:00.000Z"],
+    ];
+    for (const [iso, expected] of cases) {
+      expect(new Date(parisIsoToUtcMs(iso)).toISOString()).toBe(expected);
+      // second read comes from the memo and must match byte for byte
+      expect(new Date(parisIsoToUtcMs(iso)).toISOString()).toBe(expected);
+    }
+  });
+
+  it("stays cold-path identical across the fall-back boundary", () => {
+    // 2026-10-25: Paris falls back from 03:00 CEST to 02:00 CET.
+    const cases: [string, string][] = [
+      ["2026-10-25T00:00", "2026-10-24T22:00:00.000Z"],
+      ["2026-10-25T01:00", "2026-10-25T00:00:00.000Z"],
+      ["2026-10-25T02:00", "2026-10-25T01:00:00.000Z"],
+      ["2026-10-25T03:00", "2026-10-25T02:00:00.000Z"],
+      ["2026-10-25T04:00", "2026-10-25T03:00:00.000Z"],
+    ];
+    for (const [iso, expected] of cases) {
+      expect(new Date(parisIsoToUtcMs(iso)).toISOString()).toBe(expected);
+      expect(new Date(parisIsoToUtcMs(iso)).toISOString()).toBe(expected);
+    }
+  });
+
+  it("keeps returning correct values past the memo cap", () => {
+    // The map is cleared wholesale when it fills up; a value read after the
+    // reset must be recomputed identically rather than lost.
+    const probe = "2026-07-01T00:00";
+    const before = parisIsoToUtcMs(probe);
+    for (let i = 0; i < 4200; i++) {
+      const day = String((i % 28) + 1).padStart(2, "0");
+      const hour = String(i % 24).padStart(2, "0");
+      const minute = String(i % 60).padStart(2, "0");
+      parisIsoToUtcMs(`2027-02-${day}T${hour}:${minute}`);
+    }
+    expect(parisIsoToUtcMs(probe)).toBe(before);
+  });
 });
 
 function brestMarine(): MarineHourly {
