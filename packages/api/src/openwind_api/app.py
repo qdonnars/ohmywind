@@ -28,7 +28,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from openwind_api.access import AccessLogMiddleware
 from openwind_api.routes.archetypes import api_archetypes, api_client_debug
 from openwind_api.routes.landing import ICON_REDIRECTS, icon_redirect, index, static_asset_route
-from openwind_api.routes.marine import api_marc_coverage, api_marc_overlay
+from openwind_api.routes.marine import api_marc_batch, api_marc_coverage, api_marc_overlay
 from openwind_api.routes.passage import api_passage, api_passage_by_eta
 from openwind_api.security import (
     ALLOWED_ORIGINS,
@@ -149,6 +149,7 @@ def create_app(
         Route("/api/v1/passage", api_passage, methods=["POST"]),
         Route("/api/v1/passage-by-eta", api_passage_by_eta, methods=["POST"]),
         Route("/api/v1/marine/marc", api_marc_overlay, methods=["GET"]),
+        Route("/api/v1/marine/marc/batch", api_marc_batch, methods=["POST"]),
         Route("/api/v1/marine/marc/coverage", api_marc_coverage, methods=["GET"]),
     ]
     if mcp_app is not None:
