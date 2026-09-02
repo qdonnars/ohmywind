@@ -57,6 +57,37 @@ test asserts it by importing the package with the name `mcp` blocked.
 Serialising a passage is not here: that is `openwind_data.views`, shared with
 the MCP shell so the two describe the same sailing.
 
+## The overlay, one point or a corridor
+
+`GET /api/v1/marine/marc` answers for one point. `POST /api/v1/marine/marc/batch`
+answers for many, from the same function, so an overlay in the batch is byte
+for byte the GET's body for that point:
+
+```json
+{"points": [[lat, lon], ...], "start": "<ISO>", "end": "<ISO>", "step_minutes": 60}
+```
+
+`{"overlays": [...]}`, one object per point, **in the order the points were
+sent** (a client zips them back by index), `covered: false` entries included.
+Not cached: a POST body is not a cache key any intermediary honours, and the
+GET is still there for clients that want the day-long cache. One rate-limit
+token per call, whatever the point count.
+
+The window rules are the GET's, applied once. Three ceilings bound a call, and
+they are checked in this order:
+
+| Ceiling | Default | `code` |
+| --- | --- | --- |
+| points | 120 | `too_many_points` |
+| steps, i.e. instants in the window | 800 | `too_many_steps` |
+| points x steps | 24 000 (`OPENWIND_MARC_BATCH_MAX_CELLS`) | `batch_too_large` |
+
+The third exists because the first two do not bound the product: 120 points
+over 30 days hourly is 86 520 point-steps and 5.2 s of prediction, measured on
+the real atlases, on a bucket that allows 120 requests a minute per IP. The
+web app's own call is 21 points over 7 days hourly, 3549 point-steps, seven
+times inside the cap. The work runs off the event loop either way.
+
 ## Compressed request bodies
 
 `POST /api/v1/*` accepts `Content-Encoding: gzip` (and `deflate`, in both the

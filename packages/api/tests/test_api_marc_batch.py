@@ -75,6 +75,15 @@ def _body(**extra) -> dict:
     return body
 
 
+def _window_of(n_steps: int, step_minutes: int = 60) -> dict:
+    """A window of exactly ``n_steps`` instants, for the product ceiling."""
+    return {
+        "start": START.isoformat(),
+        "end": (START + timedelta(minutes=step_minutes * (n_steps - 1))).isoformat(),
+        "step_minutes": step_minutes,
+    }
+
+
 def _overlays(resp) -> list[dict]:
     return resp.json()["overlays"]
 
@@ -209,6 +218,68 @@ class TestRefusals:
         resp = client.post(BATCH, json=_body(points=points))
         assert resp.status_code == 200
         assert len(_overlays(resp)) == security_batch_ceiling()
+
+    def test_the_product_of_the_two_ceilings_has_a_ceiling_of_its_own(self, client) -> None:
+        """The rule the other two leave open, and the one that costs.
+
+        120 points is allowed and 800 steps is allowed, so without this a
+        caller could ask for 96 000 point-steps, measured at 5.2 s of
+        prediction on the real atlases, on a bucket that allows 120 requests
+        a minute per IP.
+        """
+        points = [[43.0 + i * 0.001, 6.2] for i in range(120)]
+        resp = client.post(BATCH, json=_body(points=points, **_window_of(201)))
+        assert resp.status_code == 422
+        payload = resp.json()
+        assert payload["code"] == "batch_too_large"
+        assert payload["error"] == (
+            f"requested {120 * 201} point-steps, at most {marine_routes.MAX_BATCH_CELLS}: "
+            "fewer points, a shorter window or a wider step"
+        )
+
+    def test_the_product_ceiling_itself_is_accepted(self, client) -> None:
+        # Exactly at the cap, from both directions of the product: the
+        # ceiling is what a call may be, not what it must stay under. One
+        # point-step more is the test above; 24 001 exactly is unreachable,
+        # since it factorises into nothing that fits 120 points and 800 steps.
+        for points_count, steps in ((120, 200), (80, 300)):
+            points = [[43.0 + i * 0.001, 6.2] for i in range(points_count)]
+            assert points_count * steps == marine_routes.MAX_BATCH_CELLS
+            resp = client.post(BATCH, json=_body(points=points, **_window_of(steps)))
+            assert resp.status_code == 200, resp.text
+            assert len(_overlays(resp)) == points_count
+
+    def test_the_web_app_s_own_call_is_far_inside_the_product_ceiling(self) -> None:
+        # 21 corridor points over 7 days hourly, the shape PR 0.3 settled on.
+        # If this ever stops holding, the cap is wrong, not the client.
+        assert 21 * 169 < marine_routes.MAX_BATCH_CELLS / 6
+
+    def test_the_product_ceiling_is_the_constant_and_the_constant_is_settable(
+        self, monkeypatch, client
+    ) -> None:
+        # The check reads the module constant rather than a literal, and that
+        # constant comes from OPENWIND_MARC_BATCH_MAX_CELLS at import, so a
+        # deployment with more CPU than this one raises it without a release.
+        assert marine_routes.MAX_BATCH_CELLS == 24000
+        monkeypatch.setattr(marine_routes, "MAX_BATCH_CELLS", 20)
+        # 3 points over a 7-instant window is 21, one past the lowered cap.
+        resp = client.post(BATCH, json=_body())
+        assert resp.status_code == 422
+        assert resp.json() == {
+            "error": "requested 21 point-steps, at most 20: "
+            "fewer points, a shorter window or a wider step",
+            "code": "batch_too_large",
+        }
+
+    def test_a_rejected_product_costs_no_prediction(self, client, monkeypatch) -> None:
+        def _explode(*_args, **_kwargs):
+            raise AssertionError("a point was predicted for a rejected batch")
+
+        monkeypatch.setattr(marine_routes, "overlay_for_point", _explode)
+        points = [[43.0 + i * 0.001, 6.2] for i in range(120)]
+        resp = client.post(BATCH, json=_body(points=points, **_window_of(400)))
+        assert resp.status_code == 422
+        assert resp.json()["code"] == "batch_too_large"
 
     @pytest.mark.parametrize(
         "points",

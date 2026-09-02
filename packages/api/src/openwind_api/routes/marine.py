@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+import os
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -32,19 +33,30 @@ MAX_MARC_STEPS = 800
 # Hard ceiling on the points one batch may carry. The web app samples a
 # corridor at one point per segment and PR 0.3 brought a 200 nm route down to
 # 21 of them, so 120 is several times the longest passage anyone plans here.
-#
-# The two ceilings multiply, and that is worth stating plainly: the series is
-# materialised once and shared, but the prediction runs per point, so the cost
-# of a call is points x steps. Measured on the real atlases (2026-09-03, Iroise
-# and rade de Brest, SHOM cascade): 21 points over 7 days hourly is 0.29 s,
-# 120 points over 7 days hourly is 1.7 s, and the corner of the box, 120 points
-# over 30 days hourly, is 5.2 s. The GET's own ceiling was chosen to keep one
-# call under a second; this one can be five times that, which is why the work
-# runs off the event loop rather than on it. A product ceiling on points x
-# steps is the next lever if the overlay bucket ever needs tightening; it is
-# deliberately not taken here, because the caps are the contract the web
-# client was written against.
 MAX_MARC_BATCH_POINTS = 120
+
+# And a ceiling on the two multiplied, because neither of the others bounds
+# it: 120 points is acceptable, 800 steps is acceptable, and 96 000
+# point-steps is not. The series is materialised once and shared, but the
+# prediction runs per point, so what a call costs is points x steps.
+#
+# Measured on the real atlases (2026-09-03, Iroise and rade de Brest, SHOM
+# cascade): 21 points over 7 days hourly, which is the web app's own call, is
+# 3549 point-steps and 0.29 s; 120 points over 7 days hourly is 20 280 and
+# 1.7 s; the corner the first two ceilings left open, 120 points over 30 days
+# hourly, is 86 520 and 5.2 s. The GET's 800-step ceiling was sized to keep
+# one call under a second, and an overlay bucket of 120 requests a minute per
+# IP cannot also hand out five seconds of CPU apiece.
+#
+# 24 000 is set from what the endpoint is for rather than from what it can
+# survive: the web app sits seven times inside it, a 60-point corridor over 7
+# days hourly (10 140) still fits, and the shapes it refuses are the ones
+# nobody plans. It bounds the worst accepted call at 1.9 s rather than 5.2 s,
+# measured the same way; that is a bound, not a comfortable one, and the
+# number to lower if the overlay bucket ever has to be defended harder.
+# Env-configurable so a deployment with more CPU than this one can raise it
+# without a release.
+MAX_BATCH_CELLS = int(os.environ.get("OPENWIND_MARC_BATCH_MAX_CELLS", "24000"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -345,6 +357,15 @@ def _parse_batch(body: Any) -> tuple[list[tuple[float, float]], _Window]:
         parse_timestamp(body["end"], "end"),
         _parse_step_minutes(body.get("step_minutes")),
     )
+    # Last, because it is the only rule that needs both halves, and because
+    # a caller who broke one of the first two should hear about that one.
+    cells = len(points) * len(window.times)
+    if cells > MAX_BATCH_CELLS:
+        raise RequestError(
+            f"requested {cells} point-steps, at most {MAX_BATCH_CELLS}: "
+            f"fewer points, a shorter window or a wider step",
+            "batch_too_large",
+        )
     return points, window
 
 
@@ -369,8 +390,10 @@ async def api_marc_batch(request: Request) -> JSONResponse:
     matching on coordinates.
 
     The window rules are the GET's, applied once for the whole call: the same
-    422s, the same wording, the same 800-step ceiling. ``points`` adds one
-    refusal of its own, ``too_many_points``.
+    422s, the same wording, the same 800-step ceiling. Two refusals are this
+    route's own: ``too_many_points`` past 120 points, and ``batch_too_large``
+    past ``MAX_BATCH_CELLS`` point-steps, which is the ceiling on what the
+    call actually costs. The web app's own request is 3549 point-steps.
 
     Not cached. The GET is cacheable because its URL is the request; a POST
     body is not a cache key any intermediary would honour, and pretending

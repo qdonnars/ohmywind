@@ -27,6 +27,7 @@ code                         status  meaning
 ``too_few_waypoints``        422     fewer than 2 points
 ``too_many_waypoints``       422     more than ``MAX_WAYPOINTS``
 ``too_many_points``          422     more points than one batch call may carry
+``batch_too_large``          422     a batch's points x steps exceeds the cap
 ``waypoint_out_of_range``    422     a coordinate is not on Earth
 ``unknown_archetype``        422     no such boat
 ``invalid_efficiency``       422     outside (0, 1]
