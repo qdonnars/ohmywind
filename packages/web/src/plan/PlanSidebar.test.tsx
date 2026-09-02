@@ -318,10 +318,11 @@ describe("open leg", () => {
     expect(value.actions.selectStep).toHaveBeenCalledWith(null);
   });
 
-  it("keeps a single-step leg plain: no toggle, no arrows to walk", () => {
+  it("shows a single-step leg as the step itself: no average, no strip, no arrows", () => {
     mount({ passage: passage(), complexity: complexity(), selectedLegIdx: 0 });
-    expect(screen.getByText("un seul pas de calcul")).toBeTruthy();
+    expect(screen.queryByText(/Moyenne/)).toBeNull();
+    expect(screen.getByText("08:00 → 18:00")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Détail" })).toBeNull();
-    expect((screen.getByRole("button", { name: "Pas suivant" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole("button", { name: /^Pas / })).toBeNull();
   });
 });

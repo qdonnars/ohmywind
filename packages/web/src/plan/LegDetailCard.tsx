@@ -95,7 +95,8 @@ export function LegDetailCard({
   /** Ranges and arcs across the steps: set for the average, null for a step. */
   spread: LegSpread | null;
   header: LegDetailHeader;
-  /** Null renders the arrow disabled. */
+  /** Null renders the arrow disabled; both null and there are no arrows at
+      all (a leg with a single step has nothing to walk). */
   onPrev: (() => void) | null;
   onNext: (() => void) | null;
   notes: LegDetailNote[];
@@ -134,6 +135,8 @@ export function LegDetailCard({
       ? fmtRange1(spread.current_speed_range, "kn")
       : `${fr1(view.current_speed_kn as number)} kn`;
 
+  const showNav = onPrev !== null || onNext !== null;
+
   const noteColor = (tone: LegDetailNote["tone"]): string =>
     tone === "waves" ? FORCE_COLORS.waves : tone === "current" ? FORCE_COLORS.currentContraire : "var(--ow-fg-2)";
 
@@ -144,10 +147,10 @@ export function LegDetailCard({
     >
       {/* Header: which slice, with the arrows that walk the steps. */}
       <div
-        className="flex items-center gap-1 px-1 py-1"
-        style={{ borderBottom: "1px solid var(--ow-line)" }}
+        className="flex items-center gap-1 px-1"
+        style={{ borderBottom: "1px solid var(--ow-line)", paddingTop: showNav ? 4 : 8, paddingBottom: showNav ? 4 : 8 }}
       >
-        <NavButton dir="prev" onClick={onPrev} />
+        {showNav && <NavButton dir="prev" onClick={onPrev} />}
         <div className="flex-1 min-w-0 text-center leading-tight">
           <span className="text-xs font-semibold tabular-nums" style={{ ...mono, color: "var(--ow-fg-0)" }}>
             {header.title}
@@ -163,7 +166,7 @@ export function LegDetailCard({
             </span>
           )}
         </div>
-        <NavButton dir="next" onClick={onNext} />
+        {showNav && <NavButton dir="next" onClick={onNext} />}
       </div>
 
       {/* Body: dial on the left, numbers on the right. */}

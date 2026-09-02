@@ -11,6 +11,9 @@
  * counted against when half the steps had it along. The steps are the
  * answer, and the arrows walk them in order: average, then step 1 to N.
  *
+ * A leg with a single step has nothing to average and nothing to walk: the
+ * card shows the step itself, with no strip and no arrows.
+ *
  * Which step is open lives in the session (`selectedStepIdx`), because the
  * map draws it too.
  */
@@ -65,14 +68,22 @@ export function LegExpanded({
   let onPrev: (() => void) | null;
   let onNext: (() => void) | null;
 
-  if (selected == null) {
+  if (n <= 1) {
+    header = {
+      title: `${fmtClock(leg.start_time)} → ${fmtClock(leg.end_time)}`,
+      sub: `${legDurationLabel(leg)} · ${fr1(leg.distance_nm)} nm`,
+    };
+    notes = stepNotes(leg);
+    onPrev = null;
+    onNext = null;
+  } else if (selected == null) {
     header = {
       title: `Moyenne · ${legDurationLabel(leg)}`,
-      hint: n > 1 ? "touchez un pas" : undefined,
+      hint: "touchez un pas",
     };
-    notes = [{ text: n > 1 ? `moyenne de ${n} pas` : "un seul pas de calcul", tone: "muted" }];
+    notes = [{ text: `moyenne de ${n} pas`, tone: "muted" }];
     onPrev = null;
-    onNext = n > 1 ? () => select(0) : null;
+    onNext = () => select(0);
   } else {
     const step = steps[selected];
     view = step;
@@ -87,10 +98,10 @@ export function LegExpanded({
 
   return (
     <div className="space-y-2.5">
-      <StepStrip steps={steps} selected={selected} onSelect={select} />
+      {n > 1 && <StepStrip steps={steps} selected={selected} onSelect={select} />}
       <LegDetailCard
         view={view}
-        spread={selected == null ? spread : null}
+        spread={n > 1 && selected == null ? spread : null}
         header={header}
         onPrev={onPrev}
         onNext={onNext}
