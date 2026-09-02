@@ -23,12 +23,24 @@ import { LocateButton } from "./components/LocateButton";
 import { SeamarkButton } from "./components/SeamarkButton";
 import { useSeamarks } from "./hooks/useSeamarks";
 import { useGeolocation } from "./hooks/useGeolocation";
+import { useBackDismiss } from "./hooks/useBackDismiss";
 import { useMapView } from "./hooks/useMapView";
 import { parseMapView, mapViewQuery } from "./utils/mapViewParams";
 import { hasDeclinedGeolocation } from "./config/geolocPreference";
 import { loadLastSpot, saveLastSpot } from "./config/lastSpot";
 
 const DEFAULT_MAP_CENTER: { lat: number; lon: number } = { lat: 43.3, lon: 5.35 };
+
+/** A spot the user is only looking at. Named by its coordinates rather than
+    reverse-geocoded: the lookup is instant and offline, and a position is
+    meaningful information at sea. */
+function previewSpot(lat: number, lon: number): Spot {
+  return {
+    name: `${lat.toFixed(3)}, ${lon.toFixed(3)}`,
+    latitude: lat,
+    longitude: lon,
+  };
+}
 
 function EmptyState() {
   return (
@@ -95,6 +107,25 @@ function App() {
   const [loadedSpotKey, setLoadedSpotKey] = useState<string | null>(null);
   const [selectedHour, setSelectedHour] = useState<string | null>(null);
   const [view, setView] = useState<MetricView>("wind");
+  // Whether the forecast panel counts as a layer the back button should
+  // close. Only a deliberate pick does: a spot restored from the last visit
+  // (issue #301) or previewed from the first-visit fix is this session's
+  // starting point, and back must leave the app from there rather than
+  // stopping on an empty map (issue #300).
+  const [spotIsLayer, setSpotIsLayer] = useState(false);
+  const selectSpot = useCallback((next: Spot) => {
+    setSpot(next);
+    setSpotIsLayer(true);
+  }, []);
+  const clearSpot = useCallback(() => {
+    setSpot(null);
+    setSpotIsLayer(false);
+    setForecasts([]);
+    setMarine(null);
+    setLoadedSpotKey(null);
+    setSelectedHour(null);
+  }, []);
+  useBackDismiss(spotIsLayer, clearSpot);
   const activeSpotKey = spot ? `${spot.latitude},${spot.longitude}` : null;
   const isLoading = activeSpotKey != null && loadedSpotKey !== activeSpotKey;
   useEffect(() => {
@@ -134,16 +165,10 @@ function App() {
   }, [spot]);
 
   // Tap or left click on the map: show the forecast there without saving.
-  // Named by its coordinates rather than reverse-geocoded: the lookup is
-  // instant and offline, and a position is meaningful information at sea.
   // Creating a spot stays a deliberate act (long press, or right click).
   const handlePreviewSpot = useCallback((lat: number, lon: number) => {
-    setSpot({
-      name: `${lat.toFixed(3)}, ${lon.toFixed(3)}`,
-      latitude: lat,
-      longitude: lon,
-    });
-  }, []);
+    selectSpot(previewSpot(lat, lon));
+  }, [selectSpot]);
 
   // First-visit geolocation: if the user has no saved spots, ask the browser
   // for their position, fly the map there and show the wind at that point
@@ -174,7 +199,9 @@ function App() {
       // chose their focus — leave the viewport and their selection alone.
       if (fix && !spotRef.current) {
         setFlyToStamp(fix.stamp);
-        handlePreviewSpot(fix.lat, fix.lon);
+        // Not selectSpot: nobody asked for this spot, so back must not have
+        // to dismiss it before leaving the app.
+        setSpot(previewSpot(fix.lat, fix.lon));
       }
     });
   // Run once on mount; the customSpots check covers the returning-user case.
@@ -218,7 +245,7 @@ function App() {
           no position granted ranks Brest in Belarus and Brest in Croatia
           alongside the Finistère one. */}
       <Header
-        onSelectSpot={setSpot}
+        onSelectSpot={selectSpot}
         nearLat={userPosition?.lat ?? mapView?.lat ?? spot?.latitude ?? null}
         nearLon={userPosition?.lon ?? mapView?.lon ?? spot?.longitude ?? null}
         savedSpots={customSpots}
@@ -237,10 +264,10 @@ function App() {
           initialView={initialView}
           defaultCenter={DEFAULT_MAP_CENTER}
           bottomInsetRef={dataPanelRef}
-          onSelectSpot={setSpot}
+          onSelectSpot={selectSpot}
           onPreviewSpot={handlePreviewSpot}
-          onAddSpot={(s) => { addSpot(s); setSpot(s); }}
-          onRemoveSpot={(s) => { removeSpot(s); if (spot?.latitude === s.latitude && spot?.longitude === s.longitude) { setSpot(null); setForecasts([]); setLoadedSpotKey(null); setSelectedHour(null); } }}
+          onAddSpot={(s) => { addSpot(s); selectSpot(s); }}
+          onRemoveSpot={(s) => { removeSpot(s); if (spot?.latitude === s.latitude && spot?.longitude === s.longitude) clearSpot(); }}
           onRenameSpot={(s, name) => { renameSpot(s, name); if (spot?.latitude === s.latitude && spot?.longitude === s.longitude) setSpot({ ...s, name }); }}
           forecasts={forecasts}
           marine={marine}

@@ -27,6 +27,7 @@ import { SeamarkButton } from "../components/SeamarkButton";
 import { useSeamarks } from "../hooks/useSeamarks";
 import { useWaypointDepths } from "../hooks/useWaypointDepths";
 import { useGeolocation } from "../hooks/useGeolocation";
+import { useBackDismiss } from "../hooks/useBackDismiss";
 import { useMapView } from "../hooks/useMapView";
 import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
 import { setCookie, clearCookie } from "../utils/cookies";
@@ -507,6 +508,9 @@ export function PlanPage() {
   // its segments change so we never highlight stale ranges.
   const [selectedLegIdx, setSelectedLegIdx] = useState<number | null>(null);
   useEffect(() => { setSelectedLegIdx(null); }, [waypoints, passage]);
+  // Back collapses the open leg rather than leaving the planner (issue #300).
+  const collapseLeg = useCallback(() => setSelectedLegIdx(null), []);
+  useBackDismiss(selectedLegIdx !== null, collapseLeg);
   const [windows, setWindows] = useState<PassageWindow[] | null>(null);
   const [metaWarnings, setMetaWarnings] = useState<string[]>([]);
   // Compact "pick a mode" state on mobile: drops the sidebar to just the

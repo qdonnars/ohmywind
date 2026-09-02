@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { checkForAppUpdate } from "./sw";
+import { backStack, isLayerEntry } from "./hooks/useBackDismiss";
 
 /**
  * Minimal client-side routing, no dependency.
@@ -64,7 +65,16 @@ export function useRouter(): { path: string; search: string } {
       e.preventDefault();
       // Re-clicking the current URL should do nothing rather than remount.
       if (href === window.location.pathname + window.location.search) return;
-      window.history.pushState(null, "", href);
+      // Leaving a page with a panel open: the entry that panel pushed is
+      // transient state of the page being left, so the navigation takes its
+      // place rather than stacking on top of it. Otherwise a back press would
+      // land on an entry whose panel is long gone and appear to do nothing.
+      if (isLayerEntry(window.history.state)) {
+        window.history.replaceState(null, "", href);
+      } else {
+        window.history.pushState(null, "", href);
+      }
+      backStack.detachAll();
       window.scrollTo(0, 0);
       sync();
     };
