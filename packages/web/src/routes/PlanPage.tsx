@@ -31,8 +31,8 @@ import { useWaypointDepths } from "../hooks/useWaypointDepths";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useBackDismiss } from "../hooks/useBackDismiss";
 import { useMapView } from "../hooks/useMapView";
+import { LG_MEDIA_QUERY, useMediaQuery } from "../hooks/useMediaQuery";
 import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
-import { setCookie, clearCookie } from "../utils/cookies";
 
 // Build the plan-time overrides payload from current /config preferences.
 // Read at request time (not at mount) so a /config tweak takes effect on the
@@ -228,7 +228,7 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
       }
       const anchor = container.querySelector<HTMLElement>("[data-results-anchor]");
       if (!anchor) return;
-      if (outer.offsetHeight === 0) return; // desktop: the drawer is display:none
+      if (outer.offsetHeight === 0) return; // nothing measurable yet
       const anchorTop =
         anchor.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
       // Real content extent, NOT container.scrollHeight — scrollHeight is
@@ -289,7 +289,7 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
   return (
     <div
       ref={outerRef}
-      className="lg:hidden shrink-0 overflow-y-auto border-t flex flex-col"
+      className="shrink-0 overflow-y-auto border-t flex flex-col"
       style={{
         height: `${vh}vh`,
         background: "var(--ow-bg-1)",
@@ -382,7 +382,7 @@ function ResizableDesktopSidebar({
 
   return (
     <div
-      className="hidden lg:flex shrink-0"
+      className="flex shrink-0"
       style={{ width: `${px}px`, background: "var(--ow-bg-1)" }}
     >
       <div
@@ -417,6 +417,9 @@ export function PlanPage() {
 
   const { position: userPosition, status: geolocStatus, attempt: geolocAttempt, locate } = useGeolocation();
   const { view: mapView, onViewChange } = useMapView();
+  // Which of the two panel layouts to mount. Same breakpoint the CSS uses, so
+  // React and Tailwind can never disagree about which one is on screen.
+  const isDesktop = useMediaQuery(LG_MEDIA_QUERY);
   const { enabled: seamarks, toggle: toggleSeamarks } = useSeamarks("plan");
   // Zoom handed over by the explore map, used only when no route frames the
   // camera itself. Read once: navigating remounts the page.
@@ -549,6 +552,20 @@ export function PlanPage() {
     return filled ? {} : null;
   }, [passage, windows, planMode, isLoading]);
 
+  // Memoised: PlanMap keys an effect on this tuple, and a fresh one on every
+  // render made it destroy and redraw the highlight polyline each time a
+  // slider ticked.
+  const highlightedSegmentRange = useMemo(
+    () =>
+      selectedLegIdx != null && passage
+        ? computeLegSegmentRanges(
+            passage.segments as { start: { lat: number; lon: number } }[],
+            waypoints,
+          )[selectedLegIdx] ?? null
+        : null,
+    [selectedLegIdx, passage, waypoints],
+  );
+
   // Route edited after a result: the drawer content flips to the "Cliquez
   // sur Recalculer" placeholders while the results fit above may have left
   // the Recalculer bar scrolled out of view — bring it back.
@@ -587,8 +604,6 @@ export function PlanPage() {
         const resolvedDep = isoToLocal(res.passage.departure_time);
         const url = buildPlanUrl(wpts, resolvedDep, arch);
         window.history.replaceState(null, "", url);
-        const ttl = 7 * 24 * 3600;
-        setCookie("ow_last_trip", window.location.href, ttl);
         // Persist for next visit. Merge into existing cache so a previously
         // saved compare-mode result stays available.
         const prev = loadLastSimulation();
@@ -848,9 +863,6 @@ export function PlanPage() {
   function handleReset() {
     setActionTaken(false);
     clearLastSimulation();
-    // Also expire the dormant ow_last_trip cookie so a future read (if we ever
-    // wire it up) doesn't resurrect a stale plan.
-    clearCookie("ow_last_trip");
     setWaypoints([]);
     setPassage(null);
     setComplexity(null);
@@ -908,11 +920,9 @@ export function PlanPage() {
       setComplexity(w.complexity_full);
       setIsLoading(false);
       setIsStale(false);
-      // Update URL + cookie so reload restores the same view.
+      // Update the URL so reload restores the same view.
       const url = buildPlanUrl(waypoints, naiveDep, archetype);
       window.history.replaceState(null, "", url);
-      const ttl = 7 * 24 * 3600;
-      setCookie("ow_last_trip", window.location.href, ttl);
       // Keep windows around so the user can switch back to compare mode and
       // see the table again without re-fetching the sweep.
       // setWindows(null) intentionally NOT called — user toggling back to
@@ -1045,11 +1055,7 @@ export function PlanPage() {
             initialZoom={handedView?.zoom ?? null}
             showSeamarks={seamarks}
             depths={waypointDepths}
-            highlightedSegmentRange={
-              selectedLegIdx != null && passage
-                ? computeLegSegmentRanges(passage.segments as { start: { lat: number; lon: number } }[], waypoints)[selectedLegIdx] ?? null
-                : null
-            }
+            highlightedSegmentRange={highlightedSegmentRange}
           />
           {/* Back-to-explore FAB — mirrors the compass FAB on the home map */}
           <a
@@ -1103,10 +1109,16 @@ export function PlanPage() {
           )}
         </div>
 
-        {/* Desktop sidebar — user-resizable via the handle on the left edge. */}
-        <ResizableDesktopSidebar defaultPx={384}>
-          <PlanSidebar {...sidebarProps} />
-        </ResizableDesktopSidebar>
+        {/* Desktop sidebar — user-resizable via the handle on the left edge.
+            Mounted only above `lg`: both layouts used to be in the DOM at all
+            times with one hidden by CSS, so every state tick rendered the
+            panel twice, re-read ow_polar_config_v1 twice, and every button of
+            the planner existed twice for assistive technology. */}
+        {isDesktop && (
+          <ResizableDesktopSidebar defaultPx={384}>
+            <PlanSidebar {...sidebarProps} />
+          </ResizableDesktopSidebar>
+        )}
       </div>
 
       {/* Mobile drawer — below map. Auto-slides to a target height based on
@@ -1114,20 +1126,22 @@ export function PlanPage() {
           stays the focus; 2 waypoints → tall enough to surface just the
           mode pills; mode confirmed → full content height). The drag handle
           still lets the user override at any time. */}
-      <ResizableMobileDrawer
-        ref={drawerRef}
-        defaultVh={passage ? 38 : 60}
-        targetVh={
-          waypoints.length < 2
-            ? 18
-            : !actionTaken
-              ? 22
-              : 65
-        }
-        resultsFitKey={resultsFitKey}
-      >
-        <PlanSidebar {...sidebarProps} />
-      </ResizableMobileDrawer>
+      {!isDesktop && (
+        <ResizableMobileDrawer
+          ref={drawerRef}
+          defaultVh={passage ? 38 : 60}
+          targetVh={
+            waypoints.length < 2
+              ? 18
+              : !actionTaken
+                ? 22
+                : 65
+          }
+          resultsFitKey={resultsFitKey}
+        >
+          <PlanSidebar {...sidebarProps} />
+        </ResizableMobileDrawer>
+      )}
     </div>
   );
 }

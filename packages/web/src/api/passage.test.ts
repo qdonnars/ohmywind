@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { formatRetryDelay, friendlyError } from "./passage";
 
 // Regression guard for the dev incident of 2026-08-01: the rate-limit copy
@@ -67,5 +67,51 @@ describe("upstream vs own rate limit", () => {
     const msg = friendlyError("rate limit exceeded, retry shortly, retry in 30s");
     expect(msg).toContain("Trop de calculs");
     expect(msg).not.toContain("service météo");
+  });
+});
+
+// The boat catalogue is static for the life of a deploy. It used to be
+// refetched on every mount of /plan, which on a phone meant a 0.6 s round trip
+// each time the user came back from the explore map.
+describe("fetchArchetypes", () => {
+  /** A fresh module instance, so the session cache starts empty. */
+  async function freshModule() {
+    vi.resetModules();
+    return import("./passage");
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("asks the server once per session, however many callers", async () => {
+    let calls = 0;
+    vi.stubGlobal("fetch", async () => {
+      calls += 1;
+      return { ok: true, json: async () => [{ slug: "cruiser_30ft" }] };
+    });
+    const { fetchArchetypes } = await freshModule();
+    const [a, b] = await Promise.all([fetchArchetypes(), fetchArchetypes()]);
+    expect(calls).toBe(1);
+    expect(a).toEqual([{ slug: "cruiser_30ft" }]);
+    // Same list handed to both callers, not two parses of the same bytes.
+    expect(b).toBe(a);
+    await fetchArchetypes();
+    expect(calls).toBe(1);
+  });
+
+  it("retries after a failure rather than caching the rejection", async () => {
+    // The Space sleeps. A cold start must not cost the user the catalogue for
+    // the rest of their session.
+    let calls = 0;
+    vi.stubGlobal("fetch", async () => {
+      calls += 1;
+      if (calls === 1) return { ok: false, status: 503 };
+      return { ok: true, json: async () => [{ slug: "cruiser_30ft" }] };
+    });
+    const { fetchArchetypes } = await freshModule();
+    await expect(fetchArchetypes()).rejects.toThrow("HTTP 503");
+    await expect(fetchArchetypes()).resolves.toEqual([{ slug: "cruiser_30ft" }]);
+    expect(calls).toBe(2);
   });
 });

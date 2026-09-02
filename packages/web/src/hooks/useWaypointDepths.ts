@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { fetchDepthM, depthGridKey } from "../api/bathymetry";
 
 /**
@@ -35,5 +35,12 @@ export function useWaypointDepths(waypoints: [number, number][]): (number | null
     };
   }, [waypoints]);
 
-  return waypoints.map(([lat, lon]) => byCell[depthGridKey(lat, lon)]);
+  // Memoised, and not as a nicety: PlanMap keys an effect on this array, so a
+  // fresh one on every render of the planner tore down and rebuilt the
+  // highlight overlay each time a slider ticked. Nothing here changes unless
+  // the route or a sounding does.
+  return useMemo(
+    () => waypoints.map(([lat, lon]) => byCell[depthGridKey(lat, lon)]),
+    [waypoints, byCell],
+  );
 }
