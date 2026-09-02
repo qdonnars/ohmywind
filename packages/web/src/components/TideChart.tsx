@@ -6,7 +6,7 @@ import type { MarineHourly, ModelForecast } from "../types";
 import { TimelineHeader } from "./TimelineHeader";
 import { useTimezone } from "../hooks/useTimezone";
 import { nowParisHourPrefix } from "../domain/datetime";
-import { formatHour } from "../utils/format";
+import { formatHour } from "../domain/datetime";
 import { useTimelineScroll } from "../hooks/useTimelineScroll";
 
 // Fixed cell width for the chart so the SVG aligns perfectly with the timeline

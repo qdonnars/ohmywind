@@ -133,7 +133,8 @@ export function relaxLabels(items: ArrowItem[]): void {
 
 function arrowMarkup(it: ArrowItem): string {
   // Thin shaft + narrow arrowhead. Shaft stops at the base of the head so the
-  // two strokes don't pile up under the tip — gives a sharp, single-pointed look.
+  // two strokes don't pile up under the tip, which gives a sharp, single-pointed
+  // look.
   const headLen = 13;
   const headAng = 0.3;
   const lx = it.tipX - headLen * Math.sin(it.rad - headAng);

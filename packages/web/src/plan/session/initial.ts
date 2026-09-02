@@ -67,9 +67,9 @@ import { initialPlanBoat, isPersoActive } from "../../config/polarConfig";
 import type { TimeAnchor, PlanMode } from "../ModeToggle";
 import { toNaiveLocal } from "../../domain/datetime";
 
-export type RouteSource = "draft" | "url" | "cache" | "none";
-export type BoatSource = "polar" | "draft" | "url" | "cache" | "default";
-export type DepartureSource = "draft" | "url" | "cache" | "default";
+type RouteSource = "draft" | "url" | "cache" | "none";
+type BoatSource = "polar" | "draft" | "url" | "cache" | "default";
+type DepartureSource = "draft" | "url" | "cache" | "default";
 
 export interface InitialSessionInput {
   /** Result of `parsePlanUrl(location.search)`. An unparseable query string is

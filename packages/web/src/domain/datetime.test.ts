@@ -6,6 +6,7 @@ import {
   fmtClock,
   fmtDay,
   fmtDayLong,
+  formatHour,
   capitalise,
   localOffsetFor,
   nowParisHourPrefix,
@@ -248,5 +249,40 @@ describe("French display formatters", () => {
   it("capitalises the first letter only", () => {
     expect(capitalise(fmtDay(new Date("2026-09-03T12:00:00")))).toBe("Jeu. 3 sept.");
     expect(capitalise("")).toBe("");
+  });
+});
+
+describe("formatHour, utc mode", () => {
+  it("subtracts the CEST offset in summer", () => {
+    expect(formatHour("2026-07-01T12:00", "utc")).toBe("10");
+  });
+
+  it("subtracts the CET offset in winter", () => {
+    expect(formatHour("2026-01-15T12:00", "utc")).toBe("11");
+  });
+
+  it("is stable across repeated calls (memoized offset)", () => {
+    const first = formatHour("2026-07-01T12:00", "utc");
+    for (let i = 0; i < 5; i++) {
+      expect(formatHour("2026-07-01T12:00", "utc")).toBe(first);
+    }
+    // Other keys in between must not disturb the cached one.
+    formatHour("2026-01-15T12:00", "utc");
+    formatHour("2026-03-29T04:00", "utc");
+    expect(formatHour("2026-07-01T12:00", "utc")).toBe(first);
+  });
+
+  it("switches offset on the day Paris springs forward", () => {
+    // 2026-03-29: CET (+01:00) before 01:00 UTC, CEST (+02:00) after.
+    expect(formatHour("2026-03-29T00:00", "utc")).toBe("23");
+    expect(formatHour("2026-03-29T04:00", "utc")).toBe("2");
+    expect(formatHour("2026-03-30T04:00", "utc")).toBe("2");
+  });
+
+  it("switches offset on the day Paris falls back", () => {
+    // 2026-10-25: CEST (+02:00) before 01:00 UTC, CET (+01:00) after.
+    expect(formatHour("2026-10-25T00:00", "utc")).toBe("22");
+    expect(formatHour("2026-10-25T04:00", "utc")).toBe("3");
+    expect(formatHour("2026-10-26T04:00", "utc")).toBe("3");
   });
 });

@@ -26,8 +26,8 @@ import { centerForBottomInset } from "../utils/visibleCenter";
  */
 
 /** Zoom and duration of a "fly to this point" camera move. */
-export const FLY_ZOOM = 10;
-export const FLY_MS = 1200;
+const FLY_ZOOM = 10;
+const FLY_MS = 1200;
 
 interface AutoCenterIntent {
   lat: number;

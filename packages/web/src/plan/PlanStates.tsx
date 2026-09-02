@@ -13,7 +13,7 @@ import { fmtClock } from "../domain/datetime";
 // Shown when fewer than 2 waypoints are placed: invites the user to draw a
 // route on the map. The mode tabs above are dimmed (locked) until placement.
 
-export function RouteSketch() {
+function RouteSketch() {
   return (
     <svg viewBox="0 0 280 100" className="w-full" style={{ maxHeight: 110 }} aria-hidden="true">
       <defs>

@@ -20,12 +20,12 @@ import type { Spot } from "../types";
 // Leaflet renders a CircleMarker into an SVG node it keeps to itself: there is
 // no public accessor, only the internal ``_path``. Hit-testing needs that node
 // to map an element back to its spot, so the field is declared here instead of
-// being reached through ``any`` — same escape hatch, but one that still type
+// being reached through ``any``: same escape hatch, but one that still type
 // checks the property and its type.
 type WithSvgPath = { _path?: Element };
 
 /** Identity of a spot on the map: two spots at the same point are one marker. */
-export function spotKey(s: Spot): string {
+function spotKey(s: Spot): string {
   return `${s.latitude},${s.longitude}`;
 }
 

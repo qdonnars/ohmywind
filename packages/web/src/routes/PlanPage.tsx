@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useState, useEffect, useMemo, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, useImperativeHandle, type Ref } from "react";
 import { parsePlanUrl, buildPlanUrl } from "../plan/parseUrl";
 import { PlanMap, type PlanMapHandle } from "../plan/PlanMap";
 import { PlanSidebar } from "../plan/PlanSidebar";
@@ -86,7 +86,7 @@ interface DrawerHandle {
   scrollToTop: () => void;
 }
 
-const ResizableMobileDrawer = forwardRef<DrawerHandle, {
+function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, children, ref }: {
   defaultVh: number;
   /** Optional auto-target height. When this value changes the drawer
    *  animates to it (CSS transition on ``height``). Manual drag still
@@ -102,7 +102,11 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
    *  when the sidebar isn't showing a filled view (no anchor in the DOM). */
   resultsFitKey?: object | null;
   children: React.ReactNode;
-}>(function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, children }, ref) {
+  /** Imperative handle, for the page to expand the drawer or scroll it back
+      to the top. A plain prop since React 19: `forwardRef` is no longer
+      needed to receive one. */
+  ref?: Ref<DrawerHandle>;
+}) {
   const [vh, setVh] = useState<number>(() => {
     try {
       const raw = localStorage.getItem(DRAWER_HEIGHT_KEY);
@@ -273,7 +277,7 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
       <div ref={contentRef} className="flex-1 min-h-0 overflow-y-auto">{children}</div>
     </div>
   );
-});
+}
 
 // ── ResizableDesktopSidebar ──────────────────────────────────────────────────
 // Desktop equivalent of ResizableMobileDrawer: vertical grab-handle on the left

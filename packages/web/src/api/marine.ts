@@ -108,7 +108,7 @@ async function fetchMarcOverlay(
 // is tested against when it is present.
 
 /** [lat_min, lon_min, lat_max, lon_max] in degrees WGS84, latitude first. */
-export type CoverageRect = [number, number, number, number];
+type CoverageRect = [number, number, number, number];
 
 export interface MarcAtlasBox {
   name: string;
@@ -231,7 +231,7 @@ let coverageInFlight: Promise<MarcAtlasBox[] | null> | undefined;
  * falls back to asking MARC per point. Memoised either way so a deploy lag
  * costs one request, not one per corridor point.
  */
-export function fetchMarcCoverage(): Promise<MarcAtlasBox[] | null> {
+function fetchMarcCoverage(): Promise<MarcAtlasBox[] | null> {
   if (coverageInFlight) return coverageInFlight;
   coverageInFlight = (async () => {
     const stored = readStoredCoverage(Date.now());

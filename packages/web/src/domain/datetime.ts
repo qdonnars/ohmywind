@@ -10,7 +10,8 @@
  *   `datetime-local` input all speak (was `plan/session/initial.ts`);
  * - the Europe/Paris wall clock Open-Meteo answers with, projected onto UTC
  *   milliseconds so MARC and Open-Meteo series can share one axis (was
- *   `api/marine.ts` and, with a second implementation, `utils/format.ts`);
+ *   `api/marine.ts` and, with a second implementation, in what used to be
+ *   `utils/format.ts`);
  * - the French display formatters, "jeu. 3 sept." and "08:00", which had
  *   drifted into seven near-identical local helpers.
  *
@@ -18,6 +19,8 @@
  * timezone type, so each of them has to be explicit about which of the three
  * clocks (boat/Paris, UTC, browser-local) it reads and writes.
  */
+
+import type { TimezoneMode } from "../hooks/useTimezone";
 
 // ── Naive local strings ──────────────────────────────────────────────────────
 
@@ -178,6 +181,38 @@ export function nowParisHourPrefix(): string {
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
   const h = get("hour");
   return `${get("year")}-${get("month")}-${get("day")}T${h === "24" ? "00" : h}`;
+}
+
+// ── Timeline hour, in the clock the reader picked ────────────────────────────
+
+// The API is fetched with timezone=Europe/Paris, so timestamps like
+// "2026-04-26T14:00" represent 14:00 Paris time (no suffix).
+// Boat mode: read hours directly from the string (= Paris time as-is).
+// UTC mode: append the Paris UTC offset so Date can convert to UTC.
+// Local mode: interpret as-is via Date (current browser local time).
+
+
+/**
+ * Format the hour for a timeline cell.
+ * The iso string is in Paris time (no timezone suffix).
+ */
+export function formatHour(iso: string, mode: TimezoneMode = "local"): string {
+  if (mode === "boat") {
+    // Read directly from the string — it's already Paris time
+    return String(parseInt(iso.slice(11, 13), 10));
+  }
+  if (mode === "utc") {
+    // The string represents Paris time. To get UTC, subtract the Paris offset.
+    const offsetMin = parisOffsetMinAt(iso);
+    const parisHour = parseInt(iso.slice(11, 13), 10);
+    const parisMin = parseInt(iso.slice(14, 16), 10);
+    const totalUTCMin = (parisHour * 60 + parisMin - offsetMin + 1440) % 1440;
+    return String(Math.floor(totalUTCMin / 60));
+  }
+  // local: iso is Paris time without offset — convert Paris→UTC→browser-local
+  const offsetMin = parisOffsetMinAt(iso);
+  const realUtcMs = new Date(iso + "Z").getTime() - offsetMin * 60000;
+  return String(new Date(realUtcMs).getHours());
 }
 
 // ── French display formatters ────────────────────────────────────────────────

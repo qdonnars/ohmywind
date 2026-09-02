@@ -79,9 +79,6 @@ export const LEGACY_STORAGE_KEYS = {
   onboarding: "openwind:onboarding-v1",
 } as const;
 
-export type LocalStorageKey = (typeof LOCAL_STORAGE_KEYS)[keyof typeof LOCAL_STORAGE_KEYS];
-export type SessionStorageKey = (typeof SESSION_STORAGE_KEYS)[keyof typeof SESSION_STORAGE_KEYS];
-
 /** Every key the app owns, for tests and for a future "erase my data". */
 export const STORAGE_KEYS: readonly string[] = [
   ...Object.values(LOCAL_STORAGE_KEYS),

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
+import { useEffect, useRef, useImperativeHandle, type Ref } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useTheme } from "../design/useTheme";
@@ -59,6 +59,10 @@ interface PlanMapProps {
       is still loading, `null` is nothing to show. Fetching belongs to the
       page: the map only draws what it is handed. */
   depths?: (number | null | undefined)[];
+  /** Imperative handle, for the page to re-frame the camera on the route.
+      A plain prop since React 19: `forwardRef` is no longer needed to receive
+      one, and the component reads better without the wrapper. */
+  ref?: Ref<PlanMapHandle>;
 }
 
 function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon {
@@ -79,9 +83,8 @@ function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon 
   });
 }
 
-export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
-  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, initialCenter, userPosition, onViewChange, initialZoom, showSeamarks = false, depths }: PlanMapProps,
-  ref
+export function PlanMap(
+  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, initialCenter, userPosition, onViewChange, initialZoom, showSeamarks = false, depths, ref }: PlanMapProps,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -488,4 +491,4 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   }, [highlightedSegmentRange, segments, resolvedTheme]);
 
   return <div ref={containerRef} className="w-full h-full" />;
-});
+}
