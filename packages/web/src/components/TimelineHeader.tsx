@@ -225,9 +225,9 @@ export function TimelineHeader({
               scope="col"
               className={`text-[10px] lg:text-xs font-semibold py-1 cursor-pointer transition-colors relative border-b ${col.isDayStart ? 'ow-day-sep' : ''} ${
                 col.time === selectedHour
-                  ? "text-white bg-teal-600"
+                  ? "text-on-accent bg-accent-strong"
                   : isNow
-                  ? "text-teal-100 bg-teal-700/70 font-bold"
+                  ? "text-on-accent-muted bg-accent-deep/70 font-bold"
                   : "ow-hour-cell"
               }`}
               style={{
@@ -237,7 +237,7 @@ export function TimelineHeader({
             >
               {col.hourLabel}
               {isNow && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-teal-400" />
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-accent" />
               )}
             </th>
           );

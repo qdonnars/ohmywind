@@ -43,7 +43,7 @@ export function SingleResults({
         onClick={compute}
         style={{
           background: isStale ? "var(--ow-accent)" : "var(--ow-bg-2)",
-          color: isStale ? "#fff" : "var(--ow-fg-1)",
+          color: isStale ? "var(--ow-on-accent)" : "var(--ow-fg-1)",
           border: `1px solid ${isStale ? "transparent" : "var(--ow-line)"}`,
         }}
       />

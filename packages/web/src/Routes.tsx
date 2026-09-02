@@ -31,7 +31,9 @@ const loadConfidentialite = () =>
 
 // Les deux pages imposent un fond "papier blanc" quel que soit le theme.
 // L'attente reprend ce fond pour eviter un clignotement sombre puis clair
-// pendant le telechargement du chunk.
+// pendant le telechargement du chunk. Les deux valeurs sont ecrites en dur
+// exprès : elles appartiennent a la palette papier de routes/*.css, qui ne
+// suit deliberement aucun theme, et non aux jetons --ow-*.
 const docFallback = (
   <div className="min-h-screen" style={{ background: "#ffffff", color: "#6b7280" }}>
     <p className="max-w-3xl mx-auto px-6 py-10 text-sm">Chargement…</p>

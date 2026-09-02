@@ -96,9 +96,9 @@ function MarineCellImpl({
   isDayStart,
   onSelect,
 }: MarineCellProps) {
-  const nowBorder = isNow ? "border-l-2 border-l-teal-400" : "";
+  const nowBorder = isNow ? "border-l-2 border-l-accent" : "";
   const daySepClass = !isNow && isDayStart ? "ow-day-sep" : "";
-  const selectedStyle = selected ? "ring-2 ring-teal-400/70 ring-inset bg-teal-400/10" : "";
+  const selectedStyle = selected ? "ring-2 ring-accent/70 ring-inset bg-accent/10" : "";
   const select = () => onSelect(time);
 
   if (timeIdx == null) {

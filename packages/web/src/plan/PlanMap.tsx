@@ -310,7 +310,9 @@ export function PlanMap(
       const isLast = i === waypoints.length - 1 && waypoints.length > 1;
       // Number every waypoint 1..N so labels match the sidebar legs; last gets a flag.
       const label = isLast ? flagSvg : String(i + 1);
-      const bg = isFirst ? "#2dd4bf" : isLast ? "#e84118" : "#6b7280";
+      const bg = readToken(
+        isFirst ? "--ow-marker-active" : isLast ? "--ow-marker-end" : "--ow-marker-idle",
+      );
       const marker = L.marker([lat, lon], {
         icon: waypointIcon(label, bg, !!onWptDelete),
         draggable: true,
@@ -348,7 +350,7 @@ export function PlanMap(
         const lls = positions.map(([la, lo]) => L.latLng(la, lo));
         if (!dragLineRef.current) {
           dragLineRef.current = L.polyline(lls, {
-            color: "#6b7280",
+            color: readToken("--ow-marker-idle"),
             weight: 3,
             dashArray: "6 4",
             opacity: 0.85,
@@ -371,8 +373,10 @@ export function PlanMap(
 
       markersRef.current.push(marker);
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [waypoints]);
+    // resolvedTheme: the waypoint colours are read from the theme, and
+    // Leaflet keeps the resolved string in the icon markup.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waypoints, resolvedTheme]);
 
   // Fill the sounding slot of each waypoint icon.
   //
@@ -412,7 +416,7 @@ export function PlanMap(
       // A fresh route without per-segment colors (e.g. compare mode) draws as
       // a solid neutral line so it doesn't read as "not computed yet".
       const line = L.polyline(waypoints.map(([lat, lon]) => L.latLng(lat, lon)), {
-        color: "#6b7280",
+        color: readToken("--ow-marker-idle"),
         weight: 5,
         dashArray: isStale ? "6 4" : undefined,
         opacity: isStale ? 0.7 : 0.85,

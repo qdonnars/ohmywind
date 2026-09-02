@@ -22,8 +22,8 @@ const COLORS = {
   wind: "var(--ow-fg-0)",
   waves: "var(--ow-warn)",
   currentPortant: "var(--ow-ok)",
-  currentContraire: "#fb923c",  // distinct from waves' amber
-  currentTravers: "#3b82f6",    // blue-500 — clearly visible in both themes (grey washed out in light)
+  currentContraire: "var(--ow-current-against)",
+  currentTravers: "var(--ow-current-abeam)",
 };
 
 // 0° = up (12 o'clock), increasing clockwise. Returns [x, y] in SVG coords.

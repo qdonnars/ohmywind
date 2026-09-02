@@ -16,6 +16,7 @@
 
 import L from "leaflet";
 import type { Spot } from "../types";
+import { readToken } from "../design/tokens";
 
 // Leaflet renders a CircleMarker into an SVG node it keeps to itself: there is
 // no public accessor, only the internal ``_path``. Hit-testing needs that node
@@ -33,12 +34,14 @@ function isAt(spot: Spot, at: Spot | null): boolean {
   return at != null && spot.latitude === at.latitude && spot.longitude === at.longitude;
 }
 
-/** Bigger, brighter and ringed when the spot is the one being read. */
+/** Bigger, brighter and ringed when the spot is the one being read. Colours
+    come from the theme rather than from four hex values written here: Leaflet
+    wants a resolved string, so they are read at draw time. */
 function styleFor(active: boolean) {
   return {
     radius: active ? 10 : 7,
-    color: active ? "#ffffff" : "#9ca3af",
-    fillColor: active ? "#2dd4bf" : "#6b7280",
+    color: readToken(active ? "--ow-marker-stroke" : "--ow-marker-stroke-idle"),
+    fillColor: readToken(active ? "--ow-marker-active" : "--ow-marker-idle"),
     fillOpacity: active ? 0.9 : 0.6,
     weight: active ? 2.5 : 1,
   };
@@ -122,12 +125,13 @@ export function syncPreviewMarker(
   layerRef.current = null;
   if (!current) return;
   if (savedSpots.some((s) => isAt(s, current))) return;
+  const accent = readToken("--ow-marker-active");
   layerRef.current = L.circleMarker([current.latitude, current.longitude], {
     radius: 9,
-    color: "#2dd4bf",
+    color: accent,
     weight: 2.5,
     dashArray: "4 3",
-    fillColor: "#2dd4bf",
+    fillColor: accent,
     fillOpacity: 0.25,
     interactive: false,
   }).addTo(map);

@@ -495,7 +495,7 @@ export function PlanPage() {
           <a
             href={`/${mapViewQuery(mapView)}`}
             className="inline-block mt-4 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
-            style={{ background: "var(--ow-accent)", color: "#fff" }}
+            style={{ background: "var(--ow-accent)", color: "var(--ow-on-accent)" }}
           >
             ← Explorer la météo
           </a>
@@ -553,7 +553,7 @@ export function PlanPage() {
           <a
             href={`/${mapViewQuery(mapView)}`}
             className="absolute top-3 left-3 z-[400] w-[58px] h-[58px] sm:w-20 sm:h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
-            style={{ background: "var(--ow-accent)", color: "#fff" }}
+            style={{ background: "var(--ow-accent)", color: "var(--ow-on-accent)" }}
             title="Retour à l'exploration"
           >
             <img src="/wind-icon.png" alt="" className="select-none w-[64px] h-[64px] sm:w-[88px] sm:h-[88px]" draggable={false} />

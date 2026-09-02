@@ -396,10 +396,10 @@ export function PolarDiagram({
           touch-action: none;
         }
         .polar-handle:hover {
-          fill: #fff;
+          fill: var(--ow-on-accent);
         }
         .polar-handle.is-overridden {
-          fill: #fbbf24;
+          fill: var(--ow-warn);
         }
         .polar-handle.is-readonly {
           cursor: default;
