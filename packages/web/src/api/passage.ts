@@ -113,6 +113,11 @@ export async function fetchPassage(params: {
   efficiency?: number;
   overrides?: PlanOverrides;
   forecastCache?: ForecastCache;
+  /** Additive: when the caller starts a newer computation, or leaves the
+      page, the request in flight is dropped instead of racing the new one to
+      the reducer. Omitted everywhere else, where the previous behaviour of
+      never cancelling is still what is wanted. */
+  signal?: AbortSignal;
 }): Promise<PassageResponse> {
   const body: Record<string, unknown> = {
     waypoints: params.waypoints,
@@ -127,6 +132,7 @@ export async function fetchPassage(params: {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal: params.signal,
   });
   if (!res.ok) throw await toError(res);
   return res.json() as Promise<PassageResponse>;
@@ -142,6 +148,8 @@ export async function fetchPassageWindows(params: {
   efficiency?: number;
   overrides?: PlanOverrides;
   forecastCache?: ForecastCache;
+  /** See `fetchPassage`. */
+  signal?: AbortSignal;
 }): Promise<MultiWindowResponse> {
   const body: Record<string, unknown> = {
     waypoints: params.waypoints,
@@ -160,6 +168,7 @@ export async function fetchPassageWindows(params: {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal: params.signal,
   });
   if (!res.ok) throw await toError(res);
   return res.json() as Promise<MultiWindowResponse>;
@@ -172,6 +181,8 @@ export async function fetchPassageByEta(params: {
   efficiency?: number;
   overrides?: PlanOverrides;
   forecastCache?: ForecastCache;
+  /** See `fetchPassage`. */
+  signal?: AbortSignal;
 }): Promise<PassageByEtaResponse> {
   const body: Record<string, unknown> = {
     waypoints: params.waypoints,
@@ -187,6 +198,7 @@ export async function fetchPassageByEta(params: {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal: params.signal,
   });
   if (!res.ok) throw await toError(res);
   return res.json() as Promise<PassageByEtaResponse>;
