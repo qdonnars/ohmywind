@@ -5,7 +5,7 @@
 # These targets run exactly what CI runs, so a green `make check` locally
 # means a green pipeline.
 
-PY_PACKAGES := packages/data-adapters packages/mcp-core packages/hf-space
+PY_PACKAGES := packages/data-adapters packages/api packages/mcp-core packages/hf-space
 WEB := packages/web
 
 .DEFAULT_GOAL := help
@@ -32,7 +32,7 @@ hooks: ## Activer les hooks du dépôt (signature DCO automatique)
 test: test-py test-web ## Run every test suite
 
 .PHONY: test-py
-test-py: ## Python suites (data-adapters, mcp-core, hf-space)
+test-py: ## Python suites (data-adapters, api, mcp-core, hf-space)
 	@for p in $(PY_PACKAGES); do echo "→ $$p"; (cd $$p && uv run pytest -q) || exit 1; done
 
 .PHONY: test-web

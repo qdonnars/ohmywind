@@ -120,14 +120,17 @@ silently get the structured payload + the `openwind_url` deep-link.
 ```
 packages/
 ├── data-adapters/   # pure domain logic (forecast adapters, polars, routing, complexity)
+├── api/             # REST API as a Starlette app: create_app(settings, mcp_app=None)
 ├── mcp-core/        # FastMCP server (cloud-agnostic, no Gradio, no HF deps)
-├── hf-space/        # Docker wrapper for Hugging Face Spaces (Starlette + uvicorn)
+├── hf-space/        # Docker wrapper for Hugging Face Spaces (~100 lines + Dockerfile)
 └── web/             # React 19 + Vite app deployed to Cloudflare Pages (ohmywind.fr)
 ```
 
-`mcp-core` stays deployment-agnostic. Re-deploying on Fly, Modal, or a VPS is
-a different `Dockerfile` calling the same `build_server()`. See
-[docs/architecture.md](docs/architecture.md).
+`api` and `mcp-core` both stay deployment-agnostic, and neither depends on the
+other: the API serves without an MCP server behind it, and the MCP tools run
+over stdio with no HTTP at all. Re-deploying on Fly, Modal, or a VPS is a
+different `Dockerfile` and an entry point that calls `create_app()` and
+`build_server()`. See [docs/architecture.md](docs/architecture.md).
 
 ## Run locally
 

@@ -155,11 +155,17 @@ auto-deployed by GitHub Actions from `packages/hf-space/` on `main`. Don't
 commit directly to the Space repo; your changes will be overwritten at the
 next push.
 
-The wrapper carries the HTTP surface (landing page, REST endpoints, CORS,
-rate limiting) and nothing else. All domain logic lives in `openwind-mcp-core`
-and `openwind-data` upstream, re-deployable on Fly, Modal, or a VPS by writing
-a different wrapper. Neither upstream package imports Gradio or
+The wrapper is about a hundred lines: it reads the environment, allows the
+Space's own hostnames through FastMCP's DNS-rebinding guard, and runs uvicorn
+with the proxy flags HF's TLS edge requires. Everything else lives upstream in
+three packages that know nothing about Hugging Face: `openwind-api` (the HTTP
+surface, landing page, CORS, rate limiting), `openwind-mcp-core` (the four
+tools) and `openwind-data` (the domain). None of them imports Gradio or
 `huggingface_hub`.
+
+Re-deploying on Fly, Modal or a VPS is a different file of about this size,
+calling the same `create_app()` and `build_server()`. Freezing the MCP surface
+is dropping one argument.
 
 ## Cold-start
 

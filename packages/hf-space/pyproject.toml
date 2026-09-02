@@ -1,23 +1,18 @@
 [project]
 name = "openwind-hf-space"
 version = "0.1.0"
-description = "Hugging Face Spaces wrapper serving the OhMyWind MCP server and its REST API."
+description = "Hugging Face Spaces wrapper: the OhMyWind REST API with the MCP server mounted behind it."
 license = "AGPL-3.0-or-later"
 requires-python = ">=3.12"
 
-# Until now these versions lived only in the Dockerfile's pip install line,
-# so nothing outside a Space build knew what this package needed. Declaring
-# them here makes the tests collectable in CI and finally tracks the
-# dependency set in the repository. Keep in sync with the Dockerfile.
+# Two libraries and a runner. Everything else moved out in lot 2: the REST
+# surface is openwind-api, the MCP tools are openwind-mcp-core, and neither
+# knows about Hugging Face. Keep in sync with the Dockerfile, which is the
+# real deployment contract (test_dependency_parity.py enforces it).
 dependencies = [
-    "openwind-data",
+    "openwind-api",
     "openwind-mcp-core",
-    # Imported directly by app.py: the ASGI app, its routes and middleware.
-    # Transitively available through mcp[cli], but relying on that would let a
-    # dependency bump of the MCP SDK silently break the REST layer.
-    "starlette>=0.37",
     "uvicorn[standard]>=0.30",
-    "httpx>=0.27",
     # fetch_atlases.py pulls the tidal atlas dataset at image build time.
     "huggingface_hub[hf_xet]>=0.24",
 ]
@@ -37,7 +32,7 @@ dev = [
 package = false
 
 [tool.uv.sources]
-openwind-data = { path = "../data-adapters", editable = true }
+openwind-api = { path = "../api", editable = true }
 openwind-mcp-core = { path = "../mcp-core", editable = true }
 
 [tool.pytest.ini_options]

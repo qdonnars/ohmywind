@@ -5,6 +5,7 @@ on:
     branches: [main, dev]
     paths:
       - "packages/hf-space/**"
+      - "packages/api/**"
       - "packages/mcp-core/**"
       - "packages/data-adapters/**"
       - ".github/workflows/sync-hf-space.yml"
@@ -52,10 +53,15 @@ jobs:
           mkdir -p "$BUILD_DIR/vendor"
           cp -R packages/hf-space/. "$BUILD_DIR/"
           cp -R packages/data-adapters "$BUILD_DIR/vendor/data-adapters"
+          cp -R packages/api           "$BUILD_DIR/vendor/api"
           cp -R packages/mcp-core      "$BUILD_DIR/vendor/mcp-core"
           # Strip artefacts that don't belong on the Space.
           find "$BUILD_DIR/vendor" -type d \( -name __pycache__ -o -name .pytest_cache -o -name .ruff_cache -o -name tests \) -prune -exec rm -rf {} +
           find "$BUILD_DIR/vendor" -type f -name "*.pyc" -delete
+          # The vendored packages build from their own pyproject, so their
+          # lockfiles and venvs are dead weight on the Space.
+          find "$BUILD_DIR/vendor" -maxdepth 2 -name uv.lock -delete
+          find "$BUILD_DIR/vendor" -maxdepth 2 -type d -name .venv -prune -exec rm -rf {} +
           rm -f "$BUILD_DIR/.gitignore"
           # Dev-only artefacts of the wrapper itself. The Space builds from the
           # Dockerfile, so its pyproject, lockfile, venv, lint config and test

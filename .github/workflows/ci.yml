@@ -24,6 +24,11 @@ concurrency:
 
 jobs:
   python:
+    # This string is the check-run name that `dev`'s branch protection
+    # requires, verbatim. Renaming it here without updating the rule in the
+    # repository settings blocks every pull request on a check that will
+    # never report again, which is exactly what happened when `api` was added
+    # to it. The packages the job actually covers are the step names below.
     name: Python (data-adapters, mcp-core, hf-space)
     runs-on: ubuntu-latest
     steps:
@@ -44,6 +49,10 @@ jobs:
         working-directory: packages/data-adapters
         run: uv sync --extra dev --frozen
 
+      - name: Sync api
+        working-directory: packages/api
+        run: uv sync --extra dev --frozen
+
       - name: Sync mcp-core
         working-directory: packages/mcp-core
         run: uv sync --extra dev --frozen
@@ -54,11 +63,15 @@ jobs:
 
       - name: Lint
         run: |
-          uvx ruff check packages/data-adapters packages/mcp-core packages/hf-space
-          uvx ruff format --check packages/data-adapters packages/mcp-core packages/hf-space
+          uvx ruff check packages/data-adapters packages/api packages/mcp-core packages/hf-space
+          uvx ruff format --check packages/data-adapters packages/api packages/mcp-core packages/hf-space
 
       - name: Test data-adapters
         working-directory: packages/data-adapters
+        run: uv run pytest -q
+
+      - name: Test api
+        working-directory: packages/api
         run: uv run pytest -q
 
       - name: Test mcp-core

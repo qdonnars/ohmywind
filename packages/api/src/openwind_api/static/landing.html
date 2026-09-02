@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>OhMyWind MCP : talk to your LLM, cast off with confidence</title>
+  <link rel="icon" type="image/svg+xml" href="https://ohmywind.fr/favicon.svg">
+  <link rel="icon" type="image/png" sizes="192x192" href="https://ohmywind.fr/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="https://ohmywind.fr/icon-512.png">
+  <link rel="apple-touch-icon" href="https://ohmywind.fr/icon-maskable-512.png">
+  <meta name="description" content="OhMyWind MCP. Free, keyless sailing passage planner for any coast, with high-precision tides on the French Atlantic.">
+  <meta property="og:title" content="OhMyWind MCP">
+  <meta property="og:description" content="Talk to your LLM. Cast off with confidence. Free, keyless sailing planner via MCP.">
+  <meta property="og:image" content="https://ohmywind.fr/icon-512.png">
+  <meta property="og:url" content="https://ohmywind.fr">
+  <meta name="twitter:card" content="summary">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #FAF7EE;
+      --card: #FFFFFF;
+      --text: #1A1A1A;
+      --muted: #4A4A4A;
+      --faint: #777169;
+      --border: #E2DDCD;
+      --accent: #1D9E75;
+      --soft: #F1ECDF;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #15140F;
+        --card: rgba(255,255,255,0.04);
+        --text: #F2F2F2;
+        --muted: #B8B5AC;
+        --faint: #888780;
+        --border: rgba(255,255,255,0.10);
+        --accent: #2BBE93;
+        --soft: rgba(255,255,255,0.06);
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      max-width: 44rem; margin: 0 auto; padding: 3rem 1.25rem 4rem;
+      background: var(--bg); color: var(--text);
+    }
+    h1 { font-size: 2rem; margin: 0 0 0.5rem; letter-spacing: -0.01em; }
+    .lede { font-size: 1.15rem; color: var(--muted); margin: 0 0 2rem; line-height: 1.45; }
+    h2 { font-size: 1.15rem; margin: 2.25rem 0 0.75rem; letter-spacing: -0.005em; }
+    p { margin: 0.6rem 0; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { font-size: 0.92em; background: var(--soft); padding: 0.1rem 0.35rem; border-radius: 4px; }
+    pre { background: var(--card); border: 1px solid var(--border); padding: 0.85rem 1rem;
+          border-radius: 10px; overflow-x: auto; margin: 0.75rem 0; }
+    pre code { background: none; padding: 0; font-size: 0.95em; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .hero {
+      display: block; width: 100%; max-width: 100%; height: auto;
+      border-radius: 12px; border: 1px solid var(--border);
+      margin: 1rem 0 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    /* The capture is a full 1920px screen and the reading column is 44rem,
+       so the demo breaks out of the column to stay legible. Clamped against
+       the viewport so a narrow screen never gets a horizontal scrollbar. */
+    figure.demo {
+      width: min(58rem, calc(100vw - 2.5rem));
+      margin: 1.25rem 0 2rem 50%;
+      transform: translateX(-50%);
+    }
+    figure.demo .hero { margin: 0; background: #15140F; }
+    figure.demo figcaption {
+      color: var(--faint); font-size: 0.85rem; line-height: 1.45;
+      margin-top: 0.7rem; text-align: center;
+    }
+    .badge {
+      display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px;
+      background: var(--soft); color: var(--accent); font-size: 0.75rem;
+      font-weight: 600; letter-spacing: 0.04em; vertical-align: middle;
+      text-transform: uppercase;
+    }
+    blockquote {
+      margin: 0.75rem 0; padding: 0.75rem 1rem; border-left: 3px solid var(--accent);
+      background: var(--soft); border-radius: 0 8px 8px 0; color: var(--muted);
+      font-style: italic;
+    }
+    ol { padding-left: 1.25rem; line-height: 1.7; }
+    ol li { margin: 0.4rem 0; }
+    .perks { display: grid; grid-template-columns: 1fr; gap: 0.5rem; margin: 1rem 0; padding: 0; list-style: none; }
+    .perks li { padding: 0.65rem 0.9rem; background: var(--card); border: 1px solid var(--border);
+                border-radius: 8px; font-size: 0.95rem; }
+    .perks strong { color: var(--text); }
+    details.connector {
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+      margin: 0.6rem 0; overflow: hidden;
+    }
+    details.connector summary {
+      cursor: pointer; padding: 0.85rem 1rem; font-weight: 600; list-style: none;
+      display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+    }
+    details.connector summary::-webkit-details-marker { display: none; }
+    details.connector summary::after {
+      content: "›"; color: var(--faint); font-size: 1.4rem; line-height: 1;
+      transition: transform 0.15s ease; transform-origin: center;
+    }
+    details.connector[open] summary::after { transform: rotate(90deg); }
+    details.connector[open] summary { border-bottom: 1px solid var(--border); }
+    details.connector ol { padding: 0.85rem 1rem 1rem 2.25rem; margin: 0; }
+    details.connector ol li { margin: 0.45rem 0; }
+    details.connector pre { margin: 0.5rem 0; }
+    .footnote { color: var(--faint); font-size: 0.85rem; margin-top: 2.5rem; }
+  </style>
+</head>
+<body>
+  <h1>OhMyWind MCP <span class="badge">running</span></h1>
+  <p class="lede">Talk to your LLM. Cast off with confidence.<br>
+    A free, keyless, open-source sailing planner for any coast, with
+    high-precision tidal currents on the French Atlantic. Exposed as an MCP
+    server so any compatible assistant can use it.</p>
+
+  <figure class="demo">
+    <video class="hero" src="/static/demo.mp4" poster="/static/demo-poster.jpg"
+           autoplay muted loop playsinline controls preload="metadata"
+           aria-label="Screen recording: in a private chat window, the OhMyWind connector is switched on, an assistant plans a Cherbourg to St Peter Port passage through this server, and the result opens on ohmywind.fr."></video>
+    <figcaption>A real session, sped up and silent, in a private window: no
+      history, no memory, nothing set up in advance. Switch the connector on,
+      ask for a Cherbourg to St Peter Port crossing on a 40 ft cruiser, and the
+      passage opens on ohmywind.fr: 50.8 nm, 14h54, arrival 07:53.</figcaption>
+  </figure>
+
+  <h2>Connect it to your assistant</h2>
+  <p>Pick yours below (under a minute, no install, no API key).</p>
+
+  <details class="connector">
+    <summary>Claude (claude.ai)</summary>
+    <ol>
+      <li>Open <a href="https://claude.ai/settings/connectors" target="_blank" rel="noopener">claude.ai → Settings → Connectors</a>.</li>
+      <li>Scroll to the bottom and click <strong>Add custom connector</strong>.</li>
+      <li>Set <strong>Name</strong>: <code>OhMyWind</code>.</li>
+      <li>Paste this in <strong>Remote MCP server URL</strong>:
+        <pre><code>https://mcp.ohmywind.fr/mcp</code></pre></li>
+      <li>Click <strong>Add</strong>. In any new chat, OhMyWind shows up in the
+        <strong>Search and tools</strong> menu: toggle it on.</li>
+    </ol>
+  </details>
+
+  <details class="connector">
+    <summary>Le Chat (Mistral)</summary>
+    <ol>
+      <li>Open <a href="https://chat.mistral.ai" target="_blank" rel="noopener">chat.mistral.ai</a> and sign in.</li>
+      <li>In the left sidebar, open <strong>Intelligence</strong> &rarr;
+        <strong>Connecteurs</strong> (in English:
+        <strong>Intelligence</strong> &rarr; <strong>Connectors</strong>),
+        then click <strong>Add MCP server</strong>.</li>
+      <li>Set <strong>Name</strong>: <code>OhMyWind</code> &middot; <strong>Auth</strong>: <code>None</code>.</li>
+      <li>Paste this in <strong>URL</strong>:
+        <pre><code>https://mcp.ohmywind.fr/mcp</code></pre></li>
+      <li>Save, then enable the OhMyWind toggle inside any conversation.</li>
+      <li>Le Chat doesn&rsquo;t (yet) support the MCP Apps spec, so the
+        widget won&rsquo;t render inline: the assistant will hand you
+        an <a href="https://ohmywind.fr">ohmywind.fr</a> deep-link instead.</li>
+    </ol>
+  </details>
+
+  <details class="connector">
+    <summary>ChatGPT (OpenAI)</summary>
+    <ol>
+      <li>Requires ChatGPT <strong>Pro</strong>, Business, or Enterprise (custom connectors).</li>
+      <li>Open <a href="https://chatgpt.com/#settings/Connectors" target="_blank" rel="noopener">ChatGPT → Settings → Connectors</a>.</li>
+      <li>In <strong>Advanced</strong>, turn on <strong>Developer mode</strong>.</li>
+      <li>Back in <strong>Connectors</strong>, click <strong>Create</strong>.</li>
+      <li>Set <strong>Name</strong>: <code>OhMyWind</code> · <strong>Authentication</strong>: <code>No authentication</code>.</li>
+      <li>Paste this in <strong>MCP server URL</strong>:
+        <pre><code>https://mcp.ohmywind.fr/mcp</code></pre></li>
+      <li>Trust the connector and save. Activate it in a chat via
+        <strong>+ → Developer connectors → OhMyWind</strong>.</li>
+    </ol>
+  </details>
+
+  <h2>Then ask, in your own words</h2>
+  <blockquote>I'm leaving Marseille tomorrow morning for Porquerolles on a Sun Odyssey 36.
+    How long is the passage and how tricky is it?</blockquote>
+  <p>Your assistant calls the OhMyWind tools and answers in plain language.
+    On hosts that support the
+    <a href="https://modelcontextprotocol.io/extensions/client-matrix" target="_blank" rel="noopener">MCP Apps spec</a>
+    (Claude, Claude Desktop, ChatGPT, VS Code Copilot, Goose, Postman, MCPJam),
+    the live <a href="https://ohmywind.fr">ohmywind.fr</a> plan view also
+    renders inline as a sandboxed iframe. On hosts that don&rsquo;t (Cursor,
+    Le Chat, terminal), the assistant hands you the same plan as a deep-link
+    instead.</p>
+  <p>Or to compare a whole weekend&rsquo;s worth of departure windows in one
+    shot:</p>
+  <blockquote>Marseille &rarr; Porquerolles, same boat. Show me the
+    calmest departure between Saturday morning and Monday evening.</blockquote>
+
+  <h2>Why OhMyWind</h2>
+  <ul class="perks">
+    <li><strong>Free &amp; keyless.</strong> Wind + sea via
+      <a href="https://open-meteo.com">Open-Meteo</a> (CC BY 4.0).</li>
+    <li><strong>Mediterranean-tuned.</strong> AROME 1.3 km by default; ICON-EU &rarr; ECMWF &rarr; GFS for longer reach.</li>
+    <li><strong>Boat-aware.</strong> Seven archetypes from 20 to 50 ft, real polars, an <code>efficiency</code> parameter for trim and crew level.</li>
+    <li><strong>Window-aware.</strong> One call sweeps up to 14 days of hourly departures so the LLM can pick the calmest slot.</li>
+    <li><strong>Client-agnostic.</strong> One HTTP MCP endpoint. No vendor lock-in.</li>
+    <li><strong>Open source, AGPL.</strong> Self-host on Fly, Modal, your VPS.</li>
+  </ul>
+
+  <h2>Four tools</h2>
+  <p>The workhorse is <code>plan_passage</code>: one call returns timing, a
+    1-5 complexity score, and an <a href="https://ohmywind.fr">ohmywind.fr</a>
+    deep-link. It declares an MCP Apps UI resource, so supporting hosts also
+    render the live plan view in a sandboxed iframe. Pass
+    <code>latest_departure</code> and it walks every hourly window up to 14
+    days out so the LLM can compare side-by-side. The other three tools
+    (<code>list_boat_archetypes</code>,
+    <code>get_marine_forecast</code>, <code>read_me</code>) let the
+    assistant pick a boat, sample the forecast ad hoc, or explain the math
+    behind a result.</p>
+  <p>Don&rsquo;t want to wire an MCP host? You can also drive everything by
+    hand at <a href="https://ohmywind.fr/plan">ohmywind.fr/plan</a>:
+    click your route, pick a boat, slide the departure.</p>
+
+  <h2>Source</h2>
+  <p>Project site: <a href="https://ohmywind.fr">ohmywind.fr</a> &middot;
+    GitHub: <a href="https://github.com/qdonnars/ohmywind">qdonnars/ohmywind</a>
+    (AGPL-3.0).</p>
+
+  <p class="footnote">First request after inactivity may take a few seconds
+    (HF Spaces cold-start).</p>
+</body>
+</html>
