@@ -32,7 +32,17 @@ interface TwaShortcut {
   chosenIconUrl: string;
 }
 
-const webManifest = JSON.parse(webManifestRaw) as { shortcuts: WebShortcut[] };
+const webManifest = JSON.parse(webManifestRaw) as {
+  shortcuts: WebShortcut[];
+  id: string;
+  scope: string;
+  lang: string;
+  dir: string;
+  description: string;
+  categories: string[];
+  start_url: string;
+  theme_color: string;
+};
 const shortcuts = webManifest.shortcuts;
 /** Basenames of the icon files that actually exist, per the imports above. */
 const onDisk = [planIconUrl, configIconUrl].map((url) => url.split("/").pop());
@@ -93,5 +103,38 @@ describe.each([
     // Seed: 1.0.1 nearly shipped labelled 1.0.0 because only one of the two was
     // bumped. Bubblewrap reads `appVersion` for the bundle's versionName.
     expect(twa.appVersion).toBe(twa.appVersionName);
+  });
+});
+
+/**
+ * L'identite d'installation, par opposition aux raccourcis.
+ *
+ * `id` est ce qui distingue deux applications aux yeux du navigateur. Il est
+ * deduit de `start_url` quand il manque, donc toucher un jour a `start_url`
+ * sans `id` explicite ferait apparaitre une seconde application au lieu d'une
+ * mise a jour de celle qui est installee. C'est irreversible pour l'utilisateur
+ * (il faut desinstaller), d'ou le verrou.
+ */
+describe("identite du manifeste web", () => {
+  it("fige l'identite et la portee de l'application", () => {
+    expect(webManifest.id).toBe("/");
+    expect(webManifest.scope).toBe("/");
+    expect(webManifest.start_url).toBe("/");
+  });
+
+  it("declare la langue de la copie qu'il porte", () => {
+    // Les libelles des raccourcis et la description sont en francais : un
+    // `lang` absent ou anglais fait lire le tout par la mauvaise voix de
+    // synthese et le donne a traduire aux magasins d'applications.
+    expect(webManifest.lang).toBe("fr");
+    expect(webManifest.dir).toBe("ltr");
+    expect(webManifest.description).toMatch(/Planificateur de navigation/);
+  });
+
+  it("garde le theme aligne sur celui de la page", () => {
+    // index.html porte la meme couleur en <meta name="theme-color">. Les deux
+    // qui divergent donnent une barre systeme d'une couleur au lancement et
+    // d'une autre apres le premier rendu.
+    expect(webManifest.theme_color).toBe("#030712");
   });
 });
