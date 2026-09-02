@@ -28,6 +28,7 @@ import { useBackDismiss } from "../hooks/useBackDismiss";
 import { useMapView } from "../hooks/useMapView";
 import { LG_MEDIA_QUERY, useMediaQuery } from "../hooks/useMediaQuery";
 import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
+import { navigate } from "../navigation";
 
 // ── local helpers (mobile components) ────────────────────────────────────────
 
@@ -452,10 +453,13 @@ export function PlanPage() {
   // and computing when nothing usable could be restored.
   useEffect(() => {
     if (initial.mount.rewriteUrl) {
-      window.history.replaceState(
-        null,
-        "",
+      // Through the router, not through `history` directly: this rewrite
+      // happens on the page the reader is already on, and a router left
+      // holding the previous URL remounted the planner at the next back
+      // press, results and all.
+      navigate(
         buildPlanUrl(initial.waypoints, initial.departure, initial.archetype),
+        { replace: true },
       );
     }
     if (initial.mount.fetch) actions.compute();

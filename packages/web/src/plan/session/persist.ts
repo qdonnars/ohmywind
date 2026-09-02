@@ -25,6 +25,7 @@ import {
 } from "../lastSimulation";
 import { savePlanDraft, clearPlanDraft } from "../draft";
 import type { CacheWrite, PersistCommand, PlanState } from "./reducer";
+import { navigate } from "../../navigation";
 
 /**
  * Merge a committed result into the persisted simulation.
@@ -94,10 +95,13 @@ export function applyCacheWrite(write: CacheWrite): void {
  * `BackStack.close` reads to leave an entry it no longer owns alone. Called
  * from a layout effect for that reason, while the rest waits for the passive
  * pass.
+ *
+ * Goes through `navigate` rather than `history` directly so the router is told
+ * about the rewrite; see `navigation.ts` for what silence cost.
  */
 export function applyUrlWrite(command: PersistCommand): void {
   if (command.url !== undefined) {
-    window.history.replaceState(null, "", command.url);
+    navigate(command.url, { replace: true });
   }
 }
 
