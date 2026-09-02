@@ -78,7 +78,7 @@ function twaToPointOfSail(twa: number, minUpwindDeg: number): string {
   return "Arrière";
 }
 
-export function legDurationLabel(leg: AggregatedLeg): string {
+function legDurationLabel(leg: AggregatedLeg): string {
   const ms = new Date(leg.end_time).getTime() - new Date(leg.start_time).getTime();
   const totalMin = Math.max(0, Math.round(ms / 60000));
   if (totalMin < 60) return `${totalMin} mn`;

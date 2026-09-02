@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-export interface PlanWaypoint {
+interface PlanWaypoint {
   lat: number;
   lon: number;
 }
@@ -42,7 +42,7 @@ export interface PassageReport {
   warnings: string[];
 }
 
-export interface ComplexityWarning {
+interface ComplexityWarning {
   kind: "wind" | "sea";
   level: number;
   message: string;
@@ -70,7 +70,7 @@ export interface PassageResponse {
 
 // ── ETA-driven mode (target arrival, solve for departure) ────────────────────
 
-export interface EtaSolveMeta {
+interface EtaSolveMeta {
   target_arrival: string;       // ISO-8601 UTC
 }
 
@@ -80,9 +80,9 @@ export interface PassageByEtaResponse extends PassageResponse {
 
 // ── Sweep mode (compare-windows) ─────────────────────────────────────────────
 
-export type SailAngle = "pres" | "travers" | "largue" | "portant";
+type SailAngle = "pres" | "travers" | "largue" | "portant";
 
-export interface ConditionsSummary {
+interface ConditionsSummary {
   tws_min_kn: number;
   tws_max_kn: number;
   predominant_sail_angle: SailAngle;
@@ -121,12 +121,6 @@ export interface MultiWindowResponse {
   windows: PassageWindow[];
   meta_warnings: string[];
   forecast_updated_at: string;
-}
-
-export type PassageOrSweepResponse = PassageResponse | MultiWindowResponse;
-
-export function isMultiWindow(r: PassageOrSweepResponse): r is MultiWindowResponse {
-  return (r as MultiWindowResponse).mode === "multi_window";
 }
 
 export interface Archetype {

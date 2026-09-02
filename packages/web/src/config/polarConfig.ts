@@ -186,7 +186,7 @@ interface PersistedConfig {
 // (North Sails, Yachting World, sail forums): asymmetric peaks on the reach
 // 110-135 deg and stays usable up to 150 deg by heating up; symmetric is
 // dead at beam reach but excels at broad reach + run (135-165 deg).
-export const ASYMMETRIC_BOOST_BY_TWA: Readonly<Record<number, number>> = {
+const ASYMMETRIC_BOOST_BY_TWA: Readonly<Record<number, number>> = {
   40: 1.0,
   50: 1.0,
   60: 1.0,
@@ -198,7 +198,7 @@ export const ASYMMETRIC_BOOST_BY_TWA: Readonly<Record<number, number>> = {
   165: 1.05,
 };
 
-export const SYMMETRIC_BOOST_BY_TWA: Readonly<Record<number, number>> = {
+const SYMMETRIC_BOOST_BY_TWA: Readonly<Record<number, number>> = {
   40: 1.0,
   50: 1.0,
   60: 1.0,

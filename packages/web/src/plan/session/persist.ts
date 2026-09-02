@@ -34,7 +34,7 @@ import { navigate } from "../../navigation";
  * erase the single-mode result of the same route, and vice versa. A different
  * route is a different plan, so nothing carries over.
  */
-export function applyCacheWrite(write: CacheWrite): void {
+function applyCacheWrite(write: CacheWrite): void {
   if (write.kind === "clear") {
     clearLastSimulation();
     return;

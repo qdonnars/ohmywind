@@ -23,15 +23,15 @@ const SEAMARK_URL = "https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png";
 
 /** Deepest zoom OpenSeaMap actually renders. Past it Leaflet upscales the
     z18 tile instead of asking for a tile that does not exist. */
-export const SEAMARK_MAX_NATIVE_ZOOM = 18;
+const SEAMARK_MAX_NATIVE_ZOOM = 18;
 
 /** Own pane, between the basemap (200) and the route overlay (400): the
     marks must sit over the coastline but under the planned track, which is
     the thing the user is actually manipulating. */
-export const SEAMARK_PANE = "seamarks";
+const SEAMARK_PANE = "seamarks";
 
 /** Creates the dedicated pane. Call once, right after the map is built. */
-export function createSeamarkPane(map: L.Map): void {
+function createSeamarkPane(map: L.Map): void {
   if (map.getPane(SEAMARK_PANE)) return;
   const pane = map.createPane(SEAMARK_PANE);
   pane.style.zIndex = "250";

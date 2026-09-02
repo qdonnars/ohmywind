@@ -17,7 +17,7 @@ import { fetchMarineCorridor } from "./marine";
 import { parisIsoToUtcMs } from "../domain/datetime";
 import { haversineNm, interpolateGreatCircle, type GeoPoint } from "../plan/geo";
 
-export const CACHE_VERSION = 1;
+const CACHE_VERSION = 1;
 
 // Web model name -> Open-Meteo backend slug. MUST mirror hf-space app.py
 // `_MODEL_NAME_MAP` (a server test and the web test both assert this set). Only
@@ -52,13 +52,13 @@ const MAX_SEG_LENGTH_NM = 30;
 // it, so this is what the server will resolve against.
 const SERVER_REQUESTED_SEGMENT_NM = 10;
 
-export interface CacheWindSeries {
+interface CacheWindSeries {
   speed_kn: (number | null)[];
   direction_deg: (number | null)[];
   gust_kn: (number | null)[];
 }
 
-export interface CacheSea {
+interface CacheSea {
   wave_height_m: (number | null)[];
   wave_period_s: (number | null)[];
   wave_direction_deg: (number | null)[];
@@ -68,7 +68,7 @@ export interface CacheSea {
   current_source: string | null;
 }
 
-export interface ForecastCachePoint {
+interface ForecastCachePoint {
   lat: number;
   lon: number;
   wind_by_model: Record<string, CacheWindSeries>;
@@ -384,7 +384,7 @@ function mappableActiveModels(): ModelName[] {
   return activeModels(loadModelConfig()).filter((m) => CACHE_MODEL_SLUGS[m] !== undefined);
 }
 
-export async function buildForecastCache(
+async function buildForecastCache(
   waypoints: [number, number][],
   opts: { spacingNm?: number; window?: CacheWindow } = {},
 ): Promise<ForecastCache> {

@@ -106,6 +106,14 @@ jobs:
         working-directory: packages/web
         run: npm run lint:budget
 
+      # Dead files and dead exports. Neither TypeScript nor ESLint nor the
+      # bundler sees them: an unused export type checks, lints and is
+      # tree-shaken away, so it costs nothing at runtime and accumulates
+      # forever in the reading. See packages/web/knip.jsonc.
+      - name: Dead code
+        working-directory: packages/web
+        run: npm run knip
+
       - name: Test
         working-directory: packages/web
         run: npm run test

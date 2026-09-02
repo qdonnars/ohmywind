@@ -1,0 +1,36 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+
+  // Dead code, found by following imports rather than by grepping.
+  //
+  // The audit of September 2026 (annexe B, Mo5) listed three orphan files and
+  // some twenty exports nothing imported any more. Nothing had caught them
+  // because an unused export is invisible to TypeScript, to ESLint and to the
+  // bundler alike: it type checks, it lints, and it is tree-shaken out of the
+  // bundle, so it costs nothing at runtime and everything at reading time.
+  //
+  // `entry` lists what knip cannot infer on its own. `src/main.tsx`,
+  // `index.html`, the Vite and Vitest configs and the ESLint config are all
+  // detected by knip's own plugins, so listing them again would be redundant.
+  // What it cannot guess:
+  //
+  // - `src/sw.ts`, compiled by vite-plugin-pwa through `injectManifest`
+  //   rather than imported by anything;
+  // - the lint ratchet under `scripts/`, run by npm, not imported;
+  // - the test files, which are the entry points of the test graph, including
+  //   `tests/` outside `src/` (the polar parity check, which reads the repo
+  //   from disk and therefore needs Node types).
+  //
+  // `project` includes the stylesheets so the `@import` graph of `index.css`
+  // is followed too: that is what proves `tailwindcss` is really used, and it
+  // is what would catch a `.css` file left behind by a page that no longer
+  // imports it (the CSS moved out of the JSX in 4.3 makes that possible).
+  "entry": [
+    "src/sw.ts",
+    "scripts/*.mjs",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "tests/**/*.test.ts"
+  ],
+  "project": ["src/**/*.{ts,tsx,css}", "scripts/*.mjs", "tests/**/*.ts"]
+}
