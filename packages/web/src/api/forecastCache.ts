@@ -96,9 +96,38 @@ export interface CacheWindow {
   endMs?: number;
 }
 
+// Numeric precision of the serialised cache, field by field. Every float that
+// reaches the wire goes through one of these two helpers; nothing else in the
+// payload is a float (times_ms are integer epoch-ms, models and current_source
+// are strings). Why round at all: JSON.stringify writes the shortest decimal
+// that round-trips the double, so an unrounded value costs up to 17 significant
+// digits where 4 to 6 carry everything the server can act on.
+//
+//   lat / lon ..................... 4 dp (~11 m), see COORD_DP below
+//   speed_kn / gust_kn ............ 1 dp (0.1 kn), the model's own resolution
+//   direction_deg ................. 0 dp (1 deg)
+//   wave_height_m / tide_height_m . 2 dp (1 cm)
+//   wave_period_s ................. 1 dp (0.1 s)
+//   wave_direction_deg ............ 0 dp (1 deg)
+//   current_speed_kn .............. 2 dp (0.01 kn), the 0.3 kn reporting
+//                                   threshold needs the centikn
+//   current_direction_to_deg ...... 0 dp (1 deg)
 function roundOrNull(v: number | null | undefined, dp: number): number | null {
   if (v == null) return null;
   return Number(v.toFixed(dp));
+}
+
+// Corridor coordinates: 4 decimals, about 11 m of latitude. The server never
+// reads these as a position to compute from, only as a lookup key: it segments
+// its own route from the full-precision waypoints of the request and resolves
+// each segment midpoint by nearest neighbour over the cache points (see
+// adapters/cache_backed.py). Corridor points are kilometres apart, so an 11 m
+// nudge cannot change which one is nearest. Emitting them at double precision
+// costs up to 17 significant digits twice per point for nothing.
+const COORD_DP = 4;
+
+function roundCoord(v: number): number {
+  return Number(v.toFixed(COORD_DP));
 }
 
 // Interpolate sample points along the waypoint polyline at ~spacingNm. Mirrors
@@ -237,7 +266,8 @@ export function etaWindowMs(waypoints: [number, number][], arrivalMs: number): C
 // Assemble a ForecastCache from already-fetched corridor samples. Pure (no
 // network): converts every Open-Meteo Paris-naive timestamp to UTC epoch-ms via
 // parisIsoToUtcMs, builds one shared ascending time axis (optionally clamped to
-// `window`), and index-aligns each per-model wind + sea series onto it. Throws
+// `window`), index-aligns each per-model wind + sea series onto it and rounds
+// every float to the precision table above. Throws
 // when no sample carries a backend-mappable model, so the caller falls back to
 // the live server path rather than posting an empty chain.
 export function assembleForecastCache(
@@ -293,7 +323,12 @@ export function assembleForecastCache(
         slugOrder.push(slug);
       }
     }
-    return { lat: s.lat, lon: s.lon, wind_by_model: windByModel, sea: buildSea(s.marine, idxByMs, n) };
+    return {
+      lat: roundCoord(s.lat),
+      lon: roundCoord(s.lon),
+      wind_by_model: windByModel,
+      sea: buildSea(s.marine, idxByMs, n),
+    };
   });
 
   // 3. Model chain: priority by first appearance, gfs_seamless as last resort

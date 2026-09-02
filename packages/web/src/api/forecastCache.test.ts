@@ -317,6 +317,57 @@ describe("assembleForecastCache", () => {
     expect(cache.points[0].wind_by_model["meteofrance_arome_france"].speed_kn).toEqual([11.1, 12.0]);
   });
 
+  it("rounds corridor coordinates to 4 decimals", () => {
+    // Parsed from strings rather than written as literals: these are the
+    // 17-significant-digit doubles interpolateGreatCircle actually emits, and
+    // no-loss-of-precision rejects them as source literals.
+    const raw: SampledPoint[] = [
+      {
+        lat: Number("43.29999999999998"),
+        lon: Number("5.350000000000001"),
+        models: [model("AROME", [10, 10, 10])],
+        marine: marine("openmeteo_smoc"),
+      },
+      {
+        lat: Number("43.123456789012345"),
+        lon: Number("6.198765432109876"),
+        models: [model("AROME", [10, 10, 10])],
+        marine: null,
+      },
+    ];
+    const cache = assembleForecastCache(raw);
+    expect(cache.points.map((p) => [p.lat, p.lon])).toEqual([
+      [43.3, 5.35],
+      [43.1235, 6.1988],
+    ]);
+    // Within the nearest-neighbour tolerance: 4 dp is ~11 m, corridor spacing
+    // is kilometres.
+    expect(cache.points[1].lat).toBeCloseTo(raw[1].lat, 4);
+    expect(cache.points[1].lon).toBeCloseTo(raw[1].lon, 4);
+  });
+
+  it("serialises no float longer than its documented precision", () => {
+    const route = routeOf(200, 3);
+    const corridor = planCorridor(route);
+    const cache = assembleForecastCache(
+      corridor.map((p) => ({
+        lat: p.lat,
+        lon: p.lon,
+        models: [model("AROME", [10.04, 11.06, 12.0])],
+        marine: marine("openmeteo_smoc"),
+      })),
+    );
+    // No number anywhere in the payload carries more than 4 decimals, and the
+    // corridor is the part that used to (raw great-circle doubles).
+    for (const num of JSON.stringify(cache).match(/-?\d+\.\d+/g) ?? []) {
+      expect(num.split(".")[1].length).toBeLessThanOrEqual(4);
+    }
+    for (const pt of cache.points) {
+      expect(Number(pt.lat.toFixed(4))).toBe(pt.lat);
+      expect(Number(pt.lon.toFixed(4))).toBe(pt.lon);
+    }
+  });
+
   it("throws when no sample carries a backend-mappable model", () => {
     const onlyUnmappable: SampledPoint[] = [
       { lat: MARSEILLE[0], lon: MARSEILLE[1], models: [model("ARPEGE_EU", [8, 8, 8])], marine: null },
