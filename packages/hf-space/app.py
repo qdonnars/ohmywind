@@ -99,8 +99,34 @@ def build_app() -> Any:
     return create_app(settings, mcp_app=build_mcp_app(services.marine), services=services)
 
 
+def configure_logging() -> None:
+    """Set the level, and silence the one library that logs too much.
+
+    INFO carries the API's own access line and the atlas warm-up. DEBUG adds
+    every upstream Open-Meteo call with its status, its duration and whether
+    the cache answered instead: worth turning on from the Space's variables
+    when a slow plan needs explaining, and too chatty to leave on.
+
+    httpx logs every request at INFO **with the full URL**, and an Open-Meteo
+    URL carries the latitude and longitude of a waypoint at full precision.
+    That is where a boat is going, written into a log this deployment
+    promises not to keep. Muted to WARNING, which still surfaces the transport
+    failures worth seeing.
+    """
+    requested = os.environ.get("OPENWIND_LOG_LEVEL", "INFO").upper()
+    # An unreadable value must not be the reason a deployment fails to boot.
+    level = getattr(logging, requested, None)
+    if not isinstance(level, int):
+        level = logging.INFO
+    logging.basicConfig(level=level)
+    # ``basicConfig`` is a no-op once anything has installed a handler, which
+    # uvicorn does, so the level is also set outright.
+    logging.getLogger().setLevel(level)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
+
 def main() -> None:
-    logging.basicConfig(level=logging.INFO)
+    configure_logging()
     warn_if_edge_secret_missing()
     app = build_app()
     # Run uvicorn explicitly (rather than ``server.run(transport=...)``) so we
@@ -113,6 +139,13 @@ def main() -> None:
         port=PORT,
         proxy_headers=True,
         forwarded_allow_ips="*",
+        # One access line per request, not two. uvicorn's own says method,
+        # path and status; ``openwind_api.access`` says those plus a request
+        # id, a duration, a response size, whether the browser supplied the
+        # forecast and which rate-limit bucket the caller is in. Keeping both
+        # would double the volume to add nothing, and uvicorn's logs the
+        # client address, which this deployment deliberately does not keep.
+        access_log=False,
     )
 
 

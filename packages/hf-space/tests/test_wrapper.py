@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import contextlib
 import importlib.util
+import logging
 import pathlib
 import types
 
@@ -131,3 +132,30 @@ def test_the_shared_client_is_closed_when_the_process_stops(wrapper, monkeypatch
         assert client.get("/api/v1/archetypes").status_code == 200
         assert not app.state.services.http.is_closed
     assert app.state.services.http.is_closed
+
+
+def test_the_transport_library_never_logs_a_waypoint(wrapper, caplog) -> None:
+    """httpx logs the whole URL at INFO, and an Open-Meteo URL is a waypoint.
+
+    Nothing in the API or the adapter can prevent that: it is a third-party
+    logger, and it becomes loud the moment anyone calls ``basicConfig``. The
+    deployment is where the level is set, so the deployment is where it is
+    muted.
+    """
+    logging.getLogger("httpx").setLevel(logging.NOTSET)
+    wrapper.configure_logging()
+    assert logging.getLogger("httpx").getEffectiveLevel() == logging.WARNING
+
+
+def test_the_log_level_is_a_space_variable(wrapper, monkeypatch) -> None:
+    restore = logging.getLogger().level
+    try:
+        monkeypatch.setenv("OPENWIND_LOG_LEVEL", "debug")
+        wrapper.configure_logging()
+        assert logging.getLogger().getEffectiveLevel() == logging.DEBUG
+        # A typo in a Space variable must not stop the Space from booting.
+        monkeypatch.setenv("OPENWIND_LOG_LEVEL", "VERBOSE")
+        wrapper.configure_logging()
+        assert logging.getLogger().getEffectiveLevel() == logging.INFO
+    finally:
+        logging.getLogger().setLevel(restore)

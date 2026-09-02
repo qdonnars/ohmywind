@@ -50,10 +50,34 @@ test asserts it by importing the package with the name `mcp` blocked.
 - `security.py`: rate limiting, body ceiling, security headers, client IP.
   The limiter counts per network, `/32` for IPv4 and `/64` for IPv6, because a
   phone picks its own address inside the prefix its carrier assigned.
+- `access.py`: one logfmt line per request, and the `X-Request-Id` header.
 - `static/landing.html`: the landing page. Its media ship with the deployment.
 
 Serialising a passage is not here: that is `openwind_data.views`, shared with
 the MCP shell so the two describe the same sailing.
+
+## Logs
+
+One line per request on the `openwind_api.access` logger, at INFO, in logfmt:
+
+```
+id=9f2c1a4b7e3d5088 method=POST path=/api/v1/passage status=200 dur_ms=263.4 bytes=4267 cache=yes bucket=846488f1
+```
+
+`cache` says whether the caller posted a `forecast_cache`, which is the
+difference between a request that cost an upstream fan-out and one that cost
+only CPU. `bucket` is `sha256(client address)[:8]`: enough to tell whether one
+caller is responsible for a burst, and not an address. **No address is ever
+logged**, in any field, in any shape, and a test greps the whole log to keep
+it that way.
+
+`X-Request-Id` is echoed when the caller sends a usable one (64 chars of
+`[A-Za-z0-9._:-]`) and generated otherwise, returned on every response and
+exposed through CORS so the web app can quote it.
+
+Every upstream Open-Meteo call is logged at DEBUG, by host, with its status,
+its duration and whether the cache answered instead. Never with the query
+string: it carries the waypoints.
 
 ## Errors
 
