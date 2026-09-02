@@ -8,5 +8,7 @@ Provides:
   currents from harmonic constants. Standard Greenwich-phase convention,
   validated against PREVIMER MARC + REFMAR Brest.
 - ``marc_atlas`` (Phase 2): Parquet-backed loader for the MARC atlases.
-- ``router`` (Phase 2): cascade MARC → Open-Meteo SMOC.
+- ``router`` (Phase 2): cascade SHOM → MARC → Open-Meteo SMOC, and the
+  ``compose_marine_adapter`` factory that decides which tiers a deployment
+  can actually feed.
 """

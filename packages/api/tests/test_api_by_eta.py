@@ -21,6 +21,7 @@ from datetime import UTC, datetime
 
 import httpx
 import pytest
+from fake_requests import FakeRequest
 from openwind_data.adapters.base import ForecastHorizonError, UpstreamRateLimitError
 
 from openwind_api.routes import passage as passage_routes
@@ -28,16 +29,6 @@ from openwind_api.routes import passage as passage_routes
 ARRIVAL = datetime(2026, 5, 1, 18, 0, tzinfo=UTC)
 MARSEILLE = [43.30, 5.35]
 PORQUEROLLES = [43.00, 6.20]
-
-
-class _FakeRequest:
-    def __init__(self, body: object) -> None:
-        self._body = body
-
-    async def json(self) -> object:
-        if isinstance(self._body, Exception):
-            raise self._body
-        return self._body
 
 
 @dataclasses.dataclass
@@ -84,7 +75,7 @@ def solved(monkeypatch):
 
 class TestEnvelope:
     async def test_success_returns_passage_complexity_and_eta(self, solved) -> None:
-        resp = await passage_routes.api_passage_by_eta(_FakeRequest(_body()))
+        resp = await passage_routes.api_passage_by_eta(FakeRequest(_body()))
         assert resp.status_code == 200
         payload = _payload(resp)
         assert set(payload) == {"passage", "complexity", "eta", "forecast_updated_at"}
@@ -94,17 +85,17 @@ class TestEnvelope:
     async def test_eta_block_echoes_the_resolved_arrival(self, solved) -> None:
         # The client reads this back to show what the solver actually hit,
         # which can differ from what was asked within the tolerance.
-        resp = await passage_routes.api_passage_by_eta(_FakeRequest(_body()))
+        resp = await passage_routes.api_passage_by_eta(FakeRequest(_body()))
         assert _payload(resp)["eta"] == {"target_arrival": ARRIVAL.isoformat()}
 
     async def test_freshness_stamp_is_present_and_iso(self, solved) -> None:
-        resp = await passage_routes.api_passage_by_eta(_FakeRequest(_body()))
+        resp = await passage_routes.api_passage_by_eta(FakeRequest(_body()))
         datetime.fromisoformat(_payload(resp)["forecast_updated_at"])
 
 
 class TestRejectedBodies:
     async def test_unparseable_json(self) -> None:
-        resp = await passage_routes.api_passage_by_eta(_FakeRequest(ValueError("nope")))
+        resp = await passage_routes.api_passage_by_eta(FakeRequest(ValueError("nope")))
         assert resp.status_code == 422
         assert _payload(resp)["error"] == "invalid JSON body"
 
@@ -112,17 +103,17 @@ class TestRejectedBodies:
     async def test_missing_required_field(self, field) -> None:
         body = _body()
         del body[field]
-        resp = await passage_routes.api_passage_by_eta(_FakeRequest(body))
+        resp = await passage_routes.api_passage_by_eta(FakeRequest(body))
         assert resp.status_code == 422
         assert field in _payload(resp)["error"]
 
     async def test_unparseable_arrival(self) -> None:
-        resp = await passage_routes.api_passage_by_eta(_FakeRequest(_body(target_arrival="soon")))
+        resp = await passage_routes.api_passage_by_eta(FakeRequest(_body(target_arrival="soon")))
         assert resp.status_code == 422
         assert "invalid target_arrival" in _payload(resp)["error"]
 
     async def test_malformed_waypoints(self) -> None:
-        resp = await passage_routes.api_passage_by_eta(_FakeRequest(_body(waypoints=[[43.3]])))
+        resp = await passage_routes.api_passage_by_eta(FakeRequest(_body(waypoints=[[43.3]])))
         assert resp.status_code == 422
         assert "invalid waypoints" in _payload(resp)["error"]
 
@@ -135,19 +126,19 @@ class TestRejectedBodies:
 
         monkeypatch.setattr(passage_routes, "estimate_passage_for_arrival", _explode)
         resp = await passage_routes.api_passage_by_eta(
-            _FakeRequest(_body(waypoints=[[999.0, 5.35], PORQUEROLLES]))
+            FakeRequest(_body(waypoints=[[999.0, 5.35], PORQUEROLLES]))
         )
         assert resp.status_code == 422
 
     async def test_single_waypoint_message_is_passed_through_verbatim(self) -> None:
         # The web client maps on this exact wording, so it is part of the
         # contract rather than an internal detail.
-        resp = await passage_routes.api_passage_by_eta(_FakeRequest(_body(waypoints=[MARSEILLE])))
+        resp = await passage_routes.api_passage_by_eta(FakeRequest(_body(waypoints=[MARSEILLE])))
         assert resp.status_code == 422
         assert "at least 2 waypoints" in _payload(resp)["error"]
 
     async def test_invalid_efficiency(self) -> None:
-        resp = await passage_routes.api_passage_by_eta(_FakeRequest(_body(efficiency="fast")))
+        resp = await passage_routes.api_passage_by_eta(FakeRequest(_body(efficiency="fast")))
         assert resp.status_code == 422
         assert "invalid efficiency" in _payload(resp)["error"]
 
@@ -158,7 +149,7 @@ class TestUpstreamFailures:
             raise KeyError("sloop_of_theseus")
 
         monkeypatch.setattr(passage_routes, "estimate_passage_for_arrival", _stub)
-        resp = await passage_routes.api_passage_by_eta(_FakeRequest(_body()))
+        resp = await passage_routes.api_passage_by_eta(FakeRequest(_body()))
         assert resp.status_code == 422
         assert "unknown archetype" in _payload(resp)["error"]
 
@@ -167,7 +158,7 @@ class TestUpstreamFailures:
             raise ForecastHorizonError("arome", ARRIVAL)
 
         monkeypatch.setattr(passage_routes, "estimate_passage_for_arrival", _stub)
-        resp = await passage_routes.api_passage_by_eta(_FakeRequest(_body()))
+        resp = await passage_routes.api_passage_by_eta(FakeRequest(_body()))
         assert resp.status_code == 422
         # The message names the fallback models, which is what the front
         # turns into its "try a longer-range model" hint.
@@ -180,7 +171,7 @@ class TestUpstreamFailures:
             raise httpx.TimeoutException("too slow")
 
         monkeypatch.setattr(passage_routes, "estimate_passage_for_arrival", _stub)
-        resp = await passage_routes.api_passage_by_eta(_FakeRequest(_body()))
+        resp = await passage_routes.api_passage_by_eta(FakeRequest(_body()))
         assert resp.status_code == 503
         assert "did not respond in time" in _payload(resp)["error"]
 
@@ -192,7 +183,7 @@ class TestUpstreamFailures:
             raise UpstreamRateLimitError("Minutely API request limit exceeded.")
 
         monkeypatch.setattr(passage_routes, "estimate_passage_for_arrival", _stub)
-        resp = await passage_routes.api_passage_by_eta(_FakeRequest(_body()))
+        resp = await passage_routes.api_passage_by_eta(FakeRequest(_body()))
         assert resp.status_code == 503
         error = _payload(resp)["error"]
         assert "upstream weather service rate limit reached" in error

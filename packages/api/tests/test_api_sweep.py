@@ -16,6 +16,7 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
+from fake_requests import FakeRequest
 from openwind_data import views
 
 from openwind_api.routes import passage as passage_routes
@@ -23,14 +24,6 @@ from openwind_api.routes import passage as passage_routes
 DEPARTURE = datetime(2026, 5, 1, 6, 0, tzinfo=UTC)
 MARSEILLE = [43.30, 5.35]
 PORQUEROLLES = [43.00, 6.20]
-
-
-class _FakeRequest:
-    def __init__(self, body: dict) -> None:
-        self._body = body
-
-    async def json(self) -> dict:
-        return self._body
 
 
 def _sweep_body(**extra) -> dict:
@@ -61,7 +54,7 @@ def no_windows(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_sweep_without_target_eta_returns_multi_window(no_windows) -> None:
-    resp = await passage_routes.api_passage(_FakeRequest(_sweep_body()))
+    resp = await passage_routes.api_passage(FakeRequest(_sweep_body()))
     assert resp.status_code == 200
     body = _payload(resp)
     assert body["mode"] == "multi_window"
@@ -72,7 +65,7 @@ async def test_sweep_without_target_eta_returns_multi_window(no_windows) -> None
 async def test_sweep_with_target_eta_reaches_the_filter(no_windows) -> None:
     # The regression: this branch is the only one that touches timedelta.
     target = (DEPARTURE + timedelta(hours=10)).isoformat()
-    resp = await passage_routes.api_passage(_FakeRequest(_sweep_body(target_eta=target)))
+    resp = await passage_routes.api_passage(FakeRequest(_sweep_body(target_eta=target)))
     assert resp.status_code == 200
     body = _payload(resp)
     assert any("target_eta" in w for w in body["meta_warnings"])
@@ -80,7 +73,7 @@ async def test_sweep_with_target_eta_reaches_the_filter(no_windows) -> None:
 
 @pytest.mark.asyncio
 async def test_invalid_target_eta_returns_422() -> None:
-    resp = await passage_routes.api_passage(_FakeRequest(_sweep_body(target_eta="not-a-date")))
+    resp = await passage_routes.api_passage(FakeRequest(_sweep_body(target_eta="not-a-date")))
     assert resp.status_code == 422
     assert "target_eta" in _payload(resp)["error"]
 
@@ -93,7 +86,7 @@ async def test_skipped_windows_surface_a_meta_warning(monkeypatch) -> None:
         return []
 
     monkeypatch.setattr(passage_routes, "estimate_passage_windows", _stub)
-    resp = await passage_routes.api_passage(_FakeRequest(_sweep_body()))
+    resp = await passage_routes.api_passage(FakeRequest(_sweep_body()))
     warnings = _payload(resp)["meta_warnings"]
     assert any("ignorée" in w for w in warnings)
 
@@ -142,7 +135,7 @@ def widened_sweep(monkeypatch):
 async def test_widened_sweep_advertises_the_interval_it_ran(widened_sweep) -> None:
     body = _payload(
         await passage_routes.api_passage(
-            _FakeRequest(
+            FakeRequest(
                 _sweep_body(
                     latest_departure=(DEPARTURE + timedelta(days=13)).isoformat(),
                     sweep_interval_hours=1,
@@ -163,7 +156,7 @@ async def test_widened_sweep_does_not_report_phantom_dropped_windows(widened_swe
     """
     body = _payload(
         await passage_routes.api_passage(
-            _FakeRequest(
+            FakeRequest(
                 _sweep_body(
                     latest_departure=(DEPARTURE + timedelta(days=13)).isoformat(),
                     sweep_interval_hours=1,

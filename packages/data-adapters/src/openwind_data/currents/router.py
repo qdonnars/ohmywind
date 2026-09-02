@@ -51,8 +51,15 @@ class CompositeMarineAdapter:
     """``MarineDataAdapter`` that overrides Open-Meteo currents/tide via the
     SHOM > MARC > SMOC cascade.
 
-    Methods on the upstream adapter (e.g. ``aclose``) are not delegated;
-    callers manage the lifecycle of the upstream they pass in.
+    Lifecycle methods on the upstream adapter (e.g. ``aclose``) are not
+    delegated; callers manage the lifecycle of the upstream they pass in.
+    ``prewarm_batch`` is delegated, because it is not lifecycle: it is the
+    optimisation that turns one fetch per route segment into one batched call
+    for the whole corridor, and an engine probing this adapter with
+    ``hasattr`` would otherwise silently lose it the moment the cascade is
+    wired in front of Open-Meteo. The overrides are applied on read, in
+    ``fetch``, so warming the upstream cache changes nothing but the number of
+    round-trips.
 
     ``shom`` is optional; when omitted (or empty), the cascade reduces to
     MARC > SMOC and the adapter behaves identically to the previous
@@ -63,6 +70,24 @@ class CompositeMarineAdapter:
     upstream: MarineDataAdapter
     marc: MarcAtlasRegistry
     shom: ShomC2dRegistry | None = None
+
+    async def prewarm_batch(
+        self,
+        points: list[tuple[float, float]],
+        start: datetime,
+        end: datetime,
+        models: list[str] | None = None,
+    ) -> None:
+        """Hand the corridor to the upstream's batched warm-up, if it has one.
+
+        Best-effort on both counts: an upstream without the method (a browser
+        cache, a stub) simply has nothing to warm, and the upstream's own
+        implementation already swallows its failures.
+        """
+        warm = getattr(self.upstream, "prewarm_batch", None)
+        if warm is None:
+            return
+        await warm(points, start, end, models=models)
 
     async def fetch(
         self,
@@ -172,3 +197,35 @@ class CompositeMarineAdapter:
             sea=SeaSeries(points=tuple(new_points)),
             requested_at=bundle.requested_at,
         )
+
+
+def compose_marine_adapter(
+    upstream: MarineDataAdapter,
+    marc: MarcAtlasRegistry | None,
+    shom: ShomC2dRegistry | None,
+) -> MarineDataAdapter:
+    """Wrap ``upstream`` in the cascade the shipped datasets can actually feed.
+
+    The rule used to be written twice, once in ``build_server()`` for the MCP
+    tools and nowhere at all for the REST live path, which is how the two
+    ended up answering different currents for the same waypoint (audit M2).
+    It is a rule worth stating once:
+
+    - no MARC atlas, no composite. SHOM alone would give a route that jumps
+      between hand-curated cartouches and 8 km SMOC with nothing in between,
+      which reads as noise rather than as detail. MARC is what makes the
+      cascade continuous, so without it the plain upstream is the honest
+      answer.
+    - MARC present: compose, and add SHOM on top when it has points.
+
+    An empty registry is treated as an absent one: a deployment built without
+    the dataset secret gets objects that load fine and cover nothing.
+    """
+    if marc is None or not marc.atlases:
+        return upstream
+    shom_available = shom is not None and shom.lats.size > 0
+    return CompositeMarineAdapter(
+        upstream=upstream,
+        marc=marc,
+        shom=shom if shom_available else None,
+    )

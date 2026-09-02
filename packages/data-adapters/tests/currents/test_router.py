@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-"""Tests for the MARC ↔ Open-Meteo composite adapter."""
+"""Tests for the SHOM ↔ MARC ↔ Open-Meteo composite adapter and its factory."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from openwind_data.adapters.base import (
     WindSeries,
 )
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
-from openwind_data.currents.router import CompositeMarineAdapter
+from openwind_data.currents.router import CompositeMarineAdapter, compose_marine_adapter
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
 
 
@@ -266,3 +266,68 @@ async def test_marc_kicks_in_outside_shom_coverage(fixture_atlas: Path, tmp_path
     out = await composite.fetch(48.355, -4.795, bundle.start, bundle.end)
     for p in out.sea.points:
         assert p.current_source == "marc_finis_250m"
+
+
+# ------------------------------------------------- composition and prewarming
+
+
+class _WarmingUpstream(_MockUpstream):
+    """An upstream that also implements the batched cache warm-up."""
+
+    def __init__(self, bundle: ForecastBundle) -> None:
+        super().__init__(bundle)
+        self.warmed: list[tuple] = []
+
+    async def prewarm_batch(
+        self,
+        points: list[tuple[float, float]],
+        start: datetime,
+        end: datetime,
+        models: list[str] | None = None,
+    ) -> None:
+        self.warmed.append((tuple(points), start, end, models))
+
+
+async def test_prewarm_reaches_the_upstream_through_the_cascade():
+    """Otherwise wiring the cascade in silently costs one request per segment.
+
+    The engine probes its adapter with ``hasattr``: a composite that does not
+    forward ``prewarm_batch`` answers "no" and every segment falls back to its
+    own round-trip. That is a regression the composite's own results cannot
+    show, because the numbers are identical either way.
+    """
+    upstream = _WarmingUpstream(_make_bundle(48.35, -4.80))
+    adapter = CompositeMarineAdapter(upstream=upstream, marc=MarcAtlasRegistry.from_directory(""))
+    start = datetime(2024, 6, 15, 12, tzinfo=UTC)
+
+    await adapter.prewarm_batch(
+        [(48.35, -4.80), (48.40, -4.70)], start, start + timedelta(hours=6), models=["icon_eu"]
+    )
+
+    assert upstream.warmed == [
+        (((48.35, -4.80), (48.40, -4.70)), start, start + timedelta(hours=6), ["icon_eu"])
+    ]
+
+
+async def test_prewarm_is_a_no_op_on_an_upstream_without_one():
+    """A browser cache or a stub has nothing to warm, and must not raise."""
+    upstream = _MockUpstream(_make_bundle(48.35, -4.80))
+    adapter = CompositeMarineAdapter(upstream=upstream, marc=MarcAtlasRegistry.from_directory(""))
+    start = datetime(2024, 6, 15, 12, tzinfo=UTC)
+
+    await adapter.prewarm_batch([(48.35, -4.80)], start, start + timedelta(hours=6))
+
+    assert upstream.calls == []
+
+
+def test_composition_falls_back_to_the_upstream_without_a_marc_atlas(tmp_path: Path):
+    """The rule the REST and MCP shells now share, stated once.
+
+    Without MARC the cascade has nothing continuous to stand on, so the plain
+    upstream is the answer rather than a composite that would jump between
+    hand-curated SHOM cartouches and 8 km SMOC with nothing in between.
+    """
+    upstream = _MockUpstream(_make_bundle(48.35, -4.80))
+    composed = compose_marine_adapter(upstream, MarcAtlasRegistry.from_directory(""), None)
+    assert composed is upstream
+    assert compose_marine_adapter(upstream, None, None) is upstream
