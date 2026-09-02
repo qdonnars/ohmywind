@@ -27,6 +27,14 @@ const DEBOUNCE_MS = 250;
     for no benefit, since only the recent queries are ever revisited. */
 const CACHE_MAX = 40;
 
+/** Ids of the two halves of the combobox. Fixed rather than derived from
+    useId because the dropdown is portalled to document.body and the outside
+    click handler looks it up by id; a single Header, so a single SpotSearch,
+    is mounted at a time. INPUT_ID also gives the field the `id` that Chrome
+    and Lighthouse ask of every form control. */
+const INPUT_ID = "ow-search-input";
+const LISTBOX_ID = "ow-search-dropdown-portal";
+
 const searchCache = new Map<string, PlaceResult[]>();
 /** Shared empty array: a fresh literal each render would defeat memoization. */
 const NO_RESULTS: PlaceResult[] = [];
@@ -147,7 +155,7 @@ export function SpotSearch({ onSelect, nearLat, nearLon, savedSpots = [] }: Spot
     function handleClick(e: MouseEvent) {
       const target = e.target as Node;
       if (containerRef.current?.contains(target)) return;
-      const dropdown = document.getElementById("ow-search-dropdown-portal");
+      const dropdown = document.getElementById(LISTBOX_ID);
       if (dropdown?.contains(target)) return;
       setOpen(false);
     }
@@ -189,7 +197,6 @@ export function SpotSearch({ onSelect, nearLat, nearLon, savedSpots = [] }: Spot
     }
   }
 
-  const listboxId = "ow-search-listbox";
   const showDropdown = open && pos !== null;
 
   return (
@@ -201,9 +208,18 @@ export function SpotSearch({ onSelect, nearLat, nearLon, savedSpots = [] }: Spot
         </svg>
         <input
           type="text"
+          id={INPUT_ID}
+          name="spot-search"
+          // The suggestion list is ours, rendered below. Without this, naming
+          // the field lets the browser stack its own history dropdown on top
+          // of it.
+          autoComplete="off"
           role="combobox"
           aria-expanded={showDropdown}
-          aria-controls={listboxId}
+          // Used to point at "ow-search-listbox", an id nothing carried, while
+          // the list portalled into document.body is ow-search-dropdown-portal:
+          // the relation was announced to assistive tech and resolved nowhere.
+          aria-controls={LISTBOX_ID}
           aria-autocomplete="list"
           aria-activedescendant={showDropdown && rows[activeIndex] ? `ow-opt-${rows[activeIndex].id}` : undefined}
           aria-label="Rechercher un lieu"
@@ -217,7 +233,7 @@ export function SpotSearch({ onSelect, nearLat, nearLon, savedSpots = [] }: Spot
       </div>
       {showDropdown && createPortal(
         <ul
-          id="ow-search-dropdown-portal"
+          id={LISTBOX_ID}
           role="listbox"
           aria-label="Résultats de recherche"
           className="ow-search-dropdown rounded-xl overflow-hidden animate-fade-in"
