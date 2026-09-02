@@ -72,3 +72,10 @@ Prompt type: « Exécute les parcours J2, J3, J5 de docs/qa/user-journeys.md con
 
 - 2026-07-11, J5: bandeau de plan non cliquable au toucher sur mobile; pire, le tap traversait vers la carte Leaflet et ajoutait un waypoint fantôme. Corrigé le 2026-08-01 (commit 8605393: pointer-events-auto + tap-to-expand). Note du 2026-08-02: une re-repro sur émulateur a produit un faux positif après le fix, cause probable: coordonnées de tap dérivées de bounds d'accessibilité périmés; en cas de doute, croiser avec un test navigateur local (elementFromPoint) avant de conclure.
 - 2026-08-02, J10: réordonnancement des modèles inopérant au toucher sur Firefox Android (rapport utilisateur, Fabrice): l'API HTML5 drag-and-drop n'y émet jamais dragstart au doigt. Corrigé en réécrivant le drag en Pointer Events avec poignée dédiée (touch-action: none) visible sur mobile.
+
+## Pièges d'outillage (Chrome DevTools MCP)
+
+- L'émulation réseau « Offline » coupe bien les requêtes de la page (`ERR_INTERNET_DISCONNECTED`) mais ne bascule pas `navigator.onLine` à `false` et ne couvre pas les fetch du service worker. Pour vérifier le bandeau « Hors connexion », forcer `navigator.onLine` et émettre `new Event("offline")` par script ; pour juger le cache du fond de carte, regarder ce qui s'affiche et le nombre d'entrées des caches `ow-basemap-*`, pas le trafic réseau.
+- Les tables horaires défilent avec `scroll-behavior: smooth` : un test qui lit `scrollLeft` juste après l'avoir écrit rend un faux négatif ; attendre quelques centaines de millisecondes.
+- Un `pointerId` synthétique non enregistré par le navigateur fait échouer `setPointerCapture` (NotFoundError) : sans effet avec un vrai doigt, à ne pas compter comme un écart.
+- Le grep d'une chaîne dans `index.html` comme discriminant de build peut donner un faux positif entre deux builds Cloudflare successives ; préférer un test sur la valeur exacte d'une balise ou d'une clé de manifest.
