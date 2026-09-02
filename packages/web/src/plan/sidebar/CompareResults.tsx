@@ -64,8 +64,8 @@ export function CompareResults({
 
       {/* When the route has been edited since the sweep, the cached windows
           (and the per-window passages they'd drill into) describe the *old*
-          itinerary — opening one would render a route that no longer matches
-          the map. Hide the table behind a recompute prompt, mirroring single
+          itinerary, and opening one would render a route that no longer
+          matches the map. Hide the table behind a recompute prompt, mirroring single
           mode (#152). */}
       {isStale ? (
         <StalePlaceholder>

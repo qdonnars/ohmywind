@@ -78,7 +78,7 @@ export function SingleResults({
         </div>
       )}
 
-      {/* Legs — click any row to see the build-up.
+      {/* Legs. Click any row to see the build-up.
           Hidden while the plan is stale: re-mapping old segments to a freshly
           edited waypoint list is unsafe (cf. aggregateLegs's index juggling)
           and a silent gray-out could be missed on a quick glance. Showing a

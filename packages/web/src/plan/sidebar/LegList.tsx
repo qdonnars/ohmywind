@@ -86,7 +86,7 @@ function LegRow({
   const cx = cxLevel((leg.tws_min + leg.tws_max) / 2);
   const summary = buildLegSummaryCells(leg);
 
-  // KPI values shown on expand. Wind + allure are intentionally absent —
+  // KPI values shown on expand. Wind + allure are intentionally absent:
   // the collapsed row already carries them, no point repeating.
   // Compact French formatting: "1,8m (6s)" matches sailing-French copy.
   const fr1 = (n: number) => n.toFixed(1).replace(".", ",");
@@ -120,14 +120,14 @@ function LegRow({
   // a title row (badge + name + speed + chevron), a chip row (the four
   // summary cells), and an optional expand row (KPIs + LegDetailCard).
   // Because they're all in the same table, the colgroup defined in LegList
-  // forces every leg's chip cells to live in the same column widths —
-  // exactly the cross-row alignment a tableless flex/grid layout couldn't
+  // forces every leg's chip cells to live in the same column widths, exactly
+  // the cross-row alignment a tableless flex/grid layout couldn't
   // give us when each LegRow had its own grid container.
   return (
     <>
       {/* Single-row leg: badge + 4 info cells + chevron. The speed
           indicator was dropped and the redundant "Tronçon X" label was
-          dropped earlier — the numbered badge identifies the leg. */}
+          dropped earlier: the numbered badge identifies the leg. */}
       <tr
         role="button"
         tabIndex={0}

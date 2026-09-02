@@ -44,7 +44,7 @@ export function DepartureSlider() {
     onChange(toNaiveLocal(d));
   }
 
-  // Display labels — section header changes with the time anchor.
+  // Display labels: the section header changes with the time anchor.
   const sectionLabel = timeAnchor === "arrival" ? "Arrivée" : "Départ";
   const ariaLabel = timeAnchor === "arrival" ? "Heure d'arrivée souhaitée" : "Date de départ";
   const dateLabel = valueDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
