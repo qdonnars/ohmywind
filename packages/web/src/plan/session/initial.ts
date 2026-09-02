@@ -253,13 +253,13 @@ export function resolveInitialSession(input: InitialSessionInput): InitialSessio
 
   // ── results ────────────────────────────────────────────────────────────────
 
-  // Path 0 — a draft was restored: it is this tab's most recent state, and by
+  // Path 0, a draft was restored. It is this tab's most recent state, and by
   // definition it has no results yet. Hydrating the URL's or the cache's
   // results on top would show a passage that does not match the route on
   // screen, and computing would spend a request the user did not ask for.
   if (draft) return base;
 
-  // Path A — the URL carries a route: respect it, restore from cache when the
+  // Path A, the URL carries a route. Respect it, restore from cache when the
   // cache is about the same route + boat + preferences, otherwise compute. The
   // boat compared here is the resolved one, not the raw URL slug: a customized
   // polar overrides the URL's boat and the results shown must be the ones
@@ -290,7 +290,7 @@ export function resolveInitialSession(input: InitialSessionInput): InitialSessio
     return { ...base, mount: { rewriteUrl: false, fetch: true } };
   }
 
-  // Path B — the URL is silent and the cache supplied the route: sync the
+  // Path B, the URL is silent and the cache supplied the route. Sync the
   // address bar so reload and share work, and skip the network.
   if (useCachedRoute) {
     // Discard the persisted results and recompute when /config changed since

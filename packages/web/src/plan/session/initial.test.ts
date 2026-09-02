@@ -119,7 +119,7 @@ function resolve(over: Partial<InitialSessionInput> = {}, polar?: PolarConfig) {
   });
 }
 
-describe("resolveInitialSession — route precedence", () => {
+describe("resolveInitialSession: route precedence", () => {
   it.each([
     [
       "draft over URL and cache",
@@ -159,7 +159,7 @@ describe("resolveInitialSession — route precedence", () => {
   });
 });
 
-describe("resolveInitialSession — boat precedence", () => {
+describe("resolveInitialSession: boat precedence", () => {
   const customized: PolarConfig = { ...defaultPolarConfig(), base: "racer_40ft", spi: "asymmetric" };
 
   it.each([
@@ -196,7 +196,7 @@ describe("resolveInitialSession — boat precedence", () => {
   });
 });
 
-describe("resolveInitialSession — departure precedence and freshness", () => {
+describe("resolveInitialSession: departure precedence and freshness", () => {
   it.each([
     ["the draft", { draft: draft({ departure: "2026-09-11T09:00" }) }, "2026-09-11T09:00", "draft"],
     [
@@ -252,7 +252,7 @@ describe("resolveInitialSession — departure precedence and freshness", () => {
   });
 });
 
-describe("resolveInitialSession — mode and staleness", () => {
+describe("resolveInitialSession: mode and staleness", () => {
   it("opens on the drafted mode, then the cached one, then single", () => {
     expect(resolve({ draft: draft({ mode: "compare" }) }).mode).toBe("compare");
     expect(resolve({ cache: cache({ mode: "compare" }) }).mode).toBe("compare");
@@ -279,7 +279,7 @@ describe("resolveInitialSession — mode and staleness", () => {
   });
 });
 
-describe("resolveInitialSession — restoring results from the URL (path A)", () => {
+describe("resolveInitialSession: restoring results from the URL (path A)", () => {
   const url = parsePlanUrl(
     `?wpts=${wptsParam([MARSEILLE, PORQUEROLLES])}&departure=${FUTURE}&archetype=cruiser_30ft`,
   );
@@ -334,7 +334,7 @@ describe("resolveInitialSession — restoring results from the URL (path A)", ()
   });
 });
 
-describe("resolveInitialSession — restoring results from the cache (path B)", () => {
+describe("resolveInitialSession: restoring results from the cache (path B)", () => {
   it("restores and rewrites the address bar without touching the network", () => {
     const s = resolve({ cache: cache({ compare: compareBlock() }) });
     expect(s.passage?.distance_nm).toBe(55);
@@ -370,7 +370,7 @@ describe("resolveInitialSession — restoring results from the cache (path B)", 
   });
 });
 
-describe("resolveInitialSession — malformed URL", () => {
+describe("resolveInitialSession: malformed URL", () => {
   it("reports the parse error and still seeds from the cache", () => {
     const s = resolve({ url: parsePlanUrl("?wpts=nope;nope"), cache: cache() });
     expect(s.urlError).toMatch(/Waypoints invalides/);
