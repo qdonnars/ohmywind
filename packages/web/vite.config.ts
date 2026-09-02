@@ -24,8 +24,12 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      // Silent auto-update: the SW takes over on next load, no update-toast UI.
-      registerType: 'autoUpdate',
+      // The new worker is announced, not applied: 'autoUpdate' made the
+      // plugin's client call window.location.reload() by itself the instant a
+      // worker activated, which wiped any route drawn and not yet computed.
+      // Still no update-toast UI: src/sw.ts applies the update on its own, at
+      // a moment that costs the reader nothing.
+      registerType: 'prompt',
       // Registration is wired manually in src/main.tsx via 'virtual:pwa-register'.
       injectRegister: false,
       // The manifest is owned by public/manifest.json (linked from index.html).
@@ -33,14 +37,16 @@ export default defineConfig({
       // keeps a single source of truth for install metadata.
       manifest: false,
       workbox: {
-        // Take over without waiting for every tab to close. `autoUpdate` alone
-        // is not enough here: vite-plugin-pwa only forces these two when
-        // `injectRegister` is 'auto' or left out, and we register the worker
-        // ourselves. Without them a freshly deployed worker installs, then
-        // sits in 'waiting' for as long as one tab controlled by the old one
-        // survives, which on a phone is forever: the app stayed pinned to the
-        // previously precached shell, refresh after refresh.
-        skipWaiting: true,
+        // No unconditional skipWaiting in the worker: with it false, Workbox
+        // emits a SKIP_WAITING message listener instead, and src/sw.ts is the
+        // one that decides when to send it. The reason skipWaiting was here in
+        // the first place is unchanged and still honoured: a freshly deployed
+        // worker must not sit in 'waiting' for as long as one tab controlled
+        // by the old one survives, which on a phone is forever. It is now
+        // src/sw.ts that guarantees the swap happens within the session.
+        skipWaiting: false,
+        // Kept: the new worker claims the open pages as soon as it activates,
+        // so the reload lands on the new shell rather than one load later.
         clientsClaim: true,
         // Precache the built app shell. These globs cover the hashed JS/CSS/HTML
         // plus icons and fonts emitted into dist/. ``mjs`` is there for
