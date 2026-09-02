@@ -30,8 +30,8 @@ import json
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
-import polars as pl
 import pytest
+from atlas_fixtures import FINIS_CELL, write_finis_atlas
 from goldens_support import assert_golden
 from openwind_data.routing import passage as passage_engine
 from openwind_data.testing import DeterministicMarineAdapter, browser_cache_payload, hourly_axis
@@ -55,7 +55,7 @@ MARSEILLE = [43.29, 5.37]
 PORQUEROLLES = [43.00, 6.20]
 
 # Where the MARC fixture atlas has its single cell.
-BREST = (48.35, -4.80)
+BREST = FINIS_CELL
 
 
 class _FrozenMeta(type):
@@ -240,64 +240,11 @@ def atlas_dir(tmp_path):
 
     Same shape as the real dataset, small enough to write per test. Without
     it the overlay endpoint only ever answers ``covered: false`` in CI, which
-    is the branch that needs a golden least.
+    is the branch that needs a golden least. Built by ``atlas_fixtures``,
+    which the batch tests write against too: one fixture, one set of numbers,
+    and a golden that moves for both at once or for neither.
     """
-    atlas_dir = tmp_path / "FINIS"
-    atlas_dir.mkdir()
-    (atlas_dir / "metadata.json").write_text(
-        json.dumps(
-            {
-                "atlas": "FINIS",
-                "rank": 2,
-                "resolution_m": 250,
-                "constituents_h": ["M2"],
-                "constituents_u": ["M2"],
-                "constituents_v": ["M2"],
-                "schema_version": 2,
-            }
-        )
-    )
-    (atlas_dir / "coverage.geojson").write_text(
-        json.dumps(
-            {
-                "type": "FeatureCollection",
-                "features": [
-                    {
-                        "type": "Feature",
-                        "properties": {"atlas": "FINIS"},
-                        "geometry": {
-                            "type": "Polygon",
-                            "coordinates": [
-                                [
-                                    [-5.5, 47.5],
-                                    [-4.5, 47.5],
-                                    [-4.5, 49.0],
-                                    [-5.5, 49.0],
-                                    [-5.5, 47.5],
-                                ]
-                            ],
-                        },
-                    }
-                ],
-            }
-        )
-    )
-    tile_dir = atlas_dir / "tile_lat=48.0" / "tile_lon=-5.0"
-    tile_dir.mkdir(parents=True)
-    pl.DataFrame(
-        {
-            "lat": [BREST[0]],
-            "lon": [BREST[1]],
-            "z0_hydro_m": [-3.85],
-            "M2_h_amp": [2.05],
-            "M2_h_g": [108.0],
-            "M2_u_amp": [0.5],
-            "M2_u_g": [80.0],
-            "M2_v_amp": [0.3],
-            "M2_v_g": [120.0],
-        }
-    ).write_parquet(tile_dir / "data.parquet", compression="zstd")
-    return tmp_path
+    return write_finis_atlas(tmp_path)
 
 
 @pytest.fixture

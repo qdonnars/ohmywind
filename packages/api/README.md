@@ -34,6 +34,7 @@ test asserts it by importing the package with the name `mcp` blocked.
 | `POST /api/v1/passage` | plan one departure, or sweep a range of them |
 | `POST /api/v1/passage-by-eta` | pin the arrival, solve for the departure |
 | `GET /api/v1/marine/marc` | tidal atlas overlay for one point |
+| `POST /api/v1/marine/marc/batch` | the same overlay for a whole corridor, in one call |
 | `GET /api/v1/marine/marc/coverage` | where it is worth asking at all |
 | `GET /api/v1/_client` | how the deployment sees the caller (rate-limit diagnosis) |
 | `GET /` | the landing page |
