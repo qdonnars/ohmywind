@@ -10,9 +10,10 @@ WORKDIR /app
 # before push (see .github/workflows/sync-hf-space.yml). On HF, these are the
 # code shipped to the Space repo — there is no monorepo context.
 COPY vendor/data-adapters /app/data-adapters
+COPY vendor/api /app/api
 COPY vendor/mcp-core /app/mcp-core
 
-RUN pip install /app/data-adapters /app/mcp-core "uvicorn[standard]>=0.30" \
+RUN pip install /app/data-adapters /app/api /app/mcp-core "uvicorn[standard]>=0.30" \
     "huggingface_hub[hf_xet]>=0.24"
 
 # Pull the tidal atlas dataset at build time (MARC PREVIMER + SHOM Atlas C2D).
@@ -38,9 +39,9 @@ RUN --mount=type=secret,id=HF_TOKEN,required=false \
     sh -c 'if [ -f /run/secrets/HF_TOKEN ]; then export HF_TOKEN="$(cat /run/secrets/HF_TOKEN)"; fi; \
            python /tmp/fetch_atlases.py'
 
-# security.py is imported by app.py at boot — a missing COPY here is a hard
-# crash on startup, not a degraded mode.
-COPY app.py security.py /app/
+# The entry point, and nothing else: everything it used to carry lives in the
+# two packages installed above. security.py moved into openwind_api.
+COPY app.py /app/
 
 # Landing assets (demo loop + its poster). Served from this origin by the
 # /static route: GitHub raw would hand the MP4 back as octet-stream and the

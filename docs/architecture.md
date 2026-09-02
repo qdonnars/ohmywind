@@ -28,6 +28,20 @@ on the server.
         │   All four are read-only. Nothing on the      │
         │   public surface writes.                      │
         └────────────┬─────────────────────────────────┘
+                     │  mounted at "/" by a deployment
+        ┌────────────▼─────────────────────────────────┐
+        │  openwind-api        (Starlette, no mcp dep) │
+        │   create_app(settings, mcp_app=None)         │
+        │   ┌── GET  /api/v1/archetypes                │
+        │   ├── POST /api/v1/passage  (single + sweep) │
+        │   ├── POST /api/v1/passage-by-eta            │
+        │   ├── GET  /api/v1/marine/marc[/coverage]    │
+        │   └── the landing page                       │
+        │                                               │
+        │   The same engine, over HTTP, for the web     │
+        │   app. Serves with or without an MCP server   │
+        │   behind it.                                  │
+        └────────────┬─────────────────────────────────┘
                      │ pure Python calls
         ┌────────────▼─────────────────────────────────┐
         │  openwind-data       (no network framework)  │
@@ -79,8 +93,15 @@ LLM produces the verdict.
 | Package           | Imports allowed                          | Imports forbidden     |
 | ----------------- | ---------------------------------------- | --------------------- |
 | `openwind-data`   | `httpx`, stdlib                          | `mcp`, `gradio`, HF   |
-| `openwind-mcp-core` | `mcp[cli]`, `openwind-data`            | `gradio`, HF          |
-| `hf-space/`       | `starlette`, `uvicorn`, `openwind-mcp-core`, `huggingface_hub` | —  |
+| `openwind-api`    | `starlette`, `uvicorn`, `httpx`, `openwind-data` | `mcp`, `gradio`, HF |
+| `openwind-mcp-core` | `mcp[cli]`, `openwind-data`            | `openwind-api`, `gradio`, HF |
+| `hf-space/`       | `openwind-api`, `openwind-mcp-core`, `uvicorn`, `huggingface_hub` | —  |
+
+`openwind-api` carries no MCP dependency, and a test asserts it: the package
+imports and serves with the name `mcp` blocked. That is what makes the MCP
+surface freezable without touching the API, and the API redeployable without
+carrying the MCP SDK. The two meet only in a deployment, which hands the
+mounted MCP app to `create_app`.
 
 The wrapper does **not** use Gradio: it is a plain Starlette app served by
 uvicorn in a Docker Space. `huggingface_hub` appears only there, to pull the
@@ -92,7 +113,14 @@ tidal atlas at build time.
 - the HF Spaces wrapper (`packages/hf-space/app.py`)
 - any future deployment (Fly.io, Modal, self-host)
 
-Re-deploying anywhere = writing a new wrapper that calls `build_server()`.
+`create_app()` in `openwind_api.app` is its REST counterpart. Re-deploying
+anywhere is a ~100-line entry point that reads the environment, calls both,
+and runs uvicorn; `packages/hf-space/app.py` is exactly that file.
+
+The two shells serialise a passage through the same functions
+(`openwind_data.views`), so a plan read in the web app and the same plan read
+through an assistant are the same document. Goldens in `packages/api/tests`
+and `packages/mcp-core/tests` compare bytes on both sides.
 
 ## Data conventions
 

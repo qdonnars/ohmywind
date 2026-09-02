@@ -4,9 +4,9 @@
 """The Dockerfile and pyproject.toml must agree on what the Space needs.
 
 The Space builds from the Dockerfile, not from ``pyproject.toml``: its
-``pip install`` line is the real deployment contract. The pyproject added in
-phase 1 exists so the tests are collectable and the versions are tracked in
-the repository, and it deliberately does not change the deploy path.
+``pip install`` line is the real deployment contract. The pyproject exists so
+the tests are collectable and the versions are tracked in the repository, and
+it deliberately does not change the deploy path.
 
 That leaves one risk: the two drifting apart, so that a dependency added for
 the Space is missing in CI, or the reverse. These tests are the cheap guard
@@ -25,11 +25,13 @@ _PYPROJECT = _HF_DIR / "pyproject.toml"
 
 # Vendored into the image by the sync workflow and pip-installed from a local
 # path, so they carry no version specifier in either file.
-_LOCAL_PACKAGES = {"openwind-data", "openwind-mcp-core"}
-# Pulled in transitively by mcp[cli], declared in the pyproject on purpose so
-# an SDK bump cannot silently remove the REST layer's own dependency. Not
-# named in the Dockerfile.
-_TRANSITIVE_ONLY = {"starlette", "httpx"}
+_LOCAL_PACKAGES = {"openwind-api", "openwind-mcp-core"}
+# ``openwind-data`` is vendored and installed too, but as a dependency of the
+# two above rather than of the wrapper, so it appears in the Dockerfile and
+# not in the pyproject. Everything the REST layer needs (starlette, httpx) is
+# now declared by openwind-api and no longer named here.
+_VENDORED_NOT_DECLARED = {"openwind-data"}
+_TRANSITIVE_ONLY: set[str] = set()
 
 
 def _distribution_name(requirement: str) -> str:
@@ -79,6 +81,24 @@ def test_no_third_party_dependency_is_declared_without_shipping() -> None:
 
 def test_local_packages_are_vendored_into_the_image() -> None:
     dockerfile = _DOCKERFILE.read_text()
-    for vendored in ("vendor/data-adapters", "vendor/mcp-core"):
+    for vendored in ("vendor/data-adapters", "vendor/api", "vendor/mcp-core"):
         assert vendored in dockerfile, f"{vendored} is no longer copied into the image"
     assert _LOCAL_PACKAGES <= _pyproject_dependencies()
+
+
+def test_the_vendored_packages_match_what_the_sync_workflow_copies() -> None:
+    """The Dockerfile can only COPY what the workflow put in ``vendor/``.
+
+    They are two files in two directories edited at different times, and the
+    failure mode is a build that dies on a missing path several minutes in,
+    on a Space nobody is watching.
+    """
+    workflow = (
+        pathlib.Path(__file__).parents[3] / ".github" / "workflows" / "sync-hf-space.yml"
+    ).read_text()
+    dockerfile = _DOCKERFILE.read_text()
+    for package in ("data-adapters", "api", "mcp-core"):
+        assert f'"$BUILD_DIR/vendor/{package}"' in workflow, (
+            f"the sync workflow no longer vendorises {package}, but the Dockerfile still copies it"
+        )
+        assert f"vendor/{package}" in dockerfile

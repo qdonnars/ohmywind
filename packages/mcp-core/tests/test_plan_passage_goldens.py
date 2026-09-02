@@ -9,7 +9,7 @@ serialisers, and PR 2.1 replaces both with one shared view; these goldens are
 what says the replacement changed nothing an LLM host can observe.
 
 Driven by the same ``DeterministicMarineAdapter`` as
-``hf-space/tests/test_rest_goldens.py``, over the same route and departure, so
+``api/tests/test_rest_goldens.py``, over the same route and departure, so
 the ``passage`` block of a golden here and of a golden there describe the same
 sailing. They are not identical files: each shell adds its own fields, REST
 ``forecast_updated_at`` and MCP ``openwind_url`` / ``disclaimer``, and that
@@ -155,11 +155,7 @@ async def test_the_two_shells_describe_the_same_passage(server) -> None:
     )
     rest = json.loads(
         (
-            pathlib.Path(__file__).parents[2]
-            / "hf-space"
-            / "tests"
-            / "goldens"
-            / "passage_single.json"
+            pathlib.Path(__file__).parents[2] / "api" / "tests" / "goldens" / "passage_single.json"
         ).read_bytes()
     )
     assert payload["passage"] == rest["passage"]
