@@ -60,6 +60,7 @@ export function formatRetryDelay(seconds: number | null): string {
  * | `sweep_too_large` | the sweep would produce too many windows |
  * | `upstream_timeout` | the weather service did not answer in time |
  * | `upstream_rate_limited` | the weather service is throttling *us* |
+ * | `upstream_unavailable` | the edge proxy could not reach our own backend |
  * | `body_too_large` | request body over the cap |
  * | `invalid_forecast_cache` | the attached corridor did not check out |
  *
@@ -124,7 +125,33 @@ export function friendlyError(raw: string | Error): string {
     return ERROR_COPY[raw.code](raw.retryAfter);
   }
   if (raw instanceof ApiShapeError) return ERROR_COPY.invalid_response(null);
+  // Avant la lecture du texte : une requete qui n'a jamais atteint de serveur
+  // n'a pas de contrat d'erreur a lire, et son message est celui du moteur du
+  // navigateur, en anglais.
+  if (isNetworkFailure(raw)) return ERROR_COPY.network_unreachable(null);
   return matchErrorText(raw.message);
+}
+
+/**
+ * Une panne de transport, par opposition a une reponse du serveur.
+ *
+ * `fetch` rejette avec un `TypeError` quand la requete n'est jamais partie ou
+ * n'est jamais revenue : coupure reseau, DNS, TLS, origine injoignable. Le
+ * libelle differe d'un moteur a l'autre (« Failed to fetch » sur Chrome,
+ * « NetworkError when attempting to fetch resource. » sur Firefox, « Load
+ * failed » sur Safari), d'ou la liste. Le nom de l'erreur est teste en plus
+ * du type parce qu'un `DOMException` d'abandon n'est pas un `TypeError` :
+ * `AbortSignal.timeout` rejette en `TimeoutError`, un abandon explicite en
+ * `AbortError`. Les abandons volontaires (un calcul plus recent remplace
+ * celui en vol) ne passent jamais par ici : `usePlanSession` les ecarte avant
+ * d'appeler cette fonction.
+ */
+function isNetworkFailure(error: Error): boolean {
+  if (error.name === "AbortError" || error.name === "TimeoutError") return true;
+  if (!(error instanceof TypeError)) return false;
+  return /failed to fetch|network\s?error|load failed|network request failed|fetch failed/i.test(
+    error.message,
+  );
 }
 
 /** French copy per stable code. `retryAfter` is only read by `rate_limited`. */
@@ -165,12 +192,25 @@ const ERROR_COPY: Record<string, (retryAfter: number | null) => string> = {
   // is our own limiter and IS about the caller's pace.
   upstream_rate_limited: () =>
     "Le service météo limite temporairement nos requêtes. Ce n'est pas lié à votre usage, réessayez dans quelques minutes.",
+  // Emis par le proxy de bord (Worker Cloudflare), pas par le Space : le
+  // backend n'a pas repondu du tout. A ne pas confondre avec les deux
+  // `upstream_*` ci-dessus, ou le service amont est Open-Meteo ; ici l'amont
+  // vu du bord, c'est nous. Cause la plus frequente : le Space dort et se
+  // reveille, ce qui prend une trentaine de secondes, d'ou le delai que le
+  // bord envoie et que l'on relaie plutot que d'en inventer un.
+  upstream_unavailable: (retryAfter) =>
+    `Le serveur est momentanément injoignable, il redémarre peut-être. ${formatRetryDelay(retryAfter)}`,
   body_too_large: () =>
     "La route est trop détaillée pour être envoyée. Retirez quelques waypoints ou raccourcissez la période.",
   invalid_forecast_cache: () =>
     "Les données météo préparées par le navigateur ont été refusées. Réessayez : le calcul repartira des données du serveur.",
   server_unavailable: () =>
     "Le serveur météo est indisponible. Réessayez dans quelques instants.",
+  // Pas un code du serveur : la requete n'a jamais abouti (reseau coupe,
+  // portail captif, delai depasse). Rien a dire sur la meteo, tout a dire sur
+  // le lien. Voir `isNetworkFailure`.
+  network_unreachable: () =>
+    "Impossible de joindre le serveur. Vérifiez votre connexion puis réessayez.",
   // Not a server code: a 200 whose body is not the contract (see parse.ts).
   invalid_response: () =>
     "Le serveur a renvoyé une réponse inattendue. Réessayez dans quelques instants.",
@@ -207,6 +247,12 @@ function matchErrorText(raw: string): string {
   }
   if (/upstream weather service rate limit/i.test(raw)) {
     return ERROR_COPY.upstream_rate_limited(null);
+  }
+  if (/backend temporarily unavailable/i.test(raw)) {
+    // Meme forme que la regle de limitation : le delai est ajoute par
+    // `toError` en suffixe, pas par le bord dans sa phrase.
+    const retryIn = /retry in (\d+)s/i.exec(raw);
+    return ERROR_COPY.upstream_unavailable(retryIn ? Number(retryIn[1]) : null);
   }
   if (/Erreur serveur 5\d\d/.test(raw) || /HTTP 5\d\d/.test(raw)) {
     return ERROR_COPY.server_unavailable(null);
