@@ -1,0 +1,3 @@
+# Local state written by `wrangler dev`: cache, observability traces, cf.json.
+.wrangler/
+node_modules/
