@@ -20,6 +20,7 @@ import type { InitialSession } from "./session/initial";
 import type { PlanActions } from "./session/usePlanSession";
 import type { PassageReport, ComplexityScore, PassageWindow, Archetype } from "./types";
 import { resetPolarConfigSnapshot } from "../config/usePolarConfig";
+import { fmtClock } from "../domain/datetime";
 
 const MARSEILLE: [number, number] = [43.29, 5.37];
 const PORQUEROLLES: [number, number] = [43.0, 6.2];
@@ -305,7 +306,9 @@ describe("open leg", () => {
       selectedLegIdx: 0,
       selectedStepIdx: 1,
     });
-    expect(screen.getByText("13:00 → 18:00")).toBeTruthy();
+    // Rendered through the same formatter as the card: the runner's clock is
+    // not Paris (a CI box sits on UTC), so the literal would read two hours off.
+    expect(screen.getByText(`${fmtClock("2026-09-10T13:00:00+02:00")} → ${fmtClock("2026-09-10T18:00:00+02:00")}`)).toBeTruthy();
     expect(screen.getByText(/2\/2$/)).toBeTruthy();
     expect(screen.getByText("9 (18) kn")).toBeTruthy();
     // Last step: no next.
@@ -344,7 +347,7 @@ describe("open leg", () => {
   it("shows a single-step leg as the step itself: no average, no strip, no arrows", () => {
     mount({ passage: passage(), complexity: complexity(), selectedLegIdx: 0 });
     expect(screen.queryByText(/Moyenne/)).toBeNull();
-    expect(screen.getByText("08:00 → 18:00")).toBeTruthy();
+    expect(screen.getByText(`${fmtClock("2026-09-10T08:00:00+02:00")} → ${fmtClock("2026-09-10T18:00:00+02:00")}`)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Détail" })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Pas / })).toBeNull();
   });
