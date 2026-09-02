@@ -11,24 +11,40 @@ const DAYS_EN = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 // UTC mode: append the Paris UTC offset so Date can convert to UTC.
 // Local mode: interpret as-is via Date (current browser local time).
 
+// Hoisted out of parisTzOffsetMin: building an Intl.DateTimeFormat costs
+// ~70 us and the timeline header formats 168 cells per render, so a per-call
+// constructor showed up as 50 to 100 ms of jank per render on mobile.
+const PARIS_HHMM_DTF = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Europe/Paris",
+  hour: "numeric",
+  minute: "numeric",
+  hour12: false,
+});
+
+// One entry per distinct timestamp rendered. A 7-day timeline is 168 keys, so
+// the cap is only there to bound a tab left open across many spots; past it we
+// drop everything rather than evict one by one, the entries being cheap.
+const PARIS_OFFSET_MEMO_MAX = 4096;
+const parisOffsetMemo = new Map<string, number>();
+
 /** UTC offset in minutes for Europe/Paris at the given ISO date-time string */
 function parisTzOffsetMin(iso: string): number {
+  const hit = parisOffsetMemo.get(iso);
+  if (hit !== undefined) return hit;
   // Append a fake UTC marker to get a Date object, then compute the offset
   // by comparing Paris wall-clock to UTC wall-clock.
   const utcMs = new Date(iso + "Z").getTime();
   // Format the UTC timestamp in Europe/Paris to read the displayed hour/minute
-  const parisFormatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Europe/Paris",
-    hour: "numeric",
-    minute: "numeric",
-    hour12: false,
-  });
-  const parts = parisFormatter.formatToParts(new Date(utcMs));
+  const parts = PARIS_HHMM_DTF.formatToParts(new Date(utcMs));
   const parisHour = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
   const parisMin = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
   const utcHour = new Date(utcMs).getUTCHours();
   const utcMin = new Date(utcMs).getUTCMinutes();
-  return (parisHour * 60 + parisMin) - (utcHour * 60 + utcMin);
+  const offset = (parisHour * 60 + parisMin) - (utcHour * 60 + utcMin);
+
+  if (parisOffsetMemo.size >= PARIS_OFFSET_MEMO_MAX) parisOffsetMemo.clear();
+  parisOffsetMemo.set(iso, offset);
+  return offset;
 }
 
 /**
