@@ -67,8 +67,13 @@ export default defineConfig({
         // que maplibre et le runtime rolldown) ; si un jour l'entree en
         // dependait, il faudrait le remettre au precache sous peine de casser
         // le mode hors ligne.
+        // Les captures du manifeste (la feuille d'installation les affiche, une
+        // fois, avant l'installation) n'ont aucune raison de peser sur le
+        // precache : le navigateur les tire lui-meme quand il montre la
+        // feuille, et jamais ensuite.
         globIgnores: [
           '**/KaTeX_*',
+          'screenshots/**',
           'methodologie/**',
           'polars/**',
           '**/MethodologiePage-*',
