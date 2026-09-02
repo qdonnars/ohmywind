@@ -98,6 +98,7 @@ JSON, no key and no account required.
 | `/api/v1/passage` | POST | Passage plan from a departure time. Sweeps departures when `latest_departure` is set. |
 | `/api/v1/passage-by-eta` | POST | Passage plan from a target arrival. |
 | `/api/v1/marine/marc` | GET | SHOM and MARC tidal atlas overlay for one point. Always 200, `covered` tells you whether there was anything to give. |
+| `/api/v1/marine/marc/coverage` | GET | Bounding boxes of the loaded atlases, so a client can skip the calls that cannot return anything. `Cache-Control: public, max-age=86400`. |
 | `/api/v1/_client` | GET | How this deployment sees the caller, for rate-limit diagnosis. |
 | `/mcp` | POST | The MCP endpoint. Streaming transport, never compressed. |
 
@@ -119,6 +120,14 @@ on the deployment.
 | `forecast_cache` corridor points | 120, `422` beyond | fixed in `openwind-data` |
 | `forecast_cache` time axis | 400 hours, `422` beyond | fixed in `openwind-data` |
 | Steps per `/api/v1/marine/marc` call | 800, `422` beyond | fixed in the wrapper |
+
+`/api/v1/marine/marc/coverage` answers
+`{"atlases": [{"name": "FINIS", "source": "marc", "bbox": [lat_min, lon_min,
+lat_max, lon_max]}, ...]}`, in WGS84 degrees, latitude first, sorted by source
+then name. It is an empty list on a Space that ships without the tidal atlas
+dataset. The promise runs one way only: outside every box there is nothing to
+fetch, inside one there may still be nothing (the SHOM boxes wrap a scattered
+point cloud that contains land and gaps).
 
 The overlay endpoint has its own, wider bucket because the web app calls it
 once per corridor point, up to 60 times for one computation. Its step ceiling

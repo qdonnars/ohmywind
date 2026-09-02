@@ -256,3 +256,29 @@ def test_filling_the_overlay_bucket_leaves_the_planners_alone(monkeypatch) -> No
     client.get(_MARC_QUERY)
     assert client.get(_MARC_QUERY).status_code == 429
     assert client.post("/api/v1/passage", json={}).status_code == 422
+
+
+def test_the_atlas_coverage_route_is_never_rate_limited(monkeypatch) -> None:
+    """It is a constant read out of memory, and it is what saves the calls.
+
+    A client fetches it once to learn which corridor points are worth an
+    overlay call. Throttling it would push that client back to calling the
+    overlay blind, which is the traffic this endpoint exists to remove.
+    """
+    monkeypatch.setattr(
+        security.RateLimitMiddleware,
+        "__init__",
+        _init_with_limits(max_requests=1, marc_max_requests=1),
+    )
+    client = TestClient(_load_app().build_app(_StubMcpApp()))
+    responses = [client.get("/api/v1/marine/marc/coverage") for _ in range(5)]
+    assert [r.status_code for r in responses] == [200] * 5
+    assert all(r.json() == {"atlases": []} for r in responses)
+
+
+def test_the_atlas_coverage_route_answers_cross_origin(client) -> None:
+    # The web app calls it from ohmywind.fr before it starts a computation.
+    resp = client.get("/api/v1/marine/marc/coverage", headers={"Origin": "https://ohmywind.fr"})
+    assert resp.status_code == 200
+    assert resp.headers["access-control-allow-origin"] == "*"
+    assert "atlases" in resp.json()

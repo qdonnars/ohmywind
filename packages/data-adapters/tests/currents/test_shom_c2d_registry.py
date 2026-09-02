@@ -110,6 +110,46 @@ def _write_synthetic_registry(out: Path) -> None:
     (out / "shom_c2d_ref_ports.json").write_text(json.dumps(ports, ensure_ascii=False))
 
 
+def test_coverage_zones_is_empty_without_artefacts(tmp_path: Path) -> None:
+    assert ShomC2dRegistry.from_directory(tmp_path).coverage_zones() == ()
+
+
+def test_coverage_zones_reports_each_zone_once(tmp_path: Path) -> None:
+    _write_synthetic_registry(tmp_path)
+    zones = ShomC2dRegistry.from_directory(tmp_path).coverage_zones()
+    assert [name for name, _ in zones] == ["TEST_ZONE"]
+    lat_min, lon_min, lat_max, lon_max = zones[0][1]
+    # The synthetic cloud spans 47.49..47.51 / -2.91..-2.89, padded outward.
+    assert lat_min < 47.49 and lat_max > 47.51
+    assert lon_min < -2.91 and lon_max > -2.89
+
+
+def test_every_covered_point_falls_inside_a_zone_box(tmp_path: Path) -> None:
+    """The invariant the coverage endpoint sells: outside the boxes, no data.
+
+    A client that skips the round trip for points outside every box must not
+    lose a single covered point. Sampled on a grid straddling the cloud, so
+    it catches a box that is padded too little as well as one padded on the
+    wrong axis.
+    """
+    _write_synthetic_registry(tmp_path)
+    reg = ShomC2dRegistry.from_directory(tmp_path)
+    boxes = [box for _, box in reg.coverage_zones()]
+
+    def inside_any(lat: float, lon: float) -> bool:
+        return any(
+            lat_min <= lat <= lat_max and lon_min <= lon <= lon_max
+            for lat_min, lon_min, lat_max, lon_max in boxes
+        )
+
+    for i in range(-20, 21):
+        for j in range(-20, 21):
+            lat = 47.50 + i * 0.01
+            lon = -2.90 + j * 0.01
+            if reg.covers(lat, lon):
+                assert inside_any(lat, lon), (lat, lon)
+
+
 def test_from_directory_returns_empty_when_artefacts_missing(tmp_path: Path) -> None:
     reg = ShomC2dRegistry.from_directory(tmp_path)  # nothing on disk
     assert reg.lats.size == 0
