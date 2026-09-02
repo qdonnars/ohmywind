@@ -39,6 +39,9 @@ interface PlanMapProps {
   onMapClick?: (lat: number, lon: number) => void;
   /** Inclusive-exclusive range of segment indices to highlight (selected leg). */
   highlightedSegmentRange?: [number, number] | null;
+  /** Index into `segments` of the step open in the panel, drawn as a dot at
+      its midpoint in the colour of its block in the strip. */
+  focusedSegmentIdx?: number | null;
   /** Optional hint for the initial view when there are no waypoints yet
       (typically propagated from the home spot via `?center=lat,lon`). */
   initialCenter?: [number, number] | null;
@@ -80,7 +83,7 @@ function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon 
 }
 
 export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
-  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, initialCenter, userPosition, onViewChange, initialZoom, showSeamarks = false, depths }: PlanMapProps,
+  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, focusedSegmentIdx = null, initialCenter, userPosition, onViewChange, initialZoom, showSeamarks = false, depths }: PlanMapProps,
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -88,7 +91,8 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   const basemapRef = useRef<Basemap | null>(null);
   const seamarkLayerRef = useRef<L.TileLayer | null>(null);
   const polylinesRef = useRef<L.Polyline[]>([]);
-  const highlightLineRef = useRef<L.Polyline | null>(null);
+  const highlightLayerRef = useRef<L.LayerGroup | null>(null);
+  const focusMarkerRef = useRef<L.CircleMarker | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
   const dragLineRef = useRef<L.Polyline | null>(null);
   const segLabelsRef = useRef<L.Tooltip[]>([]);
@@ -455,14 +459,16 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     });
   }, [waypoints, segments, isStale]);
 
-  // Selected-leg highlight overlay — drawn on top of the colored segments,
-  // using the brand accent color so it pops against the wind palette.
+  // Selected-leg highlight overlay, drawn on top of the colored segments in
+  // the brand accent so it pops against the wind palette. Small ticks mark
+  // the boundaries between the leg's steps, so the strip in the panel and
+  // the line on the map cut the leg in the same places.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    if (highlightLineRef.current) {
-      highlightLineRef.current.remove();
-      highlightLineRef.current = null;
+    if (highlightLayerRef.current) {
+      highlightLayerRef.current.remove();
+      highlightLayerRef.current = null;
     }
     if (!highlightedSegmentRange || !segments || segments.length === 0) return;
     const [s, e] = highlightedSegmentRange;
@@ -482,10 +488,51 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
       opacity: 0.85,
       lineCap: "round",
       lineJoin: "round",
-    }).addTo(map);
+    });
+    const ticks = slice.slice(0, -1).map((seg) =>
+      L.circleMarker([seg.end.lat, seg.end.lon], {
+        radius: 3,
+        color: accent,
+        weight: 1.5,
+        fillColor: "#fff",
+        fillOpacity: 0.95,
+        interactive: false,
+      }),
+    );
+    const group = L.layerGroup([overlay, ...ticks]).addTo(map);
     overlay.bringToFront();
-    highlightLineRef.current = overlay;
+    for (const t of ticks) t.bringToFront();
+    highlightLayerRef.current = group;
   }, [highlightedSegmentRange, segments, resolvedTheme]);
+
+  // The step open in the panel: a dot at its midpoint, filled with the wind
+  // band of that step so it matches the block the user tapped in the strip.
+  // Declared after the highlight effect so that, when both redraw in one
+  // commit, the dot ends up above the line.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (focusMarkerRef.current) {
+      focusMarkerRef.current.remove();
+      focusMarkerRef.current = null;
+    }
+    if (focusedSegmentIdx == null || !segments) return;
+    const seg = segments[focusedSegmentIdx];
+    if (!seg) return;
+    const marker = L.circleMarker(
+      [(seg.start.lat + seg.end.lat) / 2, (seg.start.lon + seg.end.lon) / 2],
+      {
+        radius: 8,
+        color: "#fff",
+        weight: 2.5,
+        fillColor: readToken(cxLevelToken(cxLevel(seg.tws_kn))),
+        fillOpacity: 1,
+        interactive: false,
+      },
+    ).addTo(map);
+    marker.bringToFront();
+    focusMarkerRef.current = marker;
+  }, [focusedSegmentIdx, segments, resolvedTheme]);
 
   return <div ref={containerRef} className="w-full h-full" />;
 });

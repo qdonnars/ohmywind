@@ -160,6 +160,55 @@ describe("route edits", () => {
   });
 });
 
+describe("step of the open leg", () => {
+  it("opens a step under the open leg, and the average again on null", () => {
+    let s = run(start(), { type: "LEG_SELECTED", index: 0 }, { type: "STEP_SELECTED", index: 2 });
+    expect(s.selectedStepIdx).toBe(2);
+    s = planReducer(s, { type: "STEP_SELECTED", index: null });
+    expect(s.selectedStepIdx).toBeNull();
+    expect(s.selectedLegIdx).toBe(0);
+  });
+
+  it("ignores a step when no leg is open", () => {
+    const s = run(start(), { type: "STEP_SELECTED", index: 1 });
+    expect(s.selectedStepIdx).toBeNull();
+  });
+
+  it("follows the leg: a change of leg, of route or of result drops it", () => {
+    const open = run(start(), { type: "LEG_SELECTED", index: 0 }, { type: "STEP_SELECTED", index: 1 });
+
+    expect(planReducer(open, { type: "LEG_SELECTED", index: 1 }).selectedStepIdx).toBeNull();
+    expect(planReducer(open, { type: "LEG_SELECTED", index: null }).selectedStepIdx).toBeNull();
+    expect(planReducer(open, { type: "WAYPOINT_APPENDED", lat: 42.9, lon: 6.4 }).selectedStepIdx).toBeNull();
+
+    const recomputed = run(
+      open,
+      { type: "FETCH_STARTED", requestId: 1, kind: "single" },
+      {
+        type: "FETCH_SUCCEEDED",
+        requestId: 1,
+        kind: "single",
+        configFingerprint: "fp",
+        passage: passage(),
+        complexity: complexity(),
+        forecastUpdatedAt: "2026-09-10T06:00:00Z",
+      },
+    );
+    expect(recomputed.selectedStepIdx).toBeNull();
+  });
+
+  it("survives an edit that keeps the leg open", () => {
+    const s = run(
+      start(),
+      { type: "LEG_SELECTED", index: 0 },
+      { type: "STEP_SELECTED", index: 1 },
+      { type: "DEPARTURE_CHANGED", departure: "2026-09-11T08:00" },
+    );
+    expect(s.selectedLegIdx).toBe(0);
+    expect(s.selectedStepIdx).toBe(1);
+  });
+});
+
 describe("mode and sweep", () => {
   it("keeps the opposite mode's results in memory", () => {
     const withResults = run(

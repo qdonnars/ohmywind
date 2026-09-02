@@ -130,6 +130,7 @@ function stubActions(): PlanActions {
     setSweepLatest: vi.fn(),
     setSweepInterval: vi.fn(),
     selectLeg: vi.fn(),
+    selectStep: vi.fn(),
     compute: vi.fn(),
     computeWindows: vi.fn(),
     selectWindow: vi.fn(),
@@ -244,5 +245,83 @@ describe("PlanSidebar views", () => {
     const withRoute = mount();
     expect(screen.getByRole("button", { name: "Nouveau plan" })).toBeTruthy();
     expect(withRoute.actions.reset).not.toHaveBeenCalled();
+  });
+});
+
+// ── The open leg: average by default, one step on demand ─────────────────────
+// Two server segments between the two waypoints, so the single leg has two
+// steps whose wind disagrees. The actions are stubs: each test mounts the
+// session in the state the previous click would have produced.
+
+const MID: [number, number] = [43.15, 5.8];
+
+const twoStepPassage = (): PassageReport => {
+  const base = passage();
+  const [only] = base.segments;
+  return {
+    ...base,
+    segments: [
+      {
+        ...only,
+        end: { lat: MID[0], lon: MID[1] },
+        distance_nm: 27,
+        end_time: "2026-09-10T13:00:00+02:00",
+        duration_h: 5,
+        tws_kn: 6,
+        twd_deg: 290,
+      },
+      {
+        ...only,
+        start: { lat: MID[0], lon: MID[1] },
+        distance_nm: 28,
+        start_time: "2026-09-10T13:00:00+02:00",
+        duration_h: 5,
+        tws_kn: 9,
+        twd_deg: 330,
+        gust_kn: 18,
+      },
+    ],
+  };
+};
+
+describe("open leg", () => {
+  it("shows the average of the steps, and offers the detail", async () => {
+    const value = mount({ passage: twoStepPassage(), complexity: complexity(), selectedLegIdx: 0 });
+    expect(screen.getByText(/Moyenne · /)).toBeTruthy();
+    expect(screen.getByText("moyenne de 2 pas")).toBeTruthy();
+    // The wind range the average hides, and no gust in it: 18 sits on step 2.
+    expect(screen.getByText("6–9 (18) kn")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: /^Pas \d sur 2/ })).toHaveLength(2);
+
+    await userEvent.click(screen.getByRole("button", { name: "Détail" }));
+    expect(value.actions.selectStep).toHaveBeenCalledWith(0);
+  });
+
+  it("walks the steps with the arrows and the strip", async () => {
+    const value = mount({
+      passage: twoStepPassage(),
+      complexity: complexity(),
+      selectedLegIdx: 0,
+      selectedStepIdx: 1,
+    });
+    expect(screen.getByText("13:00 → 18:00")).toBeTruthy();
+    expect(screen.getByText(/2\/2$/)).toBeTruthy();
+    expect(screen.getByText("9 (18) kn")).toBeTruthy();
+    // Last step: no next.
+    expect((screen.getByRole("button", { name: "Pas suivant" }) as HTMLButtonElement).disabled).toBe(true);
+
+    await userEvent.click(screen.getByRole("button", { name: "Pas précédent" }));
+    expect(value.actions.selectStep).toHaveBeenCalledWith(0);
+
+    // Tapping the open block returns to the average.
+    await userEvent.click(screen.getByRole("button", { name: /^Pas 2 sur 2/ }));
+    expect(value.actions.selectStep).toHaveBeenCalledWith(null);
+  });
+
+  it("keeps a single-step leg plain: no toggle, no arrows to walk", () => {
+    mount({ passage: passage(), complexity: complexity(), selectedLegIdx: 0 });
+    expect(screen.getByText("un seul pas de calcul")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Détail" })).toBeNull();
+    expect((screen.getByRole("button", { name: "Pas suivant" }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

@@ -401,7 +401,7 @@ export function PlanPage() {
   const { state, actions, isLoading } = usePlanSession(initial);
   // The page itself only needs what the map and the drawer are built on; the
   // panel reads everything else from the context below.
-  const { waypoints, passage, windows, mode: planMode, selectedLegIdx, actionTaken, isStale } = state;
+  const { waypoints, passage, windows, mode: planMode, selectedLegIdx, selectedStepIdx, actionTaken, isStale } = state;
 
   const waypointDepths = useWaypointDepths(waypoints);
   const [archetypes, setArchetypes] = useState<Archetype[]>([]);
@@ -439,6 +439,16 @@ export function PlanPage() {
         : null,
     [selectedLegIdx, passage, waypoints],
   );
+
+  // The step open in the panel, as an index into the passage's segments. The
+  // reducer drops the step with its leg, so a range and a step that disagree
+  // can only be a stale index past a shorter leg: ignored rather than drawn
+  // on the next leg.
+  const focusedSegmentIdx = useMemo(() => {
+    if (selectedStepIdx == null || !highlightedSegmentRange) return null;
+    const idx = highlightedSegmentRange[0] + selectedStepIdx;
+    return idx < highlightedSegmentRange[1] ? idx : null;
+  }, [selectedStepIdx, highlightedSegmentRange]);
 
   // Route edited after a result: the drawer content flips to the "Cliquez
   // sur Recalculer" placeholders while the results fit above may have left
@@ -544,6 +554,7 @@ export function PlanPage() {
             showSeamarks={seamarks}
             depths={waypointDepths}
             highlightedSegmentRange={highlightedSegmentRange}
+            focusedSegmentIdx={focusedSegmentIdx}
           />
           {/* Back-to-explore FAB — mirrors the compass FAB on the home map */}
           <a

@@ -115,6 +115,8 @@ export interface PlanActions {
   setSweepLatest: (value: string) => void;
   setSweepInterval: (hours: number) => void;
   selectLeg: (index: number | null) => void;
+  /** Open one step of the expanded leg in the card, null for its average. */
+  selectStep: (index: number | null) => void;
   /** Compute the single passage for the plan on screen. */
   compute: () => void;
   /** Compute the sweep for the plan on screen. */
@@ -326,6 +328,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
       setSweepLatest: (value) => dispatch({ type: "SWEEP_CHANGED", latest: value }),
       setSweepInterval: (hours) => dispatch({ type: "SWEEP_CHANGED", intervalHours: hours }),
       selectLeg: (index) => dispatch({ type: "LEG_SELECTED", index }),
+      selectStep: (index) => dispatch({ type: "STEP_SELECTED", index }),
       compute: () => {
         const { waypoints, archetype, departure, timeAnchor } = stateRef.current;
         runSingle(waypoints, archetype, departure, timeAnchor);
