@@ -72,6 +72,7 @@ const aWindow = (over: Partial<PassageWindow> = {}): PassageWindow => ({
 
 const session = (over: Partial<InitialSession> = {}): InitialSession => ({
   waypoints: [MARSEILLE, PORQUEROLLES],
+  originWaypoints: over.waypoints ?? [MARSEILLE, PORQUEROLLES],
   archetype: "cruiser_30ft",
   departure: "2026-09-10T08:00",
   timeAnchor: "departure",
@@ -260,6 +261,57 @@ describe("computing", () => {
     // The panel is on the single view, so it does not blank for a sweep.
     expect(isLoadingForMode(s)).toBe(false);
     expect(isLoadingForMode({ ...s, mode: "compare" })).toBe(true);
+  });
+});
+
+describe("l'origine du brouillon", () => {
+  // originWaypoints dit de quelle route les edits en cours sont des edits.
+  // C'est ce que le brouillon compare a l'URL au montage (plan/draft.ts).
+  it("suit la route calculee, pas la route en cours d'edition", () => {
+    let s = start({ waypoints: [MARSEILLE, PORQUEROLLES] });
+    expect(s.originWaypoints).toEqual([MARSEILLE, PORQUEROLLES]);
+
+    s = run(s, { type: "WAYPOINT_APPENDED", lat: 43.1, lon: 5.93 });
+    // Un point de plus ne deplace pas l'origine : c'est encore un edit de la
+    // route d'avant.
+    expect(s.waypoints).toHaveLength(3);
+    expect(s.originWaypoints).toEqual([MARSEILLE, PORQUEROLLES]);
+
+    s = run(s, { type: "FETCH_STARTED", requestId: 1, kind: "single" }, succeedSingle(1));
+    // Le calcul valide la route : elle devient l'origine des edits suivants.
+    expect(s.originWaypoints).toEqual(s.waypoints);
+  });
+
+  it("suit aussi un balayage et le choix d'une fenetre", () => {
+    let s = start({ waypoints: [MARSEILLE, PORQUEROLLES], mode: "compare" });
+    s = run(s, { type: "WAYPOINT_APPENDED", lat: 43.1, lon: 5.93 });
+    const edited = s.waypoints;
+    s = run(
+      s,
+      { type: "FETCH_STARTED", requestId: 1, kind: "sweep" },
+      {
+        type: "FETCH_SUCCEEDED",
+        requestId: 1,
+        kind: "sweep",
+        configFingerprint: "arome|cruiser_30ft",
+        windows: [aWindow()],
+        metaWarnings: [],
+        forecastUpdatedAt: "2026-09-09T06:00:00Z",
+      },
+    );
+    expect(s.originWaypoints).toEqual(edited);
+  });
+
+  it("repart de rien apres un nouveau plan", () => {
+    let s = start({ waypoints: [MARSEILLE, PORQUEROLLES] });
+    s = run(s, {
+      type: "RESET",
+      archetype: "cruiser_30ft",
+      departure: "2026-09-11T08:00",
+      sweepLatest: "2026-09-13T08:00",
+    });
+    expect(s.waypoints).toEqual([]);
+    expect(s.originWaypoints).toEqual([]);
   });
 });
 
