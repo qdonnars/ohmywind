@@ -95,6 +95,7 @@ const ARCHETYPES: Archetype[] = [
 
 const baseSession: InitialSession = {
   waypoints: [MARSEILLE, PORQUEROLLES],
+  originWaypoints: [MARSEILLE, PORQUEROLLES],
   archetype: "cruiser_30ft",
   departure: "2026-09-10T08:00",
   timeAnchor: "departure",

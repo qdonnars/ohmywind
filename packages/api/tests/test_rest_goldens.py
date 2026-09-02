@@ -25,12 +25,13 @@ below is produced without an MCP server in the process.
 
 from __future__ import annotations
 
+import gzip
 import json
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
-import polars as pl
 import pytest
+from atlas_fixtures import FINIS_CELL, write_finis_atlas
 from goldens_support import assert_golden
 from openwind_data.routing import passage as passage_engine
 from openwind_data.testing import DeterministicMarineAdapter, browser_cache_payload, hourly_axis
@@ -54,7 +55,7 @@ MARSEILLE = [43.29, 5.37]
 PORQUEROLLES = [43.00, 6.20]
 
 # Where the MARC fixture atlas has its single cell.
-BREST = (48.35, -4.80)
+BREST = FINIS_CELL
 
 
 class _FrozenMeta(type):
@@ -155,6 +156,23 @@ class TestPassage:
         assert resp.status_code == 200
         assert_golden("passage_single_forecast_cache.json", resp.content)
 
+    def test_a_gzipped_request_produces_the_very_same_bytes(self, client) -> None:
+        """The contract for compressed request bodies, stated as an equality.
+
+        The request that produced ``passage_single.json`` is posted again,
+        gzipped, and has to come back byte for byte identical. Anything the
+        decompression path does to the body other than decompress it, a lost
+        final chunk, a stray BOM, a re-encoded string, shows up here as a
+        golden diff rather than as a subtly different plan.
+        """
+        resp = client.post(
+            "/api/v1/passage",
+            content=gzip.compress(json.dumps(_passage_body()).encode()),
+            headers={"Content-Type": "application/json", "Content-Encoding": "gzip"},
+        )
+        assert resp.status_code == 200
+        assert_golden("passage_single.json", resp.content)
+
     def test_sweep_mode(self, client) -> None:
         resp = client.post(
             "/api/v1/passage",
@@ -222,64 +240,11 @@ def atlas_dir(tmp_path):
 
     Same shape as the real dataset, small enough to write per test. Without
     it the overlay endpoint only ever answers ``covered: false`` in CI, which
-    is the branch that needs a golden least.
+    is the branch that needs a golden least. Built by ``atlas_fixtures``,
+    which the batch tests write against too: one fixture, one set of numbers,
+    and a golden that moves for both at once or for neither.
     """
-    atlas_dir = tmp_path / "FINIS"
-    atlas_dir.mkdir()
-    (atlas_dir / "metadata.json").write_text(
-        json.dumps(
-            {
-                "atlas": "FINIS",
-                "rank": 2,
-                "resolution_m": 250,
-                "constituents_h": ["M2"],
-                "constituents_u": ["M2"],
-                "constituents_v": ["M2"],
-                "schema_version": 2,
-            }
-        )
-    )
-    (atlas_dir / "coverage.geojson").write_text(
-        json.dumps(
-            {
-                "type": "FeatureCollection",
-                "features": [
-                    {
-                        "type": "Feature",
-                        "properties": {"atlas": "FINIS"},
-                        "geometry": {
-                            "type": "Polygon",
-                            "coordinates": [
-                                [
-                                    [-5.5, 47.5],
-                                    [-4.5, 47.5],
-                                    [-4.5, 49.0],
-                                    [-5.5, 49.0],
-                                    [-5.5, 47.5],
-                                ]
-                            ],
-                        },
-                    }
-                ],
-            }
-        )
-    )
-    tile_dir = atlas_dir / "tile_lat=48.0" / "tile_lon=-5.0"
-    tile_dir.mkdir(parents=True)
-    pl.DataFrame(
-        {
-            "lat": [BREST[0]],
-            "lon": [BREST[1]],
-            "z0_hydro_m": [-3.85],
-            "M2_h_amp": [2.05],
-            "M2_h_g": [108.0],
-            "M2_u_amp": [0.5],
-            "M2_u_g": [80.0],
-            "M2_v_amp": [0.3],
-            "M2_v_g": [120.0],
-        }
-    ).write_parquet(tile_dir / "data.parquet", compression="zstd")
-    return tmp_path
+    return write_finis_atlas(tmp_path)
 
 
 @pytest.fixture

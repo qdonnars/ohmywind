@@ -2,8 +2,55 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, formatRetryDelay, friendlyError } from "./passage";
+import { ApiError, fetchPassage, formatRetryDelay, friendlyError } from "./passage";
 import { ApiShapeError } from "./parse";
+import { resetBodyEncoding } from "./postJson";
+
+// Les trois POST passent par postJson, qui decide de la compression. Ce test
+// verifie le cablage, pas la negociation : celle-ci a son propre fichier.
+describe("cablage de la compression", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    resetBodyEncoding();
+  });
+
+  it("envoie le forecast_cache en gzip", async () => {
+    let sentBody: ArrayBuffer | null = null;
+    let sentEncoding: string | null = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        sentEncoding = new Headers(init.headers).get("Content-Encoding");
+        sentBody = init.body as ArrayBuffer;
+        return new Response("{}", { status: 200 });
+      }),
+    );
+    const forecastCache = {
+      points: Array.from({ length: 15 }, (_, i) => ({
+        lat: 43.3 - i * 0.02,
+        lon: 5.35 + i * 0.06,
+        models: [{ model: "arome", wind_kn: Array.from({ length: 48 }, (_, h) => 8 + (h % 7)) }],
+      })),
+    } as never;
+    // La reponse vide echoue au parsing : c'est la requete qui nous interesse.
+    await expect(
+      fetchPassage({
+        waypoints: [
+          [43.3, 5.35],
+          [43.0, 6.2],
+        ],
+        departure: "2026-09-03T09:00",
+        archetype: "cruiser_30ft",
+        forecastCache,
+      }),
+    ).rejects.toBeInstanceOf(ApiShapeError);
+    expect(sentEncoding).toBe("gzip");
+    const stream = new Blob([sentBody!]).stream().pipeThrough(new DecompressionStream("gzip"));
+    const back = JSON.parse(await new Response(stream).text());
+    expect(back.forecast_cache.points).toHaveLength(15);
+    expect(back.archetype).toBe("cruiser_30ft");
+  });
+});
 
 // Regression guard for the dev incident of 2026-08-01: the rate-limit copy
 // hard-coded "une minute" while the server ran a 300 s window, so the user
@@ -150,6 +197,11 @@ describe("error contract: code first, English text as fallback", () => {
       expect: /trop de temps à répondre/,
     },
     {
+      code: "upstream_unavailable",
+      text: "backend temporarily unavailable",
+      expect: /momentanément injoignable/,
+    },
+    {
       code: "upstream_rate_limited",
       text: "upstream weather service rate limit reached",
       expect: /pas lié à votre usage/,
@@ -249,5 +301,114 @@ describe("toError", () => {
     const error = await failWith(response(503, "<html>gateway</html>"));
     expect(error.message).toContain("Erreur serveur 503");
     expect(friendlyError(error)).toMatch(/indisponible/);
+  });
+});
+
+// Une requete qui n'atteint jamais de serveur n'a pas de corps a lire : elle
+// rejette avec l'erreur du moteur du navigateur, en anglais, et c'est ce
+// texte brut qui s'affichait ("Failed to fetch"). C'est pourtant le cas le
+// plus frequent en mer, ou le reseau tombe pour de bon.
+describe("panne de transport", () => {
+  const sentence = "Impossible de joindre le serveur. Vérifiez votre connexion puis réessayez.";
+
+  it("reconnait le rejet de fetch de chaque moteur", () => {
+    // Chrome, Firefox, Safari, undici (Node) : meme panne, quatre libelles.
+    for (const message of [
+      "Failed to fetch",
+      "NetworkError when attempting to fetch resource.",
+      "Load failed",
+      "fetch failed",
+    ]) {
+      expect(friendlyError(new TypeError(message))).toBe(sentence);
+    }
+  });
+
+  it("reconnait un delai depasse et un abandon", () => {
+    const timeout = new Error("signal timed out");
+    timeout.name = "TimeoutError";
+    const aborted = new Error("aborted");
+    aborted.name = "AbortError";
+    expect(friendlyError(timeout)).toBe(sentence);
+    expect(friendlyError(aborted)).toBe(sentence);
+  });
+
+  it("laisse passer un TypeError qui n'a rien a voir avec le reseau", () => {
+    // Un bug a nous ne doit pas se deguiser en probleme de connexion : le
+    // message d'origine reste lisible pour qui debogue.
+    const bug = new TypeError("x.map is not a function");
+    expect(friendlyError(bug)).toBe("x.map is not a function");
+  });
+
+  it("laisse la priorite au contrat d'erreur du serveur", () => {
+    // Un serveur qui a repondu a toujours raison sur la cause.
+    const answered = new ApiError("rate limit exceeded", "rate_limited", 60);
+    expect(friendlyError(answered)).toContain("Trop de calculs");
+  });
+});
+
+// Le proxy de bord (PR #350) repond 503
+// {"error":"backend temporarily unavailable","code":"upstream_unavailable",
+//  "retry_after":30} quand le Space ne repond pas, le plus souvent parce
+// qu'il dort et se reveille. Sans copie dediee, c'est l'anglais brut qui
+// s'affichait.
+describe("backend injoignable vu du proxy de bord", () => {
+  /** Meme doublure minimale que `toError` ci-dessus. */
+  function edgeResponse(): Response {
+    const headers: Record<string, string> = { "Retry-After": "30" };
+    return {
+      ok: false,
+      status: 503,
+      headers: { get: (k: string) => headers[k] ?? null },
+      json: async () => ({
+        error: "backend temporarily unavailable",
+        code: "upstream_unavailable",
+        retry_after: 30,
+      }),
+    } as unknown as Response;
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("lit le code et relaie le delai que le bord a annonce", async () => {
+    vi.stubGlobal("fetch", async () => edgeResponse());
+    const { fetchPassage } = await import("./passage");
+    let error: ApiError | null = null;
+    try {
+      await fetchPassage({
+        waypoints: [[43, 5], [43.1, 5.1]],
+        departure: "2026-09-04T08:00:00+02:00",
+        archetype: "cruiser_30ft",
+      });
+    } catch (e) {
+      error = e as ApiError;
+    }
+    expect(error).not.toBeNull();
+    expect(error!.code).toBe("upstream_unavailable");
+    expect(error!.retryAfter).toBe(30);
+    const msg = friendlyError(error!);
+    expect(msg).toContain("momentanément injoignable");
+    // Le delai vient du bord, jamais d'une constante d'ici : c'est la lecon
+    // de l'incident de copie sur la limitation de debit.
+    expect(msg).toContain("30 secondes");
+    expect(msg).not.toContain("backend temporarily unavailable");
+  });
+
+  it("reste vague quand le bord n'annonce aucun delai", () => {
+    const msg = friendlyError(new ApiError("backend down", "upstream_unavailable", null));
+    expect(msg).toContain("momentanément injoignable");
+    expect(msg).toContain("quelques minutes");
+    expect(msg).not.toMatch(/\d/);
+  });
+
+  it("ne se confond pas avec l'indisponibilite du service meteo amont", () => {
+    // `upstream_timeout` et `upstream_rate_limited` parlent d'Open-Meteo ;
+    // `upstream_unavailable` parle de notre propre backend. Deux phrases
+    // distinctes, sinon le lecteur cherche la panne du mauvais cote.
+    const ours = friendlyError(new ApiError("x", "upstream_unavailable", null));
+    const theirs = friendlyError(new ApiError("x", "upstream_timeout", null));
+    expect(ours).not.toBe(theirs);
+    expect(theirs).toContain("service météo");
   });
 });

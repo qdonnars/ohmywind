@@ -6,6 +6,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Spot, ModelForecast, MarineHourly, MetricView } from "../types";
 import { useTheme } from "../design/useTheme";
+import { readToken } from "../design/tokens";
 import { reverseGeocode } from "../api/reverseGeocode";
 import { useLongPress, type LongPressDetail } from "../hooks/useLongPress";
 import { SpotEditDialog, SpotNameDialog, type PendingSpot } from "./SpotDialogs";
@@ -172,7 +173,10 @@ export function SpotMap({
   useEffect(() => {
     if (!mapRef.current) return;
     syncPreviewMarker(mapRef.current, previewLayerRef, current, customSpots);
-  }, [current, customSpots]);
+    // resolvedTheme is a dependency because the marker colours are read from
+    // the theme now, and Leaflet keeps a resolved string: without it, toggling
+    // the theme would leave the markers painted in the previous palette.
+  }, [current, customSpots, resolvedTheme]);
 
   // Draw the "you are here" dot whenever a fix is known.
   useEffect(() => {
@@ -312,7 +316,9 @@ export function SpotMap({
     } else {
       clearAutoCenter();
     }
-  }, [current, customSpots, syncMarkers, autoCenter, clearAutoCenter]);
+    // resolvedTheme: see the preview marker above. The marker colours are
+    // read from the theme, and Leaflet keeps the resolved string.
+  }, [current, customSpots, syncMarkers, autoCenter, clearAutoCenter, resolvedTheme]);
 
   // Fly to the user only when the page asks for it (first visit with no
   // saved spot, or an explicit tap on the locate button). Keying on the
@@ -345,8 +351,12 @@ export function SpotMap({
       metric,
       forecasts,
       marine,
-      color: resolvedTheme === "light" ? "#64748b" : "#ffffff",
+      color: readToken("--ow-map-arrow"),
     });
+    // resolvedTheme is not read in the body: it is the trigger. The arrow
+    // colour is resolved from the DOM because it is handed to an element as a
+    // string, so a theme switch has to redraw the layer to pick up the new
+    // value.
   }, [selectedHour, forecasts, marine, metric, current, resolvedTheme]);
 
   return (

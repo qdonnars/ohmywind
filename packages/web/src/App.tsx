@@ -294,7 +294,7 @@ function App() {
           ref={fabRef}
           href={`/plan${mapViewQuery(mapView)}`}
           className="absolute top-3 left-3 z-[400] w-[58px] h-[58px] sm:w-20 sm:h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
-          style={{ background: "var(--ow-accent)", color: "#fff" }}
+          style={{ background: "var(--ow-accent)", color: "var(--ow-on-accent)" }}
           title="Planifier un passage"
         >
           <img src="/compass.png" alt="" className="select-none w-[64px] h-[64px] sm:w-[88px] sm:h-[88px]" draggable={false} />
@@ -327,7 +327,13 @@ function App() {
                   showCurrents={showCurrents}
                 />
               </div>
-              <div ref={dataPanelRef} className="flex-1 min-h-0 overflow-hidden">
+              {/* Colonne flex, pour que la table qui depasse se comprime au
+                  lieu d'etre rognee. La hauteur du panneau est bornee par un
+                  max-h en vh : une hauteur en pourcentage ne s'y resout pas,
+                  donc h-full sur l'enfant ne bornait rien et la note de
+                  convention sortait par le bas quand la table du vent
+                  affichait quatre modeles. */}
+              <div ref={dataPanelRef} className="flex-1 min-h-0 overflow-hidden flex flex-col">
                 {effectiveView === "wind" || !marine ? (
                   <WindTable
                     forecasts={forecasts}

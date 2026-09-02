@@ -30,7 +30,7 @@ export function RouteSketch() {
         strokeDasharray="4 4"
       />
       <circle cx="30" cy="70" r="6" fill="var(--ow-accent)" stroke="var(--ow-bg-1)" strokeWidth="2" />
-      <circle cx="250" cy="30" r="6" fill="#FF7A59" stroke="var(--ow-bg-1)" strokeWidth="2" />
+      <circle cx="250" cy="30" r="6" fill="var(--ow-sketch-end)" stroke="var(--ow-bg-1)" strokeWidth="2" />
       <text x="30" y="88" fontSize="9" fill="var(--ow-fg-2)" fontFamily="var(--ow-font-mono)" textAnchor="middle">A</text>
       <text x="250" y="14" fontSize="9" fill="var(--ow-fg-2)" fontFamily="var(--ow-font-mono)" textAnchor="middle">B</text>
     </svg>
@@ -106,9 +106,9 @@ function BigCard({
       <div className="flex items-center gap-2 mb-1.5">
         <span
           className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
-          style={{ background: accent, color: "#0B1A14" }}
+          style={{ background: accent, color: "var(--ow-cell-ink)" }}
         >
-          <PickerIcon name={icon} color="#0B1A14" />
+          <PickerIcon name={icon} color="var(--ow-cell-ink)" />
         </span>
         <div
           className="text-sm font-semibold"
@@ -155,7 +155,7 @@ export function ModePicker({
       />
       <BigCard
         icon="clock"
-        accent="#F4C25C"
+        accent="var(--ow-compare)"
         title="Comparer les fenêtres"
         body="Vous savez où aller. OhMyWind teste plusieurs heures de départ et classe les créneaux par confort."
         example="Ex. : « Quel est le meilleur départ entre samedi et lundi ? »"

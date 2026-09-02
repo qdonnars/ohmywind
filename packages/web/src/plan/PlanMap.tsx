@@ -311,7 +311,9 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
       const isLast = i === waypoints.length - 1 && waypoints.length > 1;
       // Number every waypoint 1..N so labels match the sidebar legs; last gets a flag.
       const label = isLast ? flagSvg : String(i + 1);
-      const bg = isFirst ? "#2dd4bf" : isLast ? "#e84118" : "#6b7280";
+      const bg = readToken(
+        isFirst ? "--ow-marker-active" : isLast ? "--ow-marker-end" : "--ow-marker-idle",
+      );
       const marker = L.marker([lat, lon], {
         icon: waypointIcon(label, bg, !!onWptDelete),
         draggable: true,
@@ -349,7 +351,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
         const lls = positions.map(([la, lo]) => L.latLng(la, lo));
         if (!dragLineRef.current) {
           dragLineRef.current = L.polyline(lls, {
-            color: "#6b7280",
+            color: readToken("--ow-marker-idle"),
             weight: 3,
             dashArray: "6 4",
             opacity: 0.85,
@@ -372,8 +374,10 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
 
       markersRef.current.push(marker);
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [waypoints]);
+    // resolvedTheme: the waypoint colours are read from the theme, and
+    // Leaflet keeps the resolved string in the icon markup.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waypoints, resolvedTheme]);
 
   // Fill the sounding slot of each waypoint icon.
   //
@@ -413,7 +417,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
       // A fresh route without per-segment colors (e.g. compare mode) draws as
       // a solid neutral line so it doesn't read as "not computed yet".
       const line = L.polyline(waypoints.map(([lat, lon]) => L.latLng(lat, lon)), {
-        color: "#6b7280",
+        color: readToken("--ow-marker-idle"),
         weight: 5,
         dashArray: isStale ? "6 4" : undefined,
         opacity: isStale ? 0.7 : 0.85,
@@ -482,6 +486,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     // Re-read on every theme change: the light palette darkens the accent,
     // and this overlay used to carry its own copy of both hex values.
     const accent = readToken("--ow-accent");
+    const onAccent = readToken("--ow-on-accent");
     const overlay = L.polyline(path, {
       color: accent,
       weight: 10,
@@ -494,7 +499,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
         radius: 3,
         color: accent,
         weight: 1.5,
-        fillColor: "#fff",
+        fillColor: onAccent,
         fillOpacity: 0.95,
         interactive: false,
       }),
@@ -526,7 +531,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
       L.latLng(seg.end.lat, seg.end.lon),
     ];
     const casing = L.polyline(path, {
-      color: "#fff",
+      color: readToken("--ow-on-accent"),
       weight: 14,
       opacity: 0.95,
       lineCap: "round",

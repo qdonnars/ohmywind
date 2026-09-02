@@ -6,6 +6,7 @@ import { SpotSearch } from "./SpotSearch";
 import { ThemeToggle } from "../design/theme";
 import { InfoButton } from "./InfoButton";
 import { rememberReturnPath } from "../config/returnPath";
+import { OfflineBanner } from "./OfflineBanner";
 
 
 interface HeaderProps {
@@ -77,6 +78,11 @@ export function Header({ onSelectSpot, nearLat, nearLon, savedSpots }: HeaderPro
         <SettingsButton />
         <ThemeToggle />
       </div>
+      {/* Sous la barre plutot qu'au-dessus : la ligne du logo et de la
+          recherche ne bouge pas quand le reseau tombe. Rendu ici parce que
+          l'explorateur et le planificateur montent tous deux ce header, donc
+          une seule instance couvre les deux ecrans. */}
+      <OfflineBanner />
     </header>
   );
 }

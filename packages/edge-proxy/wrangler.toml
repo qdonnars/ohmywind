@@ -10,3 +10,29 @@ routes = [
   { pattern = "mcp.ohmywind.fr/*", zone_name = "ohmywind.fr" },
   { pattern = "mcp-dev.ohmywind.fr/*", zone_name = "ohmywind.fr" },
 ]
+
+# Without this, a Worker in production is a black box: an intermittent 503 or a
+# cache that never hits leaves no trace anywhere. Traffic here is a few requests
+# a minute, so everything is sampled; lower the rate if that ever changes.
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+# Keep-alive, deliberately not enabled. Uncomment to turn it on.
+#
+# A free Hugging Face Space sleeps after 48 h of inactivity, and the first
+# request after that wakes a cold container: slow enough that the Worker's own
+# fetch can give up, which is now a 503 instead of an opaque failure. A ping
+# every 30 minutes on /api/v1/archetypes (a table compiled into the image, no
+# upstream call) would keep both Spaces warm.
+#
+# It ships off because the April 2026 product decision was the opposite: no
+# pre-warming, accept the cold start (plan/02-decisions.md, section 4). The
+# handler is written and tested so that revisiting the decision is one line
+# here, not a change of code.
+#
+# To disable it again later, set `crons = []` and redeploy. Commenting the key
+# out does NOT remove a trigger already registered on the deployed Worker.
+#
+# [triggers]
+# crons = ["*/30 * * * *"]

@@ -18,6 +18,5 @@
 export const FORCE_COLORS = {
   wind: "var(--ow-fg-0)",
   waves: "var(--ow-warn)",
-  // blue-500: clearly visible in both themes, distinct from the teal accent.
-  current: "#3b82f6",
+  current: "var(--ow-current)",
 } as const;

@@ -1,0 +1,11 @@
+{
+  "name": "@ohmywind/edge-proxy",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "description": "Cloudflare Worker fronting the MCP Spaces on mcp.ohmywind.fr. Deliberately dependency-free: tests run on the Node test runner.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}

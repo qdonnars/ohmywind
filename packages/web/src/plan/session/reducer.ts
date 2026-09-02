@@ -86,6 +86,10 @@ export type CacheWrite =
 export interface PlanState {
   // ── inputs ────────────────────────────────────────────────────────────────
   waypoints: [number, number][];
+  /** The route the current edits are edits *of*: the seed at mount, then the
+      route of every computation that lands. Only the draft reads it, to say
+      which URL it may outrank (`plan/draft.ts`). */
+  originWaypoints: [number, number][];
   archetype: string;
   /** Naive local "YYYY-MM-DDTHH:MM". A target arrival in `arrival` anchor. */
   departure: string;
@@ -179,6 +183,7 @@ export type PlanAction =
 export function createInitialState(initial: InitialSession): PlanState {
   return {
     waypoints: initial.waypoints,
+    originWaypoints: initial.originWaypoints,
     archetype: initial.archetype,
     departure: initial.departure,
     timeAnchor: initial.timeAnchor,
@@ -337,6 +342,8 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
             isStale: false,
             selectedLegIdx: null,
             selectedStepIdx: null,
+            // A computed route is the one the next edits will be edits of.
+            originWaypoints: state.waypoints,
             passage: action.passage,
             complexity: action.complexity,
             forecastUpdatedAt: action.forecastUpdatedAt,
@@ -363,6 +370,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
           ...state,
           pending: null,
           isStale: false,
+          originWaypoints: state.waypoints,
           windows: action.windows,
           metaWarnings: action.metaWarnings,
           forecastUpdatedAt: action.forecastUpdatedAt,
@@ -416,6 +424,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
           isStale: false,
           selectedLegIdx: null,
           selectedStepIdx: null,
+          originWaypoints: state.waypoints,
           passage: action.window.passage,
           complexity: action.window.complexity_full,
         },
@@ -441,6 +450,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
         {
           ...state,
           waypoints: [],
+          originWaypoints: [],
           archetype: action.archetype,
           departure: action.departure,
           timeAnchor: "departure",

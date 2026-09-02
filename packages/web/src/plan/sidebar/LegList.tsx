@@ -84,7 +84,7 @@ function LegRow({
           <div className="flex flex-col items-start gap-0.5">
             <span
               className="inline-flex h-6 px-1.5 rounded-md items-center justify-center text-[10px] font-bold tabular-nums whitespace-nowrap"
-              style={{ background: cxLevelVar(cx), color: "#0B1D14", fontFamily: "var(--ow-font-mono)" }}
+              style={{ background: cxLevelVar(cx), color: "var(--ow-cell-ink)", fontFamily: "var(--ow-font-mono)" }}
             >
               {index + 1}→{index + 2}
             </span>

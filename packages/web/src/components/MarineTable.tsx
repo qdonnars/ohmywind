@@ -8,6 +8,7 @@ import { useTimezone } from "../hooks/useTimezone";
 import { nowParisHourPrefix } from "../domain/datetime";
 import { currentsLevel, tidesLevel, wavesLevel, windLevelVar } from "../domain/thresholds";
 import { useTimelineScroll } from "../hooks/useTimelineScroll";
+import { ArrowConventionNote } from "./ArrowConventionNote";
 
 type MarineMetric = Exclude<MetricView, "wind">;
 
@@ -96,9 +97,9 @@ function MarineCellImpl({
   isDayStart,
   onSelect,
 }: MarineCellProps) {
-  const nowBorder = isNow ? "border-l-2 border-l-teal-400" : "";
+  const nowBorder = isNow ? "border-l-2 border-l-accent" : "";
   const daySepClass = !isNow && isDayStart ? "ow-day-sep" : "";
-  const selectedStyle = selected ? "ring-2 ring-teal-400/70 ring-inset bg-teal-400/10" : "";
+  const selectedStyle = selected ? "ring-2 ring-accent/70 ring-inset bg-accent/10" : "";
   const select = () => onSelect(time);
 
   if (timeIdx == null) {
@@ -334,36 +335,6 @@ function MarineCellImpl({
  */
 const MarineCell = memo(MarineCellImpl);
 
-/**
- * Which way the arrows read, said out loud (issue #269).
- *
- * The two rows do not share a convention, and nothing on screen said so. The
- * arrow always follows the movement, but the degrees follow the convention of
- * the source: a wave direction is where the swell comes FROM, a current
- * direction is where the water sets TO. A reader comparing the two numbers
- * without that key concludes the figures contradict each other.
- */
-function ArrowConventionNote({ metric }: { metric: MarineMetric }) {
-  const text =
-    metric === "waves"
-      ? "Les flèches suivent le déplacement de la houle. Les degrés donnent la direction d'où elle vient, comme le vent."
-      : metric === "currents"
-        ? "La flèche et les degrés donnent tous deux la direction vers laquelle le courant porte, à l'inverse du vent et des vagues qui se lisent d'où ils viennent."
-        : "Hauteurs d'eau au-dessus du niveau de référence indiqué.";
-  return (
-    <p
-      className="shrink-0 px-3 py-1.5 text-[10px] leading-snug border-t"
-      style={{
-        color: "var(--ow-fg-2)",
-        borderColor: "var(--ow-line-2)",
-        background: "var(--ow-bg-1)",
-      }}
-    >
-      {text}
-    </p>
-  );
-}
-
 interface MarineTableProps {
   metric: MarineMetric;
   marine: MarineHourly;
@@ -412,7 +383,7 @@ export function MarineTable({
   const selectHour = useCallback((t: string) => onSelectHour(t), [onSelectHour]);
 
   return (
-    <div className="animate-fade-in h-full flex flex-col">
+    <div className="animate-fade-in min-h-0 flex flex-col">
       <div className={`scroll-container flex-1 min-h-0 ${scrolledEnd ? "scrolled-end" : ""}`}>
         <div ref={scrollRef} className="h-full overflow-auto wind-table-scroll">
           <table className="border-collapse" role="table">
