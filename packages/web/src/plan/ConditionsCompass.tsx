@@ -246,7 +246,6 @@ export interface ConditionsCompassProps {
   waveDeg: number | null;
   /** Direction the current sets TO, null without current data. */
   currentDeg: number | null;
-  currentColor: string;
   /** Arc of wind directions across the steps of a leg, see `legSpread`. */
   windArc?: [number, number] | null;
   currentArc?: [number, number] | null;
@@ -259,7 +258,6 @@ export function ConditionsCompass({
   windDeg,
   waveDeg,
   currentDeg,
-  currentColor,
   windArc = null,
   currentArc = null,
   ariaLabel,
@@ -288,9 +286,9 @@ export function ConditionsCompass({
 
       {/* Spread first, so the arrows draw over the haze. */}
       {windArc && <SpreadArc arc={windArc} color={FORCE_COLORS.wind} />}
-      {currentArc && <SpreadArc arc={currentArc} color={currentColor} />}
+      {currentArc && <SpreadArc arc={currentArc} color={FORCE_COLORS.current} />}
 
-      {currentDeg != null && <CurrentFlowField flowAngleDeg={currentDeg} color={currentColor} m={m} />}
+      {currentDeg != null && <CurrentFlowField flowAngleDeg={currentDeg} color={FORCE_COLORS.current} m={m} />}
 
       <g transform={`translate(${CENTER} ${CENTER}) rotate(${bearingDeg})`}>
         <BoatHull m={m} />

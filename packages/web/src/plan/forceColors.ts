@@ -3,26 +3,21 @@
 
 /**
  * One colour per force on the leg diagram and in the numbers beside it, so
- * the eye links "+1,5 courant" to the flow arrows of the same hue.
+ * the eye links "−1,4 courant" to the flow arrows of the same hue.
  *
  *   wind    = foreground (double-shaft arrow)
  *   waves   = amber (wavy line)
- *   current = green when it carries the boat, orange against, blue across
+ *   current = blue (flow field)
+ *
+ * The current used to change colour with its sense (green along, orange
+ * against, blue across). Walking through the steps of a leg, the same force
+ * then switched hue from one step to the next, and the reader had to relearn
+ * the legend each time. The sign of its contribution is already explicit in
+ * the build-up, so the colour now only says "this is the current".
  */
 export const FORCE_COLORS = {
   wind: "var(--ow-fg-0)",
   waves: "var(--ow-warn)",
-  currentPortant: "var(--ow-ok)",
-  // Distinct from the waves' amber.
-  currentContraire: "#fb923c",
-  // blue-500: clearly visible in both themes (grey washed out in light).
-  currentTravers: "#3b82f6",
+  // blue-500: clearly visible in both themes, distinct from the teal accent.
+  current: "#3b82f6",
 } as const;
-
-export type CurrentRelative = "portant" | "contraire" | "travers" | null;
-
-export function currentColorFor(relative: CurrentRelative): string {
-  if (relative === "portant") return FORCE_COLORS.currentPortant;
-  if (relative === "contraire") return FORCE_COLORS.currentContraire;
-  return FORCE_COLORS.currentTravers;
-}

@@ -17,7 +17,7 @@
 
 import type { AggregatedLeg, LegSpread } from "./aggregateLegs";
 import { ConditionsCompass } from "./ConditionsCompass";
-import { FORCE_COLORS, currentColorFor } from "./forceColors";
+import { FORCE_COLORS } from "./forceColors";
 import { fr1 } from "./format";
 import { CURRENT_RELEVANCE_THRESHOLD_KN } from "../domain/thresholds";
 
@@ -102,7 +102,6 @@ export function LegDetailCard({
   notes: LegDetailNote[];
 }) {
   const mono = { fontFamily: "var(--ow-font-mono)" } as const;
-  const currentColor = currentColorFor(view.current_relative);
   const hasWaves = view.hs_avg_m != null;
   // Below the relevance threshold the current is noise, not information:
   // neither the dial nor the numbers mention it, same rule as the leg row.
@@ -138,7 +137,7 @@ export function LegDetailCard({
   const showNav = onPrev !== null || onNext !== null;
 
   const noteColor = (tone: LegDetailNote["tone"]): string =>
-    tone === "waves" ? FORCE_COLORS.waves : tone === "current" ? FORCE_COLORS.currentContraire : "var(--ow-fg-2)";
+    tone === "waves" ? FORCE_COLORS.waves : tone === "current" ? FORCE_COLORS.current : "var(--ow-fg-2)";
 
   return (
     <div
@@ -177,7 +176,6 @@ export function LegDetailCard({
           windDeg={view.twd_avg_deg}
           waveDeg={hasWaves ? view.twd_avg_deg + WAVE_OFFSET_DEG : null}
           currentDeg={hasCurrent ? view.current_direction_to_deg : null}
-          currentColor={currentColor}
           windArc={spread?.twd_arc ?? null}
           currentArc={hasCurrent ? spread?.current_arc ?? null : null}
           ariaLabel="Vent, vagues et courant autour du bateau, Nord en haut"
@@ -205,7 +203,7 @@ export function LegDetailCard({
             ) : (
               <span className="font-normal" style={{ color: "var(--ow-fg-3)" }}>mer non observée</span>
             )}
-            {currentText && <span style={{ color: currentColor }}>{currentText}</span>}
+            {currentText && <span style={{ color: FORCE_COLORS.current }}>{currentText}</span>}
           </div>
 
           {/* Build-up of the over-ground speed. Signs explicit on every row
@@ -222,7 +220,7 @@ export function LegDetailCard({
               </div>
             )}
             {currentDelta && (
-              <div className="flex items-baseline gap-2" style={{ color: currentColor }}>
+              <div className="flex items-baseline gap-2" style={{ color: FORCE_COLORS.current }}>
                 <span className="w-9">{fmtSigned1(view.current_delta_kn ?? 0)}</span>
                 <span>courant</span>
               </div>
