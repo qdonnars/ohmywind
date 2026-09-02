@@ -2,7 +2,14 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <!-- Pas de maximum-scale ni de user-scalable=no : bloquer le zoom viole
+         le critere WCAG 1.4.4 (redimensionnement du texte), et c'etait inutile
+         ici. Le double-tap sur la carte est deja neutralise par
+         `touch-action: manipulation` sur .leaflet-container, MapLibre gere le
+         pincement dans son conteneur, et iOS ignore l'interdiction depuis
+         longtemps. viewport-fit=cover laisse la page passer sous les encoches
+         et la barre de geste, comme l'attend le mode standalone. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>OhMyWind</title>
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#030712" />

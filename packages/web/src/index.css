@@ -109,6 +109,35 @@ select,
   touch-action: manipulation;
 }
 
+/* Sur ecran tactile, tout champ de saisie fait au moins 16 px.
+   iOS Safari zoome la page a la prise de focus des qu'un champ est rendu
+   sous 16 px, et ne dezoome jamais tout seul : la carte reste alors deux
+   fois trop grande, le panneau deborde, et la seule sortie est un pincement
+   manuel. C'etait jusqu'ici masque par `user-scalable=no` dans le viewport,
+   qu'on vient de retirer (WCAG 1.4.4, critere de redimensionnement du texte).
+   Ce forcage est le prix a payer, et il est moins cher que l'interdiction.
+
+   Une seule regle plutot qu'une retouche par composant : les tailles
+   viennent de partout (Tailwind `text-sm` sur la recherche et les modales,
+   13 px sur `.polar-select` et `.polar-motor-input` dans config.css), et
+   c'est une contrainte de plateforme, pas une decision de design par champ.
+
+   Portee `pointer: coarse` : sur poste, ou le zoom au focus n'existe pas,
+   les tailles choisies restent intactes. Les trois `:not()` sortent les
+   commandes sans texte (curseurs, cases, boutons radio), dont la taille de
+   police ne sert a rien. Ils portent aussi la specificite du selecteur a
+   (0,3,1), ce qui lui fait battre les classes utilitaires (`text-sm`) comme
+   les `.polar-*` de config.css sans `!important` et sans dependre de l'ordre
+   des feuilles dans le bundle. Le `:is()` sert precisement a cela : il
+   distribue les `:not()` sur les trois elements a la fois, la ou trois
+   selecteurs separes auraient laisse `select` et `textarea` a (0,0,1), donc
+   perdants face a `.polar-select`. */
+@media (pointer: coarse) {
+  :is(input, select, textarea):not([type="range"]):not([type="checkbox"]):not([type="radio"]) {
+    font-size: 16px;
+  }
+}
+
 .spot-tooltip {
   background: var(--ow-surface-pop);
   color: var(--ow-fg-0);
