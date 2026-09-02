@@ -215,16 +215,23 @@ function App() {
     });
   }, [locate]);
 
-  // If the active view's data becomes irrelevant for the new spot (e.g. moving
-  // from Atlantic to Med drops Tides/Currents below threshold), fall back to Wind.
+  // If the picked view's data becomes irrelevant for the new spot (e.g. moving
+  // from Atlantic to Med drops Tides/Currents below threshold), fall back to
+  // Wind. Derived during render rather than pushed back into `view` by an
+  // effect: the fallback is a function of the spot's marine data, so storing
+  // it meant a second render showing the irrelevant table, and the user's own
+  // pick was overwritten instead of merely overridden. `view` stays what they
+  // chose, so moving back to a spot with tides restores their tab.
   const showWaves = isWavesRelevant(marine);
   const showTides = isTidesRelevant(marine);
   const showCurrents = isCurrentsRelevant(marine);
-  useEffect(() => {
-    if (view === "waves" && !showWaves) setView("wind");
-    if (view === "tides" && !showTides) setView("wind");
-    if (view === "currents" && !showCurrents) setView("wind");
-  }, [view, showWaves, showTides, showCurrents]);
+  const relevant: Record<MetricView, boolean> = {
+    wind: true,
+    waves: showWaves,
+    tides: showTides,
+    currents: showCurrents,
+  };
+  const effectiveView: MetricView = relevant[view] ? view : "wind";
 
   const fabRef = useRef<HTMLAnchorElement>(null);
   // Handed to SpotMap so camera moves can centre a point in the strip of map
@@ -271,7 +278,7 @@ function App() {
           onRenameSpot={(s, name) => { renameSpot(s, name); if (spot?.latitude === s.latitude && spot?.longitude === s.longitude) setSpot({ ...s, name }); }}
           forecasts={forecasts}
           marine={marine}
-          metric={view}
+          metric={effectiveView}
           selectedHour={selectedHour}
           showSeamarks={seamarks}
         />
@@ -313,7 +320,7 @@ function App() {
             <>
               <div className="shrink-0">
                 <MetricPills
-                  view={view}
+                  view={effectiveView}
                   onSelect={setView}
                   showWaves={showWaves}
                   showTides={showTides}
@@ -321,14 +328,14 @@ function App() {
                 />
               </div>
               <div ref={dataPanelRef} className="flex-1 min-h-0 overflow-hidden">
-                {view === "wind" || !marine ? (
+                {effectiveView === "wind" || !marine ? (
                   <WindTable
                     forecasts={forecasts}
                     isLoading={isLoading}
                     selectedHour={selectedHour}
                     onSelectHour={setSelectedHour}
                   />
-                ) : view === "tides" ? (
+                ) : effectiveView === "tides" ? (
                   <TideChart
                     marine={marine}
                     forecasts={forecasts}
@@ -337,7 +344,7 @@ function App() {
                   />
                 ) : (
                   <MarineTable
-                    metric={view}
+                    metric={effectiveView}
                     marine={marine}
                     forecasts={forecasts}
                     selectedHour={selectedHour}

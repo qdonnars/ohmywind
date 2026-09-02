@@ -5,31 +5,17 @@ import { useState, useEffect, useMemo, useRef, useCallback, forwardRef, useImper
 import { parsePlanUrl, buildPlanUrl } from "../plan/parseUrl";
 import { PlanMap, type PlanMapHandle } from "../plan/PlanMap";
 import { PlanSidebar } from "../plan/PlanSidebar";
-import { fetchPassage, fetchPassageByEta, fetchPassageWindows, fetchArchetypes, friendlyError, type PlanOverrides } from "../api/passage";
-import { buildForecastCacheSafe, singleWindowMs, sweepWindowMs, etaWindowMs } from "../api/forecastCache";
+import { fetchArchetypes } from "../api/passage";
 import { Header } from "../components/Header";
-import type { PassageReport, ComplexityScore, Archetype, PassageWindow } from "../plan/types";
+import type { PassageReport, Archetype } from "../plan/types";
 import { fmtDuration, fr1 } from "../plan/format";
 import { HeroCell } from "../plan/PlanStates";
-import { clearPlanDraft, loadPlanDraft, savePlanDraft } from "../plan/draft";
-import {
-  loadLastSimulation,
-  saveLastSimulation,
-  clearLastSimulation,
-  waypointsEqual,
-} from "../plan/lastSimulation";
-import {
-  resolveInitialSession,
-  toNaiveLocal,
-  tomorrowRoundedLocal,
-  defaultSweepLatest,
-  type InitialSession,
-} from "../plan/session/initial";
-import { type TimeAnchor } from "../plan/ModeToggle";
+import { loadPlanDraft } from "../plan/draft";
+import { loadLastSimulation } from "../plan/lastSimulation";
+import { resolveInitialSession, type InitialSession } from "../plan/session/initial";
+import { usePlanSession, currentConfigFingerprint } from "../plan/session/usePlanSession";
 import { computeLegSegmentRanges } from "../plan/aggregateLegs";
-import { toTzAware } from "../plan/departureTz";
-import { activeModels, loadModelConfig } from "../config/modelConfig";
-import { effectivePolar, isPersoActive, isPolarCustomized, loadPolarConfig, planEfficiency, polarFingerprint, savePolarConfig } from "../config/polarConfig";
+import { loadPolarConfig } from "../config/polarConfig";
 import { LocateButton } from "../components/LocateButton";
 import { SeamarkButton } from "../components/SeamarkButton";
 import { useSeamarks } from "../hooks/useSeamarks";
@@ -40,51 +26,7 @@ import { useMapView } from "../hooks/useMapView";
 import { LG_MEDIA_QUERY, useMediaQuery } from "../hooks/useMediaQuery";
 import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
 
-// Build the plan-time overrides payload from current /config preferences.
-// Read at request time (not at mount) so a /config tweak takes effect on the
-// next refetch without a page reload. Polar matrix is only attached when the
-// editor deviates from the default for the active archetype — otherwise the
-// server's bundled polar wins, saving ~kB per request.
-function resolveOverrides(): PlanOverrides {
-  const overrides: PlanOverrides = {};
-  const modelCfg = loadModelConfig();
-  const models = activeModels(modelCfg);
-  if (models.length > 0) overrides.models = models;
-  const polarCfg = loadPolarConfig();
-  if (isPersoActive(polarCfg)) {
-    // The custom matrix is always built on cfg.base's grid — the boat of
-    // record while the perso polar is the active pick (#220). The page's slug
-    // matches it (seeded via initialPlanBoat, re-pinned by handlePersoSelect),
-    // so passing it here would be redundant at best and, in a cross-tab
-    // /config edit, would resurrect the mismatch. When perso is parked in
-    // favour of a stock archetype, no matrix travels: the server's bundled
-    // polar for the requested slug wins.
-    overrides.polar = effectivePolar(polarCfg);
-  }
-  return overrides;
-}
-
-// Plan-time efficiency — the /config performance coefficient, always explicit
-// since config v3 (1.0 = race trim, 0.75 = typical cruising).
-function resolveEfficiency(): number {
-  return planEfficiency(loadPolarConfig());
-}
-
-// Joint fingerprint of model + polar config. Same shape across single &
-// compare so the cache check is one-liner. Read at the same moment as the
-// fetch so the persisted simulation is paired with the config that produced it.
-function currentConfigFingerprint(): string {
-  return `${activeModels(loadModelConfig()).join(",")}|${polarFingerprint(loadPolarConfig())}`;
-}
-
 // ── local helpers (mobile components) ────────────────────────────────────────
-
-// "YYYY-MM-DDTHH:MM" in local time from any ISO timestamp. Mirror of
-// `toTzAware`'s inverse — used to round-trip a server-resolved departure
-// back into the slider/URL format.
-function isoToLocal(iso: string): string {
-  return toNaiveLocal(new Date(iso));
-}
 
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -183,14 +125,26 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
   // React to targetVh changes: clamp to bounds and animate. We deliberately
   // do NOT persist this value — auto-targets follow app state, while
   // localStorage captures the user's deliberate drag preference.
-  useEffect(() => {
-    if (targetVh == null) return;
-    const clamped = Math.max(DRAWER_MIN_VH, Math.min(DRAWER_MAX_VH, targetVh));
+  //
+  // Adjusted while rendering rather than from an effect: the target is a
+  // function of where the user stands in the flow, so an effect meant
+  // painting the previous height first and only then the right one. React
+  // re-runs this render before committing anything, so nothing flashes.
+  const [appliedTarget, setAppliedTarget] = useState<number | null>(null);
+  if (targetVh != null && targetVh !== appliedTarget) {
+    setAppliedTarget(targetVh);
+    setVh(Math.max(DRAWER_MIN_VH, Math.min(DRAWER_MAX_VH, targetVh)));
     setIsAnimating(true);
-    setVh(clamped);
+  }
+
+  // One timer for every animated height change, wherever it came from: the
+  // transition is 280 ms, the flag is dropped a beat later so a user drag
+  // starting right after still feels direct.
+  useEffect(() => {
+    if (!isAnimating) return;
     const t = setTimeout(() => setIsAnimating(false), 320);
     return () => clearTimeout(t);
-  }, [targetVh]);
+  }, [isAnimating]);
 
   // Fit-to-results: see the ``resultsFitKey`` prop doc. Runs one frame after
   // render (rAF) so the filled view is measurable; the height is written to
@@ -429,7 +383,7 @@ export function PlanPage() {
   // Everything the three persistence media (this tab's draft, the URL, the
   // cached last simulation) have to say about the page, decided once, in one
   // pure place. `plan/session/initial.ts` carries the precedence table and the
-  // freshness rules; here we only spread the answer into React state.
+  // freshness rules.
   const [initial] = useState<InitialSession>(() =>
     resolveInitialSession({
       url: parsePlanUrl(window.location.search),
@@ -441,51 +395,35 @@ export function PlanPage() {
     }),
   );
 
-  const [waypoints, setWaypoints] = useState<[number, number][]>(initial.waypoints);
+  // The whole domain state of the planner, plus the two computations and the
+  // single effect that persists. See plan/session/reducer.ts.
+  const { state, actions, isLoading } = usePlanSession(initial);
+  const {
+    waypoints,
+    archetype,
+    departure,
+    timeAnchor,
+    mode: planMode,
+    sweepEarliest,
+    sweepLatest,
+    sweepIntervalHours: sweepInterval,
+    passage,
+    complexity,
+    windows,
+    metaWarnings,
+    forecastUpdatedAt,
+    selectedLegIdx,
+    actionTaken,
+    isStale,
+    apiError,
+  } = state;
+
   const waypointDepths = useWaypointDepths(waypoints);
-  const [archetype, setArchetype] = useState(initial.archetype);
-  const [departure, setDeparture] = useState(initial.departure);
-  const [timeAnchor, setTimeAnchor] = useState<TimeAnchor>(initial.timeAnchor);
-
-  const [passage, setPassage] = useState<PassageReport | null>(initial.passage);
-  const [complexity, setComplexity] = useState<ComplexityScore | null>(initial.complexity);
-  const [isLoading, setIsLoading] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
   const [archetypes, setArchetypes] = useState<Archetype[]>([]);
-  const [forecastUpdatedAt, setForecastUpdatedAt] = useState<string | null>(
-    initial.forecastUpdatedAt,
-  );
-  // "Edits not yet computed". A restored draft is exactly that, so it starts
-  // the page stale: the sidebar offers Recalculer instead of pretending the
-  // route on screen has results behind it.
-  const [isStale, setIsStale] = useState(initial.isStale);
 
-  // Compare-windows mode (lifted from PlanSidebar in step 2)
-  const [planMode, setPlanMode] = useState<"single" | "compare">(initial.mode);
-  const [sweepEarliest, setSweepEarliest] = useState(initial.sweepEarliest);
-  const [sweepLatest, setSweepLatest] = useState(initial.sweepLatest);
-  const [sweepInterval, setSweepInterval] = useState<number>(initial.sweepIntervalHours);
-  // Selected leg for the sidebar's expanded "Comment c'est calculé" — also
-  // drives the highlight overlay on the map. Cleared whenever the route or
-  // its segments change so we never highlight stale ranges.
-  const [selectedLegIdx, setSelectedLegIdx] = useState<number | null>(null);
-  useEffect(() => { setSelectedLegIdx(null); }, [waypoints, passage]);
   // Back collapses the open leg rather than leaving the planner (issue #300).
-  const collapseLeg = useCallback(() => setSelectedLegIdx(null), []);
+  const collapseLeg = useCallback(() => actions.selectLeg(null), [actions]);
   useBackDismiss(selectedLegIdx !== null, collapseLeg);
-  const [windows, setWindows] = useState<PassageWindow[] | null>(initial.windows);
-  const [metaWarnings, setMetaWarnings] = useState<string[]>(initial.metaWarnings);
-  // Compact "pick a mode" state on mobile: drops the sidebar to just the
-  // mode pills + reset button (and shrinks the bottom drawer) until the
-  // user actively confirms their mode choice. Initialised true when we
-  // already have a route to display (cached / URL) so reload doesn't hide
-  // the user's previous context.
-  const [actionTaken, setActionTaken] = useState<boolean>(initial.actionTaken);
-  // Reset to compact whenever the user drops back below 2 waypoints so the
-  // next time they reach 2 they get the pick-a-mode step again.
-  useEffect(() => {
-    if (waypoints.length < 2) setActionTaken(false);
-  }, [waypoints.length]);
 
   useEffect(() => {
     fetchArchetypes().then(setArchetypes).catch(() => {});
@@ -495,9 +433,8 @@ export function PlanPage() {
   // (see ResizableMobileDrawer). New identity whenever results land — fresh
   // fetch, window drill-down, cache hydration at mount — or the user toggles
   // between two filled modes, so the drawer re-fits on the view it switched
-  // to. Gated on isLoading because setPassage/setWindows and
-  // setIsLoading(false) can flush in separate renders — the filled view
-  // (and its anchor) only exists once loading ends.
+  // to. Gated on isLoading because the filled view (and its anchor) only
+  // exists once loading ends.
   const resultsFitKey = useMemo(() => {
     if (isLoading) return null;
     const filled = planMode === "compare" ? !!windows && windows.length > 0 : !!passage;
@@ -525,95 +462,8 @@ export function PlanPage() {
     if (isStale) drawerRef.current?.scrollToTop();
   }, [isStale]);
 
-  function doFetch(wpts: [number, number][], arch: string, dep: string, anchor: TimeAnchor = "departure") {
-    setIsLoading(true);
-    setApiError(null);
-    const overrides = resolveOverrides();
-    const depIso = toTzAware(dep);
-    const anchorMs = Date.parse(depIso);
-    // Sample the route corridor in the browser and attach it so the server
-    // reads weather from this payload instead of calling Open-Meteo itself
-    // (distributes the upstream load off the Space's single IP). On any
-    // failure the cache is undefined and the server fetches live.
-    const cacheWindow = anchor === "arrival"
-      ? etaWindowMs(wpts, anchorMs)
-      : singleWindowMs(wpts, anchorMs);
-    const promise = buildForecastCacheSafe(wpts, { window: cacheWindow }).then((forecastCache) =>
-      anchor === "arrival"
-        ? fetchPassageByEta({ waypoints: wpts, targetArrival: depIso, archetype: arch, efficiency: resolveEfficiency(), overrides, forecastCache })
-        : fetchPassage({ waypoints: wpts, departure: depIso, archetype: arch, efficiency: resolveEfficiency(), overrides, forecastCache })
-    );
-    promise
-      .then((res) => {
-        setPassage(res.passage);
-        setComplexity(res.complexity);
-        setForecastUpdatedAt(res.forecast_updated_at);
-        setIsStale(false);
-        // For URL/cache persistence, always use the resolved departure from the
-        // returned passage (in ETA mode the user-typed `dep` is a target arrival,
-        // not a departure — persisting it would break reload). The user-facing
-        // slider keeps showing whatever they typed.
-        const resolvedDep = isoToLocal(res.passage.departure_time);
-        const url = buildPlanUrl(wpts, resolvedDep, arch);
-        window.history.replaceState(null, "", url);
-        // Persist for next visit. Merge into existing cache so a previously
-        // saved compare-mode result stays available.
-        const prev = loadLastSimulation();
-        const sameRoute =
-          prev && waypointsEqual(prev.waypoints, wpts) && prev.archetype === arch;
-        saveLastSimulation({
-          waypoints: wpts,
-          archetype: arch,
-          configFingerprint: currentConfigFingerprint(),
-          mode: "single",
-          single: {
-            departure: resolvedDep,
-            passage: res.passage,
-            complexity: res.complexity,
-            forecastUpdatedAt: res.forecast_updated_at,
-          },
-          compare: sameRoute ? prev?.compare : undefined,
-          cachedAt: Date.now(),
-        });
-      })
-      .catch((e: Error) => setApiError(friendlyError(e.message)))
-      .finally(() => setIsLoading(false));
-  }
-
-  // Keep this tab's uncommitted state recoverable. `isStale` is exactly the
-  // "edited since the last computation" signal, so it decides whether there is
-  // a draft at all: every success path clears it, and clearing it here erases
-  // the draft in the same beat. Cheap enough (a few hundred bytes of JSON) to
-  // run on every input change without debouncing.
-  useEffect(() => {
-    if (!isStale) {
-      clearPlanDraft();
-      return;
-    }
-    savePlanDraft({
-      waypoints,
-      departure,
-      timeAnchor,
-      archetype,
-      mode: planMode,
-      sweepEarliest,
-      sweepLatest,
-      sweepIntervalHours: sweepInterval,
-    });
-  }, [
-    isStale,
-    waypoints,
-    departure,
-    timeAnchor,
-    archetype,
-    planMode,
-    sweepEarliest,
-    sweepLatest,
-    sweepInterval,
-  ]);
-
   // Everything the resolved session could seed synchronously already is, in
-  // the initializers above. What is left needs the outside world: syncing the
+  // `createInitialState`. What is left needs the outside world: syncing the
   // address bar when the cache supplied the route (so reload and share work),
   // and computing when nothing usable could be restored.
   useEffect(() => {
@@ -624,223 +474,21 @@ export function PlanPage() {
         buildPlanUrl(initial.waypoints, initial.departure, initial.archetype),
       );
     }
-    if (initial.mount.fetch) {
-      doFetch(initial.waypoints, initial.archetype, initial.departure);
-    }
+    if (initial.mount.fetch) actions.compute();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Functional updaters avoid stale closure when clicks happen fast
-  function handleMapClick(lat: number, lon: number) {
-    setWaypoints((prev) => [...prev, [lat, lon]]);
-    // Appending a point edits the route just like a drag/insert — mark results
-    // stale so a prior single/compare run can't linger as if it still matched.
-    // (No-op visually before the first computation, when there's nothing yet.)
-    setIsStale(true);
-  }
-
-  function handleWptMove(idx: number, lat: number, lon: number) {
-    setWaypoints((prev) => prev.map((wp, i): [number, number] => (i === idx ? [lat, lon] : wp)));
-    setIsStale(true);
-  }
-
-  function handleWptAdd(afterIdx: number, lat: number, lon: number) {
-    setWaypoints((prev) => {
-      const next = [...prev];
-      next.splice(afterIdx + 1, 0, [lat, lon]);
-      return next;
-    });
-    setIsStale(true);
-  }
-
-  function handleWptDelete(idx: number) {
-    setWaypoints((prev) => prev.filter((_, i) => i !== idx));
-    setIsStale(true);
-  }
-
-  function handleArchetypeChange(slug: string) {
-    setArchetype(slug);
-    const cfg = loadPolarConfig();
-    if (isPolarCustomized(cfg)) {
-      // Perso stays defined: picking a stock hull just parks it for planning
-      // (no matrix push, the server's bundled polar wins). The tuning is kept
-      // untouched so the « Perso » entry of the selector brings it back.
-      savePolarConfig({ ...cfg, persoActive: false });
-    } else {
-      // Write through to /config: one boat for the whole app.
-      savePolarConfig({ ...cfg, base: slug, source: "archetype" });
-    }
-    setIsStale(true);
-  }
-
-  // Selecting the « Perso » entry of the boat list: reactivate the
-  // customization and re-pin the page's slug to the grid it was built on.
-  function handlePersoSelect() {
-    const cfg = loadPolarConfig();
-    savePolarConfig({ ...cfg, persoActive: true });
-    setArchetype(cfg.base);
-    setIsStale(true);
-  }
-
-  function handleDepartureChange(iso: string) {
-    setDeparture(iso);
-    setIsStale(true);
-  }
-
-  function handleRefetch() {
+  const handleRefetch = useCallback(() => {
     // Re-frame the camera on the route only now, at the user's explicit
     // request — the map no longer auto-fits on each waypoint placement.
     mapRef.current?.fitToWaypoints();
-    doFetch(waypoints, archetype, departure, timeAnchor);
-  }
+    actions.compute();
+  }, [actions]);
 
-  function handleTimeAnchorChange(next: TimeAnchor) {
-    if (next === timeAnchor) return;
-    setTimeAnchor(next);
-    setIsStale(true);
-  }
-
-  function doFetchWindows() {
+  const handleCompareFetch = useCallback(() => {
     mapRef.current?.fitToWaypoints();
-    setIsLoading(true);
-    setApiError(null);
-    const earliestIso = toTzAware(sweepEarliest);
-    const latestIso = toTzAware(sweepLatest);
-    const cacheWindow = sweepWindowMs(waypoints, Date.parse(earliestIso), Date.parse(latestIso));
-    buildForecastCacheSafe(waypoints, { window: cacheWindow })
-      .then((forecastCache) =>
-        fetchPassageWindows({
-          waypoints,
-          earliest: earliestIso,
-          latest: latestIso,
-          archetype,
-          intervalHours: sweepInterval,
-          efficiency: resolveEfficiency(),
-          overrides: resolveOverrides(),
-          forecastCache,
-        }),
-      )
-      .then((res) => {
-        setWindows(res.windows);
-        setMetaWarnings(res.meta_warnings);
-        setForecastUpdatedAt(res.forecast_updated_at);
-        // Don't clear single-mode results — render gates on `mode` instead.
-        setIsStale(false);
-        // Persist for next visit. Merge with existing single-mode cache if
-        // the route still matches.
-        const prev = loadLastSimulation();
-        const sameRoute =
-          prev && waypointsEqual(prev.waypoints, waypoints) && prev.archetype === archetype;
-        saveLastSimulation({
-          waypoints,
-          archetype,
-          configFingerprint: currentConfigFingerprint(),
-          mode: "compare",
-          single: sameRoute ? prev?.single : undefined,
-          compare: {
-            sweepEarliest,
-            sweepLatest,
-            sweepIntervalHours: sweepInterval,
-            windows: res.windows,
-            metaWarnings: res.meta_warnings,
-            forecastUpdatedAt: res.forecast_updated_at,
-          },
-          cachedAt: Date.now(),
-        });
-      })
-      .catch((e: Error) => setApiError(friendlyError(e.message)))
-      .finally(() => setIsLoading(false));
-  }
-
-  function handleReset() {
-    setActionTaken(false);
-    clearLastSimulation();
-    setWaypoints([]);
-    setPassage(null);
-    setComplexity(null);
-    setWindows(null);
-    setMetaWarnings([]);
-    setApiError(null);
-    setIsStale(false);
-    setSelectedLegIdx(null);
-    setForecastUpdatedAt(null);
-    setPlanMode("single");
-    setTimeAnchor("departure");
-    setArchetype(loadPolarConfig().base);
-    const dep = tomorrowRoundedLocal(Date.now());
-    setDeparture(dep);
-    setSweepEarliest(dep);
-    setSweepLatest(defaultSweepLatest(dep));
-    setSweepInterval(3);
-    window.history.replaceState(null, "", "/plan");
-  }
-
-  function handleModeChange(next: "single" | "compare") {
-    // Any pill click confirms the user's intent — even re-clicking the
-    // already-active mode unlocks the compact "pick-a-mode" view on mobile.
-    setActionTaken(true);
-    if (next === planMode) return;
-    setPlanMode(next);
-    setApiError(null);
-    // Don't clear opposite-mode results: keeping `passage` and `windows`
-    // both in memory lets the user toggle back and forth without re-fetching.
-    // The render branches gate on `mode` so stale data never leaks visually.
-  }
-
-  // Drill-down from the compare-windows table: pick a window → switch to
-  // single mode with that window's departure pre-filled.
-  // Fast path: the sweep response already includes `passage` and
-  // `complexity_full` per window — hydrate state directly, zero re-fetch.
-  // Fallback: older HF Space deployments don't include those fields → call
-  // doFetch as before so the UX still works during deployment lag.
-  function handleWindowSelect(w: PassageWindow) {
-    const naiveDep = toNaiveLocal(new Date(w.departure));
-
-    setPlanMode("single");
-    setDeparture(naiveDep);
-    setMetaWarnings([]);
-    setApiError(null);
-
-    if (w.passage && w.complexity_full) {
-      // Hydrate from the in-memory window — instant.
-      setPassage(w.passage);
-      setComplexity(w.complexity_full);
-      setIsLoading(false);
-      setIsStale(false);
-      // Update the URL so reload restores the same view.
-      const url = buildPlanUrl(waypoints, naiveDep, archetype);
-      window.history.replaceState(null, "", url);
-      // Keep windows around so the user can switch back to compare mode and
-      // see the table again without re-fetching the sweep.
-      // setWindows(null) intentionally NOT called — user toggling back to
-      // compare should see their table immediately.
-      // Persist: same route → keep compare data, overwrite single with the
-      // freshly-picked window, flip mode back to single.
-      const prev = loadLastSimulation();
-      const sameRoute =
-        prev && waypointsEqual(prev.waypoints, waypoints) && prev.archetype === archetype;
-      saveLastSimulation({
-        waypoints,
-        archetype,
-        // Inherit the fingerprint from the compare-mode cache that produced
-        // this window — drill-down is metadata reshuffling, not a new run.
-        configFingerprint: prev?.configFingerprint ?? currentConfigFingerprint(),
-        mode: "single",
-        single: {
-          departure: naiveDep,
-          passage: w.passage,
-          complexity: w.complexity_full,
-          forecastUpdatedAt: forecastUpdatedAt ?? "",
-        },
-        compare: sameRoute ? prev?.compare : undefined,
-        cachedAt: Date.now(),
-      });
-    } else {
-      // Backwards-compatible fallback: re-fetch.
-      setWindows(null);
-      doFetch(waypoints, archetype, naiveDep);
-    }
-  }
+    actions.computeWindows();
+  }, [actions]);
 
   if (initial.urlError !== null) {
     return (
@@ -873,32 +521,32 @@ export function PlanPage() {
     error: apiError,
     archetypes,
     currentArchetypeSlug: archetype,
-    onArchetypeChange: handleArchetypeChange,
-    onPersoSelect: handlePersoSelect,
+    onArchetypeChange: actions.setArchetype,
+    onPersoSelect: actions.selectPerso,
     departure,
-    onDepartureChange: handleDepartureChange,
+    onDepartureChange: actions.setDeparture,
     isStale,
     onRefetch: handleRefetch,
     forecastUpdatedAt,
     waypointCount: waypoints.length,
     waypoints,
     timeAnchor,
-    onTimeAnchorChange: handleTimeAnchorChange,
+    onTimeAnchorChange: actions.setTimeAnchor,
     mode: planMode,
-    onModeChange: handleModeChange,
+    onModeChange: actions.setMode,
     sweepEarliest,
     sweepLatest,
     sweepIntervalHours: sweepInterval,
-    onSweepEarliestChange: setSweepEarliest,
-    onSweepLatestChange: setSweepLatest,
-    onSweepIntervalChange: setSweepInterval,
+    onSweepEarliestChange: actions.setSweepEarliest,
+    onSweepLatestChange: actions.setSweepLatest,
+    onSweepIntervalChange: actions.setSweepInterval,
     windows,
     metaWarnings,
-    onCompareFetch: doFetchWindows,
-    onWindowSelect: handleWindowSelect,
+    onCompareFetch: handleCompareFetch,
+    onWindowSelect: actions.selectWindow,
     selectedLegIdx,
-    onSelectedLegChange: setSelectedLegIdx,
-    onReset: handleReset,
+    onSelectedLegChange: actions.selectLeg,
+    onReset: actions.reset,
     actionTaken,
   };
 
@@ -932,10 +580,10 @@ export function PlanPage() {
             // waypoints, so the drawn route always matches what's computed.
             segments={planMode === "single" ? passage?.segments : undefined}
             isStale={isStale}
-            onWptMove={handleWptMove}
-            onWptAdd={waypoints.length >= 2 ? handleWptAdd : undefined}
-            onWptDelete={handleWptDelete}
-            onMapClick={handleMapClick}
+            onWptMove={actions.moveWaypoint}
+            onWptAdd={waypoints.length >= 2 ? actions.insertWaypoint : undefined}
+            onWptDelete={actions.deleteWaypoint}
+            onMapClick={actions.appendWaypoint}
             initialCenter={initial.center}
             userPosition={userPosition}
             onViewChange={onViewChange}
