@@ -15,6 +15,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { useBackDismiss } from "../../hooks/useBackDismiss";
 import type { PassageReport, ComplexityScore, PassageWindow } from "../types";
 import type { InitialSession } from "./initial";
+import { toTzAware } from "../departureTz";
 import { usePlanSession } from "./usePlanSession";
 
 const fetchPassage = vi.fn();
@@ -40,10 +41,18 @@ vi.mock("../../api/forecastCache", () => ({
 const MARSEILLE: [number, number] = [43.29, 5.37];
 const PORQUEROLLES: [number, number] = [43.0, 6.2];
 
+/**
+ * Naive local times, turned into wire values by `toTzAware`, so the assertions
+ * on what lands in the URL hold whatever timezone the runner uses. Hard-coding
+ * a Paris offset here read two hours off on a UTC runner.
+ */
+const RESOLVED_DEPARTURE = "2026-09-10T08:00";
+const WINDOW_DEPARTURE = "2026-09-11T06:00";
+
 const passage = (over: Partial<PassageReport> = {}): PassageReport => ({
   archetype: "cruiser_30ft",
-  departure_time: "2026-09-10T08:00:00+02:00",
-  arrival_time: "2026-09-10T18:00:00+02:00",
+  departure_time: toTzAware(RESOLVED_DEPARTURE),
+  arrival_time: toTzAware("2026-09-10T18:00"),
   duration_h: 10,
   distance_nm: 55,
   efficiency: 0.75,
@@ -66,8 +75,8 @@ const complexity = (): ComplexityScore => ({
 });
 
 const aWindow = (over: Partial<PassageWindow> = {}): PassageWindow => ({
-  departure: "2026-09-11T06:00:00+02:00",
-  arrival: "2026-09-11T16:00:00+02:00",
+  departure: toTzAware(WINDOW_DEPARTURE),
+  arrival: toTzAware("2026-09-11T16:00"),
   duration_h: 10,
   distance_nm: 55,
   complexity: { level: 2, label: "Modéré", tws_max_kn: 14, rationale: "" },
@@ -284,7 +293,9 @@ describe("usePlanSession", () => {
     expect(result.current.state.passage).not.toBeNull();
     // Zero refetch: the window carried its own detail.
     expect(fetchPassage).not.toHaveBeenCalled();
-    expect(window.location.search).toContain("departure=2026-09-11T06%3A00");
+    expect(window.location.search).toContain(
+      `departure=${encodeURIComponent(WINDOW_DEPARTURE)}`,
+    );
     // The compare payload survives next to the freshly picked single result.
     const cached = JSON.parse(localStorage.getItem("ow_last_simulation_v1")!);
     expect(cached.compare.windows).toHaveLength(1);

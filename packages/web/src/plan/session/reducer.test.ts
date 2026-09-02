@@ -11,15 +11,27 @@ import {
   type PlanState,
 } from "./reducer";
 import type { InitialSession } from "./initial";
+import { toTzAware } from "../departureTz";
 import type { PassageReport, ComplexityScore, PassageWindow } from "../types";
+
+/**
+ * The departure the server resolves, as the slider and the URL spell it.
+ *
+ * The reducer turns `passage.departure_time` (an instant, with an offset) back
+ * into this naive local form, so the fixtures below build the wire value from
+ * the naive one rather than hard-coding a Paris offset. A CI runner on UTC
+ * would otherwise read two hours off, and pinning `TZ` in the vitest config
+ * would hide exactly the class of bug #310 just fixed.
+ */
+const RESOLVED_DEPARTURE = "2026-09-10T08:00";
 
 const MARSEILLE: [number, number] = [43.29, 5.37];
 const PORQUEROLLES: [number, number] = [43.0, 6.2];
 
 const passage = (over: Partial<PassageReport> = {}): PassageReport => ({
   archetype: "cruiser_30ft",
-  departure_time: "2026-09-10T08:00:00+02:00",
-  arrival_time: "2026-09-10T18:00:00+02:00",
+  departure_time: toTzAware(RESOLVED_DEPARTURE),
+  arrival_time: toTzAware("2026-09-10T18:00"),
   duration_h: 10,
   distance_nm: 55,
   efficiency: 0.75,
@@ -42,8 +54,8 @@ const complexity = (): ComplexityScore => ({
 });
 
 const aWindow = (over: Partial<PassageWindow> = {}): PassageWindow => ({
-  departure: "2026-09-11T06:00:00+02:00",
-  arrival: "2026-09-11T16:00:00+02:00",
+  departure: toTzAware("2026-09-11T06:00"),
+  arrival: toTzAware("2026-09-11T16:00"),
   duration_h: 10,
   distance_nm: 55,
   complexity: { level: 2, label: "Modéré", tws_max_kn: 14, rationale: "" },
@@ -196,15 +208,15 @@ describe("computing", () => {
     expect(s.persist?.url).toContain("/plan?wpts=43.29000,5.37000;43.00000,6.20000");
     // The URL and the cache carry the departure the server resolved, not what
     // the user typed: in arrival mode they are not the same thing.
-    expect(s.persist?.url).toContain("departure=2026-09-10T08%3A00");
-    expect(s.persist?.cache).toMatchObject({ kind: "single", departure: "2026-09-10T08:00" });
+    expect(s.persist?.url).toContain(`departure=${encodeURIComponent(RESOLVED_DEPARTURE)}`);
+    expect(s.persist?.cache).toMatchObject({ kind: "single", departure: RESOLVED_DEPARTURE });
   });
 
   it("persists the resolved departure in arrival mode, not the target ETA", () => {
     const s = run(
       start({ timeAnchor: "arrival", departure: "2026-09-10T18:00" }),
       { type: "FETCH_STARTED", requestId: 1, kind: "single" },
-      succeedSingle(1, { departure_time: "2026-09-10T07:30:00+02:00" }),
+      succeedSingle(1, { departure_time: toTzAware("2026-09-10T07:30") }),
     );
     // The slider keeps the target arrival the user typed.
     expect(s.departure).toBe("2026-09-10T18:00");

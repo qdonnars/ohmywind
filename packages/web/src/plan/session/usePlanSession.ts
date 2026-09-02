@@ -64,7 +64,7 @@ import { applyCacheCommand, applyUrlWrite, syncDraft } from "./persist";
 // Build the plan-time overrides payload from current /config preferences.
 // Read at request time (not at mount) so a /config tweak takes effect on the
 // next refetch without a page reload. Polar matrix is only attached when the
-// editor deviates from the default for the active archetype — otherwise the
+// editor deviates from the default for the active archetype. Otherwise the
 // server's bundled polar wins, saving ~kB per request.
 function resolveOverrides(): PlanOverrides {
   const overrides: PlanOverrides = {};
@@ -73,7 +73,7 @@ function resolveOverrides(): PlanOverrides {
   if (models.length > 0) overrides.models = models;
   const polarCfg = loadPolarConfig();
   if (isPersoActive(polarCfg)) {
-    // The custom matrix is always built on cfg.base's grid — the boat of
+    // The custom matrix is always built on cfg.base's grid, the boat of
     // record while the perso polar is the active pick (#220). The page's slug
     // matches it (seeded via initialPlanBoat, re-pinned by selectPerso), so
     // passing it here would be redundant at best and, in a cross-tab /config
@@ -85,7 +85,7 @@ function resolveOverrides(): PlanOverrides {
   return overrides;
 }
 
-// Plan-time efficiency — the /config performance coefficient, always explicit
+// Plan-time efficiency: the /config performance coefficient, always explicit
 // since config v3 (1.0 = race trim, 0.75 = typical cruising).
 function resolveEfficiency(): number {
   return planEfficiency(loadPolarConfig());
