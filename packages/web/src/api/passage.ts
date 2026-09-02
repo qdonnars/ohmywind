@@ -153,7 +153,7 @@ const ERROR_COPY: Record<string, (retryAfter: number | null) => string> = {
   naive_datetime: () => "L'heure d'arrivée doit inclure le fuseau horaire.",
   sweep_too_large: () =>
     "Trop de créneaux à comparer. Réduisez la fenêtre ou augmentez le pas d'échantillonnage.",
-  // Open-Meteo timed out (ReadTimeout / ConnectTimeout). Usually transient —
+  // Open-Meteo timed out (ReadTimeout / ConnectTimeout). Usually transient:
   // HF Spaces' shared egress is jittery and Open-Meteo occasionally pauses.
   upstream_timeout: () =>
     "Le service météo a mis trop de temps à répondre. Réessayez dans quelques instants.",
