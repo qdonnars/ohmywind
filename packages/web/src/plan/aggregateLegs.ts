@@ -373,16 +373,19 @@ export function aggregateSteps(
 // below are what the diagram shades around the mean so the reader can see
 // the disagreement instead of trusting a single needle.
 
-/** Under this angular width the steps agree: no arc is drawn. */
-const SPREAD_MIN_DEG = 10;
+/** Narrowest zone drawn: when the steps agree, the force still gets a zone
+    this wide around its mean, so every force has one and a steady wind reads
+    as a thin wedge rather than as nothing. */
+const ARC_MIN_DEG = 12;
 
 export interface LegSpread {
   step_count: number;
   /** Clockwise arc `[from, to]` in true degrees covering every step's wind
-      direction, null when they agree within `SPREAD_MIN_DEG`. */
+      direction, at least `ARC_MIN_DEG` wide around the mean. Null only
+      without steps. */
   twd_arc: [number, number] | null;
   /** Same for the set of the current, counting only steps whose current is
-      strong enough to be reported at all. */
+      strong enough to be reported at all; null when none is. */
   current_arc: [number, number] | null;
   /** Min and max of the per-step mean wave height, null without sea data. */
   hs_range: [number, number] | null;
@@ -391,14 +394,19 @@ export interface LegSpread {
 }
 
 /** Smallest clockwise arc around the circular mean that contains every
-    angle, or null when it is narrower than `SPREAD_MIN_DEG`. */
+    angle, widened to `ARC_MIN_DEG` around the mean when the angles agree.
+    Null without angles. */
 function arcAround(angles: number[]): [number, number] | null {
-  if (angles.length < 2) return null;
+  if (angles.length === 0) return null;
   const mean = circularMeanDeg(angles);
   const deltas = angles.map((a) => ((a - mean + 540) % 360) - 180);
-  const lo = Math.min(...deltas);
-  const hi = Math.max(...deltas);
-  if (hi - lo < SPREAD_MIN_DEG) return null;
+  let lo = Math.min(...deltas);
+  let hi = Math.max(...deltas);
+  if (hi - lo < ARC_MIN_DEG) {
+    const centre = (lo + hi) / 2;
+    lo = centre - ARC_MIN_DEG / 2;
+    hi = centre + ARC_MIN_DEG / 2;
+  }
   const norm = (d: number) => ((d % 360) + 360) % 360;
   return [norm(mean + lo), norm(mean + hi)];
 }

@@ -276,9 +276,15 @@ describe("legSpread", () => {
     expect(to).toBeCloseTo(20, 0);
   });
 
-  it("draws nothing when the steps agree", () => {
-    expect(legSpread(stepsAt([300, 304, 302])).twd_arc).toBeNull();
-    expect(legSpread(stepsAt([300])).twd_arc).toBeNull();
+  it("keeps a narrow zone around the mean when the steps agree", () => {
+    // Mean 302: a 12° zone, 296 to 308, rather than no zone at all.
+    const [from, to] = legSpread(stepsAt([300, 304, 302])).twd_arc as [number, number];
+    expect(from).toBeCloseTo(296, 0);
+    expect(to).toBeCloseTo(308, 0);
+    const [f1, t1] = legSpread(stepsAt([300])).twd_arc as [number, number];
+    expect(f1).toBeCloseTo(294, 0);
+    expect(t1).toBeCloseTo(306, 0);
+    expect(legSpread([]).twd_arc).toBeNull();
   });
 
   it("ignores currents too weak to be reported when arcing the set", () => {
@@ -304,6 +310,8 @@ describe("legSpread", () => {
     expect(legSpread(stepsAt([300, 300], { hs_m: 0.4 })).hs_range).toEqual([0.4, 0.4]);
     expect(legSpread(stepsAt([300, 300], { hs_m: null })).hs_range).toBeNull();
     expect(legSpread(stepsAt([300, 300], { hs_m: null })).current_speed_range).toBeNull();
+    // No reportable current on any step: no zone for it.
+    expect(legSpread(stepsAt([300, 300], { current_direction_to_deg: 90, current_speed_kn: 0.1 })).current_arc).toBeNull();
   });
 });
 
