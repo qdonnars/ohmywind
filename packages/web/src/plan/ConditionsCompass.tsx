@@ -15,8 +15,13 @@
  * numbers. Values are not labelled on the dial any more: the column next to
  * it carries them, in the same colours (`forceColors.ts`).
  *
- * `windArc` and `currentArc` shade the range of directions the steps of a
- * leg disagree over, around the mean arrow. A step shows no arc.
+ * Two variants. A `step` draws the raw sample: wind arrow, wave mark, and
+ * the current as a flow field across the dial. An `average` adds what the
+ * mean hides, the range of directions the steps disagree over, as a band
+ * on a ring of its own: wind on the outer ring, current on the inner ring,
+ * each labelled, so the two never overlap and the eye knows which is which
+ * on a long leg. In that variant the current keeps a single needle on its
+ * ring instead of the flow field, which crossed everything.
  */
 
 import { FORCE_COLORS } from "./forceColors";
@@ -26,7 +31,13 @@ const CENTER = SIZE / 2;
 const COMPASS_R = 104;
 const ARROW_TAIL_R = 100;
 const ARROW_TIP_R = 58;
-const ARC_INNER_R = 42;
+// Rings of the average variant: wind band outside, current band inside,
+// the hull (34 units long) clear of both.
+const WIND_BAND = { inner: 90, outer: COMPASS_R };
+const CURRENT_BAND = { inner: 40, outer: 54 };
+const NEEDLE_R = { tail: 30, tip: 62 };
+/** Under this sweep a band gets no label: the letters would not fit. */
+const BAND_LABEL_MIN_DEG = 28;
 
 // 0° = up (12 o'clock), increasing clockwise. Returns [x, y] in dial units.
 function polarXY(angleDeg: number, r: number): [number, number] {
@@ -219,26 +230,95 @@ function CardinalMarkers({ m }: { m: Metrics }) {
   );
 }
 
-// Translucent annular sector from `from` clockwise to `to`: the directions a
-// force took across the steps of the leg, shaded around its mean arrow.
-function SpreadArc({ arc, color }: { arc: [number, number]; color: string }) {
+interface Band {
+  inner: number;
+  outer: number;
+}
+
+function arcSweep([from, to]: [number, number]): number {
+  return ((to - from) % 360 + 360) % 360;
+}
+
+// A band on a ring, from `from` clockwise to `to`: the directions a force
+// took across the steps of the leg. Translucent fill, dashed edge.
+function SpreadBand({ arc, band, color, m }: { arc: [number, number]; band: Band; color: string; m: Metrics }) {
   const [from, to] = arc;
-  const sweep = ((to - from) % 360 + 360) % 360;
+  const sweep = arcSweep(arc);
   if (sweep < 1) return null;
   const large = sweep > 180 ? 1 : 0;
-  const [ox1, oy1] = polarXY(from, COMPASS_R);
-  const [ox2, oy2] = polarXY(to, COMPASS_R);
-  const [ix1, iy1] = polarXY(to, ARC_INNER_R);
-  const [ix2, iy2] = polarXY(from, ARC_INNER_R);
+  const { inner, outer } = band;
+  const [ox1, oy1] = polarXY(from, outer);
+  const [ox2, oy2] = polarXY(to, outer);
+  const [ix1, iy1] = polarXY(to, inner);
+  const [ix2, iy2] = polarXY(from, inner);
   const d =
-    `M ${ox1} ${oy1} A ${COMPASS_R} ${COMPASS_R} 0 ${large} 1 ${ox2} ${oy2} ` +
-    `L ${ix1} ${iy1} A ${ARC_INNER_R} ${ARC_INNER_R} 0 ${large} 0 ${ix2} ${iy2} Z`;
-  return <path d={d} fill={color} fillOpacity="0.16" stroke="none" />;
+    `M ${ox1} ${oy1} A ${outer} ${outer} 0 ${large} 1 ${ox2} ${oy2} ` +
+    `L ${ix1} ${iy1} A ${inner} ${inner} 0 ${large} 0 ${ix2} ${iy2} Z`;
+  return (
+    <path
+      d={d}
+      fill={color}
+      fillOpacity="0.18"
+      stroke={color}
+      strokeOpacity="0.7"
+      strokeWidth={1 * m.px}
+      strokeDasharray={`${2 * m.px} ${3 * m.px}`}
+      strokeLinejoin="round"
+    />
+  );
+}
+
+// The name of a band, at mid-arc when there is room for it. Drawn last, over
+// the arrows, with a halo of the card's background: the mean arrow of a
+// force runs through the middle of its own band, right where the name sits.
+function BandLabel({ arc, band, color, label, m }: { arc: [number, number]; band: Band; color: string; label: string; m: Metrics }) {
+  const sweep = arcSweep(arc);
+  if (sweep < BAND_LABEL_MIN_DEG) return null;
+  const [lx, ly] = polarXY(arc[0] + sweep / 2, (band.inner + band.outer) / 2);
+  return (
+    <text
+      x={lx}
+      y={ly}
+      textAnchor="middle"
+      dominantBaseline="middle"
+      fontSize={8 * m.px}
+      fill={color}
+      stroke="var(--ow-bg-1)"
+      strokeWidth={3 * m.px}
+      strokeLinejoin="round"
+      paintOrder="stroke"
+      style={{ fontFamily: "var(--ow-font-mono)", fontWeight: 600 }}
+    >
+      {label}
+    </text>
+  );
+}
+
+// The mean set of the current in the average variant: one radial arrow
+// through the inner ring, pointing where the water goes.
+function CurrentNeedle({ angleDeg, color, m }: { angleDeg: number; color: string; m: Metrics }) {
+  const [x1, y1] = polarXY(angleDeg, NEEDLE_R.tail);
+  const [x2, y2] = polarXY(angleDeg, NEEDLE_R.tip);
+  const dirRad = Math.atan2(y2 - y1, x2 - x1);
+  const head = 8 * m.mid, wing = 4.5 * m.mid;
+  const hx1 = x2 - Math.cos(dirRad) * head + Math.sin(dirRad) * wing;
+  const hy1 = y2 - Math.sin(dirRad) * head - Math.cos(dirRad) * wing;
+  const hx2 = x2 - Math.cos(dirRad) * head - Math.sin(dirRad) * wing;
+  const hy2 = y2 - Math.sin(dirRad) * head + Math.cos(dirRad) * wing;
+  return (
+    <g stroke={color} strokeWidth={2 * m.px} fill="none" strokeLinecap="round" strokeLinejoin="round">
+      <line x1={x1} y1={y1} x2={x2} y2={y2} />
+      <path d={`M ${hx1} ${hy1} L ${x2} ${y2} L ${hx2} ${hy2}`} />
+    </g>
+  );
 }
 
 export interface ConditionsCompassProps {
   /** Rendered width and height, in pixels. */
   size: number;
+  /** `step`: one sample, with the current as a flow field. `average`: the
+      leg mean, with the spread bands on their rings and a current needle. */
+  variant: "step" | "average";
   bearingDeg: number;
   /** True wind direction the wind comes FROM. */
   windDeg: number;
@@ -254,6 +334,7 @@ export interface ConditionsCompassProps {
 
 export function ConditionsCompass({
   size,
+  variant,
   bearingDeg,
   windDeg,
   waveDeg,
@@ -284,18 +365,35 @@ export function ConditionsCompass({
       />
       <CardinalMarkers m={m} />
 
-      {/* Spread first, so the arrows draw over the haze. */}
-      {windArc && <SpreadArc arc={windArc} color={FORCE_COLORS.wind} />}
-      {currentArc && <SpreadArc arc={currentArc} color={FORCE_COLORS.current} />}
+      {/* Bands first, so the arrows draw over them; their names come last. */}
+      {variant === "average" && windArc && (
+        <SpreadBand arc={windArc} band={WIND_BAND} color={FORCE_COLORS.wind} m={m} />
+      )}
+      {variant === "average" && currentArc && (
+        <SpreadBand arc={currentArc} band={CURRENT_BAND} color={FORCE_COLORS.current} m={m} />
+      )}
 
-      {currentDeg != null && <CurrentFlowField flowAngleDeg={currentDeg} color={FORCE_COLORS.current} m={m} />}
+      {currentDeg != null && variant === "step" && (
+        <CurrentFlowField flowAngleDeg={currentDeg} color={FORCE_COLORS.current} m={m} />
+      )}
 
       <g transform={`translate(${CENTER} ${CENTER}) rotate(${bearingDeg})`}>
         <BoatHull m={m} />
       </g>
 
+      {currentDeg != null && variant === "average" && (
+        <CurrentNeedle angleDeg={currentDeg} color={FORCE_COLORS.current} m={m} />
+      )}
+
       <WindArrow fromR={ARROW_TAIL_R} toR={ARROW_TIP_R} angleDeg={windDeg} color={FORCE_COLORS.wind} m={m} />
       {waveDeg != null && <WaveMark angleDeg={waveDeg} color={FORCE_COLORS.waves} m={m} />}
+
+      {variant === "average" && windArc && (
+        <BandLabel arc={windArc} band={WIND_BAND} color={FORCE_COLORS.wind} label="vent" m={m} />
+      )}
+      {variant === "average" && currentArc && (
+        <BandLabel arc={currentArc} band={CURRENT_BAND} color={FORCE_COLORS.current} label="cour." m={m} />
+      )}
     </svg>
   );
 }
