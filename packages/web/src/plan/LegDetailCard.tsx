@@ -20,6 +20,7 @@ import { ConditionsCompass } from "./ConditionsCompass";
 import { FORCE_COLORS } from "./forceColors";
 import { num1 } from "./format";
 import { CURRENT_RELEVANCE_THRESHOLD_KN } from "../domain/thresholds";
+import { useT } from "../i18n";
 
 /** Rendered size of the dial. Leaves about 160 px for the numbers on a
     360 px phone once the panel's and the card's paddings are taken out. */
@@ -44,7 +45,7 @@ export interface LegDetailNote {
 }
 
 function fmtSigned1(n: number): string {
-  if (Math.abs(n) < 0.05) return "+0,0";
+  if (Math.abs(n) < 0.05) return `+${num1(0)}`;
   const sign = n > 0 ? "+" : "−";
   return `${sign}${num1(Math.abs(n))}`;
 }
@@ -97,10 +98,11 @@ function NavButton({
   dir: "prev" | "next";
   onClick: (() => void) | null;
 }) {
+  const { t } = useT();
   return (
     <button
       type="button"
-      aria-label={dir === "prev" ? "Pas précédent" : "Pas suivant"}
+      aria-label={dir === "prev" ? t("panel.legDetail.prevStep") : t("panel.legDetail.nextStep")}
       onClick={onClick ?? undefined}
       disabled={onClick === null}
       className="shrink-0 inline-flex items-center justify-center rounded-md"
@@ -137,6 +139,7 @@ export function LegDetailCard({
   onNext: (() => void) | null;
   notes: LegDetailNote[];
 }) {
+  const { t } = useT();
   const mono = { fontFamily: "var(--ow-font-mono)" } as const;
   const hasWaves = view.hs_avg_m != null;
   // Below the relevance threshold the current is noise, not information:
@@ -166,11 +169,14 @@ export function LegDetailCard({
 
   // The current row: its range on the average, its value and its sense on
   // a step. Data under the threshold still gets a row, so the table keeps
-  // its shape and the reader learns the current was looked at.
-  const relative =
-    view.current_relative === "portant" ? "portant" :
-    view.current_relative === "contraire" ? "contraire" :
-    view.current_relative === "travers" ? "de travers" : "";
+  // its shape and the reader learns the current was looked at. One whole key
+  // per sense rather than a knot value with a word stuck to it: the
+  // qualifier does not sit after the figure in every language.
+  const currentKey =
+    view.current_relative === "portant" ? "panel.legDetail.currentFair" :
+    view.current_relative === "contraire" ? "panel.legDetail.currentFoul" :
+    view.current_relative === "travers" ? "panel.legDetail.currentAcross" :
+    "panel.legDetail.currentPlain";
   let currentText: string | null = null;
   let currentMuted = false;
   if (view.current_speed_kn != null) {
@@ -180,11 +186,14 @@ export function LegDetailCard({
     } else if (spread?.current_speed_range) {
       currentText = fmtRange1(spread.current_speed_range, "kn");
     } else {
-      currentText = `${num1(view.current_speed_kn)} kn${relative ? ` ${relative}` : ""}`;
+      currentText = t(currentKey, { speed: num1(view.current_speed_kn) });
     }
   }
 
-  const capText = `${Math.round(view.bearing_avg_deg)}° · ${view.point_of_sail}`;
+  const capText = t("panel.legDetail.headingValue", {
+    deg: Math.round(view.bearing_avg_deg),
+    sail: view.point_of_sail,
+  });
 
   const showNav = onPrev !== null || onNext !== null;
 
@@ -231,23 +240,23 @@ export function LegDetailCard({
           currentDeg={hasCurrent ? view.current_direction_to_deg : null}
           windArc={spread?.twd_arc ?? null}
           currentArc={hasCurrent ? spread?.current_arc ?? null : null}
-          ariaLabel="Vent, vagues et courant autour du bateau, Nord en haut"
+          ariaLabel={t("panel.legDetail.compassAria")}
         />
 
         <div className="flex-1 min-w-0 tabular-nums leading-snug" style={mono}>
           <table className="w-full text-[11px]" style={{ borderCollapse: "collapse" }}>
             <tbody>
-              <TableRow label="Vent" color={FORCE_COLORS.wind}>{windText}</TableRow>
-              <TableRow label="Mer" color={FORCE_COLORS.waves} muted={!seaText}>
-                {seaText ?? "non observée"}
+              <TableRow label={t("panel.legDetail.rowWind")} color={FORCE_COLORS.wind}>{windText}</TableRow>
+              <TableRow label={t("panel.legDetail.rowSea")} color={FORCE_COLORS.waves} muted={!seaText}>
+                {seaText ?? t("panel.legDetail.seaNotObserved")}
               </TableRow>
               {currentText && (
-                <TableRow label="Courant" color={FORCE_COLORS.current} muted={currentMuted}>
+                <TableRow label={t("panel.legDetail.rowCurrent")} color={FORCE_COLORS.current} muted={currentMuted}>
                   {currentText}
                 </TableRow>
               )}
               {/* Grey: not a force, and not to be mistaken for the speed. */}
-              <TableRow label="Cap" color="var(--ow-fg-2)" plain>{capText}</TableRow>
+              <TableRow label={t("panel.legDetail.rowHeading")} color="var(--ow-fg-2)" plain>{capText}</TableRow>
             </tbody>
           </table>
 
@@ -260,7 +269,7 @@ export function LegDetailCard({
             style={{ borderTop: "1px solid var(--ow-line)" }}
           >
             <span className="shrink-0 text-[11px]" style={{ color: "var(--ow-fg-2)", width: LABEL_PX }}>
-              Vitesse
+              {t("panel.legDetail.rowSpeed")}
             </span>
             <span
               className="text-2xl font-bold"
@@ -268,16 +277,24 @@ export function LegDetailCard({
             >
               {num1(view.target_speed_kn)}
             </span>
-            <span className="text-[10px]" style={{ color: "var(--ow-fg-2)" }}>kn abs.</span>
+            <span className="text-[10px]" style={{ color: "var(--ow-fg-2)" }}>
+              {t("panel.legDetail.speedUnit")}
+            </span>
           </div>
           {!spread && (
             <div className="mt-1 text-[10px] flex flex-wrap gap-x-1.5" style={{ paddingLeft: LABEL_PX + 8 }}>
-              <span style={{ color: FORCE_COLORS.wind }}>{num1(view.polar_after_eff_kn)} polaire</span>
+              <span style={{ color: FORCE_COLORS.wind }}>
+                {t("panel.legDetail.buildUpPolar", { value: num1(view.polar_after_eff_kn) })}
+              </span>
               {hasWaves && Math.abs(view.wave_delta_kn) > 0.05 && (
-                <span style={{ color: FORCE_COLORS.waves }}>{fmtSigned1(view.wave_delta_kn)} mer</span>
+                <span style={{ color: FORCE_COLORS.waves }}>
+                  {t("panel.legDetail.buildUpSea", { value: fmtSigned1(view.wave_delta_kn) })}
+                </span>
               )}
               {currentDelta && (
-                <span style={{ color: FORCE_COLORS.current }}>{fmtSigned1(view.current_delta_kn ?? 0)} courant</span>
+                <span style={{ color: FORCE_COLORS.current }}>
+                  {t("panel.legDetail.buildUpCurrent", { value: fmtSigned1(view.current_delta_kn ?? 0) })}
+                </span>
               )}
             </div>
           )}

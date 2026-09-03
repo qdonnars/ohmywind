@@ -6,6 +6,7 @@ import {
   clearGeolocationDecline,
   rememberGeolocationDecline,
 } from "../config/geolocPreference";
+import { t } from "../i18n";
 
 export interface UserPosition {
   lat: number;
@@ -52,16 +53,16 @@ export function statusAfterFailure(code: number, silent: boolean): GeolocStatus 
   return silent ? "idle" : statusFromErrorCode(code);
 }
 
-/** User-facing French copy for the failure states. Returns null when there
-    is nothing to say (idle, locating, ready). */
+/** User-facing copy for the failure states, in the reader's language.
+    Returns null when there is nothing to say (idle, locating, ready). */
 export function geolocMessage(status: GeolocStatus): string | null {
   switch (status) {
     case "denied":
-      return "Position refusée. Autorisez la localisation dans les réglages de votre navigateur.";
+      return t("explore.geoloc.denied");
     case "unavailable":
-      return "Position indisponible. Vérifiez que la localisation est activée sur votre appareil.";
+      return t("explore.geoloc.unavailable");
     case "timeout":
-      return "La position met trop de temps à arriver. Réessayez.";
+      return t("explore.geoloc.timeout");
     default:
       return null;
   }

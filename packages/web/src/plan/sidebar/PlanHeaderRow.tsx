@@ -3,6 +3,7 @@
 
 import { ModeToggle } from "../ModeToggle";
 import { usePlan } from "../session/planContext";
+import { useT } from "../../i18n";
 
 // Header row: ModeToggle + an optional trash button to discard the plan.
 // The trash sits flush with the toggle and only renders when a route exists
@@ -16,6 +17,7 @@ export function PlanHeaderRow({
   /** Neither tab selected: two waypoints are down but no mode is picked yet. */
   pristine?: boolean;
 }) {
+  const { t } = useT();
   const { state, actions } = usePlan();
   const mode = state.mode;
   const onModeChange = actions.setMode;
@@ -31,8 +33,8 @@ export function PlanHeaderRow({
         <button
           type="button"
           onClick={onReset}
-          title="Nouveau plan"
-          aria-label="Nouveau plan"
+          title={t("panel.header.newPlan")}
+          aria-label={t("panel.header.newPlan")}
           className="shrink-0 flex items-center justify-center rounded-lg transition-colors hover:opacity-100"
           style={{
             width: 38,

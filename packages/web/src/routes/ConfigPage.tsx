@@ -23,19 +23,22 @@ import { BoatEssentials } from "../components/BoatEssentials";
 import { BoatResult } from "../components/BoatResult";
 import { ConfigTile } from "../components/ConfigTile";
 import { useDragReorder } from "../hooks/useDragReorder";
-import { AVAILABLE_LANGS, LANG_NAMES, setLang, useT } from "../i18n";
+import { AVAILABLE_LANGS, LANG_NAMES, setLang, t as translate, useT } from "../i18n";
 import "./config.css";
 
 // Tab id "polar" predates the tab's rename to "Bateau"; kept to avoid churn
 // in return-path links.
 type Tab = "models" | "polar";
 
+// Reads the store directly, under an alias: this helper runs outside the tree
+// while the components below bind their own `t` through useT().
 function formatHorizon(hours: number): string {
-  if (hours < 72) return `${hours} h`;
-  return `${Math.round(hours / 24)} j`;
+  if (hours < 72) return translate("config.models.horizonHours", { hours });
+  return translate("config.models.horizonDays", { days: Math.round(hours / 24) });
 }
 
 export function ConfigPage() {
+  const { t } = useT();
   const [tab, setTab] = useState<Tab>("models");
   const [config, setConfig] = useState<ModelConfig>(() => loadModelConfig());
   const [savedOnce, setSavedOnce] = useState(false);
@@ -95,7 +98,7 @@ export function ConfigPage() {
           <a href={returnPath} className="text-sm font-medium opacity-80 hover:opacity-100 transition">
             ← OhMyWind
           </a>
-          <span className="text-xs opacity-60">Configuration</span>
+          <span className="text-xs opacity-60">{t("config.header.title")}</span>
         </div>
       </header>
 
@@ -109,7 +112,7 @@ export function ConfigPage() {
             onClick={() => setTab("models")}
             className={`config-tab ${tab === "models" ? "is-active" : ""}`}
           >
-            Modèles météo
+            {t("config.models.title")}
           </button>
           <button
             type="button"
@@ -118,18 +121,15 @@ export function ConfigPage() {
             onClick={() => setTab("polar")}
             className={`config-tab ${tab === "polar" ? "is-active" : ""}`}
           >
-            Bateau
+            {t("config.boat.title")}
           </button>
         </div>
 
         {tab === "models" ? (
           <>
-        <h1 className="text-3xl font-bold mb-2">Modèles météo</h1>
+        <h1 className="text-3xl font-bold mb-2">{t("config.models.title")}</h1>
         <p className="text-sm opacity-80 mb-8 leading-relaxed">
-          Les {ACTIVE_LIMIT} premiers modèles sont affichés dans la table de
-          prévision, dans cet ordre. Glissez-déposez pour réordonner (sur
-          mobile, appui maintenu sur une ligne, ou directement la poignée
-          ⋮⋮). Cette configuration ne touche pas les plans de passage.
+          {t("config.models.intro", { limit: ACTIVE_LIMIT })}
         </p>
 
         <div className="config-list-with-zones">
@@ -165,14 +165,14 @@ export function ConfigPage() {
                         {meta.label}
                       </span>
                       <span className="text-xs opacity-70">
-                        {meta.provider}
+                        {t(meta.provider)}
                       </span>
                     </div>
-                    <p className="text-sm opacity-80 mt-1">{meta.description}</p>
+                    <p className="text-sm opacity-80 mt-1">{t(meta.description)}</p>
                     <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-xs opacity-70">
                       <span>{meta.resolutionKm} km</span>
                       <span>~{formatHorizon(meta.horizonHours)}</span>
-                      <span>{meta.coverage}</span>
+                      <span>{t(meta.coverage)}</span>
                     </div>
                   </div>
                 </li>
@@ -188,14 +188,14 @@ export function ConfigPage() {
               className="config-zone is-active"
               style={{ flexGrow: ACTIVE_LIMIT }}
             >
-              <span className="config-zone-label">Utilisé dans l'app</span>
+              <span className="config-zone-label">{t("config.models.zoneActive")}</span>
             </div>
             {ignoredRows > 0 && (
               <div
                 className="config-zone is-ignored"
                 style={{ flexGrow: ignoredRows }}
               >
-                <span className="config-zone-label">Ignorés</span>
+                <span className="config-zone-label">{t("config.models.zoneIgnored")}</span>
               </div>
             )}
           </div>
@@ -203,35 +203,31 @@ export function ConfigPage() {
 
         <div className="flex items-center justify-between gap-4 flex-wrap mt-6">
           <button type="button" onClick={reset} className="config-reset">
-            Réinitialiser
+            {t("config.reset")}
           </button>
-          {savedOnce && (
-            <span className="text-xs opacity-50">· enregistré</span>
-          )}
+          {savedOnce && <span className="text-xs opacity-50">{t("config.saved")}</span>}
         </div>
           </>
         ) : (
           <>
-            <h1 className="text-3xl font-bold mb-2">Bateau</h1>
-            <p className="text-sm opacity-80 mb-8 leading-relaxed">
-              Décrivez votre bateau : ces réglages nourrissent tous vos plans de
-              passage. L'essentiel suffit pour bien commencer ; la tuile
-              Avancé permet d'importer votre propre polaire et d'affiner le
-              comportement au près et sous spi.
-            </p>
+            <h1 className="text-3xl font-bold mb-2">{t("config.boat.title")}</h1>
+            <p className="text-sm opacity-80 mb-8 leading-relaxed">{t("config.boat.intro")}</p>
             <div className="flex flex-col gap-5">
-              <ConfigTile title="Essentiel">
+              <ConfigTile title={t("config.boat.essentials.title")}>
                 <BoatEssentials config={polarCfg} onChange={updatePolar} />
               </ConfigTile>
               <ConfigTile
-                title="Avancé"
-                subtitle="polaire perso, angle de près, spi"
+                title={t("config.boat.advanced.title")}
+                subtitle={t("config.boat.advanced.subtitle")}
                 collapsible
                 defaultOpen={false}
               >
                 <BoatAdvanced config={polarCfg} onChange={updatePolar} />
               </ConfigTile>
-              <ConfigTile title="Polaire résultante" subtitle="ce que le planificateur utilisera">
+              <ConfigTile
+                title={t("config.boat.result.title")}
+                subtitle={t("config.boat.result.tileSubtitle")}
+              >
                 <BoatResult config={polarCfg} />
               </ConfigTile>
               <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -240,21 +236,15 @@ export function ConfigPage() {
                   onClick={() => updatePolar(defaultPolarConfig())}
                   className="config-reset"
                 >
-                  Tout réinitialiser
+                  {t("config.boat.resetAll")}
                 </button>
-                {savedOnce && <span className="text-xs opacity-50">· enregistré</span>}
+                {savedOnce && <span className="text-xs opacity-50">{t("config.saved")}</span>}
               </div>
             </div>
           </>
         )}
 
-        <footer className="config-storage-note mt-10">
-          OhMyWind ne propose volontairement pas de comptes utilisateurs :
-          aucune donnée n'est envoyée sur un serveur pour identifier qui vous êtes.
-          Vos préférences (modèles, polaire perso) sont stockées localement
-          dans votre navigateur. Si vous changez d'appareil, de navigateur ou si
-          vous effacez les cookies de ce site, ces ajustements seront perdus.
-        </footer>
+        <footer className="config-storage-note mt-10">{t("config.storageNote")}</footer>
       </main>
     </div>
   );

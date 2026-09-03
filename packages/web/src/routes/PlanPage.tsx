@@ -29,6 +29,7 @@ import { useMapView } from "../hooks/useMapView";
 import { LG_MEDIA_QUERY, useMediaQuery } from "../hooks/useMediaQuery";
 import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
 import { navigate } from "../navigation";
+import { useT } from "../i18n";
 
 // ── local helpers (mobile components) ────────────────────────────────────────
 
@@ -37,6 +38,7 @@ import { navigate } from "../navigation";
 // (Distance / Durée / Arrivée) inside a single glass strip, so both
 // surfaces are visually and structurally identical.
 function PlanHeroStats({ passage, onOpen }: { passage: PassageReport; onOpen?: () => void }) {
+  const { t } = useT();
   // `pointer-events-auto` is load-bearing: the wrapper below sets
   // `pointer-events-none` so map gestures pass through the empty space around
   // this strip. Without re-enabling it here, a tap on the strip itself fell
@@ -46,7 +48,7 @@ function PlanHeroStats({ passage, onOpen }: { passage: PassageReport; onOpen?: (
     <div
       role="button"
       tabIndex={0}
-      aria-label="Voir le détail du passage"
+      aria-label={t("plan.hero.openDetail")}
       onClick={onOpen}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -57,9 +59,9 @@ function PlanHeroStats({ passage, onOpen }: { passage: PassageReport; onOpen?: (
       className="pointer-events-auto cursor-pointer rounded-xl px-3.5 py-2.5 grid grid-cols-3 gap-3"
       style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)" }}
     >
-      <HeroCell label="Distance" value={num1(passage.distance_nm)} unit="nm" />
-      <HeroCell label="Durée" value={fmtDurationSafe(passage.duration_h)} />
-      <HeroCell label="Arrivée" value={fmtClock(passage.arrival_time)} />
+      <HeroCell label={t("plan.hero.distance")} value={num1(passage.distance_nm)} unit="nm" />
+      <HeroCell label={t("plan.hero.duration")} value={fmtDurationSafe(passage.duration_h)} />
+      <HeroCell label={t("plan.hero.arrival")} value={fmtClock(passage.arrival_time)} />
     </div>
   );
 }
@@ -103,6 +105,7 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
   resultsFitKey?: object | null;
   children: React.ReactNode;
 }>(function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, children }, ref) {
+  const { t } = useT();
   const [vh, setVh] = useState<number>(() => {
     try {
       const raw = localStorage.getItem(DRAWER_HEIGHT_KEY);
@@ -257,7 +260,7 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
       <div
         role="separator"
         aria-orientation="horizontal"
-        aria-label="Redimensionner le panneau"
+        aria-label={t("plan.panel.resize")}
         onPointerDown={(e) => { setIsAnimating(false); onPointerDown(e); }}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -291,6 +294,7 @@ function ResizableDesktopSidebar({
   defaultPx: number;
   children: React.ReactNode;
 }) {
+  const { t } = useT();
   const [px, setPx] = useState<number>(() => {
     try {
       const raw = localStorage.getItem(SIDEBAR_WIDTH_KEY);
@@ -336,7 +340,7 @@ function ResizableDesktopSidebar({
       <div
         role="separator"
         aria-orientation="vertical"
-        aria-label="Redimensionner le panneau"
+        aria-label={t("plan.panel.resize")}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -361,6 +365,7 @@ function ResizableDesktopSidebar({
 // ── PlanPage ──────────────────────────────────────────────────────────────────
 
 export function PlanPage() {
+  const { t } = useT();
   const mapRef = useRef<PlanMapHandle>(null);
 
   const { position: userPosition, status: geolocStatus, attempt: geolocAttempt, locate } = useGeolocation();
@@ -486,14 +491,14 @@ export function PlanPage() {
       >
         <div className="max-w-sm text-center space-y-4">
           <p className="text-4xl">⚓</p>
-          <h1 className="text-xl font-bold">URL invalide</h1>
+          <h1 className="text-xl font-bold">{t("plan.page.urlError.title")}</h1>
           <p className="text-sm leading-relaxed" style={{ color: "var(--ow-fg-1)" }}>{initial.urlError}</p>
           <a
             href={`/${mapViewQuery(mapView)}`}
             className="inline-block mt-4 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
             style={{ background: "var(--ow-accent)", color: "var(--ow-on-accent)" }}
           >
-            ← Explorer la météo
+            {t("plan.page.urlError.back")}
           </a>
         </div>
       </div>
@@ -551,7 +556,7 @@ export function PlanPage() {
             href={`/${mapViewQuery(mapView)}`}
             className="absolute top-3 left-3 z-[400] w-[58px] h-[58px] sm:w-20 sm:h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
             style={{ background: "var(--ow-accent)", color: "var(--ow-on-accent)" }}
-            title="Retour à l'exploration"
+            title={t("plan.page.backToExplore")}
           >
             <img src="/wind-icon.png" alt="" className="select-none w-[64px] h-[64px] sm:w-[88px] sm:h-[88px]" draggable={false} />
           </a>
@@ -583,7 +588,9 @@ export function PlanPage() {
                 className="px-4 py-2 rounded-xl text-sm font-medium"
                 style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)", color: "var(--ow-fg-1)" }}
               >
-                {waypoints.length === 0 ? "Cliquez pour placer le départ" : "Cliquez pour tracer votre route"}
+                {waypoints.length === 0
+                  ? t("plan.page.hint.placeStart")
+                  : t("plan.page.hint.drawRoute")}
               </div>
             </div>
           )}

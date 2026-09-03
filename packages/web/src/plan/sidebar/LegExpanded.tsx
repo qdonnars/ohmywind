@@ -27,20 +27,24 @@ import { num1 } from "../format";
 import { fmtClock } from "../../domain/datetime";
 import type { SegmentReport } from "../types";
 import { usePlan } from "../session/planContext";
+import { t, tn, useT } from "../../i18n";
 
 /** The flags of one step, with the colour of the force behind each. */
 function stepFlags(step: AggregatedLeg): LegDetailNote[] {
   const flags: LegDetailNote[] = [];
   const flag = buildLegSummaryCells(step).flag;
-  if (flag === "Vent Contre Courant") flags.push({ text: flag, tone: "current" });
-  else if (flag) flags.push({ text: flag, tone: "waves" });
-  if (step.motor_used) flags.push({ text: "Moteur", tone: "muted" });
+  if (flag === t("panel.legs.seaFlag.windAgainstCurrent")) {
+    flags.push({ text: flag, tone: "current" });
+  } else if (flag) flags.push({ text: flag, tone: "waves" });
+  if (step.motor_used) flags.push({ text: t("panel.legs.pointOfSail.motor"), tone: "muted" });
   return flags;
 }
 
 function stepNotes(step: AggregatedLeg): LegDetailNote[] {
   return stepFlags(step).map((f) =>
-    f.text === "Moteur" ? { ...f, text: "au moteur sur ce pas" } : f,
+    f.text === t("panel.legs.pointOfSail.motor")
+      ? { ...f, text: t("panel.legDetail.noteMotorOnStep") }
+      : f,
   );
 }
 
@@ -56,7 +60,10 @@ function averageNotes(steps: AggregatedLeg[]): LegDetailNote[] {
       if (!seen.has(flag.text)) seen.set(flag.text, flag);
     }
   }
-  return [...seen.values(), { text: `moyenne de ${steps.length} pas`, tone: "muted" }];
+  return [
+    ...seen.values(),
+    { text: tn("panel.legDetail.noteAverage", steps.length), tone: "muted" },
+  ];
 }
 
 export function LegExpanded({
@@ -69,6 +76,7 @@ export function LegExpanded({
   segments: SegmentReport[];
   minUpwindDeg: number;
 }) {
+  const { lang } = useT();
   const { state, actions } = usePlan();
 
   // Opened from the bar under the totals, the leg may sit below the fold of
@@ -80,10 +88,13 @@ export function LegExpanded({
     rootRef.current?.scrollIntoView?.({ block: "nearest" });
   }, []);
 
-  const steps = useMemo(
-    () => aggregateSteps(segments, leg.segment_range, leg.efficiency, minUpwindDeg),
-    [segments, leg.segment_range, leg.efficiency, minUpwindDeg],
-  );
+  const steps = useMemo(() => {
+    // `aggregateSteps` labels each step through `t()`, which reads the
+    // language from the store, not from a parameter. Naming `lang` here is
+    // what ties the memo to it, so a language switch rebuilds the labels.
+    void lang;
+    return aggregateSteps(segments, leg.segment_range, leg.efficiency, minUpwindDeg);
+  }, [segments, leg.segment_range, leg.efficiency, minUpwindDeg, lang]);
   const spread = useMemo(() => legSpread(steps), [steps]);
   const n = steps.length;
 
@@ -109,8 +120,8 @@ export function LegExpanded({
     onNext = null;
   } else if (selected == null) {
     header = {
-      title: `Moyenne · ${legDurationLabel(leg)}`,
-      hint: "touchez un pas",
+      title: t("panel.legDetail.headerAverage", { duration: legDurationLabel(leg) }),
+      hint: t("panel.legDetail.headerHint"),
     };
     notes = averageNotes(steps);
     onPrev = null;

@@ -1,7 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import type { ReactNode } from "react";
+import { rich, useT } from "../i18n";
+
+/** Every credit link opens in a new tab, hence the same three attributes on
+    each: the panel is read mid-planning and must not take the map away. */
+function ext(href: string) {
+  return (chunk: ReactNode) => (
+    <a href={href} target="_blank" rel="noreferrer" className="underline hover:opacity-80">
+      {chunk}
+    </a>
+  );
+}
+
 export function InfoPanel() {
+  const { t } = useT();
   return (
     <div
       className="px-4 py-5 lg:px-6 lg:py-6 max-w-3xl mx-auto"
@@ -11,7 +25,7 @@ export function InfoPanel() {
         className="text-lg lg:text-xl font-bold tracking-tight mb-4"
         style={{ color: "var(--ow-fg-0)" }}
       >
-        À propos d'OhMyWind
+        {t("explore.infoPanel.title")}
       </h2>
 
       {/* Usage disclaimer. Used to be a sticky band at the bottom of the plan
@@ -43,12 +57,10 @@ export function InfoPanel() {
             <path d="M8 7v3" />
             <circle cx="8" cy="12" r="0.5" fill="var(--ow-warn)" />
           </svg>
-          Aide à la décision, pas un instrument de navigation.
+          {t("explore.infoPanel.disclaimer.title")}
         </h3>
         <p className="text-sm leading-relaxed" style={{ color: "var(--ow-fg-1)" }}>
-          OhMyWind ne remplace ni le bulletin météo marine officiel, ni des
-          cartes à jour, ni votre jugement de chef de bord. Les modèles se
-          trompent parfois : vous restez responsable de votre navigation.
+          {t("explore.infoPanel.disclaimer.body")}
         </p>
       </section>
 
@@ -57,13 +69,10 @@ export function InfoPanel() {
           className="text-sm font-semibold mb-1.5 uppercase tracking-wider"
           style={{ color: "var(--ow-accent)" }}
         >
-          Le projet
+          {t("explore.infoPanel.project.title")}
         </h3>
         <p className="text-sm leading-relaxed" style={{ color: "var(--ow-fg-1)" }}>
-          OhMyWind rend accessible une météo marine de qualité aux voileux. Les
-          modèles AROME, ICON, GFS, ECMWF et les données de vagues, courants et
-          marées sont publics et gratuits. Cette app les rassemble dans une vue
-          lisible, sans compte ni installation.
+          {t("explore.infoPanel.project.body")}
         </p>
       </section>
 
@@ -72,12 +81,10 @@ export function InfoPanel() {
           className="text-sm font-semibold mb-1.5 uppercase tracking-wider"
           style={{ color: "var(--ow-accent)" }}
         >
-          Vos données
+          {t("explore.infoPanel.privacy.title")}
         </h3>
         <p className="text-sm leading-relaxed" style={{ color: "var(--ow-fg-1)" }}>
-          Aucun tracking, aucun compte, aucune donnée enregistrée vous concernant.
-          Tout tourne dans votre navigateur, c'est une page de consultation pure.
-          Les requêtes météo partent en direct vers les API publiques.
+          {t("explore.infoPanel.privacy.body")}
         </p>
       </section>
 
@@ -86,22 +93,17 @@ export function InfoPanel() {
           className="text-sm font-semibold mb-1.5 uppercase tracking-wider"
           style={{ color: "var(--ow-accent)" }}
         >
-          Sources des données et méthodologie
+          {t("explore.infoPanel.sources.title")}
         </h3>
         <p className="text-sm leading-relaxed mb-3" style={{ color: "var(--ow-fg-1)" }}>
-          Modèles vent (AROME, ICON, ECMWF, GFS), vagues et niveau de la mer
-          (Open-Meteo Marine, WaveWatch III), courants en cascade (SHOM Atlas
-          C2D sur les passes critiques, MARC PREVIMER sur le plateau atlantique,
-          SMOC Copernicus en repli global), conventions, équations de planification
-          de passage et notation de complexité : tout est détaillé sur la page
-          méthodologie.
+          {t("explore.infoPanel.sources.body")}
         </p>
         <a
           href="/methodologie"
           className="inline-flex items-center gap-2 text-sm font-medium transition-opacity hover:opacity-80"
           style={{ color: "var(--ow-accent)" }}
         >
-          Voir la méthodologie complète
+          {t("explore.infoPanel.sources.link")}
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <line x1="5" y1="12" x2="19" y2="12" />
             <polyline points="12 5 19 12 12 19" />
@@ -112,77 +114,27 @@ export function InfoPanel() {
             an About menu, which is exactly this panel. Removing the corner
             notice without this block would breach the ODbL. */}
         <p className="text-xs leading-relaxed mt-4" style={{ color: "var(--ow-fg-2)" }}>
-          Fonds de carte :{" "}
-          <a
-            href="https://www.openstreetmap.org/copyright"
-            target="_blank"
-            rel="noreferrer"
-            className="underline hover:opacity-80"
-          >
-            &copy; les contributeurs OpenStreetMap
-          </a>{" "}
-          (données sous licence ODbL), tuiles{" "}
-          <a
-            href="https://openfreemap.org"
-            target="_blank"
-            rel="noreferrer"
-            className="underline hover:opacity-80"
-          >
-            OpenFreeMap
-          </a>{" "}
-          sur le schéma{" "}
-          <a
-            href="https://openmaptiles.org"
-            target="_blank"
-            rel="noreferrer"
-            className="underline hover:opacity-80"
-          >
-            &copy; OpenMapTiles
-          </a>
-          . Amers (bouées, balises, phares, feux) :{" "}
-          <a
-            href="https://www.openseamap.org"
-            target="_blank"
-            rel="noreferrer"
-            className="underline hover:opacity-80"
-          >
-            &copy; les contributeurs OpenSeaMap
-          </a>
-          , tuiles sous licence CC BY-SA sur données OpenStreetMap. Cette
-          couche est une aide à la préparation, pas un document de navigation :
-          elle ne remplace pas les cartes officielles du SHOM ni les avis aux
-          navigateurs. Recherche de lieux :{" "}
-          <a
-            href="https://photon.komoot.io"
-            target="_blank"
-            rel="noreferrer"
-            className="underline hover:opacity-80"
-          >
-            Photon
-          </a>{" "}
-          et Open-Meteo Geocoding, tous deux sur données OpenStreetMap.
+          {rich(t("explore.infoPanel.sources.basemap"), {
+            osm: ext("https://www.openstreetmap.org/copyright"),
+            ofm: ext("https://openfreemap.org"),
+            omt: ext("https://openmaptiles.org"),
+            seamap: ext("https://www.openseamap.org"),
+            photon: ext("https://photon.komoot.io"),
+          })}
         </p>
         <p className="text-xs leading-relaxed mt-2" style={{ color: "var(--ow-fg-2)" }}>
-          Sondes sous les points de route :{" "}
-          <a
-            href="https://emodnet.ec.europa.eu/en/bathymetry"
-            target="_blank"
-            rel="noreferrer"
-            className="underline hover:opacity-80"
-          >
-            EMODnet Bathymetry
-          </a>{" "}
-          (CC BY 4.0), rapportées au zéro hydrographique comme sur une carte
-          marine. La grille fait environ 115 m : elle répond bien à « combien
-          d'eau sur ce bord », et elle est aveugle au caillou isolé entre deux
-          nœuds. À ne pas utiliser pour la navigation.
+          {rich(t("explore.infoPanel.sources.bathymetry"), {
+            emodnet: ext("https://emodnet.ec.europa.eu/en/bathymetry"),
+          })}
         </p>
         <p className="text-xs leading-relaxed mt-2" style={{ color: "var(--ow-fg-2)" }}>
-          Aucun compte, aucun traqueur :{" "}
-          <a href="/confidentialite" className="underline hover:opacity-80">
-            politique de confidentialité
-          </a>
-          .
+          {rich(t("explore.infoPanel.sources.privacy"), {
+            a: (chunk) => (
+              <a href="/confidentialite" className="underline hover:opacity-80">
+                {chunk}
+              </a>
+            ),
+          })}
         </p>
       </section>
 
@@ -191,34 +143,13 @@ export function InfoPanel() {
           className="text-sm font-semibold mb-1.5 uppercase tracking-wider"
           style={{ color: "var(--ow-accent)" }}
         >
-          Licence et marque
+          {t("explore.infoPanel.licence.title")}
         </h3>
         <p className="text-sm leading-relaxed" style={{ color: "var(--ow-fg-1)" }}>
-          Le code d'OhMyWind est open source, sous{" "}
-          <a
-            href="https://github.com/qdonnars/ohmywind/blob/main/LICENSE"
-            target="_blank"
-            rel="noreferrer"
-            className="underline hover:opacity-80"
-          >
-            licence AGPL-3.0
-          </a>
-          . Vous pouvez le forker, le modifier et le redistribuer. Si vous
-          exposez une version modifiée sur le réseau, vous devez en publier
-          les sources. En revanche,
-          le nom « OhMyWind » fait l'objet d'un dépôt de marque à l'INPI, et
-          l'identité visuelle (logo, icônes) reste protégée par le droit
-          d'auteur : un fork se publie sous son propre nom et ses propres
-          icônes. Détails dans la{" "}
-          <a
-            href="https://github.com/qdonnars/ohmywind/blob/main/TRADEMARK.md"
-            target="_blank"
-            rel="noreferrer"
-            className="underline hover:opacity-80"
-          >
-            politique de marque
-          </a>
-          .
+          {rich(t("explore.infoPanel.licence.body"), {
+            licence: ext("https://github.com/qdonnars/ohmywind/blob/main/LICENSE"),
+            trademark: ext("https://github.com/qdonnars/ohmywind/blob/main/TRADEMARK.md"),
+          })}
         </p>
       </section>
 
@@ -233,12 +164,10 @@ export function InfoPanel() {
           className="text-sm font-semibold mb-2 uppercase tracking-wider"
           style={{ color: "var(--ow-accent)" }}
         >
-          Soutenir le projet
+          {t("explore.infoPanel.support.title")}
         </h3>
         <p className="text-sm leading-relaxed mb-3" style={{ color: "var(--ow-fg-0)" }}>
-          Si vous adorez cette appli autant que moi, sachez qu'il faudra bientôt
-          des serveurs dédiés pour la maintenir. Je n'ai pas envie de mettre de
-          la pub dans cette app. Si vous non plus, n'hésitez pas à m'aider.
+          {t("explore.infoPanel.support.body")}
         </p>
         <a
           href="https://ko-fi.com/ohmywind"
@@ -253,7 +182,7 @@ export function InfoPanel() {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
             <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
           </svg>
-          Soutenir sur Ko-fi
+          {t("explore.infoPanel.support.cta")}
         </a>
       </section>
     </div>

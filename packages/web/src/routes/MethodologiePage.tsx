@@ -9,11 +9,13 @@ import rehypeRaw from "rehype-raw";
 import rehypeSlug from "rehype-slug";
 import "katex/dist/katex.min.css";
 
+import { useT } from "../i18n";
 import methodologieMd from "../content/methodologie.md?raw";
 import segmentationSvgUrl from "../content/segmentation.svg?url";
 import "./methodologie.css";
 
 export function MethodologiePage() {
+  const { t } = useT();
   // Resolve the relative ./segmentation.svg reference inside the markdown to
   // the URL Vite produces. Polar SVGs live under /polars/ in public/, the
   // markdown can reference them directly.
@@ -26,7 +28,7 @@ export function MethodologiePage() {
           <a href="/" className="text-sm font-medium opacity-80 hover:opacity-100 transition">
             ← OhMyWind
           </a>
-          <span className="text-xs opacity-60">Méthodologie</span>
+          <span className="text-xs opacity-60">{t("config.docs.methodology")}</span>
         </div>
       </header>
 

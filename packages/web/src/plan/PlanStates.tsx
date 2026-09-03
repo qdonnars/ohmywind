@@ -8,6 +8,7 @@ import type { PassageReport, SegmentReport } from "./types";
 import { cxLevel, cxLevelVar } from "../domain/thresholds";
 import { fmtDurationSafe, num1 } from "./format";
 import { fmtClock } from "../domain/datetime";
+import { useT } from "../i18n";
 
 // ── EmptyState ────────────────────────────────────────────────────────────────
 // Shown when fewer than 2 waypoints are placed: invites the user to draw a
@@ -38,6 +39,7 @@ export function RouteSketch() {
 }
 
 export function EmptyState() {
+  const { t } = useT();
   return (
     <div className="px-2 py-6 flex flex-col gap-4">
       <RouteSketch />
@@ -46,10 +48,10 @@ export function EmptyState() {
           className="text-base font-semibold mb-1.5 leading-snug"
           style={{ color: "var(--ow-fg-0)", letterSpacing: "-0.01em" }}
         >
-          Tracez votre trajet
+          {t("plan.states.empty.title")}
         </div>
         <div className="text-xs leading-relaxed" style={{ color: "var(--ow-fg-1)" }}>
-          Cliquez sur la carte pour placer un départ et une arrivée. Vous pourrez ensuite simuler le temps du trajet ou comparer plusieurs créneaux de départ.
+          {t("plan.states.empty.body")}
         </div>
       </div>
     </div>
@@ -137,28 +139,29 @@ export function ModePicker({
 }: {
   onPick: (m: "single" | "compare") => void;
 }) {
+  const { t } = useT();
   return (
     <div className="flex flex-col gap-2.5">
       <div
         className="text-base font-semibold"
         style={{ color: "var(--ow-fg-0)", letterSpacing: "-0.005em" }}
       >
-        Que voulez-vous faire&nbsp;?
+        {t("plan.states.picker.title")}
       </div>
       <BigCard
         icon="route"
         accent="var(--ow-accent)"
-        title="Simuler ma route"
-        body="Vous savez quand partir. OhMyWind calcule le temps du trajet, l'ETA et les conditions sur chaque segment."
-        example="Ex. : « Si je pars samedi 17:00, j'arrive quand ? »"
+        title={t("plan.mode.single.title")}
+        body={t("plan.states.picker.single.body")}
+        example={t("plan.states.picker.single.example")}
         onClick={() => onPick("single")}
       />
       <BigCard
         icon="clock"
         accent="var(--ow-compare)"
-        title="Comparer les fenêtres"
-        body="Vous savez où aller. OhMyWind teste plusieurs heures de départ et classe les créneaux par confort."
-        example="Ex. : « Quel est le meilleur départ entre samedi et lundi ? »"
+        title={t("plan.mode.compare.title")}
+        body={t("plan.states.picker.compare.body")}
+        example={t("plan.states.picker.compare.example")}
         onClick={() => onPick("compare")}
       />
     </div>
@@ -222,20 +225,35 @@ function SegmentBar({
   focusedSegmentIdx?: number | null;
   onSegmentClick?: (segIdx: number, legIdx: number) => void;
 }) {
+  const { t } = useT();
   const total = segments.reduce((s, seg) => s + seg.distance_nm, 0);
   const legOf = (i: number): number =>
     legRanges ? legRanges.findIndex(([s, e]) => i >= s && i < e) : -1;
   const label = (seg: SegmentReport, i: number, leg: number): string => {
-    const when = `${fmtClock(seg.start_time)} → ${fmtClock(seg.end_time)}, ${Math.round(seg.tws_kn)} kn`;
-    if (leg < 0 || !legRanges) return when;
+    const when = {
+      start: fmtClock(seg.start_time),
+      end: fmtClock(seg.end_time),
+      tws: Math.round(seg.tws_kn),
+    };
+    if (leg < 0 || !legRanges) return t("plan.segmentBar.timeLabel", when);
     const [s, e] = legRanges[leg];
-    return `Tronçon ${leg + 1}→${leg + 2}, pas ${i - s + 1} sur ${e - s}, ${when}`;
+    return t("plan.segmentBar.stepLabel", {
+      from: leg + 1,
+      to: leg + 2,
+      index: i - s + 1,
+      total: e - s,
+      ...when,
+    });
   };
   return (
     <div
       className="flex gap-[1px]"
       role={onSegmentClick ? "group" : "progressbar"}
-      aria-label={onSegmentClick ? "Pas du passage, un clic ouvre le pas" : "Distribution du vent par segment"}
+      aria-label={
+        onSegmentClick
+          ? t("plan.segmentBar.groupLabel")
+          : t("plan.segmentBar.progressLabel")
+      }
     >
       {segments.map((seg, i) => {
         const leg = legOf(i);
@@ -288,14 +306,15 @@ export function HeroStats({
   /** Makes the bar clickable. */
   onSegmentClick?: (segIdx: number, legIdx: number) => void;
 }) {
+  const { t } = useT();
   // Complexity isn't a tile any more — the colored segment bar below already
   // tells the same story (per-leg wind buckets) without a redundant number.
   return (
     <div>
       <div className="grid grid-cols-3 gap-3 mb-3">
-        <HeroCell label="Distance" value={num1(passage.distance_nm)} unit="nm" />
-        <HeroCell label="Durée" value={fmtDurationSafe(passage.duration_h)} />
-        <HeroCell label="Arrivée" value={fmtClock(passage.arrival_time)} />
+        <HeroCell label={t("plan.hero.distance")} value={num1(passage.distance_nm)} unit="nm" />
+        <HeroCell label={t("plan.hero.duration")} value={fmtDurationSafe(passage.duration_h)} />
+        <HeroCell label={t("plan.hero.arrival")} value={fmtClock(passage.arrival_time)} />
       </div>
       <SegmentBar
         segments={passage.segments}
@@ -352,6 +371,7 @@ export function RecapButton({
   isOpen: boolean;
   onClick: () => void;
 }) {
+  const { t } = useT();
   return (
     <button
       type="button"
@@ -376,7 +396,7 @@ export function RecapButton({
         {secondary}
       </span>
       <span className="ml-auto flex items-center gap-1 text-[10px] font-semibold" style={{ color: "var(--ow-fg-1)" }}>
-        {isOpen ? "Fermer" : "Modifier"}
+        {isOpen ? t("common.close") : t("plan.recap.edit")}
         <svg
           width="9"
           height="9"

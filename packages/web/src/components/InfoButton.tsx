@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { InfoPanel } from "./InfoPanel";
 import { useBackDismiss } from "../hooks/useBackDismiss";
+import { useT } from "../i18n";
 
 function InfoIcon() {
   return (
@@ -17,6 +18,7 @@ function InfoIcon() {
 }
 
 function InfoModal({ onClose }: { onClose: () => void }) {
+  const { t } = useT();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -39,7 +41,7 @@ function InfoModal({ onClose }: { onClose: () => void }) {
       style={{ background: "rgba(0,0,0,0.6)" }}
       role="dialog"
       aria-modal="true"
-      aria-label="À propos d'OhMyWind"
+      aria-label={t("explore.infoPanel.title")}
     >
       <div
         className="relative w-full lg:max-w-2xl max-h-[92vh] overflow-y-auto rounded-t-2xl lg:rounded-2xl shadow-2xl"
@@ -51,7 +53,7 @@ function InfoModal({ onClose }: { onClose: () => void }) {
       >
         <button
           onClick={onClose}
-          aria-label="Fermer"
+          aria-label={t("common.close")}
           className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-base font-semibold transition-colors"
           style={{
             background: "var(--ow-bg-1)",
@@ -69,6 +71,7 @@ function InfoModal({ onClose }: { onClose: () => void }) {
 }
 
 export function InfoButton() {
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
   // Android's back button closes the modal instead of leaving the app, the
@@ -78,8 +81,8 @@ export function InfoButton() {
     <>
       <button
         onClick={() => setOpen(true)}
-        aria-label="À propos d'OhMyWind"
-        title="À propos"
+        aria-label={t("explore.infoPanel.title")}
+        title={t("explore.infoButton.title")}
         className="shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg transition-colors"
         style={{ color: "var(--ow-fg-1)", background: "transparent" }}
       >

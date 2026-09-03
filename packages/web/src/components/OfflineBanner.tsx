@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useOnline } from "../hooks/useOnline";
+import { useT } from "../i18n";
 
 /**
  * One line under the header, only while the browser reports no network.
@@ -20,6 +21,7 @@ import { useOnline } from "../hooks/useOnline";
  */
 export function OfflineBanner() {
   const online = useOnline();
+  const { t } = useT();
   if (online) return null;
   return (
     <div
@@ -36,7 +38,7 @@ export function OfflineBanner() {
         className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
         style={{ background: "var(--ow-warn)" }}
       />
-      Hors connexion : les prévisions ne peuvent pas être actualisées.
+      {t("explore.offlineBanner.message")}
     </div>
   );
 }

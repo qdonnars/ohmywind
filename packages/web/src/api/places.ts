@@ -3,6 +3,8 @@
 
 import type { Spot } from "../types";
 import { haversineNm } from "../utils/geo";
+import { t } from "../i18n";
+import { num1 } from "../plan/format";
 
 /** A single row in the search dropdown, whatever produced it. */
 export interface PlaceResult {
@@ -87,7 +89,7 @@ export function matchSavedSpots(
       name: s.name,
       latitude: s.latitude,
       longitude: s.longitude,
-      context: "Spot enregistré",
+      context: t("explore.places.saved"),
       source: "saved",
     }));
   // A prefix match is a stronger signal of intent than a match buried in the
@@ -103,7 +105,7 @@ export function matchSavedSpots(
 /** "à 12 nm" for the dropdown. Below a mile the figure adds nothing. */
 export function formatDistance(nm: number | undefined): string | null {
   if (nm == null || !Number.isFinite(nm)) return null;
-  if (nm < 1) return "à moins d'1 nm";
-  if (nm < 10) return `à ${nm.toFixed(1).replace(".", ",")} nm`;
-  return `à ${Math.round(nm)} nm`;
+  if (nm < 1) return t("explore.places.distanceUnderOne");
+  if (nm < 10) return t("explore.places.distance", { value: num1(nm) });
+  return t("explore.places.distance", { value: Math.round(nm) });
 }

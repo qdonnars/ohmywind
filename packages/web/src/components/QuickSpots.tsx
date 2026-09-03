@@ -3,6 +3,7 @@
 
 import type { Spot } from "../types";
 import { QUICK_SPOTS } from "../spots";
+import { useT } from "../i18n";
 
 interface QuickSpotsProps {
   current: Spot | null;
@@ -23,6 +24,7 @@ export function QuickSpots({
   isCustom,
   isBuiltIn,
 }: QuickSpotsProps) {
+  const { t } = useT();
   const allSpots = [...QUICK_SPOTS, ...customSpots];
   const canSave =
     current && !isBuiltIn(current) && !isCustom(current);
@@ -56,7 +58,7 @@ export function QuickSpots({
                     ? "bg-blue-700 text-blue-200 hover:bg-red-600 hover:text-white"
                     : "bg-gray-800 text-gray-500 hover:bg-red-600 hover:text-white"
                 }`}
-                title="Supprimer"
+                title={t("explore.quickSpots.remove")}
               >
                 x
               </button>
@@ -69,7 +71,7 @@ export function QuickSpots({
           onClick={() => onSave(current)}
           className="px-3 py-1.5 rounded-full text-sm bg-gray-800 text-green-400 hover:bg-green-800 hover:text-green-200 transition-colors border border-dashed border-gray-600"
         >
-          + Sauvegarder {current.name}
+          {t("explore.quickSpots.save", { name: current.name })}
         </button>
       )}
     </div>

@@ -4,6 +4,7 @@
 import type { SegmentReport } from "./types";
 import { CURRENT_RELEVANCE_THRESHOLD_KN, SEA_FORMED_HS_M } from "../domain/thresholds";
 import { COEFF_DEFAULT } from "../config/polarConfig";
+import { t } from "../i18n";
 
 export interface AggregatedLeg {
   // ── Distances & timing (carried from the segment span) ─────────────────────
@@ -78,20 +79,20 @@ function circularMeanDeg(angles: number[]): number {
 function twaToPointOfSail(twa: number, minUpwindDeg: number): string {
   // twa_deg is signed (-180..180) or unsigned (0..360), normalise to 0-180
   const a = Math.abs(twa) > 180 ? 360 - Math.abs(twa) : Math.abs(twa);
-  if (a < minUpwindDeg) return "Près (louvoyage)";
-  if (a < 50) return "Près";
-  if (a < 90) return "Travers";
-  if (a < 135) return "Largue";
-  return "Arrière";
+  if (a < minUpwindDeg) return t("panel.legs.pointOfSail.upwindTacking");
+  if (a < 50) return t("panel.legs.pointOfSail.upwind");
+  if (a < 90) return t("panel.legs.pointOfSail.beamReach");
+  if (a < 135) return t("panel.legs.pointOfSail.broadReach");
+  return t("panel.legs.pointOfSail.run");
 }
 
 export function legDurationLabel(leg: AggregatedLeg): string {
   const ms = new Date(leg.end_time).getTime() - new Date(leg.start_time).getTime();
   const totalMin = Math.max(0, Math.round(ms / 60000));
-  if (totalMin < 60) return `${totalMin} mn`;
+  if (totalMin < 60) return t("panel.legs.durationMinutes", { minutes: totalMin });
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
-  if (m === 0) return `${h} h`;
+  if (m === 0) return t("panel.legs.durationHours", { hours: h });
   // "1h30" form — compact, no zero-pad on minutes since sailors read "1h05" oddly.
   return `${h}h${m.toString().padStart(2, "0")}`;
 }
@@ -144,16 +145,19 @@ export function buildLegSummaryCells(leg: AggregatedLeg): LegSummaryCells {
 
   let flag: string | null = null;
   if (leg.current_relative === "contraire" && (leg.current_speed_kn ?? 0) >= 1.5) {
-    flag = "Vent Contre Courant";
+    flag = t("panel.legs.seaFlag.windAgainstCurrent");
   } else if (leg.hs_avg_m != null) {
-    if (leg.hs_avg_m > 2.5) flag = "Grosse Mer";
+    if (leg.hs_avg_m > 2.5) flag = t("panel.legs.seaFlag.heavySea");
     else if (chopIndex != null && chopIndex > 0.05 && leg.hs_avg_m >= 0.8) {
       // Following sea (TWA >= 120°): the chop is uncomfortable but doesn't
       // bump complexity server-side either. We rename the chip rather than
       // hide it because broaching / accidental gybe risks remain.
-      flag = leg.sea_direction === "arrière" ? "Clapot Suiveur" : "Clapot";
+      flag =
+        leg.sea_direction === "arrière"
+          ? t("panel.legs.seaFlag.followingChop")
+          : t("panel.legs.seaFlag.chop");
     }
-    else if (leg.hs_avg_m > SEA_FORMED_HS_M) flag = "Mer Formée";
+    else if (leg.hs_avg_m > SEA_FORMED_HS_M) flag = t("panel.legs.seaFlag.roughSea");
   }
 
   return {
@@ -306,7 +310,9 @@ export function aggregateSegments(
     twd_avg_deg,
     bearing_avg_deg,
     gust_max_kn,
-    point_of_sail: motor_used ? "Moteur" : twaToPointOfSail(twa_avg_deg, minUpwindDeg),
+    point_of_sail: motor_used
+      ? t("panel.legs.pointOfSail.motor")
+      : twaToPointOfSail(twa_avg_deg, minUpwindDeg),
     polar_after_eff_kn,
     wave_delta_kn,
     current_delta_kn,

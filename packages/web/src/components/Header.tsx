@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { useT } from "../i18n";
 import type { Spot } from "../types";
 import { SpotSearch } from "./SpotSearch";
 import { ThemeToggle } from "../design/theme";
@@ -38,12 +39,13 @@ function SettingsIcon() {
 }
 
 function SettingsButton() {
+  const { t } = useT();
   return (
     <a
       href="/config"
       onClick={rememberReturnPath}
-      aria-label="Paramètres"
-      title="Paramètres"
+      aria-label={t("explore.header.settings")}
+      title={t("explore.header.settings")}
       className="shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg transition-colors"
       style={{ color: 'var(--ow-fg-1)', background: 'transparent' }}
     >
