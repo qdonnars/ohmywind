@@ -3,6 +3,7 @@
 
 import type { PlaceResult } from "./places";
 import { dedupePlaces, withDistances } from "./places";
+import { getLang, t, type Key } from "../i18n";
 
 /**
  * Place search for a sailing planner.
@@ -48,29 +49,30 @@ interface PhotonProperties {
 }
 
 /**
- * French labels for the feature kinds that carry no administrative parent.
- * A fairway or a strait sits offshore, so Photon returns no county and no
- * state: without this the dropdown would show a bare name with no context.
+ * Labels for the feature kinds that carry no administrative parent. A fairway
+ * or a strait sits offshore, so Photon returns no county and no state: without
+ * this the dropdown would show a bare name with no context.
  */
-const FEATURE_LABELS: Record<string, string> = {
-  "waterway:fairway": "Chenal",
-  "natural:strait": "Passage",
-  "natural:cape": "Cap",
-  "natural:bay": "Baie",
-  "natural:reef": "Récif",
-  "natural:shoal": "Haut-fond",
-  "natural:peninsula": "Presqu'île",
-  "natural:beach": "Plage",
-  "place:island": "Île",
-  "place:islet": "Îlot",
-  "place:archipelago": "Archipel",
+const FEATURE_LABELS: Record<string, Key> = {
+  "waterway:fairway": "explore.geocoding.feature.fairway",
+  "natural:strait": "explore.geocoding.feature.strait",
+  "natural:cape": "explore.geocoding.feature.cape",
+  "natural:bay": "explore.geocoding.feature.bay",
+  "natural:reef": "explore.geocoding.feature.reef",
+  "natural:shoal": "explore.geocoding.feature.shoal",
+  "natural:peninsula": "explore.geocoding.feature.peninsula",
+  "natural:beach": "explore.geocoding.feature.beach",
+  "place:island": "explore.geocoding.feature.island",
+  "place:islet": "explore.geocoding.feature.islet",
+  "place:archipelago": "explore.geocoding.feature.archipelago",
 };
 
 /** Second line of a result row. Pure, so the fallback chain is testable. */
 export function photonContext(props: PhotonProperties): string {
-  const feature = FEATURE_LABELS[`${props.osm_key}:${props.osm_value}`];
+  const key = FEATURE_LABELS[`${props.osm_key}:${props.osm_value}`];
+  const feature = key ? t(key) : undefined;
   const admin = props.county || props.state || props.city || props.country;
-  if (feature && admin) return `${feature}, ${admin}`;
+  if (feature && admin) return t("explore.geocoding.context", { feature, admin });
   if (feature) return feature;
   return admin || "";
 }
@@ -119,10 +121,12 @@ export function buildPhotonUrl(
   query: string,
   near: { lat: number; lon: number } | null | undefined,
 ): string {
+  // Photon answers in the language it is asked for, so the reader's language
+  // decides which exonym comes back.
   const params = new URLSearchParams({
     q: query,
     limit: String(FETCH_LIMIT),
-    lang: "fr",
+    lang: getLang(),
   });
   for (const tag of OSM_TAGS) params.append("osm_tag", tag);
   if (near) {
@@ -168,7 +172,7 @@ async function searchOpenMeteo(
   query: string,
   signal: AbortSignal | undefined,
 ): Promise<PlaceResult[]> {
-  const url = `${OPEN_METEO_URL}?name=${encodeURIComponent(query)}&count=${FETCH_LIMIT}&language=fr`;
+  const url = `${OPEN_METEO_URL}?name=${encodeURIComponent(query)}&count=${FETCH_LIMIT}&language=${getLang()}`;
   const res = await fetch(url, { signal });
   if (!res.ok) throw new Error(`open-meteo ${res.status}`);
   const data = await res.json();

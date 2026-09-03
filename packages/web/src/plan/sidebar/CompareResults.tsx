@@ -11,6 +11,7 @@ import { SweepForm } from "./SweepForm";
 import { ArchetypeSelector } from "./ArchetypeSelector";
 import { RecomputeBar, ResultsAnchor, StalePlaceholder } from "./parts";
 import { fmtClock, fmtDay } from "../../domain/datetime";
+import { useT } from "../../i18n";
 
 /** Compare mode with a sweep behind it: the table of windows plus its recap. */
 export function CompareResults({
@@ -22,6 +23,7 @@ export function CompareResults({
   boatLabel: string;
   canCalculate: boolean;
 }) {
+  const { t, tn } = useT();
   const { state, actions, computeWindows } = usePlan();
   const { sweepEarliest, sweepLatest, sweepIntervalHours, metaWarnings, isStale } = state;
   const [isEditingParams, setIsEditingParams] = useState(false);
@@ -45,7 +47,10 @@ export function CompareResults({
       <ResultsAnchor />
       <RecapButton
         primary={`${fmtDay(sweepEarliest)} ${fmtClock(sweepEarliest)} → ${fmtDay(sweepLatest)} ${fmtClock(sweepLatest)}`}
-        secondary={`pas ${sweepIntervalHours}h · ${boatLabel}`}
+        secondary={t("panel.compare.recapStep", {
+          interval: sweepIntervalHours,
+          boat: boatLabel,
+        })}
         isOpen={isEditingParams}
         onClick={() => setIsEditingParams((v) => !v)}
       />
@@ -68,14 +73,12 @@ export function CompareResults({
           matches the map. Hide the table behind a recompute prompt, mirroring single
           mode (#152). */}
       {isStale ? (
-        <StalePlaceholder>
-          Itinéraire modifié. Cliquez sur Recalculer pour comparer les créneaux du nouveau trajet.
-        </StalePlaceholder>
+        <StalePlaceholder>{t("panel.compare.stale")}</StalePlaceholder>
       ) : (
         <>
           <WindowsTable windows={windows} onSelect={actions.selectWindow} />
           <p className="px-4 py-2 text-[10px]" style={{ color: "var(--ow-fg-3)", borderTop: "1px solid var(--ow-line)" }}>
-            {windows.length} fenêtre{windows.length > 1 ? "s" : ""} comparée{windows.length > 1 ? "s" : ""} · cliquez sur une ligne pour ouvrir la simulation détaillée
+            {tn("panel.compare.windowsCompared", windows.length)}
           </p>
         </>
       )}

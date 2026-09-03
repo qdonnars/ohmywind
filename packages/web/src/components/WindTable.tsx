@@ -10,6 +10,7 @@ import { nowParisHourPrefix } from "../domain/datetime";
 import { useTimelineScroll } from "../hooks/useTimelineScroll";
 import { useOnline } from "../hooks/useOnline";
 import { MODEL_META, type ModelName } from "../config/modelConfig";
+import { useT, t as translate } from "../i18n";
 
 function modelStep(name: string): number {
   const meta = MODEL_META[name as ModelName];
@@ -23,7 +24,7 @@ function modelLabel(name: string): string {
 function modelDescription(name: string): string {
   const meta = MODEL_META[name as ModelName];
   if (!meta) return name;
-  return `${meta.label} (${meta.nativeStepHours}h) . ${meta.provider}`;
+  return `${meta.label} (${meta.nativeStepHours}h) . ${translate(meta.provider)}`;
 }
 
 // Approximate cell width (must match WindCell min-w-[36px])
@@ -90,11 +91,10 @@ function SkeletonTable() {
  */
 function EmptyForecast() {
   const online = useOnline();
+  const { t } = useT();
   return (
     <div className="text-center py-8 px-4 text-sm" style={{ color: 'var(--ow-fg-2)' }}>
-      {online
-        ? "Aucune donnée disponible pour ce point."
-        : "Hors connexion : impossible de récupérer les prévisions. Reconnectez-vous puis touchez à nouveau ce point."}
+      {online ? t("explore.windTable.empty") : t("explore.windTable.offline")}
     </div>
   );
 }
@@ -105,6 +105,7 @@ export function WindTable({
   selectedHour,
   onSelectHour,
 }: WindTableProps) {
+  const { t } = useT();
   const [timezoneMode] = useTimezone();
 
   const masterTimeline = useMemo(() => {
@@ -168,14 +169,19 @@ export function WindTable({
                           style={{ color: 'var(--ow-fg-0)' }}
                           title={
                             forecast.fellBackFrom
-                              ? `${modelDescription(forecast.modelName)} (affiché à la place de ${modelLabel(forecast.fellBackFrom)}, qui ne couvre pas ce point).`
+                              ? t("explore.windTable.fallbackTitle", {
+                                  description: modelDescription(forecast.modelName),
+                                  model: modelLabel(forecast.fellBackFrom),
+                                })
                               : modelDescription(forecast.modelName)
                           }
                         >
                           {modelLabel(forecast.modelName)}
                           {forecast.fellBackFrom && (
                             <span
-                              aria-label={`fallback depuis ${modelLabel(forecast.fellBackFrom)}`}
+                              aria-label={t("explore.windTable.fallbackBadge", {
+                                model: modelLabel(forecast.fellBackFrom),
+                              })}
                               className="text-[9px] font-normal opacity-60"
                               style={{ color: 'var(--ow-fg-2)' }}
                             >

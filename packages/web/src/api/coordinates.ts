@@ -14,6 +14,9 @@
  * Anything else falls through to an ordinary text search.
  */
 
+import { t } from "../i18n";
+import { num1 } from "../plan/format";
+
 export interface ParsedCoordinates {
   lat: number;
   lon: number;
@@ -111,13 +114,19 @@ export function parseCoordinates(input: string): ParsedCoordinates | null {
   return inRange(lat.value, lon.value) ? { lat: lat.value, lon: lon.value } : null;
 }
 
-/** "48°23,4' N 4°29,7' O" — how the parsed position is echoed back. */
+/** "48°23,4' N 4°29,7' O" — how the parsed position is echoed back. The
+    hemisphere letters follow the reader's language: west is O on a French
+    chart and W on an English one. */
 export function formatCoordinates(lat: number, lon: number): string {
   const one = (value: number, positive: string, negative: string): string => {
     const abs = Math.abs(value);
     const deg = Math.floor(abs);
     const minutes = (abs - deg) * 60;
-    return `${deg}°${minutes.toFixed(1).replace(".", ",")}' ${value < 0 ? negative : positive}`;
+    return `${deg}°${num1(minutes)}' ${value < 0 ? negative : positive}`;
   };
-  return `${one(lat, "N", "S")} ${one(lon, "E", "O")}`;
+  return `${one(lat, t("explore.coordinates.north"), t("explore.coordinates.south"))} ${one(
+    lon,
+    t("explore.coordinates.east"),
+    t("explore.coordinates.west"),
+  )}`;
 }

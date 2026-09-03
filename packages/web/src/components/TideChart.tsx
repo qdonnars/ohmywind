@@ -8,6 +8,7 @@ import { useTimezone } from "../hooks/useTimezone";
 import { nowParisHourPrefix } from "../domain/datetime";
 import { formatHour } from "../utils/format";
 import { useTimelineScroll } from "../hooks/useTimelineScroll";
+import { useT } from "../i18n";
 
 // Fixed cell width for the chart so the SVG aligns perfectly with the timeline
 // header. 36 px shows ~30 hours per viewport on a typical mobile (good for
@@ -54,6 +55,7 @@ export function TideChart({
   selectedHour,
   onSelectHour,
 }: TideChartProps) {
+  const { t } = useT();
   const [timezoneMode] = useTimezone();
 
   const masterTimeline = useMemo(() => marine.time, [marine.time]);
@@ -149,7 +151,7 @@ export function TideChart({
                       className="text-[11px] lg:text-[12px] font-bold tracking-wide"
                       style={{ color: "var(--ow-fg-0)" }}
                     >
-                      Tide
+                      {t("explore.marineTable.row.tide")}
                     </span>
                     <span
                       className="text-[8px] font-medium"
@@ -169,7 +171,7 @@ export function TideChart({
                     height={SVG_HEIGHT}
                     style={{ display: "block" }}
                     role="img"
-                    aria-label="Courbe de marée"
+                    aria-label={t("explore.tideChart.curve")}
                   >
                     <defs>
                       <linearGradient id="tide-water" x1="0" y1="0" x2="0" y2="1">

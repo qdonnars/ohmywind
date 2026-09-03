@@ -13,6 +13,7 @@ import { ArchetypeSelector } from "./ArchetypeSelector";
 import { LegList } from "./LegList";
 import { RecomputeBar, ResultsAnchor, StalePlaceholder } from "./parts";
 import { capitalise, fmtClock, fmtDay } from "../../domain/datetime";
+import { useT } from "../../i18n";
 
 /** Single mode with a passage behind it: recap, totals, warnings, legs. */
 export function SingleResults({
@@ -24,6 +25,7 @@ export function SingleResults({
   complexity: ComplexityScore;
   boatLabel: string;
 }) {
+  const { t } = useT();
   const { state, actions, compute } = usePlan();
   const { departure, timeAnchor, isStale, forecastUpdatedAt, waypoints, selectedLegIdx, selectedStepIdx } = state;
   const [isEditingParams, setIsEditingParams] = useState(false);
@@ -75,7 +77,12 @@ export function SingleResults({
       {/* Récap compact: click to edit departure / archetype inline. */}
       <ResultsAnchor />
       <RecapButton
-        primary={`${timeAnchor === "arrival" ? "Arrivée" : "Départ"} : ${capitalise(fmtDay(departure))} · ${fmtClock(departure)}`}
+        primary={t(
+          timeAnchor === "arrival"
+            ? "panel.results.recapArrival"
+            : "panel.results.recapDeparture",
+          { day: capitalise(fmtDay(departure)), time: fmtClock(departure) },
+        )}
         secondary={boatLabel}
         isOpen={isEditingParams}
         onClick={() => setIsEditingParams((v) => !v)}
@@ -118,16 +125,14 @@ export function SingleResults({
           placeholder is plainer and forces a recompute before the user reads
           numbers that no longer match the route on the map. */}
       {isStale ? (
-        <StalePlaceholder>
-          Itinéraire modifié. Cliquez sur Recalculer pour mettre à jour les détails.
-        </StalePlaceholder>
+        <StalePlaceholder>{t("panel.results.stale")}</StalePlaceholder>
       ) : (
         <LegList passage={passage} />
       )}
 
       {forecastUpdatedAt && (
         <p className="px-4 py-2 text-[10px]" style={{ color: "var(--ow-fg-2)", borderTop: "1px solid var(--ow-line)" }}>
-          Données fraîches au {fmtClock(forecastUpdatedAt)} · Open-Meteo.com (CC BY 4.0)
+          {t("panel.results.forecastUpdated", { time: fmtClock(forecastUpdatedAt) })}
         </p>
       )}
     </div>

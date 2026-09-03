@@ -13,6 +13,7 @@
 // performance coefficient never touches the matrix: it travels as the
 // request's `efficiency` parameter.
 
+import { t, type Key } from "../i18n";
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import catamaran40ft from "../data/polars/catamaran_40ft.json";
 import cruiser20ft from "../data/polars/cruiser_20ft.json";
@@ -60,15 +61,34 @@ export const BASE_POLARS: Readonly<Record<string, PolarData>> = {
   catamaran_40ft: catamaran40ft as PolarData,
 };
 
-export const ARCHETYPE_LABELS: Readonly<Record<string, string>> = {
-  cruiser_20ft: "Croiseur 20 pieds",
-  cruiser_25ft: "Croiseur 25 pieds",
-  cruiser_30ft: "Croiseur 30 pieds",
-  cruiser_40ft: "Croiseur 40 pieds",
-  cruiser_50ft: "Croiseur 50 pieds",
-  racer_cruiser: "Racer-cruiser",
-  catamaran_40ft: "Catamaran 40 pieds",
+const ARCHETYPE_LABEL_KEYS: Readonly<Record<string, Key>> = {
+  cruiser_20ft: "config.boat.archetype.cruiser20ft",
+  cruiser_25ft: "config.boat.archetype.cruiser25ft",
+  cruiser_30ft: "config.boat.archetype.cruiser30ft",
+  cruiser_40ft: "config.boat.archetype.cruiser40ft",
+  cruiser_50ft: "config.boat.archetype.cruiser50ft",
+  racer_cruiser: "config.boat.archetype.racerCruiser",
+  catamaran_40ft: "config.boat.archetype.catamaran40ft",
 };
+
+/**
+ * Archetype id → the label shown for it, in the active language.
+ *
+ * Translated on property read rather than once at module load: every caller
+ * indexes or iterates this object while rendering, so a language switch has
+ * to reach them without anything being rebuilt. The shape is unchanged —
+ * `ARCHETYPE_LABELS[id]` and `Object.entries(ARCHETYPE_LABELS)` behave
+ * exactly as they did when the values were plain strings.
+ */
+export const ARCHETYPE_LABELS: Readonly<Record<string, string>> = Object.defineProperties(
+  {},
+  Object.fromEntries(
+    Object.entries(ARCHETYPE_LABEL_KEYS).map(([id, key]) => [
+      id,
+      { get: () => t(key), enumerable: true },
+    ]),
+  ),
+) as Readonly<Record<string, string>>;
 
 export const DEFAULT_BASE = "cruiser_30ft";
 

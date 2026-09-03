@@ -395,3 +395,32 @@
     letter-spacing: 0.08em;
   }
 }
+
+/* Segmented picker (language). Same shape as the boat tiles' segments,
+   under a name that says what it is rather than where it came from. */
+.config-segment {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--ow-bg-1);
+  border: 1px solid var(--ow-line-2);
+}
+.config-segment-btn {
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ow-fg-1);
+  background: transparent;
+  border: 0;
+  transition: background 120ms ease, color 120ms ease;
+}
+.config-segment-btn:hover:not(.is-active) {
+  background: var(--ow-bg-2);
+  color: var(--ow-fg-0);
+}
+.config-segment-btn.is-active {
+  background: var(--ow-accent);
+  color: #fff;
+}

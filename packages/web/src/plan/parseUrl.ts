@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { t } from "../i18n";
+
 export interface ParsedPlanParams {
   waypoints: [number, number][];
   departure: string;
@@ -34,19 +36,29 @@ export function parsePlanUrl(search: string): ParseResult {
 
   try {
     const parts = wpts.split(";").filter(Boolean);
-    if (parts.length < 2) return { error: "Au moins 2 waypoints requis" };
+    if (parts.length < 2) return { error: t("plan.url.errors.tooFewWaypoints") };
     const waypoints = parts.map((wp): [number, number] => {
       const [latStr, lonStr] = wp.split(",");
       const lat = parseFloat(latStr);
       const lon = parseFloat(lonStr);
-      if (isNaN(lat) || isNaN(lon)) throw new Error(`waypoint invalide: "${wp}"`);
-      if (lat < -90 || lat > 90) throw new Error(`latitude hors plage: ${lat}`);
-      if (lon < -180 || lon > 180) throw new Error(`longitude hors plage: ${lon}`);
+      if (isNaN(lat) || isNaN(lon)) {
+        throw new Error(t("plan.url.errors.invalidWaypoint", { value: wp }));
+      }
+      if (lat < -90 || lat > 90) {
+        throw new Error(t("plan.url.errors.latitudeOutOfRange", { value: lat }));
+      }
+      if (lon < -180 || lon > 180) {
+        throw new Error(t("plan.url.errors.longitudeOutOfRange", { value: lon }));
+      }
       return [lat, lon];
     });
     return { waypoints, departure, archetype, center };
   } catch (e) {
-    return { error: `Waypoints invalides: ${e instanceof Error ? e.message : e}` };
+    return {
+      error: t("plan.url.errors.invalidWaypoints", {
+        detail: e instanceof Error ? e.message : String(e),
+      }),
+    };
   }
 }
 

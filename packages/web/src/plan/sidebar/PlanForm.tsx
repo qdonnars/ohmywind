@@ -8,9 +8,11 @@ import { DepartureSlider } from "./DepartureSlider";
 import { SweepForm } from "./SweepForm";
 import { ArchetypeSelector } from "./ArchetypeSelector";
 import { RefreshIcon } from "./parts";
+import { useT } from "../../i18n";
 
 /** The inputs of the picked mode, before it has a result to show. */
 export function PlanForm({ canCalculate }: { canCalculate: boolean }) {
+  const { t } = useT();
   const { state, actions, compute, computeWindows } = usePlan();
   const { mode, timeAnchor, waypoints } = state;
   const accent = mode === "compare" ? "var(--ow-compare)" : "var(--ow-accent)";
@@ -56,8 +58,10 @@ export function PlanForm({ canCalculate }: { canCalculate: boolean }) {
         >
           <RefreshIcon size={14} />
           {canCalculate
-            ? mode === "single" ? "Calculer le passage" : "Comparer les créneaux"
-            : `${waypoints.length}/2 waypoints`}
+            ? mode === "single"
+              ? t("panel.form.calculate")
+              : t("panel.form.compareWindows")
+            : t("panel.form.waypointsNeeded", { count: waypoints.length })}
         </button>
       </div>
     </div>

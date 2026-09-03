@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { describe, expect, it } from "vitest";
-import { fmtDuration, fmtDurationSafe, fr1, fmtDepthM } from "./format";
+import { fmtDuration, fmtDurationSafe, num1, fmtDepthM } from "./format";
 
 describe("fmtDepthM", () => {
   it("keeps a decimal under 10 m, where the metre under the keel counts", () => {
@@ -53,12 +53,12 @@ describe("fmtDurationSafe", () => {
   });
 });
 
-describe("fr1", () => {
+describe("num1", () => {
   it("formats one decimal with a comma separator", () => {
-    expect(fr1(38.2)).toBe("38,2");
+    expect(num1(38.2)).toBe("38,2");
   });
 
   it("keeps a trailing zero", () => {
-    expect(fr1(40)).toBe("40,0");
+    expect(num1(40)).toBe("40,0");
   });
 });

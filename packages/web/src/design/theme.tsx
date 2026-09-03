@@ -4,6 +4,7 @@
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { useEffect, useState } from 'react';
 
+import { useT } from '../i18n';
 import { getInitialMode } from './initialTheme';
 import { ThemeCtx, useTheme, type ThemeMode } from './useTheme';
 
@@ -58,13 +59,15 @@ function MoonIcon() {
 
 export function ThemeToggle() {
   const { mode, setMode } = useTheme();
+  const { t } = useT();
+  const label = mode === 'dark' ? t('explore.theme.toLight') : t('explore.theme.toDark');
   return (
     <button
       onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')}
       className="shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-sm font-semibold transition-colors"
       style={{ color: 'var(--ow-fg-1)', background: 'transparent' }}
-      title={`Switch to ${mode === 'dark' ? 'light' : 'dark'} theme`}
-      aria-label={`Switch to ${mode === 'dark' ? 'light' : 'dark'} theme`}
+      title={label}
+      aria-label={label}
     >
       {mode === 'dark' ? <SunIcon /> : <MoonIcon />}
     </button>
