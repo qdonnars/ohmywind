@@ -23,6 +23,7 @@ import { BoatEssentials } from "../components/BoatEssentials";
 import { BoatResult } from "../components/BoatResult";
 import { ConfigTile } from "../components/ConfigTile";
 import { useDragReorder } from "../hooks/useDragReorder";
+import { AVAILABLE_LANGS, LANG_NAMES, setLang, useT } from "../i18n";
 import "./config.css";
 
 // Tab id "polar" predates the tab's rename to "Bateau"; kept to avoid churn
@@ -99,6 +100,7 @@ export function ConfigPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-10">
+        <LangPicker />
         <div className="config-tabs flex gap-2 mb-6" role="tablist">
           <button
             type="button"
@@ -255,5 +257,38 @@ export function ConfigPage() {
         </footer>
       </main>
     </div>
+  );
+}
+
+/**
+ * Language, above the tabs so it is reachable from both. Endonyms rather than
+ * translated names: a reader lost in the wrong language must recognise their
+ * own. The choice persists at once, no save step, and the dictionary loads
+ * before the switch lands (see i18n/store).
+ */
+function LangPicker() {
+  const { t, lang } = useT();
+  return (
+    <section className="mb-6 flex items-center justify-between gap-3 flex-wrap">
+      <span className="text-sm font-medium opacity-80">{t("config.lang.label")}</span>
+      <div className="config-segment" role="radiogroup" aria-label={t("config.lang.label")}>
+        {AVAILABLE_LANGS.map((l) => (
+          <button
+            key={l}
+            type="button"
+            role="radio"
+            aria-checked={lang === l}
+            lang={l}
+            className={`config-segment-btn ${lang === l ? "is-active" : ""}`}
+            onClick={() => void setLang(l)}
+          >
+            {LANG_NAMES[l]}
+          </button>
+        ))}
+      </div>
+      {lang !== "fr" && (
+        <p className="w-full text-xs opacity-60 m-0">{t("config.lang.backendNote")}</p>
+      )}
+    </section>
   );
 }

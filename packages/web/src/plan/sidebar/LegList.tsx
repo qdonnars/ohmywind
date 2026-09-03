@@ -45,7 +45,7 @@ function LegRow({
 }) {
   const cx = cxLevel((leg.tws_min + leg.tws_max) / 2);
   const summary = buildLegSummaryCells(leg);
-  const fr1 = (n: number) => n.toFixed(1).replace(".", ",");
+  const num1 = (n: number) => n.toFixed(1).replace(".", ",");
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -92,7 +92,7 @@ function LegRow({
               className="text-[10px] tabular-nums whitespace-nowrap"
               style={{ color: "var(--ow-fg-2)", fontFamily: "var(--ow-font-mono)" }}
             >
-              {fr1(leg.distance_nm)} nm
+              {num1(leg.distance_nm)} nm
             </span>
           </div>
         </td>

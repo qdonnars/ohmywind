@@ -18,7 +18,7 @@
 import type { AggregatedLeg, LegSpread } from "./aggregateLegs";
 import { ConditionsCompass } from "./ConditionsCompass";
 import { FORCE_COLORS } from "./forceColors";
-import { fr1 } from "./format";
+import { num1 } from "./format";
 import { CURRENT_RELEVANCE_THRESHOLD_KN } from "../domain/thresholds";
 
 /** Rendered size of the dial. Leaves about 160 px for the numbers on a
@@ -46,12 +46,12 @@ export interface LegDetailNote {
 function fmtSigned1(n: number): string {
   if (Math.abs(n) < 0.05) return "+0,0";
   const sign = n > 0 ? "+" : "−";
-  return `${sign}${fr1(Math.abs(n))}`;
+  return `${sign}${num1(Math.abs(n))}`;
 }
 
 function fmtRange1(range: [number, number], unit: string): string {
   const [lo, hi] = range;
-  return fr1(lo) === fr1(hi) ? `${fr1(hi)} ${unit}` : `${fr1(lo)}–${fr1(hi)} ${unit}`;
+  return num1(lo) === num1(hi) ? `${num1(hi)} ${unit}` : `${num1(lo)}–${num1(hi)} ${unit}`;
 }
 
 /** Width of the label column, shared by the table and the speed line. */
@@ -161,7 +161,7 @@ export function LegDetailCard({
   if (hasWaves) {
     seaText = spread?.hs_range
       ? fmtRange1(spread.hs_range, "m")
-      : `${fr1(view.hs_avg_m as number)} m${view.tp_avg_s != null ? ` · ${Math.round(view.tp_avg_s)} s` : ""}`;
+      : `${num1(view.hs_avg_m as number)} m${view.tp_avg_s != null ? ` · ${Math.round(view.tp_avg_s)} s` : ""}`;
   }
 
   // The current row: its range on the average, its value and its sense on
@@ -175,12 +175,12 @@ export function LegDetailCard({
   let currentMuted = false;
   if (view.current_speed_kn != null) {
     if (!hasCurrent) {
-      currentText = `< ${fr1(CURRENT_RELEVANCE_THRESHOLD_KN)} kn`;
+      currentText = `< ${num1(CURRENT_RELEVANCE_THRESHOLD_KN)} kn`;
       currentMuted = true;
     } else if (spread?.current_speed_range) {
       currentText = fmtRange1(spread.current_speed_range, "kn");
     } else {
-      currentText = `${fr1(view.current_speed_kn)} kn${relative ? ` ${relative}` : ""}`;
+      currentText = `${num1(view.current_speed_kn)} kn${relative ? ` ${relative}` : ""}`;
     }
   }
 
@@ -266,13 +266,13 @@ export function LegDetailCard({
               className="text-2xl font-bold"
               style={{ color: "var(--ow-accent)", letterSpacing: "-0.02em", lineHeight: 1 }}
             >
-              {fr1(view.target_speed_kn)}
+              {num1(view.target_speed_kn)}
             </span>
             <span className="text-[10px]" style={{ color: "var(--ow-fg-2)" }}>kn abs.</span>
           </div>
           {!spread && (
             <div className="mt-1 text-[10px] flex flex-wrap gap-x-1.5" style={{ paddingLeft: LABEL_PX + 8 }}>
-              <span style={{ color: FORCE_COLORS.wind }}>{fr1(view.polar_after_eff_kn)} polaire</span>
+              <span style={{ color: FORCE_COLORS.wind }}>{num1(view.polar_after_eff_kn)} polaire</span>
               {hasWaves && Math.abs(view.wave_delta_kn) > 0.05 && (
                 <span style={{ color: FORCE_COLORS.waves }}>{fmtSigned1(view.wave_delta_kn)} mer</span>
               )}

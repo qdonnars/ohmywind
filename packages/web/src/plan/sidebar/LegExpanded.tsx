@@ -23,7 +23,7 @@ import type { AggregatedLeg } from "../aggregateLegs";
 import { aggregateSteps, buildLegSummaryCells, legDurationLabel, legSpread } from "../aggregateLegs";
 import { LegDetailCard, type LegDetailHeader, type LegDetailNote } from "../LegDetailCard";
 import { StepStrip } from "../StepStrip";
-import { fr1 } from "../format";
+import { num1 } from "../format";
 import { fmtClock } from "../../domain/datetime";
 import type { SegmentReport } from "../types";
 import { usePlan } from "../session/planContext";
@@ -102,7 +102,7 @@ export function LegExpanded({
   if (n <= 1) {
     header = {
       title: `${fmtClock(leg.start_time)} → ${fmtClock(leg.end_time)}`,
-      sub: `${legDurationLabel(leg)} · ${fr1(leg.distance_nm)} nm`,
+      sub: `${legDurationLabel(leg)} · ${num1(leg.distance_nm)} nm`,
     };
     notes = stepNotes(leg);
     onPrev = null;
@@ -120,7 +120,7 @@ export function LegExpanded({
     view = step;
     header = {
       title: `${fmtClock(step.start_time)} → ${fmtClock(step.end_time)}`,
-      sub: `${legDurationLabel(step)} · ${fr1(step.distance_nm)} nm · ${selected + 1}/${n}`,
+      sub: `${legDurationLabel(step)} · ${num1(step.distance_nm)} nm · ${selected + 1}/${n}`,
     };
     notes = stepNotes(step);
     onPrev = () => select(selected === 0 ? null : selected - 1);

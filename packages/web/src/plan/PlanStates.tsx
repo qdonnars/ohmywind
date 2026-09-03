@@ -6,7 +6,7 @@
 
 import type { PassageReport, SegmentReport } from "./types";
 import { cxLevel, cxLevelVar } from "../domain/thresholds";
-import { fmtDurationSafe, fr1 } from "./format";
+import { fmtDurationSafe, num1 } from "./format";
 import { fmtClock } from "../domain/datetime";
 
 // ── EmptyState ────────────────────────────────────────────────────────────────
@@ -293,7 +293,7 @@ export function HeroStats({
   return (
     <div>
       <div className="grid grid-cols-3 gap-3 mb-3">
-        <HeroCell label="Distance" value={fr1(passage.distance_nm)} unit="nm" />
+        <HeroCell label="Distance" value={num1(passage.distance_nm)} unit="nm" />
         <HeroCell label="Durée" value={fmtDurationSafe(passage.duration_h)} />
         <HeroCell label="Arrivée" value={fmtClock(passage.arrival_time)} />
       </div>
