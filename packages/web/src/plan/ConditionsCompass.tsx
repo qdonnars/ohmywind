@@ -36,9 +36,10 @@ const COMPASS_R = 104;
 const ARROW_TAIL_R = 100;
 const ARROW_TIP_R = 58;
 // Rings of the average variant: wind band outside, current band inside,
-// the hull (34 units long) clear of both.
-const WIND_BAND = { inner: 90, outer: COMPASS_R };
-const CURRENT_BAND = { inner: 40, outer: 54 };
+// the hull (34 units long) clear of both. Wide enough to read as zones at
+// 140 px, where a 14-unit ring against the dashed dial went unnoticed.
+const WIND_BAND = { inner: 84, outer: COMPASS_R };
+const CURRENT_BAND = { inner: 38, outer: 58 };
 const NEEDLE_R = { tail: 30, tip: 62 };
 
 // 0° = up (12 o'clock), increasing clockwise. Returns [x, y] in dial units.
@@ -260,9 +261,9 @@ function SpreadBand({ arc, band, color, m }: { arc: [number, number]; band: Band
     <path
       d={d}
       fill={color}
-      fillOpacity="0.18"
+      fillOpacity="0.24"
       stroke={color}
-      strokeOpacity="0.7"
+      strokeOpacity="0.8"
       strokeWidth={1 * m.px}
       strokeDasharray={`${2 * m.px} ${3 * m.px}`}
       strokeLinejoin="round"
