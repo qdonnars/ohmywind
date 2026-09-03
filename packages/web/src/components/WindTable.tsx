@@ -10,7 +10,6 @@ import { nowParisHourPrefix } from "../domain/datetime";
 import { useTimelineScroll } from "../hooks/useTimelineScroll";
 import { useOnline } from "../hooks/useOnline";
 import { MODEL_META, type ModelName } from "../config/modelConfig";
-import { ArrowConventionNote } from "./ArrowConventionNote";
 
 function modelStep(name: string): number {
   const meta = MODEL_META[name as ModelName];
@@ -213,7 +212,6 @@ export function WindTable({
           </table>
         </div>
       </div>
-      <ArrowConventionNote metric="wind" />
     </div>
   );
 }
