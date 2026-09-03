@@ -29,12 +29,39 @@ import type { SegmentReport } from "../types";
 import { usePlan } from "../session/planContext";
 
 /** The flags of one step, with the colour of the force behind each. */
-function stepNotes(step: AggregatedLeg): LegDetailNote[] {
-  const notes: LegDetailNote[] = [];
+function stepFlags(step: AggregatedLeg): LegDetailNote[] {
+  const flags: LegDetailNote[] = [];
   const flag = buildLegSummaryCells(step).flag;
-  if (flag === "Vent Contre Courant") notes.push({ text: flag, tone: "current" });
-  else if (flag) notes.push({ text: flag, tone: "waves" });
-  if (step.motor_used) notes.push({ text: "au moteur sur ce pas", tone: "muted" });
+  if (flag === "Vent Contre Courant") flags.push({ text: flag, tone: "current" });
+  else if (flag) flags.push({ text: flag, tone: "waves" });
+  if (step.motor_used) flags.push({ text: "Moteur", tone: "muted" });
+  return flags;
+}
+
+function stepNotes(step: AggregatedLeg): LegDetailNote[] {
+  return stepFlags(step).map((f) =>
+    f.text === "Moteur" ? { ...f, text: "au moteur sur ce pas" } : f,
+  );
+}
+
+/** The flags of the steps, counted, so a formed sea or a wind against the
+    current on two steps out of five still shows on the average, where the
+    mean alone would have smoothed it away. */
+function averageNotes(steps: AggregatedLeg[]): LegDetailNote[] {
+  const n = steps.length;
+  const counts = new Map<string, { count: number; tone: LegDetailNote["tone"] }>();
+  for (const step of steps) {
+    for (const flag of stepFlags(step)) {
+      const seen = counts.get(flag.text);
+      if (seen) seen.count += 1;
+      else counts.set(flag.text, { count: 1, tone: flag.tone });
+    }
+  }
+  const notes: LegDetailNote[] = [...counts].map(([text, { count, tone }]) => ({
+    text: count === n ? `${text} sur tous les pas` : `${text} sur ${count} pas`,
+    tone,
+  }));
+  notes.push({ text: `moyenne de ${n} pas, la décomposition se lit sur chaque pas`, tone: "muted" });
   return notes;
 }
 
@@ -91,7 +118,7 @@ export function LegExpanded({
       title: `Moyenne · ${legDurationLabel(leg)}`,
       hint: "touchez un pas",
     };
-    notes = [{ text: `moyenne de ${n} pas`, tone: "muted" }];
+    notes = averageNotes(steps);
     onPrev = null;
     onNext = () => select(0);
   } else {

@@ -281,6 +281,8 @@ const twoStepPassage = (): PassageReport => {
         tws_kn: 9,
         twd_deg: 330,
         gust_kn: 18,
+        hs_m: 1.5,
+        wave_period_s: 8,
       },
     ],
   };
@@ -290,7 +292,12 @@ describe("open leg", () => {
   it("shows the average of the steps, and offers the detail", async () => {
     const value = mount({ passage: twoStepPassage(), complexity: complexity(), selectedLegIdx: 0 });
     expect(screen.getByText(/Moyenne · /)).toBeTruthy();
-    expect(screen.getByText("moyenne de 2 pas")).toBeTruthy();
+    expect(screen.getByText(/^moyenne de 2 pas/)).toBeTruthy();
+    // The flag of step 2 reaches the average, counted, where the leg's own
+    // mean sea (1,06 m) would not have raised it.
+    expect(screen.getByText(/Mer Formée sur 1 pas/)).toBeTruthy();
+    // No build-up on the average.
+    expect(screen.queryByText(/polaire/)).toBeNull();
     // The wind range the average hides, and no gust in it: 18 sits on step 2.
     expect(screen.getByText("6–9 (18) kn")).toBeTruthy();
     expect(screen.getAllByRole("button", { name: /^Pas \d sur 2/ })).toHaveLength(2);
@@ -311,6 +318,9 @@ describe("open leg", () => {
     expect(screen.getByText(`${fmtClock("2026-09-10T13:00:00+02:00")} → ${fmtClock("2026-09-10T18:00:00+02:00")}`)).toBeTruthy();
     expect(screen.getByText(/2\/2$/)).toBeTruthy();
     expect(screen.getByText("9 (18) kn")).toBeTruthy();
+    // On a step, the build-up and the step's own flag.
+    expect(screen.getByText(/polaire/)).toBeTruthy();
+    expect(screen.getByText(/^⚠ Mer Formée$/)).toBeTruthy();
     // Last step: no next.
     expect((screen.getByRole("button", { name: "Pas suivant" }) as HTMLButtonElement).disabled).toBe(true);
 
