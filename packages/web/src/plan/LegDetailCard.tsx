@@ -57,6 +57,9 @@ function fmtRange1(range: [number, number], unit: string): string {
 /** Width of the label column, shared by the table and the speed line. */
 const LABEL_PX = 56;
 
+// One row of the table. The label carries the colour of the force's glyph
+// on the rose, which is what lets the reader match a band or an arrow to a
+// line without any writing on the dial.
 function TableRow({
   label,
   color,
@@ -68,18 +71,18 @@ function TableRow({
   color: string;
   /** Data absent or negligible: the value fades. */
   muted?: boolean;
-  /** Not a force: regular weight, no colour of its own. */
+  /** Not a force: the value in regular weight and neutral colour. */
   plain?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <tr>
-      <td className="pr-2 align-baseline" style={{ color: "var(--ow-fg-2)", width: LABEL_PX, paddingTop: 1, paddingBottom: 1 }}>
+      <td className="pr-2 align-baseline font-semibold" style={{ color, width: LABEL_PX, paddingTop: 1, paddingBottom: 1 }}>
         {label}
       </td>
       <td
         className={plain || muted ? "font-normal" : "font-semibold"}
-        style={{ color: muted ? "var(--ow-fg-3)" : color, paddingTop: 1, paddingBottom: 1 }}
+        style={{ color: muted ? "var(--ow-fg-3)" : plain ? "var(--ow-fg-1)" : color, paddingTop: 1, paddingBottom: 1 }}
       >
         {children}
       </td>
@@ -243,12 +246,15 @@ export function LegDetailCard({
                   {currentText}
                 </TableRow>
               )}
-              <TableRow label="Cap" color="var(--ow-fg-1)" plain>{capText}</TableRow>
+              {/* The boat's own colour: the dot on the hull, and the speed. */}
+              <TableRow label="Cap" color="var(--ow-accent)" plain>{capText}</TableRow>
             </tbody>
           </table>
 
-          {/* The over-ground speed, and how it adds up. The first term has
-              no sign: the line reads as the sum it is. */}
+          {/* The over-ground speed and, on a step, how it adds up: the first
+              term has no sign, the line reads as the sum it is. Not on the
+              average: a mean of sums misled more than it explained, the
+              note below sends the reader to the steps instead. */}
           <div
             className="mt-1.5 pt-1.5 flex items-baseline gap-2"
             style={{ borderTop: "1px solid var(--ow-line)" }}
@@ -264,15 +270,17 @@ export function LegDetailCard({
             </span>
             <span className="text-[10px]" style={{ color: "var(--ow-fg-2)" }}>kn abs.</span>
           </div>
-          <div className="mt-1 text-[10px] flex flex-wrap gap-x-1.5" style={{ paddingLeft: LABEL_PX + 8 }}>
-            <span style={{ color: FORCE_COLORS.wind }}>{fr1(view.polar_after_eff_kn)} polaire</span>
-            {hasWaves && Math.abs(view.wave_delta_kn) > 0.05 && (
-              <span style={{ color: FORCE_COLORS.waves }}>{fmtSigned1(view.wave_delta_kn)} mer</span>
-            )}
-            {currentDelta && (
-              <span style={{ color: FORCE_COLORS.current }}>{fmtSigned1(view.current_delta_kn ?? 0)} courant</span>
-            )}
-          </div>
+          {!spread && (
+            <div className="mt-1 text-[10px] flex flex-wrap gap-x-1.5" style={{ paddingLeft: LABEL_PX + 8 }}>
+              <span style={{ color: FORCE_COLORS.wind }}>{fr1(view.polar_after_eff_kn)} polaire</span>
+              {hasWaves && Math.abs(view.wave_delta_kn) > 0.05 && (
+                <span style={{ color: FORCE_COLORS.waves }}>{fmtSigned1(view.wave_delta_kn)} mer</span>
+              )}
+              {currentDelta && (
+                <span style={{ color: FORCE_COLORS.current }}>{fmtSigned1(view.current_delta_kn ?? 0)} courant</span>
+              )}
+            </div>
+          )}
 
           {notes.length > 0 && (
             <div className="mt-1.5 text-[10px] leading-snug" style={{ paddingLeft: LABEL_PX + 8 }}>

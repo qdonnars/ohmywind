@@ -19,9 +19,13 @@
  * the current as a flow field across the dial. An `average` adds what the
  * mean hides, the range of directions the steps disagree over, as a band
  * on a ring of its own: wind on the outer ring, current on the inner ring,
- * each labelled, so the two never overlap and the eye knows which is which
- * on a long leg. In that variant the current keeps a single needle on its
- * ring instead of the flow field, which crossed everything.
+ * so the two never overlap on a long leg. In that variant the current keeps
+ * a single needle on its ring instead of the flow field, which crossed
+ * everything.
+ *
+ * Nothing is written on the rose: at 140 px the words were not legible. The
+ * table beside it names each force in the colour of its glyph, which is how
+ * the reader tells the bands apart.
  */
 
 import { FORCE_COLORS } from "./forceColors";
@@ -36,8 +40,6 @@ const ARROW_TIP_R = 58;
 const WIND_BAND = { inner: 90, outer: COMPASS_R };
 const CURRENT_BAND = { inner: 40, outer: 54 };
 const NEEDLE_R = { tail: 30, tip: 62 };
-/** Under this sweep a band gets no label: the letters would not fit. */
-const BAND_LABEL_MIN_DEG = 28;
 
 // 0° = up (12 o'clock), increasing clockwise. Returns [x, y] in dial units.
 function polarXY(angleDeg: number, r: number): [number, number] {
@@ -268,31 +270,6 @@ function SpreadBand({ arc, band, color, m }: { arc: [number, number]; band: Band
   );
 }
 
-// The name of a band, at mid-arc when there is room for it. Drawn last, over
-// the arrows, with a halo of the card's background: the mean arrow of a
-// force runs through the middle of its own band, right where the name sits.
-function BandLabel({ arc, band, color, label, m }: { arc: [number, number]; band: Band; color: string; label: string; m: Metrics }) {
-  const sweep = arcSweep(arc);
-  if (sweep < BAND_LABEL_MIN_DEG) return null;
-  const [lx, ly] = polarXY(arc[0] + sweep / 2, (band.inner + band.outer) / 2);
-  return (
-    <text
-      x={lx}
-      y={ly}
-      textAnchor="middle"
-      dominantBaseline="middle"
-      fontSize={8 * m.px}
-      fill={color}
-      stroke="var(--ow-bg-1)"
-      strokeWidth={3 * m.px}
-      strokeLinejoin="round"
-      paintOrder="stroke"
-      style={{ fontFamily: "var(--ow-font-mono)", fontWeight: 600 }}
-    >
-      {label}
-    </text>
-  );
-}
 
 // The mean set of the current in the average variant: one radial arrow
 // through the inner ring, pointing where the water goes.
@@ -365,7 +342,7 @@ export function ConditionsCompass({
       />
       <CardinalMarkers m={m} />
 
-      {/* Bands first, so the arrows draw over them; their names come last. */}
+      {/* Bands first, so the arrows draw over them. */}
       {variant === "average" && windArc && (
         <SpreadBand arc={windArc} band={WIND_BAND} color={FORCE_COLORS.wind} m={m} />
       )}
@@ -387,13 +364,6 @@ export function ConditionsCompass({
 
       <WindArrow fromR={ARROW_TAIL_R} toR={ARROW_TIP_R} angleDeg={windDeg} color={FORCE_COLORS.wind} m={m} />
       {waveDeg != null && <WaveMark angleDeg={waveDeg} color={FORCE_COLORS.waves} m={m} />}
-
-      {variant === "average" && windArc && (
-        <BandLabel arc={windArc} band={WIND_BAND} color={FORCE_COLORS.wind} label="vent" m={m} />
-      )}
-      {variant === "average" && currentArc && (
-        <BandLabel arc={currentArc} band={CURRENT_BAND} color={FORCE_COLORS.current} label="cour." m={m} />
-      )}
     </svg>
   );
 }
