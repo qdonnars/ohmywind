@@ -3,13 +3,14 @@
 
 /**
  * Every language the app knows about. `AVAILABLE_LANGS` is the subset that
- * ships a dictionary today: the picker, the browser-language detection and
- * the stored preference only ever resolve to one of those.
+ * ships a dictionary: the picker, the browser-language detection and the
+ * stored preference only ever resolve to one of those. The two lists are
+ * equal today; they split again the day a fifth language is being prepared.
  */
 export const LANGS = ["fr", "en", "de", "it"] as const;
 export type Lang = (typeof LANGS)[number];
 
-export const AVAILABLE_LANGS: readonly Lang[] = ["fr", "en"];
+export const AVAILABLE_LANGS: readonly Lang[] = LANGS;
 
 /**
  * BCP 47 tag handed to Intl for dates and numbers. en-GB rather than en-US:

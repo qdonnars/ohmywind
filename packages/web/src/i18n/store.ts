@@ -75,9 +75,13 @@ async function loadDict(lang: Lang): Promise<Dict> {
     case "en":
       d = (await import("./en")).en;
       break;
+    case "de":
+      d = (await import("./de")).de;
+      break;
+    case "it":
+      d = (await import("./it")).it;
+      break;
     default:
-      // de and it ship in the next lot; until then they read as French,
-      // and AVAILABLE_LANGS keeps them out of the picker anyway.
       d = fr;
   }
   loaded[lang] = d;
