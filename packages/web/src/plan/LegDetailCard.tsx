@@ -246,8 +246,8 @@ export function LegDetailCard({
                   {currentText}
                 </TableRow>
               )}
-              {/* The boat's own colour: the dot on the hull, and the speed. */}
-              <TableRow label="Cap" color="var(--ow-accent)" plain>{capText}</TableRow>
+              {/* Grey: not a force, and not to be mistaken for the speed. */}
+              <TableRow label="Cap" color="var(--ow-fg-2)" plain>{capText}</TableRow>
             </tbody>
           </table>
 
