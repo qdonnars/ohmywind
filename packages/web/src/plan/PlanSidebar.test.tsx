@@ -292,10 +292,10 @@ describe("open leg", () => {
   it("shows the average of the steps, and offers the detail", async () => {
     const value = mount({ passage: twoStepPassage(), complexity: complexity(), selectedLegIdx: 0 });
     expect(screen.getByText(/Moyenne · /)).toBeTruthy();
-    expect(screen.getByText(/^moyenne de 2 pas/)).toBeTruthy();
-    // The flag of step 2 reaches the average, counted, where the leg's own
-    // mean sea (1,06 m) would not have raised it.
-    expect(screen.getByText(/Mer Formée sur 1 pas/)).toBeTruthy();
+    expect(screen.getByText("moyenne de 2 pas")).toBeTruthy();
+    // The flag of step 2 reaches the average, where the leg's own mean sea
+    // (1,06 m) would not have raised it.
+    expect(screen.getByText("⚠ Mer Formée")).toBeTruthy();
     // No build-up on the average.
     expect(screen.queryByText(/polaire/)).toBeNull();
     // The wind range the average hides, and no gust in it: 18 sits on step 2.

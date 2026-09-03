@@ -44,25 +44,19 @@ function stepNotes(step: AggregatedLeg): LegDetailNote[] {
   );
 }
 
-/** The flags of the steps, counted, so a formed sea or a wind against the
-    current on two steps out of five still shows on the average, where the
-    mean alone would have smoothed it away. */
+/** The flags raised on any step, each once, so a formed sea or a wind
+    against the current on one step out of five still shows on the average,
+    where the mean alone would have smoothed it away. No counts: the strip
+    and the steps are there for that, the note only reminds that this is a
+    mean. */
 function averageNotes(steps: AggregatedLeg[]): LegDetailNote[] {
-  const n = steps.length;
-  const counts = new Map<string, { count: number; tone: LegDetailNote["tone"] }>();
+  const seen = new Map<string, LegDetailNote>();
   for (const step of steps) {
     for (const flag of stepFlags(step)) {
-      const seen = counts.get(flag.text);
-      if (seen) seen.count += 1;
-      else counts.set(flag.text, { count: 1, tone: flag.tone });
+      if (!seen.has(flag.text)) seen.set(flag.text, flag);
     }
   }
-  const notes: LegDetailNote[] = [...counts].map(([text, { count, tone }]) => ({
-    text: count === n ? `${text} sur tous les pas` : `${text} sur ${count} pas`,
-    tone,
-  }));
-  notes.push({ text: `moyenne de ${n} pas, la décomposition se lit sur chaque pas`, tone: "muted" });
-  return notes;
+  return [...seen.values(), { text: `moyenne de ${steps.length} pas`, tone: "muted" }];
 }
 
 export function LegExpanded({
