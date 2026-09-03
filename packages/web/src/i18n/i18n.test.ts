@@ -2,8 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { afterEach, describe, expect, it } from "vitest";
+import { de } from "./de";
 import { en } from "./en";
 import { fr } from "./fr";
+import { it as itDict } from "./it";
 import { detectLang } from "./langPreference";
 import { getLang, getLocale, initI18n, setLang, t, tn } from "./store";
 import { AVAILABLE_LANGS } from "./types";
@@ -24,6 +26,15 @@ describe("store", () => {
     expect(getLang()).toBe("en");
     expect(getLocale()).toBe("en-GB");
     expect(t("common.loading")).toBe(en["common.loading"]);
+  });
+
+  it("charge l'allemand et l'italien à la demande", async () => {
+    await setLang("de");
+    expect(getLocale()).toBe("de-DE");
+    expect(t("common.loading")).toBe(de["common.loading"]);
+    await setLang("it");
+    expect(getLocale()).toBe("it-IT");
+    expect(t("common.loading")).toBe(itDict["common.loading"]);
   });
 
   it("interpole les paramètres et laisse un nom inconnu visible", () => {

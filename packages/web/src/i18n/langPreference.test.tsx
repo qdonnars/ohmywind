@@ -19,10 +19,8 @@ describe("langPreference", () => {
     expect(readStoredLang()).toBe("en");
   });
 
-  it("ignore une valeur inconnue ou une langue pas encore livrée", () => {
+  it("ignore une valeur inconnue", () => {
     localStorage.setItem(LOCAL_STORAGE_KEYS.lang, "klingon");
-    expect(readStoredLang()).toBeNull();
-    localStorage.setItem(LOCAL_STORAGE_KEYS.lang, "de");
     expect(readStoredLang()).toBeNull();
   });
 });

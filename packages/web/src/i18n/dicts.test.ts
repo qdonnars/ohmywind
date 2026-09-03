@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { describe, expect, it } from "vitest";
+import { de } from "./de";
 import { en } from "./en";
 import { fr } from "./fr";
 import { common } from "./fr/common";
@@ -9,8 +10,10 @@ import { config } from "./fr/config";
 import { explore } from "./fr/explore";
 import { panel } from "./fr/panel";
 import { plan } from "./fr/plan";
+import { it as itDict } from "./it";
 
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+const tags = (s: string) => [...s.matchAll(/<(\w+)>/g)].map((m) => m[1]).sort();
 
 const NAMESPACES: Array<[string, Record<string, string>]> = [
   ["common", common],
@@ -20,20 +23,28 @@ const NAMESPACES: Array<[string, Record<string, string>]> = [
   ["panel", panel],
 ];
 
+/** Every translation, keyed by language, checked against the French reference. */
+const TRANSLATIONS: Array<[string, Record<keyof typeof fr, string>]> = [
+  ["en", en],
+  ["de", de],
+  ["it", itDict],
+];
+
 describe("dictionnaires", () => {
-  it("l'anglais couvre exactement les clés du français", () => {
-    expect(Object.keys(en).sort()).toEqual(Object.keys(fr).sort());
+  it.each(TRANSLATIONS)("%s couvre exactement les clés du français", (_lang, d) => {
+    expect(Object.keys(d).sort()).toEqual(Object.keys(fr).sort());
   });
 
   it("aucune valeur vide", () => {
-    for (const d of [fr, en]) {
+    for (const [, d] of [["fr", fr], ...TRANSLATIONS] as const) {
       for (const [k, v] of Object.entries(d)) expect(v.trim(), k).not.toBe("");
     }
   });
 
-  it("mêmes paramètres des deux côtés", () => {
+  it.each(TRANSLATIONS)("%s : mêmes paramètres et mêmes balises que le français", (_lang, d) => {
     for (const k of Object.keys(fr) as (keyof typeof fr)[]) {
-      expect(placeholders(en[k]), k).toEqual(placeholders(fr[k]));
+      expect(placeholders(d[k]), k).toEqual(placeholders(fr[k]));
+      expect(tags(d[k]), k).toEqual(tags(fr[k]));
     }
   });
 
