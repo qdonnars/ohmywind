@@ -54,6 +54,39 @@ function fmtRange1(range: [number, number], unit: string): string {
   return fr1(lo) === fr1(hi) ? `${fr1(hi)} ${unit}` : `${fr1(lo)}–${fr1(hi)} ${unit}`;
 }
 
+/** Width of the label column, shared by the table and the speed line. */
+const LABEL_PX = 56;
+
+function TableRow({
+  label,
+  color,
+  muted = false,
+  plain = false,
+  children,
+}: {
+  label: string;
+  color: string;
+  /** Data absent or negligible: the value fades. */
+  muted?: boolean;
+  /** Not a force: regular weight, no colour of its own. */
+  plain?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <tr>
+      <td className="pr-2 align-baseline" style={{ color: "var(--ow-fg-2)", width: LABEL_PX, paddingTop: 1, paddingBottom: 1 }}>
+        {label}
+      </td>
+      <td
+        className={plain || muted ? "font-normal" : "font-semibold"}
+        style={{ color: muted ? "var(--ow-fg-3)" : color, paddingTop: 1, paddingBottom: 1 }}
+      >
+        {children}
+      </td>
+    </tr>
+  );
+}
+
 function NavButton({
   dir,
   onClick,
@@ -114,7 +147,7 @@ export function LegDetailCard({
     view.current_speed_kn != null &&
     (view.current_speed_kn >= CURRENT_RELEVANCE_THRESHOLD_KN || currentDelta);
 
-  // ── Conditions line: wind · sea · current, each in its glyph's colour ──────
+  // ── The rows of the table, each value in its glyph's colour ──────────────
   const tws = Math.round(view.tws_avg_kn);
   const twsMin = Math.round(view.tws_min);
   const twsMax = Math.round(view.tws_max);
@@ -125,14 +158,30 @@ export function LegDetailCard({
   if (hasWaves) {
     seaText = spread?.hs_range
       ? fmtRange1(spread.hs_range, "m")
-      : `${fr1(view.hs_avg_m as number)} m${view.tp_avg_s != null ? ` (${Math.round(view.tp_avg_s)} s)` : ""}`;
+      : `${fr1(view.hs_avg_m as number)} m${view.tp_avg_s != null ? ` · ${Math.round(view.tp_avg_s)} s` : ""}`;
   }
 
-  const currentText = !hasCurrent
-    ? null
-    : spread?.current_speed_range
-      ? fmtRange1(spread.current_speed_range, "kn")
-      : `${fr1(view.current_speed_kn as number)} kn`;
+  // The current row: its range on the average, its value and its sense on
+  // a step. Data under the threshold still gets a row, so the table keeps
+  // its shape and the reader learns the current was looked at.
+  const relative =
+    view.current_relative === "portant" ? "portant" :
+    view.current_relative === "contraire" ? "contraire" :
+    view.current_relative === "travers" ? "de travers" : "";
+  let currentText: string | null = null;
+  let currentMuted = false;
+  if (view.current_speed_kn != null) {
+    if (!hasCurrent) {
+      currentText = `< ${fr1(CURRENT_RELEVANCE_THRESHOLD_KN)} kn`;
+      currentMuted = true;
+    } else if (spread?.current_speed_range) {
+      currentText = fmtRange1(spread.current_speed_range, "kn");
+    } else {
+      currentText = `${fr1(view.current_speed_kn)} kn${relative ? ` ${relative}` : ""}`;
+    }
+  }
+
+  const capText = `${Math.round(view.bearing_avg_deg)}° · ${view.point_of_sail}`;
 
   const showNav = onPrev !== null || onNext !== null;
 
@@ -172,6 +221,7 @@ export function LegDetailCard({
       <div className="flex items-center gap-2 px-2 py-2.5">
         <ConditionsCompass
           size={COMPASS_PX}
+          variant={spread ? "average" : "step"}
           bearingDeg={view.bearing_avg_deg}
           windDeg={view.twd_avg_deg}
           waveDeg={hasWaves ? view.twd_avg_deg + WAVE_OFFSET_DEG : null}
@@ -182,7 +232,30 @@ export function LegDetailCard({
         />
 
         <div className="flex-1 min-w-0 tabular-nums leading-snug" style={mono}>
-          <div className="flex items-baseline gap-1.5 flex-wrap">
+          <table className="w-full text-[11px]" style={{ borderCollapse: "collapse" }}>
+            <tbody>
+              <TableRow label="Vent" color={FORCE_COLORS.wind}>{windText}</TableRow>
+              <TableRow label="Mer" color={FORCE_COLORS.waves} muted={!seaText}>
+                {seaText ?? "non observée"}
+              </TableRow>
+              {currentText && (
+                <TableRow label="Courant" color={FORCE_COLORS.current} muted={currentMuted}>
+                  {currentText}
+                </TableRow>
+              )}
+              <TableRow label="Cap" color="var(--ow-fg-1)" plain>{capText}</TableRow>
+            </tbody>
+          </table>
+
+          {/* The over-ground speed, and how it adds up. The first term has
+              no sign: the line reads as the sum it is. */}
+          <div
+            className="mt-1.5 pt-1.5 flex items-baseline gap-2"
+            style={{ borderTop: "1px solid var(--ow-line)" }}
+          >
+            <span className="shrink-0 text-[11px]" style={{ color: "var(--ow-fg-2)", width: LABEL_PX }}>
+              Vitesse
+            </span>
             <span
               className="text-2xl font-bold"
               style={{ color: "var(--ow-accent)", letterSpacing: "-0.02em", lineHeight: 1 }}
@@ -191,44 +264,18 @@ export function LegDetailCard({
             </span>
             <span className="text-[10px]" style={{ color: "var(--ow-fg-2)" }}>kn abs.</span>
           </div>
-          <div className="text-[10px] mt-0.5" style={{ color: "var(--ow-fg-2)" }}>
-            cap {Math.round(view.bearing_avg_deg)}° · {view.point_of_sail}
-          </div>
-
-          {/* Conditions, one token per force. */}
-          <div className="mt-2 text-[11px] font-semibold flex flex-wrap gap-x-1.5 gap-y-0.5">
-            <span style={{ color: FORCE_COLORS.wind }}>{windText}</span>
-            {seaText ? (
-              <span style={{ color: FORCE_COLORS.waves }}>{seaText}</span>
-            ) : (
-              <span className="font-normal" style={{ color: "var(--ow-fg-3)" }}>mer non observée</span>
-            )}
-            {currentText && <span style={{ color: FORCE_COLORS.current }}>{currentText}</span>}
-          </div>
-
-          {/* Build-up of the over-ground speed. Signs explicit on every row
-              so the addition reads at a glance. */}
-          <div className="mt-1.5 text-[10px] leading-snug">
-            <div className="flex items-baseline gap-2" style={{ color: FORCE_COLORS.wind }}>
-              <span className="w-9">{fmtSigned1(view.polar_after_eff_kn)}</span>
-              <span>polaire</span>
-            </div>
+          <div className="mt-1 text-[10px] flex flex-wrap gap-x-1.5" style={{ paddingLeft: LABEL_PX + 8 }}>
+            <span style={{ color: FORCE_COLORS.wind }}>{fr1(view.polar_after_eff_kn)} polaire</span>
             {hasWaves && Math.abs(view.wave_delta_kn) > 0.05 && (
-              <div className="flex items-baseline gap-2" style={{ color: FORCE_COLORS.waves }}>
-                <span className="w-9">{fmtSigned1(view.wave_delta_kn)}</span>
-                <span>mer</span>
-              </div>
+              <span style={{ color: FORCE_COLORS.waves }}>{fmtSigned1(view.wave_delta_kn)} mer</span>
             )}
             {currentDelta && (
-              <div className="flex items-baseline gap-2" style={{ color: FORCE_COLORS.current }}>
-                <span className="w-9">{fmtSigned1(view.current_delta_kn ?? 0)}</span>
-                <span>courant</span>
-              </div>
+              <span style={{ color: FORCE_COLORS.current }}>{fmtSigned1(view.current_delta_kn ?? 0)} courant</span>
             )}
           </div>
 
           {notes.length > 0 && (
-            <div className="mt-1.5 text-[10px] leading-snug">
+            <div className="mt-1.5 text-[10px] leading-snug" style={{ paddingLeft: LABEL_PX + 8 }}>
               {notes.map((n) => (
                 <div key={n.text} style={{ color: noteColor(n.tone) }}>
                   {n.tone === "muted" ? n.text : `⚠ ${n.text}`}
