@@ -138,13 +138,6 @@ export function LegExpanded({
         onNext={onNext}
         notes={notes}
       />
-      {/* Which way to read the dial (issue #269). Wind and waves sit on the
-          side they come FROM, the current arrows point where the water sets
-          TO: each is the convention of its own data. */}
-      <p className="text-center text-[10px] leading-snug" style={{ color: "var(--ow-fg-2)" }}>
-        Vent et vagues sont placés du côté d'où ils viennent. La flèche de
-        courant montre où il porte.
-      </p>
     </div>
   );
 }

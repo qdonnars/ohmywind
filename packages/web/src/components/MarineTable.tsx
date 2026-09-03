@@ -8,7 +8,6 @@ import { useTimezone } from "../hooks/useTimezone";
 import { nowParisHourPrefix } from "../domain/datetime";
 import { currentsLevel, tidesLevel, wavesLevel, windLevelVar } from "../domain/thresholds";
 import { useTimelineScroll } from "../hooks/useTimelineScroll";
-import { ArrowConventionNote } from "./ArrowConventionNote";
 
 type MarineMetric = Exclude<MetricView, "wind">;
 
@@ -453,7 +452,6 @@ export function MarineTable({
           </table>
         </div>
       </div>
-      <ArrowConventionNote metric={metric} />
     </div>
   );
 }
