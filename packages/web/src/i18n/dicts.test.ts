@@ -7,7 +7,7 @@ import { fr } from "./fr";
 import { common } from "./fr/common";
 import { config } from "./fr/config";
 import { explore } from "./fr/explore";
-import { legs } from "./fr/legs";
+import { panel } from "./fr/panel";
 import { plan } from "./fr/plan";
 
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
@@ -17,7 +17,7 @@ const NAMESPACES: Array<[string, Record<string, string>]> = [
   ["config", config],
   ["explore", explore],
   ["plan", plan],
-  ["legs", legs],
+  ["panel", panel],
 ];
 
 describe("dictionnaires", () => {

@@ -6,6 +6,6 @@ import { common } from "./common";
 import { config } from "./config";
 import { explore } from "./explore";
 import { plan } from "./plan";
-import { legs } from "./legs";
+import { panel } from "./panel";
 
-export const en: Dict = { ...common, ...config, ...explore, ...plan, ...legs };
+export const en: Dict = { ...common, ...config, ...explore, ...plan, ...panel };

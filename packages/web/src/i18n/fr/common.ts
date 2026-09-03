@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 /** Strings shared by several screens. Anything specific to one area belongs
-    to that area's file (`explore`, `plan`, `legs`, `config`). */
+    to that area's file (`explore`, `plan`, `panel`, `config`). */
 export const common = {
   "common.loading": "Chargement…",
   "common.close": "Fermer",
