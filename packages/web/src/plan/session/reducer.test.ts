@@ -72,6 +72,7 @@ const aWindow = (over: Partial<PassageWindow> = {}): PassageWindow => ({
 
 const session = (over: Partial<InitialSession> = {}): InitialSession => ({
   waypoints: [MARSEILLE, PORQUEROLLES],
+  originWaypoints: over.waypoints ?? [MARSEILLE, PORQUEROLLES],
   archetype: "cruiser_30ft",
   departure: "2026-09-10T08:00",
   timeAnchor: "departure",
@@ -157,6 +158,55 @@ describe("route edits", () => {
     );
     expect(s.selectedLegIdx).toBe(1);
     expect(s.isStale).toBe(true);
+  });
+});
+
+describe("step of the open leg", () => {
+  it("opens a step under the open leg, and the average again on null", () => {
+    let s = run(start(), { type: "LEG_SELECTED", index: 0 }, { type: "STEP_SELECTED", index: 2 });
+    expect(s.selectedStepIdx).toBe(2);
+    s = planReducer(s, { type: "STEP_SELECTED", index: null });
+    expect(s.selectedStepIdx).toBeNull();
+    expect(s.selectedLegIdx).toBe(0);
+  });
+
+  it("ignores a step when no leg is open", () => {
+    const s = run(start(), { type: "STEP_SELECTED", index: 1 });
+    expect(s.selectedStepIdx).toBeNull();
+  });
+
+  it("follows the leg: a change of leg, of route or of result drops it", () => {
+    const open = run(start(), { type: "LEG_SELECTED", index: 0 }, { type: "STEP_SELECTED", index: 1 });
+
+    expect(planReducer(open, { type: "LEG_SELECTED", index: 1 }).selectedStepIdx).toBeNull();
+    expect(planReducer(open, { type: "LEG_SELECTED", index: null }).selectedStepIdx).toBeNull();
+    expect(planReducer(open, { type: "WAYPOINT_APPENDED", lat: 42.9, lon: 6.4 }).selectedStepIdx).toBeNull();
+
+    const recomputed = run(
+      open,
+      { type: "FETCH_STARTED", requestId: 1, kind: "single" },
+      {
+        type: "FETCH_SUCCEEDED",
+        requestId: 1,
+        kind: "single",
+        configFingerprint: "fp",
+        passage: passage(),
+        complexity: complexity(),
+        forecastUpdatedAt: "2026-09-10T06:00:00Z",
+      },
+    );
+    expect(recomputed.selectedStepIdx).toBeNull();
+  });
+
+  it("survives an edit that keeps the leg open", () => {
+    const s = run(
+      start(),
+      { type: "LEG_SELECTED", index: 0 },
+      { type: "STEP_SELECTED", index: 1 },
+      { type: "DEPARTURE_CHANGED", departure: "2026-09-11T08:00" },
+    );
+    expect(s.selectedLegIdx).toBe(0);
+    expect(s.selectedStepIdx).toBe(1);
   });
 });
 
@@ -260,6 +310,57 @@ describe("computing", () => {
     // The panel is on the single view, so it does not blank for a sweep.
     expect(isLoadingForMode(s)).toBe(false);
     expect(isLoadingForMode({ ...s, mode: "compare" })).toBe(true);
+  });
+});
+
+describe("l'origine du brouillon", () => {
+  // originWaypoints dit de quelle route les edits en cours sont des edits.
+  // C'est ce que le brouillon compare a l'URL au montage (plan/draft.ts).
+  it("suit la route calculee, pas la route en cours d'edition", () => {
+    let s = start({ waypoints: [MARSEILLE, PORQUEROLLES] });
+    expect(s.originWaypoints).toEqual([MARSEILLE, PORQUEROLLES]);
+
+    s = run(s, { type: "WAYPOINT_APPENDED", lat: 43.1, lon: 5.93 });
+    // Un point de plus ne deplace pas l'origine : c'est encore un edit de la
+    // route d'avant.
+    expect(s.waypoints).toHaveLength(3);
+    expect(s.originWaypoints).toEqual([MARSEILLE, PORQUEROLLES]);
+
+    s = run(s, { type: "FETCH_STARTED", requestId: 1, kind: "single" }, succeedSingle(1));
+    // Le calcul valide la route : elle devient l'origine des edits suivants.
+    expect(s.originWaypoints).toEqual(s.waypoints);
+  });
+
+  it("suit aussi un balayage et le choix d'une fenetre", () => {
+    let s = start({ waypoints: [MARSEILLE, PORQUEROLLES], mode: "compare" });
+    s = run(s, { type: "WAYPOINT_APPENDED", lat: 43.1, lon: 5.93 });
+    const edited = s.waypoints;
+    s = run(
+      s,
+      { type: "FETCH_STARTED", requestId: 1, kind: "sweep" },
+      {
+        type: "FETCH_SUCCEEDED",
+        requestId: 1,
+        kind: "sweep",
+        configFingerprint: "arome|cruiser_30ft",
+        windows: [aWindow()],
+        metaWarnings: [],
+        forecastUpdatedAt: "2026-09-09T06:00:00Z",
+      },
+    );
+    expect(s.originWaypoints).toEqual(edited);
+  });
+
+  it("repart de rien apres un nouveau plan", () => {
+    let s = start({ waypoints: [MARSEILLE, PORQUEROLLES] });
+    s = run(s, {
+      type: "RESET",
+      archetype: "cruiser_30ft",
+      departure: "2026-09-11T08:00",
+      sweepLatest: "2026-09-13T08:00",
+    });
+    expect(s.waypoints).toEqual([]);
+    expect(s.originWaypoints).toEqual([]);
   });
 });
 

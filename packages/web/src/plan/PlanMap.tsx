@@ -39,6 +39,9 @@ interface PlanMapProps {
   onMapClick?: (lat: number, lon: number) => void;
   /** Inclusive-exclusive range of segment indices to highlight (selected leg). */
   highlightedSegmentRange?: [number, number] | null;
+  /** Index into `segments` of the step open in the panel, drawn over the leg
+      highlight as a segment in the colour of its block in the strip. */
+  focusedSegmentIdx?: number | null;
   /** Optional hint for the initial view when there are no waypoints yet
       (typically propagated from the home spot via `?center=lat,lon`). */
   initialCenter?: [number, number] | null;
@@ -80,7 +83,7 @@ function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon 
 }
 
 export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
-  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, initialCenter, userPosition, onViewChange, initialZoom, showSeamarks = false, depths }: PlanMapProps,
+  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, focusedSegmentIdx = null, initialCenter, userPosition, onViewChange, initialZoom, showSeamarks = false, depths }: PlanMapProps,
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -88,7 +91,8 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   const basemapRef = useRef<Basemap | null>(null);
   const seamarkLayerRef = useRef<L.TileLayer | null>(null);
   const polylinesRef = useRef<L.Polyline[]>([]);
-  const highlightLineRef = useRef<L.Polyline | null>(null);
+  const highlightLayerRef = useRef<L.LayerGroup | null>(null);
+  const focusLayerRef = useRef<L.LayerGroup | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
   const dragLineRef = useRef<L.Polyline | null>(null);
   const segLabelsRef = useRef<L.Tooltip[]>([]);
@@ -307,7 +311,9 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
       const isLast = i === waypoints.length - 1 && waypoints.length > 1;
       // Number every waypoint 1..N so labels match the sidebar legs; last gets a flag.
       const label = isLast ? flagSvg : String(i + 1);
-      const bg = isFirst ? "#2dd4bf" : isLast ? "#e84118" : "#6b7280";
+      const bg = readToken(
+        isFirst ? "--ow-marker-active" : isLast ? "--ow-marker-end" : "--ow-marker-idle",
+      );
       const marker = L.marker([lat, lon], {
         icon: waypointIcon(label, bg, !!onWptDelete),
         draggable: true,
@@ -345,7 +351,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
         const lls = positions.map(([la, lo]) => L.latLng(la, lo));
         if (!dragLineRef.current) {
           dragLineRef.current = L.polyline(lls, {
-            color: "#6b7280",
+            color: readToken("--ow-marker-idle"),
             weight: 3,
             dashArray: "6 4",
             opacity: 0.85,
@@ -368,8 +374,10 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
 
       markersRef.current.push(marker);
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [waypoints]);
+    // resolvedTheme: the waypoint colours are read from the theme, and
+    // Leaflet keeps the resolved string in the icon markup.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waypoints, resolvedTheme]);
 
   // Fill the sounding slot of each waypoint icon.
   //
@@ -409,7 +417,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
       // A fresh route without per-segment colors (e.g. compare mode) draws as
       // a solid neutral line so it doesn't read as "not computed yet".
       const line = L.polyline(waypoints.map(([lat, lon]) => L.latLng(lat, lon)), {
-        color: "#6b7280",
+        color: readToken("--ow-marker-idle"),
         weight: 5,
         dashArray: isStale ? "6 4" : undefined,
         opacity: isStale ? 0.7 : 0.85,
@@ -455,14 +463,16 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     });
   }, [waypoints, segments, isStale]);
 
-  // Selected-leg highlight overlay — drawn on top of the colored segments,
-  // using the brand accent color so it pops against the wind palette.
+  // Selected-leg highlight overlay, drawn on top of the colored segments in
+  // the brand accent so it pops against the wind palette. Small ticks mark
+  // the boundaries between the leg's steps, so the strip in the panel and
+  // the line on the map cut the leg in the same places.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    if (highlightLineRef.current) {
-      highlightLineRef.current.remove();
-      highlightLineRef.current = null;
+    if (highlightLayerRef.current) {
+      highlightLayerRef.current.remove();
+      highlightLayerRef.current = null;
     }
     if (!highlightedSegmentRange || !segments || segments.length === 0) return;
     const [s, e] = highlightedSegmentRange;
@@ -476,16 +486,69 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     // Re-read on every theme change: the light palette darkens the accent,
     // and this overlay used to carry its own copy of both hex values.
     const accent = readToken("--ow-accent");
+    const onAccent = readToken("--ow-on-accent");
     const overlay = L.polyline(path, {
       color: accent,
       weight: 10,
       opacity: 0.85,
       lineCap: "round",
       lineJoin: "round",
-    }).addTo(map);
+    });
+    const ticks = slice.slice(0, -1).map((seg) =>
+      L.circleMarker([seg.end.lat, seg.end.lon], {
+        radius: 3,
+        color: accent,
+        weight: 1.5,
+        fillColor: onAccent,
+        fillOpacity: 0.95,
+        interactive: false,
+      }),
+    );
+    const group = L.layerGroup([overlay, ...ticks]).addTo(map);
     overlay.bringToFront();
-    highlightLineRef.current = overlay;
+    for (const t of ticks) t.bringToFront();
+    highlightLayerRef.current = group;
   }, [highlightedSegmentRange, segments, resolvedTheme]);
+
+  // The step open in the panel: its own segment drawn over the leg
+  // highlight, in the wind band of that step so it matches the block the
+  // user tapped in the strip, with a white casing so it reads as a piece
+  // laid on the line rather than a change of the line's colour. Declared
+  // after the highlight effect so that, when both redraw in one commit, the
+  // step ends up above the leg.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (focusLayerRef.current) {
+      focusLayerRef.current.remove();
+      focusLayerRef.current = null;
+    }
+    if (focusedSegmentIdx == null || !segments) return;
+    const seg = segments[focusedSegmentIdx];
+    if (!seg) return;
+    const path: L.LatLngExpression[] = [
+      L.latLng(seg.start.lat, seg.start.lon),
+      L.latLng(seg.end.lat, seg.end.lon),
+    ];
+    const casing = L.polyline(path, {
+      color: readToken("--ow-on-accent"),
+      weight: 14,
+      opacity: 0.95,
+      lineCap: "round",
+      interactive: false,
+    });
+    const step = L.polyline(path, {
+      color: readToken(cxLevelToken(cxLevel(seg.tws_kn))),
+      weight: 8,
+      opacity: 1,
+      lineCap: "round",
+      interactive: false,
+    });
+    const group = L.layerGroup([casing, step]).addTo(map);
+    casing.bringToFront();
+    step.bringToFront();
+    focusLayerRef.current = group;
+  }, [focusedSegmentIdx, segments, resolvedTheme]);
 
   return <div ref={containerRef} className="w-full h-full" />;
 });

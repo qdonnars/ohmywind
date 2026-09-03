@@ -4,19 +4,17 @@
 import { useMemo } from "react";
 import type { AggregatedLeg } from "../aggregateLegs";
 import { aggregateLegs, buildLegSummaryCells } from "../aggregateLegs";
-import { fmtClock } from "../../domain/datetime";
-import { cxLevel, cxLevelVar, SEA_FORMED_HS_M } from "../../domain/thresholds";
-import { LegDetailCard } from "../LegDetailCard";
-import type { PassageReport } from "../types";
+import { cxLevel, cxLevelVar } from "../../domain/thresholds";
+import { LegExpanded } from "./LegExpanded";
+import type { PassageReport, SegmentReport } from "../types";
 import { planMinUpwind } from "../../config/polarConfig";
 import { usePolarConfig } from "../../config/usePolarConfig";
 import { usePlan } from "../session/planContext";
 
 // ── LegList ──────────────────────────────────────────────────────────────────
-// Click-to-expand list of legs. Collapsed = single natural-language summary
-// line ("Tronçon 1 : 45 mn au près avec mer formée"). Expanded = a 4-block KPI
-// grid (vent / mer / distance / temps) above the existing compass-and-build-up
-// LegDetailCard so the user can scan or drill.
+// Click-to-expand list of legs. Collapsed = one row of summary cells (durée,
+// allure, vent, mer). Expanded = the strip of the leg's steps and the card
+// with the dial, on the average or on one step (see LegExpanded).
 
 function SummaryCell({ value }: { value: string | null }) {
   if (!value) return null;
@@ -30,80 +28,24 @@ function SummaryCell({ value }: { value: string | null }) {
   );
 }
 
-function KpiBlock({
-  value,
-  label,
-  tone,
-}: {
-  value: string;
-  label?: string;
-  tone?: "default" | "warn";
-}) {
-  return (
-    <div
-      className="rounded-md border px-2 py-1"
-      style={{
-        background: tone === "warn"
-          ? "color-mix(in srgb, var(--ow-warn, #fbbf24) 14%, transparent)"
-          : "var(--ow-bg-1)",
-        borderColor: tone === "warn"
-          ? "color-mix(in srgb, var(--ow-warn, #fbbf24) 38%, transparent)"
-          : "var(--ow-line)",
-      }}
-    >
-      <div
-        className="text-[11px] font-semibold tabular-nums leading-tight break-words"
-        style={{ color: "var(--ow-fg-0)", fontFamily: "var(--ow-font-mono)" }}
-      >
-        {value}
-      </div>
-      {label && (
-        <div
-          className="text-[9px] uppercase tracking-wider leading-tight mt-0.5 break-words"
-          style={{ color: "var(--ow-fg-2)" }}
-        >
-          {label}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function LegRow({
   leg,
   index,
   expanded,
   onToggle,
+  segments,
+  minUpwindDeg,
 }: {
   leg: AggregatedLeg;
   index: number;
   expanded: boolean;
   onToggle: () => void;
+  segments: SegmentReport[];
+  minUpwindDeg: number;
 }) {
   const cx = cxLevel((leg.tws_min + leg.tws_max) / 2);
   const summary = buildLegSummaryCells(leg);
-
-  // KPI values shown on expand. Wind + allure are intentionally absent:
-  // the collapsed row already carries them, no point repeating.
-  // Compact French formatting: "1,8m (6s)" matches sailing-French copy.
   const fr1 = (n: number) => n.toFixed(1).replace(".", ",");
-
-  const seaValue = leg.hs_avg_m == null
-    ? "—"
-    : leg.tp_avg_s != null
-      ? `${fr1(leg.hs_avg_m)}m (${leg.tp_avg_s.toFixed(0)}s)`
-      : `${fr1(leg.hs_avg_m)}m`;
-  const seaLabel = leg.hs_avg_m == null
-    ? "mer non observée"
-    : leg.sea_direction === "face"
-      ? "de face"
-      : leg.sea_direction === "travers"
-        ? "de travers"
-        : "par l'arrière";
-
-  // Warn tint when sea state notable. Mirrors the same Hs threshold the
-  // summary line uses, so "Mer Formée" badge and warn-coloured KPI agree.
-  const seaWarn = leg.hs_avg_m != null && leg.hs_avg_m > SEA_FORMED_HS_M;
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -113,9 +55,9 @@ function LegRow({
   };
   const rowBg = expanded ? "var(--ow-bg-2)" : "transparent";
 
-  // Each leg returns three `<tr>`s into the shared `<table>` in LegList:
-  // a title row (badge + name + speed + chevron), a chip row (the four
-  // summary cells), and an optional expand row (KPIs + LegDetailCard).
+  // Each leg returns two `<tr>`s into the shared `<table>` in LegList:
+  // a summary row (badge + the four cells + chevron) and an optional expand
+  // row (the steps strip + the card).
   // Because they're all in the same table, the colgroup defined in LegList
   // forces every leg's chip cells to live in the same column widths, exactly
   // the cross-row alignment a tableless flex/grid layout couldn't
@@ -142,7 +84,7 @@ function LegRow({
           <div className="flex flex-col items-start gap-0.5">
             <span
               className="inline-flex h-6 px-1.5 rounded-md items-center justify-center text-[10px] font-bold tabular-nums whitespace-nowrap"
-              style={{ background: cxLevelVar(cx), color: "#0B1D14", fontFamily: "var(--ow-font-mono)" }}
+              style={{ background: cxLevelVar(cx), color: "var(--ow-cell-ink)", fontFamily: "var(--ow-font-mono)" }}
             >
               {index + 1}→{index + 2}
             </span>
@@ -184,15 +126,8 @@ function LegRow({
       </tr>
       {expanded && (
         <tr style={{ background: rowBg }}>
-          <td colSpan={6} className="px-4 pb-3">
-            {/* Two KPI cells (time / sea). Wind, allure and distance all
-                appear in the collapsed row above; repeating them in the
-                expand was visual noise. */}
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <KpiBlock value={`${fmtClock(leg.start_time)} → ${fmtClock(leg.end_time)}`} label="dep → arr" />
-              <KpiBlock value={seaValue} label={seaLabel} tone={seaWarn ? "warn" : "default"} />
-            </div>
-            <LegDetailCard leg={leg} />
+          <td colSpan={6} className="px-4 pb-3 pt-1">
+            <LegExpanded leg={leg} segments={segments} minUpwindDeg={minUpwindDeg} />
           </td>
         </tr>
       )}
@@ -211,15 +146,10 @@ export function LegList({ passage }: { passage: PassageReport }) {
   // so a leg whose direct course sits in the no-go zone reads « Près
   // (louvoyage) » rather than a close-hauled label the boat cannot hold
   // (#277).
+  const minUpwindDeg = useMemo(() => planMinUpwind(polarCfg, archetype), [polarCfg, archetype]);
   const legs: AggregatedLeg[] = useMemo(
-    () =>
-      aggregateLegs(
-        passage.segments,
-        waypoints,
-        passage.efficiency,
-        planMinUpwind(polarCfg, archetype),
-      ),
-    [passage.segments, passage.efficiency, waypoints, polarCfg, archetype],
+    () => aggregateLegs(passage.segments, waypoints, passage.efficiency, minUpwindDeg),
+    [passage.segments, passage.efficiency, waypoints, minUpwindDeg],
   );
   const onOpenChange = actions.selectLeg;
   return (
@@ -246,6 +176,8 @@ export function LegList({ passage }: { passage: PassageReport }) {
               index={i}
               expanded={openIdx === i}
               onToggle={() => onOpenChange(openIdx === i ? null : i)}
+              segments={passage.segments}
+              minUpwindDeg={minUpwindDeg}
             />
           ))}
         </tbody>

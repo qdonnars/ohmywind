@@ -13,9 +13,14 @@
  *
  * This module is that missing tier: the tab's uncommitted state, in
  * `sessionStorage` (per tab, gone when the tab closes, never shared with the
- * next visit — a draft is not a plan). It wins over the URL and over the
- * cached simulation at mount, because by construction it is more recent
- * than both.
+ * next visit; a draft is not a plan). It wins over the cached simulation at
+ * mount, because by construction it is more recent.
+ *
+ * Against the URL it wins only over the route it was started from, which is
+ * what `originWaypoints` records. Opening a `/plan?wpts=...` link in a tab
+ * that already held a draft used to show the draft's route and the draft's
+ * boat instead of the link's: the reader followed a link and landed on
+ * somebody else's plan. See `session/initial.ts` for the resulting table.
  */
 
 import { SESSION_STORAGE_KEYS } from "../storage/keys";
@@ -34,6 +39,17 @@ export interface PlanDraft {
   /** Route under construction. May hold a single point, or none at all when
       only the departure was touched. */
   waypoints: [number, number][];
+  /** The route this draft is an edit *of*: what `/plan` was showing when the
+      first uncommitted change landed, and what the last computation left
+      behind afterwards. Empty when the draft was started from a blank page.
+
+      `null` means a draft written before this field existed. The key is not
+      versioned for it on purpose: the field is optional, its absence has a
+      defined meaning (origin unknown, so the URL wins), and bumping the key
+      would throw away the half-drawn route of every reader with `/plan` open
+      at the moment of a deploy, which is the one thing this module exists to
+      prevent. */
+  originWaypoints: [number, number][] | null;
   /** Naive local "YYYY-MM-DDTHH:MM". In ETA mode this is the target arrival,
       as on the slider itself. */
   departure: string;
@@ -74,6 +90,12 @@ export function parsePlanDraft(raw: string, now: number): PlanDraft | null {
   if (typeof parsed !== "object" || parsed === null) return null;
   const d = parsed as Record<string, unknown>;
   if (!Array.isArray(d.waypoints) || !d.waypoints.every(isCoordPair)) return null;
+  // Absent or malformed reads as "origin unknown" rather than rejecting the
+  // draft: a v1 payload is still a route worth keeping.
+  const origin =
+    Array.isArray(d.originWaypoints) && d.originWaypoints.every(isCoordPair)
+      ? (d.originWaypoints as [number, number][])
+      : null;
   if (typeof d.departure !== "string" || d.departure === "") return null;
   if (typeof d.archetype !== "string" || d.archetype === "") return null;
   if (d.mode !== "single" && d.mode !== "compare") return null;
@@ -86,6 +108,7 @@ export function parsePlanDraft(raw: string, now: number): PlanDraft | null {
   if (now - d.savedAt > MAX_AGE_MS) return null;
   return {
     waypoints: d.waypoints as [number, number][],
+    originWaypoints: origin,
     departure: d.departure,
     timeAnchor: d.timeAnchor,
     archetype: d.archetype,

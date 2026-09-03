@@ -94,6 +94,7 @@ const aWindow = (over: Partial<PassageWindow> = {}): PassageWindow => ({
 
 const session = (over: Partial<InitialSession> = {}): InitialSession => ({
   waypoints: [MARSEILLE, PORQUEROLLES],
+  originWaypoints: over.waypoints ?? [MARSEILLE, PORQUEROLLES],
   archetype: "cruiser_30ft",
   departure: "2026-09-10T08:00",
   timeAnchor: "departure",

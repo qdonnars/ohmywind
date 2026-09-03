@@ -6,7 +6,12 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import { Routes } from "./Routes";
 import { ThemeProvider } from "./design/theme";
+import { applyInitialTheme } from "./design/initialTheme";
 import { registerServiceWorker } from "./sw";
+
+// Before the first render, so the tokens the maps read from the DOM are
+// already those of the reader's theme. See applyInitialTheme.
+applyInitialTheme();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

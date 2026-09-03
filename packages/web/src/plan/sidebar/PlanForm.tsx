@@ -13,8 +13,8 @@ import { RefreshIcon } from "./parts";
 export function PlanForm({ canCalculate }: { canCalculate: boolean }) {
   const { state, actions, compute, computeWindows } = usePlan();
   const { mode, timeAnchor, waypoints } = state;
-  const accent = mode === "compare" ? "#F4C25C" : "var(--ow-accent)";
-  const ctaInk = mode === "compare" ? "#3a2a08" : "#fff";
+  const accent = mode === "compare" ? "var(--ow-compare)" : "var(--ow-accent)";
+  const ctaInk = mode === "compare" ? "var(--ow-on-compare)" : "var(--ow-on-accent)";
 
   return (
     <div className="p-4 space-y-3 animate-fade-in">

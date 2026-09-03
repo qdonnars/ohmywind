@@ -86,6 +86,10 @@ export type CacheWrite =
 export interface PlanState {
   // ── inputs ────────────────────────────────────────────────────────────────
   waypoints: [number, number][];
+  /** The route the current edits are edits *of*: the seed at mount, then the
+      route of every computation that lands. Only the draft reads it, to say
+      which URL it may outrank (`plan/draft.ts`). */
+  originWaypoints: [number, number][];
   archetype: string;
   /** Naive local "YYYY-MM-DDTHH:MM". A target arrival in `arrival` anchor. */
   departure: string;
@@ -105,6 +109,10 @@ export interface PlanState {
   // ── ui ────────────────────────────────────────────────────────────────────
   /** Expanded leg in the filled view; also drives the map highlight. */
   selectedLegIdx: number | null;
+  /** Step of the expanded leg shown in detail, null for the leg average. Also
+      drives the focus dot on the map. Follows the leg: any change of leg, of
+      route or of result drops it. */
+  selectedStepIdx: number | null;
   /** Mobile: the user confirmed a mode, so the panel can open full height. */
   actionTaken: boolean;
   /** Edits not yet computed. */
@@ -135,6 +143,7 @@ export type PlanAction =
   | { type: "MODE_CHANGED"; mode: PlanMode }
   | { type: "SWEEP_CHANGED"; earliest?: string; latest?: string; intervalHours?: number }
   | { type: "LEG_SELECTED"; index: number | null }
+  | { type: "STEP_SELECTED"; index: number | null }
   | { type: "FETCH_STARTED"; requestId: number; kind: FetchKind }
   | {
       type: "FETCH_SUCCEEDED";
@@ -174,6 +183,7 @@ export type PlanAction =
 export function createInitialState(initial: InitialSession): PlanState {
   return {
     waypoints: initial.waypoints,
+    originWaypoints: initial.originWaypoints,
     archetype: initial.archetype,
     departure: initial.departure,
     timeAnchor: initial.timeAnchor,
@@ -187,6 +197,7 @@ export function createInitialState(initial: InitialSession): PlanState {
     metaWarnings: initial.metaWarnings,
     forecastUpdatedAt: initial.forecastUpdatedAt,
     selectedLegIdx: null,
+    selectedStepIdx: null,
     actionTaken: initial.actionTaken,
     isStale: initial.isStale,
     apiError: null,
@@ -211,6 +222,7 @@ function routeEdited(state: PlanState, waypoints: [number, number][]): PlanState
   return edited(state, {
     waypoints,
     selectedLegIdx: null,
+    selectedStepIdx: null,
     // Dropping back under two waypoints rewinds the mobile panel to its
     // compact "pick a mode" step, so reaching two again offers the choice
     // again. Going back up does not restore it on its own: only a pill click
@@ -295,7 +307,12 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
       };
 
     case "LEG_SELECTED":
-      return { ...state, selectedLegIdx: action.index };
+      return { ...state, selectedLegIdx: action.index, selectedStepIdx: null };
+
+    case "STEP_SELECTED":
+      // A step without an open leg is meaningless: nothing to attach it to.
+      if (state.selectedLegIdx === null) return state;
+      return { ...state, selectedStepIdx: action.index };
 
     case "FETCH_STARTED":
       return {
@@ -324,6 +341,9 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
             pending: null,
             isStale: false,
             selectedLegIdx: null,
+            selectedStepIdx: null,
+            // A computed route is the one the next edits will be edits of.
+            originWaypoints: state.waypoints,
             passage: action.passage,
             complexity: action.complexity,
             forecastUpdatedAt: action.forecastUpdatedAt,
@@ -350,6 +370,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
           ...state,
           pending: null,
           isStale: false,
+          originWaypoints: state.waypoints,
           windows: action.windows,
           metaWarnings: action.metaWarnings,
           forecastUpdatedAt: action.forecastUpdatedAt,
@@ -402,6 +423,8 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
           pending: null,
           isStale: false,
           selectedLegIdx: null,
+          selectedStepIdx: null,
+          originWaypoints: state.waypoints,
           passage: action.window.passage,
           complexity: action.window.complexity_full,
         },
@@ -427,6 +450,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
         {
           ...state,
           waypoints: [],
+          originWaypoints: [],
           archetype: action.archetype,
           departure: action.departure,
           timeAnchor: "departure",
@@ -440,6 +464,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
           metaWarnings: [],
           forecastUpdatedAt: null,
           selectedLegIdx: null,
+          selectedStepIdx: null,
           actionTaken: false,
           isStale: false,
           apiError: null,

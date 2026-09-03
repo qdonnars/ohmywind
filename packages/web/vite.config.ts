@@ -67,8 +67,13 @@ export default defineConfig({
         // que maplibre et le runtime rolldown) ; si un jour l'entree en
         // dependait, il faudrait le remettre au precache sous peine de casser
         // le mode hors ligne.
+        // Les captures du manifeste (la feuille d'installation les affiche, une
+        // fois, avant l'installation) n'ont aucune raison de peser sur le
+        // precache : le navigateur les tire lui-meme quand il montre la
+        // feuille, et jamais ensuite.
         globIgnores: [
           '**/KaTeX_*',
+          'screenshots/**',
           'methodologie/**',
           'polars/**',
           '**/MethodologiePage-*',
@@ -105,9 +110,74 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         // SPA fallback so deep links (/plan, /config, ...) resolve offline.
         navigateFallback: '/index.html',
-        // No runtimeCaching on purpose: Leaflet map tiles and the Open-Meteo /
-        // MCP APIs must always hit the network (fresh marine data, avoid a fat
-        // opaque cache). Only the static app shell is cached for offline res.
+        // Doctrine du cache runtime : le fond de carte, et rien d'autre.
+        //
+        // Ce qui entre au cache : les octets statiques d'OpenFreeMap. Les
+        // tuiles vectorielles, les glyphes, les sprites et les fonds Natural
+        // Earth sont versionnes dans leur URL et servis avec un
+        // `Cache-Control` de dix ans ; ils ne changent jamais sous une URL
+        // donnee. Sans eux, un rechargement hors ligne affiche la coque de
+        // l'application au-dessus d'un carre vide, alors que ce sont les
+        // seules donnees de la page qui ne perimeront pas.
+        //
+        // Ce qui n'y entre jamais : les donnees marines. Open-Meteo
+        // (`api.open-meteo.com`, `marine-api.open-meteo.com`), notre propre
+        // API (`mcp.ohmywind.fr`, `mcp-dev.ohmywind.fr`, les Spaces
+        // `*.hf.space`), EMODnet et les geocodeurs restent toujours reseau :
+        // une prevision servie depuis un cache est une prevision fausse, et
+        // c'est sur elle que se decide une sortie en mer. Elles n'ont donc
+        // aucune regle ici, et l'absence de regle est la garantie : Workbox
+        // ne touche pas a ce qu'il ne reconnait pas.
+        //
+        // OpenSeaMap est exclu pour une autre raison : ses tuiles sont
+        // chargees par Leaflet en balise <img> sans `crossOrigin`, donc la
+        // reponse est opaque. Une entree opaque compte pour plusieurs Mo dans
+        // le quota d'origine quelle que soit sa taille reelle, et son statut
+        // (0) empeche de distinguer une tuile d'une erreur. Le jour ou la
+        // couche marine passera en `crossOrigin`, la question pourra se
+        // reposer.
+        runtimeCaching: [
+          {
+            // Contenus versionnes d'OpenFreeMap. `CacheFirst` parce que
+            // l'URL porte la version du planet : le contenu ne bouge pas,
+            // revalider serait un aller-retour pour rien.
+            urlPattern: /^https:\/\/tiles\.openfreemap\.org\/(planet|fonts|sprites|natural_earth)\//,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "ow-basemap-v1",
+              expiration: {
+                // 600 entrees couvrent la vue initiale (25 requetes) et
+                // plusieurs zones parcourues, sans devenir un depot sans fond.
+                maxEntries: 600,
+                maxAgeSeconds: 7 * 24 * 60 * 60,
+                // Si le navigateur refuse une ecriture faute de place, le
+                // cache se purge au lieu de rester coince en echec.
+                purgeOnQuotaError: true,
+              },
+              // 200 seulement, jamais 0 : OpenFreeMap repond en CORS `*` et
+              // MapLibre le lit en `fetch`, donc les reponses utiles sont des
+              // 200 lisibles. Admettre le statut 0 ferait entrer des reponses
+              // opaques, impossibles a distinguer d'une erreur et comptees au
+              // quota a leur taille rembourree.
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          {
+            // Les documents qui pointent vers ces contenus : la feuille de
+            // style et le TileJSON. Eux changent (nouvelle version du planet,
+            // retouche de style) et sont servis en `max-age` d'un jour.
+            // `StaleWhileRevalidate` rend la carte immediate et ramene la
+            // nouvelle version en arriere-plan ; hors ligne, la derniere
+            // connue suffit a afficher les tuiles deja en cache.
+            urlPattern: /^https:\/\/tiles\.openfreemap\.org\/(styles\/|planet$|natural_earth$)/,
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "ow-basemap-style-v1",
+              expiration: { maxEntries: 16, maxAgeSeconds: 24 * 60 * 60 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+        ],
       },
       devOptions: {
         // Keep `npm run dev` free of the service worker.

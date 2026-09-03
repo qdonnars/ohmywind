@@ -21,9 +21,9 @@ interface WindCellProps {
 
 function WindCellImpl({ time, speed, gusts, direction, selected, isNow, isDayStart, onSelect }: WindCellProps) {
   // `isNow` border takes precedence over the day separator (the now marker is more salient).
-  const nowBorder = isNow ? "border-l-2 border-l-teal-400" : "";
+  const nowBorder = isNow ? "border-l-2 border-l-accent" : "";
   const daySepClass = !isNow && isDayStart ? "ow-day-sep" : "";
-  const selectedStyle = selected ? "ring-2 ring-teal-400/70 ring-inset bg-teal-400/10" : "";
+  const selectedStyle = selected ? "ring-2 ring-accent/70 ring-inset bg-accent/10" : "";
 
   if (speed == null) {
     return (

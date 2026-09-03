@@ -39,6 +39,10 @@ const draft: Omit<PlanDraft, "savedAt"> = {
     [43.2, 5.36],
     [43.01, 6.2],
   ],
+  originWaypoints: [
+    [43.2, 5.36],
+    [43.0, 6.19],
+  ],
   departure: "2026-09-03T09:00",
   timeAnchor: "departure",
   archetype: "cruiser_30ft",
@@ -94,6 +98,43 @@ describe("plan draft round-trip", () => {
     expect(loadPlanDraft()).toBeNull();
     expect(hasPlanDraft()).toBe(false);
     expect(() => clearPlanDraft()).not.toThrow();
+  });
+});
+
+describe("originWaypoints", () => {
+  const now = 1_800_000_000_000;
+  const withoutOrigin = (over: Record<string, unknown> = {}) => {
+    const rest: Record<string, unknown> = { ...draft, savedAt: now, ...over };
+    if (!("originWaypoints" in over)) delete rest.originWaypoints;
+    return JSON.stringify(rest);
+  };
+
+  it("fait l'aller-retour, distinct de la route courante", () => {
+    installStorage();
+    savePlanDraft(draft);
+    const back = loadPlanDraft()!;
+    expect(back.originWaypoints).toEqual(draft.originWaypoints);
+    expect(back.originWaypoints).not.toEqual(back.waypoints);
+  });
+
+  it("garde une origine vide, qui dit un dessin parti de zero", () => {
+    installStorage();
+    savePlanDraft({ ...draft, originWaypoints: [] });
+    expect(loadPlanDraft()!.originWaypoints).toEqual([]);
+  });
+
+  // Le champ est arrive apres la cle : un brouillon v1 ouvert au moment d'un
+  // deploiement reste lisible, avec une origine inconnue.
+  it.each([
+    ["absent", withoutOrigin()],
+    ["null", withoutOrigin({ originWaypoints: null })],
+    ["pas un tableau", withoutOrigin({ originWaypoints: "43.2,5.36" })],
+    ["paires invalides", withoutOrigin({ originWaypoints: [[91, 5.36]] })],
+  ])("lit une origine %s comme inconnue sans jeter le brouillon", (_label, raw) => {
+    const parsed = parsePlanDraft(raw, now);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.originWaypoints).toBeNull();
+    expect(parsed!.waypoints).toEqual(draft.waypoints);
   });
 });
 

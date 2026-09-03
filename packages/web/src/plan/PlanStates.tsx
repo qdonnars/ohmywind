@@ -30,7 +30,7 @@ export function RouteSketch() {
         strokeDasharray="4 4"
       />
       <circle cx="30" cy="70" r="6" fill="var(--ow-accent)" stroke="var(--ow-bg-1)" strokeWidth="2" />
-      <circle cx="250" cy="30" r="6" fill="#FF7A59" stroke="var(--ow-bg-1)" strokeWidth="2" />
+      <circle cx="250" cy="30" r="6" fill="var(--ow-sketch-end)" stroke="var(--ow-bg-1)" strokeWidth="2" />
       <text x="30" y="88" fontSize="9" fill="var(--ow-fg-2)" fontFamily="var(--ow-font-mono)" textAnchor="middle">A</text>
       <text x="250" y="14" fontSize="9" fill="var(--ow-fg-2)" fontFamily="var(--ow-font-mono)" textAnchor="middle">B</text>
     </svg>
@@ -106,9 +106,9 @@ function BigCard({
       <div className="flex items-center gap-2 mb-1.5">
         <span
           className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
-          style={{ background: accent, color: "#0B1A14" }}
+          style={{ background: accent, color: "var(--ow-cell-ink)" }}
         >
-          <PickerIcon name={icon} color="#0B1A14" />
+          <PickerIcon name={icon} color="var(--ow-cell-ink)" />
         </span>
         <div
           className="text-sm font-semibold"
@@ -155,7 +155,7 @@ export function ModePicker({
       />
       <BigCard
         icon="clock"
-        accent="#F4C25C"
+        accent="var(--ow-compare)"
         title="Comparer les fenêtres"
         body="Vous savez où aller. OhMyWind teste plusieurs heures de départ et classe les créneaux par confort."
         example="Ex. : « Quel est le meilleur départ entre samedi et lundi ? »"
@@ -206,28 +206,87 @@ export function HeroCell({
   );
 }
 
-function SegmentBar({ segments }: { segments: SegmentReport[] }) {
+// One cell per server step, wide in proportion to its distance. With
+// `onSegmentClick` every cell is a button: a click opens the leg the step
+// belongs to and that step in the card, the same thing the strip under an
+// open leg does, reached from the overview instead. The visible bar stays
+// 8 px thin; the button around it carries the 16 px touch height.
+function SegmentBar({
+  segments,
+  legRanges,
+  focusedSegmentIdx,
+  onSegmentClick,
+}: {
+  segments: SegmentReport[];
+  legRanges?: Array<[number, number]>;
+  focusedSegmentIdx?: number | null;
+  onSegmentClick?: (segIdx: number, legIdx: number) => void;
+}) {
   const total = segments.reduce((s, seg) => s + seg.distance_nm, 0);
+  const legOf = (i: number): number =>
+    legRanges ? legRanges.findIndex(([s, e]) => i >= s && i < e) : -1;
+  const label = (seg: SegmentReport, i: number, leg: number): string => {
+    const when = `${fmtClock(seg.start_time)} → ${fmtClock(seg.end_time)}, ${Math.round(seg.tws_kn)} kn`;
+    if (leg < 0 || !legRanges) return when;
+    const [s, e] = legRanges[leg];
+    return `Tronçon ${leg + 1}→${leg + 2}, pas ${i - s + 1} sur ${e - s}, ${when}`;
+  };
   return (
-    <div className="flex h-2 rounded-sm overflow-hidden gap-[1px]" role="progressbar" aria-label="Distribution du vent par segment">
-      {segments.map((seg, i) => (
-        <div
-          key={i}
-          style={{
-            width: `${(seg.distance_nm / total) * 100}%`,
-            background: cxLevelVar(cxLevel(seg.tws_kn)),
-            minWidth: 2,
-          }}
-        />
-      ))}
+    <div
+      className="flex gap-[1px]"
+      role={onSegmentClick ? "group" : "progressbar"}
+      aria-label={onSegmentClick ? "Pas du passage, un clic ouvre le pas" : "Distribution du vent par segment"}
+    >
+      {segments.map((seg, i) => {
+        const leg = legOf(i);
+        const focused = focusedSegmentIdx === i;
+        const cell = (
+          <span
+            className="block h-2 rounded-sm"
+            style={{
+              background: cxLevelVar(cxLevel(seg.tws_kn)),
+              outline: focused ? "2px solid var(--ow-accent)" : "none",
+              outlineOffset: 1,
+            }}
+          />
+        );
+        const size = { width: `${(seg.distance_nm / total) * 100}%`, minWidth: 2 };
+        if (!onSegmentClick) {
+          return <div key={i} style={size}>{cell}</div>;
+        }
+        const text = label(seg, i, leg);
+        return (
+          <button
+            key={i}
+            type="button"
+            title={text}
+            aria-label={text}
+            aria-pressed={focused}
+            onClick={() => onSegmentClick(i, leg)}
+            className="py-1 cursor-pointer transition-opacity hover:opacity-80"
+            style={size}
+          >
+            {cell}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
 export function HeroStats({
   passage,
+  legRanges,
+  focusedSegmentIdx,
+  onSegmentClick,
 }: {
   passage: PassageReport;
+  /** Segment ranges of the legs, so a cell of the bar knows its leg. */
+  legRanges?: Array<[number, number]>;
+  /** Passage-wide index of the step open in the panel, ringed in the bar. */
+  focusedSegmentIdx?: number | null;
+  /** Makes the bar clickable. */
+  onSegmentClick?: (segIdx: number, legIdx: number) => void;
 }) {
   // Complexity isn't a tile any more — the colored segment bar below already
   // tells the same story (per-leg wind buckets) without a redundant number.
@@ -238,9 +297,14 @@ export function HeroStats({
         <HeroCell label="Durée" value={fmtDurationSafe(passage.duration_h)} />
         <HeroCell label="Arrivée" value={fmtClock(passage.arrival_time)} />
       </div>
-      <SegmentBar segments={passage.segments} />
+      <SegmentBar
+        segments={passage.segments}
+        legRanges={legRanges}
+        focusedSegmentIdx={focusedSegmentIdx}
+        onSegmentClick={onSegmentClick}
+      />
       <div
-        className="flex justify-between mt-1.5 text-[9px] tabular-nums"
+        className="flex justify-between mt-1 text-[9px] tabular-nums"
         style={{ color: "var(--ow-fg-2)", fontFamily: "var(--ow-font-mono)" }}
       >
         <span>&lt;10 · 10–15 · 15–20 · 20–25 · &gt;25 kn</span>

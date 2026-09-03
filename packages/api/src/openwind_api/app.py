@@ -28,12 +28,13 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from openwind_api.access import AccessLogMiddleware
 from openwind_api.routes.archetypes import api_archetypes, api_client_debug
 from openwind_api.routes.landing import ICON_REDIRECTS, icon_redirect, index, static_asset_route
-from openwind_api.routes.marine import api_marc_coverage, api_marc_overlay
+from openwind_api.routes.marine import api_marc_batch, api_marc_coverage, api_marc_overlay
 from openwind_api.routes.passage import api_passage, api_passage_by_eta
 from openwind_api.security import (
     ALLOWED_ORIGINS,
     BodySizeLimitMiddleware,
     RateLimitMiddleware,
+    RequestDecompressionMiddleware,
     SecurityHeadersMiddleware,
 )
 from openwind_api.services import Services
@@ -148,6 +149,7 @@ def create_app(
         Route("/api/v1/passage", api_passage, methods=["POST"]),
         Route("/api/v1/passage-by-eta", api_passage_by_eta, methods=["POST"]),
         Route("/api/v1/marine/marc", api_marc_overlay, methods=["GET"]),
+        Route("/api/v1/marine/marc/batch", api_marc_batch, methods=["POST"]),
         Route("/api/v1/marine/marc/coverage", api_marc_coverage, methods=["GET"]),
     ]
     if mcp_app is not None:
@@ -186,9 +188,15 @@ def create_app(
             Middleware(PathScopedGZipMiddleware),
             Middleware(SecurityHeadersMiddleware),
             Middleware(RateLimitMiddleware),
-            # Innermost: an over-sized body is refused after it has been
-            # counted against the caller's quota, never before.
+            # An over-sized body is refused after it has been counted
+            # against the caller's quota, never before.
             Middleware(BodySizeLimitMiddleware),
+            # Innermost, so it sees the bytes the ceiling above already
+            # accepted and applies the same ceiling again to what they expand
+            # to. The order is load-bearing: a compressed body's declared
+            # length says nothing about its decompressed size, so the outer
+            # check alone would let a 40 KB request become 4 GB of JSON.
+            Middleware(RequestDecompressionMiddleware),
         ],
         lifespan=_lifespan(services, mcp_app),
     )

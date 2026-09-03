@@ -4,39 +4,26 @@
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { useEffect, useState } from 'react';
 
+import { getInitialMode } from './initialTheme';
 import { ThemeCtx, useTheme, type ThemeMode } from './useTheme';
 
 const STORAGE_KEY = LOCAL_STORAGE_KEYS.theme;
 
-// Every access below is guarded because both APIs throw outright, rather than
-// returning null, when the browser blocks site data: Safari in private mode
-// for localStorage, and any embedder that denies matchMedia. A theme is a
-// preference, so failing to read one falls back to the default instead of
-// taking the app down.
-function getInitialMode(): ThemeMode {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY) as ThemeMode | null;
-    if (stored === 'light' || stored === 'dark') return stored;
-  } catch {
-    // Storage denied: fall through to the system preference.
-  }
-  // No stored preference — follow system
-  try {
-    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-  } catch {
-    // matchMedia denied: fall through to the default below.
-  }
-  return 'dark';
-}
-
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>(getInitialMode);
 
+  // Keeps the attribute in step with the state. The two other writers
+  // (applyInitialTheme, called from main.tsx, and setMode below) are there to
+  // beat an ordering, not to replace this one.
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', mode);
   }, [mode]);
 
   function setMode(m: ThemeMode) {
+    // Written before the re-render, for the same reason as the initial stamp:
+    // the map effects that resolve a token from the DOM run before the
+    // provider's own effect, and would otherwise read the outgoing palette.
+    document.documentElement.setAttribute('data-theme', m);
     setModeState(m);
     try {
       localStorage.setItem(STORAGE_KEY, m);

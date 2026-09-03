@@ -34,6 +34,7 @@ test asserts it by importing the package with the name `mcp` blocked.
 | `POST /api/v1/passage` | plan one departure, or sweep a range of them |
 | `POST /api/v1/passage-by-eta` | pin the arrival, solve for the departure |
 | `GET /api/v1/marine/marc` | tidal atlas overlay for one point |
+| `POST /api/v1/marine/marc/batch` | the same overlay for a whole corridor, in one call |
 | `GET /api/v1/marine/marc/coverage` | where it is worth asking at all |
 | `GET /api/v1/_client` | how the deployment sees the caller (rate-limit diagnosis) |
 | `GET /` | the landing page |
@@ -56,6 +57,68 @@ test asserts it by importing the package with the name `mcp` blocked.
 Serialising a passage is not here: that is `openwind_data.views`, shared with
 the MCP shell so the two describe the same sailing.
 
+## The overlay, one point or a corridor
+
+`GET /api/v1/marine/marc` answers for one point. `POST /api/v1/marine/marc/batch`
+answers for many, from the same function, so an overlay in the batch is byte
+for byte the GET's body for that point:
+
+```json
+{"points": [[lat, lon], ...], "start": "<ISO>", "end": "<ISO>", "step_minutes": 60}
+```
+
+`{"overlays": [...]}`, one object per point, **in the order the points were
+sent** (a client zips them back by index), `covered: false` entries included.
+Not cached: a POST body is not a cache key any intermediary honours, and the
+GET is still there for clients that want the day-long cache. One rate-limit
+token per call, whatever the point count.
+
+The window rules are the GET's, applied once. Three ceilings bound a call, and
+they are checked in this order:
+
+| Ceiling | Default | `code` |
+| --- | --- | --- |
+| points | 120 | `too_many_points` |
+| steps, i.e. instants in the window | 800 | `too_many_steps` |
+| points x steps | 24 000 (`OPENWIND_MARC_BATCH_MAX_CELLS`) | `batch_too_large` |
+
+The third exists because the first two do not bound the product: 120 points
+over 30 days hourly is 86 520 point-steps and 5.2 s of prediction, measured on
+the real atlases, on a bucket that allows 120 requests a minute per IP. The
+web app's own call is 21 points over 7 days hourly, 3549 point-steps, seven
+times inside the cap. The work runs off the event loop either way.
+
+## Compressed request bodies
+
+`POST /api/v1/*` accepts `Content-Encoding: gzip` (and `deflate`, in both the
+zlib and the raw shapes the name is used for). The web client's biggest
+legitimate body is 48 KB of `forecast_cache` that gzips to 1.5 KB, which on a
+marina 4G link is the difference between a plan that starts now and one that
+starts in a second.
+
+The 4 MiB body ceiling applies to the **decompressed** bytes, and it is
+enforced as they are produced rather than after the fact: `zlib` is never
+asked for more than what is left of the budget, so a body that expands past
+the ceiling is refused with the usual 413 `body_too_large` having allocated a
+few kilobytes. A compressed body is also still bounded on the wire by the same
+ceiling, by the middleware outside this one.
+
+| Situation | Status | `code` |
+| --- | --- | --- |
+| decompressed body over the ceiling | 413 | `body_too_large` |
+| `Content-Encoding` we do not implement (`br`, `zstd`, a list) | 415 | `unsupported_encoding` |
+| body that does not decode as it claims to | 422 | `invalid_body_encoding` |
+
+`/mcp` is untouched: it is outside the `/api/v1` prefix and frames its own
+bodies.
+
+Hugging Face's edge passes request bodies through untouched, headers included,
+so a gzipped POST reaches the container as it was sent. Nothing at the edge
+decompresses it on our behalf, and nothing there rejects the header. The
+Cloudflare Worker in `packages/edge-proxy` forwards the body unchanged too.
+Verify on the dev Space after a deploy with the plain and the gzipped body
+side by side: the two responses must be identical.
+
 ## Logs
 
 One line per request on the `openwind_api.access` logger, at INFO, in logfmt:
@@ -70,6 +133,9 @@ only CPU. `bucket` is `sha256(client address)[:8]`: enough to tell whether one
 caller is responsible for a burst, and not an address. **No address is ever
 logged**, in any field, in any shape, and a test greps the whole log to keep
 it that way.
+
+`enc` is appended only when the request declared a `Content-Encoding`, so a
+plain request logs the line it always logged.
 
 `X-Request-Id` is echoed when the caller sends a usable one (64 chars of
 `[A-Za-z0-9._:-]`) and generated otherwise, returned on every response and

@@ -12,6 +12,7 @@ import {
   marcMayCover,
   mergeMarcOverlay,
   parseMarcCoverage,
+  resetMarcBatchSupport,
   type MarcAtlasBox,
   type MarcOverlay,
 } from "./marine";
@@ -356,14 +357,28 @@ describe("fetchMarineCorridor", () => {
 
   interface Calls {
     marine: string[];
+    /** Per-point GET /marine/marc, the path the batch route replaces. */
     marc: string[];
+    /** One entry per POST /marine/marc/batch: the points it carried. */
+    batch: [number, number][][];
     coverage: number;
   }
 
+  interface StubOpts {
+    /** Status of the batch route. 404 is a Space that predates it. */
+    batchStatus?: number;
+    /** Body of a 200 batch answer. Defaults to one uncovered overlay per point. */
+    batchBody?: (points: [number, number][]) => unknown;
+  }
+
   /** Stubs fetch and records what was asked of whom. */
-  function stubFetch(coverage: { status: number; body?: unknown }, points: number): Calls {
-    const calls: Calls = { marine: [], marc: [], coverage: 0 };
-    vi.stubGlobal("fetch", async (input: string) => {
+  function stubFetch(
+    coverage: { status: number; body?: unknown },
+    points: number,
+    opts: StubOpts = {},
+  ): Calls {
+    const calls: Calls = { marine: [], marc: [], batch: [], coverage: 0 };
+    vi.stubGlobal("fetch", async (input: string, init?: RequestInit) => {
       const url = String(input);
       if (url.includes("/marine/marc/coverage")) {
         calls.coverage += 1;
@@ -371,6 +386,21 @@ describe("fetchMarineCorridor", () => {
           ok: coverage.status === 200,
           status: coverage.status,
           json: async () => coverage.body,
+        };
+      }
+      if (url.includes("/marine/marc/batch")) {
+        const sent = JSON.parse(String(init?.body ?? "{}")) as {
+          points: [number, number][];
+        };
+        calls.batch.push(sent.points);
+        const status = opts.batchStatus ?? 200;
+        return {
+          ok: status >= 200 && status < 300,
+          status,
+          json: async () =>
+            opts.batchBody
+              ? opts.batchBody(sent.points)
+              : { overlays: sent.points.map(() => ({ covered: false })) },
         };
       }
       if (url.includes("/marine/marc")) {
@@ -397,6 +427,7 @@ describe("fetchMarineCorridor", () => {
   beforeEach(() => {
     clearMarineCache();
     clearMarcCoverageCache();
+    resetMarcBatchSupport();
     vi.stubGlobal("localStorage", {
       getItem: () => null,
       setItem: () => {},
@@ -438,27 +469,36 @@ describe("fetchMarineCorridor", () => {
     expect(calls.coverage).toBe(1);
   });
 
-  it("still asks MARC inside an atlas", async () => {
+  it("asks MARC once for the whole corridor inside an atlas", async () => {
     const calls = stubFetch({ status: 200, body: { atlases: [MED_BOX] } }, 2);
     await fetchMarineCorridor([
       { lat: 48.3, lon: -4.5 },
       { lat: 48.4, lon: -4.6 },
     ]);
-    expect(calls.marc).toHaveLength(2);
-    expect(calls.marc[0]).toContain("lat=48.3");
+    expect(calls.batch).toEqual([
+      [
+        [48.3, -4.5],
+        [48.4, -4.6],
+      ],
+    ]);
+    expect(calls.marc).toEqual([]);
   });
 
-  it("falls back to asking every point when the endpoint is missing", async () => {
-    // A Space deployed before the coverage route exists answers 404.
+  it("asks every point when the coverage endpoint is missing, but in one batch", async () => {
+    // A Space deployed before the coverage route exists answers 404, so every
+    // point is a candidate again. That is one batch, not one call per point.
     const calls = stubFetch({ status: 404 }, 4);
     await fetchMarineCorridor(MED_CORRIDOR);
-    expect(calls.marc).toHaveLength(4);
+    expect(calls.batch).toHaveLength(1);
+    expect(calls.batch[0]).toHaveLength(4);
+    expect(calls.marc).toEqual([]);
   });
 
-  it("falls back the same way on a malformed body", async () => {
+  it("does the same on a malformed coverage body", async () => {
     const calls = stubFetch({ status: 200, body: { oops: true } }, 4);
     await fetchMarineCorridor(MED_CORRIDOR);
-    expect(calls.marc).toHaveLength(4);
+    expect(calls.batch).toHaveLength(1);
+    expect(calls.batch[0]).toHaveLength(4);
   });
 
   it("asks the coverage endpoint once per session, not once per point", async () => {
@@ -521,7 +561,131 @@ describe("fetchMarineCorridor", () => {
       4,
     );
     await fetchMarineCorridor(MED_CORRIDOR);
+    expect(calls.batch).toHaveLength(1);
+    expect(calls.batch[0]).toHaveLength(4);
+  });
+
+  it("porte la fenetre et le pas dans le corps du lot", async () => {
+    let body: Record<string, unknown> = {};
+    vi.stubGlobal("fetch", async (input: string, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/coverage")) {
+        return { ok: false, status: 404, json: async () => ({}) };
+      }
+      if (url.includes("/marine/marc/batch")) {
+        body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            overlays: (body.points as unknown[]).map(() => ({ covered: false })),
+          }),
+        };
+      }
+      return { ok: true, status: 200, json: async () => [omPoint(0.5)] };
+    });
+    await fetchMarineCorridor(MED_CORRIDOR.slice(0, 1));
+    expect(body.step_minutes).toBe(60);
+    expect(String(body.start)).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(Date.parse(String(body.end)) - Date.parse(String(body.start))).toBe(
+      7 * 24 * 3600 * 1000,
+    );
+  });
+
+  it("fusionne chaque reponse du lot dans le point qui lui correspond", async () => {
+    // Deux points couverts, un seul rendu couvert par le serveur : la maree
+    // MARC doit atterrir sur le second et pas sur le premier.
+    const calls = stubFetch({ status: 404 }, 2, {
+      batchBody: (points) => ({
+        overlays: points.map((_, k) =>
+          k === 1
+            ? {
+                covered: true,
+                z0_hydro_m: -3.74,
+                // omPoint parle en heure de Paris : le 8 mai a 00:00 CEST,
+                // c'est 22:00Z la veille.
+                times: [
+                  "2026-05-07T22:00:00+00:00",
+                  "2026-05-07T23:00:00+00:00",
+                  "2026-05-08T00:00:00+00:00",
+                ],
+                tide_height_m: [3.1, 3.2, 3.3],
+                current_speed_kn: [0.4, 0.5, 0.6],
+                current_direction_to_deg: [90, 90, 90],
+              }
+            : { covered: false },
+        ),
+      }),
+    });
+    const out = await fetchMarineCorridor([
+      { lat: 48.3, lon: -4.5 },
+      { lat: 48.4, lon: -4.6 },
+    ]);
+    expect(calls.batch).toHaveLength(1);
+    expect(out[0]!.tide_height_zh_m).toBeUndefined();
+    expect(out[0]!.current_speed_kn[0]).toBeCloseTo(1); // SMOC, intact
+    expect(out[1]!.tide_height_zh_m![0]).toBeCloseTo(3.1 + 3.74);
+    expect(out[1]!.current_speed_kn[0]).toBeCloseTo(0.4);
+  });
+
+  it("remplit le cache par point depuis la reponse du lot", async () => {
+    const calls = stubFetch({ status: 404 }, 2);
+    const route = [
+      { lat: 48.3, lon: -4.5 },
+      { lat: 48.4, lon: -4.6 },
+    ];
+    await fetchMarineCorridor(route);
+    await fetchMarineCorridor(route);
+    // Le second calcul ne redemande rien, ni la meteo marine ni MARC.
+    expect(calls.marine).toHaveLength(1);
+    expect(calls.batch).toHaveLength(1);
+  });
+
+  it("revient au point par point quand la route de lot n'existe pas, une seule fois", async () => {
+    const calls = stubFetch({ status: 404 }, 4, { batchStatus: 404 });
+    await fetchMarineCorridor(MED_CORRIDOR);
+    expect(calls.batch).toHaveLength(1);
     expect(calls.marc).toHaveLength(4);
+
+    // Le verdict est retenu : le corridor suivant part directement en GET.
+    clearMarineCache();
+    await fetchMarineCorridor(MED_CORRIDOR);
+    expect(calls.batch).toHaveLength(1);
+    expect(calls.marc).toHaveLength(8);
+  });
+
+  it("fait de meme sur un 405", async () => {
+    const calls = stubFetch({ status: 404 }, 4, { batchStatus: 405 });
+    await fetchMarineCorridor(MED_CORRIDOR);
+    expect(calls.marc).toHaveLength(4);
+  });
+
+  it("garde les donnees Open-Meteo quand le lot echoue autrement", async () => {
+    // 500 n'est pas un verdict sur la route : pas de repli, pas de recouvrement
+    // MARC, mais le corridor garde ses vagues et ses courants SMOC.
+    const calls = stubFetch({ status: 404 }, 4, { batchStatus: 500 });
+    const out = await fetchMarineCorridor(MED_CORRIDOR);
+    expect(calls.marc).toEqual([]);
+    expect(out.every((m) => m !== null)).toBe(true);
+    expect(out[0]!.wave_height_m[0]).toBe(0.5);
+  });
+
+  it("rejette un lot dont la longueur ne correspond pas aux points envoyes", async () => {
+    // Un decalage collerait la maree d'un point sur la position d'un autre.
+    const calls = stubFetch({ status: 404 }, 4, {
+      batchBody: () => ({ overlays: [{ covered: true }] }),
+    });
+    const out = await fetchMarineCorridor(MED_CORRIDOR);
+    expect(calls.marc).toEqual([]);
+    expect(out.every((m) => m !== null)).toBe(true);
+    expect(out[0]!.tide_height_zh_m).toBeUndefined();
+  });
+
+  it("ne demande rien du tout quand aucun point n'est couvert", async () => {
+    const calls = stubFetch({ status: 200, body: { atlases: [MED_BOX] } }, 4);
+    await fetchMarineCorridor(MED_CORRIDOR);
+    expect(calls.batch).toEqual([]);
+    expect(calls.marc).toEqual([]);
   });
 
   it("returns an empty result for an empty corridor without asking anything", async () => {

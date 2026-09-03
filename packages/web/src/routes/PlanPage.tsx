@@ -17,7 +17,7 @@ import { loadLastSimulation } from "../plan/lastSimulation";
 import { resolveInitialSession, type InitialSession } from "../plan/session/initial";
 import { usePlanSession, currentConfigFingerprint } from "../plan/session/usePlanSession";
 import { PlanProvider } from "../plan/session/PlanProvider";
-import { computeLegSegmentRanges } from "../plan/aggregateLegs";
+import { computeLegSegmentRanges, focusedSegmentIndex } from "../plan/aggregateLegs";
 import { loadPolarConfig } from "../config/polarConfig";
 import { LocateButton } from "../components/LocateButton";
 import { SeamarkButton } from "../components/SeamarkButton";
@@ -401,7 +401,7 @@ export function PlanPage() {
   const { state, actions, isLoading } = usePlanSession(initial);
   // The page itself only needs what the map and the drawer are built on; the
   // panel reads everything else from the context below.
-  const { waypoints, passage, windows, mode: planMode, selectedLegIdx, actionTaken, isStale } = state;
+  const { waypoints, passage, windows, mode: planMode, selectedLegIdx, selectedStepIdx, actionTaken, isStale } = state;
 
   const waypointDepths = useWaypointDepths(waypoints);
   const [archetypes, setArchetypes] = useState<Archetype[]>([]);
@@ -429,16 +429,16 @@ export function PlanPage() {
   // Memoised: PlanMap keys an effect on this tuple, and a fresh one on every
   // render made it destroy and redraw the highlight polyline each time a
   // slider ticked.
-  const highlightedSegmentRange = useMemo(
-    () =>
-      selectedLegIdx != null && passage
-        ? computeLegSegmentRanges(
-            passage.segments as { start: { lat: number; lon: number } }[],
-            waypoints,
-          )[selectedLegIdx] ?? null
-        : null,
-    [selectedLegIdx, passage, waypoints],
+  const legRanges = useMemo(
+    () => (passage ? computeLegSegmentRanges(passage.segments, waypoints) : []),
+    [passage, waypoints],
   );
+  const highlightedSegmentRange = useMemo(
+    () => (selectedLegIdx != null ? legRanges[selectedLegIdx] ?? null : null),
+    [selectedLegIdx, legRanges],
+  );
+  // The step open in the panel, as an index into the passage's segments.
+  const focusedSegmentIdx = focusedSegmentIndex(legRanges, selectedLegIdx, selectedStepIdx);
 
   // Route edited after a result: the drawer content flips to the "Cliquez
   // sur Recalculer" placeholders while the results fit above may have left
@@ -491,7 +491,7 @@ export function PlanPage() {
           <a
             href={`/${mapViewQuery(mapView)}`}
             className="inline-block mt-4 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
-            style={{ background: "var(--ow-accent)", color: "#fff" }}
+            style={{ background: "var(--ow-accent)", color: "var(--ow-on-accent)" }}
           >
             ← Explorer la météo
           </a>
@@ -544,12 +544,13 @@ export function PlanPage() {
             showSeamarks={seamarks}
             depths={waypointDepths}
             highlightedSegmentRange={highlightedSegmentRange}
+            focusedSegmentIdx={focusedSegmentIdx}
           />
           {/* Back-to-explore FAB — mirrors the compass FAB on the home map */}
           <a
             href={`/${mapViewQuery(mapView)}`}
             className="absolute top-3 left-3 z-[400] w-[58px] h-[58px] sm:w-20 sm:h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
-            style={{ background: "var(--ow-accent)", color: "#fff" }}
+            style={{ background: "var(--ow-accent)", color: "var(--ow-on-accent)" }}
             title="Retour à l'exploration"
           >
             <img src="/wind-icon.png" alt="" className="select-none w-[64px] h-[64px] sm:w-[88px] sm:h-[88px]" draggable={false} />

@@ -4,8 +4,16 @@
    Dark theme is the default; light theme overrides are listed
    after. Both selectors are applied to <html data-theme="...">
    via ThemeProvider in theme.tsx.
+
+   The dark block also matches :root, so the tokens exist before
+   ThemeProvider has set data-theme, which it only does from an
+   effect. Anything painted before hydration (the body background
+   in index.html) would otherwise be styled with an undefined
+   variable and flash white. Same specificity as the light block,
+   which comes later in the file and therefore still wins.
    ============================================================= */
 
+:root,
 [data-theme="dark"] {
   /* Backgrounds */
   --ow-bg-0: #030712;        /* deepest bg (gray-950) */
@@ -23,6 +31,33 @@
   --ow-accent: #2dd4bf;
   --ow-accent-soft: rgba(45, 212, 191, 0.12);
   --ow-accent-line: rgba(45, 212, 191, 0.25);
+  /* Filled accent control (a selected column header, a primary button): the
+     accent itself is a *text and stroke* colour, too bright here to carry
+     white type. This pair is the one that may. */
+  --ow-accent-strong: #0d9488;
+  --ow-accent-strong-hover: #14b8a6;
+  /* One step deeper: a second filled band that has to read *below* the
+     selected one without leaving the accent family (the current hour, under
+     the hour the reader picked). */
+  --ow-accent-deep: #0f766e;
+  --ow-on-accent: #ffffff;
+  /* Ink on that second band. A tinted white rather than white: it is what
+     keeps the current hour reading as secondary to the picked one. */
+  --ow-on-accent-muted: #ccfbf1;
+
+  /* Destructive action. Same values in both themes so far, named here so a
+     future light-theme adjustment has somewhere to land. */
+  --ow-danger: rgba(185, 28, 28, 0.8);
+  --ow-danger-hover: #dc2626;
+  --ow-danger-active: #ef4444;
+  --ow-on-danger: #ffffff;
+
+  /* Compare mode. A second accent, on purpose: the two planner modes have to
+     read as two different things and not as two states of one, so "comparer
+     les fenetres" owns the amber the way "simuler ma route" owns the teal.
+     Amber is bright enough that its ink is a near-black, not white. */
+  --ow-compare: #F4C25C;
+  --ow-on-compare: #3a2a08;
 
   /* Lines */
   --ow-line: rgba(255, 255, 255, 0.08);
@@ -57,7 +92,8 @@
   --ow-w-6: #e84118;         /* fort — rouge-orange */
   --ow-w-7: #c41408;         /* très fort — rouge */
   --ow-w-8: #8b1460;         /* tempête — magenta foncé */
-  --ow-cell-ink: #0B1D14;    /* texte sur cellules claires */
+  --ow-cell-ink: #0B1D14;    /* encre sombre sur tout aplat clair : cellules,
+                                pastilles de complexite, cartes de mode */
 
   /* Text colors per Beaufort level */
   --ow-cell-text-0: #e8eaf0;
@@ -89,7 +125,27 @@
   --ow-ok-line: rgba(52, 211, 153, 0.25);
   --ow-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
 
+  /* The current on the leg dial and in the numbers beside it, whatever its
+     sense: the sign of its contribution is written in the build-up, the
+     colour only says "this is the current". Blue on purpose: distinct from
+     the wave amber and the accent, and grey washes out on the light theme. */
+  --ow-current: #3b82f6;
+
+  /* The B end of the route in the empty-state sketch. Softer than the map's
+     own end marker, which it deliberately does not share. */
+  --ow-sketch-end: #FF7A59;
+
   /* Map */
+  /* Markers drawn by Leaflet, which takes a resolved colour and not a var().
+     Read through design/tokens.ts. Named by role rather than by position so
+     the two maps (explore, plan) can share them. */
+  --ow-marker-active: #2dd4bf;    /* the spot being read, the first waypoint */
+  --ow-marker-idle: #6b7280;      /* a saved spot that is not the active one */
+  --ow-marker-stroke: #ffffff;    /* ring around the active marker */
+  --ow-marker-stroke-idle: #9ca3af;
+  --ow-marker-end: #e84118;       /* the last waypoint of a route */
+  --ow-map-arrow: #ffffff;        /* wind, wave and current arrows over the map */
+
   --ow-map-sea-0: #0B1A2E;
   --ow-map-sea-1: #060B17;
   --ow-map-land-0: #0F1A2A;
@@ -111,6 +167,19 @@
   --ow-accent: #0f766e;
   --ow-accent-soft: rgba(15, 118, 110, 0.12);
   --ow-accent-line: rgba(15, 118, 110, 0.25);
+  --ow-accent-strong: #0f766e;
+  --ow-accent-strong-hover: #0d9488;
+  --ow-accent-deep: #115e59;
+  --ow-on-accent: #ffffff;
+  --ow-on-accent-muted: #ccfbf1;
+
+  --ow-danger: rgba(185, 28, 28, 0.8);
+  --ow-danger-hover: #dc2626;
+  --ow-danger-active: #ef4444;
+  --ow-on-danger: #ffffff;
+
+  --ow-compare: #F4C25C;
+  --ow-on-compare: #3a2a08;
 
   --ow-line: rgba(0, 0, 0, 0.08);
   --ow-line-2: rgba(0, 0, 0, 0.14);
@@ -121,6 +190,19 @@
   --ow-shadow-1: 0 1px 4px rgba(0, 0, 0, 0.12);
   --ow-shadow-2: 0 4px 16px rgba(0, 0, 0, 0.14);
   --ow-shadow-pop: 0 8px 32px rgba(0, 0, 0, 0.16);
+
+  /* Markers are the same colour in both themes today, which is why they were
+     writable as four hex values in the first place. They are listed again
+     here because that is a design decision, not a fact: the dark teal has
+     1.7:1 on a pale sea, and the day someone wants to fix that, this is the
+     line to change and nothing else. The arrows are the one map colour that
+     already differed. */
+  --ow-marker-active: #2dd4bf;
+  --ow-marker-idle: #6b7280;
+  --ow-marker-stroke: #ffffff;
+  --ow-marker-stroke-idle: #9ca3af;
+  --ow-marker-end: #e84118;
+  --ow-map-arrow: #64748b;
 
   --ow-map-sea-0: #c8ddf0;
   --ow-map-sea-1: #b0cee8;
@@ -177,4 +259,8 @@
   --ow-ok-soft: rgba(14, 159, 143, 0.12);
   --ow-ok-line: rgba(14, 159, 143, 0.40);
   --ow-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+
+  --ow-current: #3b82f6;
+
+  --ow-sketch-end: #FF7A59;
 }

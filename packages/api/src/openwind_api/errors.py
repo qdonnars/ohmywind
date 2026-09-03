@@ -26,6 +26,8 @@ code                         status  meaning
 ``invalid_waypoints``        422     the route did not parse
 ``too_few_waypoints``        422     fewer than 2 points
 ``too_many_waypoints``       422     more than ``MAX_WAYPOINTS``
+``too_many_points``          422     more points than one batch call may carry
+``batch_too_large``          422     a batch's points x steps exceeds the cap
 ``waypoint_out_of_range``    422     a coordinate is not on Earth
 ``unknown_archetype``        422     no such boat
 ``invalid_efficiency``       422     outside (0, 1]
@@ -39,7 +41,10 @@ code                         status  meaning
 ``invalid_time_window``      422     start/end pair refused
 ``too_many_steps``           422     the series would be longer than allowed
 ``invalid_request``          422     anything else the domain refused
-``body_too_large``           413     the request body exceeds the ceiling
+``invalid_body_encoding``    422     the body does not decode as it claims to
+``body_too_large``           413     the request body exceeds the ceiling,
+                                     before or after decompression
+``unsupported_encoding``     415     ``Content-Encoding`` we cannot decode
 ``rate_limited``             429     our own limiter, with ``retry_after``
 ``upstream_timeout``         503     Open-Meteo did not answer in time
 ``upstream_rate_limited``    503     Open-Meteo is refusing us
@@ -48,6 +53,12 @@ code                         status  meaning
 A caller that does not recognise a code must fall back on the status: the list
 grows, and a client pinned to an exhaustive match would break on the next
 addition.
+
+The transport-level ones (``body_too_large``, ``unsupported_encoding``,
+``invalid_body_encoding``, ``rate_limited``) are raised in ``security.py``,
+which builds its own responses: it is deployment hardening and deliberately
+knows nothing about the domain. They are listed here because the table is the
+contract, and a caller does not care which module answered.
 """
 
 from __future__ import annotations

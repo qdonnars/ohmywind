@@ -127,6 +127,7 @@ export function syncDraft(state: PlanState): void {
   }
   savePlanDraft({
     waypoints: state.waypoints,
+    originWaypoints: state.originWaypoints,
     departure: state.departure,
     timeAnchor: state.timeAnchor,
     archetype: state.archetype,
