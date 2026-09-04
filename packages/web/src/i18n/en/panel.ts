@@ -123,6 +123,7 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.legDetail.buildUpPolar": "{value} polar",
   "panel.legDetail.buildUpSea": "{value} sea",
   "panel.legDetail.buildUpCurrent": "{value} current",
+  "panel.legDetail.buildUpMotor": "{value} motor",
   "panel.legDetail.headerAverage": "Average · {duration}",
   "panel.legDetail.headerHint": "tap a step",
   "panel.legDetail.noteMotorOnStep": "under engine on this step",

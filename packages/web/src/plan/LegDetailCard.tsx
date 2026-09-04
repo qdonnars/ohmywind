@@ -283,13 +283,28 @@ export function LegDetailCard({
           </div>
           {!spread && (
             <div className="mt-1 text-[10px] flex flex-wrap gap-x-1.5" style={{ paddingLeft: LABEL_PX + 8 }}>
-              <span style={{ color: FORCE_COLORS.wind }}>
-                {t("panel.legDetail.buildUpPolar", { value: num1(view.polar_after_eff_kn) })}
-              </span>
-              {hasWaves && Math.abs(view.wave_delta_kn) > 0.05 && (
-                <span style={{ color: FORCE_COLORS.waves }}>
-                  {t("panel.legDetail.buildUpSea", { value: fmtSigned1(view.wave_delta_kn) })}
+              {view.motor_used ? (
+                // Under engine neither the polar nor the sea apply: the boat
+                // does the motoring speed and only the current moves the
+                // figure. Spelling it out as "polar + sea" showed the sea
+                // adding speed, which was the residual of a formula that is
+                // not in force on this step (2,3 polaire +1,8 mer at 4 kn).
+                <span style={{ color: "var(--ow-fg-1)" }}>
+                  {t("panel.legDetail.buildUpMotor", {
+                    value: num1(view.polar_after_eff_kn + view.wave_delta_kn),
+                  })}
                 </span>
+              ) : (
+                <>
+                  <span style={{ color: FORCE_COLORS.wind }}>
+                    {t("panel.legDetail.buildUpPolar", { value: num1(view.polar_after_eff_kn) })}
+                  </span>
+                  {hasWaves && Math.abs(view.wave_delta_kn) > 0.05 && (
+                    <span style={{ color: FORCE_COLORS.waves }}>
+                      {t("panel.legDetail.buildUpSea", { value: fmtSigned1(view.wave_delta_kn) })}
+                    </span>
+                  )}
+                </>
               )}
               {currentDelta && (
                 <span style={{ color: FORCE_COLORS.current }}>
