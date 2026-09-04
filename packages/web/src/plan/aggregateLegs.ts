@@ -27,7 +27,8 @@ export interface AggregatedLeg {
   // build-up adds up exactly: polar_after_eff_kn + wave_delta_kn (≤ 0)
   // ≈ boat_speed_kn, and boat_speed_kn + current_delta_kn = target_speed_kn.
   polar_after_eff_kn: number; // polar lookup × passage efficiency (no waves, no current)
-  wave_delta_kn: number; // ≤ 0 — loss from wave_derate
+  wave_delta_kn: number; // ≤ 0, loss from wave_derate; > 0 only under engine,
+  // where boat_speed_kn is the motoring speed and the card shows one motor term
   current_delta_kn: number | null; // signed — gain when along, loss when against; null without current data
   boat_speed_kn: number; // STW (polar × efficiency × derate)
   target_speed_kn: number; // SOG when current modelled, else STW — used for duration

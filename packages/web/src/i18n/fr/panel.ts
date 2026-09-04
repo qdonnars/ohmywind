@@ -124,6 +124,7 @@ export const panel = {
   "panel.legDetail.buildUpPolar": "{value} polaire",
   "panel.legDetail.buildUpSea": "{value} mer",
   "panel.legDetail.buildUpCurrent": "{value} courant",
+  "panel.legDetail.buildUpMotor": "{value} moteur",
   "panel.legDetail.headerAverage": "Moyenne · {duration}",
   "panel.legDetail.headerHint": "touchez un pas",
   "panel.legDetail.noteMotorOnStep": "au moteur sur ce pas",
