@@ -56,7 +56,11 @@
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="apple-touch-icon" sizes="512x512" href="/icon-maskable-512.png">
+    <!-- iOS veut un PNG opaque de 180 x 180 sous ce nom canonique, qu'il
+         cherche aussi tout seul a la racine. Declaree en maskable 512 avec
+         un attribut sizes, l'icone n'apparaissait pas sur l'ecran d'accueil
+         (iPhone, 2026-09-04) : Safari retombait sur une capture de la page. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
     <!-- Structured data: Organization logo for Google search -->
     <script type="application/ld+json">
