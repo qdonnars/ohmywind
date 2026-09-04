@@ -68,7 +68,7 @@ describe("detectLang", () => {
   });
 
   it("retombe sur l'anglais sinon", () => {
-    expect(detectLang(["es-ES", "pt"])).toBe("en");
+    expect(detectLang(["pt-PT", "nl"])).toBe("en");
     expect(detectLang([])).toBe("en");
   });
 });
