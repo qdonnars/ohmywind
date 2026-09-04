@@ -4,6 +4,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { de } from "./de";
 import { en } from "./en";
+import { es } from "./es";
 import { fr } from "./fr";
 import { it as itDict } from "./it";
 import { detectLang } from "./langPreference";
@@ -35,6 +36,9 @@ describe("store", () => {
     await setLang("it");
     expect(getLocale()).toBe("it-IT");
     expect(t("common.loading")).toBe(itDict["common.loading"]);
+    await setLang("es");
+    expect(getLocale()).toBe("es-ES");
+    expect(t("common.loading")).toBe(es["common.loading"]);
   });
 
   it("interpole les paramètres et laisse un nom inconnu visible", () => {

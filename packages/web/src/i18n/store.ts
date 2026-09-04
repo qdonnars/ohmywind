@@ -81,6 +81,9 @@ async function loadDict(lang: Lang): Promise<Dict> {
     case "it":
       d = (await import("./it")).it;
       break;
+    case "es":
+      d = (await import("./es")).es;
+      break;
     default:
       d = fr;
   }
