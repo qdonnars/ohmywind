@@ -9,6 +9,7 @@ import { nowParisHourPrefix } from "../domain/datetime";
 import { formatHour } from "../utils/format";
 import { useTimelineScroll } from "../hooks/useTimelineScroll";
 import { useT } from "../i18n";
+import { numFixed } from "../plan/format";
 
 // Fixed cell width for the chart so the SVG aligns perfectly with the timeline
 // header. 36 px shows ~30 hours per viewport on a typical mobile (good for
@@ -278,8 +279,8 @@ export function TideChart({
                         const labelX = onRight ? sx + 9 : sx - 9;
                         const labelAnchor = onRight ? "start" : "end";
                         const labelText = useZh
-                          ? `${sh.toFixed(2)} m`
-                          : `${sh >= 0 ? "+" : ""}${sh.toFixed(2)} m`;
+                          ? `${numFixed(sh, 2)} m`
+                          : `${sh >= 0 ? "+" : ""}${numFixed(sh, 2)} m`;
                         return (
                           <>
                             <line
@@ -327,8 +328,8 @@ export function TideChart({
                       const y = yForTide(h);
                       const time = formatHour(masterTimeline[e.idx], timezoneMode);
                       const heightLabel = useZh
-                        ? `${h.toFixed(2)} m`
-                        : `${h >= 0 ? "+" : ""}${h.toFixed(2)} m`;
+                        ? `${numFixed(h, 2)} m`
+                        : `${h >= 0 ? "+" : ""}${numFixed(h, 2)} m`;
                       const labelY = e.type === "high" ? y - 10 : y + 18;
                       return (
                         <g key={`ext-${e.idx}`}>

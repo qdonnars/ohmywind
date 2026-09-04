@@ -44,20 +44,27 @@ export function fmtDepthM(m: number): string {
   return `${Math.round(m)} m`;
 }
 
-const NUM1_BY_LOCALE = new Map<string, Intl.NumberFormat>();
+const NUM_BY_LOCALE = new Map<string, Intl.NumberFormat>();
 
-/** One decimal in the active language: 38.2 → "38,2" in French, "38.2" in
-    English. No grouping: nothing formatted here reaches four digits. */
-export function num1(n: number): string {
+/** `n` with exactly `digits` decimals in the active language: 0.3 → "0,3"
+    in French, "0.3" in English. No grouping: nothing formatted here reaches
+    four digits. One formatter per locale and precision, built on first use. */
+export function numFixed(n: number, digits: number): string {
   const locale = getLocale();
-  let f = NUM1_BY_LOCALE.get(locale);
+  const id = `${locale}:${digits}`;
+  let f = NUM_BY_LOCALE.get(id);
   if (!f) {
     f = new Intl.NumberFormat(locale, {
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 1,
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
       useGrouping: false,
     });
-    NUM1_BY_LOCALE.set(locale, f);
+    NUM_BY_LOCALE.set(id, f);
   }
   return f.format(n);
+}
+
+/** One decimal in the active language: 38.2 → "38,2" in French, "38.2" in English. */
+export function num1(n: number): string {
+  return numFixed(n, 1);
 }
