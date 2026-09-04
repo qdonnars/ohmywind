@@ -9,6 +9,7 @@ import { nowParisHourPrefix } from "../domain/datetime";
 import { currentsLevel, tidesLevel, wavesLevel, windLevelVar } from "../domain/thresholds";
 import { useTimelineScroll } from "../hooks/useTimelineScroll";
 import { t, useLang, useT, type Key } from "../i18n";
+import { numFixed } from "../plan/format";
 
 type MarineMetric = Exclude<MetricView, "wind">;
 
@@ -144,7 +145,7 @@ function MarineCellImpl({
       secondary = marine.wave_direction_deg[timeIdx];
       if (value != null) {
         level = wavesLevel(value);
-        display = value.toFixed(1);
+        display = numFixed(value, 1);
         aria =
           secondary != null
             ? t("explore.marineTable.aria.hsFrom", {
@@ -201,8 +202,8 @@ function MarineCellImpl({
       if (value != null) {
         level = tidesLevel(Math.abs(value));
         display = useZh
-          ? value.toFixed(1)
-          : (value >= 0 ? "+" : "") + value.toFixed(1);
+          ? numFixed(value, 1)
+          : (value >= 0 ? "+" : "") + numFixed(value, 1);
         if (prevTide != null) {
           const delta = value - prevTide;
           if (delta > 0.01) trend = 1;
@@ -224,7 +225,7 @@ function MarineCellImpl({
       value = marine.current_speed_kn[timeIdx];
       if (value != null) {
         level = currentsLevel(value);
-        display = value.toFixed(1);
+        display = numFixed(value, 1);
         aria = t("explore.marineTable.aria.current", { value: display });
       }
       break;
