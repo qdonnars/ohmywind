@@ -15,16 +15,17 @@ import methodologieEn from "../content/methodologie.en.md?raw";
 import segmentationSvgUrl from "../content/segmentation.svg?url";
 import "./methodologie.css";
 
-// French original and English translation. German and Italian readers get
-// the English text: four thousand technical words are a lot to keep in step
-// across four languages, and a sailor who reads the app in German reads
-// English well enough for a methodology. The translation opens on a line
+// French original and English translation. German, Italian and Spanish
+// readers get the English text: four thousand technical words are a lot to
+// keep in step across five languages, and a sailor who reads the app in
+// German reads English well enough for a methodology. The translation opens on a line
 // naming the French text as the reference.
 const CONTENT: Record<Lang, string> = {
   fr: methodologieFr,
   en: methodologieEn,
   de: methodologieEn,
   it: methodologieEn,
+  es: methodologieEn,
 };
 
 export function MethodologiePage() {

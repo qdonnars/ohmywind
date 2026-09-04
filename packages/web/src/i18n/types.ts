@@ -7,7 +7,7 @@
  * stored preference only ever resolve to one of those. The two lists are
  * equal today; they split again the day a fifth language is being prepared.
  */
-export const LANGS = ["fr", "en", "de", "it"] as const;
+export const LANGS = ["fr", "en", "de", "it", "es"] as const;
 export type Lang = (typeof LANGS)[number];
 
 export const AVAILABLE_LANGS: readonly Lang[] = LANGS;
@@ -21,6 +21,7 @@ export const LOCALE_BY_LANG: Record<Lang, string> = {
   en: "en-GB",
   de: "de-DE",
   it: "it-IT",
+  es: "es-ES",
 };
 
 /** Endonyms, shown as-is in the picker whatever the active language. */
@@ -29,6 +30,7 @@ export const LANG_NAMES: Record<Lang, string> = {
   en: "English",
   de: "Deutsch",
   it: "Italiano",
+  es: "Español",
 };
 
 export function isLang(v: unknown): v is Lang {
