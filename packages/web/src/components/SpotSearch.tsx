@@ -8,6 +8,7 @@ import { searchPlaces } from "../api/geocoding";
 import type { PlaceResult } from "../api/places";
 import { matchSavedSpots, formatDistance, normalizeForMatch } from "../api/places";
 import { parseCoordinates, formatCoordinates } from "../api/coordinates";
+import { useT } from "../i18n";
 
 interface SpotSearchProps {
   onSelect: (spot: Spot) => void;
@@ -48,6 +49,7 @@ function cachePut(key: string, results: PlaceResult[]) {
 }
 
 export function SpotSearch({ onSelect, nearLat, nearLon, savedSpots = [] }: SpotSearchProps) {
+  const { t, lang } = useT();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -59,10 +61,12 @@ export function SpotSearch({ onSelect, nearLat, nearLon, savedSpots = [] }: Spot
     () => (nearLat != null && nearLon != null ? { lat: nearLat, lon: nearLon } : null),
     [nearLat, nearLon],
   );
+  // The language is part of the key: the geocoder answers in the reader's
+  // language, so two languages are two different result sets.
   const cacheKey = useMemo(
     () =>
-      `${normalizeForMatch(trimmed)}|${near ? `${near.lat.toFixed(2)},${near.lon.toFixed(2)}` : ""}`,
-    [trimmed, near],
+      `${lang}|${normalizeForMatch(trimmed)}|${near ? `${near.lat.toFixed(2)},${near.lon.toFixed(2)}` : ""}`,
+    [lang, trimmed, near],
   );
 
   // Remote state is keyed by the query it belongs to, so a late response for
@@ -123,7 +127,7 @@ export function SpotSearch({ onSelect, nearLat, nearLon, savedSpots = [] }: Spot
         name: formatCoordinates(coordinates.lat, coordinates.lon),
         latitude: coordinates.lat,
         longitude: coordinates.lon,
-        context: "Aller à cette position",
+        context: t("explore.spotSearch.goToPosition"),
         source: "coordinates",
       });
     }
@@ -132,7 +136,7 @@ export function SpotSearch({ onSelect, nearLat, nearLon, savedSpots = [] }: Spot
     const seen = new Set(savedMatches.map((s) => normalizeForMatch(s.name)));
     out.push(...remoteResults.filter((r) => !seen.has(normalizeForMatch(r.name))));
     return out;
-  }, [coordinates, savedMatches, remoteResults]);
+  }, [coordinates, savedMatches, remoteResults, t]);
 
   const updatePos = useCallback(() => {
     if (!containerRef.current) return;
@@ -222,12 +226,12 @@ export function SpotSearch({ onSelect, nearLat, nearLon, savedSpots = [] }: Spot
           aria-controls={LISTBOX_ID}
           aria-autocomplete="list"
           aria-activedescendant={showDropdown && rows[activeIndex] ? `ow-opt-${rows[activeIndex].id}` : undefined}
-          aria-label="Rechercher un lieu"
+          aria-label={t("explore.spotSearch.label")}
           value={query}
           onChange={(e) => handleChange(e.target.value)}
           onFocus={() => { if (rows.length > 0) setOpen(true); }}
           onKeyDown={handleKeyDown}
-          placeholder="Port, cap, chenal ou coordonnées"
+          placeholder={t("explore.spotSearch.placeholder")}
           className="ow-search-input w-full pl-9 pr-3 py-2.5 min-h-[44px] rounded-xl text-sm transition-all"
         />
       </div>
@@ -235,7 +239,7 @@ export function SpotSearch({ onSelect, nearLat, nearLon, savedSpots = [] }: Spot
         <ul
           id={LISTBOX_ID}
           role="listbox"
-          aria-label="Résultats de recherche"
+          aria-label={t("explore.spotSearch.results")}
           className="ow-search-dropdown rounded-xl overflow-hidden animate-fade-in"
           style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width, zIndex: 1000 }}
         >
@@ -278,10 +282,10 @@ export function SpotSearch({ onSelect, nearLat, nearLon, savedSpots = [] }: Spot
           {rows.length === 0 && (
             <li className="px-3 py-2.5 text-sm" style={{ color: 'var(--ow-fg-2)' }} role="presentation">
               {loading
-                ? "Recherche..."
+                ? t("explore.spotSearch.searching")
                 : failed
-                  ? "Recherche indisponible. Vérifiez votre connexion."
-                  : "Aucun lieu trouvé."}
+                  ? t("explore.spotSearch.failed")
+                  : t("explore.spotSearch.empty")}
             </li>
           )}
         </ul>,

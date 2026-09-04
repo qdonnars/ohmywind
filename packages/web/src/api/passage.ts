@@ -6,6 +6,7 @@ import type { ModelName } from "../config/modelConfig";
 import type { PolarData } from "../config/polarConfig";
 import { COEFF_DEFAULT } from "../config/polarConfig";
 import { API_BASE } from "./config";
+import { t, tn } from "../i18n";
 import { postJson } from "./postJson";
 import type { ForecastCache } from "./forecastCache";
 import {
@@ -25,17 +26,17 @@ export interface PlanOverrides {
   polar?: PolarData;
 }
 
-// Render a Retry-After delay as a French sentence. Rounds up: telling someone
-// to wait 4 minutes when 4 min 10 s remain earns a second error message.
+// Render a Retry-After delay as a sentence in the reader's language. Rounds
+// up: telling someone to wait 4 minutes when 4 min 10 s remain earns a second
+// error message.
 export function formatRetryDelay(seconds: number | null): string {
   if (seconds === null || !Number.isFinite(seconds) || seconds <= 0) {
-    return "Patientez quelques minutes avant de relancer.";
+    return t("plan.api.errors.retryDelay.vague");
   }
   if (seconds < 60) {
-    return `Patientez ${Math.ceil(seconds)} secondes avant de relancer.`;
+    return tn("plan.api.errors.retryDelay.seconds", Math.ceil(seconds));
   }
-  const minutes = Math.ceil(seconds / 60);
-  return `Patientez ${minutes} minute${minutes > 1 ? "s" : ""} avant de relancer.`;
+  return tn("plan.api.errors.retryDelay.minutes", Math.ceil(seconds / 60));
 }
 
 /**
@@ -44,7 +45,7 @@ export function formatRetryDelay(seconds: number | null): string {
  * ## Stable error codes
  *
  * The server answers `{ error, code, retry_after? }`. `code` is the machine
- * half of the contract and the one this module keys its French copy on;
+ * half of the contract and the one this module keys its copy on;
  * `error` stays for compatibility and for debugging. The codes we expect, and
  * the situations they name:
  *
@@ -94,6 +95,8 @@ function parseSeconds(raw: unknown): number | null {
 // fallback while the server has no `code`, and the two must agree.
 async function toError(res: Response): Promise<ApiError> {
   const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  // Deliberately not translated here: this marker is what `matchErrorText`
+  // matches on, and it is turned into a sentence there.
   const message =
     typeof body["error"] === "string" ? body["error"] : `Erreur serveur ${res.status}`;
   const code = typeof body["code"] === "string" ? body["code"] : null;
@@ -115,8 +118,8 @@ async function toError(res: Response): Promise<ApiError> {
  *    the day the server ships codes, or the day a deployment predating them
  *    answers.
  *
- * Both paths land on the same French sentences: the copy lives in
- * `ERROR_COPY`, keyed by code, and the regexes only pick a key.
+ * Both paths land on the same sentences, in the reader's language: the copy
+ * lives in `ERROR_COPY`, keyed by code, and the regexes only pick a key.
  *
  * Unknown failures return their own text, so nothing becomes undebuggable.
  */
@@ -155,44 +158,38 @@ function isNetworkFailure(error: Error): boolean {
   );
 }
 
-/** French copy per stable code. `retryAfter` is only read by `rate_limited`. */
+/** Copy per stable code, in the reader's language. Each entry is a function
+    so the lookup happens when the message is produced, not at import time.
+    `retryAfter` is only read by `rate_limited` and `upstream_unavailable`. */
 const ERROR_COPY: Record<string, (retryAfter: number | null) => string> = {
   // Cause la plus fréquente : date > today+15 (cap Open-Meteo). Mais peut
   // aussi survenir transitoirement quand un modèle de la chaîne tombe ;
   // d'où la formulation prudente. On rappelle l'horizon approximatif et on
   // demande explicitement de ne pas recharger la page (sinon la
   // planification en cours est perdue).
-  forecast_horizon: () =>
-    "Le service météo n'a pas pu couvrir cette période. Choisissez une date plus proche (jusqu'à environ 10 jours selon le modèle). Pour préserver votre planification, ne rechargez pas la page tant que vous n'avez pas ajusté la date.",
-  too_few_waypoints: () =>
-    "Placez au moins 2 waypoints sur la carte pour calculer une route.",
-  waypoint_out_of_range: () =>
-    "Un waypoint est hors des coordonnées valides. Replacez-le sur la carte.",
-  too_many_waypoints: () =>
-    "Trop de waypoints sur cette route. Retirez-en quelques-uns pour la simplifier.",
+  forecast_horizon: () => t("plan.api.errors.forecastHorizon"),
+  too_few_waypoints: () => t("plan.api.errors.tooFewWaypoints"),
+  waypoint_out_of_range: () => t("plan.api.errors.waypointOutOfRange"),
+  too_many_waypoints: () => t("plan.api.errors.tooManyWaypoints"),
   // The server owns the delay: the window is configurable per environment,
   // so never hard-code one here. The previous copy promised "une minute"
   // against a 300 s window, so the user waited, retried, and got the exact
   // same error. When the delay is missing we stay vague rather than lie.
   rate_limited: (retryAfter) =>
-    `Trop de calculs lancés coup sur coup. ${formatRetryDelay(retryAfter)}`,
-  unknown_archetype: () =>
-    "Type de bateau inconnu. Sélectionnez un archétype dans la liste.",
-  invalid_datetime: () => "Date invalide. Vérifiez le format des champs date.",
-  naive_datetime: () => "L'heure d'arrivée doit inclure le fuseau horaire.",
-  sweep_too_large: () =>
-    "Trop de créneaux à comparer. Réduisez la fenêtre ou augmentez le pas d'échantillonnage.",
+    t("plan.api.errors.rateLimited", { delay: formatRetryDelay(retryAfter) }),
+  unknown_archetype: () => t("plan.api.errors.unknownArchetype"),
+  invalid_datetime: () => t("plan.api.errors.invalidDatetime"),
+  naive_datetime: () => t("plan.api.errors.naiveDatetime"),
+  sweep_too_large: () => t("plan.api.errors.sweepTooLarge"),
   // Open-Meteo timed out (ReadTimeout / ConnectTimeout). Usually transient:
   // HF Spaces' shared egress is jittery and Open-Meteo occasionally pauses.
-  upstream_timeout: () =>
-    "Le service météo a mis trop de temps à répondre. Réessayez dans quelques instants.",
+  upstream_timeout: () => t("plan.api.errors.upstreamTimeout"),
   // Open-Meteo throttling US, not the user throttling us. Deliberately worded
   // so nobody reads it as "you clicked too fast": the quota is counted per
   // egress IP and can be spent by an unrelated tenant of the same host, so
   // slowing down changes nothing. Distinct from `rate_limited` above, which
   // is our own limiter and IS about the caller's pace.
-  upstream_rate_limited: () =>
-    "Le service météo limite temporairement nos requêtes. Ce n'est pas lié à votre usage, réessayez dans quelques minutes.",
+  upstream_rate_limited: () => t("plan.api.errors.upstreamRateLimited"),
   // Emis par le proxy de bord (Worker Cloudflare), pas par le Space : le
   // backend n'a pas repondu du tout. A ne pas confondre avec les deux
   // `upstream_*` ci-dessus, ou le service amont est Open-Meteo ; ici l'amont
@@ -200,21 +197,16 @@ const ERROR_COPY: Record<string, (retryAfter: number | null) => string> = {
   // reveille, ce qui prend une trentaine de secondes, d'ou le delai que le
   // bord envoie et que l'on relaie plutot que d'en inventer un.
   upstream_unavailable: (retryAfter) =>
-    `Le serveur est momentanément injoignable, il redémarre peut-être. ${formatRetryDelay(retryAfter)}`,
-  body_too_large: () =>
-    "La route est trop détaillée pour être envoyée. Retirez quelques waypoints ou raccourcissez la période.",
-  invalid_forecast_cache: () =>
-    "Les données météo préparées par le navigateur ont été refusées. Réessayez : le calcul repartira des données du serveur.",
-  server_unavailable: () =>
-    "Le serveur météo est indisponible. Réessayez dans quelques instants.",
+    t("plan.api.errors.upstreamUnavailable", { delay: formatRetryDelay(retryAfter) }),
+  body_too_large: () => t("plan.api.errors.bodyTooLarge"),
+  invalid_forecast_cache: () => t("plan.api.errors.invalidForecastCache"),
+  server_unavailable: () => t("plan.api.errors.serverUnavailable"),
   // Pas un code du serveur : la requete n'a jamais abouti (reseau coupe,
   // portail captif, delai depasse). Rien a dire sur la meteo, tout a dire sur
   // le lien. Voir `isNetworkFailure`.
-  network_unreachable: () =>
-    "Impossible de joindre le serveur. Vérifiez votre connexion puis réessayez.",
+  network_unreachable: () => t("plan.api.errors.networkUnreachable"),
   // Not a server code: a 200 whose body is not the contract (see parse.ts).
-  invalid_response: () =>
-    "Le serveur a renvoyé une réponse inattendue. Réessayez dans quelques instants.",
+  invalid_response: () => t("plan.api.errors.invalidResponse"),
 };
 
 // Fallback path: recognise the English text the server sends today. Each rule
@@ -258,6 +250,13 @@ function matchErrorText(raw: string): string {
   if (/Erreur serveur 5\d\d/.test(raw) || /HTTP 5\d\d/.test(raw)) {
     return ERROR_COPY.server_unavailable(null);
   }
+  // A status with no body: `toError` writes the marker below, in French,
+  // because the two 5xx rules above read it. Anything that reached here is
+  // not a 5xx, so it is the marker itself that has to be said in the
+  // reader's language; the ", retry in Ns" tail `toError` may have appended
+  // is technical and travels through untouched.
+  const status = /^Erreur serveur (\d+)(.*)$/.exec(raw);
+  if (status) return t("plan.api.errors.serverStatus", { status: status[1] }) + status[2];
   return raw;
 }
 

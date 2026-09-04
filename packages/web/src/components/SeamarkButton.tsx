@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { useT } from "../i18n";
+
 interface SeamarkButtonProps {
   enabled: boolean;
   onToggle: () => void;
@@ -18,13 +20,14 @@ interface SeamarkButtonProps {
  * than implying a layer picker that does not exist.
  */
 export function SeamarkButton({ enabled, onToggle, className = "" }: SeamarkButtonProps) {
+  const { t } = useT();
   return (
     <button
       type="button"
       onClick={onToggle}
       aria-pressed={enabled}
-      aria-label="Afficher les amers : bouées, balises et phares"
-      title={enabled ? "Masquer les amers" : "Afficher les amers : bouées, balises et phares"}
+      aria-label={t("explore.seamarks.show")}
+      title={enabled ? t("explore.seamarks.hide") : t("explore.seamarks.show")}
       className={`absolute z-[400] w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 ${className}`}
       style={{
         background: enabled ? "var(--ow-accent)" : "var(--ow-surface-glass)",

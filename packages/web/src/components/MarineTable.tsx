@@ -8,7 +8,8 @@ import { useTimezone } from "../hooks/useTimezone";
 import { nowParisHourPrefix } from "../domain/datetime";
 import { currentsLevel, tidesLevel, wavesLevel, windLevelVar } from "../domain/thresholds";
 import { useTimelineScroll } from "../hooks/useTimelineScroll";
-import { ArrowConventionNote } from "./ArrowConventionNote";
+import { t, useLang, useT, type Key } from "../i18n";
+import { numFixed } from "../plan/format";
 
 type MarineMetric = Exclude<MetricView, "wind">;
 
@@ -19,9 +20,19 @@ type RowKind = "hs" | "wave_dir" | "wave_period" | "tide" | "current" | "current
 
 interface RowConfig {
   kind: RowKind;
-  label: string;
   unit: string;
 }
+
+/** Row header per kind. The kind stays the data; the wording is looked up at
+    render time, so a row is never stored in one language. */
+const ROW_LABEL: Record<RowKind, Key> = {
+  hs: "explore.marineTable.row.hs",
+  wave_dir: "explore.marineTable.row.direction",
+  wave_period: "explore.marineTable.row.period",
+  tide: "explore.marineTable.row.tide",
+  current: "explore.marineTable.row.current",
+  current_dir: "explore.marineTable.row.direction",
+};
 
 function rowsForMetric(
   metric: MarineMetric,
@@ -31,16 +42,16 @@ function rowsForMetric(
   switch (metric) {
     case "waves":
       return [
-        { kind: "hs", label: "Hs", unit: "m" },
-        { kind: "wave_dir", label: "Dir", unit: "°" },
-        { kind: "wave_period", label: "T", unit: "s" },
+        { kind: "hs", unit: "m" },
+        { kind: "wave_dir", unit: "°" },
+        { kind: "wave_period", unit: "s" },
       ];
     case "tides":
-      return [{ kind: "tide", label: "Tide", unit: tideUnit }];
+      return [{ kind: "tide", unit: tideUnit }];
     case "currents":
       return [
-        { kind: "current", label: "Curr.", unit: "kn" },
-        { kind: "current_dir", label: "Dir", unit: "°" },
+        { kind: "current", unit: "kn" },
+        { kind: "current_dir", unit: "°" },
       ];
   }
 }
@@ -97,6 +108,8 @@ function MarineCellImpl({
   isDayStart,
   onSelect,
 }: MarineCellProps) {
+  // Subscribes the cell to the language, so a switch relabels every cell.
+  useLang();
   const nowBorder = isNow ? "border-l-2 border-l-accent" : "";
   const daySepClass = !isNow && isDayStart ? "ow-day-sep" : "";
   const selectedStyle = selected ? "ring-2 ring-accent/70 ring-inset bg-accent/10" : "";
@@ -132,8 +145,14 @@ function MarineCellImpl({
       secondary = marine.wave_direction_deg[timeIdx];
       if (value != null) {
         level = wavesLevel(value);
-        display = value.toFixed(1);
-        aria = `Hs ${display} m${secondary != null ? `, from ${Math.round(secondary)}°` : ""}`;
+        display = numFixed(value, 1);
+        aria =
+          secondary != null
+            ? t("explore.marineTable.aria.hsFrom", {
+                value: display,
+                dir: Math.round(secondary),
+              })
+            : t("explore.marineTable.aria.hs", { value: display });
       }
       break;
     }
@@ -146,7 +165,7 @@ function MarineCellImpl({
         arrowFlip = 180;
         renderArrow = true;
         degText = `${Math.round(dir)}°`;
-        aria = `Wave direction from ${Math.round(dir)}°`;
+        aria = t("explore.marineTable.aria.waveDirection", { dir: Math.round(dir) });
       }
       // Direction has no intensity ramp; level stays 0 → neutral cell.
       break;
@@ -160,7 +179,7 @@ function MarineCellImpl({
         arrowFlip = 0;
         renderArrow = true;
         degText = `${Math.round(dir)}°`;
-        aria = `Current setting toward ${Math.round(dir)}°`;
+        aria = t("explore.marineTable.aria.currentDirection", { dir: Math.round(dir) });
       }
       break;
     }
@@ -168,7 +187,7 @@ function MarineCellImpl({
       value = marine.wave_period_s[timeIdx];
       if (value != null) {
         display = value.toFixed(0);
-        aria = `Wave period ${display} s`;
+        aria = t("explore.marineTable.aria.wavePeriod", { value: display });
         // No level — period is informational, see periodLevel comment.
       }
       break;
@@ -183,14 +202,20 @@ function MarineCellImpl({
       if (value != null) {
         level = tidesLevel(Math.abs(value));
         display = useZh
-          ? value.toFixed(1)
-          : (value >= 0 ? "+" : "") + value.toFixed(1);
+          ? numFixed(value, 1)
+          : (value >= 0 ? "+" : "") + numFixed(value, 1);
         if (prevTide != null) {
           const delta = value - prevTide;
           if (delta > 0.01) trend = 1;
           else if (delta < -0.01) trend = -1;
         }
-        aria = `Tide ${display} m${useZh ? " ZH" : ""}${trend > 0 ? ", rising" : trend < 0 ? ", falling" : ""}`;
+        const tideKey =
+          trend > 0
+            ? "explore.marineTable.aria.tideRising"
+            : trend < 0
+              ? "explore.marineTable.aria.tideFalling"
+              : "explore.marineTable.aria.tide";
+        aria = t(tideKey, { value: display, unit: useZh ? "m ZH" : "m" });
       }
       break;
     }
@@ -200,8 +225,8 @@ function MarineCellImpl({
       value = marine.current_speed_kn[timeIdx];
       if (value != null) {
         level = currentsLevel(value);
-        display = value.toFixed(1);
-        aria = `Current ${display} kn`;
+        display = numFixed(value, 1);
+        aria = t("explore.marineTable.aria.current", { value: display });
       }
       break;
     }
@@ -352,6 +377,7 @@ export function MarineTable({
   selectedHour,
   onSelectHour,
 }: MarineTableProps) {
+  const { t } = useT();
   const [timezoneMode] = useTimezone();
 
   const masterTimeline = useMemo(() => {
@@ -414,7 +440,7 @@ export function MarineTable({
                         className="text-[11px] lg:text-[12px] font-bold tracking-wide"
                         style={{ color: "var(--ow-fg-0)" }}
                       >
-                        {row.label}
+                        {t(ROW_LABEL[row.kind])}
                       </span>
                       <span
                         className="text-[8px] font-medium"
@@ -453,7 +479,6 @@ export function MarineTable({
           </table>
         </div>
       </div>
-      <ArrowConventionNote metric={metric} />
     </div>
   );
 }

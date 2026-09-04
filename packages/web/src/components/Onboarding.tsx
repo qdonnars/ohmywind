@@ -6,6 +6,7 @@ import { STORAGE_KEY as CUSTOM_SPOTS_KEY } from "../hooks/useCustomSpots";
 import { migrateLegacyKey } from "../utils/localStorageMigration";
 import { LAST_SIMULATION_KEY } from "../plan/lastSimulation";
 import { LEGACY_STORAGE_KEYS, LOCAL_STORAGE_KEYS } from "../storage/keys";
+import { useT } from "../i18n";
 
 const STORAGE_KEY = LOCAL_STORAGE_KEYS.onboarding;
 const LEGACY_STORAGE_KEY = LEGACY_STORAGE_KEYS.onboarding;
@@ -15,9 +16,6 @@ const LEGACY_STORAGE_KEY = LEGACY_STORAGE_KEYS.onboarding;
 const SHOW_DELAY_MS = 15_000;
 const AUTO_DISMISS_MS = 8_000;
 const CARD_WIDTH = 288;
-
-const TITLE = "Planifier une route ?";
-const BODY = "Pour tracer un trajet entre deux spots et estimer la durée, cliquez sur le compas.";
 
 // "First-time user" snapshot read once at mount. The popup fires only if all
 // three storage signals say "no prior engagement": no saved spots, no
@@ -75,6 +73,7 @@ function computeCardPosition(rect: DOMRect | null): CardPosition {
 }
 
 export function Onboarding({ fabRef }: OnboardingProps) {
+  const { t } = useT();
   const [active, setActive] = useState(false);
   const [position, setPosition] = useState<CardPosition | null>(null);
   const [haloRect, setHaloRect] = useState<DOMRect | null>(null);
@@ -138,7 +137,7 @@ export function Onboarding({ fabRef }: OnboardingProps) {
       <div
         role="dialog"
         aria-live="polite"
-        aria-label={TITLE}
+        aria-label={t("explore.onboarding.title")}
         className="fixed z-[702] onboard-card-enter"
         style={{
           top: position.top,
@@ -170,13 +169,13 @@ export function Onboarding({ fabRef }: OnboardingProps) {
             className="text-sm font-bold tracking-tight mb-1.5"
             style={{ color: "var(--ow-fg-0)" }}
           >
-            {TITLE}
+            {t("explore.onboarding.title")}
           </h3>
           <p
             className="text-[13px] leading-relaxed mb-3"
             style={{ color: "var(--ow-fg-1)" }}
           >
-            {BODY}
+            {t("explore.onboarding.body")}
           </p>
           <div className="flex items-center justify-end">
             <button
@@ -188,7 +187,7 @@ export function Onboarding({ fabRef }: OnboardingProps) {
                 background: "var(--ow-accent-soft)",
               }}
             >
-              Compris
+              {t("explore.onboarding.dismiss")}
             </button>
           </div>
         </div>

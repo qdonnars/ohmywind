@@ -10,6 +10,8 @@ import type { PassageReport, SegmentReport } from "../types";
 import { planMinUpwind } from "../../config/polarConfig";
 import { usePolarConfig } from "../../config/usePolarConfig";
 import { usePlan } from "../session/planContext";
+import { num1 } from "../format";
+import { useT } from "../../i18n";
 
 // ── LegList ──────────────────────────────────────────────────────────────────
 // Click-to-expand list of legs. Collapsed = one row of summary cells (durée,
@@ -45,7 +47,6 @@ function LegRow({
 }) {
   const cx = cxLevel((leg.tws_min + leg.tws_max) / 2);
   const summary = buildLegSummaryCells(leg);
-  const fr1 = (n: number) => n.toFixed(1).replace(".", ",");
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -92,7 +93,7 @@ function LegRow({
               className="text-[10px] tabular-nums whitespace-nowrap"
               style={{ color: "var(--ow-fg-2)", fontFamily: "var(--ow-font-mono)" }}
             >
-              {fr1(leg.distance_nm)} nm
+              {num1(leg.distance_nm)} nm
             </span>
           </div>
         </td>
@@ -136,6 +137,7 @@ function LegRow({
 }
 
 export function LegList({ passage }: { passage: PassageReport }) {
+  const { t, lang } = useT();
   const { state, actions } = usePlan();
   const { waypoints, archetype, selectedLegIdx: openIdx } = state;
   const polarCfg = usePolarConfig();
@@ -147,10 +149,14 @@ export function LegList({ passage }: { passage: PassageReport }) {
   // (louvoyage) » rather than a close-hauled label the boat cannot hold
   // (#277).
   const minUpwindDeg = useMemo(() => planMinUpwind(polarCfg, archetype), [polarCfg, archetype]);
-  const legs: AggregatedLeg[] = useMemo(
-    () => aggregateLegs(passage.segments, waypoints, passage.efficiency, minUpwindDeg),
-    [passage.segments, passage.efficiency, waypoints, minUpwindDeg],
-  );
+  const legs: AggregatedLeg[] = useMemo(() => {
+    // The allure and the sea flags are produced by `aggregateLegs` through
+    // `t()`, which reads the language from the store, not from a parameter.
+    // Naming `lang` here is what ties the memo to it, so a language switch
+    // rebuilds the labels.
+    void lang;
+    return aggregateLegs(passage.segments, waypoints, passage.efficiency, minUpwindDeg);
+  }, [passage.segments, passage.efficiency, waypoints, minUpwindDeg, lang]);
   const onOpenChange = actions.selectLeg;
   return (
     <div>
@@ -160,11 +166,11 @@ export function LegList({ passage }: { passage: PassageReport }) {
             className="text-[9px] uppercase tracking-widest"
             style={{ color: "var(--ow-fg-3)" }}
           >
-            <th className="py-1 pl-3 pr-2 pt-3 text-left font-semibold">Tronçon</th>
-            <th className="py-1 px-1 pt-3 text-left font-semibold">Durée</th>
-            <th className="py-1 px-1 pt-3 text-left font-semibold">Allure</th>
-            <th className="py-1 px-1 pt-3 text-left font-semibold">Vent (kn)</th>
-            <th className="py-1 px-1 pt-3 text-left font-semibold">Mer</th>
+            <th className="py-1 pl-3 pr-2 pt-3 text-left font-semibold">{t("panel.legs.colLeg")}</th>
+            <th className="py-1 px-1 pt-3 text-left font-semibold">{t("panel.legs.colDuration")}</th>
+            <th className="py-1 px-1 pt-3 text-left font-semibold">{t("panel.legs.colPointOfSail")}</th>
+            <th className="py-1 px-1 pt-3 text-left font-semibold">{t("panel.legs.colWind")}</th>
+            <th className="py-1 px-1 pt-3 text-left font-semibold">{t("panel.legs.colSea")}</th>
             <th className="py-1 pl-1 pr-3 pt-3" />
           </tr>
         </thead>

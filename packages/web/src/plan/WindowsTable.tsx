@@ -6,15 +6,18 @@ import type { PassageWindow } from "./types";
 import { cxLevelVar } from "../domain/thresholds";
 import { fmtDurationSafe } from "./format";
 import { fmtClock, fmtDay } from "../domain/datetime";
+import { useT, type Key } from "../i18n";
 
 type SortKey = "departure" | "duration" | "complexity";
 type SortDir = "asc" | "desc";
 
-const SAIL_LABELS: Record<string, string> = {
-  pres: "Près",
-  travers: "Travers",
-  largue: "Largue",
-  portant: "Portant",
+// The server's own sail-angle buckets, keyed by the value it sends. A bucket
+// we do not know about is shown as the server spelt it.
+const SAIL_KEYS: Record<string, Key> = {
+  pres: "panel.windows.sailUpwind",
+  travers: "panel.windows.sailBeamReach",
+  largue: "panel.windows.sailBroadReach",
+  portant: "panel.windows.sailDownwind",
 };
 
 function fmtDeparture(iso: string): string {
@@ -50,6 +53,7 @@ export interface WindowsTableProps {
 }
 
 export function WindowsTable({ windows, onSelect }: WindowsTableProps) {
+  const { t } = useT();
   const [sortKey, setSortKey] = useState<SortKey>("departure");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
@@ -88,12 +92,12 @@ export function WindowsTable({ windows, onSelect }: WindowsTableProps) {
           color: "var(--ow-fg-3)",
         }}
       >
-        <SortHeader k="departure" label="Départ" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
-        <SortHeader k="duration" label="Durée" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
-        <span className="text-left">ETA</span>
-        <span className="text-left">Allure</span>
-        <span className="text-left">Vent (kn)</span>
-        <span className="text-left">Mer</span>
+        <SortHeader k="departure" label={t("panel.windows.colDeparture")} sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
+        <SortHeader k="duration" label={t("panel.windows.colDuration")} sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
+        <span className="text-left">{t("panel.windows.colEta")}</span>
+        <span className="text-left">{t("panel.windows.colPointOfSail")}</span>
+        <span className="text-left">{t("panel.windows.colWind")}</span>
+        <span className="text-left">{t("panel.windows.colSea")}</span>
         <SortHeader k="complexity" label="⚡" align="center" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
       </div>
 
@@ -105,6 +109,7 @@ export function WindowsTable({ windows, onSelect }: WindowsTableProps) {
           const cs = w.conditions_summary ?? {} as Partial<typeof w.conditions_summary>;
           const cx = w.complexity ?? {} as Partial<typeof w.complexity>;
           const sail = cs.predominant_sail_angle;
+          const sailText = sail ? (SAIL_KEYS[sail] ? t(SAIL_KEYS[sail]) : sail) : "—";
           const cxLvl = typeof cx.level === "number" ? cx.level : 0;
           // A window with no complexity block reads level 0, outside the palette.
           const cxColor = cxLvl >= 1 && cxLvl <= 5 ? cxLevelVar(cxLvl) : "var(--ow-fg-3)";
@@ -119,7 +124,7 @@ export function WindowsTable({ windows, onSelect }: WindowsTableProps) {
                 color: "var(--ow-fg-1)",
                 borderTop: idx === 0 ? "none" : "1px solid var(--ow-line)",
               }}
-              title="Voir le détail de cette fenêtre"
+              title={t("panel.windows.rowTitle")}
             >
               <span className="tabular-nums" style={{ color: "var(--ow-fg-0)" }}>
                 {fmtDeparture(w.departure)}
@@ -127,7 +132,7 @@ export function WindowsTable({ windows, onSelect }: WindowsTableProps) {
               <span className="tabular-nums">{fmtDurationSafe(w.duration_h)}</span>
               <span className="tabular-nums">{fmtTimeSafe(w.arrival)}</span>
               <span className="capitalize" style={{ color: "var(--ow-fg-1)" }}>
-                {sail ? (SAIL_LABELS[sail] ?? sail) : "—"}
+                {sailText}
               </span>
               <span className="tabular-nums">{fmtRange(cs.tws_min_kn, cs.tws_max_kn, "")}</span>
               <span className="tabular-nums">{fmtHsRange(cs.hs_min_m, cs.hs_max_m)}</span>
@@ -139,7 +144,11 @@ export function WindowsTable({ windows, onSelect }: WindowsTableProps) {
                     color: cxColor,
                     border: `1px solid ${cxColor}55`,
                   }}
-                  title={cx.label && cx.rationale ? `${cx.label} : ${cx.rationale}` : cx.label ?? ""}
+                  title={
+                    cx.label && cx.rationale
+                      ? t("panel.windows.complexityTitle", { label: cx.label, rationale: cx.rationale })
+                      : cx.label ?? ""
+                  }
                 >
                   {cxLvl || "—"}
                 </span>

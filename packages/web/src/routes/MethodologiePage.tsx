@@ -9,15 +9,30 @@ import rehypeRaw from "rehype-raw";
 import rehypeSlug from "rehype-slug";
 import "katex/dist/katex.min.css";
 
-import methodologieMd from "../content/methodologie.md?raw";
+import { useT, type Lang } from "../i18n";
+import methodologieFr from "../content/methodologie.md?raw";
+import methodologieEn from "../content/methodologie.en.md?raw";
 import segmentationSvgUrl from "../content/segmentation.svg?url";
 import "./methodologie.css";
 
+// French original and English translation. German and Italian readers get
+// the English text: four thousand technical words are a lot to keep in step
+// across four languages, and a sailor who reads the app in German reads
+// English well enough for a methodology. The translation opens on a line
+// naming the French text as the reference.
+const CONTENT: Record<Lang, string> = {
+  fr: methodologieFr,
+  en: methodologieEn,
+  de: methodologieEn,
+  it: methodologieEn,
+};
+
 export function MethodologiePage() {
+  const { t, lang } = useT();
   // Resolve the relative ./segmentation.svg reference inside the markdown to
   // the URL Vite produces. Polar SVGs live under /polars/ in public/, the
   // markdown can reference them directly.
-  const md = methodologieMd.replace("./segmentation.svg", segmentationSvgUrl);
+  const md = CONTENT[lang].replace("./segmentation.svg", segmentationSvgUrl);
 
   return (
     <div className="methodo-root min-h-screen">
@@ -26,7 +41,7 @@ export function MethodologiePage() {
           <a href="/" className="text-sm font-medium opacity-80 hover:opacity-100 transition">
             ← OhMyWind
           </a>
-          <span className="text-xs opacity-60">Méthodologie</span>
+          <span className="text-xs opacity-60">{t("config.docs.methodology")}</span>
         </div>
       </header>
 

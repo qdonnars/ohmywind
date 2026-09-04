@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { getLocale } from "../i18n/store";
+
 /**
  * Every date and time rule the app owns, in one module.
  *
@@ -11,8 +13,8 @@
  * - the Europe/Paris wall clock Open-Meteo answers with, projected onto UTC
  *   milliseconds so MARC and Open-Meteo series can share one axis (was
  *   `api/marine.ts` and, with a second implementation, `utils/format.ts`);
- * - the French display formatters, "jeu. 3 sept." and "08:00", which had
- *   drifted into seven near-identical local helpers.
+ * - the display formatters, "jeu. 3 sept." and "08:00" in the reader's
+ *   language, which had drifted into seven near-identical local helpers.
  *
  * They are grouped here because they share the same trap: JavaScript has no
  * timezone type, so each of them has to be explicit about which of the three
@@ -182,20 +184,28 @@ export function nowParisHourPrefix(): string {
 
 // ── French display formatters ────────────────────────────────────────────────
 
-// One formatter per shape, built once. `toLocaleTimeString` rebuilds one on
-// every call, and the leg list, the windows table and both sliders format
-// hundreds of timestamps per render between them.
-const CLOCK_FR = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" });
-const DAY_SHORT_FR = new Intl.DateTimeFormat("fr-FR", {
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-});
-const DAY_LONG_FR = new Intl.DateTimeFormat("fr-FR", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-});
+// One formatter per shape and per locale, built on first use and kept.
+// `toLocaleTimeString` rebuilds one on every call, and the leg list, the
+// windows table and both sliders format hundreds of timestamps per render
+// between them. The locale follows the language setting (`i18n`), so the
+// cache is keyed on it: a language switch costs three new formatters, once.
+type Shape = "clock" | "dayShort" | "dayLong";
+const SHAPES: Record<Shape, Intl.DateTimeFormatOptions> = {
+  clock: { hour: "2-digit", minute: "2-digit" },
+  dayShort: { weekday: "short", day: "numeric", month: "short" },
+  dayLong: { weekday: "long", day: "numeric", month: "long" },
+};
+const DTF_BY_LOCALE = new Map<string, Intl.DateTimeFormat>();
+function dtf(shape: Shape): Intl.DateTimeFormat {
+  const locale = getLocale();
+  const id = `${locale}:${shape}`;
+  let f = DTF_BY_LOCALE.get(id);
+  if (!f) {
+    f = new Intl.DateTimeFormat(locale, SHAPES[shape]);
+    DTF_BY_LOCALE.set(id, f);
+  }
+  return f;
+}
 
 function asDate(when: Date | string): Date {
   return typeof when === "string" ? new Date(when) : when;
@@ -203,21 +213,23 @@ function asDate(when: Date | string): Date {
 
 /** Wall clock in the browser timezone, e.g. "08:00". */
 export function fmtClock(when: Date | string): string {
-  return CLOCK_FR.format(asDate(when));
+  return dtf("clock").format(asDate(when));
 }
 
-/** Short French weekday and date, e.g. "jeu. 3 sept.". Feeds the recap strips. */
+/** Short weekday and date in the active language, e.g. "jeu. 3 sept." or
+    "Thu 3 Sept". Feeds the recap strips. */
 export function fmtDay(when: Date | string): string {
-  return DAY_SHORT_FR.format(asDate(when));
+  return dtf("dayShort").format(asDate(when));
 }
 
-/** Long French weekday and date, e.g. "jeudi 3 septembre", for the slider. */
+/** Long weekday and date in the active language, e.g. "jeudi 3 septembre",
+    for the slider. */
 export function fmtDayLong(when: Date | string): string {
-  return DAY_LONG_FR.format(asDate(when));
+  return dtf("dayLong").format(asDate(when));
 }
 
-/** First letter upper-cased. French locales lower-case the weekday, and the
-    recap strip starts a sentence with it. */
+/** First letter upper-cased. French and Italian lower-case the weekday, and
+    the recap strip starts a sentence with it. */
 export function capitalise(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }

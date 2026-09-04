@@ -28,6 +28,7 @@ import { PlanForm } from "./sidebar/PlanForm";
 import { CompareResults } from "./sidebar/CompareResults";
 import { SingleResults } from "./sidebar/SingleResults";
 import { boatLabel } from "./sidebar/boatLabel";
+import { useT } from "../i18n";
 
 /** Placeholder while a computation runs, so the panel never shows half a plan. */
 function LoadingSkeleton() {
@@ -45,6 +46,7 @@ function LoadingSkeleton() {
 }
 
 export function PlanSidebar() {
+  const { t } = useT();
   const { state, actions, archetypes, isLoading } = usePlan();
   const {
     passage,
@@ -76,7 +78,7 @@ export function PlanSidebar() {
       <div className="p-4">
         <PlanHeaderRow locked={waypoints.length < 2} />
         <div className="mt-4 rounded-xl p-4 text-sm" style={{ background: "var(--ow-err-soft)", color: "var(--ow-err)", border: "1px solid var(--ow-err-line)" }}>
-          <p className="font-semibold mb-1">Erreur</p>
+          <p className="font-semibold mb-1">{t("plan.states.error.title")}</p>
           <p className="leading-relaxed">{apiError}</p>
         </div>
       </div>

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useMemo, useRef, useState } from "react";
+import { rich, useT } from "../i18n";
 import {
   ARCHETYPE_LABELS,
   MIN_UPWIND_MAX,
@@ -34,6 +35,7 @@ interface BoatAdvancedProps {
 }
 
 export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
+  const { t } = useT();
   const [importNotice, setImportNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(
     null,
   );
@@ -45,15 +47,13 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
 
   async function importFile(file: File) {
     if (file.size > IMPORT_MAX_BYTES) {
-      setImportNotice({
-        kind: "error",
-        text: "Fichier trop volumineux : une polaire fait quelques ko, vérifiez que c'est le bon fichier.",
-      });
+      setImportNotice({ kind: "error", text: t("config.polarImport.tooLarge") });
       return;
     }
     try {
       const parsed = parsePolarFile(await file.text());
-      const name = file.name.replace(/\.[^.]+$/, "").slice(0, 120) || "Polaire importée";
+      const name =
+        file.name.replace(/\.[^.]+$/, "").slice(0, 120) || t("config.polarImport.defaultName");
       // A fresh file is trusted as-is: no spi overlay, upwind angle re-derived
       // from the grid (the previous file's manual pin no longer applies).
       onChange({
@@ -69,16 +69,19 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
         minUpwindDeg: undefined,
       });
       setSelectedTwsIdx(0);
-      const dims = `${parsed.tws_kn.length} vitesses de vent × ${parsed.twa_deg.length} angles`;
+      const done = t("config.polarImport.ok", {
+        name,
+        tws: parsed.tws_kn.length,
+        twa: parsed.twa_deg.length,
+      });
+      // The parser's warnings are whole sentences of their own, already
+      // translated: they follow the confirmation, they are not woven into it.
       const suffix = parsed.warnings.length > 0 ? ` ${parsed.warnings.join(" ")}` : "";
-      setImportNotice({ kind: "ok", text: `« ${name} » importée (${dims}).${suffix}` });
+      setImportNotice({ kind: "ok", text: `${done}${suffix}` });
     } catch (e) {
       setImportNotice({
         kind: "error",
-        text:
-          e instanceof PolarImportError
-            ? e.message
-            : "Impossible de lire ce fichier. Format attendu : texte avec une ligne d'en-tête TWS puis une ligne par angle TWA.",
+        text: e instanceof PolarImportError ? e.message : t("config.polarImport.unreadable"),
       });
     }
   }
@@ -166,18 +169,22 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
           flip back at any time. */}
       <div className="polar-block">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <span className="text-xs uppercase tracking-wider opacity-70">Fichier de polaire</span>
+          <span className="text-xs uppercase tracking-wider opacity-70">
+            {t("config.boat.advanced.polarFile")}
+          </span>
           <div className="flex gap-2 flex-wrap">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="polar-btn polar-btn-accent"
             >
-              {config.imported ? "Remplacer le fichier…" : "Importer un fichier…"}
+              {config.imported
+                ? t("config.boat.advanced.replaceFile")
+                : t("config.boat.advanced.importFile")}
             </button>
             {config.imported && (
               <button type="button" onClick={removeImported} className="polar-btn">
-                Supprimer
+                {t("config.boat.advanced.removeFile")}
               </button>
             )}
           </div>
@@ -196,7 +203,11 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
               {" "}
               · {config.imported.tws_kn.length} TWS × {config.imported.twa_deg.length} TWA
             </span>
-            <div className="polar-source-segment mt-2" role="radiogroup" aria-label="Polaire active">
+            <div
+              className="polar-source-segment mt-2"
+              role="radiogroup"
+              aria-label={t("config.boat.advanced.activePolar")}
+            >
               <button
                 type="button"
                 role="radio"
@@ -204,7 +215,7 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
                 onClick={() => setSource("imported")}
                 className={`polar-spi-btn ${config.source === "imported" ? "is-active" : ""}`}
               >
-                Polaire importée
+                {t("config.boat.advanced.sourceImported")}
               </button>
               <button
                 type="button"
@@ -213,16 +224,12 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
                 onClick={() => setSource("archetype")}
                 className={`polar-spi-btn ${config.source === "archetype" ? "is-active" : ""}`}
               >
-                Archétype ajusté
+                {t("config.boat.advanced.sourceArchetype")}
               </button>
             </div>
           </div>
         ) : (
-          <p className="polar-hint">
-            Format standard (qtVlm, Expedition, MaxSea) : première ligne = vitesses
-            de vent (TWS), une ligne par angle (TWA), séparées par tabulations,
-            points-virgules ou virgules. Extensions .pol, .csv ou .txt.
-          </p>
+          <p className="polar-hint">{t("config.boat.advanced.formatHint")}</p>
         )}
         {importNotice && (
           <p className={`polar-import-notice ${importNotice.kind === "ok" ? "is-ok" : "is-error"}`}>
@@ -230,16 +237,18 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
           </p>
         )}
         <p className="polar-hint">
-          <a
-            href="/polars/exemple-polaire.csv"
-            download
-            className="underline"
-            style={{ color: "var(--ow-accent)" }}
-          >
-            Télécharger un fichier d'exemple (.csv)
-          </a>{" "}
-          : la polaire du croiseur 30 pieds, à ouvrir dans un tableur et remplacer
-          par les valeurs de votre bateau.
+          {rich(t("config.boat.advanced.exampleFile"), {
+            a: (chunk) => (
+              <a
+                href="/polars/exemple-polaire.csv"
+                download
+                className="underline"
+                style={{ color: "var(--ow-accent)" }}
+              >
+                {chunk}
+              </a>
+            ),
+          })}
         </p>
       </div>
 
@@ -247,7 +256,7 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
       <div className="polar-block">
         <div className="flex items-center gap-3 flex-wrap">
           <span className="text-xs uppercase tracking-wider opacity-70">
-            Angle de près minimal
+            {t("config.boat.advanced.minUpwind")}
           </span>
           <input
             type="number"
@@ -255,7 +264,7 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
             step="1"
             min={MIN_UPWIND_MIN}
             max={MIN_UPWIND_MAX}
-            placeholder={`auto (${autoMinUpwind}°)`}
+            placeholder={t("config.boat.advanced.minUpwindPlaceholder", { deg: autoMinUpwind })}
             value={config.minUpwindDeg ?? ""}
             onChange={(e) => setMinUpwind(e.target.value)}
             className="polar-motor-input w-28"
@@ -266,16 +275,14 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
               onClick={() => onChange({ ...config, minUpwindDeg: undefined })}
               className="polar-btn"
             >
-              Auto
+              {t("config.boat.advanced.minUpwindAuto")}
             </button>
           )}
         </div>
         <p className="polar-hint">
-          En dessous de cet angle du vent, le bateau ne remonte plus : le simulateur
-          tire des bords à l'angle de VMG optimal et le diagramme grise la zone morte.
-          Auto = valeur de l'archétype ({ARCHETYPE_LABELS[config.base]}), ou premier
-          angle du fichier importé. Un angle plus serré que les données de la polaire
-          prolonge la courbe à VMG constant, sans améliorer les vitesses simulées.
+          {t("config.boat.advanced.minUpwindHint", {
+            archetype: ARCHETYPE_LABELS[config.base],
+          })}
         </p>
       </div>
 
@@ -284,8 +291,14 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
           inventory, so an extra boost would double-count it. */}
       <div className={`polar-block ${importedActive ? "polar-block-disabled" : ""}`}>
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-xs uppercase tracking-wider opacity-70">Spinnaker</span>
-          <div className="polar-spi-segment" role="radiogroup" aria-label="Type de spi">
+          <span className="text-xs uppercase tracking-wider opacity-70">
+            {t("config.boat.advanced.spinnaker")}
+          </span>
+          <div
+            className="polar-spi-segment"
+            role="radiogroup"
+            aria-label={t("config.boat.advanced.spiKind")}
+          >
             <button
               type="button"
               role="radio"
@@ -294,7 +307,7 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
               onClick={() => setSpi("off")}
               className={`polar-spi-btn ${!importedActive && config.spi === "off" ? "is-active" : ""}`}
             >
-              Aucun
+              {t("config.boat.advanced.spiOff")}
             </button>
             <button
               type="button"
@@ -303,9 +316,9 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
               disabled={importedActive}
               onClick={() => setSpi("asymmetric")}
               className={`polar-spi-btn ${!importedActive && config.spi === "asymmetric" ? "is-active" : ""}`}
-              title="Asymétrique : sweet spot reaching 110-135°, utile jusqu'à 150° en heat-up"
+              title={t("config.boat.advanced.spiAsymmetricTitle")}
             >
-              Asymétrique
+              {t("config.boat.advanced.spiAsymmetric")}
             </button>
             <button
               type="button"
@@ -314,14 +327,14 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
               disabled={importedActive}
               onClick={() => setSpi("symmetric")}
               className={`polar-spi-btn ${!importedActive && config.spi === "symmetric" ? "is-active" : ""}`}
-              title="Symétrique : optimal au plein-vent arrière, 135-165° (pole requis)"
+              title={t("config.boat.advanced.spiSymmetricTitle")}
             >
-              Symétrique
+              {t("config.boat.advanced.spiSymmetric")}
             </button>
           </div>
           {!importedActive && config.spi !== "off" && (
             <label className="flex items-center gap-2 text-xs opacity-80">
-              Affaler au-dessus de
+              {t("config.boat.advanced.spiDouse")}
               <input
                 type="number"
                 inputMode="numeric"
@@ -338,16 +351,10 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
           )}
         </div>
         {importedActive ? (
-          <p className="polar-hint">
-            Polaire importée active : le réglage spi est verrouillé, votre fichier est
-            supposé refléter déjà votre garde-robe de voiles.
-          </p>
+          <p className="polar-hint">{t("config.boat.advanced.spiLocked")}</p>
         ) : (
           config.spi !== "off" && (
-            <p className="polar-hint">
-              Le gain de vitesse au portant ne s'applique qu'aux courbes de vent
-              inférieures ou égales à ce seuil.
-            </p>
+            <p className="polar-hint">{t("config.boat.advanced.spiThresholdHint")}</p>
           )
         )}
       </div>
@@ -363,8 +370,10 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
             onClick={() => setTuningOpen(!tuningOpen)}
           >
             <span className="text-xs uppercase tracking-wider opacity-70">
-              Ajustement manuel
-              {overrideCount > 0 ? ` · ${overrideCount} point(s) ajusté(s)` : ""}
+              {t("config.boat.advanced.tuning")}
+              {overrideCount > 0
+                ? ` · ${t("config.boat.advanced.tunedPoints", { count: overrideCount })}`
+                : ""}
             </span>
             <span className={`config-tile-chevron ${tuningOpen ? "is-open" : ""}`} aria-hidden>
               ▾
@@ -372,20 +381,16 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
           </button>
           {tuningOpen && (
             <>
-              <p className="polar-hint">
-                Glissez un point de la courbe sélectionnée pour fixer sa vitesse
-                (valeurs brutes, avant coefficient). Les points ajustés restent
-                quand vous changez de spi.
-              </p>
+              <p className="polar-hint">{t("config.boat.advanced.tuningHint")}</p>
               <TwsPills
                 twsKn={effective.tws_kn}
                 selectedIdx={selectedTwsIdx}
                 onSelect={setSelectedTwsIdx}
-                label="Courbe éditable (TWS)"
+                label={t("config.polar.curveEditable")}
               />
               <PolarDiagram
                 title={ARCHETYPE_LABELS[config.base]}
-                subtitle="valeurs brutes · glisser pour ajuster"
+                subtitle={t("config.boat.advanced.rawSubtitle")}
                 twsKn={effective.tws_kn}
                 twaDeg={effective.twa_deg}
                 matrix={effective.boat_speed_kn}
@@ -398,7 +403,7 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
               {hasOverrides(config) && (
                 <div>
                   <button type="button" onClick={clearOverrides} className="polar-btn">
-                    Effacer les ajustements
+                    {t("config.boat.advanced.clearTuning")}
                   </button>
                 </div>
               )}

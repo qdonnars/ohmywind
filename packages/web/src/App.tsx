@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { nowParisHourPrefix } from "./domain/datetime";
+import { useT } from "./i18n";
 import type { Spot, ModelForecast, MarineHourly, MetricView } from "./types";
 import { fetchAllModels } from "./api/openmeteo";
 import {
@@ -43,6 +44,7 @@ function previewSpot(lat: number, lon: number): Spot {
 }
 
 function EmptyState() {
+  const { t } = useT();
   return (
     <div className="flex items-end justify-center pb-6 px-4">
       <div
@@ -59,8 +61,8 @@ function EmptyState() {
           style={{ background: 'var(--ow-accent)' }}
         />
         <span className="text-[12px] font-medium" style={{ color: 'var(--ow-fg-0)' }}>
-          <span className="lg:hidden">Touchez la carte pour la météo, appui long pour enregistrer un spot</span>
-          <span className="hidden lg:inline">Cliquez la carte pour la météo, clic droit pour enregistrer un spot</span>
+          <span className="lg:hidden">{t("explore.emptyState.touch")}</span>
+          <span className="hidden lg:inline">{t("explore.emptyState.click")}</span>
         </span>
       </div>
     </div>
@@ -69,6 +71,7 @@ function EmptyState() {
 
 
 function App() {
+  const { t } = useT();
   const { customSpots, addSpot, removeSpot, renameSpot } = useCustomSpots();
   // New users (no saved spots, nothing consulted yet) land with no active
   // spot — no auto-loaded forecasts, no wind arrows on the map. The
@@ -295,7 +298,7 @@ function App() {
           href={`/plan${mapViewQuery(mapView)}`}
           className="absolute top-3 left-3 z-[400] w-[58px] h-[58px] sm:w-20 sm:h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
           style={{ background: "var(--ow-accent)", color: "var(--ow-on-accent)" }}
-          title="Planifier un passage"
+          title={t("explore.planFab.title")}
         >
           <img src="/compass.png" alt="" className="select-none w-[64px] h-[64px] sm:w-[88px] sm:h-[88px]" draggable={false} />
         </a>
