@@ -106,7 +106,7 @@ const DESTINATIONS: readonly Destination[] = [
     title: "common.nav.plan.title",
     description: "common.nav.plan.desc",
     icon: CompassIcon,
-    tileGlyph: 18,
+    tileGlyph: 22,
   },
   {
     id: "compare",

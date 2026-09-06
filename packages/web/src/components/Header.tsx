@@ -75,10 +75,10 @@ export function Header({ onSelectSpot, nearLat, nearLon, savedSpots, current, ma
       // `safe-x` and `safe-top` are plain classes, so they beat any padding
       // utility on the same element and the same axis: the gutters belong on
       // the row inside, the notch insets on the bar itself (issue #377).
-      className="sticky top-0 z-30 backdrop-blur-lg py-2 safe-top safe-x"
+      className="sticky top-0 z-30 backdrop-blur-lg safe-top safe-x"
       style={{ background: 'var(--ow-surface-glass)', borderBottom: '1px solid var(--ow-accent-line)' }}
     >
-      <div className="flex items-center gap-3 px-3 lg:px-6 max-w-screen-2xl mx-auto">
+      <div className="flex items-center gap-3 px-3 py-2 lg:px-6 max-w-screen-2xl mx-auto">
         <div className="flex items-center gap-2 shrink-0">
           {/* On a phone the menu takes the logo's place: its badge already
               carries the wind mark, and the search field needs the width. */}
