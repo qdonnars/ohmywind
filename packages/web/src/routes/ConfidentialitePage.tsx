@@ -9,6 +9,7 @@ import confidentialiteFr from "../content/confidentialite.md?raw";
 import confidentialiteEn from "../content/confidentialite.en.md?raw";
 import confidentialiteDe from "../content/confidentialite.de.md?raw";
 import confidentialiteIt from "../content/confidentialite.it.md?raw";
+import confidentialiteEs from "../content/confidentialite.es.md?raw";
 import "./confidentialite.css";
 
 // One file per language, all four in this page's chunk: the page is loaded
@@ -19,6 +20,7 @@ const CONTENT: Record<Lang, string> = {
   en: confidentialiteEn,
   de: confidentialiteDe,
   it: confidentialiteIt,
+  es: confidentialiteEs,
 };
 
 /** Page statique exigée par le Play Store (formulaire Data safety) et liée
