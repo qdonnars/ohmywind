@@ -187,16 +187,30 @@ function PlusIcon() {
   );
 }
 
-/** "Ajouter un spot": hands the reader to the search field. */
-export function AddSpotButton({ onClick, className = "" }: { onClick: () => void; className?: string }) {
+/** "Ajouter un spot": hands the reader to the search field.
+
+    `compact` is the phone's footer: the sheet is the table, and a full-height
+    button under it takes a row away for a control the reader uses once. It
+    only loses height, and stays full width, so the target keeps its size
+    where a thumb aims. */
+export function AddSpotButton({
+  onClick,
+  className = "",
+  compact = false,
+}: {
+  onClick: () => void;
+  className?: string;
+  compact?: boolean;
+}) {
   const { t } = useT();
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center justify-center gap-2 rounded-lg text-[13px] font-medium cursor-pointer transition-colors hover:bg-surface-3 ${className}`}
+      className={`flex w-full items-center justify-center gap-2 rounded-lg font-medium cursor-pointer transition-colors hover:bg-surface-3 ${className}`}
       style={{
-        padding: 11,
+        padding: compact ? "6px 12px" : 11,
+        fontSize: compact ? 12.5 : 13,
         background: "var(--ow-bg-2)",
         color: "var(--ow-fg-1)",
         border: "1px solid var(--ow-line-2)",

@@ -508,8 +508,8 @@ export function ComparePage() {
           )}
           <div className="flex-1 min-h-0 flex flex-col pl-3.5">{content(true)}</div>
           {sheetOpen && (
-            <div className="shrink-0 px-3 pt-2 pb-1" style={{ borderTop: "1px solid var(--ow-line)" }}>
-              <AddSpotButton onClick={focusSearch} />
+            <div className="shrink-0 px-3 pt-1.5 pb-1" style={{ borderTop: "1px solid var(--ow-line)" }}>
+              <AddSpotButton onClick={focusSearch} compact />
             </div>
           )}
         </div>
