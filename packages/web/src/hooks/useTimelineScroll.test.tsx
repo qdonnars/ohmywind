@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { act, render } from "@testing-library/react";
 import { useTimelineScroll } from "./useTimelineScroll";
 
@@ -118,5 +118,49 @@ describe("useTimelineScroll", () => {
     // Back on the anchored column, and this time without the 60 px offset,
     // which would otherwise drift the table a little on every switch.
     expect(el.scrollLeft).toBe(30 * CELL_W);
+  });
+
+  it("pans with a mouse drag and swallows the click that ends it", () => {
+    const onCell = vi.fn();
+    function DragHarness() {
+      const { scrollRef } = useTimelineScroll(hours(48), CELL_W, "2026-09-02T00");
+      return (
+        <div data-testid="scroller" ref={scrollRef}>
+          <button type="button" data-testid="cell" onClick={onCell}>
+            cell
+          </button>
+        </div>
+      );
+    }
+    const { getByTestId } = render(<DragHarness />);
+    const el = getByTestId("scroller");
+    sizeScroller(el);
+    el.scrollLeft = 200;
+    const pointer = (type: string, x: number, pointerType = "mouse") => {
+      const ev = new MouseEvent(type, { bubbles: true, clientX: x, clientY: 10, button: 0 });
+      Object.defineProperty(ev, "pointerType", { value: pointerType });
+      Object.defineProperty(ev, "pointerId", { value: 1 });
+      el.dispatchEvent(ev);
+    };
+
+    pointer("pointerdown", 100);
+    pointer("pointermove", 102); // under the threshold: still a click
+    expect(el.scrollLeft).toBe(200);
+    expect(el.classList.contains("is-dragging")).toBe(false);
+
+    pointer("pointermove", 150); // dragged 50 px to the right: content follows
+    expect(el.scrollLeft).toBe(150);
+    expect(el.classList.contains("is-dragging")).toBe(true);
+    pointer("pointerup", 150);
+    expect(el.classList.contains("is-dragging")).toBe(false);
+
+    getByTestId("cell").click(); // the click closing the drag selects nothing
+    expect(onCell).not.toHaveBeenCalled();
+    getByTestId("cell").click(); // a plain click still does
+    expect(onCell).toHaveBeenCalledTimes(1);
+
+    pointer("pointerdown", 100, "touch"); // touch pans natively: not ours
+    pointer("pointermove", 300, "touch");
+    expect(el.scrollLeft).toBe(150);
   });
 });

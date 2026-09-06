@@ -220,6 +220,15 @@ select,
 .wind-table-scroll th {
   scroll-snap-align: start;
 }
+/* While a mouse drags the table (useTimelineScroll): the scroll position is
+   set by hand on every move, so neither the smooth scrolling nor the snap
+   must intervene, and the text under the pointer must not get selected. */
+.wind-table-scroll.is-dragging {
+  scroll-behavior: auto;
+  scroll-snap-type: none;
+  user-select: none;
+  cursor: grabbing;
+}
 
 
 /* Scroll fade indicator */

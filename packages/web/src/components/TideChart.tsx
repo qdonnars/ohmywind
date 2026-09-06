@@ -115,9 +115,10 @@ export function TideChart({
   const selectedIdx = selectedHour ? masterTimeline.indexOf(selectedHour) : -1;
 
   return (
-    <div className="animate-fade-in h-full">
-      <div className={`scroll-container h-full ${scrolledEnd ? "scrolled-end" : ""}`}>
-        <div ref={scrollRef} className="h-full overflow-auto wind-table-scroll">
+    // Flex column down to the scroller, no percentage height: see WindTable.
+    <div className="animate-fade-in flex-1 min-h-0 flex flex-col">
+      <div className={`scroll-container flex-1 min-h-0 flex flex-col ${scrolledEnd ? "scrolled-end" : ""}`}>
+        <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto wind-table-scroll">
           <table className="border-collapse" role="table">
             <colgroup>
               <col style={{ width: STICKY_W }} />

@@ -409,9 +409,10 @@ export function MarineTable({
   const selectHour = useCallback((t: string) => onSelectHour(t), [onSelectHour]);
 
   return (
-    <div className="animate-fade-in min-h-0 flex flex-col">
-      <div className={`scroll-container flex-1 min-h-0 ${scrolledEnd ? "scrolled-end" : ""}`}>
-        <div ref={scrollRef} className="h-full overflow-auto wind-table-scroll">
+    // Flex column down to the scroller, no percentage height: see WindTable.
+    <div className="animate-fade-in flex-1 min-h-0 flex flex-col">
+      <div className={`scroll-container flex-1 min-h-0 flex flex-col ${scrolledEnd ? "scrolled-end" : ""}`}>
+        <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto wind-table-scroll">
           <table className="border-collapse" role="table">
             <thead className="sticky top-0 z-20">
               <TimelineHeader

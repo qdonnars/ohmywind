@@ -11,6 +11,7 @@ import {
   SPI_MAX_TWS_DEFAULT,
   SPI_MAX_TWS_MAX,
   SPI_MAX_TWS_MIN,
+  commitMinUpwindDraft,
   commitSpiMaxTwsDraft,
   defaultPolarConfig,
   derivedMinUpwind,
@@ -21,6 +22,7 @@ import {
   isPersoActive,
   isPolarCustomized,
   loadPolarConfig,
+  parseMinUpwindDraft,
   parseSpiMaxTwsDraft,
   planEfficiency,
   planMinUpwind,
@@ -551,5 +553,25 @@ describe("polarFingerprint", () => {
     expect(polarFingerprint(withImported({ persoActive: false }))).not.toBe(
       polarFingerprint(withImported()),
     );
+  });
+});
+
+describe("minimum upwind angle draft", () => {
+  it("keeps a digit on its way to a value in range, and floors it only on commit", () => {
+    expect(parseMinUpwindDraft("5")).toBe(5);
+    expect(commitMinUpwindDraft("5")).toBe(25);
+  });
+
+  it("takes 50 as 50, not 70 (forum, 2026-09)", () => {
+    expect(parseMinUpwindDraft("50")).toBe(50);
+    expect(commitMinUpwindDraft("50")).toBe(50);
+  });
+
+  it("caps at the ceiling while typing and refuses junk", () => {
+    expect(parseMinUpwindDraft("250")).toBe(70);
+    expect(parseMinUpwindDraft("")).toBeNull();
+    expect(parseMinUpwindDraft("abc")).toBeNull();
+    expect(parseMinUpwindDraft("-3")).toBeNull();
+    expect(commitMinUpwindDraft("  ")).toBeNull();
   });
 });
