@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type PointerEvent,
   type ReactNode,
   type TransitionEvent,
 } from "react";
@@ -24,7 +25,17 @@ import {
 } from "../compare/CompareControls";
 import { CompareTable } from "../compare/CompareTable";
 import { compareDays, rowKey, sameSpot, type HourWindow, type Resolution } from "../compare/data";
-import { loadComparePrefs, saveComparePrefs, type ComparePrefs } from "../compare/prefs";
+import {
+  clampSheet,
+  loadComparePrefs,
+  saveComparePrefs,
+  SHEET_FOOTER_MIN,
+  SHEET_MAX,
+  SHEET_MIN,
+  SHEET_OPEN,
+  SHEET_PEEK,
+  type ComparePrefs,
+} from "../compare/prefs";
 import { AddSpotButton, SpotPicker } from "../compare/SpotPicker";
 import { useCompareData } from "../compare/useCompareData";
 import { saveLastSpot } from "../config/lastSpot";
@@ -39,9 +50,9 @@ import { haversineNm } from "../utils/geo";
 
 const DEFAULT_MAP_CENTER: { lat: number; lon: number } = { lat: 43.3, lon: 5.35 };
 
-/** Height of the phone's sheet, as a share of the map area. */
-const SHEET_FULL = "78%";
-const SHEET_COMPACT = "40%";
+/** Under this much map left above the sheet, framing the spots would only
+    move them behind it: the reader has asked for the table, not the map. */
+const MAP_STRIP_MIN_PX = 100;
 
 /** Hands the reader to the header's search field: on this page a picked
     result becomes a favourite, which is how a spot gets added here. */
@@ -121,10 +132,19 @@ export function ComparePage() {
     saveLastSpot(spot);
   }, []);
 
-  // Phone only: the sheet's two heights, and the favourites panel inside it.
-  const [sheetFull, setSheetFull] = useState(true);
+  // Phone only: the height of the sheet, and the favourites panel inside it.
+  // The height is dragged by the handle and kept across visits, so a reader
+  // who works in the table full screen finds it full screen again.
+  const [sheet, setSheet] = useState(() => prefs.sheet);
+  const [sheetAnimating, setSheetAnimating] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
+  // `value` rather than the state read back on release: a whole drag can land
+  // in one batch, and the height committed then must be the one dragged to.
+  const dragRef = useRef<{ y: number; from: number; moved: boolean; value: number } | null>(null);
+  // A drag ends on a click the browser fires anyway; without this the sheet
+  // would snap back to one of its two tap heights on every release.
+  const tapHandledRef = useRef(false);
   // Bumped whenever the map should frame the spots again: the "centre"
   // button, or the sheet having finished changing height.
   const [fitTick, setFitTick] = useState(0);
@@ -157,6 +177,15 @@ export function ComparePage() {
     }
     return map;
   }, [userPosition, customSpots]);
+
+  // The rank of each favourite, in the order they were saved: the map draws
+  // it inside the marker, the table and the picker repeat it before the name.
+  // Built from every favourite rather than from the ticked ones, so
+  // unticking the third does not renumber the fourth.
+  const markerNumbers = useMemo(
+    () => new Map(customSpots.map((s, i): [string, number] => [rowKey(s), i + 1])),
+    [customSpots],
+  );
 
   const picked = useMemo(() => customSpots.filter((s) => !hidden.has(rowKey(s))), [customSpots, hidden]);
   const pickedRows = useMemo(() => rows.filter((r) => !hidden.has(rowKey(r.spot))), [rows, hidden]);
@@ -212,9 +241,71 @@ export function ComparePage() {
   const setWin = useCallback((win: HourWindow) => setPrefs({ win }), [setPrefs]);
   const setWave = useCallback((on: boolean) => setPrefs({ wave: on }), [setPrefs]);
 
-  const onSheetTransitionEnd = (e: TransitionEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget && e.propertyName === "height") setFitTick((v) => v + 1);
+  // ── The sheet's height ─────────────────────────────────────────────────
+  // A drag on the handle sets it anywhere between a peek and the full
+  // screen; a tap keeps the two heights of the design. Percentages of the
+  // map area rather than of the viewport, so the header never counts.
+  const mapAreaHeight = () => sheetRef.current?.parentElement?.clientHeight ?? 0;
+
+  const refitMap = (pct: number) => {
+    const height = mapAreaHeight();
+    if (height > 0 && height * (1 - pct / 100) < MAP_STRIP_MIN_PX) return;
+    setFitTick((v) => v + 1);
   };
+
+  const onHandleDown = (e: PointerEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    // Capture so the drag survives a thumb that wanders off the handle. Not
+    // every pointer can be captured (a synthetic one, a pointer already
+    // released), and losing the capture only costs the stray-thumb case.
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* the drag still works, it just ends when the pointer leaves */
+    }
+    setSheetAnimating(false);
+    dragRef.current = { y: e.clientY, from: sheet, moved: false, value: sheet };
+  };
+  const onHandleMove = (e: PointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    const dy = drag.y - e.clientY;
+    // Under a few pixels the reader is tapping, not dragging: the sheet must
+    // not jitter under a thumb that meant to toggle it.
+    if (!drag.moved && Math.abs(dy) < 4) return;
+    drag.moved = true;
+    const height = mapAreaHeight();
+    if (height <= 0) return;
+    drag.value = Math.min(Math.max(drag.from + (dy / height) * 100, SHEET_MIN), SHEET_MAX);
+    setSheet(drag.value);
+  };
+  const onHandleUp = (e: PointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current;
+    dragRef.current = null;
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    if (!drag?.moved) return;
+    tapHandledRef.current = true;
+    setPrefs({ sheet: clampSheet(drag.value) });
+    refitMap(drag.value);
+  };
+  const toggleSheet = () => {
+    if (tapHandledRef.current) {
+      tapHandledRef.current = false;
+      return;
+    }
+    const next = sheet >= SHEET_FOOTER_MIN ? SHEET_PEEK : SHEET_OPEN;
+    setSheetAnimating(true);
+    setSheet(next);
+    setPrefs({ sheet: next });
+  };
+  const onSheetTransitionEnd = (e: TransitionEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget || e.propertyName !== "height") return;
+    setSheetAnimating(false);
+    refitMap(sheet);
+  };
+  const sheetOpen = sheet >= SHEET_FOOTER_MIN;
 
   const focusedKey = focused ? rowKey(focused) : null;
 
@@ -249,6 +340,7 @@ export function ComparePage() {
         focusedKey={focusedKey}
         onFocusSpot={handleFocus}
         distances={distances}
+        numbers={markerNumbers}
       />
     );
   };
@@ -259,7 +351,7 @@ export function ComparePage() {
       customSpots={picked}
       fitSpots={fitSpots}
       fitStamp={fitTick}
-      spotLabels
+      markerNumbers={markerNumbers}
       userPosition={userPosition}
       onViewChange={onViewChange}
       defaultCenter={DEFAULT_MAP_CENTER}
@@ -340,6 +432,7 @@ export function ComparePage() {
               onToggle={toggleSpot}
               onAll={pickAll}
               distances={distances}
+              numbers={markerNumbers}
               variant="column"
             />
             <div className="p-3" style={{ borderTop: "1px solid var(--ow-line)" }}>
@@ -361,22 +454,31 @@ export function ComparePage() {
           onTransitionEnd={onSheetTransitionEnd}
           className="absolute left-0 right-0 bottom-0 z-[400] flex flex-col safe-bottom"
           style={{
-            height: sheetFull ? SHEET_FULL : SHEET_COMPACT,
+            height: `${sheet}%`,
             background: "var(--ow-bg-1)",
             borderRadius: "20px 20px 0 0",
             boxShadow: "var(--ow-shadow-pop)",
             borderTop: "1px solid var(--ow-line)",
-            transition: "height .3s cubic-bezier(.3, 1, .4, 1)",
+            transition: sheetAnimating ? "height .3s cubic-bezier(.3, 1, .4, 1)" : undefined,
           }}
         >
+          {/* The grab handle. Wide enough for a thumb, and the whole strip
+              takes the drag: the pill alone was a 5 px target. A press that
+              travels stays a resize, a press that does not is the tap the
+              design gives the two heights to. */}
           <button
             type="button"
-            onClick={() => setSheetFull((v) => !v)}
-            aria-expanded={sheetFull}
-            aria-label={sheetFull ? t("compare.sheet.collapse") : t("compare.sheet.expand")}
-            className="shrink-0 w-full pt-[9px] pb-1 cursor-pointer"
+            onClick={toggleSheet}
+            onPointerDown={onHandleDown}
+            onPointerMove={onHandleMove}
+            onPointerUp={onHandleUp}
+            onPointerCancel={onHandleUp}
+            aria-expanded={sheetOpen}
+            aria-label={sheetOpen ? t("compare.sheet.collapse") : t("compare.sheet.expand")}
+            className="shrink-0 w-full flex items-center justify-center cursor-row-resize touch-none"
+            style={{ height: 28 }}
           >
-            <span className="block mx-auto rounded-[3px]" style={{ width: 40, height: 5, background: "var(--ow-line-2)" }} />
+            <span className="block rounded-[3px]" style={{ width: 40, height: 5, background: "var(--ow-line-2)" }} />
           </button>
           <div className="shrink-0 px-3 pb-2 flex items-center gap-[7px]">
             <StepSegment value={prefs.res} onChange={setRes} small />
@@ -399,12 +501,13 @@ export function ComparePage() {
               onToggle={toggleSpot}
               onAll={pickAll}
               distances={distances}
+              numbers={markerNumbers}
               variant="panel"
               onClose={() => setPanelOpen(false)}
             />
           )}
           <div className="flex-1 min-h-0 flex flex-col pl-3.5">{content(true)}</div>
-          {sheetFull && (
+          {sheetOpen && (
             <div className="shrink-0 px-3 pt-2 pb-1" style={{ borderTop: "1px solid var(--ow-line)" }}>
               <AddSpotButton onClick={focusSearch} />
             </div>

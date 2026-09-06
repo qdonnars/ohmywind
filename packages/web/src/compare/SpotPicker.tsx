@@ -19,6 +19,9 @@ interface SpotPickerProps {
   onToggle: (spot: Spot) => void;
   onAll: (pickAll: boolean) => void;
   distances?: ReadonlyMap<string, number>;
+  /** Rank of each favourite, by `rowKey`: the digit the map puts inside the
+      marker and the table repeats before the name. */
+  numbers?: ReadonlyMap<string, number>;
   /** "column": the wide layout's right column. "panel": the phone's inline
       card, with a close button and a bounded height. */
   variant: "column" | "panel";
@@ -36,7 +39,16 @@ function CloseIcon() {
 const LABEL = "text-[9px] font-semibold uppercase";
 const LABEL_STYLE = { letterSpacing: "0.08em", color: "var(--ow-fg-2)" } as const;
 
-export function SpotPicker({ spots, hidden, onToggle, onAll, distances, variant, onClose }: SpotPickerProps) {
+export function SpotPicker({
+  spots,
+  hidden,
+  onToggle,
+  onAll,
+  distances,
+  numbers,
+  variant,
+  onClose,
+}: SpotPickerProps) {
   const { t } = useT();
   const picked = spots.filter((s) => !hidden.has(rowKey(s))).length;
   const all = picked === spots.length;
@@ -90,6 +102,7 @@ export function SpotPicker({ spots, hidden, onToggle, onAll, distances, variant,
           const key = rowKey(spot);
           const on = !hidden.has(key);
           const distance = distances?.get(key);
+          const number = numbers?.get(key);
           return (
             <button
               key={key}
@@ -119,6 +132,24 @@ export function SpotPicker({ spots, hidden, onToggle, onAll, distances, variant,
               >
                 {on ? "✓" : ""}
               </span>
+              {number != null && (
+                <span
+                  aria-hidden="true"
+                  className="shrink-0 rounded-full flex items-center justify-center"
+                  style={{
+                    width: 16,
+                    height: 16,
+                    background: "var(--ow-accent-strong)",
+                    color: "var(--ow-on-accent)",
+                    fontFamily: "var(--ow-font-mono)",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    lineHeight: 1,
+                  }}
+                >
+                  {number}
+                </span>
+              )}
               <span className="flex-1 min-w-0">
                 <span
                   className="block truncate font-semibold"

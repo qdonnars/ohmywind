@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PREFS, sanitisePrefs } from "./prefs";
+import { clampSheet, DEFAULT_PREFS, sanitisePrefs } from "./prefs";
 
 describe("sanitisePrefs", () => {
   it("falls back to the defaults on anything that is not an object", () => {
@@ -12,7 +12,7 @@ describe("sanitisePrefs", () => {
   });
 
   it("keeps a valid payload as is", () => {
-    const prefs = { res: 1, win: [8, 14], wave: false, hidden: ["43.3,5.35"] };
+    const prefs = { res: 1, win: [8, 14], wave: false, hidden: ["43.3,5.35"], sheet: 55 };
     expect(sanitisePrefs(prefs)).toEqual(prefs);
   });
 
@@ -22,8 +22,30 @@ describe("sanitisePrefs", () => {
       win: [22, 24],
       wave: true,
       hidden: ["a"],
+      sheet: 78,
     });
     expect(sanitisePrefs({ win: [6] }).win).toEqual([6, 22]);
     expect(sanitisePrefs({ win: ["6", "22"] }).win).toEqual([6, 22]);
+  });
+});
+
+describe("clampSheet", () => {
+  it("keeps the sheet between its handle and the full screen", () => {
+    expect(clampSheet(78)).toBe(78);
+    expect(clampSheet(0)).toBe(15);
+    expect(clampSheet(-40)).toBe(15);
+    expect(clampSheet(140)).toBe(100);
+    expect(clampSheet(62.4)).toBe(62);
+  });
+});
+
+describe("sanitisePrefs, sheet height", () => {
+  it("defaults to the open sheet and repairs anything out of bounds", () => {
+    expect(sanitisePrefs({}).sheet).toBe(78);
+    expect(sanitisePrefs({ sheet: "80" }).sheet).toBe(78);
+    expect(sanitisePrefs({ sheet: Number.NaN }).sheet).toBe(78);
+    expect(sanitisePrefs({ sheet: 3 }).sheet).toBe(15);
+    expect(sanitisePrefs({ sheet: 240 }).sheet).toBe(100);
+    expect(sanitisePrefs({ sheet: 42.6 }).sheet).toBe(43);
   });
 });

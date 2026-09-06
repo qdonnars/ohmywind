@@ -37,12 +37,13 @@ function isAt(spot: Spot, at: Spot | null): boolean {
 /** Bigger, brighter and ringed when the spot is the one being read. Colours
     come from the theme rather than from four hex values written here: Leaflet
     wants a resolved string, so they are read at draw time. */
-function styleFor(active: boolean, labelled: boolean) {
-  if (labelled) {
-    // The comparison map: every spot is one being read, so all of them
-    // carry the accent, and the focused one is only bigger.
+function styleFor(active: boolean, numbered: boolean) {
+  if (numbered) {
+    // The comparison map: every spot is one being read, so all of them carry
+    // the accent, and the focused one is only bigger. Wide enough for the
+    // digit the marker holds, which is what names the spot here.
     return {
-      radius: active ? 9 : 6,
+      radius: active ? 11 : 9,
       color: readToken("--ow-marker-stroke"),
       fillColor: readToken("--ow-marker-active"),
       fillOpacity: 0.95,
@@ -68,10 +69,12 @@ interface SyncSpotMarkersArgs {
   /** The spot currently being read, or null. Drives the active style. */
   current: Spot | null;
   onSelect: (spot: Spot) => void;
-  /** Name written under every marker rather than shown on hover: the
-      comparison map exists to situate and name the spots. Fixed for the
-      life of a marker, so a map must not change its mind. */
-  labels?: boolean;
+  /** Rank of each spot, by `spotKey`, when the map numbers them instead of
+      naming them: four labels at the scale of a coastline overlap into an
+      unreadable pile, a digit inside the marker never does. The same number
+      keys the row in the comparison table. Fixed for the life of a marker,
+      so a map must not change its mind about numbering. */
+  numbers?: ReadonlyMap<string, number>;
 }
 
 /** Reconcile the saved-spot markers with `spots`, restyling what stays. */
@@ -82,7 +85,7 @@ export function syncSpotMarkers({
   spots,
   current,
   onSelect,
-  labels = false,
+  numbers,
 }: SyncSpotMarkersArgs): void {
   const desiredKeys = new Set(spots.map(spotKey));
 
@@ -97,10 +100,15 @@ export function syncSpotMarkers({
 
   for (const spot of spots) {
     const key = spotKey(spot);
-    const style = styleFor(isAt(spot, current), labels);
+    const number = numbers?.get(key);
+    const style = styleFor(isAt(spot, current), number != null);
     const existing = markers.get(key);
     if (existing) {
       existing.setStyle(style);
+      // Unticking the third favourite must not renumber the fourth, but a
+      // favourite deleted or added does shift the ranks below it, so the
+      // digit is rewritten on every sync rather than bound once.
+      if (number != null) existing.setTooltipContent(String(number));
       continue;
     }
     const marker = L.circleMarker([spot.latitude, spot.longitude], {
@@ -111,15 +119,20 @@ export function syncSpotMarkers({
       bubblingMouseEvents: false,
     })
       .bindTooltip(
-        spot.name,
-        labels
-          ? { permanent: true, direction: "bottom", offset: [0, 6], className: "spot-tooltip spot-tooltip-fixed" }
+        number != null ? String(number) : spot.name,
+        number != null
+          ? { permanent: true, direction: "center", offset: [0, 0], className: "spot-number" }
           : { direction: "top", offset: [0, -10], className: "spot-tooltip" },
       )
       .on("click", () => onSelect(spot))
       .addTo(map);
     const svgEl = (marker as unknown as WithSvgPath)._path;
-    if (svgEl) elementToSpot.set(svgEl, spot);
+    if (svgEl) {
+      elementToSpot.set(svgEl, spot);
+      // The tooltip is the marker's accessible name, and on a numbered map
+      // it holds a digit: the spot still has to say what it is.
+      if (number != null) svgEl.setAttribute("aria-label", spot.name);
+    }
     markers.set(key, marker);
   }
 }

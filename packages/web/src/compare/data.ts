@@ -17,10 +17,11 @@ import type { MarineHourly, ModelForecast, Spot } from "../types";
 
 export interface CompareRow {
   spot: Spot;
-  /** The model read for this spot: the first of the reader's models that
-      covers it, in their own order (AROME first by default), or null when
-      none does. Never displayed: comparing two spots on two models means
-      nothing, so the page reads one and does not say which. */
+  /** The series read for this spot: the reader's models chained in their own
+      order (AROME first by default), each hour taken from the first of them
+      that has it, or null when none has anything. Never displayed: comparing
+      two spots on two models means nothing, so the page shows one series and
+      does not say which model each hour came from. */
   forecast: ModelForecast | null;
   marine: MarineHourly | null;
 }
@@ -244,4 +245,76 @@ export function waveLevel(hs: number): 0 | 1 | 2 | 3 | 4 | 5 {
   if (hs < 1.5) return 3;
   if (hs < 2.5) return 4;
   return 5;
+}
+
+/**
+ * One series out of a chain of models, read in the order given.
+ *
+ * The design says the page reads a single model and never names it. It stays
+ * true here: what the reader sees is one column of numbers per spot, with no
+ * model badge. But the high-resolution model that opens the chain stops after
+ * roughly two days, and the table runs over a week, so past that horizon its
+ * hours are empty while the sea band next to them is filled. So each hour
+ * falls back to the next model that has a reading, exactly as the passage
+ * planner does segment by segment on the server.
+ *
+ * The time axis is the longest of the chain, and the wind of an hour comes
+ * whole from a single model: speed, gust and direction are never mixed
+ * across two of them. Null when no model has anything to say.
+ */
+export function mergeModelChain(models: readonly ModelForecast[]): ModelForecast | null {
+  if (models.length === 0) return null;
+
+  let time: string[] = [];
+  for (const model of models) {
+    if (model.hourly.time.length > time.length) time = model.hourly.time;
+  }
+  if (time.length === 0) return null;
+
+  const indexes = models.map((m) => buildTimeIndex(m.hourly.time));
+  const speed: (number | null)[] = [];
+  const gusts: (number | null)[] = [];
+  const direction: (number | null)[] = [];
+  const code: (number | null)[] = [];
+  const day: (number | null)[] = [];
+  const hasDay = models.some((m) => m.hourly.is_day != null);
+  let any = false;
+
+  for (const t of time) {
+    let wind: { speed: number; gust: number | null; dir: number | null } | null = null;
+    let weather: number | null = null;
+    let isDay: number | null = null;
+    for (let m = 0; m < models.length; m++) {
+      const i = indexes[m].get(t);
+      if (i == null) continue;
+      const hourly = models[m].hourly;
+      if (wind == null) {
+        const s = hourly.wind_speed_10m[i];
+        if (s != null) {
+          wind = { speed: s, gust: hourly.wind_gusts_10m[i] ?? null, dir: hourly.wind_direction_10m[i] ?? null };
+        }
+      }
+      if (weather == null) weather = hourly.weather_code[i] ?? null;
+      if (isDay == null) isDay = hourly.is_day?.[i] ?? null;
+    }
+    if (wind) any = true;
+    speed.push(wind?.speed ?? null);
+    gusts.push(wind?.gust ?? null);
+    direction.push(wind?.dir ?? null);
+    code.push(weather);
+    day.push(isDay);
+  }
+  if (!any) return null;
+
+  return {
+    modelName: models[0].modelName,
+    hourly: {
+      time,
+      wind_speed_10m: speed,
+      wind_gusts_10m: gusts,
+      wind_direction_10m: direction,
+      weather_code: code,
+      ...(hasDay ? { is_day: day } : {}),
+    },
+  };
 }

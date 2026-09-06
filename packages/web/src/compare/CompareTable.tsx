@@ -228,6 +228,9 @@ interface CompareTableProps {
   onFocusSpot: (spot: Spot) => void;
   /** Distance from the reader, in nautical miles, by `rowKey`, when known. */
   distances?: ReadonlyMap<string, number>;
+  /** Rank of each favourite, by `rowKey`: the same digit the map puts inside
+      the spot's marker, so a row and a marker read as one. */
+  numbers?: ReadonlyMap<string, number>;
 }
 
 /**
@@ -247,6 +250,7 @@ export function CompareTable({
   focusedKey,
   onFocusSpot,
   distances,
+  numbers,
 }: CompareTableProps) {
   const { t } = useT();
   const [timezoneMode] = useTimezone();
@@ -323,12 +327,26 @@ export function CompareTable({
   }, []);
 
   const cellWidth = cellWidthFor(res, dense);
-  const stickyLeft = { position: "sticky" as const, left: 0, background: "var(--ow-bg-1)" };
+  // The names hold the left edge while the hours run under them, so the
+  // column has to be opaque and has to own its boundary: without the rule the
+  // cells simply stopped, mid-colour, wherever the scroll had left them.
+  const stickyLeft = {
+    position: "sticky" as const,
+    left: 0,
+    backgroundColor: "var(--ow-bg-1)",
+    borderRight: "1px solid var(--ow-line-2)",
+  };
+  // A column comes to rest whole against that boundary rather than cut in
+  // half by it: the scroller keeps the width of the names free of snapping,
+  // and every column offers its left edge as a stop.
+  const snap = { scrollSnapAlign: "start" as const };
+  const badge = dense ? 15 : 16;
 
   return (
     <div
       ref={scrollRef}
       className="ow-hscroll wind-table-scroll flex-1 min-h-0 overflow-auto"
+      style={{ scrollPaddingLeft: nameWidth + gap }}
       role="table"
       aria-label={t("common.nav.compare.title")}
     >
@@ -388,7 +406,7 @@ export function CompareTable({
                   key={col.key}
                   data-col={col.key}
                   className="shrink-0 text-center"
-                  style={{ width: cellWidth, marginLeft: col.first && i > 0 ? gap : 0 }}
+                  style={{ ...snap, width: cellWidth, marginLeft: col.first && i > 0 ? gap : 0 }}
                 >
                   <div
                     className="font-semibold"
@@ -413,6 +431,7 @@ export function CompareTable({
           const focused = key === focusedKey;
           const { wind, marine } = indexes[r];
           const distance = distances?.get(key);
+          const number = numbers?.get(key);
           return (
             <div key={key} data-row={key} role="row" className="flex items-stretch" style={{ gap }}>
               <button
@@ -421,41 +440,67 @@ export function CompareTable({
                 onClick={() => onFocusSpot(row.spot)}
                 aria-label={t("compare.row.focus", { name: row.spot.name })}
                 title={t("compare.row.focus", { name: row.spot.name })}
-                className="shrink-0 z-[2] text-left transition-colors flex flex-col justify-center"
+                className="shrink-0 z-[2] text-left transition-colors flex items-center"
                 style={{
                   ...stickyLeft,
                   width: nameWidth,
+                  gap: dense ? 5 : 6,
                   paddingRight: 8,
                   paddingLeft: focused ? 6 : 0,
-                  background: focused ? "var(--ow-accent-soft)" : "var(--ow-bg-1)",
+                  // The accent of a focused row is a 12 % wash: laid straight
+                  // on the sticky column it left it translucent, and every
+                  // cell sliding underneath showed through the name.
+                  backgroundImage: focused
+                    ? "linear-gradient(var(--ow-accent-soft), var(--ow-accent-soft))"
+                    : undefined,
                   boxShadow: focused ? "inset 3px 0 0 var(--ow-accent)" : undefined,
                 }}
               >
-                <div
-                  className="truncate font-semibold"
-                  style={{
-                    fontSize: dense ? 11.5 : 13,
-                    letterSpacing: "-0.01em",
-                    color: focused ? "var(--ow-accent)" : "var(--ow-fg-0)",
-                  }}
-                >
-                  {row.spot.name}
-                </div>
-                <div
-                  className="truncate"
-                  style={{ fontFamily: "var(--ow-font-mono)", fontSize: 9.5, color: "var(--ow-fg-2)", minHeight: 12 }}
-                >
-                  {!row.forecast
-                    ? t("compare.row.noData")
-                    : distance != null
-                      ? distance < 1
-                        ? t("explore.places.distanceUnderOne")
-                        : t("explore.places.distance", { value: fmtNm(distance).replace(/ nm$/, "") })
-                      : ""}
-                </div>
+                {number != null && (
+                  <span
+                    aria-hidden="true"
+                    className="shrink-0 rounded-full flex items-center justify-center"
+                    style={{
+                      width: badge,
+                      height: badge,
+                      background: "var(--ow-accent-strong)",
+                      color: "var(--ow-on-accent)",
+                      fontFamily: "var(--ow-font-mono)",
+                      fontSize: dense ? 9.5 : 10,
+                      fontWeight: 700,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {number}
+                  </span>
+                )}
+                <span className="flex-1 min-w-0 flex flex-col justify-center">
+                  <span
+                    className="block truncate font-semibold"
+                    style={{
+                      fontSize: dense ? 11.5 : 13,
+                      letterSpacing: "-0.01em",
+                      color: focused ? "var(--ow-accent)" : "var(--ow-fg-0)",
+                    }}
+                  >
+                    {row.spot.name}
+                  </span>
+                  <span
+                    className="block truncate"
+                    style={{ fontFamily: "var(--ow-font-mono)", fontSize: 9.5, color: "var(--ow-fg-2)", minHeight: 12 }}
+                  >
+                    {!row.forecast
+                      ? t("compare.row.noData")
+                      : distance != null
+                        ? distance < 1
+                          ? t("explore.places.distanceUnderOne")
+                          : t("explore.places.distance", { value: fmtNm(distance).replace(/ nm$/, "") })
+                        : ""}
+                  </span>
+                </span>
               </button>
               {columns.map((col, i) => (
-                <div key={col.key} className="flex" style={{ marginLeft: col.first && i > 0 ? gap : 0 }}>
+                <div key={col.key} className="flex" style={{ ...snap, marginLeft: col.first && i > 0 ? gap : 0 }}>
                   <Cell
                     wind={aggregateWind(row.forecast, wind, col.times)}
                     wave={wave ? aggregateWaves(row.marine, marine, col.times) : null}

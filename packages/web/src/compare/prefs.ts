@@ -12,10 +12,11 @@ import {
 
 /**
  * The comparison page's settings, kept across visits: the step, the hour
- * window, whether the sea band is shown, and the favourites left out of the
- * table. The favourites themselves live in `useCustomSpots`; what is kept
- * here is only which of them the reader unticked, by position, so a renamed
- * spot stays unticked and a deleted one is simply never matched again.
+ * window, whether the sea band is shown, the favourites left out of the
+ * table, and how tall the phone's sheet was left. The favourites themselves
+ * live in `useCustomSpots`; what is kept here is only which of them the
+ * reader unticked, by position, so a renamed spot stays unticked and a
+ * deleted one is simply never matched again.
  */
 export interface ComparePrefs {
   res: Resolution;
@@ -23,9 +24,32 @@ export interface ComparePrefs {
   wave: boolean;
   /** `rowKey`s of the favourites not compared. */
   hidden: string[];
+  /** Height of the phone's sheet, as a percentage of the map area. 100 is
+      full screen, the map entirely covered. Ignored on a wide screen. */
+  sheet: number;
 }
 
-export const DEFAULT_PREFS: ComparePrefs = { res: 3, win: DEFAULT_WINDOW, wave: true, hidden: [] };
+/** The sheet never gives up its handle, and never grows past the screen. */
+export const SHEET_MIN = 15;
+export const SHEET_MAX = 100;
+/** Its two tap heights: the table read wide, and a glance over the map. */
+export const SHEET_OPEN = 78;
+export const SHEET_PEEK = 40;
+/** Below this the sheet is a peek, and the footer would eat the table. */
+export const SHEET_FOOTER_MIN = 60;
+
+export const DEFAULT_PREFS: ComparePrefs = {
+  res: 3,
+  win: DEFAULT_WINDOW,
+  wave: true,
+  hidden: [],
+  sheet: SHEET_OPEN,
+};
+
+/** A height brought back inside the sheet's bounds, rounded to the percent. */
+export function clampSheet(value: number): number {
+  return Math.min(Math.max(Math.round(value), SHEET_MIN), SHEET_MAX);
+}
 
 const STORAGE_KEY = LOCAL_STORAGE_KEYS.compare;
 
@@ -42,6 +66,7 @@ export function sanitisePrefs(raw: unknown): ComparePrefs {
     win,
     wave: typeof r.wave === "boolean" ? r.wave : DEFAULT_PREFS.wave,
     hidden: Array.isArray(r.hidden) ? r.hidden.filter((k): k is string => typeof k === "string") : [],
+    sheet: typeof r.sheet === "number" && Number.isFinite(r.sheet) ? clampSheet(r.sheet) : DEFAULT_PREFS.sheet,
   };
 }
 

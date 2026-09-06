@@ -208,16 +208,27 @@ select,
 .spot-tooltip::before {
   border-top-color: var(--ow-line-2);
 }
-/* The name under a marker on the comparison map: a tag, not a bubble. */
-.spot-tooltip-fixed {
+/* The rank of a spot on the comparison map: a digit inside its marker, not a
+   bubble beside it. Four names at the scale of a coastline pile up on each
+   other; four numbers never do, and the table repeats them row by row. */
+/* Doubled selector on purpose: in the production bundle leaflet.css lands
+   after this file, so a single class loses to `.leaflet-tooltip` and the
+   digit comes back in a white bubble (see the same guard on the drawer). */
+.leaflet-tooltip.spot-number {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+  color: #fff;
   font-family: var(--ow-font-mono);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
-  padding: 0 4px;
-  border-radius: 3px;
+  line-height: 1;
+  white-space: nowrap;
   pointer-events: none;
 }
-.spot-tooltip-fixed::before {
+.leaflet-tooltip.spot-number::before {
   display: none;
 }
 

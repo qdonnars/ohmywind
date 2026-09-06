@@ -51,8 +51,10 @@ interface SpotMapProps {
       a "centre" button, a panel that finished resizing. Same idea as
       `flyToStamp`. */
   fitStamp?: number;
-  /** Write every saved spot's name under its marker, permanently. */
-  spotLabels?: boolean;
+  /** Rank of each saved spot, by `spotKey`, when the map numbers its markers
+      instead of naming them. The comparison page hands over the order of the
+      favourites, and the same digit heads the spot's row in the table. */
+  markerNumbers?: ReadonlyMap<string, number>;
   /** The OPAQUE data area overlaying the bottom edge of the map (the
       forecast tables — not the pills band, which floats transparently over
       a still-readable map and therefore counts as map). Centring a point
@@ -91,7 +93,7 @@ export function SpotMap({
   defaultCenter,
   fitSpots,
   fitStamp,
-  spotLabels = false,
+  markerNumbers,
   bottomInsetRef,
   onSelectSpot,
   onPreviewSpot,
@@ -315,9 +317,9 @@ export function SpotMap({
       spots: customSpots,
       current,
       onSelect: (spot) => onSelectRef.current(spot),
-      labels: spotLabels,
+      numbers: markerNumbers,
     });
-  }, [current, customSpots, spotLabels]);
+  }, [current, customSpots, markerNumbers]);
 
   // Sync markers on changes
   useEffect(() => {

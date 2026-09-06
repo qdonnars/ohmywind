@@ -11,6 +11,7 @@ import {
   clampWindow,
   compareColumns,
   compareDays,
+  mergeModelChain,
   nowColumnKey,
   rowKey,
   sameSpot,
@@ -165,5 +166,51 @@ describe("aggregateWaves", () => {
 describe("waveLevel", () => {
   it("steps on the design's thresholds", () => {
     expect([0.1, 0.4, 0.8, 1.2, 2, 3].map(waveLevel)).toEqual([0, 1, 2, 3, 4, 5]);
+  });
+});
+
+describe("mergeModelChain", () => {
+  const day = "2026-09-06";
+
+  function named(name: string, times: string[], speed: (h: number) => number | null): ModelForecast {
+    return { ...forecast(times, speed), modelName: name };
+  }
+
+  it("keeps the short-horizon model first and fills the rest with the next one", () => {
+    const arome = named("AROME", hours(day, 51), (h) => (h < 51 ? 10 : null));
+    const gfs = named("GFS", hours(day, 72), () => 20);
+    const merged = mergeModelChain([arome, gfs]);
+    expect(merged).not.toBeNull();
+    expect(merged!.hourly.time).toHaveLength(72);
+    expect(merged!.hourly.wind_speed_10m[0]).toBe(10);
+    expect(merged!.hourly.wind_speed_10m[50]).toBe(10);
+    expect(merged!.hourly.wind_speed_10m[51]).toBe(20);
+    expect(merged!.hourly.wind_speed_10m[71]).toBe(20);
+    // The gust and the direction come from the same model as the speed.
+    expect(merged!.hourly.wind_gusts_10m[51]).toBe(25);
+    expect(merged!.hourly.wind_direction_10m[51]).toBe(270);
+    // The page names no model, but the chain still opens on the first one.
+    expect(merged!.modelName).toBe("AROME");
+  });
+
+  it("respects the order it is given", () => {
+    const times = hours(day, 4);
+    const a = named("A", times, (h) => (h < 2 ? 1 : null));
+    const b = named("B", times, () => 2);
+    expect(mergeModelChain([a, b])!.hourly.wind_speed_10m).toEqual([1, 1, 2, 2]);
+    expect(mergeModelChain([b, a])!.hourly.wind_speed_10m).toEqual([2, 2, 2, 2]);
+  });
+
+  it("returns null when no model has anything, and on an empty chain", () => {
+    const times = hours(day, 6);
+    expect(mergeModelChain([named("A", times, () => null), named("B", times, () => null)])).toBeNull();
+    expect(mergeModelChain([])).toBeNull();
+  });
+
+  it("leaves an hour empty when no model covers it", () => {
+    const times = hours(day, 3);
+    const a = named("A", times, (h) => (h === 0 ? 5 : null));
+    const b = named("B", times, (h) => (h === 2 ? 7 : null));
+    expect(mergeModelChain([a, b])!.hourly.wind_speed_10m).toEqual([5, null, 7]);
   });
 });

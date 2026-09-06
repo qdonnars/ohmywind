@@ -6,7 +6,7 @@ import { fetchMarineCorridor } from "../api/marine";
 import { fetchWindCorridor } from "../api/openmeteo";
 import { activeModels, loadModelConfig } from "../config/modelConfig";
 import type { Spot } from "../types";
-import { rowKey, type CompareRow } from "./data";
+import { mergeModelChain, rowKey, type CompareRow } from "./data";
 
 interface Loaded {
   /** The set of spots these rows were fetched for. */
@@ -27,9 +27,10 @@ function setKey(spots: Spot[]): string {
  * page. The answers land in the same 30-minute caches, so a spot just
  * looked at is free here, and a spot compared here is free on the map.
  *
- * Each spot keeps the first of the reader's active models that covers it,
- * in the order they chose in the settings: AROME by default, and whatever
- * comes next on a spot outside its grid. The row says which one it reads.
+ * Each spot reads the reader's active models as one chain, in the order they
+ * chose in the settings: AROME by default, then whatever comes next for the
+ * hours it does not cover. The row keeps a single series, and the page never
+ * names a model.
  */
 export function useCompareData(spots: Spot[]): { rows: CompareRow[]; isLoading: boolean } {
   const key = setKey(spots);
@@ -47,7 +48,7 @@ export function useCompareData(spots: Spot[]): { rows: CompareRow[]; isLoading: 
           key: setKey(spots),
           rows: spots.map((spot, i) => ({
             spot,
-            forecast: wind[i][0] ?? null,
+            forecast: mergeModelChain(wind[i] ?? []),
             marine: marine[i] ?? null,
           })),
         });
