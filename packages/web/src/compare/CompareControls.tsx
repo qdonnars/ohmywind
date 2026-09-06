@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useBackDismiss } from "../hooks/useBackDismiss";
 import { useT } from "../i18n";
 import {
@@ -299,16 +299,6 @@ export function SpotsChip({ picked, total, open, onClick, small }: SpotsChipProp
       {filtered ? <TargetIcon /> : <MenuIcon />}
       {filtered ? t("compare.spots.chipCount", { picked, total }) : t("compare.spots.chip")}
     </button>
-  );
-}
-
-/** The design's "VENT +" label before the sea switch, on the wide layout. */
-export function WindPlusLabel(): ReactNode {
-  const { t } = useT();
-  return (
-    <span className="text-[11px] font-semibold uppercase" style={{ letterSpacing: "0.08em", color: "var(--ow-fg-2)" }}>
-      {t("compare.controls.windPlus")}
-    </span>
   );
 }
 

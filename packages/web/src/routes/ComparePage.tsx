@@ -21,7 +21,6 @@ import {
   TargetIcon,
   WaveChip,
   WindowChip,
-  WindPlusLabel,
 } from "../compare/CompareControls";
 import { CompareTable } from "../compare/CompareTable";
 import { compareDays, rowKey, sameSpot, type HourWindow, type Resolution } from "../compare/data";
@@ -413,12 +412,7 @@ export function ComparePage() {
               style={{ borderBottom: "1px solid var(--ow-line)" }}
             >
               <StepSegment value={prefs.res} onChange={setRes} small={false} />
-              {hasWaves && (
-                <>
-                  <WindPlusLabel />
-                  <WaveChip on={prefs.wave} onChange={setWave} small={false} />
-                </>
-              )}
+              {hasWaves && <WaveChip on={prefs.wave} onChange={setWave} small={false} />}
               <div className="ml-auto">
                 <WindowChip win={prefs.win} onChange={setWin} small={false} />
               </div>

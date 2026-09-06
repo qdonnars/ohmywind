@@ -18,7 +18,6 @@ export const compare: Record<keyof typeof frCompare, string> = {
 
   "compare.controls.resLabel": "Paso horario",
   "compare.controls.res": "{hours} h",
-  "compare.controls.windPlus": "Viento +",
   "compare.controls.waves": "Olas",
   "compare.window.label": "Franja horaria",
   "compare.window.chip": "{start}–{end} h",

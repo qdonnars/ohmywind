@@ -30,6 +30,9 @@ interface Destination {
   title: Key;
   description: Key;
   icon: ReactNode;
+  /** Size of the glyph on the panel's tile. The drawn compass needs more
+      room than a stroked outline to carry the same weight. */
+  tileGlyph?: number;
 }
 
 // The glyphs are the ones the rest of the app already uses for these ideas:
@@ -43,11 +46,27 @@ const WindIcon = (
   </svg>
 );
 
-const DividersIcon = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <circle cx="12" cy="4.6" r="1.8" />
-    <path d="M11 6.2 6.5 19.5M13 6.2 17.5 19.5M5.4 17h3.1M15.5 17h3.1" />
-  </svg>
+// The planner keeps the pair of dividers the floating button carried before
+// the menu existed: the very asset, painted through a mask so `currentColor`
+// gives it the ink of wherever it sits, light theme or dark.
+const CompassIcon = (
+  <span
+    aria-hidden="true"
+    style={{
+      display: "inline-block",
+      width: "100%",
+      height: "100%",
+      background: "currentColor",
+      WebkitMaskImage: "url(/compass.png)",
+      maskImage: "url(/compass.png)",
+      WebkitMaskSize: "contain",
+      maskSize: "contain",
+      WebkitMaskRepeat: "no-repeat",
+      maskRepeat: "no-repeat",
+      WebkitMaskPosition: "center",
+      maskPosition: "center",
+    }}
+  />
 );
 
 const LayersIcon = (
@@ -86,7 +105,8 @@ const DESTINATIONS: readonly Destination[] = [
     href: (query) => `/plan${query}`,
     title: "common.nav.plan.title",
     description: "common.nav.plan.desc",
-    icon: DividersIcon,
+    icon: CompassIcon,
+    tileGlyph: 18,
   },
   {
     id: "compare",
@@ -282,10 +302,20 @@ export function NavMenu({ current, mapQuery = "", variant, className = "", trigg
                         <a
                           href={d.href(mapQuery)}
                           aria-current={isCurrent ? "page" : undefined}
-                          // Closing here matters on the current entry: the
-                          // router ignores a click on the page one is on,
-                          // and the menu would otherwise stay open on it.
-                          onClick={close}
+                          // Only the current page closes the menu by hand,
+                          // and it is the one link the router will not act
+                          // on. Closing on the others swallowed the
+                          // navigation: `useBackDismiss` pops the layer
+                          // entry on cleanup, the router then replaced the
+                          // URL, and the pending `history.back()` landed on
+                          // the page one had just left. Left to the router,
+                          // the page change unmounts the menu and the
+                          // cleanup finds its entry already gone.
+                          onClick={(e) => {
+                            if (!isCurrent) return;
+                            e.preventDefault();
+                            close();
+                          }}
                           className={`flex items-center gap-[11px] rounded-lg transition-colors ${
                             isCurrent ? "bg-accent-soft" : "hover:bg-surface-2"
                           }`}
@@ -301,7 +331,9 @@ export function NavMenu({ current, mapQuery = "", variant, className = "", trigg
                               color: isCurrent ? "var(--ow-on-accent)" : "var(--ow-fg-1)",
                             }}
                           >
-                            <span style={{ width: 15, height: 15 }}>{d.icon}</span>
+                            <span style={{ width: d.tileGlyph ?? 15, height: d.tileGlyph ?? 15 }}>
+                              {d.icon}
+                            </span>
                           </span>
                           <span className="flex-1 min-w-0 flex flex-col">
                             <span

@@ -22,7 +22,6 @@ export const compare = {
   // Réglages
   "compare.controls.resLabel": "Pas horaire",
   "compare.controls.res": "{hours} h",
-  "compare.controls.windPlus": "Vent +",
   "compare.controls.waves": "Vagues",
   "compare.window.label": "Fenêtre horaire",
   "compare.window.chip": "{start}–{end} h",

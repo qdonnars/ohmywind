@@ -14,6 +14,12 @@ interface Loaded {
   rows: CompareRow[];
 }
 
+/** The design has twelve days follow each other in the scroll, so that is
+    what the wind is asked for. The high-resolution models answer nulls past
+    their own horizon and `mergeModelChain` fills from the ones behind them.
+    The sea stays on its own week: the band simply ends there. */
+const COMPARE_DAYS = 12;
+
 function setKey(spots: Spot[]): string {
   return spots.map(rowKey).join("|");
 }
@@ -41,7 +47,7 @@ export function useCompareData(spots: Spot[]): { rows: CompareRow[]; isLoading: 
     let cancelled = false;
     const coords = spots.map((s) => ({ lat: s.latitude, lon: s.longitude }));
     const models = activeModels(loadModelConfig());
-    Promise.all([fetchWindCorridor(coords, models), fetchMarineCorridor(coords)]).then(
+    Promise.all([fetchWindCorridor(coords, models, COMPARE_DAYS), fetchMarineCorridor(coords)]).then(
       ([wind, marine]) => {
         if (cancelled) return;
         setLoaded({
