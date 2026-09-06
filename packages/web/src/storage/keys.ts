@@ -62,6 +62,8 @@ export const LOCAL_STORAGE_KEYS = {
   customSpots: "ohmywind_custom_spots",
   /** `"done"` once the planner hint has been shown or dismissed. */
   onboarding: "ohmywind:onboarding-v1",
+  /** Comparison page settings: step, hour window, sea band, unticked spots. */
+  compare: "ow_compare_v1",
 } as const;
 
 /** Keys written to `window.sessionStorage`, i.e. dropped when the tab closes. */

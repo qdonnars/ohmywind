@@ -11,7 +11,6 @@ export const plan = {
   // ── PlanPage ──────────────────────────────────────────────────────────────
   "plan.page.urlError.title": "URL invalide",
   "plan.page.urlError.back": "← Explorer la météo",
-  "plan.page.backToExplore": "Retour à l'exploration",
   "plan.page.hint.placeStart": "Cliquez pour placer le départ",
   "plan.page.hint.drawRoute": "Cliquez pour tracer votre route",
   "plan.panel.resize": "Redimensionner le panneau",

@@ -7,7 +7,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
   // App
   "explore.emptyState.touch": "Toccare la mappa per il meteo, tenere premuto per salvare uno spot",
   "explore.emptyState.click": "Cliccare sulla mappa per il meteo, clic destro per salvare uno spot",
-  "explore.planFab.title": "Pianificare una traversata",
 
   // Header
   "explore.header.settings": "Impostazioni",
@@ -96,7 +95,7 @@ export const explore: Record<keyof typeof frExplore, string> = {
   // Onboarding
   "explore.onboarding.title": "Pianificare una rotta?",
   "explore.onboarding.body":
-    "Per tracciare un percorso tra due spot e stimarne la durata, cliccare sulla bussola.",
+    "Per tracciare un percorso tra due spot e stimarne la durata, aprire il menu e scegliere Pianificare.",
   "explore.onboarding.dismiss": "Capito",
 
   // Spot search

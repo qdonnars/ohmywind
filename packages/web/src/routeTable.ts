@@ -15,6 +15,7 @@
 export type RouteName =
   | "explore"
   | "plan"
+  | "compare"
   | "config"
   | "methodologie"
   | "confidentialite"
@@ -27,6 +28,7 @@ export type RouteName =
 const ROUTES = new Map<string, RouteName>([
   ["/", "explore"],
   ["/plan", "plan"],
+  ["/comparer", "compare"],
   ["/config", "config"],
   ["/methodologie", "methodologie"],
   ["/confidentialite", "confidentialite"],

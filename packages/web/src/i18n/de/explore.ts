@@ -9,7 +9,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
     "Karte antippen für das Wetter, lange drücken zum Speichern eines Spots",
   "explore.emptyState.click":
     "Karte klicken für das Wetter, Rechtsklick zum Speichern eines Spots",
-  "explore.planFab.title": "Törn planen",
 
   // Header
   "explore.header.settings": "Einstellungen",
@@ -97,7 +96,7 @@ export const explore: Record<keyof typeof frExplore, string> = {
   // Onboarding
   "explore.onboarding.title": "Eine Route planen?",
   "explore.onboarding.body":
-    "Um einen Weg zwischen zwei Spots zu zeichnen und die Dauer abzuschätzen, klicken Sie auf den Kompass.",
+    "Um einen Weg zwischen zwei Spots zu zeichnen und die Dauer abzuschätzen, öffnen Sie das Menü und wählen Sie Planen.",
   "explore.onboarding.dismiss": "Verstanden",
 
   // Spot search

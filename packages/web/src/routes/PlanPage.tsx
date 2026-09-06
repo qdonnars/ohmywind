@@ -7,6 +7,7 @@ import { PlanMap, type PlanMapHandle } from "../plan/PlanMap";
 import { PlanSidebar } from "../plan/PlanSidebar";
 import { fetchArchetypes } from "../api/passage";
 import { Header } from "../components/Header";
+import { NavMenu } from "../components/NavMenu";
 import type { PassageReport, Archetype } from "../plan/types";
 import { fmtDurationSafe, num1 } from "../plan/format";
 import { fmtClock } from "../domain/datetime";
@@ -520,6 +521,8 @@ export function PlanPage() {
         onSelectSpot={(spot) => mapRef.current?.recenter(spot.latitude, spot.longitude)}
         nearLat={waypoints[0]?.[0] ?? userPosition?.lat ?? mapView?.lat ?? null}
         nearLon={waypoints[0]?.[1] ?? userPosition?.lon ?? mapView?.lon ?? null}
+        current="plan"
+        mapQuery={mapViewQuery(mapView)}
       />
 
       {/* Body */}
@@ -551,18 +554,20 @@ export function PlanPage() {
             highlightedSegmentRange={highlightedSegmentRange}
             focusedSegmentIdx={focusedSegmentIdx}
           />
-          {/* Back-to-explore FAB — mirrors the compass FAB on the home map */}
-          <a
-            href={`/${mapViewQuery(mapView)}`}
-            className="absolute top-3 left-3 z-[400] w-[58px] h-[58px] sm:w-20 sm:h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
-            style={{ background: "var(--ow-accent)", color: "var(--ow-on-accent)" }}
-            title={t("plan.page.backToExplore")}
-          >
-            <img src="/wind-icon.png" alt="" className="select-none w-[64px] h-[64px] sm:w-[88px] sm:h-[88px]" draggable={false} />
-          </a>
+          {/* Navigation menu — same control, same corner as on the home
+              map; the camera travels with its links so going back to the
+              forecast leaves the map where it is. */}
+          {isDesktop && (
+            <NavMenu
+              variant="map"
+              current="plan"
+              mapQuery={mapViewQuery(mapView)}
+              className="top-3 left-3"
+            />
+          )}
           {/* Marine-chart toggle — top right, the corner a layer control
               conventionally lives in, and the only one free on this page:
-              the back FAB owns the top left and the locate button plus its
+              the menu owns the top left and the locate button plus its
               error bubble own the bottom right. */}
           <SeamarkButton enabled={seamarks} onToggle={toggleSeamarks} className="top-3 right-3" />
           {/* Locate FAB — bottom right of the map container, which shrinks as

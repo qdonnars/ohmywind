@@ -7,7 +7,6 @@ export const plan: Record<keyof typeof frPlan, string> = {
   // ── PlanPage ──────────────────────────────────────────────────────────────
   "plan.page.urlError.title": "Invalid URL",
   "plan.page.urlError.back": "← Explore the weather",
-  "plan.page.backToExplore": "Back to exploring",
   "plan.page.hint.placeStart": "Click to place the departure",
   "plan.page.hint.drawRoute": "Click to draw your route",
   "plan.panel.resize": "Resize the panel",
