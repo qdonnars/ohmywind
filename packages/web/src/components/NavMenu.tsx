@@ -47,26 +47,14 @@ const WindIcon = (
 );
 
 // The planner keeps the pair of dividers the floating button carried before
-// the menu existed: the very asset, painted through a mask so `currentColor`
-// gives it the ink of wherever it sits, light theme or dark.
+// the menu existed (public/compass.png), redrawn as strokes: the image has
+// wide margins of its own and vanished once shrunk into the badge. The view
+// box is cropped to the drawing so it fills whatever box it is given.
 const CompassIcon = (
-  <span
-    aria-hidden="true"
-    style={{
-      display: "inline-block",
-      width: "100%",
-      height: "100%",
-      background: "currentColor",
-      WebkitMaskImage: "url(/compass.png)",
-      maskImage: "url(/compass.png)",
-      WebkitMaskSize: "contain",
-      maskSize: "contain",
-      WebkitMaskRepeat: "no-repeat",
-      maskRepeat: "no-repeat",
-      WebkitMaskPosition: "center",
-      maskPosition: "center",
-    }}
-  />
+  <svg viewBox="3 1.6 18 19.4" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="4.6" r="1.9" />
+    <path d="M11 6.4 6.3 19.6M13 6.4l4.7 13.2M5 16.5h3.4M15.6 16.5H19" />
+  </svg>
 );
 
 const LayersIcon = (
@@ -106,7 +94,7 @@ const DESTINATIONS: readonly Destination[] = [
     title: "common.nav.plan.title",
     description: "common.nav.plan.desc",
     icon: CompassIcon,
-    tileGlyph: 22,
+    tileGlyph: 19,
   },
   {
     id: "compare",
@@ -220,7 +208,7 @@ export function NavMenu({ current, mapQuery = "", variant, className = "", trigg
   const size = isMap ? 52 : 44;
   const glyph = Math.round(size * 0.42);
   const badge = Math.round(size * 0.44);
-  const badgeGlyph = Math.round(size * 0.24);
+  const badgeGlyph = Math.round(size * 0.3);
 
   return (
     <>
