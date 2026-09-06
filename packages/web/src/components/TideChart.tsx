@@ -8,6 +8,8 @@ import { useTimezone } from "../hooks/useTimezone";
 import { nowParisHourPrefix } from "../domain/datetime";
 import { formatHour } from "../utils/format";
 import { useTimelineScroll } from "../hooks/useTimelineScroll";
+import { useT } from "../i18n";
+import { numFixed } from "../plan/format";
 
 // Fixed cell width for the chart so the SVG aligns perfectly with the timeline
 // header. 36 px shows ~30 hours per viewport on a typical mobile (good for
@@ -54,6 +56,7 @@ export function TideChart({
   selectedHour,
   onSelectHour,
 }: TideChartProps) {
+  const { t } = useT();
   const [timezoneMode] = useTimezone();
 
   const masterTimeline = useMemo(() => marine.time, [marine.time]);
@@ -112,9 +115,10 @@ export function TideChart({
   const selectedIdx = selectedHour ? masterTimeline.indexOf(selectedHour) : -1;
 
   return (
-    <div className="animate-fade-in h-full">
-      <div className={`scroll-container h-full ${scrolledEnd ? "scrolled-end" : ""}`}>
-        <div ref={scrollRef} className="h-full overflow-auto wind-table-scroll">
+    // Flex column down to the scroller, no percentage height: see WindTable.
+    <div className="animate-fade-in flex-1 min-h-0 flex flex-col">
+      <div className={`scroll-container flex-1 min-h-0 flex flex-col ${scrolledEnd ? "scrolled-end" : ""}`}>
+        <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto wind-table-scroll">
           <table className="border-collapse" role="table">
             <colgroup>
               <col style={{ width: STICKY_W }} />
@@ -149,7 +153,7 @@ export function TideChart({
                       className="text-[11px] lg:text-[12px] font-bold tracking-wide"
                       style={{ color: "var(--ow-fg-0)" }}
                     >
-                      Tide
+                      {t("explore.marineTable.row.tide")}
                     </span>
                     <span
                       className="text-[8px] font-medium"
@@ -169,7 +173,7 @@ export function TideChart({
                     height={SVG_HEIGHT}
                     style={{ display: "block" }}
                     role="img"
-                    aria-label="Courbe de marée"
+                    aria-label={t("explore.tideChart.curve")}
                   >
                     <defs>
                       <linearGradient id="tide-water" x1="0" y1="0" x2="0" y2="1">
@@ -276,8 +280,8 @@ export function TideChart({
                         const labelX = onRight ? sx + 9 : sx - 9;
                         const labelAnchor = onRight ? "start" : "end";
                         const labelText = useZh
-                          ? `${sh.toFixed(2)} m`
-                          : `${sh >= 0 ? "+" : ""}${sh.toFixed(2)} m`;
+                          ? `${numFixed(sh, 2)} m`
+                          : `${sh >= 0 ? "+" : ""}${numFixed(sh, 2)} m`;
                         return (
                           <>
                             <line
@@ -325,8 +329,8 @@ export function TideChart({
                       const y = yForTide(h);
                       const time = formatHour(masterTimeline[e.idx], timezoneMode);
                       const heightLabel = useZh
-                        ? `${h.toFixed(2)} m`
-                        : `${h >= 0 ? "+" : ""}${h.toFixed(2)} m`;
+                        ? `${numFixed(h, 2)} m`
+                        : `${h >= 0 ? "+" : ""}${numFixed(h, 2)} m`;
                       const labelY = e.type === "high" ? y - 10 : y + 18;
                       return (
                         <g key={`ext-${e.idx}`}>

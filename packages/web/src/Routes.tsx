@@ -6,6 +6,7 @@ import { PlanPage } from "./routes/PlanPage";
 import { ConfigPage } from "./routes/ConfigPage";
 import { LazyPageBoundary } from "./components/LazyPageBoundary";
 import { NotFoundPage } from "./routes/NotFoundPage";
+import { useT } from "./i18n";
 import { matchRoute } from "./routeTable";
 import { useRouter } from "./router";
 
@@ -34,11 +35,17 @@ const loadConfidentialite = () =>
 // pendant le telechargement du chunk. Les deux valeurs sont ecrites en dur
 // exprès : elles appartiennent a la palette papier de routes/*.css, qui ne
 // suit deliberement aucun theme, et non aux jetons --ow-*.
-const docFallback = (
-  <div className="min-h-screen" style={{ background: "#ffffff", color: "#6b7280" }}>
-    <p className="max-w-3xl mx-auto px-6 py-10 text-sm">Chargement…</p>
-  </div>
-);
+//
+// Un composant, et non un element construit une fois au chargement du module :
+// il lit la langue active au moment ou il s'affiche, pas celle du demarrage.
+function DocFallback() {
+  const { t } = useT();
+  return (
+    <div className="min-h-screen" style={{ background: "#ffffff", color: "#6b7280" }}>
+      <p className="max-w-3xl mx-auto px-6 py-10 text-sm">{t("common.loading")}</p>
+    </div>
+  );
+}
 
 /**
  * Path to page, resolved client-side.
@@ -66,9 +73,9 @@ export function Routes() {
     case "config":
       return <ConfigPage key={key} />;
     case "methodologie":
-      return <LazyPageBoundary key={key} load={loadMethodologie} fallback={docFallback} />;
+      return <LazyPageBoundary key={key} load={loadMethodologie} fallback={<DocFallback />} />;
     case "confidentialite":
-      return <LazyPageBoundary key={key} load={loadConfidentialite} fallback={docFallback} />;
+      return <LazyPageBoundary key={key} load={loadConfidentialite} fallback={<DocFallback />} />;
     case "not-found":
       return <NotFoundPage key={key} />;
     case "explore":

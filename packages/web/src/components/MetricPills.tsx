@@ -3,6 +3,7 @@
 
 import type { ReactNode } from "react";
 import type { MetricView } from "../types";
+import { useT, type Key } from "../i18n";
 
 interface PillsProps {
   view: MetricView;
@@ -14,7 +15,7 @@ interface PillsProps {
 
 interface PillDef {
   view: MetricView;
-  label: string;
+  label: Key;
   visible: boolean;
   icon: ReactNode;
 }
@@ -59,11 +60,17 @@ export function MetricPills({
   showTides,
   showCurrents,
 }: PillsProps) {
+  const { t } = useT();
   const pills: PillDef[] = [
-    { view: "wind", label: "Wind", visible: true, icon: WindIcon },
-    { view: "waves", label: "Waves", visible: showWaves, icon: WavesIcon },
-    { view: "tides", label: "Tides", visible: showTides, icon: TidesIcon },
-    { view: "currents", label: "Currents", visible: showCurrents, icon: CurrentsIcon },
+    { view: "wind", label: "explore.pills.wind", visible: true, icon: WindIcon },
+    { view: "waves", label: "explore.pills.waves", visible: showWaves, icon: WavesIcon },
+    { view: "tides", label: "explore.pills.tides", visible: showTides, icon: TidesIcon },
+    {
+      view: "currents",
+      label: "explore.pills.currents",
+      visible: showCurrents,
+      icon: CurrentsIcon,
+    },
   ];
   const visible = pills.filter((p) => p.visible);
   if (visible.length <= 1) return null;
@@ -71,7 +78,7 @@ export function MetricPills({
     <div
       className="flex gap-2 px-3 py-2.5 overflow-x-auto"
       role="tablist"
-      aria-label="Forecast metric"
+      aria-label={t("explore.pills.groupLabel")}
     >
       {visible.map((p) => {
         const active = p.view === view;
@@ -90,7 +97,7 @@ export function MetricPills({
             }}
           >
             <span aria-hidden className="shrink-0">{p.icon}</span>
-            <span>{p.label}</span>
+            <span>{t(p.label)}</span>
           </button>
         );
       })}

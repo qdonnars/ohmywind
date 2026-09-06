@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useMemo, useRef, useState } from "react";
+import { useT } from "../i18n";
 import { visiblePolarPoints } from "./polarPoints";
 
 // Pure polar diagram — wind from the top, right half-circle. Extracted from
@@ -75,6 +76,7 @@ export function PolarDiagram({
   overriddenKeys,
   onCellChange,
 }: PolarDiagramProps) {
+  const { t } = useT();
   const [hoverHandle, setHoverHandle] = useState<number | null>(null);
   // Index of the TWA point currently being dragged, used to render a live
   // speed label next to the moving handle. Null when no drag is in progress.
@@ -167,7 +169,7 @@ export function PolarDiagram({
         viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
         className="polar-svg"
         role="img"
-        aria-label={`Diagramme polaire : ${title}`}
+        aria-label={t("config.polar.diagram", { title })}
         onPointerMove={onHandlePointerMove}
         onPointerUp={onHandlePointerUp}
       >
@@ -276,8 +278,10 @@ export function PolarDiagram({
               onPointerLeave={() => setHoverHandle(null)}
             >
               <title>
-                TWA {twaDeg[twaIdx]}° · {speed.toFixed(1)} kn
-                {editable ? " (glisser pour ajuster)" : ""}
+                {t(editable ? "config.polar.handleEditable" : "config.polar.handle", {
+                  twa: twaDeg[twaIdx],
+                  speed: speed.toFixed(1),
+                })}
               </title>
             </circle>
           );

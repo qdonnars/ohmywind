@@ -4,6 +4,7 @@
 /** Small pieces the three filled views of the panel share. */
 
 import type { CSSProperties } from "react";
+import { useT } from "../../i18n";
 
 /** Circular-arrow glyph of the recompute controls. */
 export function RefreshIcon({ size }: { size: number }) {
@@ -24,6 +25,7 @@ export function RecomputeBar({
   disabled?: boolean;
   style: CSSProperties;
 }) {
+  const { t } = useT();
   return (
     <div className="px-4 py-2.5" style={{ borderBottom: "1px solid var(--ow-line)" }}>
       <button
@@ -33,7 +35,7 @@ export function RecomputeBar({
         style={style}
       >
         <RefreshIcon size={11} />
-        Recalculer
+        {t("panel.parts.recompute")}
       </button>
     </div>
   );

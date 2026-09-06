@@ -10,6 +10,9 @@
          longtemps. viewport-fit=cover laisse la page passer sous les encoches
          et la barre de geste, comme l'attend le mode standalone. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- ... l'en-tete ajoute les marges de securite a son propre padding
+         (.app-header dans index.css) ; le bas n'est volontairement pas
+         reserve, l'indicateur d'accueil passe sur la derniere ligne. -->
     <title>OhMyWind</title>
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#030712" />
@@ -18,7 +21,14 @@
          sienne. Les deux disent la meme chose, garder les deux ne coute rien. -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- Barre d'etat opaque, pas translucide : en translucide, iOS pose la
+         barre par-dessus la page et c'est a la page de reserver la place via
+         env(safe-area-inset-top), ce qui n'a pas suffi sur un iPhone en mode
+         ecran d'accueil (champ de recherche sous la camera, 2026-09-06). En
+         "default", la page commence sous la barre, quoi qu'il arrive, et iOS
+         peint la barre de la couleur de theme-color, que le theme tient a
+         jour (design/initialTheme.ts). -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="OhMyWind" />
 
     <meta name="description" content="OhMyWind, sailing planner for the French Atlantic and Mediterranean coasts. Wind forecasts, passage estimates, complexity scores and high-precision tidal currents (SHOM Atlas C2D + MARC PREVIMER), powered by AROME 1.3 km models.">
@@ -47,16 +57,19 @@
          emplacement de connexion. -->
     <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin>
 
-    <!-- Inter est une police variable : un seul fichier porte toutes les
-         graisses du premier ecran (400 du texte courant, 600 des intertitres,
-         800 du logo), donc un seul preload les couvre. Le sous-ensemble
-         latin-ext n'est tire que si un caractere le reclame, et JetBrains Mono
-         ne sert que dans la vue plan : ni l'un ni l'autre n'est preloade. -->
-    <link rel="preload" href="/src/assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <!-- Pas de preload des polices, volontairement. Inter latin en avait un ;
+         Firefox signalait a chaque chargement une ressource prechargee mais
+         jamais utilisee, parce que le service worker sert la police depuis son
+         precache et que Firefox n'apparie pas cette reponse au preload. Le
+         gain ne valait que la toute premiere visite, avant le precache. -->
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="apple-touch-icon" sizes="512x512" href="/icon-maskable-512.png">
+    <!-- iOS veut un PNG opaque de 180 x 180 sous ce nom canonique, qu'il
+         cherche aussi tout seul a la racine. Declaree en maskable 512 avec
+         un attribut sizes, l'icone n'apparaissait pas sur l'ecran d'accueil
+         (iPhone, 2026-09-04) : Safari retombait sur une capture de la page. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
     <!-- Structured data: Organization logo for Google search -->
     <script type="application/ld+json">

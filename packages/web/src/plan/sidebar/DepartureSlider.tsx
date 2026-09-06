@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { fmtClock, fmtDayLong, toNaiveLocal } from "../../domain/datetime";
 import { useTheme } from "../../design/useTheme";
 import { usePlan } from "../session/planContext";
+import { useT } from "../../i18n";
 
 // ── DepartureSlider ──────────────────────────────────────────────────────────
 
@@ -13,6 +14,7 @@ import { usePlan } from "../session/planContext";
 const SLIDER_MAX_HOURS = 14 * 24;
 
 export function DepartureSlider() {
+  const { t, tn } = useT();
   const { state, actions } = usePlan();
   const value = state.departure;
   const onChange = actions.setDeparture;
@@ -45,15 +47,17 @@ export function DepartureSlider() {
   }
 
   // Display labels: the section header changes with the time anchor.
-  const sectionLabel = timeAnchor === "arrival" ? "Arrivée" : "Départ";
-  const ariaLabel = timeAnchor === "arrival" ? "Heure d'arrivée souhaitée" : "Date de départ";
+  const sectionLabel =
+    timeAnchor === "arrival" ? t("panel.departure.arrival") : t("panel.departure.departure");
+  const ariaLabel =
+    timeAnchor === "arrival" ? t("panel.departure.ariaArrival") : t("panel.departure.ariaDeparture");
   const dateLabel = fmtDayLong(valueDate);
   const timeLabel = fmtClock(valueDate);
   const dayDelta = Math.floor((valueDate.getTime() - anchor.getTime()) / 86_400_000);
   const offsetLabel =
-    dayDelta <= 0 ? "Aujourd'hui" :
-    dayDelta === 1 ? "Demain" :
-    `Dans ${dayDelta} jours`;
+    dayDelta <= 0 ? t("panel.departure.today") :
+    dayDelta === 1 ? t("panel.departure.tomorrow") :
+    tn("panel.departure.inDays", dayDelta);
 
   return (
     <div>
@@ -67,7 +71,7 @@ export function DepartureSlider() {
           className="text-[10px] underline"
           style={{ color: "var(--ow-fg-2)" }}
         >
-          {showManual ? "Slider" : "Ajuster"}
+          {showManual ? t("panel.departure.slider") : t("panel.departure.adjust")}
         </button>
       </div>
 
@@ -113,10 +117,10 @@ export function DepartureSlider() {
               className="underline-offset-2 hover:underline"
               style={{ color: dayDelta <= 0 ? "var(--ow-accent)" : "var(--ow-fg-2)" }}
             >
-              Maintenant
+              {t("panel.departure.now")}
             </button>
-            <span>+1 sem.</span>
-            <span>+2 sem.</span>
+            <span>{t("panel.departure.plusOneWeek")}</span>
+            <span>{t("panel.departure.plusTwoWeeks")}</span>
           </div>
         </>
       )}

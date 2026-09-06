@@ -28,6 +28,8 @@ import { PlanForm } from "./sidebar/PlanForm";
 import { CompareResults } from "./sidebar/CompareResults";
 import { SingleResults } from "./sidebar/SingleResults";
 import { boatLabel } from "./sidebar/boatLabel";
+import { useT } from "../i18n";
+import { useEffect, useState } from "react";
 
 /** Placeholder while a computation runs, so the panel never shows half a plan. */
 function LoadingSkeleton() {
@@ -45,12 +47,14 @@ function LoadingSkeleton() {
 }
 
 export function PlanSidebar() {
+  const { t } = useT();
   const { state, actions, archetypes, isLoading } = usePlan();
   const {
     passage,
     complexity,
     windows,
     apiError,
+    retry,
     mode,
     sweepEarliest,
     sweepLatest,
@@ -70,13 +74,26 @@ export function PlanSidebar() {
   // 1. computing
   if (isLoading) return <LoadingSkeleton />;
 
+  // 2a. the backend is waking up: the request goes again on its own
+  if (retry) {
+    return (
+      <div className="p-4">
+        <PlanHeaderRow locked={waypoints.length < 2} />
+        <WakingNotice
+          retry={retry}
+          onRetryNow={mode === "compare" ? actions.computeWindows : actions.compute}
+        />
+      </div>
+    );
+  }
+
   // 2. failed
   if (apiError) {
     return (
       <div className="p-4">
         <PlanHeaderRow locked={waypoints.length < 2} />
         <div className="mt-4 rounded-xl p-4 text-sm" style={{ background: "var(--ow-err-soft)", color: "var(--ow-err)", border: "1px solid var(--ow-err-line)" }}>
-          <p className="font-semibold mb-1">Erreur</p>
+          <p className="font-semibold mb-1">{t("plan.states.error.title")}</p>
           <p className="leading-relaxed">{apiError}</p>
         </div>
       </div>
@@ -118,4 +135,46 @@ export function PlanSidebar() {
     return <PlanForm canCalculate={canCalculate} />;
   }
   return <SingleResults passage={passage} complexity={complexity} boatLabel={label} />;
+}
+
+/**
+ * Shown instead of the error while the backend wakes up (usePlanSession
+ * retries by itself). A countdown so the wait is visibly finite, and a button
+ * for the reader who would rather not wait for it.
+ */
+function WakingNotice({
+  retry,
+  onRetryNow,
+}: {
+  retry: { at: number; attempt: number; max: number };
+  onRetryNow: () => void;
+}) {
+  const { t } = useT();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const seconds = Math.max(0, Math.ceil((retry.at - now) / 1000));
+  return (
+    <div
+      className="mt-4 rounded-xl p-4 text-sm animate-fade-in"
+      style={{ background: "var(--ow-bg-1)", color: "var(--ow-fg-1)", border: "1px solid var(--ow-line-2)" }}
+    >
+      <p className="font-semibold mb-1" style={{ color: "var(--ow-fg-0)" }}>
+        {t("plan.states.waking.title")}
+      </p>
+      <p className="leading-relaxed">
+        {t("plan.states.waking.body", { seconds, attempt: retry.attempt, max: retry.max })}
+      </p>
+      <button
+        type="button"
+        onClick={onRetryNow}
+        className="mt-3 rounded-lg px-3 py-1.5 text-xs font-semibold"
+        style={{ background: "var(--ow-accent)", color: "var(--ow-on-accent)" }}
+      >
+        {t("plan.states.waking.retryNow")}
+      </button>
+    </div>
+  );
 }

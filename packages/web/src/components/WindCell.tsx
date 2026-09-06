@@ -3,6 +3,7 @@
 
 import { memo } from "react";
 import { beaufortLevel, windLevelVar } from "../domain/thresholds";
+import { t, useLang } from "../i18n";
 
 interface WindCellProps {
   /** The hour this cell reads, handed back to `onSelect`. */
@@ -19,7 +20,32 @@ interface WindCellProps {
   onSelect: (time: string) => void;
 }
 
+/**
+ * The cell read aloud, as one sentence per shape rather than three fragments
+ * glued together: "rafales" and "direction" do not sit in the same order in
+ * every language, and a sentence assembled from pieces cannot be translated.
+ */
+function ariaLabel(speed: number, gusts: number | null, direction: number | null): string {
+  const knots = Math.round(speed);
+  if (gusts != null && direction != null) {
+    return t("explore.windCell.aria.speedGustsDirection", {
+      speed: knots,
+      gusts: Math.round(gusts),
+      direction,
+    });
+  }
+  if (gusts != null) {
+    return t("explore.windCell.aria.speedGusts", { speed: knots, gusts: Math.round(gusts) });
+  }
+  if (direction != null) {
+    return t("explore.windCell.aria.speedDirection", { speed: knots, direction });
+  }
+  return t("explore.windCell.aria.speed", { speed: knots });
+}
+
 function WindCellImpl({ time, speed, gusts, direction, selected, isNow, isDayStart, onSelect }: WindCellProps) {
+  // Subscribes the cell to the language, so a switch relabels the whole table.
+  useLang();
   // `isNow` border takes precedence over the day separator (the now marker is more salient).
   const nowBorder = isNow ? "border-l-2 border-l-accent" : "";
   const daySepClass = !isNow && isDayStart ? "ow-day-sep" : "";
@@ -50,7 +76,7 @@ function WindCellImpl({ time, speed, gusts, direction, selected, isNow, isDaySta
       className={`wind-cell min-w-[32px] lg:min-w-[56px] h-10 lg:h-14 text-center align-middle p-0 cursor-pointer ${nowBorder} ${daySepClass} ${selectedStyle}`}
       style={{ backgroundColor: bg, color }}
       onClick={() => onSelect(time)}
-      aria-label={`${Math.round(speed)} knots${gusts != null ? `, gusts ${Math.round(gusts)}` : ""}${direction != null ? `, direction ${direction}°` : ""}`}
+      aria-label={ariaLabel(speed, gusts, direction)}
     >
       <div className="flex flex-col items-center justify-center leading-none gap-[2px]">
         {/* Row 1: arrow + speed (+ unit on desktop) */}

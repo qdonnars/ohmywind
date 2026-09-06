@@ -533,3 +533,33 @@ describe("persist commands", () => {
     expect(s.persist).toBeNull();
   });
 });
+
+describe("cold-start retry", () => {
+  const scheduled = { type: "FETCH_RETRY_SCHEDULED", requestId: 1, at: 1000, attempt: 1, max: 4 } as const;
+
+  it("records the wait and drops the pending request", () => {
+    const s = run(start(), { type: "FETCH_STARTED", requestId: 1, kind: "single" }, scheduled);
+    expect(s.pending).toBeNull();
+    expect(s.apiError).toBeNull();
+    expect(s.retry).toEqual({ at: 1000, attempt: 1, max: 4 });
+  });
+
+  it("ignores a wait for a superseded request", () => {
+    const s = run(start(), { type: "FETCH_STARTED", requestId: 2, kind: "single" }, scheduled);
+    expect(s.retry).toBeNull();
+    expect(s.pending?.id).toBe(2);
+  });
+
+  it("clears the wait when a request starts, fails or the mode changes", () => {
+    const waiting = run(start(), { type: "FETCH_STARTED", requestId: 1, kind: "single" }, scheduled);
+    expect(run(waiting, { type: "FETCH_STARTED", requestId: 2, kind: "single" }).retry).toBeNull();
+    expect(run(waiting, { type: "MODE_CHANGED", mode: "compare" }).retry).toBeNull();
+    const failed = run(
+      waiting,
+      { type: "FETCH_STARTED", requestId: 2, kind: "single" },
+      { type: "FETCH_FAILED", requestId: 2, error: "boom" },
+    );
+    expect(failed.retry).toBeNull();
+    expect(failed.apiError).toBe("boom");
+  });
+});

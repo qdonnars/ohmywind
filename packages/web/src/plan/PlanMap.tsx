@@ -15,6 +15,7 @@ import { syncUserPositionLayer } from "../utils/userPositionLayer";
 import { syncSeamarkLayer } from "../utils/seamarkLayer";
 import { addBasemap, BASEMAP_MAX_ZOOM, type Basemap } from "../utils/basemapLayer";
 import type { MapView } from "../utils/mapViewParams";
+import { t, useLang } from "../i18n";
 
 /** Hide a segment label when the leg is shorter than this on screen (px).
     Below it the labels crowd the waypoint markers, so we let them fade out
@@ -66,7 +67,7 @@ interface PlanMapProps {
 
 function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon {
   const xBtn = deletable
-    ? `<button type="button" class="ow-wpt-x" aria-label="Supprimer ce point">×</button>`
+    ? `<button type="button" class="ow-wpt-x" aria-label="${t("plan.map.waypoint.remove")}">×</button>`
     : "";
   // The sounding slot is always rendered, empty until the lookup lands, and
   // filled in place by its own effect. Carrying it inside the icon rather
@@ -106,6 +107,9 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   const onWptDeleteRef = useRef(onWptDelete);
   const onMapClickRef = useRef(onMapClick);
   const { resolvedTheme } = useTheme();
+  // The delete button inside each marker carries a translated label, and
+  // Leaflet keeps the rendered markup: a language switch has to redraw them.
+  const lang = useLang();
 
   useEffect(() => { onWptAddRef.current = onWptAdd; }, [onWptAdd]);
   useEffect(() => { onWptDeleteRef.current = onWptDelete; }, [onWptDelete]);
@@ -375,9 +379,10 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
       markersRef.current.push(marker);
     });
     // resolvedTheme: the waypoint colours are read from the theme, and
-    // Leaflet keeps the resolved string in the icon markup.
+    // Leaflet keeps the resolved string in the icon markup. `lang` for the
+    // same reason, applied to the label of the delete button.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [waypoints, resolvedTheme]);
+  }, [waypoints, resolvedTheme, lang]);
 
   // Fill the sounding slot of each waypoint icon.
   //

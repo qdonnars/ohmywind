@@ -13,12 +13,16 @@
 // server's `_parse_polar` enforces, so a file accepted here is never rejected
 // at plan time.
 
+import { t } from "../i18n";
+
 export interface ParsedPolarFile {
   tws_kn: number[];
   twa_deg: number[];
   // [tws_idx][twa_idx] -> boat speed in knots.
   boat_speed_kn: number[][];
-  // Non-fatal adjustments applied during parsing, for display to the user.
+  // Non-fatal adjustments applied during parsing, already translated for
+  // display to the user: they are produced on a file the user just picked, so
+  // the active language is the one they are reading in.
   warnings: string[];
 }
 
@@ -53,7 +57,7 @@ export function parsePolarFile(text: string): ParsedPolarFile {
     .filter((l) => l.raw.length > 0 && !l.raw.startsWith("#") && !l.raw.startsWith("//"));
 
   if (lines.length === 0) {
-    throw new PolarImportError("Fichier vide : aucune ligne de données trouvée.");
+    throw new PolarImportError(t("config.polarImport.errors.empty"));
   }
 
   // Delimiter detection on the whole content, by priority. Whole-file (not
@@ -93,10 +97,7 @@ export function parsePolarFile(text: string): ParsedPolarFile {
     const allOneLonger =
       dataRows.length > 0 && dataRows.every((r) => r.cells.length === header.cells.length + 1);
     if (!allOneLonger) {
-      throw new PolarImportError(
-        "Première ligne illisible : elle doit lister les vitesses de vent (TWS), " +
-          'par exemple "TWA\\TWS  6  8  10  12  16  20".',
-      );
+      throw new PolarImportError(t("config.polarImport.errors.badHeader"));
     }
     twsCells = header.cells;
   }
@@ -105,16 +106,18 @@ export function parsePolarFile(text: string): ParsedPolarFile {
     const n = parseNumber(c);
     if (n === null || n < 0 || n > TWS_MAX) {
       throw new PolarImportError(
-        `Ligne ${header.lineNo} : TWS invalide « ${c} » (attendu un nombre entre 0 et ${TWS_MAX} kn).`,
+        t("config.polarImport.errors.badTws", { line: header.lineNo, value: c, max: TWS_MAX }),
       );
     }
     return n;
   });
   if (tws.length < 2) {
-    throw new PolarImportError("Il faut au moins 2 colonnes de vent (TWS) dans le fichier.");
+    throw new PolarImportError(t("config.polarImport.errors.tooFewTws"));
   }
   if (tws.length > MAX_TWS) {
-    throw new PolarImportError(`Trop de colonnes TWS (${tws.length}, maximum ${MAX_TWS}).`);
+    throw new PolarImportError(
+      t("config.polarImport.errors.tooManyTws", { count: tws.length, max: MAX_TWS }),
+    );
   }
 
   interface TwaRow {
@@ -128,20 +131,23 @@ export function parsePolarFile(text: string): ParsedPolarFile {
     const twa = parseNumber(row.cells[0]);
     if (twa === null || twa < 0 || twa > 180) {
       throw new PolarImportError(
-        `Ligne ${row.lineNo} : angle TWA invalide « ${row.cells[0]} » (attendu un nombre entre 0 et 180°).`,
+        t("config.polarImport.errors.badTwa", { line: row.lineNo, value: row.cells[0] }),
       );
     }
     if (row.cells.length - 1 !== tws.length) {
       throw new PolarImportError(
-        `Ligne ${row.lineNo} : ${row.cells.length - 1} vitesse(s) trouvée(s), ` +
-          `${tws.length} attendue(s) (une par colonne TWS).`,
+        t("config.polarImport.errors.speedCount", {
+          line: row.lineNo,
+          found: row.cells.length - 1,
+          expected: tws.length,
+        }),
       );
     }
     const speeds = row.cells.slice(1).map((c) => {
       const n = parseNumber(c);
       if (n === null || n < 0) {
         throw new PolarImportError(
-          `Ligne ${row.lineNo} : vitesse bateau invalide « ${c} » (attendu un nombre ≥ 0).`,
+          t("config.polarImport.errors.badSpeed", { line: row.lineNo, value: c }),
         );
       }
       if (n > SPEED_MAX) {
@@ -155,10 +161,12 @@ export function parsePolarFile(text: string): ParsedPolarFile {
   }
 
   if (twaRows.length < 2) {
-    throw new PolarImportError("Il faut au moins 2 lignes d'angles (TWA) dans le fichier.");
+    throw new PolarImportError(t("config.polarImport.errors.tooFewTwa"));
   }
   if (twaRows.length > MAX_TWA) {
-    throw new PolarImportError(`Trop de lignes TWA (${twaRows.length}, maximum ${MAX_TWA}).`);
+    throw new PolarImportError(
+      t("config.polarImport.errors.tooManyTwa", { count: twaRows.length, max: MAX_TWA }),
+    );
   }
 
   // Sort rows/columns rather than reject: files exported by hand are not
@@ -167,14 +175,19 @@ export function parsePolarFile(text: string): ParsedPolarFile {
   const sortedTws = twsOrder.map((i) => tws[i]);
   for (let i = 1; i < sortedTws.length; i++) {
     if (sortedTws[i] === sortedTws[i - 1]) {
-      throw new PolarImportError(`Colonne TWS en double : ${sortedTws[i]} kn apparaît deux fois.`);
+      throw new PolarImportError(
+        t("config.polarImport.errors.duplicateTws", { tws: sortedTws[i] }),
+      );
     }
   }
   twaRows.sort((a, b) => a.twa - b.twa);
   for (let i = 1; i < twaRows.length; i++) {
     if (twaRows[i].twa === twaRows[i - 1].twa) {
       throw new PolarImportError(
-        `Ligne ${twaRows[i].lineNo} : angle TWA en double (${twaRows[i].twa}°).`,
+        t("config.polarImport.errors.duplicateTwa", {
+          line: twaRows[i].lineNo,
+          twa: twaRows[i].twa,
+        }),
       );
     }
   }
@@ -187,7 +200,7 @@ export function parsePolarFile(text: string): ParsedPolarFile {
   const warnings: string[] = [];
   if (clampedCount > 0) {
     warnings.push(
-      `${clampedCount} vitesse(s) supérieure(s) à ${SPEED_MAX} kn ramenée(s) à ${SPEED_MAX} kn.`,
+      t("config.polarImport.warnings.clamped", { count: clampedCount, max: SPEED_MAX }),
     );
   }
 

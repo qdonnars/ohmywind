@@ -23,24 +23,28 @@ import type { AggregatedLeg } from "../aggregateLegs";
 import { aggregateSteps, buildLegSummaryCells, legDurationLabel, legSpread } from "../aggregateLegs";
 import { LegDetailCard, type LegDetailHeader, type LegDetailNote } from "../LegDetailCard";
 import { StepStrip } from "../StepStrip";
-import { fr1 } from "../format";
+import { num1 } from "../format";
 import { fmtClock } from "../../domain/datetime";
 import type { SegmentReport } from "../types";
 import { usePlan } from "../session/planContext";
+import { t, tn, useT } from "../../i18n";
 
 /** The flags of one step, with the colour of the force behind each. */
 function stepFlags(step: AggregatedLeg): LegDetailNote[] {
   const flags: LegDetailNote[] = [];
   const flag = buildLegSummaryCells(step).flag;
-  if (flag === "Vent Contre Courant") flags.push({ text: flag, tone: "current" });
-  else if (flag) flags.push({ text: flag, tone: "waves" });
-  if (step.motor_used) flags.push({ text: "Moteur", tone: "muted" });
+  if (flag === t("panel.legs.seaFlag.windAgainstCurrent")) {
+    flags.push({ text: flag, tone: "current" });
+  } else if (flag) flags.push({ text: flag, tone: "waves" });
+  if (step.motor_used) flags.push({ text: t("panel.legs.pointOfSail.motor"), tone: "muted" });
   return flags;
 }
 
 function stepNotes(step: AggregatedLeg): LegDetailNote[] {
   return stepFlags(step).map((f) =>
-    f.text === "Moteur" ? { ...f, text: "au moteur sur ce pas" } : f,
+    f.text === t("panel.legs.pointOfSail.motor")
+      ? { ...f, text: t("panel.legDetail.noteMotorOnStep") }
+      : f,
   );
 }
 
@@ -56,7 +60,10 @@ function averageNotes(steps: AggregatedLeg[]): LegDetailNote[] {
       if (!seen.has(flag.text)) seen.set(flag.text, flag);
     }
   }
-  return [...seen.values(), { text: `moyenne de ${steps.length} pas`, tone: "muted" }];
+  return [
+    ...seen.values(),
+    { text: tn("panel.legDetail.noteAverage", steps.length), tone: "muted" },
+  ];
 }
 
 export function LegExpanded({
@@ -69,6 +76,7 @@ export function LegExpanded({
   segments: SegmentReport[];
   minUpwindDeg: number;
 }) {
+  const { lang } = useT();
   const { state, actions } = usePlan();
 
   // Opened from the bar under the totals, the leg may sit below the fold of
@@ -80,10 +88,13 @@ export function LegExpanded({
     rootRef.current?.scrollIntoView?.({ block: "nearest" });
   }, []);
 
-  const steps = useMemo(
-    () => aggregateSteps(segments, leg.segment_range, leg.efficiency, minUpwindDeg),
-    [segments, leg.segment_range, leg.efficiency, minUpwindDeg],
-  );
+  const steps = useMemo(() => {
+    // `aggregateSteps` labels each step through `t()`, which reads the
+    // language from the store, not from a parameter. Naming `lang` here is
+    // what ties the memo to it, so a language switch rebuilds the labels.
+    void lang;
+    return aggregateSteps(segments, leg.segment_range, leg.efficiency, minUpwindDeg);
+  }, [segments, leg.segment_range, leg.efficiency, minUpwindDeg, lang]);
   const spread = useMemo(() => legSpread(steps), [steps]);
   const n = steps.length;
 
@@ -102,15 +113,15 @@ export function LegExpanded({
   if (n <= 1) {
     header = {
       title: `${fmtClock(leg.start_time)} → ${fmtClock(leg.end_time)}`,
-      sub: `${legDurationLabel(leg)} · ${fr1(leg.distance_nm)} nm`,
+      sub: `${legDurationLabel(leg)} · ${num1(leg.distance_nm)} nm`,
     };
     notes = stepNotes(leg);
     onPrev = null;
     onNext = null;
   } else if (selected == null) {
     header = {
-      title: `Moyenne · ${legDurationLabel(leg)}`,
-      hint: "touchez un pas",
+      title: t("panel.legDetail.headerAverage", { duration: legDurationLabel(leg) }),
+      hint: t("panel.legDetail.headerHint"),
     };
     notes = averageNotes(steps);
     onPrev = null;
@@ -120,7 +131,7 @@ export function LegExpanded({
     view = step;
     header = {
       title: `${fmtClock(step.start_time)} → ${fmtClock(step.end_time)}`,
-      sub: `${legDurationLabel(step)} · ${fr1(step.distance_nm)} nm · ${selected + 1}/${n}`,
+      sub: `${legDurationLabel(step)} · ${num1(step.distance_nm)} nm · ${selected + 1}/${n}`,
     };
     notes = stepNotes(step);
     onPrev = () => select(selected === 0 ? null : selected - 1);
@@ -138,13 +149,6 @@ export function LegExpanded({
         onNext={onNext}
         notes={notes}
       />
-      {/* Which way to read the dial (issue #269). Wind and waves sit on the
-          side they come FROM, the current arrows point where the water sets
-          TO: each is the convention of its own data. */}
-      <p className="text-center text-[10px] leading-snug" style={{ color: "var(--ow-fg-2)" }}>
-        Vent et vagues sont placés du côté d'où ils viennent. La flèche de
-        courant montre où il porte.
-      </p>
     </div>
   );
 }

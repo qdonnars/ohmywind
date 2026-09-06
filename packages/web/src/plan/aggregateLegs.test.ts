@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   aggregateLegs,
   aggregateSteps,
@@ -11,6 +11,7 @@ import {
   type AggregatedLeg,
 } from "./aggregateLegs";
 import type { SegmentReport } from "./types";
+import { setLang, t } from "../i18n";
 
 function seg(overrides: Partial<SegmentReport> = {}): SegmentReport {
   return {
@@ -139,6 +140,12 @@ describe("aggregateLegs point of sail", () => {
     expect(aggregateLegs(segments, waypoints, 0.75, 45)[0].point_of_sail).toBe("Moteur");
   });
 });
+
+/** A one-leg route whose direct course sits at `twa` deg off the wind. */
+function legAtTwa(twa: number, minUpwindDeg?: number): AggregatedLeg {
+  const waypoints: [number, number][] = [[43.0, 5.0], [43.1, 5.1]];
+  return aggregateLegs([seg({ twa_deg: twa })], waypoints, 0.75, minUpwindDeg)[0];
+}
 
 function makeLeg(overrides: Partial<AggregatedLeg> = {}): AggregatedLeg {
   return {
@@ -328,5 +335,22 @@ describe("focusedSegmentIndex", () => {
     expect(focusedSegmentIndex(ranges, 0, null)).toBeNull();
     expect(focusedSegmentIndex(ranges, 1, 2)).toBeNull();
     expect(focusedSegmentIndex(ranges, 5, 0)).toBeNull();
+  });
+});
+
+// The labels this module produces reach the screen, so they follow the
+// reader's language. One case per family is enough: they all go through the
+// same `t()`, and `LegExpanded` matches a flag back against its own key.
+describe("labels follow the active language", () => {
+  afterEach(async () => {
+    await setLang("fr");
+  });
+
+  it("names the point of sail and the sea flag in English too", async () => {
+    await setLang("en");
+    expect(legAtTwa(60, 45).point_of_sail).toBe(t("panel.legs.pointOfSail.beamReach"));
+    expect(buildLegSummaryCells(makeLeg({ hs_avg_m: 1.8, tp_avg_s: 11 })).flag).toBe(
+      t("panel.legs.seaFlag.roughSea"),
+    );
   });
 });

@@ -228,6 +228,8 @@
   border-left-color: var(--ow-fg-2, #94a3b8);
 }
 .config-header {
+  /* iPhone: the status bar area, see .safe-top in index.css. */
+  padding-top: env(safe-area-inset-top, 0px);
   background: color-mix(in srgb, var(--ow-bg-0, #0b1220) 75%, transparent);
   border-color: var(--ow-line-2, rgba(255,255,255,0.08));
 }
@@ -393,5 +395,65 @@
     transform: rotate(180deg);
     font-size: 10px;
     letter-spacing: 0.08em;
+  }
+}
+
+/* Segmented picker (language). Same shape as the boat tiles' segments,
+   under a name that says what it is rather than where it came from. */
+.config-segment {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--ow-bg-1);
+  border: 1px solid var(--ow-line-2);
+}
+.config-segment-btn {
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--ow-fg-1);
+  background: transparent;
+  border: 0;
+  transition: background 120ms ease, color 120ms ease;
+}
+.config-segment-btn:hover:not(.is-active) {
+  background: var(--ow-bg-2);
+  color: var(--ow-fg-0);
+}
+.config-segment-btn.is-active {
+  background: var(--ow-accent);
+  color: #fff;
+}
+
+/*
+ * Full endonym or trigram, one line either way.
+ *
+ * The five full names (Français / English / Deutsch / Italiano / Español)
+ * measure 362.6 px on the built bundle. The picker sits in `main.px-6`, which
+ * takes 2 x 24 px off the viewport, so they need 410.6 px of viewport to fit,
+ * call it 411. Below that they used to run 13 px past the right edge on a
+ * 375 px screen, unreachable because the overflow does not scroll. The pills
+ * must stay on one line, so the labels shorten instead: the trigrams measure
+ * 249.5 px, need 297.5 px of viewport and so clear a 320 px screen with
+ * 22.5 px to spare.
+ *
+ * Breakpoint at 420 px rather than exactly 411 px: full names come back at
+ * 421 px, a 10 px cushion for the font fallbacks that render a shade wider
+ * than Inter, and it lands between the two device widths that matter (393 px
+ * for an iPhone 15, 430 px for its Pro Max).
+ */
+.config-segment-short {
+  display: none;
+}
+@media (max-width: 420px) {
+  .config-segment-full {
+    display: none;
+  }
+  .config-segment-short {
+    display: inline;
   }
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { useT } from "../i18n";
 import type { Spot } from "../types";
 import { SpotSearch } from "./SpotSearch";
 import { ThemeToggle } from "../design/theme";
@@ -38,12 +39,13 @@ function SettingsIcon() {
 }
 
 function SettingsButton() {
+  const { t } = useT();
   return (
     <a
       href="/config"
       onClick={rememberReturnPath}
-      aria-label="Paramètres"
-      title="Paramètres"
+      aria-label={t("explore.header.settings")}
+      title={t("explore.header.settings")}
       className="shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg transition-colors"
       style={{ color: 'var(--ow-fg-1)', background: 'transparent' }}
     >
@@ -55,7 +57,7 @@ function SettingsButton() {
 export function Header({ onSelectSpot, nearLat, nearLon, savedSpots }: HeaderProps) {
   return (
     <header
-      className="sticky top-0 z-30 backdrop-blur-lg px-3 py-2 lg:px-6"
+      className="sticky top-0 z-30 backdrop-blur-lg app-header"
       style={{ background: 'var(--ow-surface-glass)', borderBottom: '1px solid var(--ow-accent-line)' }}
     >
       <div className="flex items-center gap-3 max-w-screen-2xl mx-auto">

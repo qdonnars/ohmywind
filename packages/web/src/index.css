@@ -220,7 +220,37 @@ select,
 .wind-table-scroll th {
   scroll-snap-align: start;
 }
+/* While a mouse drags the table (useTimelineScroll): the scroll position is
+   set by hand on every move, so neither the smooth scrolling nor the snap
+   must intervene, and the text under the pointer must not get selected. */
+.wind-table-scroll.is-dragging {
+  scroll-behavior: auto;
+  scroll-snap-type: none;
+  user-select: none;
+  cursor: grabbing;
+}
 
+
+/* iPhone. index.html asks for viewport-fit=cover (#352), so the page may run
+   under the notch in landscape and under the home indicator; the status bar
+   itself is opaque (index.html), so the top inset is zero there today. The
+   header adds the insets to its own padding rather than replacing it: #377
+   had swapped the padding for the inset and the header lost its 8 px and
+   12 px on every device, logo flush left, icons flush right. The bottom is
+   deliberately not inset: a band under the last row read as a hole, and the
+   home indicator overlaying the table is what every app does. */
+.app-header {
+  padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
+  padding-bottom: 0.5rem;
+  padding-left: calc(0.75rem + env(safe-area-inset-left, 0px));
+  padding-right: calc(0.75rem + env(safe-area-inset-right, 0px));
+}
+@media (min-width: 64rem) {
+  .app-header {
+    padding-left: calc(1.5rem + env(safe-area-inset-left, 0px));
+    padding-right: calc(1.5rem + env(safe-area-inset-right, 0px));
+  }
+}
 
 /* Scroll fade indicator */
 .scroll-container {

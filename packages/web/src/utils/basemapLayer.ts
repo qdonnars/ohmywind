@@ -140,6 +140,15 @@ export function addBasemap(map: L.Map, theme: BasemapTheme): Basemap {
   // the explore map is unaffected.
   map.whenReady(() => {
     glMap = L.maplibreGL({ style: STYLE_URLS[current] }).addTo(map).getMaplibreMap();
+    // OpenFreeMap's dark style asks for a "circle-11" icon under towns and
+    // cities below zoom 9, and its sprite does not ship one (checked on
+    // sprites/ofm_f384, 2026-09-04): MapLibre warned on every request. A
+    // blank pixel registered under that name keeps the console quiet and
+    // draws nothing, which is what the style managed to draw anyway.
+    glMap.on("styleimagemissing", (e) => {
+      if (!glMap || glMap.hasImage(e.id)) return;
+      glMap.addImage(e.id, { width: 1, height: 1, data: new Uint8Array(4) });
+    });
     // Re-applied on every style load rather than once: switching theme swaps
     // the whole style document, which drops any paint property set on the
     // one before it.

@@ -8,6 +8,7 @@ import {
   isPersoActive,
   type PolarConfig,
 } from "../../config/polarConfig";
+import { t } from "../../i18n";
 
 /** Longer than this, an imported file name pushes the recap onto two lines. */
 const MAX_IMPORTED_NAME = 20;
@@ -31,13 +32,13 @@ export function boatLabel(
 ): string {
   if (isPersoActive(polarConfig)) {
     if (isImportedActive(polarConfig)) {
-      const name = polarConfig.imported?.name ?? "polaire";
+      const name = polarConfig.imported?.name ?? t("panel.boat.polarFallback");
       const short =
         name.length > MAX_IMPORTED_NAME ? `${name.slice(0, MAX_IMPORTED_NAME - 1)}…` : name;
-      return `${short} (importée)`;
+      return t("panel.boat.recapImported", { name: short });
     }
     const base = ARCHETYPE_LABELS[polarConfig.base] ?? polarConfig.base;
-    return `${base} (ajustée)`;
+    return t("panel.boat.recapAdjusted", { base });
   }
   return (
     ARCHETYPE_LABELS[currentSlug] ??

@@ -3,6 +3,7 @@
 
 import { useMemo } from "react";
 import { fmtClock, fmtDay } from "../../domain/datetime";
+import { useT } from "../../i18n";
 
 // ── DepartureRangeSlider ─────────────────────────────────────────────────────
 // Dual-thumb slider for the compare-windows form. Two overlapping native ranges
@@ -21,6 +22,7 @@ export function DepartureRangeSlider({
   latestHours: number;
   onChange: (earliest: number, latest: number) => void;
 }) {
+  const { t } = useT();
   const anchor = useMemo(() => {
     const d = new Date();
     d.setMinutes(0, 0, 0);
@@ -47,9 +49,9 @@ export function DepartureRangeSlider({
       time: fmtClock(d),
       offset: (() => {
         const days = Math.floor(hours / 24);
-        if (days === 0) return "Aujourd'hui";
-        if (days === 1) return "Demain";
-        return `J+${days}`;
+        if (days === 0) return t("panel.departure.today");
+        if (days === 1) return t("panel.departure.tomorrow");
+        return t("panel.departure.dayPlus", { count: days });
       })(),
     };
   }
@@ -58,8 +60,10 @@ export function DepartureRangeSlider({
   const lFmt = fmt(lClamped);
   const windowHours = lClamped - eClamped;
   const windowLabel = windowHours >= 24
-    ? `${(windowHours / 24).toFixed(windowHours % 24 === 0 ? 0 : 1)} j`
-    : `${windowHours} h`;
+    ? t("panel.range.spanDays", {
+        value: (windowHours / 24).toFixed(windowHours % 24 === 0 ? 0 : 1),
+      })
+    : t("panel.range.spanHours", { value: windowHours });
 
   // Track fill % for visual fill between thumbs
   const fillStart = (eClamped / RANGE_MAX_HOURS) * 100;
@@ -69,7 +73,7 @@ export function DepartureRangeSlider({
     <div>
       <div className="flex items-baseline justify-between mb-1">
         <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "var(--ow-fg-2)" }}>
-          Fenêtre de départ
+          {t("panel.range.title")}
         </span>
         <span className="text-[10px] tabular-nums" style={{ color: "var(--ow-accent)" }}>
           {windowLabel}
@@ -106,7 +110,7 @@ export function DepartureRangeSlider({
           value={eClamped}
           onChange={(e) => setEarliest(Number(e.target.value))}
           className="ow-range-input"
-          aria-label="Départ au plus tôt"
+          aria-label={t("panel.range.ariaEarliest")}
           style={{ zIndex: eClamped > RANGE_MAX_HOURS / 2 ? 3 : 2 }}
         />
         <input
@@ -117,15 +121,15 @@ export function DepartureRangeSlider({
           value={lClamped}
           onChange={(e) => setLatest(Number(e.target.value))}
           className="ow-range-input"
-          aria-label="Départ au plus tard"
+          aria-label={t("panel.range.ariaLatest")}
           style={{ zIndex: eClamped > RANGE_MAX_HOURS / 2 ? 2 : 3 }}
         />
       </div>
 
       <div className="flex justify-between text-[10px] mt-1" style={{ color: "var(--ow-fg-2)" }}>
-        <span>Maintenant</span>
-        <span>+1 sem.</span>
-        <span>+2 sem.</span>
+        <span>{t("panel.departure.now")}</span>
+        <span>{t("panel.departure.plusOneWeek")}</span>
+        <span>{t("panel.departure.plusTwoWeeks")}</span>
       </div>
     </div>
   );

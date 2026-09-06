@@ -14,10 +14,12 @@ import {
 import { usePolarConfig } from "../../config/usePolarConfig";
 import { rememberReturnPath } from "../../config/returnPath";
 import { usePlan } from "../session/planContext";
+import { useT } from "../../i18n";
 
 // ── ArchetypeSelector ─────────────────────────────────────────────────────────
 
 export function ArchetypeSelector() {
+  const { t } = useT();
   const { state, actions, archetypes, compute } = usePlan();
   const currentSlug = state.archetype;
   const onChange = actions.setArchetype;
@@ -38,12 +40,14 @@ export function ArchetypeSelector() {
   const persoSelected = isPersoActive(polarCfg);
   const baseLabel = ARCHETYPE_LABELS[polarCfg.base] ?? polarCfg.base;
   const current = archetypes.find((a) => a.slug === currentSlug);
-  const label = persoSelected ? "Perso" : (current?.name ?? currentSlug);
+  const label = persoSelected ? t("panel.boat.custom") : (current?.name ?? currentSlug);
   // Detail line of the « Perso » entry, same shape as the archetype rows:
   // provenance of the customization rather than hull specs.
   const persoDetail = isImportedActive(polarCfg)
-    ? `${polarCfg.imported?.name ?? "polaire"} · importée`
-    : `${baseLabel} · ajustée`;
+    ? t("panel.boat.detailImported", {
+        name: polarCfg.imported?.name ?? t("panel.boat.polarFallback"),
+      })
+    : t("panel.boat.detailAdjusted", { base: baseLabel });
 
   function resetCustom() {
     savePolarConfig(defaultPolarConfig());
@@ -57,7 +61,11 @@ export function ArchetypeSelector() {
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1.5 text-sm transition-colors"
         style={{ color: persoSelected ? "var(--ow-accent)" : "var(--ow-fg-1)" }}
-        title={persoSelected ? `Polaire personnalisée active (${persoDetail})` : "Changer le type de bateau"}
+        title={
+          persoSelected
+            ? t("panel.boat.customActiveTitle", { detail: persoDetail })
+            : t("panel.boat.changeTitle")
+        }
       >
         {label}
         <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" style={{ opacity: 0.5 }}>
@@ -83,7 +91,7 @@ export function ArchetypeSelector() {
                     color: persoSelected ? "var(--ow-accent)" : "var(--ow-fg-0)",
                   }}
                 >
-                  <div className="font-semibold">Perso</div>
+                  <div className="font-semibold">{t("panel.boat.custom")}</div>
                   <div className="text-[11px] mt-0.5" style={{ color: "var(--ow-fg-2)" }}>
                     {persoDetail}
                   </div>
@@ -97,11 +105,11 @@ export function ArchetypeSelector() {
                   }}
                 >
                   <a href="/config" onClick={rememberReturnPath} className="underline">
-                    éditer
+                    {t("panel.boat.edit")}
                   </a>
                   <span style={{ opacity: 0.4 }}>·</span>
                   <button type="button" onClick={resetCustom} className="underline">
-                    réinitialiser
+                    {t("panel.boat.reset")}
                   </button>
                 </div>
               </>

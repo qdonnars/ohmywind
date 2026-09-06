@@ -6,16 +6,16 @@ import { toNaiveLocal } from "../../domain/datetime";
 import { DepartureRangeSlider } from "./DepartureRangeSlider";
 import { usePlan } from "../session/planContext";
 import { validateSweep } from "../validateSweep";
+import { useT } from "../../i18n";
 
 // ── SweepForm ─────────────────────────────────────────────────────────────────
 
-const SWEEP_INTERVALS: { value: number; label: string }[] = [
-  { value: 1, label: "Toutes les heures" },
-  { value: 3, label: "Toutes les 3h" },
-  { value: 6, label: "Toutes les 6h" },
-];
+/** Sampling steps offered, in hours. The label is built at render so it
+    follows the reader's language. */
+const SWEEP_INTERVALS = [1, 3, 6] as const;
 
 export function SweepForm() {
+  const { t } = useT();
   const { state, actions } = usePlan();
   const { sweepEarliest: earliest, sweepLatest: latest, sweepIntervalHours: intervalHours } = state;
   const onEarliestChange = actions.setSweepEarliest;
@@ -60,11 +60,15 @@ export function SweepForm() {
 
       <div>
         <label className="block text-[10px] uppercase tracking-widest font-semibold mb-1" style={{ color: "var(--ow-fg-2)" }}>
-          Pas d'échantillonnage
+          {t("panel.sweep.samplingStep")}
         </label>
         <div className="flex gap-1.5">
-          {SWEEP_INTERVALS.map(({ value, label }) => {
+          {SWEEP_INTERVALS.map((value) => {
             const active = intervalHours === value;
+            const label =
+              value === 1
+                ? t("panel.sweep.everyHour")
+                : t("panel.sweep.everyNHours", { hours: value });
             return (
               <button
                 key={value}

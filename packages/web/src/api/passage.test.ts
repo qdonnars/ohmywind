@@ -2,7 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, fetchPassage, formatRetryDelay, friendlyError } from "./passage";
+import {
+  ApiError,
+  COLD_START_DELAY_S,
+  coldStartDelay,
+  fetchPassage,
+  formatRetryDelay,
+  friendlyError,
+} from "./passage";
 import { ApiShapeError } from "./parse";
 import { resetBodyEncoding } from "./postJson";
 
@@ -410,5 +417,25 @@ describe("backend injoignable vu du proxy de bord", () => {
     const theirs = friendlyError(new ApiError("x", "upstream_timeout", null));
     expect(ours).not.toBe(theirs);
     expect(theirs).toContain("service météo");
+  });
+});
+
+describe("coldStartDelay", () => {
+  it("retries a sleeping backend with the server's delay, within a minute", () => {
+    expect(coldStartDelay(new ApiError("x", "upstream_unavailable", 30))).toBe(30);
+    expect(coldStartDelay(new ApiError("x", "upstream_unavailable", 600))).toBe(60);
+    expect(coldStartDelay(new ApiError("x", "server_unavailable", null))).toBe(COLD_START_DELAY_S);
+  });
+
+  it("reads the text when a deployment sends no code", () => {
+    expect(coldStartDelay(new Error("backend temporarily unavailable, retry in 12s"))).toBe(12);
+    expect(coldStartDelay("Erreur serveur 503")).toBe(COLD_START_DELAY_S);
+  });
+
+  it("leaves the other failures to the reader", () => {
+    expect(coldStartDelay(new ApiError("x", "rate_limited", 30))).toBeNull();
+    expect(coldStartDelay(new ApiError("x", "invalid_datetime", null))).toBeNull();
+    expect(coldStartDelay(new TypeError("Failed to fetch"))).toBeNull();
+    expect(coldStartDelay(new Error("sweep would produce 400 windows"))).toBeNull();
   });
 });

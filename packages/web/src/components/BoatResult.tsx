@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useMemo, useState } from "react";
+import { useT } from "../i18n";
 import {
   ARCHETYPE_LABELS,
   effectiveMinUpwind,
@@ -16,6 +17,7 @@ import { PolarDiagram, TwsPills } from "./PolarDiagram";
 // (imported file or archetype × spi × overrides) scaled by the coefficient,
 // i.e. the speeds the planner will actually work from.
 export function BoatResult({ config }: { config: PolarConfig }) {
+  const { t } = useT();
   const [selectedTwsIdx, setSelectedTwsIdx] = useState(0);
   const importedActive = isImportedActive(config);
 
@@ -28,9 +30,17 @@ export function BoatResult({ config }: { config: PolarConfig }) {
     [effective, config.coefficient],
   );
   const minUpwind = effectiveMinUpwind(config);
+  // The " · " is punctuation between two facts, not copy: the subtitle is a
+  // list, and each of its items is a whole sentence of its own in the
+  // dictionary.
   const spiNote =
     !importedActive && config.spi !== "off"
-      ? ` · spi ${config.spi === "asymmetric" ? "asymétrique" : "symétrique"} ≤ ${config.spiMaxTwsKn} kn`
+      ? ` · ${t(
+          config.spi === "asymmetric"
+            ? "config.boat.result.spiAsymmetric"
+            : "config.boat.result.spiSymmetric",
+          { tws: config.spiMaxTwsKn },
+        )}`
       : "";
 
   return (
@@ -39,11 +49,14 @@ export function BoatResult({ config }: { config: PolarConfig }) {
         twsKn={effective.tws_kn}
         selectedIdx={selectedTwsIdx}
         onSelect={setSelectedTwsIdx}
-        label="Courbe affichée (TWS)"
+        label={t("config.polar.curveShown")}
       />
       <PolarDiagram
         title={importedActive ? effective.name : ARCHETYPE_LABELS[config.base]}
-        subtitle={`polaire résultante · coefficient ×${config.coefficient.toFixed(2)} · près ${minUpwind}°${spiNote}`}
+        subtitle={`${t("config.boat.result.subtitle", {
+          coefficient: config.coefficient.toFixed(2),
+          upwind: minUpwind,
+        })}${spiNote}`}
         twsKn={effective.tws_kn}
         twaDeg={effective.twa_deg}
         matrix={displayMatrix}

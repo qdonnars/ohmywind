@@ -3,6 +3,7 @@
 
 import { Component, Suspense } from "react";
 import type { ErrorInfo, ReactNode } from "react";
+import { useT } from "../i18n";
 import { isModuleLoadError, lazyFor, type PageLoader } from "./lazyPage";
 
 interface Props {
@@ -49,43 +50,52 @@ export class LazyPageBoundary extends Component<Props, State> {
       const Page = lazyFor(this.props.load);
       return <Suspense fallback={this.props.fallback}>{<Page />}</Suspense>;
     }
-    const chunkMissing = isModuleLoadError(error);
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center px-6"
-        style={{ background: "var(--ow-bg-0)", color: "var(--ow-fg-0)" }}
-        role="alert"
-      >
-        <div className="max-w-md w-full text-center">
-          <p className="text-base font-medium">
-            {chunkMissing
-              ? "Cette page nécessite une connexion."
-              : "Cette page n'a pas pu s'afficher."}
-          </p>
-          <p className="mt-2 text-sm" style={{ color: "var(--ow-fg-1)" }}>
-            {chunkMissing
-              ? "Reconnectez-vous puis rechargez, ou revenez à la carte."
-              : "Rechargez la page, ou revenez à la carte."}
-          </p>
-          <div className="mt-6 flex items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={this.reload}
-              className="min-h-[44px] px-4 rounded-xl text-sm font-medium"
-              style={{ background: "var(--ow-accent-soft)", color: "var(--ow-accent)" }}
-            >
-              Recharger
-            </button>
-            <a
-              href="/"
-              className="min-h-[44px] px-4 inline-flex items-center rounded-xl text-sm"
-              style={{ color: "var(--ow-fg-1)" }}
-            >
-              Revenir à la carte
-            </a>
-          </div>
+    return <LazyPageError chunkMissing={isModuleLoadError(error)} onReload={this.reload} />;
+  }
+}
+
+// The message itself is a function component so it can read the active
+// language through useT(): the boundary around it has to be a class, and a
+// class cannot subscribe to the store.
+function LazyPageError({
+  chunkMissing,
+  onReload,
+}: {
+  chunkMissing: boolean;
+  onReload: () => void;
+}) {
+  const { t } = useT();
+  return (
+    <div
+      className="min-h-screen flex items-center justify-center px-6"
+      style={{ background: "var(--ow-bg-0)", color: "var(--ow-fg-0)" }}
+      role="alert"
+    >
+      <div className="max-w-md w-full text-center">
+        <p className="text-base font-medium">
+          {chunkMissing ? t("config.lazyPage.offlineTitle") : t("config.lazyPage.errorTitle")}
+        </p>
+        <p className="mt-2 text-sm" style={{ color: "var(--ow-fg-1)" }}>
+          {chunkMissing ? t("config.lazyPage.offlineBody") : t("config.lazyPage.errorBody")}
+        </p>
+        <div className="mt-6 flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={onReload}
+            className="min-h-[44px] px-4 rounded-xl text-sm font-medium"
+            style={{ background: "var(--ow-accent-soft)", color: "var(--ow-accent)" }}
+          >
+            {t("config.lazyPage.reload")}
+          </button>
+          <a
+            href="/"
+            className="min-h-[44px] px-4 inline-flex items-center rounded-xl text-sm"
+            style={{ color: "var(--ow-fg-1)" }}
+          >
+            {t("config.lazyPage.backToMap")}
+          </a>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 }

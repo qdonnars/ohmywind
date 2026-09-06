@@ -33,6 +33,9 @@ export const LOCAL_STORAGE_KEYS = {
   theme: "ow_theme",
   /** `TimezoneMode`: which clock the forecast tables display. */
   timezone: "ow_tz",
+  /** `Lang` code ("fr", "en", ...) picked in /config. Absent until the reader
+      chooses: the browser language decides meanwhile. Bare scalar. */
+  lang: "ow_lang",
   /** `"1"` once the user has declined geolocation, so we stop asking. */
   geolocDeclined: "ow_geoloc_declined_v1",
   /** Sea marks overlay, one flag per map surface. */

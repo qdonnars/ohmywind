@@ -4,7 +4,8 @@
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { useEffect, useState } from 'react';
 
-import { getInitialMode } from './initialTheme';
+import { useT } from '../i18n';
+import { applyTheme, getInitialMode } from './initialTheme';
 import { ThemeCtx, useTheme, type ThemeMode } from './useTheme';
 
 const STORAGE_KEY = LOCAL_STORAGE_KEYS.theme;
@@ -16,14 +17,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // (applyInitialTheme, called from main.tsx, and setMode below) are there to
   // beat an ordering, not to replace this one.
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', mode);
+    applyTheme(mode);
   }, [mode]);
 
   function setMode(m: ThemeMode) {
     // Written before the re-render, for the same reason as the initial stamp:
     // the map effects that resolve a token from the DOM run before the
     // provider's own effect, and would otherwise read the outgoing palette.
-    document.documentElement.setAttribute('data-theme', m);
+    applyTheme(m);
     setModeState(m);
     try {
       localStorage.setItem(STORAGE_KEY, m);
@@ -58,13 +59,15 @@ function MoonIcon() {
 
 export function ThemeToggle() {
   const { mode, setMode } = useTheme();
+  const { t } = useT();
+  const label = mode === 'dark' ? t('explore.theme.toLight') : t('explore.theme.toDark');
   return (
     <button
       onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')}
       className="shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-sm font-semibold transition-colors"
       style={{ color: 'var(--ow-fg-1)', background: 'transparent' }}
-      title={`Switch to ${mode === 'dark' ? 'light' : 'dark'} theme`}
-      aria-label={`Switch to ${mode === 'dark' ? 'light' : 'dark'} theme`}
+      title={label}
+      aria-label={label}
     >
       {mode === 'dark' ? <SunIcon /> : <MoonIcon />}
     </button>

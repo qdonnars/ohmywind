@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import type { Spot } from "../types";
+import { useT } from "../i18n";
 
 /**
  * The two modals a press on the spot map opens.
@@ -56,8 +57,9 @@ export function SpotEditDialog({
   onDelete: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useT();
   return (
-    <DialogShell label="Options du spot">
+    <DialogShell label={t("explore.spotDialogs.options")}>
       <p className="text-sm font-semibold mb-1" style={{ color: "var(--ow-fg-0)" }}>
         {spot.name}
       </p>
@@ -69,19 +71,19 @@ export function SpotEditDialog({
           className="ow-modal-btn w-full min-h-[44px] py-2.5 rounded-lg text-sm font-medium transition-all"
           onClick={onRename}
         >
-          Renommer
+          {t("explore.spotDialogs.rename")}
         </button>
         <button
           className="w-full min-h-[44px] py-2.5 rounded-lg bg-danger text-on-danger text-sm font-medium hover:bg-danger-hover active:bg-danger-active active:scale-[0.98] transition-all"
           onClick={onDelete}
         >
-          Supprimer
+          {t("explore.spotDialogs.delete")}
         </button>
         <button
           className="ow-modal-btn-outline w-full min-h-[44px] py-2.5 rounded-lg text-sm transition-all"
           onClick={onCancel}
         >
-          Annuler
+          {t("common.cancel")}
         </button>
       </div>
     </DialogShell>
@@ -99,8 +101,11 @@ export function SpotNameDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useT();
   const renaming = pending.editingSpot != null;
-  const title = renaming ? "Renommer le spot" : "Nouveau spot";
+  const title = renaming
+    ? t("explore.spotDialogs.renameTitle")
+    : t("explore.spotDialogs.createTitle");
   return (
     <DialogShell label={title}>
       <p className="text-sm font-semibold mb-1" style={{ color: "var(--ow-fg-0)" }}>
@@ -114,20 +119,20 @@ export function SpotNameDialog({
         value={pending.name}
         onChange={(e) => onNameChange(e.target.value)}
         autoFocus
-        aria-label="Nom du spot"
+        aria-label={t("explore.spotDialogs.nameLabel")}
       />
       <div className="flex gap-2">
         <button
           className="ow-modal-btn-outline flex-1 min-h-[44px] py-2.5 rounded-lg text-sm font-medium transition-all"
           onClick={onCancel}
         >
-          Annuler
+          {t("common.cancel")}
         </button>
         <button
           className="flex-1 min-h-[44px] py-2.5 rounded-lg bg-accent-strong text-on-accent text-sm font-semibold hover:bg-accent-strong-hover active:scale-[0.98] transition-all"
           onClick={onConfirm}
         >
-          {renaming ? "Renommer" : "Créer"}
+          {renaming ? t("explore.spotDialogs.rename") : t("explore.spotDialogs.create")}
         </button>
       </div>
     </DialogShell>

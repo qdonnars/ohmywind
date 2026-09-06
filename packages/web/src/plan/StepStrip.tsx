@@ -15,14 +15,16 @@
 import type { AggregatedLeg } from "./aggregateLegs";
 import { cxLevel, cxLevelVar } from "../domain/thresholds";
 import { fmtClock } from "../domain/datetime";
+import { useT } from "../i18n";
 
 type View = "average" | "detail";
 
 function ViewToggle({ value, onChange }: { value: View; onChange: (v: View) => void }) {
+  const { t } = useT();
   return (
     <div
       role="group"
-      aria-label="Affichage du tronçon"
+      aria-label={t("plan.steps.viewToggle.label")}
       className="shrink-0 inline-flex gap-0.5 p-[2px] rounded-md"
       style={{ background: "var(--ow-bg-2)", border: "1px solid var(--ow-line)" }}
     >
@@ -42,7 +44,9 @@ function ViewToggle({ value, onChange }: { value: View; onChange: (v: View) => v
               color: active ? "var(--ow-fg-0)" : "var(--ow-fg-2)",
             }}
           >
-            {v === "average" ? "Moyenne" : "Détail"}
+            {v === "average"
+              ? t("plan.steps.viewToggle.average")
+              : t("plan.steps.viewToggle.detail")}
           </button>
         );
       })}
@@ -60,6 +64,7 @@ export function StepStrip({
   selected: number | null;
   onSelect: (index: number | null) => void;
 }) {
+  const { t } = useT();
   const n = steps.length;
   if (n === 0) return null;
   const first = steps[0];
@@ -67,7 +72,7 @@ export function StepStrip({
   return (
     <div className="flex items-start gap-2">
       <div className="flex-1 min-w-0">
-        <div className="flex gap-1" role="group" aria-label="Pas de calcul du tronçon">
+        <div className="flex gap-1" role="group" aria-label={t("plan.steps.groupLabel")}>
           {steps.map((step, i) => {
             const active = selected === i;
             const dimmed = selected != null && !active;
@@ -76,7 +81,11 @@ export function StepStrip({
                 key={i}
                 type="button"
                 aria-pressed={active}
-                aria-label={`Pas ${i + 1} sur ${n}, ${fmtClock(step.start_time)}`}
+                aria-label={t("plan.steps.stepLabel", {
+                  index: i + 1,
+                  total: n,
+                  time: fmtClock(step.start_time),
+                })}
                 onClick={() => onSelect(active ? null : i)}
                 className="rounded-md transition-opacity"
                 style={{

@@ -15,6 +15,8 @@
   color: #1f2937;
 }
 .methodo-header {
+  /* iPhone: the status bar area, see .safe-top in index.css. */
+  padding-top: env(safe-area-inset-top, 0px);
   background: rgba(255, 255, 255, 0.85);
   border-color: rgba(15, 23, 42, 0.10);
 }

@@ -10,6 +10,7 @@
 // Only affects the web client. Server-side `plan_passage` still uses its own
 // `model="auto"` chain.
 
+import type { Key } from "../i18n";
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 
 const STORAGE_KEY = LOCAL_STORAGE_KEYS.modelConfig;
@@ -79,11 +80,14 @@ interface PersistedConfig {
 
 export interface ModelMeta {
   label: string;
-  provider: string;
   resolutionKm: number;
   horizonHours: number;
-  coverage: string;
-  description: string;
+  // Copy, not data: the three of them are dictionary keys, translated where
+  // they are rendered (/config, the model tooltip). Everything else here is
+  // model metadata and reads the same in every language.
+  provider: Key;
+  coverage: Key;
+  description: Key;
   // Native time step used to mask the timeline cells in WindTable.
   nativeStepHours: number;
 }
@@ -91,128 +95,128 @@ export interface ModelMeta {
 export const MODEL_META: Record<ModelName, ModelMeta> = {
   AROME: {
     label: "AROME HD",
-    provider: "Météo-France",
+    provider: "config.models.provider.meteoFrance",
     resolutionKm: 1.5,
     horizonHours: 51,
-    coverage: "France",
-    description: "Haute résolution Météo-France, capte les effets thermiques et l'abri côtier.",
+    coverage: "config.models.arome.coverage",
+    description: "config.models.arome.description",
     nativeStepHours: 1,
   },
   ARPEGE_EU: {
     label: "ARPEGE EU",
-    provider: "Météo-France",
+    provider: "config.models.provider.meteoFrance",
     resolutionKm: 10,
     horizonHours: 96,
-    coverage: "Europe",
-    description: "Modèle français moyenne échéance, prolonge AROME.",
+    coverage: "config.models.arpegeEu.coverage",
+    description: "config.models.arpegeEu.description",
     nativeStepHours: 1,
   },
   ARPEGE_W: {
     label: "ARPEGE Monde",
-    provider: "Météo-France",
+    provider: "config.models.provider.meteoFrance",
     resolutionKm: 50,
     horizonHours: 102,
-    coverage: "Global",
-    description: "Pilote global de Météo-France, basse résolution.",
+    coverage: "config.models.arpegeW.coverage",
+    description: "config.models.arpegeW.description",
     nativeStepHours: 3,
   },
   ICON: {
     label: "ICON-EU",
-    provider: "DWD (Allemagne)",
+    provider: "config.models.provider.dwd",
     resolutionKm: 7,
     horizonHours: 120,
-    coverage: "Europe",
-    description: "Modèle régional européen, bon compromis portée / précision.",
+    coverage: "config.models.icon.coverage",
+    description: "config.models.icon.description",
     nativeStepHours: 3,
   },
   ICON_GLOBAL: {
     label: "ICON Global",
-    provider: "DWD (Allemagne)",
+    provider: "config.models.provider.dwd",
     resolutionKm: 13,
     horizonHours: 180,
-    coverage: "Global",
-    description: "Version globale d'ICON, portée étendue.",
+    coverage: "config.models.iconGlobal.coverage",
+    description: "config.models.iconGlobal.description",
     nativeStepHours: 3,
   },
   ICON_D2: {
     label: "ICON D2",
-    provider: "DWD (Allemagne)",
+    provider: "config.models.provider.dwd",
     resolutionKm: 2,
     horizonHours: 48,
-    coverage: "Allemagne + frontières",
-    description: "Très haute résolution DWD, marges utiles sur l'est français.",
+    coverage: "config.models.iconD2.coverage",
+    description: "config.models.iconD2.description",
     nativeStepHours: 1,
   },
   ECMWF: {
     label: "ECMWF",
-    provider: "Centre européen",
+    provider: "config.models.provider.ecmwf",
     resolutionKm: 25,
     horizonHours: 240,
-    coverage: "Global",
-    description: "Référence à moyenne échéance, résolution plus grossière.",
+    coverage: "config.models.ecmwf.coverage",
+    description: "config.models.ecmwf.description",
     nativeStepHours: 6,
   },
   ECMWF_AIFS: {
     label: "ECMWF AIFS",
-    provider: "Centre européen",
+    provider: "config.models.provider.ecmwf",
     resolutionKm: 25,
     horizonHours: 240,
-    coverage: "Global (IA)",
-    description: "Modèle IA d'ECMWF, performances proches de l'IFS.",
+    coverage: "config.models.ecmwfAifs.coverage",
+    description: "config.models.ecmwfAifs.description",
     nativeStepHours: 6,
   },
   GFS: {
     label: "GFS",
-    provider: "NOAA (États-Unis)",
+    provider: "config.models.provider.noaa",
     resolutionKm: 25,
     horizonHours: 384,
-    coverage: "Global",
-    description: "Très longue portée, rafales peu fiables en faible vent.",
+    coverage: "config.models.gfs.coverage",
+    description: "config.models.gfs.description",
     nativeStepHours: 3,
   },
   UKMO: {
     label: "UKMO Global",
-    provider: "Met Office (UK)",
+    provider: "config.models.provider.metOffice",
     resolutionKm: 10,
     horizonHours: 168,
-    coverage: "Global",
-    description: "Modèle global du Met Office, bon sur l'Atlantique nord.",
+    coverage: "config.models.ukmo.coverage",
+    description: "config.models.ukmo.description",
     nativeStepHours: 1,
   },
   UKMO_UK: {
     label: "UKMO UK",
-    provider: "Met Office (UK)",
+    provider: "config.models.provider.metOffice",
     resolutionKm: 2,
     horizonHours: 120,
-    coverage: "Îles Britanniques + Manche",
-    description: "Haute résolution UK, utile sur la Manche occidentale.",
+    coverage: "config.models.ukmoUk.coverage",
+    description: "config.models.ukmoUk.description",
     nativeStepHours: 1,
   },
   GEM: {
     label: "GEM",
-    provider: "Env. Canada",
+    provider: "config.models.provider.envCanada",
     resolutionKm: 15,
     horizonHours: 240,
-    coverage: "Global",
-    description: "Modèle global canadien, complément utile.",
+    coverage: "config.models.gem.coverage",
+    description: "config.models.gem.description",
     nativeStepHours: 3,
   },
   DMI_HARMONIE: {
     label: "DMI Harmonie",
-    provider: "DMI (Danemark)",
+    provider: "config.models.provider.dmi",
     resolutionKm: 2,
     horizonHours: 60,
-    coverage: "Europe du Nord + Manche",
-    description: "Haute résolution scandinave, utile en Manche et Mer du Nord.",
+    coverage: "config.models.dmiHarmonie.coverage",
+    description: "config.models.dmiHarmonie.description",
     nativeStepHours: 1,
   },
   METNO_NORDIC: {
     label: "METNO Nordic",
-    provider: "MET Norway",
+    provider: "config.models.provider.metNorway",
     resolutionKm: 1,
     horizonHours: 60,
-    coverage: "Scandinavie + Mer du Nord",
-    description: "Modèle norvégien très haute résolution sur la Mer du Nord.",
+    coverage: "config.models.metnoNordic.coverage",
+    description: "config.models.metnoNordic.description",
     nativeStepHours: 1,
   },
 };

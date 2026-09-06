@@ -13,6 +13,7 @@
 // performance coefficient never touches the matrix: it travels as the
 // request's `efficiency` parameter.
 
+import { t, type Key } from "../i18n";
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import catamaran40ft from "../data/polars/catamaran_40ft.json";
 import cruiser20ft from "../data/polars/cruiser_20ft.json";
@@ -60,15 +61,34 @@ export const BASE_POLARS: Readonly<Record<string, PolarData>> = {
   catamaran_40ft: catamaran40ft as PolarData,
 };
 
-export const ARCHETYPE_LABELS: Readonly<Record<string, string>> = {
-  cruiser_20ft: "Croiseur 20 pieds",
-  cruiser_25ft: "Croiseur 25 pieds",
-  cruiser_30ft: "Croiseur 30 pieds",
-  cruiser_40ft: "Croiseur 40 pieds",
-  cruiser_50ft: "Croiseur 50 pieds",
-  racer_cruiser: "Racer-cruiser",
-  catamaran_40ft: "Catamaran 40 pieds",
+const ARCHETYPE_LABEL_KEYS: Readonly<Record<string, Key>> = {
+  cruiser_20ft: "config.boat.archetype.cruiser20ft",
+  cruiser_25ft: "config.boat.archetype.cruiser25ft",
+  cruiser_30ft: "config.boat.archetype.cruiser30ft",
+  cruiser_40ft: "config.boat.archetype.cruiser40ft",
+  cruiser_50ft: "config.boat.archetype.cruiser50ft",
+  racer_cruiser: "config.boat.archetype.racerCruiser",
+  catamaran_40ft: "config.boat.archetype.catamaran40ft",
 };
+
+/**
+ * Archetype id → the label shown for it, in the active language.
+ *
+ * Translated on property read rather than once at module load: every caller
+ * indexes or iterates this object while rendering, so a language switch has
+ * to reach them without anything being rebuilt. The shape is unchanged —
+ * `ARCHETYPE_LABELS[id]` and `Object.entries(ARCHETYPE_LABELS)` behave
+ * exactly as they did when the values were plain strings.
+ */
+export const ARCHETYPE_LABELS: Readonly<Record<string, string>> = Object.defineProperties(
+  {},
+  Object.fromEntries(
+    Object.entries(ARCHETYPE_LABEL_KEYS).map(([id, key]) => [
+      id,
+      { get: () => t(key), enumerable: true },
+    ]),
+  ),
+) as Readonly<Record<string, string>>;
 
 export const DEFAULT_BASE = "cruiser_30ft";
 
@@ -355,6 +375,24 @@ export function parseSpiMaxTwsDraft(raw: string): number | null {
 export function commitSpiMaxTwsDraft(raw: string): number | null {
   const parsed = parseSpiMaxTwsDraft(raw);
   return parsed === null ? null : Math.max(SPI_MAX_TWS_MIN, parsed);
+}
+
+// The minimum upwind angle had the bug #270 fixed for the spinnaker: clamped
+// on every keystroke, "5" on its way to "50" became the 25° floor, and the
+// next digit made "250", clamped to the 70° ceiling. A reader who typed 50
+// saw 70 (forum, 2026-09). Same cure: only the ceiling while typing, the
+// floor once the field is left.
+export function parseMinUpwindDraft(raw: string): number | null {
+  const val = raw.trim();
+  if (val === "") return null;
+  const num = Number(val);
+  if (!Number.isFinite(num) || num < 0) return null;
+  return Math.round(Math.min(MIN_UPWIND_MAX, num));
+}
+
+export function commitMinUpwindDraft(raw: string): number | null {
+  const parsed = parseMinUpwindDraft(raw);
+  return parsed === null ? null : Math.max(MIN_UPWIND_MIN, parsed);
 }
 
 function sanitizeOverrides(raw: unknown, base: PolarData): Record<string, number> {

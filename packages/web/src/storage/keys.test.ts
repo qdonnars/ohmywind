@@ -19,6 +19,7 @@ describe("storage key registry", () => {
     expect(LOCAL_STORAGE_KEYS).toEqual({
       theme: "ow_theme",
       timezone: "ow_tz",
+      lang: "ow_lang",
       geolocDeclined: "ow_geoloc_declined_v1",
       seamarksExplore: "ow_seamarks_explore_v1",
       seamarksPlan: "ow_seamarks_plan_v1",

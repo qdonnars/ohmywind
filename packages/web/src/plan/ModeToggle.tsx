@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { useT, type Key } from "../i18n";
+
 export type PlanMode = "single" | "compare";
 
 // Sub-mode inside "Simuler ma route": is the picked time a departure or a
@@ -15,9 +17,12 @@ const MODE_ACCENT: Record<PlanMode, string> = {
   compare: "var(--ow-compare)",
 };
 
-const MODE_META: Record<PlanMode, { title: string; sub: string; icon: "route" | "clock" }> = {
-  single: { title: "Simuler ma route", sub: "Combien de temps pour ce trajet ?", icon: "route" },
-  compare: { title: "Comparer les fenêtres", sub: "Le meilleur créneau pour partir ?", icon: "clock" },
+// Dictionary keys rather than sentences: this table is built once at import,
+// long before a language is resolved, so the words have to be looked up at
+// render time.
+const MODE_META: Record<PlanMode, { title: Key; sub: Key; icon: "route" | "clock" }> = {
+  single: { title: "plan.mode.single.title", sub: "plan.mode.single.sub", icon: "route" },
+  compare: { title: "plan.mode.compare.title", sub: "plan.mode.compare.sub", icon: "clock" },
 };
 
 function ModeIcon({ name, size = 12, color }: { name: "route" | "clock"; size?: number; color: string }) {
@@ -55,6 +60,7 @@ export function ModeToggle({
    *  is already active". Overridden by `locked`. */
   pristine?: boolean;
 }) {
+  const { t } = useT();
   // Pristine mode lifts each pill into its own button-shaped surface (own
   // border, own shadow, larger gap) so the control reads as "two choices to
   // pick from" rather than "one box with an internal divider". Both pills
@@ -70,7 +76,7 @@ export function ModeToggle({
         border: `1px solid ${pristineActive ? "transparent" : "var(--ow-line)"}`,
       }}
       role="tablist"
-      aria-label="Mode de planification"
+      aria-label={t("plan.mode.tablist")}
     >
       {(["single", "compare"] as const).map((m) => {
         const meta = MODE_META[m];
@@ -110,11 +116,11 @@ export function ModeToggle({
                 className="text-xs font-semibold"
                 style={{ color: active || pristineActive ? "var(--ow-fg-0)" : "var(--ow-fg-1)" }}
               >
-                {meta.title}
+                {t(meta.title)}
               </span>
             </div>
             <div className="text-[10px] leading-tight" style={{ color: "var(--ow-fg-2)" }}>
-              {meta.sub}
+              {t(meta.sub)}
             </div>
           </button>
         );
@@ -123,9 +129,9 @@ export function ModeToggle({
   );
 }
 
-const TIME_ANCHOR_META: Record<TimeAnchor, { title: string; sub: string }> = {
-  departure: { title: "Définir le départ", sub: "Comprendre le temps de trajet" },
-  arrival: { title: "Définir l'arrivée", sub: "Quand partir au plus tard ?" },
+const TIME_ANCHOR_META: Record<TimeAnchor, { title: Key; sub: Key }> = {
+  departure: { title: "plan.timeAnchor.departure.title", sub: "plan.timeAnchor.departure.sub" },
+  arrival: { title: "plan.timeAnchor.arrival.title", sub: "plan.timeAnchor.arrival.sub" },
 };
 
 export function TimeAnchorToggle({
@@ -135,6 +141,7 @@ export function TimeAnchorToggle({
   value: TimeAnchor;
   onChange: (a: TimeAnchor) => void;
 }) {
+  const { t } = useT();
   // Secondary tabs nested under the chosen mode: light accent-soft pill on
   // the active option, no border / no shadow / no enclosing surface — so the
   // visual weight stays clearly below ModeToggle's bordered pills. Reads as
@@ -143,7 +150,7 @@ export function TimeAnchorToggle({
     <div
       className="grid grid-cols-2 gap-0.5"
       role="tablist"
-      aria-label="Ancrage horaire"
+      aria-label={t("plan.timeAnchor.tablist")}
     >
       {(["departure", "arrival"] as const).map((m) => {
         const meta = TIME_ANCHOR_META[m];
@@ -166,10 +173,10 @@ export function TimeAnchorToggle({
               className="text-xs font-semibold mb-0.5"
               style={{ color: active ? "var(--ow-fg-0)" : "var(--ow-fg-1)" }}
             >
-              {meta.title}
+              {t(meta.title)}
             </div>
             <div className="text-[10px] leading-tight" style={{ color: "var(--ow-fg-2)" }}>
-              {meta.sub}
+              {t(meta.sub)}
             </div>
           </button>
         );

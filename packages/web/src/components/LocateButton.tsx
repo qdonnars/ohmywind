@@ -4,6 +4,7 @@
 import { useState } from "react";
 import type { GeolocStatus } from "../hooks/useGeolocation";
 import { geolocMessage } from "../hooks/useGeolocation";
+import { useT } from "../i18n";
 
 interface LocateButtonProps {
   status: GeolocStatus;
@@ -24,6 +25,7 @@ interface LocateButtonProps {
  * does not need the consequence spelled out at them until they act again.
  */
 export function LocateButton({ status, attempt, onClick, className = "" }: LocateButtonProps) {
+  const { t } = useT();
   const [dismissedAttempt, setDismissedAttempt] = useState<number | null>(null);
 
   const message = geolocMessage(status);
@@ -39,8 +41,8 @@ export function LocateButton({ status, attempt, onClick, className = "" }: Locat
         type="button"
         onClick={onClick}
         disabled={locating}
-        aria-label="Centrer sur ma position"
-        title="Centrer sur ma position"
+        aria-label={t("explore.locate.label")}
+        title={t("explore.locate.label")}
         className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:cursor-progress"
         style={{
           background: "var(--ow-surface-glass)",
@@ -78,7 +80,7 @@ export function LocateButton({ status, attempt, onClick, className = "" }: Locat
           <button
             type="button"
             onClick={() => setDismissedAttempt(attempt)}
-            aria-label="Fermer ce message"
+            aria-label={t("explore.locate.dismiss")}
             className="shrink-0 w-6 h-6 -mt-0.5 flex items-center justify-center rounded-md transition-opacity hover:opacity-70"
             style={{ color: "var(--ow-fg-2)" }}
           >

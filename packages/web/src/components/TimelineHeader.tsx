@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { getLocale } from "../i18n/store";
 import { useMemo } from "react";
 import { formatHour } from "../utils/format";
 import type { ModelForecast } from "../types";
@@ -36,13 +37,28 @@ function wmoIcon(code: number | null, isDay: boolean): string {
 // Built once at module load. `toLocaleDateString` builds a formatter on every
 // call, and this header formats one label per day plus one per visible day
 // change, on a component that re-renders on every scroll tick.
-const WEEKDAY_DTF = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" });
-const DAYNUM_DTF = new Intl.DateTimeFormat("en-US", { day: "numeric", timeZone: "UTC" });
+// Keyed on the locale so a language switch gets fresh ones, once.
+const STICKY_DTF = new Map<string, [Intl.DateTimeFormat, Intl.DateTimeFormat]>();
+function stickyFormatters(): [Intl.DateTimeFormat, Intl.DateTimeFormat] {
+  const locale = getLocale();
+  let pair = STICKY_DTF.get(locale);
+  if (!pair) {
+    pair = [
+      new Intl.DateTimeFormat(locale, { weekday: "short", timeZone: "UTC" }),
+      new Intl.DateTimeFormat(locale, { day: "numeric", timeZone: "UTC" }),
+    ];
+    STICKY_DTF.set(locale, pair);
+  }
+  return pair;
+}
 
 function formatStickyDay(isoDate: string): [string, string] {
   if (!isoDate) return ["", ""];
   const d = new Date(isoDate + "T12:00:00Z");
-  return [WEEKDAY_DTF.format(d).toUpperCase(), DAYNUM_DTF.format(d)];
+  const [weekday, dayNum] = stickyFormatters();
+  // French short weekdays carry a trailing dot ("jeu."): the sticky label is
+  // a tag, not a sentence, so it goes.
+  return [weekday.format(d).toUpperCase().replace(/\.$/, ""), dayNum.format(d)];
 }
 
 /** Everything a column needs, resolved once per timeline instead of per render.
