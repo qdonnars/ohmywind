@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { de } from "./de";
 import { en } from "./en";
+import { es } from "./es";
 import { fr } from "./fr";
 import { common } from "./fr/common";
 import { config } from "./fr/config";
@@ -28,6 +29,7 @@ const TRANSLATIONS: Array<[string, Record<keyof typeof fr, string>]> = [
   ["en", en],
   ["de", de],
   ["it", itDict],
+  ["es", es],
 ];
 
 describe("dictionnaires", () => {
