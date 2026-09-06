@@ -240,7 +240,7 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
   return (
     <div
       ref={outerRef}
-      className="shrink-0 overflow-y-auto border-t flex flex-col safe-bottom"
+      className="shrink-0 overflow-y-auto border-t flex flex-col"
       style={{
         height: `${vh}vh`,
         background: "var(--ow-bg-1)",

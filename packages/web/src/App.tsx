@@ -46,12 +46,7 @@ function previewSpot(lat: number, lon: number): Spot {
 function EmptyState() {
   const { t } = useT();
   return (
-    <div
-      className="flex items-end justify-center px-4"
-      // Its own padding plus the home-indicator inset; .safe-bottom would
-      // have replaced the padding (see index.css).
-      style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))" }}
-    >
+    <div className="flex items-end justify-center pb-6 px-4">
       <div
         className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full shadow-lg"
         style={{
@@ -341,15 +336,7 @@ function App() {
                   donc h-full sur l'enfant ne bornait rien et la note de
                   convention sortait par le bas quand la table du vent
                   affichait quatre modeles. */}
-              {/* The bottom inset (home indicator) is paid by this panel, not
-                  by the transparent overlay: painted with the rows' own
-                  background, the table reads as running to the edge of the
-                  screen instead of stopping short above a hole of map. */}
-              <div
-                ref={dataPanelRef}
-                className="flex-1 min-h-0 overflow-hidden flex flex-col safe-bottom"
-                style={{ background: "var(--ow-bg-1)" }}
-              >
+              <div ref={dataPanelRef} className="flex-1 min-h-0 overflow-hidden flex flex-col">
                 {effectiveView === "wind" || !marine ? (
                   <WindTable
                     forecasts={forecasts}
