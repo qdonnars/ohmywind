@@ -245,6 +245,24 @@ select,
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+/* These three REPLACE the padding of the element they sit on (they are
+   unlayered, so they beat Tailwind's utilities): only for elements that
+   carry no padding utility of their own. The app header does, so it pays
+   the insets on top of its own padding here. #377 had put .safe-top and
+   .safe-x on it, and the header lost its 8 px and 12 px on every device,
+   not only on iPhone: logo flush left, icons flush right. */
+.app-header {
+  padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
+  padding-bottom: 0.5rem;
+  padding-left: calc(0.75rem + env(safe-area-inset-left, 0px));
+  padding-right: calc(0.75rem + env(safe-area-inset-right, 0px));
+}
+@media (min-width: 64rem) {
+  .app-header {
+    padding-left: calc(1.5rem + env(safe-area-inset-left, 0px));
+    padding-right: calc(1.5rem + env(safe-area-inset-right, 0px));
+  }
+}
 
 /* Scroll fade indicator */
 .scroll-container {
