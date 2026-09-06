@@ -17,18 +17,25 @@ import type { PassageReport, ComplexityScore, PassageWindow } from "../types";
 import type { InitialSession } from "./initial";
 import { toTzAware } from "../../domain/datetime";
 import { usePlanSession } from "./usePlanSession";
+import { ApiError } from "../../api/passage";
 
 const fetchPassage = vi.fn();
 const fetchPassageWindows = vi.fn();
 const fetchPassageByEta = vi.fn();
 
-vi.mock("../../api/passage", () => ({
-  fetchPassage: (...args: unknown[]) => fetchPassage(...args),
-  fetchPassageWindows: (...args: unknown[]) => fetchPassageWindows(...args),
-  fetchPassageByEta: (...args: unknown[]) => fetchPassageByEta(...args),
-  friendlyError: (raw: string | Error) =>
-    `traduit: ${typeof raw === "string" ? raw : raw.message}`,
-}));
+// The transport is faked; the rest of the module (ApiError, coldStartDelay)
+// is the real thing, so the retry path below runs on the real triage.
+vi.mock("../../api/passage", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../api/passage")>();
+  return {
+    ...actual,
+    fetchPassage: (...args: unknown[]) => fetchPassage(...args),
+    fetchPassageWindows: (...args: unknown[]) => fetchPassageWindows(...args),
+    fetchPassageByEta: (...args: unknown[]) => fetchPassageByEta(...args),
+    friendlyError: (raw: string | Error) =>
+      `traduit: ${typeof raw === "string" ? raw : raw.message}`,
+  };
+});
 
 // The corridor sampler talks to Open-Meteo; the plan under test does not care
 // what it returns, only that it resolves.
@@ -238,6 +245,51 @@ describe("usePlanSession", () => {
     act(() => result.current.actions.compute());
     await waitFor(() => expect(result.current.state.apiError).toBe("traduit: rate limit exceeded"));
     expect(result.current.isLoading).toBe(false);
+  });
+
+  it("retries by itself while the backend wakes up, then shows the result", async () => {
+    fetchPassage
+      .mockRejectedValueOnce(
+        new ApiError("backend temporarily unavailable, retry in 1s", "upstream_unavailable", 1),
+      )
+      .mockResolvedValueOnce({
+        passage: passage(),
+        complexity: complexity(),
+        forecast_updated_at: "2026-09-09T06:00:00Z",
+      });
+    const { result } = renderHook(() => usePlanSession(session()));
+
+    act(() => result.current.actions.compute());
+    await waitFor(() => expect(result.current.state.retry).not.toBeNull());
+    expect(result.current.state.retry?.attempt).toBe(1);
+    expect(result.current.state.retry?.max).toBe(4);
+    expect(result.current.state.apiError).toBeNull();
+    expect(result.current.isLoading).toBe(false);
+
+    await waitFor(() => expect(result.current.state.passage).not.toBeNull(), { timeout: 4000 });
+    expect(fetchPassage).toHaveBeenCalledTimes(2);
+    expect(result.current.state.retry).toBeNull();
+    expect(result.current.state.apiError).toBeNull();
+  });
+
+  it("gives up with the error once the automatic attempts are spent", async () => {
+    fetchPassage.mockRejectedValue(new ApiError("backend temporarily unavailable", "upstream_unavailable", 1));
+    const { result } = renderHook(() => usePlanSession(session()));
+
+    act(() => result.current.actions.compute());
+    await waitFor(() => expect(result.current.state.apiError).not.toBeNull(), { timeout: 9000 });
+    expect(fetchPassage).toHaveBeenCalledTimes(5); // the request, then four retries
+    expect(result.current.state.retry).toBeNull();
+  }, 12000);
+
+  it("does not retry a failure that waiting will not fix", async () => {
+    fetchPassage.mockRejectedValue(new ApiError("rate limit exceeded", "rate_limited", 30));
+    const { result } = renderHook(() => usePlanSession(session()));
+
+    act(() => result.current.actions.compute());
+    await waitFor(() => expect(result.current.state.apiError).not.toBeNull());
+    expect(result.current.state.retry).toBeNull();
+    expect(fetchPassage).toHaveBeenCalledTimes(1);
   });
 
   it("says nothing when the request was aborted", async () => {

@@ -28,6 +28,7 @@ import {
   fetchPassage,
   fetchPassageByEta,
   fetchPassageWindows,
+  coldStartDelay,
   friendlyError,
   type PlanOverrides,
 } from "../../api/passage";
@@ -96,6 +97,9 @@ function resolveEfficiency(): number {
 // compare so the cache check is a one-liner. Read at the same moment as the
 // result lands, so the persisted simulation is paired with the config that
 // produced it.
+/** Automatic attempts after a cold-start failure, before the error shows. */
+const MAX_COLD_START_RETRIES = 4;
+
 export function currentConfigFingerprint(): string {
   return `${activeModels(loadModelConfig()).join(",")}|${polarFingerprint(loadPolarConfig())}`;
 }
@@ -152,8 +156,27 @@ export function usePlanSession(initial: InitialSession): PlanSession {
     stateRef.current = state;
   });
 
+  // Cold start. The backend answers "unavailable, retry in N s" while the
+  // Space wakes up, which takes it a minute or two. Rather than an error the
+  // reader has to read and relaunch by hand, the same request goes again by
+  // itself, a few times, with the panel saying so (PlanSidebar). The counter
+  // resets on a success and on a request the reader starts; the timer dies
+  // with any new request and with the page.
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryAttemptRef = useRef(0);
+  const lastKindRef = useRef<"single" | "sweep">("single");
+  const rerunRef = useRef<() => void>(() => {});
+  const clearRetryTimer = useCallback(() => {
+    if (retryTimerRef.current !== null) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+  }, []);
+
   /** Mint a request, cancelling whatever was in flight. */
   const startRequest = useCallback((kind: "single" | "sweep") => {
+    clearRetryTimer();
+    lastKindRef.current = kind;
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -161,7 +184,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
     requestIdRef.current = requestId;
     dispatch({ type: "FETCH_STARTED", requestId, kind });
     return { requestId, signal: controller.signal };
-  }, []);
+  }, [clearRetryTimer]);
 
   const onFailure = useCallback((requestId: number, error: unknown) => {
     // An abort is not a failure: the request was replaced or the page left.
@@ -169,6 +192,23 @@ export function usePlanSession(initial: InitialSession): PlanSession {
     // An ApiError carries the server's stable code; anything else only has
     // words, and `friendlyError` falls back to matching them.
     const reported = error instanceof Error ? error : String(error);
+    const delay = coldStartDelay(error);
+    if (delay !== null && retryAttemptRef.current < MAX_COLD_START_RETRIES) {
+      const attempt = retryAttemptRef.current + 1;
+      retryAttemptRef.current = attempt;
+      dispatch({
+        type: "FETCH_RETRY_SCHEDULED",
+        requestId,
+        at: Date.now() + delay * 1000,
+        attempt,
+        max: MAX_COLD_START_RETRIES,
+      });
+      retryTimerRef.current = setTimeout(() => {
+        retryTimerRef.current = null;
+        rerunRef.current();
+      }, delay * 1000);
+      return;
+    }
     dispatch({ type: "FETCH_FAILED", requestId, error: friendlyError(reported) });
   }, []);
 
@@ -212,6 +252,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
               }),
         )
         .then((res) => {
+          retryAttemptRef.current = 0;
           dispatch({
             type: "FETCH_SUCCEEDED",
             requestId,
@@ -249,6 +290,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
         }),
       )
       .then((res) => {
+        retryAttemptRef.current = 0;
         dispatch({
           type: "FETCH_SUCCEEDED",
           requestId,
@@ -262,8 +304,26 @@ export function usePlanSession(initial: InitialSession): PlanSession {
       .catch((error: unknown) => onFailure(requestId, error));
   }, [startRequest, onFailure]);
 
-  // Leaving the page cancels whatever is in flight.
-  useEffect(() => () => abortRef.current?.abort(), []);
+  // The retry recomputes the plan as it stands when the timer fires, not as
+  // it was when the request failed: an edit in between is not lost, and a
+  // route shrunk below two points is not sent.
+  useEffect(() => {
+    rerunRef.current = () => {
+      const s = stateRef.current;
+      if (s.waypoints.length < 2) return;
+      if (lastKindRef.current === "sweep") runSweep();
+      else runSingle(s.waypoints, s.archetype, s.departure, s.timeAnchor);
+    };
+  }, [runSingle, runSweep]);
+
+  // Leaving the page cancels whatever is in flight, retry timer included.
+  useEffect(
+    () => () => {
+      abortRef.current?.abort();
+      clearRetryTimer();
+    },
+    [clearRetryTimer],
+  );
 
   // ── the one place this page writes to the outside world ───────────────────
   // One subscription to the state, in two phases. The commands the reducer
@@ -330,10 +390,14 @@ export function usePlanSession(initial: InitialSession): PlanSession {
       selectLeg: (index) => dispatch({ type: "LEG_SELECTED", index }),
       selectStep: (index) => dispatch({ type: "STEP_SELECTED", index }),
       compute: () => {
+        retryAttemptRef.current = 0;
         const { waypoints, archetype, departure, timeAnchor } = stateRef.current;
         runSingle(waypoints, archetype, departure, timeAnchor);
       },
-      computeWindows: runSweep,
+      computeWindows: () => {
+        retryAttemptRef.current = 0;
+        runSweep();
+      },
       selectWindow: (window) => {
         const departure = toNaiveLocal(new Date(window.departure));
         dispatch({

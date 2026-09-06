@@ -38,6 +38,10 @@ export const plan: Record<keyof typeof frPlan, string> = {
   "plan.states.picker.compare.example":
     "Ej.: «¿Cuál es la mejor salida entre el sábado y el lunes?»",
   "plan.states.error.title": "Error",
+  "plan.states.waking.title": "El servidor meteorológico se está reactivando",
+  "plan.states.waking.body":
+    "Estaba en reposo: el cálculo se reanuda solo en {seconds} s (intento {attempt} de {max}).",
+  "plan.states.waking.retryNow": "Reintentar ahora",
   "plan.recap.edit": "Modificar",
 
   // ── Mode picker and time anchor ───────────────────────────────────────────
