@@ -23,7 +23,14 @@ import { BoatEssentials } from "../components/BoatEssentials";
 import { BoatResult } from "../components/BoatResult";
 import { ConfigTile } from "../components/ConfigTile";
 import { useDragReorder } from "../hooks/useDragReorder";
-import { AVAILABLE_LANGS, LANG_NAMES, setLang, t as translate, useT } from "../i18n";
+import {
+  AVAILABLE_LANGS,
+  LANG_NAMES,
+  LANG_SHORT_NAMES,
+  setLang,
+  t as translate,
+  useT,
+} from "../i18n";
 import "./config.css";
 
 // Tab id "polar" predates the tab's rename to "Bateau"; kept to avoid churn
@@ -255,8 +262,20 @@ export function ConfigPage() {
  * translated names: a reader lost in the wrong language must recognise their
  * own. The choice persists at once, no save step, and the dictionary loads
  * before the switch lands (see i18n/store).
+ *
+ * The five pills stay on a single line at every width, by decision: no wrap,
+ * no inner scroll, no dropdown. Below the width where the full endonyms fit
+ * (the breakpoint and its measurement live in config.css) each pill falls
+ * back to its trigram, FRA / ENG / DEU / ITA / ESP, which is still the native
+ * name and still recognisable to the reader it is meant for. The full name
+ * comes back as soon as there is room for it.
+ *
+ * Both labels are rendered and CSS picks the one that shows, so nothing
+ * depends on measuring at runtime. The accessible name is pinned to the full
+ * endonym on the button itself: a screen reader announces "Deutsch", never
+ * "DEU", whichever label is on screen.
  */
-function LangPicker() {
+export function LangPicker() {
   const { t, lang } = useT();
   return (
     <section className="mb-6 flex items-center justify-between gap-3 flex-wrap">
@@ -268,11 +287,17 @@ function LangPicker() {
             type="button"
             role="radio"
             aria-checked={lang === l}
+            aria-label={LANG_NAMES[l]}
             lang={l}
             className={`config-segment-btn ${lang === l ? "is-active" : ""}`}
             onClick={() => void setLang(l)}
           >
-            {LANG_NAMES[l]}
+            <span className="config-segment-full" aria-hidden="true">
+              {LANG_NAMES[l]}
+            </span>
+            <span className="config-segment-short" aria-hidden="true">
+              {LANG_SHORT_NAMES[l]}
+            </span>
           </button>
         ))}
       </div>
