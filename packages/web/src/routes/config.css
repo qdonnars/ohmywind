@@ -228,6 +228,8 @@
   border-left-color: var(--ow-fg-2, #94a3b8);
 }
 .config-header {
+  /* iPhone: the status bar area, see .safe-top in index.css. */
+  padding-top: env(safe-area-inset-top, 0px);
   background: color-mix(in srgb, var(--ow-bg-0, #0b1220) 75%, transparent);
   border-color: var(--ow-line-2, rgba(255,255,255,0.08));
 }
