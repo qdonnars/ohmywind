@@ -42,6 +42,10 @@ export const plan = {
   "plan.states.picker.compare.example":
     "Ex. : « Quel est le meilleur départ entre samedi et lundi ? »",
   "plan.states.error.title": "Erreur",
+  "plan.states.waking.title": "Le serveur météo se réveille",
+  "plan.states.waking.body":
+    "Il était en veille : le calcul repart tout seul dans {seconds} s (essai {attempt} sur {max}).",
+  "plan.states.waking.retryNow": "Réessayer maintenant",
   "plan.recap.edit": "Modifier",
 
   // ── Selecteur de mode et ancrage horaire ──────────────────────────────────

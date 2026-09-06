@@ -123,6 +123,36 @@ async function toError(res: Response): Promise<ApiError> {
  *
  * Unknown failures return their own text, so nothing becomes undebuggable.
  */
+/** Wait applied when the backend says it is restarting but not for how long. */
+export const COLD_START_DELAY_S = 20;
+
+/**
+ * Seconds to wait before sending the same request again on its own, or null
+ * when the failure is not one that time alone will fix.
+ *
+ * Two failures qualify: the edge proxy could not reach our own backend (a
+ * Space asleep, woken by the first request, which takes it a minute or two)
+ * and a bare 5xx. A rate limit carries its own delay and the reader's own
+ * usage behind it, bad input never gets better, and a dead network is on this
+ * side of the wire. The text rules mirror `matchErrorText`, for a deployment
+ * predating error codes. The server's delay is honoured within one minute.
+ */
+export function coldStartDelay(raw: unknown): number | null {
+  const bounded = (s: number | null) => Math.min(60, Math.max(1, s ?? COLD_START_DELAY_S));
+  if (raw instanceof ApiError && raw.code !== null) {
+    return raw.code === "upstream_unavailable" || raw.code === "server_unavailable"
+      ? bounded(raw.retryAfter)
+      : null;
+  }
+  const text = raw instanceof Error ? raw.message : typeof raw === "string" ? raw : "";
+  if (/backend temporarily unavailable/i.test(text)) {
+    const m = /retry in (\d+)s/i.exec(text);
+    return bounded(m ? Number(m[1]) : null);
+  }
+  if (/Erreur serveur 5\d\d/.test(text) || /HTTP 5\d\d/.test(text)) return bounded(null);
+  return null;
+}
+
 export function friendlyError(raw: string | Error): string {
   if (typeof raw === "string") return matchErrorText(raw);
   if (raw instanceof ApiError && raw.code !== null && raw.code in ERROR_COPY) {

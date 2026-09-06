@@ -37,6 +37,10 @@ export const plan: Record<keyof typeof frPlan, string> = {
     "Sa dove andare. OhMyWind prova più orari di partenza e classifica le finestre per comfort.",
   "plan.states.picker.compare.example": "Es.: «Qual è la partenza migliore tra sabato e lunedì?»",
   "plan.states.error.title": "Errore",
+  "plan.states.waking.title": "Il server meteo si sta riavviando",
+  "plan.states.waking.body":
+    "Era in pausa: il calcolo riparte da solo tra {seconds} s (tentativo {attempt} di {max}).",
+  "plan.states.waking.retryNow": "Riprovare ora",
   "plan.recap.edit": "Modificare",
 
   // ── Mode picker and time anchor ───────────────────────────────────────────
