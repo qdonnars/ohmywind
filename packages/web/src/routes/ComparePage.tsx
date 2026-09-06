@@ -446,7 +446,7 @@ export function ComparePage() {
         <div
           ref={sheetRef}
           onTransitionEnd={onSheetTransitionEnd}
-          className="absolute left-0 right-0 bottom-0 z-[400] flex flex-col safe-bottom"
+          className="absolute left-0 right-0 bottom-0 z-[400] flex flex-col"
           style={{
             height: `${sheet}%`,
             background: "var(--ow-bg-1)",

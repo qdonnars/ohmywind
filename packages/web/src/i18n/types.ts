@@ -33,6 +33,21 @@ export const LANG_NAMES: Record<Lang, string> = {
   es: "Español",
 };
 
+/**
+ * Three-letter form of the same endonyms, for the narrow screens where the
+ * five full names no longer fit on one line. Abbreviations of native names,
+ * so they are invariant across interface languages and stay out of the
+ * dictionaries. Picked for recognition by a native speaker rather than for
+ * ISO 639-2 conformity, hence ESP for Español and not SPA.
+ */
+export const LANG_SHORT_NAMES: Record<Lang, string> = {
+  fr: "FRA",
+  en: "ENG",
+  de: "DEU",
+  it: "ITA",
+  es: "ESP",
+};
+
 export function isLang(v: unknown): v is Lang {
   return typeof v === "string" && (LANGS as readonly string[]).includes(v);
 }
