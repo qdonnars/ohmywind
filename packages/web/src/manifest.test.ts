@@ -5,6 +5,7 @@ import { describe, it, expect } from "vitest";
 import webManifestRaw from "../public/manifest.json?raw";
 import twaProdRaw from "../../android/twa-manifest.json?raw";
 import twaDevRaw from "../../android-dev/twa-manifest.json?raw";
+import assetlinksRaw from "../public/.well-known/assetlinks.json?raw";
 // Imported for their side effect on this test: resolution fails if the file
 // is not in public/, which is exactly the breakage we are guarding against.
 import planIconUrl from "../public/shortcut-plan-192.png?url";
@@ -79,14 +80,22 @@ describe("web manifest shortcuts", () => {
   });
 });
 
+/** Every certificate allowed to sign an app that speaks for the site, by
+    package. A fingerprint missing here opens the app with the Chrome address
+    bar instead of full screen, which is only ever noticed on a device. */
+const assetlinks = JSON.parse(assetlinksRaw) as {
+  target: { package_name: string; sha256_cert_fingerprints: string[] };
+}[];
+
 describe.each([
-  ["prod", twaProdRaw, "ohmywind.fr"],
-  ["dev", twaDevRaw, "dev.ohmywind.fr"],
-])("%s TWA manifest", (_flavour, raw, host) => {
+  ["prod", twaProdRaw, "ohmywind.fr", "fr.ohmywind.app"],
+  ["dev", twaDevRaw, "dev.ohmywind.fr", "fr.ohmywind.app.dev"],
+])("%s TWA manifest", (_flavour, raw, host, packageId) => {
   const twa = JSON.parse(raw) as {
     shortcuts: TwaShortcut[];
     appVersion: string;
     appVersionName: string;
+    fingerprints: { value: string }[];
   };
 
   it("mirrors the web manifest onto its own host", () => {
@@ -96,6 +105,18 @@ describe.each([
     );
     expect(twa.shortcuts.map((s) => s.chosenIconUrl)).toEqual(
       shortcuts.map((s) => `https://${host}${s.icons[0].src}`),
+    );
+  });
+
+  it("declares exactly the certificates the site trusts", () => {
+    // The two files are edited by hand, one under packages/android and one
+    // under packages/web/public: adding a key to one and forgetting the other
+    // is the whole failure mode. Retiring one (the local key replaced on
+    // 2026-08-16) has to happen in both too.
+    const declared = assetlinks.find((entry) => entry.target.package_name === packageId);
+    expect(declared).toBeDefined();
+    expect(new Set(twa.fingerprints.map((f) => f.value))).toEqual(
+      new Set(declared!.target.sha256_cert_fingerprints),
     );
   });
 
