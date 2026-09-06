@@ -46,7 +46,7 @@ function previewSpot(lat: number, lon: number): Spot {
 function EmptyState() {
   const { t } = useT();
   return (
-    <div className="flex items-end justify-center pb-6 px-4">
+    <div className="flex items-end justify-center pb-6 px-4 safe-bottom">
       <div
         className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full shadow-lg"
         style={{
@@ -310,7 +310,7 @@ function App() {
             ``thead.sticky top-0`` collides with the same container that
             scrolls (otherwise the hour row drifts away when the user scrolls
             down through GFS/ECMWF rows). */}
-        <div className="absolute left-0 right-0 bottom-0 max-h-[44vh] md:max-h-[46vh] z-[400] flex flex-col safe-bottom">
+        <div className="absolute left-0 right-0 bottom-0 max-h-[44vh] md:max-h-[46vh] z-[400] flex flex-col">
           {/* Locate FAB — anchored to the overlay rather than to the map, so
               it rides up and down as the data panel grows and shrinks
               instead of ending up buried under it. The 16 px offset is
@@ -336,7 +336,15 @@ function App() {
                   donc h-full sur l'enfant ne bornait rien et la note de
                   convention sortait par le bas quand la table du vent
                   affichait quatre modeles. */}
-              <div ref={dataPanelRef} className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              {/* The bottom inset (home indicator) is paid by this panel, not
+                  by the transparent overlay: painted with the rows' own
+                  background, the table reads as running to the edge of the
+                  screen instead of stopping short above a hole of map. */}
+              <div
+                ref={dataPanelRef}
+                className="flex-1 min-h-0 overflow-hidden flex flex-col safe-bottom"
+                style={{ background: "var(--ow-bg-1)" }}
+              >
                 {effectiveView === "wind" || !marine ? (
                   <WindTable
                     forecasts={forecasts}
