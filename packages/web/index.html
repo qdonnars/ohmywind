@@ -47,12 +47,11 @@
          emplacement de connexion. -->
     <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin>
 
-    <!-- Inter est une police variable : un seul fichier porte toutes les
-         graisses du premier ecran (400 du texte courant, 600 des intertitres,
-         800 du logo), donc un seul preload les couvre. Le sous-ensemble
-         latin-ext n'est tire que si un caractere le reclame, et JetBrains Mono
-         ne sert que dans la vue plan : ni l'un ni l'autre n'est preloade. -->
-    <link rel="preload" href="/src/assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <!-- Pas de preload des polices, volontairement. Inter latin en avait un ;
+         Firefox signalait a chaque chargement une ressource prechargee mais
+         jamais utilisee, parce que le service worker sert la police depuis son
+         precache et que Firefox n'apparie pas cette reponse au preload. Le
+         gain ne valait que la toute premiere visite, avant le precache. -->
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">

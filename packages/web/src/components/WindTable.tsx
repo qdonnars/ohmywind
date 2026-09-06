@@ -135,12 +135,15 @@ export function WindTable({
   }
 
   return (
-    // Same shape as MarineTable: a column whose scroller takes the space the
-    // note leaves, so the note sits on the bottom edge instead of scrolling
-    // away with the cells.
-    <div className="animate-fade-in min-h-0 flex flex-col">
-      <div className={`scroll-container flex-1 min-h-0 ${scrolledEnd ? "scrolled-end" : ""}`}>
-        <div ref={scrollRef} className="h-full overflow-auto wind-table-scroll">
+    // Same shape as MarineTable and TideChart: a flex column all the way down
+    // to the scroller, and no percentage height anywhere. The scroller used
+    // to be `h-full` inside a flex item: Chrome resolves that against the
+    // flexed size, Firefox does not (the item's height is indefinite), so the
+    // scroller grew to the whole table and the panel clipped the last rows
+    // with no way to scroll (Firefox on Mac, forum, 2026-09).
+    <div className="animate-fade-in flex-1 min-h-0 flex flex-col">
+      <div className={`scroll-container flex-1 min-h-0 flex flex-col ${scrolledEnd ? "scrolled-end" : ""}`}>
+        <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto wind-table-scroll">
           <table className="border-collapse" role="table">
             <thead className="sticky top-0 z-20">
               <TimelineHeader
