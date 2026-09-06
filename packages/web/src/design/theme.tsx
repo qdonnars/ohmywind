@@ -5,7 +5,7 @@ import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { useEffect, useState } from 'react';
 
 import { useT } from '../i18n';
-import { getInitialMode } from './initialTheme';
+import { applyTheme, getInitialMode } from './initialTheme';
 import { ThemeCtx, useTheme, type ThemeMode } from './useTheme';
 
 const STORAGE_KEY = LOCAL_STORAGE_KEYS.theme;
@@ -17,14 +17,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // (applyInitialTheme, called from main.tsx, and setMode below) are there to
   // beat an ordering, not to replace this one.
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', mode);
+    applyTheme(mode);
   }, [mode]);
 
   function setMode(m: ThemeMode) {
     // Written before the re-render, for the same reason as the initial stamp:
     // the map effects that resolve a token from the DOM run before the
     // provider's own effect, and would otherwise read the outgoing palette.
-    document.documentElement.setAttribute('data-theme', m);
+    applyTheme(m);
     setModeState(m);
     try {
       localStorage.setItem(STORAGE_KEY, m);

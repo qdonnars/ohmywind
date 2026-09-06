@@ -42,6 +42,25 @@ export function getInitialMode(): ThemeMode {
  * `var()`) would read the fallback palette and keep it until some unrelated
  * redraw. Idempotent, and the provider still owns every later change.
  */
+/**
+ * What the system bars take as the page colour: the theme-color meta, read by
+ * Android for the status bar of an installed app and by iOS for the status
+ * bar of a home-screen web app (index.html asks for an opaque one). Same
+ * values as --ow-bg-0 in tokens.css; the manifest pins the dark one, which
+ * is the colour at launch, before any script runs.
+ */
+export const THEME_COLOR: Record<ThemeMode, string> = {
+  dark: "#030712",
+  light: "#f4f6fb",
+};
+
+/** Stamp the theme on the document: the attribute the tokens key on, and
+    the colour the system bars follow. */
+export function applyTheme(mode: ThemeMode): void {
+  document.documentElement.setAttribute("data-theme", mode);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_COLOR[mode]);
+}
+
 export function applyInitialTheme(): void {
-  document.documentElement.setAttribute("data-theme", getInitialMode());
+  applyTheme(getInitialMode());
 }
