@@ -47,6 +47,12 @@ interface SpotMapProps {
       it over once its table has its final height, so no spot ends up
       behind it. From then on the viewport is the reader's. */
   fitSpots?: Spot[];
+  /** Bumped by the page to frame `fitSpots` again without changing them:
+      a "centre" button, a panel that finished resizing. Same idea as
+      `flyToStamp`. */
+  fitStamp?: number;
+  /** Write every saved spot's name under its marker, permanently. */
+  spotLabels?: boolean;
   /** The OPAQUE data area overlaying the bottom edge of the map (the
       forecast tables — not the pills band, which floats transparently over
       a still-readable map and therefore counts as map). Centring a point
@@ -84,6 +90,8 @@ export function SpotMap({
   initialView,
   defaultCenter,
   fitSpots,
+  fitStamp,
+  spotLabels = false,
   bottomInsetRef,
   onSelectSpot,
   onPreviewSpot,
@@ -307,8 +315,9 @@ export function SpotMap({
       spots: customSpots,
       current,
       onSelect: (spot) => onSelectRef.current(spot),
+      labels: spotLabels,
     });
-  }, [current, customSpots]);
+  }, [current, customSpots, spotLabels]);
 
   // Sync markers on changes
   useEffect(() => {
@@ -345,7 +354,7 @@ export function SpotMap({
     );
     // bottomInsetRef is a ref: read at the moment of the frame, by design.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fitSpots]);
+  }, [fitSpots, fitStamp]);
 
   // Fly to the user only when the page asks for it (first visit with no
   // saved spot, or an explicit tap on the locate button). Keying on the

@@ -33,8 +33,8 @@ interface Destination {
 }
 
 // The glyphs are the ones the rest of the app already uses for these ideas:
-// the wind mark for the forecast, a compass for the planner, and the layers
-// stack for spots read on top of each other.
+// the wind mark for the forecast, the dividers for the planner, and the
+// layers stack for spots read on top of each other.
 const WindIcon = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2" />
@@ -43,23 +43,22 @@ const WindIcon = (
   </svg>
 );
 
-const CompassIcon = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <circle cx="12" cy="12" r="9" />
-    <polygon points="16.2,7.8 14.1,14.1 7.8,16.2 9.9,9.9" fill="currentColor" stroke="none" />
+const DividersIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="4.6" r="1.8" />
+    <path d="M11 6.2 6.5 19.5M13 6.2 17.5 19.5M5.4 17h3.1M15.5 17h3.1" />
   </svg>
 );
 
 const LayersIcon = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="m12 3-9 4.5 9 4.5 9-4.5L12 3z" />
-    <path d="m3 12 9 4.5 9-4.5" />
-    <path d="m3 16.5 9 4.5 9-4.5" />
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+    <path d="m3 13 9 5 9-5" />
   </svg>
 );
 
 const BurgerIcon = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
     <path d="M4 7h16M4 12h16M4 17h16" />
   </svg>
 );
@@ -67,10 +66,10 @@ const BurgerIcon = (
 // The "you are here" mark on the current entry. A crosshair, the same
 // vocabulary as the locate button: it points at where the reader stands.
 const HereIcon = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-    <circle cx="12" cy="12" r="6" />
-    <circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none" />
-    <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="7" />
+    <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+    <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
   </svg>
 );
 
@@ -87,7 +86,7 @@ const DESTINATIONS: readonly Destination[] = [
     href: (query) => `/plan${query}`,
     title: "common.nav.plan.title",
     description: "common.nav.plan.desc",
-    icon: CompassIcon,
+    icon: DividersIcon,
   },
   {
     id: "compare",
@@ -98,21 +97,32 @@ const DESTINATIONS: readonly Destination[] = [
   },
 ];
 
-const PANEL_WIDTH = 272;
-const PANEL_GAP = 8;
-const VIEWPORT_MARGIN = 12;
+const PANEL_WIDTH = 268;
+const PANEL_GAP = 10;
+/** On a phone the panel spans the width, this far from each edge. */
+const PHONE_MARGIN = 10;
 
 interface PanelPosition {
   top: number;
   left: number;
+  width: number;
 }
 
-/** Below the trigger, left-aligned with it, kept inside the viewport. */
-function panelPosition(rect: DOMRect): PanelPosition {
-  const maxLeft = Math.max(VIEWPORT_MARGIN, window.innerWidth - PANEL_WIDTH - VIEWPORT_MARGIN);
+/** Below the trigger: left-aligned with it on a wide screen, kept inside
+    the viewport; edge to edge on a phone. */
+function panelPosition(rect: DOMRect, variant: "map" | "header"): PanelPosition {
+  if (variant === "header") {
+    return {
+      top: rect.bottom + PANEL_GAP - 2,
+      left: PHONE_MARGIN,
+      width: window.innerWidth - 2 * PHONE_MARGIN,
+    };
+  }
+  const maxLeft = Math.max(PHONE_MARGIN, window.innerWidth - PANEL_WIDTH - PHONE_MARGIN);
   return {
     top: rect.bottom + PANEL_GAP,
-    left: Math.min(Math.max(VIEWPORT_MARGIN, rect.left), maxLeft),
+    left: Math.min(Math.max(PHONE_MARGIN, rect.left), maxLeft),
+    width: PANEL_WIDTH,
   };
 }
 
@@ -161,12 +171,12 @@ export function NavMenu({ current, mapQuery = "", variant, className = "", trigg
     if (!open) return;
     const update = () => {
       const rect = buttonRef.current?.getBoundingClientRect();
-      if (rect) setPosition(panelPosition(rect));
+      if (rect) setPosition(panelPosition(rect, variant));
     };
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
-  }, [open, buttonRef]);
+  }, [open, buttonRef, variant]);
 
   useEffect(() => {
     if (!open) return;
@@ -185,10 +195,12 @@ export function NavMenu({ current, mapQuery = "", variant, className = "", trigg
 
   const active = DESTINATIONS.find((d) => d.id === current) ?? DESTINATIONS[0];
   const isMap = variant === "map";
-  const size = isMap ? "w-14 h-14" : "w-10 h-10";
-  const glyph = isMap ? "w-7 h-7" : "w-[22px] h-[22px]";
-  const badge = isMap ? "w-6 h-6 -right-0.5 -bottom-0.5" : "w-[18px] h-[18px] -right-1 -bottom-1";
-  const badgeGlyph = isMap ? "w-3.5 h-3.5" : "w-2.5 h-2.5";
+  // The design's proportions: 52 px on the map, 44 px in the header, the
+  // glyph at 0.42 of that, the badge at 0.44 with its own glyph at 0.24.
+  const size = isMap ? 52 : 44;
+  const glyph = Math.round(size * 0.42);
+  const badge = Math.round(size * 0.44);
+  const badgeGlyph = Math.round(size * 0.24);
 
   return (
     <>
@@ -199,23 +211,37 @@ export function NavMenu({ current, mapQuery = "", variant, className = "", trigg
         aria-haspopup="true"
         aria-expanded={open}
         aria-label={open ? t("common.nav.close") : t("common.nav.open")}
-        title={t("common.nav.open")}
-        className={`${isMap ? "absolute z-[400]" : "relative"} ${size} shrink-0 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 ${className}`}
-        style={{ background: "var(--ow-accent)", color: "var(--ow-on-accent)" }}
+        title={t(active.title)}
+        className={`${isMap ? "absolute z-[400]" : "relative"} shrink-0 rounded-full flex items-center justify-center cursor-pointer transition-colors ${className}`}
+        style={{
+          width: size,
+          height: size,
+          // At rest a quiet surface; open, the accent: the same states as
+          // the marine-chart toggle on the map.
+          background: open ? "var(--ow-accent-strong)" : "var(--ow-surface-pop)",
+          color: open ? "var(--ow-on-accent)" : "var(--ow-fg-0)",
+          border: open ? "1px solid transparent" : "1px solid var(--ow-line-2)",
+          boxShadow: "var(--ow-shadow-2)",
+          backdropFilter: "blur(8px)",
+        }}
       >
-        <span className={glyph}>{BurgerIcon}</span>
+        <span style={{ width: glyph, height: glyph }}>{BurgerIcon}</span>
         {/* The badge says where the reader is without a word: the panel
             only spells it out once open. */}
         <span
           aria-hidden="true"
-          className={`absolute ${badge} rounded-full flex items-center justify-center`}
+          className="absolute rounded-full flex items-center justify-center"
           style={{
+            right: -1,
+            bottom: -1,
+            width: badge,
+            height: badge,
             background: "var(--ow-accent-strong)",
             color: "var(--ow-on-accent)",
-            boxShadow: "0 0 0 2px var(--ow-bg-0)",
+            border: "2px solid var(--ow-bg-1)",
           }}
         >
-          <span className={badgeGlyph}>{active.icon}</span>
+          <span style={{ width: badgeGlyph, height: badgeGlyph }}>{active.icon}</span>
         </span>
       </button>
 
@@ -223,28 +249,32 @@ export function NavMenu({ current, mapQuery = "", variant, className = "", trigg
         position &&
         createPortal(
           <>
-            {/* Transparent, on purpose: the map stays readable behind the
-                panel, and a tap anywhere on it only closes the menu. */}
+            {/* On a phone the map dims under the panel; on a wide screen a
+                tap anywhere else only closes the menu. Either way the
+                header above the panel stays clear. */}
             <div
               aria-hidden="true"
-              className="fixed inset-0 z-[999]"
+              className="fixed inset-x-0 bottom-0 z-[999]"
+              style={{
+                top: isMap ? 0 : position.top - PANEL_GAP,
+                background: isMap ? "transparent" : "var(--ow-scrim)",
+              }}
               onClick={close}
             />
             <div
               ref={panelRef}
-              className="fixed z-[1000] p-2 rounded-2xl animate-fade-in"
+              className="fixed z-[1000] p-1.5 rounded-xl animate-fade-in"
               style={{
                 top: position.top,
                 left: position.left,
-                width: PANEL_WIDTH,
-                background: "var(--ow-surface-pop)",
-                border: "1px solid var(--ow-accent-line)",
+                width: position.width,
+                background: "var(--ow-bg-1)",
+                border: "1px solid var(--ow-line-2)",
                 boxShadow: "var(--ow-shadow-pop)",
-                backdropFilter: "blur(8px)",
               }}
             >
               <nav aria-label={t("common.nav.label")}>
-                <ul className="flex flex-col gap-1">
+                <ul className="flex flex-col">
                   {DESTINATIONS.map((d) => {
                     const isCurrent = d.id === current;
                     return (
@@ -256,38 +286,39 @@ export function NavMenu({ current, mapQuery = "", variant, className = "", trigg
                           // router ignores a click on the page one is on,
                           // and the menu would otherwise stay open on it.
                           onClick={close}
-                          className={`flex items-center gap-3 px-2.5 py-2 rounded-xl border transition-colors ${
-                            isCurrent
-                              ? "bg-accent-soft border-accent-line"
-                              : "border-transparent hover:bg-surface-2"
+                          className={`flex items-center gap-[11px] rounded-lg transition-colors ${
+                            isCurrent ? "bg-accent-soft" : "hover:bg-surface-2"
                           }`}
+                          style={{ padding: "10px 11px" }}
                         >
                           <span
                             aria-hidden="true"
-                            className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center"
+                            className="shrink-0 rounded-lg flex items-center justify-center"
                             style={{
-                              background: isCurrent ? "var(--ow-accent)" : "var(--ow-bg-2)",
+                              width: 30,
+                              height: 30,
+                              background: isCurrent ? "var(--ow-accent-strong)" : "var(--ow-bg-3)",
                               color: isCurrent ? "var(--ow-on-accent)" : "var(--ow-fg-1)",
                             }}
                           >
-                            <span className="w-5 h-5">{d.icon}</span>
+                            <span style={{ width: 15, height: 15 }}>{d.icon}</span>
                           </span>
-                          <span className="flex-1 min-w-0 flex flex-col leading-tight">
+                          <span className="flex-1 min-w-0 flex flex-col">
                             <span
-                              className="text-[14px] font-bold"
+                              className="text-[13.5px] font-semibold leading-tight"
                               style={{ color: isCurrent ? "var(--ow-accent)" : "var(--ow-fg-0)" }}
                             >
                               {t(d.title)}
                             </span>
-                            <span className="text-[12px]" style={{ color: "var(--ow-fg-1)" }}>
+                            <span className="text-[11px] leading-tight mt-px" style={{ color: "var(--ow-fg-2)" }}>
                               {t(d.description)}
                             </span>
                           </span>
                           {isCurrent && (
                             <span
                               aria-hidden="true"
-                              className="shrink-0 w-4 h-4"
-                              style={{ color: "var(--ow-accent)" }}
+                              className="shrink-0"
+                              style={{ width: 14, height: 14, color: "var(--ow-accent)" }}
                             >
                               {HereIcon}
                             </span>

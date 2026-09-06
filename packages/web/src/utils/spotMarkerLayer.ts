@@ -37,7 +37,18 @@ function isAt(spot: Spot, at: Spot | null): boolean {
 /** Bigger, brighter and ringed when the spot is the one being read. Colours
     come from the theme rather than from four hex values written here: Leaflet
     wants a resolved string, so they are read at draw time. */
-function styleFor(active: boolean) {
+function styleFor(active: boolean, labelled: boolean) {
+  if (labelled) {
+    // The comparison map: every spot is one being read, so all of them
+    // carry the accent, and the focused one is only bigger.
+    return {
+      radius: active ? 9 : 6,
+      color: readToken("--ow-marker-stroke"),
+      fillColor: readToken("--ow-marker-active"),
+      fillOpacity: 0.95,
+      weight: 2,
+    };
+  }
   return {
     radius: active ? 10 : 7,
     color: readToken(active ? "--ow-marker-stroke" : "--ow-marker-stroke-idle"),
@@ -57,6 +68,10 @@ interface SyncSpotMarkersArgs {
   /** The spot currently being read, or null. Drives the active style. */
   current: Spot | null;
   onSelect: (spot: Spot) => void;
+  /** Name written under every marker rather than shown on hover: the
+      comparison map exists to situate and name the spots. Fixed for the
+      life of a marker, so a map must not change its mind. */
+  labels?: boolean;
 }
 
 /** Reconcile the saved-spot markers with `spots`, restyling what stays. */
@@ -67,6 +82,7 @@ export function syncSpotMarkers({
   spots,
   current,
   onSelect,
+  labels = false,
 }: SyncSpotMarkersArgs): void {
   const desiredKeys = new Set(spots.map(spotKey));
 
@@ -81,7 +97,7 @@ export function syncSpotMarkers({
 
   for (const spot of spots) {
     const key = spotKey(spot);
-    const style = styleFor(isAt(spot, current));
+    const style = styleFor(isAt(spot, current), labels);
     const existing = markers.get(key);
     if (existing) {
       existing.setStyle(style);
@@ -94,11 +110,12 @@ export function syncSpotMarkers({
       // which would preview open water on top of selecting the spot.
       bubblingMouseEvents: false,
     })
-      .bindTooltip(spot.name, {
-        direction: "top",
-        offset: [0, -10],
-        className: "spot-tooltip",
-      })
+      .bindTooltip(
+        spot.name,
+        labels
+          ? { permanent: true, direction: "bottom", offset: [0, 6], className: "spot-tooltip spot-tooltip-fixed" }
+          : { direction: "top", offset: [0, -10], className: "spot-tooltip" },
+      )
       .on("click", () => onSelect(spot))
       .addTo(map);
     const svgEl = (marker as unknown as WithSvgPath)._path;

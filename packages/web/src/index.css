@@ -208,6 +208,54 @@ select,
 .spot-tooltip::before {
   border-top-color: var(--ow-line-2);
 }
+/* The name under a marker on the comparison map: a tag, not a bubble. */
+.spot-tooltip-fixed {
+  font-family: var(--ow-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 0 4px;
+  border-radius: 3px;
+  pointer-events: none;
+}
+.spot-tooltip-fixed::before {
+  display: none;
+}
+
+/* Comparison page: a scroller whose bar would only take room from the
+   table, and the two sliders of the hour window. */
+.ow-hscroll {
+  scrollbar-width: none;
+}
+.ow-hscroll::-webkit-scrollbar {
+  display: none;
+}
+.ow-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--ow-bg-3);
+  outline: none;
+}
+.ow-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--ow-accent-strong);
+  border: 3px solid var(--ow-bg-1);
+  cursor: pointer;
+  box-shadow: var(--ow-shadow-1);
+}
+.ow-range::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  background: var(--ow-accent-strong);
+  border: 3px solid var(--ow-bg-1);
+  cursor: pointer;
+}
 
 /* Wind table scroll snap */
 .wind-table-scroll {
