@@ -18,6 +18,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
  * - **The day being read.** The leftmost visible column drives the sticky day
  *   label above the table.
  * - **End of scroll.** Whether the fade-out on the right edge should show.
+ * - **Mouse drag.** A press-and-drag with a mouse pans the table, as a thumb
+ *   does on a phone; on a desktop the only other way across the week was the
+ *   scrollbar under the last row.
  * - **Anchor restoration.** The leftmost hour is remembered across timeline
  *   changes, so switching spots comes back to the same "+3 days" window rather
  *   than jumping to now. On the very first render of a session there is no
@@ -104,6 +107,73 @@ export function useTimelineScroll(
     el.addEventListener("scroll", checkScrollEnd, { passive: true });
     return () => el.removeEventListener("scroll", checkScrollEnd);
   }, [checkScrollEnd]);
+
+  // Drag-to-scroll, mouse only: touch already pans natively. A press that
+  // travels less than the threshold is still a click on a cell; past it the
+  // click that closes the gesture is swallowed, so a drag never also selects
+  // an hour. While dragging, `is-dragging` turns the smooth scrolling and the
+  // snapping off (index.css): both fight a hand moving the scroll position
+  // sixty times a second.
+  useEffect(() => {
+    const el = scrollRef.current;
+    // No timeline, no table: the ref points at nothing worth listening to.
+    if (!el || masterTimeline.length === 0) return;
+    const DRAG_PX = 4;
+    let pressed = false;
+    let dragged = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+    const onDown = (e: PointerEvent) => {
+      if (e.pointerType !== "mouse" || e.button !== 0) return;
+      pressed = true;
+      dragged = false;
+      startX = e.clientX;
+      startY = e.clientY;
+      startLeft = el.scrollLeft;
+      startTop = el.scrollTop;
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!pressed) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (!dragged && Math.abs(dx) < DRAG_PX && Math.abs(dy) < DRAG_PX) return;
+      if (!dragged) {
+        dragged = true;
+        el.classList.add("is-dragging");
+        el.setPointerCapture?.(e.pointerId);
+      }
+      el.scrollLeft = startLeft - dx;
+      el.scrollTop = startTop - dy;
+      e.preventDefault();
+    };
+    const onUp = () => {
+      pressed = false;
+      el.classList.remove("is-dragging");
+    };
+    const onClick = (e: MouseEvent) => {
+      if (!dragged) return;
+      dragged = false;
+      e.stopPropagation();
+      e.preventDefault();
+    };
+    el.addEventListener("pointerdown", onDown);
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", onUp);
+    el.addEventListener("pointercancel", onUp);
+    el.addEventListener("click", onClick, true);
+    return () => {
+      el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointercancel", onUp);
+      el.removeEventListener("click", onClick, true);
+    };
+    // Re-attached when the timeline changes, like the scroll listener above:
+    // while a spot loads the table is a skeleton and the ref points nowhere,
+    // so an effect run once at mount would never meet the real scroller.
+  }, [masterTimeline]);
 
   return { scrollRef, scrolledEnd, visibleDay, dayStarts };
 }

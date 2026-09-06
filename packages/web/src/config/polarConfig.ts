@@ -377,6 +377,24 @@ export function commitSpiMaxTwsDraft(raw: string): number | null {
   return parsed === null ? null : Math.max(SPI_MAX_TWS_MIN, parsed);
 }
 
+// The minimum upwind angle had the bug #270 fixed for the spinnaker: clamped
+// on every keystroke, "5" on its way to "50" became the 25° floor, and the
+// next digit made "250", clamped to the 70° ceiling. A reader who typed 50
+// saw 70 (forum, 2026-09). Same cure: only the ceiling while typing, the
+// floor once the field is left.
+export function parseMinUpwindDraft(raw: string): number | null {
+  const val = raw.trim();
+  if (val === "") return null;
+  const num = Number(val);
+  if (!Number.isFinite(num) || num < 0) return null;
+  return Math.round(Math.min(MIN_UPWIND_MAX, num));
+}
+
+export function commitMinUpwindDraft(raw: string): number | null {
+  const parsed = parseMinUpwindDraft(raw);
+  return parsed === null ? null : Math.max(MIN_UPWIND_MIN, parsed);
+}
+
 function sanitizeOverrides(raw: unknown, base: PolarData): Record<string, number> {
   if (raw == null || typeof raw !== "object") return {};
   const out: Record<string, number> = {};

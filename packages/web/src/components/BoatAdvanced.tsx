@@ -9,11 +9,13 @@ import {
   MIN_UPWIND_MIN,
   SPI_MAX_TWS_MAX,
   SPI_MAX_TWS_MIN,
+  commitMinUpwindDraft,
   commitSpiMaxTwsDraft,
   effectiveMinUpwind,
   effectivePolar,
   hasOverrides,
   isImportedActive,
+  parseMinUpwindDraft,
   parseSpiMaxTwsDraft,
   type PolarConfig,
   type PolarSource,
@@ -42,6 +44,7 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
   const [tuningOpen, setTuningOpen] = useState(false);
   const [selectedTwsIdx, setSelectedTwsIdx] = useState(0);
   const [spiMaxTwsDraft, setSpiMaxTwsDraft] = useState<string | null>(null);
+  const [minUpwindDraft, setMinUpwindDraft] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importedActive = isImportedActive(config);
 
@@ -105,18 +108,29 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
     setSelectedTwsIdx(0);
   }
 
+  // Same draft rule as the spinnaker threshold below: the field shows what
+  // was typed, the config only takes values already inside the range, and
+  // the floor applies on blur. Without it "5" became 25 and "50" became 70.
   function setMinUpwind(raw: string) {
-    const val = raw.trim();
-    if (val === "") {
+    setMinUpwindDraft(raw);
+    if (raw.trim() === "") {
       onChange({ ...config, minUpwindDeg: undefined });
       return;
     }
-    const num = Number(val);
-    if (!Number.isFinite(num)) return;
-    onChange({
-      ...config,
-      minUpwindDeg: Math.round(Math.min(MIN_UPWIND_MAX, Math.max(MIN_UPWIND_MIN, num))),
-    });
+    const next = parseMinUpwindDraft(raw);
+    if (next !== null && next >= MIN_UPWIND_MIN && next !== config.minUpwindDeg) {
+      onChange({ ...config, minUpwindDeg: next });
+    }
+  }
+
+  function commitMinUpwind() {
+    const draft = minUpwindDraft;
+    setMinUpwindDraft(null);
+    if (draft === null || draft.trim() === "") return;
+    const next = commitMinUpwindDraft(draft);
+    if (next !== null && next !== config.minUpwindDeg) {
+      onChange({ ...config, minUpwindDeg: next });
+    }
   }
 
   function setSpi(spi: SpiKind) {
@@ -265,8 +279,9 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
             min={MIN_UPWIND_MIN}
             max={MIN_UPWIND_MAX}
             placeholder={t("config.boat.advanced.minUpwindPlaceholder", { deg: autoMinUpwind })}
-            value={config.minUpwindDeg ?? ""}
+            value={minUpwindDraft ?? (config.minUpwindDeg ?? "")}
             onChange={(e) => setMinUpwind(e.target.value)}
+            onBlur={commitMinUpwind}
             className="polar-motor-input w-28"
           />
           {config.minUpwindDeg !== undefined && (
