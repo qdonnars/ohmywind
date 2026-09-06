@@ -39,6 +39,10 @@ export const plan: Record<keyof typeof frPlan, string> = {
   "plan.states.picker.compare.example":
     "E.g. “Which is the best departure between Saturday and Monday?”",
   "plan.states.error.title": "Error",
+  "plan.states.waking.title": "The weather server is waking up",
+  "plan.states.waking.body":
+    "It was asleep: the computation restarts by itself in {seconds} s (attempt {attempt} of {max}).",
+  "plan.states.waking.retryNow": "Retry now",
   "plan.recap.edit": "Edit",
 
   // ── Mode picker and time anchor ───────────────────────────────────────────

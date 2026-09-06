@@ -118,6 +118,9 @@ export interface PlanState {
   /** Edits not yet computed. */
   isStale: boolean;
   apiError: string | null;
+  /** The backend was asleep: the same request goes again by itself at `at`
+      (epoch ms). Null outside that wait. usePlanSession owns the timer. */
+  retry: { at: number; attempt: number; max: number } | null;
 
   // ── in flight ─────────────────────────────────────────────────────────────
   pending: { id: number; kind: FetchKind; editSeq: number } | null;
@@ -164,6 +167,7 @@ export type PlanAction =
       forecastUpdatedAt: string;
     }
   | { type: "FETCH_FAILED"; requestId: number; error: string }
+  | { type: "FETCH_RETRY_SCHEDULED"; requestId: number; at: number; attempt: number; max: number }
   | {
       type: "WINDOW_SELECTED";
       window: PassageWindow;
@@ -200,7 +204,7 @@ export function createInitialState(initial: InitialSession): PlanState {
     selectedStepIdx: null,
     actionTaken: initial.actionTaken,
     isStale: initial.isStale,
-    apiError: null,
+    apiError: null, retry: null,
     pending: null,
     editSeq: 0,
     persist: null,
@@ -292,7 +296,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
       // Opposite-mode results are deliberately kept in memory so the user can
       // toggle back and forth without recomputing. The render branches gate on
       // `mode`, so nothing stale leaks visually.
-      return { ...confirmed, mode: action.mode, apiError: null };
+      return { ...confirmed, mode: action.mode, apiError: null, retry: null };
     }
 
     case "SWEEP_CHANGED":
@@ -317,7 +321,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
     case "FETCH_STARTED":
       return {
         ...state,
-        apiError: null,
+        apiError: null, retry: null,
         pending: { id: action.requestId, kind: action.kind, editSeq: state.editSeq },
       };
 
@@ -398,7 +402,22 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
       // Same rule as a success: an error about a plan the user has already
       // moved on from is noise, not information.
       if (applies === "outdated") return { ...state, pending: null };
-      return { ...state, pending: null, apiError: action.error };
+      return { ...state, pending: null, apiError: action.error, retry: null };
+    }
+
+    case "FETCH_RETRY_SCHEDULED": {
+      // Same gate as a failure: a wait about a plan the reader has moved on
+      // from is not worth showing. The hook still fires the retry, which
+      // computes the plan as it stands then.
+      const applies = verdict(state, action.requestId);
+      if (applies === "superseded") return state;
+      if (applies === "outdated") return { ...state, pending: null };
+      return {
+        ...state,
+        pending: null,
+        apiError: null,
+        retry: { at: action.at, attempt: action.attempt, max: action.max },
+      };
     }
 
     case "WINDOW_SELECTED": {
@@ -407,7 +426,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
         mode: "single",
         departure: action.departure,
         metaWarnings: [],
-        apiError: null,
+        apiError: null, retry: null,
       };
       if (!action.window.passage || !action.window.complexity_full) {
         // Older deployments answer the sweep without the per-window detail.
@@ -467,7 +486,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
           selectedStepIdx: null,
           actionTaken: false,
           isStale: false,
-          apiError: null,
+          apiError: null, retry: null,
           // Anything in flight stops counting: its reply will be dropped by
           // `isCurrent`, and the shell aborts it anyway.
           pending: null,
