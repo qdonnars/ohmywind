@@ -9,7 +9,6 @@ export const explore = {
     "Touchez la carte pour la météo, appui long pour enregistrer un spot",
   "explore.emptyState.click":
     "Cliquez la carte pour la météo, clic droit pour enregistrer un spot",
-  "explore.planFab.title": "Planifier un passage",
 
   // Header
   "explore.header.settings": "Paramètres",
@@ -99,7 +98,7 @@ export const explore = {
   // Onboarding
   "explore.onboarding.title": "Planifier une route ?",
   "explore.onboarding.body":
-    "Pour tracer un trajet entre deux spots et estimer la durée, cliquez sur le compas.",
+    "Pour tracer un trajet entre deux spots et estimer la durée, ouvrez le menu et choisissez Planifier.",
   "explore.onboarding.dismiss": "Compris",
 
   // Recherche de spot

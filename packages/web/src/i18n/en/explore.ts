@@ -9,7 +9,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
     "Tap the map for the forecast, press and hold to save a spot",
   "explore.emptyState.click":
     "Click the map for the forecast, right-click to save a spot",
-  "explore.planFab.title": "Plan a passage",
 
   // Header
   "explore.header.settings": "Settings",
@@ -98,7 +97,7 @@ export const explore: Record<keyof typeof frExplore, string> = {
   // Onboarding
   "explore.onboarding.title": "Plan a route?",
   "explore.onboarding.body":
-    "To lay out a passage between two spots and estimate how long it takes, click the compass.",
+    "To lay out a passage between two spots and estimate how long it takes, open the menu and choose Plan.",
   "explore.onboarding.dismiss": "Got it",
 
   // Spot search

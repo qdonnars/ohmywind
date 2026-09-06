@@ -41,6 +41,12 @@ interface SpotMapProps {
       coming back from the planner must not move the map. */
   initialView?: MapView | null;
   defaultCenter?: { lat: number; lon: number };
+  /** Spots the camera has to frame together, all of them on screen above
+      the data panel. Framed each time the array's identity changes, and
+      measured against the panel at that moment: the comparison page hands
+      it over once its table has its final height, so no spot ends up
+      behind it. From then on the viewport is the reader's. */
+  fitSpots?: Spot[];
   /** The OPAQUE data area overlaying the bottom edge of the map (the
       forecast tables — not the pills band, which floats transparently over
       a still-readable map and therefore counts as map). Centring a point
@@ -77,6 +83,7 @@ export function SpotMap({
   onViewChange,
   initialView,
   defaultCenter,
+  fitSpots,
   bottomInsetRef,
   onSelectSpot,
   onPreviewSpot,
@@ -319,6 +326,26 @@ export function SpotMap({
     // resolvedTheme: see the preview marker above. The marker colours are
     // read from the theme, and Leaflet keeps the resolved string.
   }, [current, customSpots, syncMarkers, autoCenter, clearAutoCenter, resolvedTheme]);
+
+  // Frame a set of spots, all of them in the strip above the data panel.
+  // The panel over the bottom edge is part of the padding, so no spot lands
+  // behind it; the top clears the controls in the corners. Capped at a zoom
+  // where a single spot still shows its coastline. Declared after the
+  // pan-to-spot effect so that, should both fire in one commit, the frame
+  // wins: it is the page's explicit request.
+  useEffect(() => {
+    if (!mapRef.current || !fitSpots || fitSpots.length === 0) return;
+    mapRef.current.fitBounds(
+      L.latLngBounds(fitSpots.map((s) => [s.latitude, s.longitude] as [number, number])),
+      {
+        paddingTopLeft: [24, 88],
+        paddingBottomRight: [24, (bottomInsetRef?.current?.offsetHeight ?? 0) + 24],
+        maxZoom: 11,
+      },
+    );
+    // bottomInsetRef is a ref: read at the moment of the frame, by design.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitSpots]);
 
   // Fly to the user only when the page asks for it (first visit with no
   // saved spot, or an explicit tap on the locate button). Keying on the

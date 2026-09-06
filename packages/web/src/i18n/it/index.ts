@@ -7,5 +7,6 @@ import { config } from "./config";
 import { explore } from "./explore";
 import { plan } from "./plan";
 import { panel } from "./panel";
+import { compare } from "./compare";
 
-export const it: Dict = { ...common, ...config, ...explore, ...plan, ...panel };
+export const it: Dict = { ...common, ...config, ...explore, ...plan, ...panel, ...compare };

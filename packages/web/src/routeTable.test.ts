@@ -8,6 +8,7 @@ describe("matchRoute", () => {
   it("resolves every page the app publishes", () => {
     expect(matchRoute("/")).toBe("explore");
     expect(matchRoute("/plan")).toBe("plan");
+    expect(matchRoute("/comparer")).toBe("compare");
     expect(matchRoute("/config")).toBe("config");
     expect(matchRoute("/methodologie")).toBe("methodologie");
     expect(matchRoute("/confidentialite")).toBe("confidentialite");

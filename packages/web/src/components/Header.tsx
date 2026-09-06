@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import type { RefObject } from "react";
 import { useT } from "../i18n";
 import type { Spot } from "../types";
 import { SpotSearch } from "./SpotSearch";
 import { ThemeToggle } from "../design/theme";
 import { InfoButton } from "./InfoButton";
+import { NavMenu, type NavDestination } from "./NavMenu";
 import { rememberReturnPath } from "../config/returnPath";
 import { OfflineBanner } from "./OfflineBanner";
+import { LG_MEDIA_QUERY, useMediaQuery } from "../hooks/useMediaQuery";
 
 
 interface HeaderProps {
@@ -17,6 +20,14 @@ interface HeaderProps {
   nearLat?: number | null;
   nearLon?: number | null;
   savedSpots?: Spot[];
+  /** The page this header sits on: the navigation menu marks it. */
+  current: NavDestination;
+  /** Camera hand-over for the menu's map links ("?center=…&zoom=…"). */
+  mapQuery?: string;
+  /** The menu trigger, for a page that has to point at it (the onboarding
+      card). Only meaningful on a narrow screen, where the trigger lives
+      here; on a wide one the page mounts the menu on its map instead. */
+  navRef?: RefObject<HTMLButtonElement | null>;
 }
 
 function WindIcon() {
@@ -54,7 +65,11 @@ function SettingsButton() {
   );
 }
 
-export function Header({ onSelectSpot, nearLat, nearLon, savedSpots }: HeaderProps) {
+export function Header({ onSelectSpot, nearLat, nearLon, savedSpots, current, mapQuery, navRef }: HeaderProps) {
+  // Same breakpoint as the pages: the menu is mounted once, here on a phone
+  // and on the map on a wide screen, never both (one control for assistive
+  // technology, one ref for the onboarding card to point at).
+  const isDesktop = useMediaQuery(LG_MEDIA_QUERY);
   return (
     <header
       className="sticky top-0 z-30 backdrop-blur-lg px-3 py-2 lg:px-6 safe-top safe-x"
@@ -62,7 +77,13 @@ export function Header({ onSelectSpot, nearLat, nearLon, savedSpots }: HeaderPro
     >
       <div className="flex items-center gap-3 max-w-screen-2xl mx-auto">
         <div className="flex items-center gap-2 shrink-0">
-          <WindIcon />
+          {/* On a phone the menu takes the logo's place: its badge already
+              carries the wind mark, and the search field needs the width. */}
+          {isDesktop ? (
+            <WindIcon />
+          ) : (
+            <NavMenu variant="header" current={current} mapQuery={mapQuery} triggerRef={navRef} />
+          )}
           <h1 className="hidden sm:block text-xl font-extrabold tracking-tight">
             <span style={{ color: 'var(--ow-fg-0)' }}>OhMy</span>
             <span style={{ color: 'var(--ow-accent)' }}>Wind</span>
