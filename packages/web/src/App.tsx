@@ -46,7 +46,12 @@ function previewSpot(lat: number, lon: number): Spot {
 function EmptyState() {
   const { t } = useT();
   return (
-    <div className="flex items-end justify-center pb-6 px-4 safe-bottom">
+    <div
+      className="flex items-end justify-center px-4"
+      // Its own padding plus the home-indicator inset; .safe-bottom would
+      // have replaced the padding (see index.css).
+      style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))" }}
+    >
       <div
         className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full shadow-lg"
         style={{
