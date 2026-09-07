@@ -99,6 +99,12 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   const segLabelsRef = useRef<L.Tooltip[]>([]);
   const userLayerRef = useRef<L.LayerGroup | null>(null);
   const flyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Set by fitToWaypoints, cleared once the layout has had time to settle
+  // (or the user takes the camera back). Re-fitting on the container's
+  // resize events lets the route re-frame itself once it reaches the size
+  // it is actually displayed at, instead of the pre-transition size the
+  // mobile drawer's grow animation leaves behind (issue #392).
+  const pendingFitRef = useRef(false);
   const onViewChangeRef = useRef(onViewChange);
   useEffect(() => { onViewChangeRef.current = onViewChange; }, [onViewChange]);
   const livePositionsRef = useRef<[number, number][]>(waypoints);
@@ -127,6 +133,11 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
           L.latLngBounds(waypoints.map(([lat, lon]) => L.latLng(lat, lon))),
           { padding: [40, 40] },
         );
+        // The mobile drawer grows right after Calculer/Comparer is pressed
+        // (results just landed), which shrinks the map container after this
+        // fit already ran — re-fit once that resize is observed.
+        pendingFitRef.current = true;
+        setTimeout(() => { pendingFitRef.current = false; }, 1000);
       } else if (waypoints.length === 1) {
         map.setView([waypoints[0][0], waypoints[0][1]], 10);
       }
@@ -256,9 +267,21 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
       onViewChangeRef.current?.({ lat: c.lat, lon: c.lng, zoom: map.getZoom() });
     });
 
-    const ro = new ResizeObserver(() => map.invalidateSize());
+    const ro = new ResizeObserver(() => {
+      map.invalidateSize();
+      if (pendingFitRef.current && livePositionsRef.current.length >= 2) {
+        map.fitBounds(
+          L.latLngBounds(livePositionsRef.current.map(([lat, lon]) => L.latLng(lat, lon))),
+          { padding: [40, 40] },
+        );
+      }
+    });
     ro.observe(containerRef.current!);
     setTimeout(() => map.invalidateSize(), 100);
+
+    // A user pan means the viewport is theirs now — a resize mid-flight
+    // (e.g. the drawer still animating) must not yank it back onto the route.
+    map.on("dragstart", () => { pendingFitRef.current = false; });
 
     return () => {
       if (flyTimerRef.current) clearTimeout(flyTimerRef.current);
