@@ -166,7 +166,7 @@ export function TideChart({
                 <td
                   colSpan={masterTimeline.length}
                   className="p-0 align-bottom"
-                  style={{ height: SVG_HEIGHT }}
+                  style={{ height: SVG_HEIGHT, background: "var(--ow-bg-1)" }}
                 >
                   <svg
                     width={svgWidth}
@@ -175,6 +175,18 @@ export function TideChart({
                     role="img"
                     aria-label={t("explore.tideChart.curve")}
                   >
+                    {/* Opaque backdrop: this panel floats over the map (see
+                        App.tsx), and unlike WindTable/MarineTable cells (each
+                        colored solid) this SVG has no per-cell fill, so
+                        without it the map showed through the curve and its
+                        labels — read as bathymetry, not tide height (#388). */}
+                    <rect
+                      x={0}
+                      y={0}
+                      width={svgWidth}
+                      height={SVG_HEIGHT}
+                      fill="var(--ow-bg-1)"
+                    />
                     <defs>
                       <linearGradient id="tide-water" x1="0" y1="0" x2="0" y2="1">
                         <stop
