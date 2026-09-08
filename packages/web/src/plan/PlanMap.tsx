@@ -99,12 +99,18 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   const segLabelsRef = useRef<L.Tooltip[]>([]);
   const userLayerRef = useRef<L.LayerGroup | null>(null);
   const flyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Set by fitToWaypoints, cleared once the layout has had time to settle
-  // (or the user takes the camera back). Re-fitting on the container's
-  // resize events lets the route re-frame itself once it reaches the size
-  // it is actually displayed at, instead of the pre-transition size the
-  // mobile drawer's grow animation leaves behind (issue #392).
+  // Set around a bounds fit, cleared once the container has stopped
+  // resizing (or the user takes the camera back). Re-fitting on the
+  // container's resize events lets the route re-frame itself once it
+  // reaches the size it is actually displayed at, instead of the
+  // pre-transition size the mobile drawer's grow animation leaves behind
+  // (issue #392). The clear is armed by resize activity itself rather than
+  // a fixed delay: a fixed delay races the async passage/windows fetch,
+  // which routinely outlasts a hardcoded guess on a slow connection — the
+  // window has to stay open until the layout is actually done moving,
+  // however long that takes (#392 follow-up).
   const pendingFitRef = useRef(false);
+  const pendingFitClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onViewChangeRef = useRef(onViewChange);
   useEffect(() => { onViewChangeRef.current = onViewChange; }, [onViewChange]);
   const livePositionsRef = useRef<[number, number][]>(waypoints);
@@ -121,6 +127,18 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   useEffect(() => { onWptDeleteRef.current = onWptDelete; }, [onWptDelete]);
   useEffect(() => { onMapClickRef.current = onMapClick; }, [onMapClick]);
 
+  // Opens (or extends) the re-fit window. Called once around a bounds fit,
+  // then again from the ResizeObserver every time it actually re-fits — so
+  // the window stays open through a whole burst of resize events (a CSS
+  // transition fires many of them) and only closes once resizing has been
+  // quiet for a beat, whatever the container was waiting on (drawer
+  // animation, an async fetch, layout settling after mount, ...).
+  function armPendingFit() {
+    pendingFitRef.current = true;
+    if (pendingFitClearTimerRef.current) clearTimeout(pendingFitClearTimerRef.current);
+    pendingFitClearTimerRef.current = setTimeout(() => { pendingFitRef.current = false; }, 600);
+  }
+
   useImperativeHandle(ref, () => ({
     recenter(lat, lon) {
       mapRef.current?.setView([lat, lon], 12, { animate: true });
@@ -133,11 +151,10 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
           L.latLngBounds(waypoints.map(([lat, lon]) => L.latLng(lat, lon))),
           { padding: [40, 40] },
         );
-        // The mobile drawer grows right after Calculer/Comparer is pressed
-        // (results just landed), which shrinks the map container after this
-        // fit already ran — re-fit once that resize is observed.
-        pendingFitRef.current = true;
-        setTimeout(() => { pendingFitRef.current = false; }, 1000);
+        // The mobile drawer can still grow after Calculer/Comparer is
+        // pressed (results landing shrinks the map container after this fit
+        // already ran) — re-fit once that resize is observed.
+        armPendingFit();
       } else if (waypoints.length === 1) {
         map.setView([waypoints[0][0], waypoints[0][1]], 10);
       }
@@ -231,6 +248,10 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
         map.invalidateSize();
         if (routeBounds) {
           map.flyToBounds(routeBounds, { padding: [40, 40], duration: 1.2 });
+          // The mobile drawer can still be animating to its target height at
+          // mount (e.g. a cache-hydrated reload that opens straight onto
+          // results) — catch a resize landing after this fit too.
+          armPendingFit();
         } else {
           map.flyTo([waypoints[0][0], waypoints[0][1]], 10, { duration: 1.2 });
         }
@@ -238,6 +259,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
       flyTimerRef.current = flyTimer;
     } else if (routeBounds) {
       map.fitBounds(routeBounds, { padding: [40, 40] });
+      armPendingFit();
     } else if (waypoints.length === 1) {
       map.setView([waypoints[0][0], waypoints[0][1]], 10);
     } else if (initialCenter) {
@@ -274,6 +296,10 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
           L.latLngBounds(livePositionsRef.current.map(([lat, lon]) => L.latLng(lat, lon))),
           { padding: [40, 40] },
         );
+        // Re-arm rather than leave the original window running: a resize
+        // burst (a CSS transition fires one per frame) must keep re-fitting
+        // through the whole burst, closing only once it goes quiet.
+        armPendingFit();
       }
     });
     ro.observe(containerRef.current!);
@@ -281,9 +307,13 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
 
     // A user pan means the viewport is theirs now — a resize mid-flight
     // (e.g. the drawer still animating) must not yank it back onto the route.
-    map.on("dragstart", () => { pendingFitRef.current = false; });
+    map.on("dragstart", () => {
+      pendingFitRef.current = false;
+      if (pendingFitClearTimerRef.current) clearTimeout(pendingFitClearTimerRef.current);
+    });
 
     return () => {
+      if (pendingFitClearTimerRef.current) clearTimeout(pendingFitClearTimerRef.current);
       if (flyTimerRef.current) clearTimeout(flyTimerRef.current);
       ro.disconnect();
       map.off("zoomend", onZoomEnd);
