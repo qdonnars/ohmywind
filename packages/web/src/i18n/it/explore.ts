@@ -89,6 +89,15 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.marineTable.aria.tideFalling": "Marea {value} {unit}, calante",
   "explore.marineTable.aria.current": "Corrente {value} kn",
 
+  // Nota sotto la tabella delle correnti: la fonte e il numero che la qualifica
+  "explore.marineTable.currentSource.smoc":
+    "Corrente su griglia di 8 km: marea, circolazione e onde insieme, troppo grossolana per i passaggi.",
+  "explore.marineTable.currentSource.marc": "Solo corrente di marea, griglia {res}: vento ignorato.",
+  "explore.marineTable.currentSource.shom": "Solo corrente di marea, rilevata a {m} m: vento ignorato.",
+  "explore.marineTable.currentSource.shomClose": "Solo corrente di marea, rilevata sul posto: vento ignorato.",
+  "explore.marineTable.currentSource.shomNoDistance":
+    "Solo corrente di marea, rilevata al punto più vicino dell'atlante: vento ignorato.",
+
   // Tide curve
   "explore.tideChart.curve": "Curva di marea",
 
