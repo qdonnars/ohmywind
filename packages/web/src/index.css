@@ -564,16 +564,16 @@ select,
 .ow-wpt-x:hover {
   background: #e84118;
 }
-/* Touch: the × badge is always visible and sits above the disc, clear of
-   it. It used to stay on the corner with a 38 px tap zone that covered the
-   centre of the 28 px disc, and Chrome snaps taps to the nearest button:
-   every touch on a waypoint deleted it, and none could drag it. Now a tap
-   on the badge removes the waypoint (with an undo, see PlanMap) and the
-   disc, which answers to a 44 px circle, is only ever picked up by a
-   press-and-hold. The badge's own halo stops at the top edge of the disc.
-   `hover: none` alone still shows the badge on the rare fine-pointer device
-   that cannot hover (a stylus tablet), where opacity 0 would have hidden
-   the only way to delete. */
+/* Touch: the × badge is always visible, on the top-right corner of the
+   disc as with a mouse, but it takes no pointer events of its own. Chrome
+   targets a touch by the whole area of the finger, so a button on the
+   corner caught every touch whose 18 px radius reached it, including taps
+   dead centre on the disc: the waypoint deleted itself on contact and could
+   not be dragged. The marker is one target, its tap zone widened to the
+   44 px a thumb needs plus the badge, and PlanMap tells badge from disc by
+   which of the two centres the finger is nearer. `hover: none` alone still
+   shows the badge on the rare fine-pointer device that cannot hover (a
+   stylus tablet), where opacity 0 would have hidden the only way to delete. */
 @media (hover: none) {
   .ow-wpt-x {
     opacity: 1;
@@ -583,22 +583,20 @@ select,
   .ow-wpt::before {
     content: "";
     position: absolute;
-    inset: -8px;
+    top: -12px;
+    right: -12px;
+    bottom: -8px;
+    left: -8px;
     border-radius: 50%;
   }
   .ow-wpt-x {
     opacity: 1;
     width: 22px;
     height: 22px;
+    top: -10px;
+    right: -10px;
     font-size: 15px;
-    top: -30px;
-    left: 3px;
-    right: auto;
-  }
-  .ow-wpt-x::before {
-    content: "";
-    position: absolute;
-    inset: -6px;
+    pointer-events: none;
   }
 }
 /* A lifted waypoint grows a little, so the hold is visibly acknowledged

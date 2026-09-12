@@ -32,6 +32,14 @@ import {
     as the user zooms out. */
 const SEG_LABEL_MIN_PX = 90;
 
+/** Where the × badge sits relative to the centre of the disc, in px: the
+    CSS puts a 22 px badge at top -10 / right -10 of a 28 px disc, so its
+    centre is 13 px right and 13 px up. On touch the badge takes no pointer
+    events (Chrome would hand it every touch whose area reaches it), and a
+    press counts as a press on the badge when the finger is nearer to this
+    point than to the centre of the disc. */
+const BADGE_OFFSET_PX = L.point(13, -13);
+
 /** Zoom granularity of this map. Leaflet frames a route at the largest
     zoom on the snap grid that holds it, so at whole zoom levels a route
     filled anywhere between half and all of the padded frame, depending on
@@ -41,14 +49,14 @@ const ZOOM_SNAP = 0.1;
 
 /** Frame for a route: 8 % of the map on each side, so the waypoints span
     about 84 % of the smaller dimension, and never less than what a marker
-    needs to stay whole at the edge: its disc, the × badge that stands 41 px
-    above its centre on touch, and the sounding 40 px below it. */
+    needs to stay whole at the edge: its disc, the × badge on its top-right
+    corner (24 px from the centre) and the sounding 40 px below it. */
 function routePadding(map: L.Map): L.FitBoundsOptions {
   const size = map.getSize();
-  const x = Math.max(24, size.x * 0.08);
+  const x = Math.max(28, size.x * 0.08);
   const y = Math.max(28, size.y * 0.08);
   return {
-    paddingTopLeft: L.point(x, Math.max(y, isCoarsePointer() ? 42 : 28)),
+    paddingTopLeft: L.point(x, y),
     paddingBottomRight: L.point(x, Math.max(y, 40)),
   };
 }
@@ -385,10 +393,12 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   //
   // Two models, chosen by the primary pointer. With a mouse, Leaflet's own
   // drag (immediate, from the first pixel) and a × badge on hover, on the
-  // corner of the disc. With a finger, the badge is always visible and sits
-  // above the disc, clear of it: it used to cover the centre of the disc,
-  // and Chrome snaps taps to the nearest button, so every touch deleted the
-  // waypoint and none could move it. On touch a tap on the badge removes the
+  // corner of the disc. With a finger, the badge is always visible on that
+  // same corner but inert, and badge or disc is decided from where the
+  // finger is: the badge used to be a button whose zone covered the centre
+  // of the disc, and Chrome targets a touch by the whole area of the
+  // finger, so every touch deleted the waypoint and none could move it. On
+  // touch a tap on the badge removes the
   // waypoint; a press held past WAYPOINT_GRAB_MS, on the disc or on the
   // badge, picks the waypoint up; a tap on the disc does nothing; and a
   // finger that moves before the grab fires pans the map.
@@ -448,8 +458,8 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
       let lifted = false;
       let origin: L.LatLng | null = null;
       // Where the marker sits relative to the finger at the grab, kept for
-      // the whole drag: grabbed by the badge, the disc stays 30 px under
-      // the finger instead of jumping up under it.
+      // the whole drag: grabbed by the badge, the disc stays where it was
+      // under the finger instead of jumping under it.
       let grabOffset = L.point(0, 0);
       let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -479,7 +489,11 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
       };
       const onDown = (e: PointerEvent) => {
         if (!e.isPrimary || pressed) return;
-        const onBadge = e.target instanceof Element && !!e.target.closest(".ow-wpt-x");
+        const finger = map.mouseEventToContainerPoint(e);
+        const disc = map.latLngToContainerPoint(marker.getLatLng());
+        const onBadge =
+          finger.distanceTo(disc.add(BADGE_OFFSET_PX)) < finger.distanceTo(disc) ||
+          (e.target instanceof Element && !!e.target.closest(".ow-wpt-x"));
         pressed = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), onBadge };
         try {
           el.setPointerCapture(e.pointerId);
