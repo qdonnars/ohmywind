@@ -64,6 +64,8 @@ export const plan: Record<keyof typeof frPlan, string> = {
 
   // ── Map ───────────────────────────────────────────────────────────────────
   "plan.map.waypoint.remove": "Diesen Wegpunkt entfernen",
+  "plan.map.waypoint.removed": "Wegpunkt {n} entfernt",
+  "plan.map.waypoint.undo": "Rückgängig",
 
   // ── Comparison window validation ──────────────────────────────────────────
   "plan.sweep.errors.missingWindow": "Geben Sie ein Abfahrtsfenster an.",

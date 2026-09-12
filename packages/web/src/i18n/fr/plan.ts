@@ -67,6 +67,8 @@ export const plan = {
 
   // ── Carte ─────────────────────────────────────────────────────────────────
   "plan.map.waypoint.remove": "Supprimer ce point",
+  "plan.map.waypoint.removed": "Point {n} retiré",
+  "plan.map.waypoint.undo": "Annuler",
 
   // ── Validation de la fenêtre de comparaison ───────────────────────────────
   "plan.sweep.errors.missingWindow": "Renseignez une fenêtre de départ.",

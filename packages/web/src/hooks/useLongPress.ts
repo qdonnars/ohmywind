@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useEffect, useRef, type RefObject } from "react";
+import { HOLD_SLOP_PX, LONG_PRESS_MS } from "../domain/gestures";
 
 /**
  * "Press and hold here", over an element that also handles clicks and drags.
@@ -62,7 +63,7 @@ export function useLongPress(
   targetRef: RefObject<HTMLElement | null>,
   options: UseLongPressOptions,
 ): RefObject<boolean> {
-  const { delayMs = 400, moveTolerancePx = 10 } = options;
+  const { delayMs = LONG_PRESS_MS, moveTolerancePx = HOLD_SLOP_PX } = options;
 
   // The callbacks are read at event time, never at effect time: re-arming the
   // listeners on every render of the parent would drop a press in flight.
