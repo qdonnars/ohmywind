@@ -402,7 +402,7 @@ export function TideChart({
           from Open-Meteo): a note about chart datum over an MSL curve would
           be the very confusion it is here to prevent (#388). */}
       <p
-        className="shrink-0 m-0 px-2 py-1 text-[10px] leading-snug border-t"
+        className="shrink-0 m-0 px-2 py-[3px] text-[9px] leading-tight border-t"
         style={{
           background: "var(--ow-bg-1)",
           borderColor: "var(--ow-line-2)",

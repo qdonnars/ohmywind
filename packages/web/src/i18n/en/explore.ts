@@ -93,10 +93,8 @@ export const explore: Record<keyof typeof frExplore, string> = {
 
   // Tide curve
   "explore.tideChart.curve": "Tide curve",
-  "explore.tideChart.datum.zh":
-    "Tide height above chart datum (ZH), the zero of nautical charts. Not a depth: add it to the charted sounding.",
-  "explore.tideChart.datum.msl":
-    "Tide height relative to mean sea level (MSL), not to chart datum. Not a depth.",
+  "explore.tideChart.datum.zh": "Heights above chart datum (ZH), not depths: add to the charted sounding.",
+  "explore.tideChart.datum.msl": "Heights relative to mean sea level (MSL), not depths.",
 
   // Onboarding
   "explore.onboarding.title": "Plan a route?",
