@@ -3,12 +3,15 @@
 *Esta página es una traducción. En caso de discrepancia, la versión francesa
 ([/confidentialite](/confidentialite)) es la referencia.*
 
-*Última actualización: 2 de septiembre de 2026*
+*Última actualización: 12 de septiembre de 2026*
 
 OhMyWind es un planificador de navegación a vela de código abierto, disponible en
-[ohmywind.fr](https://ohmywind.fr) y en forma de aplicación Android. Está editado a
-título personal y no comercial por Tinqueen. Para cualquier pregunta relativa a esta
-política: [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
+[ohmywind.fr](https://ohmywind.fr) y en forma de aplicación Android. El responsable del
+tratamiento es la asociación Libramer (asociación sin ánimo de lucro de derecho
+francés, ley de 1901, RNA W751285736), con domicilio social en 51 rue Fondary, 75015
+París, Francia. La aplicación Android está editada y distribuida en Google Play por
+Quentin Donnars. Para cualquier pregunta relativa a esta política:
+[contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 El principio general: **OhMyWind no tiene cuentas de usuario, ni base de datos, ni
 herramienta de medición de audiencia**. Ningún dato personal se conserva en servidores
@@ -34,11 +37,13 @@ cualquier momento en los ajustes de su navegador o de Android.
 ### Planes de navegación y ajustes
 
 Sus puntos de paso, polares de barco y preferencias se almacenan **localmente en su
-dispositivo** (almacenamiento local del navegador o de la aplicación). Solo salen de su
-dispositivo cuando usted inicia una estimación de travesía: las coordenadas de los
-puntos de paso se envían entonces al backend de OhMyWind (alojado en Hugging Face) para
-realizar el cálculo, se tratan en memoria y después se olvidan. Borrar los datos del
-sitio en su navegador (o los datos de la aplicación en Android) lo elimina todo.
+dispositivo** (almacenamiento local del navegador o de la aplicación). Solo las
+coordenadas de los puntos de paso salen de su dispositivo: en cuanto se coloca un punto
+en el mapa del planificador, se envían a EMODnet para mostrar la sonda; cuando usted
+inicia una estimación de travesía, se envían al backend de OhMyWind (alojado en Hugging
+Face) para realizar el cálculo, se tratan en memoria y después se olvidan. Borrar los
+datos del sitio en su navegador (o los datos de la aplicación en Android) lo elimina
+todo.
 
 ## Servicios de terceros
 
@@ -53,6 +58,8 @@ IP; la tabla indica los datos de aplicación que se transmiten además.
 | [Nominatim / OpenStreetMap](https://osmfoundation.org/wiki/Privacy_Policy) | Coordenadas geográficas | Geocodificación inversa (nombre del lugar mostrado) |
 | [Photon (Komoot)](https://photon.komoot.io) | Texto de sus búsquedas de lugares | Búsqueda de lugares |
 | [OpenFreeMap](https://openfreemap.org/privacy/) | Zona del mapa mostrada | Mapas base (teselas) |
+| [OpenSeaMap](https://www.openseamap.org/index.php?id=imprint) | Zona del mapa mostrada, cuando la capa de balizamiento está activa | Balizamiento superpuesto (boyas, balizas, faros) |
+| [EMODnet Bathymetry](https://emodnet.ec.europa.eu/en/privacy-statement) | Coordenadas de sus puntos de paso | Sonda (profundidad) bajo cada punto de paso |
 | [Ko-fi](https://more.ko-fi.com/privacy) | Nada, salvo si usted hace clic voluntariamente en el enlace de apoyo | Donaciones |
 
 Estos servicios son encargados del tratamiento técnicos independientes, regidos por sus
