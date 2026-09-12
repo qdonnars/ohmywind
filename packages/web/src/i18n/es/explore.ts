@@ -92,6 +92,8 @@ export const explore: Record<keyof typeof frExplore, string> = {
 
   // Tide curve
   "explore.tideChart.curve": "Curva de marea",
+  "explore.tideChart.datum.zh": "Alturas sobre el cero hidrográfico (ZH), no profundidades: súmelas a la sonda de la carta.",
+  "explore.tideChart.datum.msl": "Alturas respecto al nivel medio del mar (MSL), no profundidades.",
 
   // Onboarding
   "explore.onboarding.title": "¿Planificar una ruta?",

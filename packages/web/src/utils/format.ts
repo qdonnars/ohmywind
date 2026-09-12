@@ -39,6 +39,36 @@ export function formatHour(iso: string, mode: TimezoneMode = "local"): string {
   return String(new Date(realUtcMs).getHours());
 }
 
+// One formatter per mode, built on first use. The tide chart formats a
+// handful of extrema per render, so the cost hardly matters, but the
+// constructor is the expensive part of Intl and there is no reason to pay it
+// each time. en-GB for the 24-hour clock; the digits are the same everywhere.
+const CLOCK_DTF = new Map<TimezoneMode, Intl.DateTimeFormat>();
+function clockDtf(mode: TimezoneMode): Intl.DateTimeFormat {
+  let f = CLOCK_DTF.get(mode);
+  if (!f) {
+    f = new Intl.DateTimeFormat("en-GB", {
+      timeZone: mode === "boat" ? "Europe/Paris" : mode === "utc" ? "UTC" : undefined,
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    });
+    CLOCK_DTF.set(mode, f);
+  }
+  return f;
+}
+
+/**
+ * Wall clock "HH:MM" of an instant, in the timezone the mode displays.
+ * For the times that fall between two cells of the timeline (a high water
+ * at 14:23): `formatHour` reads the hour off the Paris string because the
+ * header formats every cell of every render, but here there is an instant,
+ * not a cell, and only a few of them.
+ */
+export function formatHourMinute(utcMs: number, mode: TimezoneMode = "local"): string {
+  return clockDtf(mode).format(utcMs);
+}
+
 /**
  * Format the day header for a timeline column group.
  * Uses boat mode (Paris time from the string) when requested,
