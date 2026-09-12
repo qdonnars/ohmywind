@@ -304,14 +304,32 @@ class ShomC2dRegistry:
     # ------------------------------------------------------------------
 
     # Maximum acceptable distance (km) between a query point and the nearest
-    # SHOM C2D point for us to claim coverage. Beyond this, the query
-    # falls back through the cascade — even though the bbox might still
-    # contain it, the SHOM zone is too sparse to make the value meaningful.
-    _MAX_NEAREST_KM = 5.0
+    # SHOM C2D point for us to claim coverage. Beyond this, the query falls
+    # back through the cascade to MARC.
+    #
+    # Was 5 km until 2026-09, on the belief that C2D was a measured reference.
+    # The product notice (SHOM, édition 2005) says otherwise: the files are
+    # outputs of 1988-2002 tidal models (TELEMAC-2D, finite differences),
+    # depth-averaged, then spline-resampled onto a coarse lattice whose pitch
+    # is 0.16 to 0.6 km in the fine cartouches (Golfe du Morbihan, Rade de
+    # Brest, Sein, Cherbourg, Bretagne nord) but 1.3 to 20 km elsewhere
+    # (Ouessant 1.3, Iroise and Hague 2.7, Pertuis 2.8, Bretagne sud 4.5,
+    # Manche 17, Gascogne 20). At 5 km the cascade preferred a 1998 sample
+    # 2.3 km away over a 250 m MARC cell, and pasted the Raz Blanchard onto
+    # the sheltered water under the Hague. The bench of 2026-09-12
+    # (docs/bench/currents_resolution_2026-09-12_1347.md) shows the two
+    # sources agree on the open shelf whatever the distance, and that MARC
+    # matches the HF-radar maxima in the Fromveur where SHOM's 1994 file
+    # does not; SHOM keeps an edge only where its underlying mesh was
+    # 50-150 m, i.e. exactly the cartouches with a sub-kilometre pitch.
+    # 0.5 km selects those (a query midway between two 0.6 km points is
+    # 0.3 km from one) and nothing else.
+    _MAX_NEAREST_KM = 0.5
 
     # Tolerance applied to the bbox short-circuit so float32-derived bbox
     # bounds don't reject queries that sit exactly on the edge of the
-    # cloud. ~0.01° ≈ 1 km, well below the nearest-point distance gate.
+    # cloud. ~0.01° ≈ 1 km, wider than the distance gate, so the bbox never
+    # rejects a query the distance check would have accepted.
     _BBOX_SLACK_DEG = 0.01
 
     def covers(self, lat: float, lon: float) -> bool:
@@ -330,6 +348,17 @@ class ShomC2dRegistry:
             return False
         idx, dist_km = self._nearest(lat, lon)
         return idx is not None and dist_km <= self._MAX_NEAREST_KM
+
+    def nearest_km(self, lat: float, lon: float) -> float | None:
+        """Distance in km from (lat, lon) to the nearest C2D point, or None when empty.
+
+        Not gated by ``_MAX_NEAREST_KM``: the caller that already knows SHOM
+        covers the point wants the number to show the user how far the
+        sample was taken from (a caption under the currents table), and a
+        caller probing an uncovered point gets the honest distance too.
+        """
+        idx, dist_km = self._nearest(lat, lon)
+        return None if idx is None else float(dist_km)
 
     def coverage_zones(self) -> tuple[tuple[str, tuple[float, float, float, float]], ...]:
         """One bounding box per SHOM zone, sorted by zone name.

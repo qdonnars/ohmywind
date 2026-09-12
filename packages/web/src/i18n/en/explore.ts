@@ -91,6 +91,15 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.marineTable.aria.tideFalling": "Tide {value} {unit}, falling",
   "explore.marineTable.aria.current": "Current {value} kn",
 
+  // Caption under the currents table: the source and the one number that qualifies it
+  "explore.marineTable.currentSource.smoc":
+    "Current on an 8 km grid: tide, circulation and waves folded together, too coarse for the passes.",
+  "explore.marineTable.currentSource.marc": "Tidal stream only, {res} grid: wind ignored.",
+  "explore.marineTable.currentSource.shom": "Tidal stream only, sampled {m} m away: wind ignored.",
+  "explore.marineTable.currentSource.shomClose": "Tidal stream only, sampled on the spot: wind ignored.",
+  "explore.marineTable.currentSource.shomNoDistance":
+    "Tidal stream only, sampled at the nearest atlas point: wind ignored.",
+
   // Tide curve
   "explore.tideChart.curve": "Tide curve",
   "explore.tideChart.datum.zh": "Heights above chart datum (ZH), not depths: add to the charted sounding.",

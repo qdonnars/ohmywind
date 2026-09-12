@@ -48,13 +48,17 @@ export interface MarineHourly {
   // (zh = msl - z0_hydro_m). Single scalar per spot. Present only when MARC
   // covers the spot.
   z0_hydro_m?: number;
-  // Provenance of tide+current data. ``"openmeteo_smoc"`` for the default
-  // Open-Meteo path; ``"marc_<atlas>_<resolution>"`` (e.g. ``marc_finis_250m``)
-  // when MARC overrides; ``"shom_c2d_<atlas>_<zone>"`` (e.g.
-  // ``shom_c2d_558_morbihan``) when the SHOM Atlas C2D layer takes priority
-  // inside a hand-curated cartouche. Used to drive the source badge on the
-  // active pill.
+  // Provenance of the currents: ``"marc_<atlas>_<resolution>"`` (e.g.
+  // ``marc_finis_250m``) when MARC overrides, ``"shom_c2d_<atlas>_<zone>"``
+  // (e.g. ``shom_c2d_558_morbihan``) when a SHOM Atlas C2D point lies within
+  // 500 m. Absent on the plain Open-Meteo path: the web never sees the
+  // ``"openmeteo_smoc"`` label, which only the passage engine emits per leg.
+  // Read by the caption under the currents table (domain/currentSource).
   current_source?: string;
+  // Distance in km to the SHOM C2D point actually sampled, when SHOM is the
+  // source (always ≤ 0.5 by the cascade rule). Shown in the caption so the
+  // user knows how far the value was taken from.
+  shom_nearest_km?: number;
   // Resolution in metres of the MARC atlas used (when MARC is the source).
   // Not populated when SHOM is the source — SHOM C2D resolution varies per
   // cartouche and isn't surfaced at this level.

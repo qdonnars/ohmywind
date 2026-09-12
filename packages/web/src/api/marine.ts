@@ -47,6 +47,8 @@ interface RawHourly {
 export interface MarcOverlay {
   covered: boolean;
   current_source?: string;
+  // Only when SHOM primes: how far the sampled C2D point is (km).
+  shom_nearest_km?: number;
   atlas_resolution_m?: number;
   z0_hydro_m?: number;
   times?: string[];
@@ -452,6 +454,7 @@ export function mergeMarcOverlay(
     current_direction_to_deg: dirTo,
     z0_hydro_m: z0,
     current_source: overlay.current_source,
+    shom_nearest_km: overlay.shom_nearest_km,
     marc_resolution_m: overlay.atlas_resolution_m,
     tide_coefficient: overlay.tide_coefficient ?? null,
   };
