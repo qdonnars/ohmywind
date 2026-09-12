@@ -8,11 +8,9 @@ import { PlanSidebar } from "../plan/PlanSidebar";
 import { fetchArchetypes } from "../api/passage";
 import { Header } from "../components/Header";
 import { NavMenu } from "../components/NavMenu";
-import type { PassageReport, Archetype } from "../plan/types";
-import { fmtDurationSafe, num1 } from "../plan/format";
-import { fmtClock } from "../domain/datetime";
+import type { Archetype } from "../plan/types";
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
-import { HeroCell } from "../plan/PlanStates";
+import { StatBand } from "../plan/PlanStates";
 import { loadPlanDraft } from "../plan/draft";
 import { loadLastSimulation } from "../plan/lastSimulation";
 import { resolveInitialSession, type InitialSession } from "../plan/session/initial";
@@ -32,57 +30,16 @@ import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
 import { navigate } from "../navigation";
 import { useT } from "../i18n";
 
-// ── local helpers (mobile components) ────────────────────────────────────────
-
-// Hero stats overlay — absolute, bottom of map, mobile only.
-// Renders the exact same HeroCell as the desktop sidebar block
-// (Distance / Durée / Arrivée) inside a single glass strip, so both
-// surfaces are visually and structurally identical.
-function PlanHeroStats({ passage, onOpen }: { passage: PassageReport; onOpen?: () => void }) {
-  const { t } = useT();
-  // `pointer-events-auto` is load-bearing: the wrapper below sets
-  // `pointer-events-none` so map gestures pass through the empty space around
-  // this strip. Without re-enabling it here, a tap on the strip itself fell
-  // through to Leaflet and silently appended a waypoint to the route being
-  // edited — the banner looked inert while quietly corrupting the plan.
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label={t("plan.hero.openDetail")}
-      onClick={onOpen}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onOpen?.();
-        }
-      }}
-      className="pointer-events-auto cursor-pointer rounded-xl px-3.5 py-2.5 grid grid-cols-3 gap-3"
-      style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)" }}
-    >
-      <HeroCell label={t("plan.hero.distance")} value={num1(passage.distance_nm)} unit="nm" />
-      <HeroCell label={t("plan.hero.duration")} value={fmtDurationSafe(passage.duration_h)} />
-      <HeroCell label={t("plan.hero.arrival")} value={fmtClock(passage.arrival_time)} />
-    </div>
-  );
-}
-
 // ── ResizableMobileDrawer ────────────────────────────────────────────────────
 // User-resizable bottom drawer: a 4 px grab-handle at the top responds to
 // pointer drag (mouse or touch) and adjusts the drawer height in vh. The
 // chosen height persists in localStorage so reload feels stable.
-//
-// Exposes an imperative `.expand()` so callers (e.g. the mode-picker click)
-// can pop the drawer up to a sensible reading height when the panel content
-// gets richer.
 
 const DRAWER_HEIGHT_KEY = LOCAL_STORAGE_KEYS.drawerHeight;
 const DRAWER_MIN_VH = 12;
 const DRAWER_MAX_VH = 90;
-const DRAWER_EXPANDED_VH = 75;
 
 interface DrawerHandle {
-  expand: () => void;
   /** Scroll the drawer content back to the top — used when the route turns
    *  stale so the Recalculer bar (hidden by the results fit below) is
    *  visible next to the "Cliquez sur Recalculer" placeholder. */
@@ -104,8 +61,14 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
    *  block sits one scroll-up away, and the map gets the freed space. No-op
    *  when the sidebar isn't showing a filled view (no anchor in the DOM). */
   resultsFitKey?: object | null;
+  /** Rendered in the drawer chrome, between the grab handle and the
+   *  scrolling content, so it never scrolls away: the totals band of a
+   *  computed passage. Counted with the handle in the fit-to-results
+   *  measure, since both take their height from the drawer, not from the
+   *  content below the anchor. */
+  head?: React.ReactNode;
   children: React.ReactNode;
-}>(function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, children }, ref) {
+}>(function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, head, children }, ref) {
   const { t } = useT();
   const [vh, setVh] = useState<number>(() => {
     try {
@@ -189,7 +152,7 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
       const contentEnd = container.lastElementChild?.getBoundingClientRect().bottom
         ?? container.getBoundingClientRect().bottom;
       const belowPx = contentEnd - anchor.getBoundingClientRect().top;
-      const chromePx = outer.offsetHeight - container.clientHeight; // grab handle + border
+      const chromePx = outer.offsetHeight - container.clientHeight; // grab handle + head + border
       const currentVh = (outer.offsetHeight / window.innerHeight) * 100;
       // −1 px absorbs sub-pixel rounding: the visible slot must stay ≤ the
       // content below the anchor, or the scroll clamp leaves a sliver of the
@@ -206,13 +169,6 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
   }, [resultsFitKey, targetVh]);
 
   useImperativeHandle(ref, () => ({
-    expand: () => {
-      setVh((prev) => {
-        const next = Math.max(prev, DRAWER_EXPANDED_VH);
-        if (next !== prev) persist(next);
-        return next;
-      });
-    },
     scrollToTop: () => {
       contentRef.current?.scrollTo({ top: 0 });
     },
@@ -274,6 +230,7 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
           style={{ width: 44, height: 5, background: "var(--ow-line-2)" }}
         />
       </div>
+      {head}
       <div ref={contentRef} className="flex-1 min-h-0 overflow-y-auto">{children}</div>
     </div>
   );
@@ -472,17 +429,36 @@ export function PlanPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The camera frames the route only at the user's explicit request
+  // (Calculer / Comparer), never on a waypoint placement. The frame itself is
+  // taken once the results are on screen rather than when the request is
+  // made: on mobile the drawer fits itself to the results in the frame they
+  // land (see ResizableMobileDrawer), so a fit taken at request time was
+  // measured on a map the drawer then resized under it, and the route ended
+  // up hidden or off-centre (#392). The flag carries the request across the
+  // fetch; a results identity that changes for another reason (mode toggle,
+  // window drill-down, cache hydration at mount) leaves the camera alone.
+  const frameOnResultsRef = useRef(false);
+
   const handleRefetch = useCallback(() => {
-    // Re-frame the camera on the route only now, at the user's explicit
-    // request — the map no longer auto-fits on each waypoint placement.
-    mapRef.current?.fitToWaypoints();
+    frameOnResultsRef.current = true;
     actions.compute();
   }, [actions]);
 
   const handleCompareFetch = useCallback(() => {
-    mapRef.current?.fitToWaypoints();
+    frameOnResultsRef.current = true;
     actions.computeWindows();
   }, [actions]);
+
+  useEffect(() => {
+    if (resultsFitKey == null || !frameOnResultsRef.current) return;
+    frameOnResultsRef.current = false;
+    // One frame later, like the drawer's own fit: the two run in the order
+    // they were scheduled, the drawer's first, so the map is measured at the
+    // height the drawer settled on.
+    const raf = requestAnimationFrame(() => mapRef.current?.fitToWaypoints());
+    return () => cancelAnimationFrame(raf);
+  }, [resultsFitKey]);
 
   if (initial.urlError !== null) {
     return (
@@ -572,19 +548,13 @@ export function PlanPage() {
           <SeamarkButton enabled={seamarks} onToggle={toggleSeamarks} className="top-3 right-3" />
           {/* Locate FAB — bottom right of the map container, which shrinks as
               the mobile drawer is dragged up, so the button follows it.
-              Normally 16 px above the drawer edge, the reference gap reused
-              on the home overlay. On mobile the hero stats take that corner,
-              so the button clears their 72 px and keeps the same 16 px above
-              them rather than sitting on the arrival time. */}
+              16 px above the drawer edge, the reference gap reused on the
+              home overlay. */}
           <LocateButton
             status={geolocStatus}
             attempt={geolocAttempt}
             onClick={handleLocate}
-            className={
-              passage && planMode === "single" && !isStale
-                ? "bottom-[5.5rem] lg:bottom-4 right-3"
-                : "bottom-4 right-3"
-            }
+            className="bottom-4 right-3"
           />
           {/* Hint overlay while building the route */}
           {waypoints.length < 2 && (
@@ -597,15 +567,6 @@ export function PlanPage() {
                   ? t("plan.page.hint.placeStart")
                   : t("plan.page.hint.drawRoute")}
               </div>
-            </div>
-          )}
-          {/* Hero stats overlay — mobile only, single-mode results.
-              Hidden as soon as the route was edited without recalculating:
-              stale totals would contradict the "Recalculer" hint in the
-              drawer. Complexity is read from the colored route itself. */}
-          {passage && planMode === "single" && !isStale && (
-            <div className="lg:hidden absolute bottom-2 left-2 right-2 z-[400] pointer-events-none">
-              <PlanHeroStats passage={passage} onOpen={() => drawerRef.current?.expand()} />
             </div>
           )}
         </div>
@@ -626,7 +587,11 @@ export function PlanPage() {
           where the user is in the flow (no waypoints → minimal so the map
           stays the focus; 2 waypoints → tall enough to surface just the
           mode pills; mode confirmed → full content height). The drag handle
-          still lets the user override at any time. */}
+          still lets the user override at any time.
+          Its head carries the totals of a computed passage, single mode
+          only. Hidden as soon as the route was edited without recalculating:
+          stale totals would contradict the "Recalculer" hint in the drawer.
+          Complexity is read from the colored route itself. */}
       {!isDesktop && (
         <ResizableMobileDrawer
           ref={drawerRef}
@@ -639,6 +604,7 @@ export function PlanPage() {
                 : 65
           }
           resultsFitKey={resultsFitKey}
+          head={passage && planMode === "single" && !isStale ? <StatBand passage={passage} /> : null}
         >
           <PlanSidebar />
         </ResizableMobileDrawer>

@@ -49,6 +49,7 @@ export function ModeToggle({
   onChange,
   locked = false,
   pristine = false,
+  compact = false,
 }: {
   value: PlanMode;
   onChange: (m: PlanMode) => void;
@@ -59,6 +60,10 @@ export function ModeToggle({
    *  on the container — so the user reads it as "pick one" rather than "one
    *  is already active". Overridden by `locked`. */
   pristine?: boolean;
+  /** One line per pill, icon and title only: the filled views, where the
+   *  choice is made and the results below are the point. The subtitles
+   *  that reassure a first-timer stay on the forms. */
+  compact?: boolean;
 }) {
   const { t } = useT();
   // Pristine mode lifts each pill into its own button-shaped surface (own
@@ -91,9 +96,9 @@ export function ModeToggle({
             aria-selected={active}
             onClick={() => !locked && onChange(m)}
             disabled={locked}
-            className={`text-left transition-all ${pristineActive ? "mode-toggle-pristine-pill" : ""}`}
+            className={`transition-all ${compact ? "flex items-center justify-center gap-1.5" : "text-left"} ${pristineActive ? "mode-toggle-pristine-pill" : ""}`}
             style={{
-              padding: pristineActive ? "10px 12px" : "8px 10px",
+              padding: pristineActive ? "10px 12px" : compact ? "8px 8px" : "8px 10px",
               background: pristineActive
                 ? "var(--ow-bg-1)"
                 : active
@@ -110,7 +115,7 @@ export function ModeToggle({
               cursor: locked ? "default" : "pointer",
             }}
           >
-            <div className="flex items-center gap-1.5 mb-0.5">
+            <div className={`flex items-center gap-1.5 ${compact ? "" : "mb-0.5"}`}>
               <ModeIcon name={meta.icon} size={11} color={showAccentIcon ? MODE_ACCENT[m] : "var(--ow-fg-2)"} />
               <span
                 className="text-xs font-semibold"
@@ -119,9 +124,11 @@ export function ModeToggle({
                 {t(meta.title)}
               </span>
             </div>
-            <div className="text-[10px] leading-tight" style={{ color: "var(--ow-fg-2)" }}>
-              {t(meta.sub)}
-            </div>
+            {!compact && (
+              <div className="text-[10px] leading-tight" style={{ color: "var(--ow-fg-2)" }}>
+                {t(meta.sub)}
+              </div>
+            )}
           </button>
         );
       })}

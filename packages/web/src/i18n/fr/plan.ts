@@ -19,7 +19,6 @@ export const plan = {
   "plan.hero.distance": "Distance",
   "plan.hero.duration": "Durée",
   "plan.hero.arrival": "Arrivée",
-  "plan.hero.openDetail": "Voir le détail du passage",
 
   // ── Barre des segments, sous les totaux ───────────────────────────────────
   "plan.segmentBar.groupLabel": "Pas du passage, un clic ouvre le pas",

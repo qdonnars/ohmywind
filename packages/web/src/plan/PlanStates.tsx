@@ -177,16 +177,21 @@ export function HeroCell({
   value,
   unit,
   tone,
+  size = "md",
 }: {
   label: string;
   value: string;
   unit?: string;
   tone?: "warn" | "accent" | "default";
+  /** `lg` is the drawer head on mobile (StatBand): the three totals are the
+      headline there, not one block among the results. */
+  size?: "md" | "lg";
 }) {
   const color =
     tone === "warn" ? "var(--ow-warn)" :
     tone === "accent" ? "var(--ow-accent)" :
     "var(--ow-fg-0)";
+  const large = size === "lg";
   return (
     <div>
       <div className="text-[9px] uppercase tracking-widest font-bold mb-1" style={{ color: "var(--ow-fg-2)" }}>
@@ -194,13 +199,13 @@ export function HeroCell({
       </div>
       <div className="flex items-baseline gap-1">
         <span
-          className="text-xl font-bold tabular-nums"
-          style={{ color, letterSpacing: "-0.02em", lineHeight: 1, fontFamily: "var(--ow-font-mono)" }}
+          className={`${large ? "text-[28px]" : "text-xl"} font-bold tabular-nums`}
+          style={{ color, letterSpacing: large ? "-0.03em" : "-0.02em", lineHeight: 1, fontFamily: "var(--ow-font-mono)" }}
         >
           {value}
         </span>
         {unit && (
-          <span className="text-[10px]" style={{ color: "var(--ow-fg-2)", fontFamily: "var(--ow-font-mono)" }}>
+          <span className={large ? "text-xs" : "text-[10px]"} style={{ color: "var(--ow-fg-2)", fontFamily: "var(--ow-font-mono)" }}>
             {unit}
           </span>
         )}
@@ -332,6 +337,31 @@ export function HeroStats({
   );
 }
 
+// ── StatBand ──────────────────────────────────────────────────────────────────
+// The three totals as the head of the mobile drawer: Distance / Durée /
+// Arrivée in large type, the arrival in accent. It sits in the drawer chrome
+// (under the grab handle, above the scrolling content), so it stays on screen
+// whether the drawer is a peek or pulled all the way up. It replaces the glass
+// strip that used to float over the map: the strip hid the bottom of the
+// route the map had just framed (#392). Desktop keeps HeroStats above, with
+// the segment bar, in the sidebar.
+
+export function StatBand({ passage }: { passage: PassageReport }) {
+  const { t } = useT();
+  const divider = { borderLeft: "1px solid var(--ow-line)" };
+  return (
+    <div className="grid grid-cols-3 px-4 pt-0.5 pb-3.5" style={{ borderBottom: "1px solid var(--ow-line)" }}>
+      <HeroCell size="lg" label={t("plan.hero.distance")} value={num1(passage.distance_nm)} unit="nm" />
+      <div className="pl-3.5" style={divider}>
+        <HeroCell size="lg" label={t("plan.hero.duration")} value={fmtDurationSafe(passage.duration_h)} />
+      </div>
+      <div className="pl-3.5" style={divider}>
+        <HeroCell size="lg" tone="accent" label={t("plan.hero.arrival")} value={fmtClock(passage.arrival_time)} />
+      </div>
+    </div>
+  );
+}
+
 // ── Warn ──────────────────────────────────────────────────────────────────────
 // Single-line warning row matching the design's "Warn" component (alert icon
 // + soft warn background).
@@ -358,59 +388,78 @@ export function Warn({ children }: { children: React.ReactNode }) {
 
 // ── RecapButton ───────────────────────────────────────────────────────────────
 // Compact summary of the active form (departure time / archetype) with a
-// "Modifier" affordance. Click toggles the inline editor below.
+// "Modifier" affordance. Click toggles the inline editor below. `trailing`
+// is a control of its own, past a divider, outside the button (a button
+// cannot nest one): the trash of a filled view lives there, so it stays
+// reachable however low the mobile drawer sits. The two texts wrap as a
+// unit: when the row is tight the boat drops under the date whole, rather
+// than each label breaking mid-word.
 
 export function RecapButton({
   primary,
   secondary,
   isOpen,
   onClick,
+  trailing,
 }: {
   primary: string;
   secondary: string;
   isOpen: boolean;
   onClick: () => void;
+  trailing?: React.ReactNode;
 }) {
   const { t } = useT();
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full flex items-center gap-2.5 px-4 py-2.5 transition-colors"
+    <div
+      className="flex items-stretch"
       style={{
         background: "var(--ow-bg-2)",
         borderTop: "1px solid var(--ow-line)",
         borderBottom: "1px solid var(--ow-line)",
-        textAlign: "left",
       }}
-      aria-expanded={isOpen}
     >
-      <span
-        className="text-xs font-bold tabular-nums"
-        style={{ color: "var(--ow-fg-0)", fontFamily: "var(--ow-font-mono)" }}
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex-1 min-w-0 flex items-center gap-2.5 px-4 py-2.5 transition-colors"
+        style={{ textAlign: "left" }}
+        aria-expanded={isOpen}
       >
-        {primary}
-      </span>
-      <span className="text-[10px]" style={{ color: "var(--ow-fg-3)" }}>·</span>
-      <span className="text-[11px] font-medium" style={{ color: "var(--ow-fg-1)" }}>
-        {secondary}
-      </span>
-      <span className="ml-auto flex items-center gap-1 text-[10px] font-semibold" style={{ color: "var(--ow-fg-1)" }}>
-        {isOpen ? t("common.close") : t("plan.recap.edit")}
-        <svg
-          width="9"
-          height="9"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 150ms ease" }}
-        >
-          <path d="M3 6l5 5 5-5" />
-        </svg>
-      </span>
-    </button>
+        <span className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <span
+            className="text-xs font-bold tabular-nums"
+            style={{ color: "var(--ow-fg-0)", fontFamily: "var(--ow-font-mono)" }}
+          >
+            {primary}
+          </span>
+          <span className="text-[11px] font-medium" style={{ color: "var(--ow-fg-1)" }}>
+            <span className="text-[10px] mr-2" style={{ color: "var(--ow-fg-3)" }}>·</span>
+            {secondary}
+          </span>
+        </span>
+        <span className="shrink-0 flex items-center gap-1 text-[10px] font-semibold" style={{ color: "var(--ow-fg-1)" }}>
+          {isOpen ? t("common.close") : t("plan.recap.edit")}
+          <svg
+            width="9"
+            height="9"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 150ms ease" }}
+          >
+            <path d="M3 6l5 5 5-5" />
+          </svg>
+        </span>
+      </button>
+      {trailing && (
+        <div className="shrink-0 flex items-center gap-2.5 pr-3">
+          <span aria-hidden="true" className="block w-px h-5" style={{ background: "var(--ow-line-2)" }} />
+          {trailing}
+        </div>
+      )}
+    </div>
   );
 }

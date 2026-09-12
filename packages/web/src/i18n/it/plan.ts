@@ -15,7 +15,6 @@ export const plan: Record<keyof typeof frPlan, string> = {
   "plan.hero.distance": "Distanza",
   "plan.hero.duration": "Durata",
   "plan.hero.arrival": "Arrivo",
-  "plan.hero.openDetail": "Vedere il dettaglio della traversata",
 
   // ── Segment bar, under the totals ─────────────────────────────────────────
   "plan.segmentBar.groupLabel": "Tappe della traversata, un clic apre la tappa",
