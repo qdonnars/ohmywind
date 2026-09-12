@@ -3,11 +3,14 @@
 *Diese Seite ist eine Übersetzung. Maßgeblich ist im Fall von Abweichungen die
 französische Fassung ([/confidentialite](/confidentialite)).*
 
-*Letzte Aktualisierung: 2. September 2026*
+*Letzte Aktualisierung: 12. September 2026*
 
 OhMyWind ist ein quelloffener Planer für Segeltörns, verfügbar unter
-[ohmywind.fr](https://ohmywind.fr) und als Android-Anwendung. Herausgegeben wird er
-privat und nicht gewerblich von Tinqueen. Bei Fragen zu dieser Erklärung:
+[ohmywind.fr](https://ohmywind.fr) und als Android-Anwendung. Verantwortlicher für die
+Verarbeitung ist der Verein Libramer (Verein ohne Erwerbszweck nach dem französischen
+Vereinsgesetz von 1901, RNA W751285736) mit Sitz in 51 rue Fondary, 75015 Paris,
+Frankreich. Die Android-Anwendung wird von Quentin Donnars herausgegeben und über
+Google Play vertrieben. Bei Fragen zu dieser Erklärung:
 [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 Der Grundsatz: **OhMyWind hat weder Benutzerkonten noch eine Datenbank noch ein
@@ -34,12 +37,13 @@ Einstellungen Ihres Browsers oder von Android widerrufbar.
 ### Törnpläne und Einstellungen
 
 Ihre Wegpunkte, Bootspolaren und Einstellungen werden **lokal auf Ihrem Gerät**
-gespeichert (lokaler Speicher des Browsers oder der Anwendung). Sie verlassen Ihr Gerät
-nur dann, wenn Sie eine Passageberechnung starten: Die Koordinaten der Wegpunkte werden
-dann an das OhMyWind-Backend (gehostet bei Hugging Face) gesendet, um die Berechnung
-durchzuführen, im Arbeitsspeicher verarbeitet und anschließend vergessen. Das Löschen
-der Website-Daten in Ihrem Browser (oder der Anwendungsdaten unter Android) entfernt
-alles.
+gespeichert (lokaler Speicher des Browsers oder der Anwendung). Nur die Koordinaten der
+Wegpunkte verlassen Ihr Gerät: Sobald ein Wegpunkt auf der Planerkarte gesetzt wird,
+werden sie an EMODnet gesendet, um die Wassertiefe anzuzeigen; wenn Sie eine
+Passageberechnung starten, werden sie an das OhMyWind-Backend (gehostet bei Hugging
+Face) gesendet, um die Berechnung durchzuführen, im Arbeitsspeicher verarbeitet und
+anschließend vergessen. Das Löschen der Website-Daten in Ihrem Browser (oder der
+Anwendungsdaten unter Android) entfernt alles.
 
 ## Drittdienste
 
@@ -54,6 +58,8 @@ nennt die darüber hinaus übermittelten Anwendungsdaten.
 | [Nominatim / OpenStreetMap](https://osmfoundation.org/wiki/Privacy_Policy) | Geografische Koordinaten | Umgekehrte Geokodierung (angezeigter Ortsname) |
 | [Photon (Komoot)](https://photon.komoot.io) | Text Ihrer Ortssuchen | Ortssuche |
 | [OpenFreeMap](https://openfreemap.org/privacy/) | Angezeigter Kartenausschnitt | Kartenhintergründe (Kacheln) |
+| [OpenSeaMap](https://www.openseamap.org/index.php?id=imprint) | Angezeigter Kartenausschnitt, wenn die Seezeichen-Ebene aktiv ist | Seezeichen-Overlay (Tonnen, Baken, Leuchttürme) |
+| [EMODnet Bathymetry](https://emodnet.ec.europa.eu/en/privacy-statement) | Koordinaten Ihrer Wegpunkte | Wassertiefe unter jedem Wegpunkt |
 | [Ko-fi](https://more.ko-fi.com/privacy) | Nichts, außer wenn Sie bewusst auf den Unterstützungslink klicken | Spenden |
 
 Diese Dienste sind unabhängige technische Auftragsverarbeiter und unterliegen ihren

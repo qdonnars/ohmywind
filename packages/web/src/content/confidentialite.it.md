@@ -3,12 +3,15 @@
 *Questa pagina è una traduzione. In caso di discordanza fa fede la versione francese
 ([/confidentialite](/confidentialite)).*
 
-*Ultimo aggiornamento: 2 settembre 2026*
+*Ultimo aggiornamento: 12 settembre 2026*
 
 OhMyWind è un pianificatore di navigazione a vela open source, disponibile su
-[ohmywind.fr](https://ohmywind.fr) e sotto forma di applicazione Android. È pubblicato
-a titolo personale e non commerciale da Tinqueen. Per qualsiasi domanda relativa alla
-presente informativa: [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
+[ohmywind.fr](https://ohmywind.fr) e sotto forma di applicazione Android. Il titolare
+del trattamento è l'associazione Libramer (associazione senza scopo di lucro di diritto
+francese, legge del 1901, RNA W751285736), con sede legale in 51 rue Fondary, 75015
+Parigi, Francia. L'applicazione Android è pubblicata e distribuita su Google Play da
+Quentin Donnars. Per qualsiasi domanda relativa alla presente informativa:
+[contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 Il principio generale: **OhMyWind non ha account utente, né banca dati, né strumenti di
 misurazione del pubblico**. Nessun dato personale è conservato su server OhMyWind.
@@ -35,10 +38,12 @@ impostazioni del browser o di Android.
 
 I punti di passaggio, le polari della barca e le preferenze sono memorizzati
 **localmente sul dispositivo** (archiviazione locale del browser o dell'applicazione).
-Escono dal dispositivo soltanto quando si avvia una stima di traversata: le coordinate
-dei punti di passaggio vengono allora inviate al backend OhMyWind (ospitato su Hugging
-Face) per eseguire il calcolo, trattate in memoria e poi dimenticate. Cancellare i dati
-del sito nel browser (o i dati dell'applicazione in Android) elimina tutto.
+Soltanto le coordinate dei punti di passaggio escono dal dispositivo: non appena un
+punto viene posato sulla mappa del pianificatore, vengono inviate a EMODnet per
+mostrare il fondale; quando si avvia una stima di traversata, vengono inviate al
+backend OhMyWind (ospitato su Hugging Face) per eseguire il calcolo, trattate in
+memoria e poi dimenticate. Cancellare i dati del sito nel browser (o i dati
+dell'applicazione in Android) elimina tutto.
 
 ## Servizi terzi
 
@@ -53,6 +58,8 @@ indica i dati applicativi trasmessi in aggiunta.
 | [Nominatim / OpenStreetMap](https://osmfoundation.org/wiki/Privacy_Policy) | Coordinate geografiche | Geocodifica inversa (nome del luogo visualizzato) |
 | [Photon (Komoot)](https://photon.komoot.io) | Testo delle ricerche di luoghi | Ricerca di luoghi |
 | [OpenFreeMap](https://openfreemap.org/privacy/) | Area di mappa visualizzata | Sfondi cartografici (tasselli) |
+| [OpenSeaMap](https://www.openseamap.org/index.php?id=imprint) | Area di mappa visualizzata, quando il livello dei segnalamenti è attivo | Segnalamenti marittimi in sovrapposizione (boe, mede, fari) |
+| [EMODnet Bathymetry](https://emodnet.ec.europa.eu/en/privacy-statement) | Coordinate dei punti di passaggio | Fondale (profondità) sotto ogni punto di passaggio |
 | [Ko-fi](https://more.ko-fi.com/privacy) | Nulla, salvo che si scelga di cliccare sul link di sostegno | Donazioni |
 
 Questi servizi sono responsabili del trattamento tecnici e indipendenti, disciplinati
