@@ -7,11 +7,11 @@ import { computeLegSegmentRanges, focusedSegmentIndex } from "../aggregateLegs";
 import { TimeAnchorToggle } from "../ModeToggle";
 import { Warn, RecapButton, HeroStats } from "../PlanStates";
 import { usePlan } from "../session/planContext";
-import { PlanHeaderRow } from "./PlanHeaderRow";
+import { PlanHeaderRow, ResetButton } from "./PlanHeaderRow";
 import { DepartureSlider } from "./DepartureSlider";
 import { ArchetypeSelector } from "./ArchetypeSelector";
 import { LegList } from "./LegList";
-import { RecomputeBar, ResultsAnchor, StalePlaceholder } from "./parts";
+import { RecomputeButton, ResultsAnchor, StalePlaceholder } from "./parts";
 import { capitalise, fmtClock, fmtDay } from "../../domain/datetime";
 import { useT } from "../../i18n";
 
@@ -61,20 +61,27 @@ export function SingleResults({
 
   return (
     <div className="animate-fade-in">
+      {/* Mode pills on one line, Recalculer as the icon flush right: the
+          row scrolls away above the results on mobile, so it is kept to
+          one line. Filled in accent once the route was edited. */}
       <div className="px-4 pt-4 pb-3" style={{ borderBottom: "1px solid var(--ow-line)" }}>
-        <PlanHeaderRow />
+        <PlanHeaderRow
+          compact
+          action={
+            <RecomputeButton
+              onClick={compute}
+              style={{
+                background: isStale ? "var(--ow-accent)" : "var(--ow-bg-2)",
+                color: isStale ? "var(--ow-on-accent)" : "var(--ow-fg-1)",
+                border: `1px solid ${isStale ? "transparent" : "var(--ow-line)"}`,
+              }}
+            />
+          }
+        />
       </div>
 
-      <RecomputeBar
-        onClick={compute}
-        style={{
-          background: isStale ? "var(--ow-accent)" : "var(--ow-bg-2)",
-          color: isStale ? "var(--ow-on-accent)" : "var(--ow-fg-1)",
-          border: `1px solid ${isStale ? "transparent" : "var(--ow-line)"}`,
-        }}
-      />
-
-      {/* Récap compact: click to edit departure / archetype inline. */}
+      {/* Récap compact: click to edit departure / archetype inline. The
+          trash sits at its end, the row the drawer opens on. */}
       <ResultsAnchor />
       <RecapButton
         primary={t(
@@ -86,6 +93,7 @@ export function SingleResults({
         secondary={boatLabel}
         isOpen={isEditingParams}
         onClick={() => setIsEditingParams((v) => !v)}
+        trailing={<ResetButton danger />}
       />
       {isEditingParams && (
         <div className="px-4 py-3 space-y-3" style={{ borderBottom: "1px solid var(--ow-line)", background: "var(--ow-bg-2)" }}>

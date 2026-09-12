@@ -15,8 +15,13 @@ export function RefreshIcon({ size }: { size: number }) {
   );
 }
 
-/** The compact recompute strip above the results of a filled view. */
-export function RecomputeBar({
+/** The recompute control of a filled view: an icon button flush right of
+    the mode pills (PlanHeaderRow `action`), the width of the trash it
+    replaces there. The caller colours it: filled in the mode's accent when
+    a recompute is due, muted otherwise, so a fresh result does not invite a
+    needless call. It used to be a full-width strip of its own; the row it
+    took is the design's "rangée des modes compacte". */
+export function RecomputeButton({
   onClick,
   disabled,
   style,
@@ -27,17 +32,17 @@ export function RecomputeBar({
 }) {
   const { t } = useT();
   return (
-    <div className="px-4 py-2.5" style={{ borderBottom: "1px solid var(--ow-line)" }}>
-      <button
-        onClick={onClick}
-        disabled={disabled}
-        className="w-full flex items-center justify-center gap-2 rounded-md py-1.5 text-xs font-semibold transition-all"
-        style={style}
-      >
-        <RefreshIcon size={11} />
-        {t("panel.parts.recompute")}
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={t("panel.parts.recompute")}
+      aria-label={t("panel.parts.recompute")}
+      className="shrink-0 flex items-center justify-center rounded-lg transition-all"
+      style={{ width: 38, ...style }}
+    >
+      <RefreshIcon size={13} />
+    </button>
   );
 }
 
