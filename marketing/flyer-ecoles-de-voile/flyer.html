@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>OhMyWind · flyer A5 écoles de voile</title>
+<!--
+  SPDX-FileCopyrightText: 2026 Quentin Donnars
+  Support de communication OhMyWind : nom, logo et identité visuelle relèvent
+  de TRADEMARK.md, pas de la licence du code.
+
+  Flyer A5 (148 × 210 mm), recto seul, fond blanc : il se tire sur n'importe
+  quelle imprimante de bureau sans bord perdu. Tout le contenu tient dans une
+  marge de sécurité de 7 mm.
+
+  Ouvert tel quel : une page A5.
+  Ouvert avec ?sheet=a4 : deux exemplaires côte à côte sur un A4 paysage,
+  avec la ligne de coupe au milieu. C'est ce que build.sh imprime en PDF.
+
+  Les polices sont celles du site (Inter, JetBrains Mono), lues directement
+  dans packages/web : le flyer reste dans l'identité de l'app sans dupliquer
+  les fichiers.
+-->
+<style>
+  @font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 400 800;
+    src: url('../../packages/web/src/assets/fonts/inter-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 400 800;
+    src: url('../../packages/web/src/assets/fonts/inter-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+  @font-face {
+    font-family: 'JetBrains Mono';
+    font-style: normal;
+    font-weight: 400 500;
+    src: url('../../packages/web/src/assets/fonts/jetbrains-mono-latin.woff2') format('woff2');
+  }
+
+  /* Couleurs du site (packages/web/src/design/tokens.css). Le teal clair
+     #2dd4bf ne tient pas sur blanc : sur fond clair on prend le teal du thème
+     clair, #0f766e, comme l'app. */
+  :root {
+    --navy: #030712;
+    --navy-2: #0d1117;
+    --ink: #0d1117;
+    --ink-2: #3a4250;
+    --ink-3: #6b7280;
+    --teal: #2dd4bf;
+    --teal-deep: #0f766e;
+    --teal-soft: rgba(15, 118, 110, 0.10);
+    --paper: #ffffff;
+    --paper-2: #f4f6fb;
+    --line: rgba(0, 0, 0, 0.10);
+    --w-3: #2dc97a;
+    --w-4: #e8c432;
+    --w-5: #e87a18;
+  }
+
+  @page { size: 148mm 210mm; margin: 0; }
+
+  html, body { margin: 0; padding: 0; background: var(--paper); }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    color: var(--ink);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'ss01', 'cv11';
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  p, h1, h2, h3, ul { margin: 0; }
+
+  /* ---- La feuille ------------------------------------------------------ */
+  .sheet { display: flex; width: 148mm; height: 210mm; }
+  html[data-sheet="a4"] .sheet { width: 297mm; height: 210mm; position: relative; }
+  html[data-sheet="a4"] .flyer { width: 148.5mm; }
+  /* Ligne de coupe : un pointillé fin d'un bord à l'autre, dans la marge
+     blanche des deux flyers, plus deux repères pleins en tête et en pied. */
+  html[data-sheet="a4"] .sheet::before {
+    content: '';
+    position: absolute;
+    left: calc(148.5mm - 0.15mm);
+    top: 0;
+    width: 0.3mm;
+    height: 100%;
+    z-index: 3;
+    background: repeating-linear-gradient(to bottom, #b4bac6 0 1.2mm, transparent 1.2mm 2.6mm);
+  }
+  html[data-sheet="a4"] .sheet::after {
+    content: '';
+    position: absolute;
+    left: calc(148.5mm - 0.2mm);
+    top: 0;
+    width: 0.4mm;
+    height: 100%;
+    z-index: 3;
+    background: linear-gradient(to bottom, #6b7280 0 5mm, transparent 5mm calc(100% - 5mm), #6b7280 calc(100% - 5mm) 100%);
+  }
+
+  /* ---- Le flyer -------------------------------------------------------- */
+  .flyer {
+    position: relative;
+    width: 148mm;
+    height: 210mm;
+    padding: 7mm;
+    overflow: hidden;
+    background: var(--paper);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Bandeau : le fond du site, encadré et non à fond perdu. */
+  .hero {
+    position: relative;
+    background: var(--navy);
+    color: #fff;
+    border-radius: 3.5mm;
+    padding: 5.5mm 6mm 6mm;
+    height: 70mm;
+    overflow: hidden;
+  }
+  /* Une lueur teal dans l'angle, comme la carte de nuit sous le vent. */
+  .hero::after {
+    content: '';
+    position: absolute;
+    right: -20mm;
+    top: -25mm;
+    width: 75mm;
+    height: 75mm;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(45, 212, 191, 0.22), rgba(45, 212, 191, 0));
+    pointer-events: none;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 2.4mm;
+    height: 8mm;
+  }
+  .brand svg { width: 8mm; height: 8mm; flex: none; }
+  .brand .name {
+    font-weight: 700;
+    font-size: 15.5pt;
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
+  .brand .name b { color: var(--teal); font-weight: 700; }
+  .hero h1 {
+    margin-top: 9mm;
+    font-weight: 800;
+    font-size: 22pt;
+    line-height: 1.04;
+    letter-spacing: -0.025em;
+    max-width: 78mm;
+  }
+  .hero h1 em { font-style: normal; color: var(--teal); }
+  .hero .lead {
+    margin-top: 4.5mm;
+    max-width: 76mm;
+    font-size: 9.2pt;
+    line-height: 1.38;
+    color: #b9c2d2;
+  }
+  .hero .lead strong { color: #fff; font-weight: 600; }
+
+  /* Le téléphone déborde du bandeau sur la page blanche. */
+  .phone {
+    position: absolute;
+    top: 14mm;
+    right: 11mm;
+    width: 45mm;
+    padding: 1.3mm;
+    border-radius: 5.2mm;
+    background: var(--navy-2);
+    box-shadow: 0 3mm 8mm rgba(3, 7, 18, 0.32), 0 0.4mm 1mm rgba(3, 7, 18, 0.35);
+    z-index: 2;
+  }
+  .phone img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 9 / 16;
+    object-fit: cover;
+    border-radius: 4mm;
+    background: #fff;
+  }
+
+  /* ---- Les quatre promesses ----------------------------------------- */
+  .features {
+    margin-top: 5.5mm;
+    flex: 1 1 auto;
+  }
+  /* Le bas du téléphone, en réserve : les premiers paragraphes s'écoulent à
+     gauche, les suivants reprennent toute la largeur. */
+  .phone-space {
+    float: right;
+    width: 52mm;
+    height: 12mm;
+  }
+  .feature {
+    display: flex;
+    gap: 3.2mm;
+    align-items: flex-start;
+    margin-bottom: 3.6mm;
+    break-inside: avoid;
+  }
+  .feature:last-child { margin-bottom: 0; }
+  .feature .ico {
+    flex: none;
+    width: 8.4mm;
+    height: 8.4mm;
+    border-radius: 50%;
+    background: var(--teal-soft);
+    display: grid;
+    place-items: center;
+    margin-top: 0.2mm;
+  }
+  .feature .ico svg { width: 5mm; height: 5mm; color: var(--teal-deep); }
+  .feature h2 {
+    font-size: 10.2pt;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+  }
+  .feature p {
+    margin-top: 1mm;
+    font-size: 8.3pt;
+    line-height: 1.36;
+    color: var(--ink-2);
+  }
+  .feature p b { color: var(--ink); font-weight: 600; }
+
+  /* ---- L'appel : QR + adresse -------------------------------------- */
+  .cta {
+    margin-top: 4.5mm;
+    display: flex;
+    align-items: center;
+    gap: 4.5mm;
+    padding: 4mm 4.5mm 4mm 4mm;
+    border-radius: 3.5mm;
+    background: var(--paper-2);
+    border: 0.3mm solid var(--line);
+  }
+  .qr {
+    flex: none;
+    width: 30mm;
+    height: 30mm;
+    padding: 2mm;             /* zone de silence, blanche */
+    background: #fff;
+    border-radius: 2mm;
+    border: 0.3mm solid var(--line);
+  }
+  .qr img { display: block; width: 100%; height: 100%; }
+  .cta .url {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: 19pt;
+    letter-spacing: -0.02em;
+    color: var(--teal-deep);
+    line-height: 1;
+  }
+  .cta .how {
+    margin-top: 2mm;
+    font-size: 8.4pt;
+    line-height: 1.36;
+    color: var(--ink-2);
+  }
+  .chips {
+    margin-top: 2.6mm;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.2mm;
+    list-style: none;
+    padding: 0;
+  }
+  .chips li {
+    font-size: 6.4pt;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--teal-deep);
+    background: #fff;
+    border: 0.3mm solid rgba(15, 118, 110, 0.35);
+    border-radius: 99px;
+    padding: 0.7mm 1.6mm;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  /* ---- Mentions --------------------------------------------------- */
+  .fine {
+    margin-top: 3.4mm;
+    font-size: 6.3pt;
+    line-height: 1.38;
+    color: var(--ink-3);
+  }
+  .fine p + p { margin-top: 0.8mm; }
+  .fine b { color: var(--ink-2); font-weight: 600; }
+
+  /* Écran : on centre la feuille sur un fond gris pour la relecture. */
+  @media screen {
+    body { background: #d9dde5; padding: 12mm; }
+    .sheet { margin: 0 auto; box-shadow: 0 4mm 14mm rgba(0, 0, 0, 0.18); }
+    /* ?screen=raw : la feuille seule, bord à bord, pour les aperçus PNG. */
+    html[data-raw] body { background: #fff; padding: 0; }
+    html[data-raw] .sheet { margin: 0; box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+<article class="flyer">
+
+  <header class="hero">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#2dd4bf" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/>
+        <path d="M9.6 4.6A2 2 0 1 1 11 8H2"/>
+        <path d="M12.6 19.4A2 2 0 1 0 14 16H2"/>
+      </svg>
+      <span class="name">Oh<b>My</b>Wind</span>
+    </div>
+
+    <h1>Combien de nœuds<br>demain&#8239;<em>?</em></h1>
+    <p class="lead">
+      <strong>Vent, vagues, marées et courants</strong>, heure par heure,
+      de la Manche à la Méditerranée. Une météo marine lisible, gratuite,
+      sans compte.
+    </p>
+  </header>
+
+  <aside class="phone" aria-label="Aperçu de l'application">
+    <img src="assets/capture-previsions-fr.png" alt="OhMyWind sur téléphone : la carte, les flèches de vent des quatre modèles et le tableau des prévisions heure par heure.">
+  </aside>
+
+  <section class="features">
+    <div class="phone-space" aria-hidden="true"></div>
+
+    <div class="feature">
+      <span class="ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/>
+          <path d="M9.6 4.6A2 2 0 1 1 11 8H2"/>
+          <path d="M12.6 19.4A2 2 0 1 0 14 16H2"/>
+        </svg>
+      </span>
+      <div>
+        <h2>Le vent, heure par heure</h2>
+        <p>Quatre modèles côte à côte, dont <b>AROME à 1,3 km</b>, celui qui voit les brises thermiques. En nœuds, avec les rafales et la direction.</p>
+      </div>
+    </div>
+
+    <div class="feature">
+      <span class="ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 7c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/>
+          <path d="M2 12c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/>
+          <path d="M2 17c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/>
+        </svg>
+      </span>
+      <div>
+        <h2>Vagues, marées et courants</h2>
+        <p>Hauteur et période de la mer, hauteur d'eau, courants de marée. Sur les passes de l'Atlantique, <b>les atlas du SHOM</b> prennent le relais.</p>
+      </div>
+    </div>
+
+    <div class="feature">
+      <span class="ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="5" cy="19" r="2.2"/>
+          <path d="M6.6 17.4C9 14 12 15 13.5 11.5S16 6 18 5"/>
+          <path d="M18 3v8"/>
+          <path d="M18 3h4l-1.3 2L22 7h-4"/>
+        </svg>
+      </span>
+      <div>
+        <h2>Votre sortie, simulée</h2>
+        <p>Tracez la route, choisissez le bateau&#8239;: <b>distance, durée, heure d'arrivée</b> et une note de difficulté de 1 à 5, tronçon par tronçon.</p>
+      </div>
+    </div>
+
+    <div class="feature">
+      <span class="ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="7.5" height="16" rx="1.5"/>
+          <rect x="13.5" y="4" width="7.5" height="16" rx="1.5"/>
+          <path d="M5.5 9h2.5M5.5 12.5h2.5M16 9h2.5M16 12.5h2.5M16 16h2.5"/>
+        </svg>
+      </span>
+      <div>
+        <h2>Vos spots, comparés</h2>
+        <p>Vos plans d'eau favoris côte à côte, pour décider <b>où naviguer ce week-end</b>. Pratique avant une séance, une régate ou une sortie club.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="qr">
+      <img src="assets/qr-ohmywind.svg" alt="QR code vers ohmywind.fr">
+    </div>
+    <div>
+      <div class="url">ohmywind.fr</div>
+      <p class="how">Scannez, c'est tout. Rien à installer&#8239;: ça tourne dans le navigateur, sur téléphone comme sur ordinateur. Ajoutez la page à l'écran d'accueil pour la retrouver comme une app.</p>
+      <ul class="chips">
+        <li>Gratuit</li>
+        <li>Sans compte</li>
+        <li>Sans pub</li>
+        <li>Sans traqueur</li>
+        <li>Open source</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer class="fine">
+    <p><b>Aide à la décision, pas un instrument de navigation.</b> OhMyWind ne remplace ni le bulletin météo marine officiel, ni des cartes à jour, ni votre jugement de chef de bord. Les modèles se trompent parfois&#8239;: vous restez responsable de votre navigation.</p>
+    <p>Projet libre (AGPL-3.0) porté par l'association Libramer · contact@ohmywind.fr · Données Open-Meteo, SHOM, MARC · Fond de carte © les contributeurs OpenStreetMap.</p>
+  </footer>
+
+</article>
+</div>
+
+<script>
+  const params = new URLSearchParams(location.search);
+  if (params.get('screen') === 'raw') document.documentElement.dataset.raw = '';
+  // ?sheet=a4 : deux exemplaires côte à côte, format A4 paysage.
+  if (params.get('sheet') === 'a4') {
+    document.documentElement.dataset.sheet = 'a4';
+    const flyer = document.querySelector('.flyer');
+    flyer.after(flyer.cloneNode(true));
+    const page = document.createElement('style');
+    page.textContent = '@page { size: 297mm 210mm; margin: 0; }';
+    document.head.append(page);
+  }
+</script>
+</body>
+</html>
