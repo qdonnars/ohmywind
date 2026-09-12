@@ -14,9 +14,10 @@ Les brouillons d'audit et de wording plus anciens restent dans
 ## Flyer A5 écoles de voile
 
 Un recto A5, fond blanc, conçu pour l'imprimante de bureau : aucun bord perdu,
-tout le contenu tient dans une marge de sécurité de 7 mm. Le fichier principal
-est la version **A4 paysage avec deux exemplaires côte à côte**, avec la ligne
-de coupe au milieu.
+tout le contenu tient dans une marge de sécurité de 6 mm. Le fichier principal
+est la version **A4 paysage avec deux exemplaires côte à côte**, avec deux
+repères de coupe dans la marge (rien au milieu, pour ne rien laisser sur le
+bord une fois coupé).
 
 ### Imprimer
 
@@ -24,8 +25,8 @@ de coupe au milieu.
 2. Papier A4, orientation paysage, **échelle 100 % (taille réelle)**, pas de
    « ajuster à la page ». Un papier un peu épais (120 à 160 g) tient mieux sur
    un présentoir.
-3. Couper au massicot ou aux ciseaux sur le pointillé central : deux flyers de
-   148 × 210 mm.
+3. Plier la feuille en deux ou aligner les deux repères, et couper au massicot
+   ou aux ciseaux : deux flyers de 148 × 210 mm.
 
 Pour un imprimeur qui veut un fichier à l'unité, `pdf/flyer-a5.pdf` est le même
 flyer au format A5 seul.
@@ -55,15 +56,32 @@ tous deux versionnés pour que le flyer soit récupérable sans rien construire.
 
 ### Ressources
 
-- `assets/capture-previsions-fr.png` : capture 1080 × 1920 de la page
-  Explorer sur dev.ohmywind.fr, thème clair, en français, du 12 septembre
-  2026. À rafraîchir quand l'interface bouge : Chrome piloté (DevTools MCP),
-  viewport 360 × 640 en ×3 mobile et tactile, `colorScheme: light`, avec dans
-  le localStorage `ow_lang=fr`, `ohmywind:onboarding-v1=done` et
-  `ow_last_spot_v1` sur le spot voulu, puis capture de `/?center=lat,lon&zoom=N`.
+Captures prises sur dev.ohmywind.fr le 12 septembre 2026, thème clair, en
+français, avec Chrome piloté (DevTools MCP) et `colorScheme: light`. Dans le
+localStorage avant navigation : `ow_lang=fr`, `ohmywind:onboarding-v1=done`,
+et `ow_last_simulation_v1` supprimé (sinon `/plan` rouvre le formulaire au lieu
+de calculer le deep-link). Ce Chrome n'a pas de police emoji : injecter la
+webfont Noto Color Emoji en repli de `--ow-font-ui` avant la capture.
+
+- `assets/capture-previsions-fr.png` : téléphone, 1080 × 2340 (viewport
+  360 × 780 en ×3, mobile et tactile), page Explorer sur la passe des Grottes
+  (`/?center=43.02,6.17&zoom=11` avec `ow_last_spot_v1` sur ce point).
+- `assets/capture-plan-ipad-fr.png` : tablette en paysage, 2360 × 1640
+  (viewport 1180 × 820 en ×2, tactile), page Planifier Saint-Malo vers Chausey
+  (`/plan?wpts=48.66,-2.02;48.72,-1.95;48.87,-1.83&departure=2026-09-15T10:00`).
+  Choisir une route et une heure sans avertissement : ils sont générés en
+  français côté serveur et s'affichent tels quels ; sonder `POST
+  /api/v1/passage` sur le Space dev jusqu'à ce que `passage.warnings` et
+  `complexity.warnings` soient vides.
 - `assets/qr-ohmywind.svg` : QR code vers `https://ohmywind.fr`, version 2,
-  correction M. Il est vérifié décodable sur l'aperçu rendu. À refaire si
-  l'adresse change (commande en tête de `build.sh`).
+  correction M. `assets/qr-google-play.svg` : QR code vers la fiche Google
+  Play (`fr.ohmywind.app`), version 4, correction M. Les deux sont vérifiés
+  décodables sur l'aperçu rendu. À refaire si une adresse change (commande en
+  tête de `build.sh`).
+- `assets/google-play-badge-fr.png` : badge officiel « Disponible sur Google
+  Play », en français, tel que fourni par Google. Ne pas le modifier, garder
+  sa zone de dégagement, et la mention « Google Play est une marque de Google
+  LLC » dans le pied.
 
 ### Mentions obligatoires
 
@@ -77,8 +95,15 @@ Le pied du flyer porte, et doit garder :
 
 Le nom et le logo restent couverts par la [politique de marque](../TRADEMARK.md).
 
+### Règles de copy propres au flyer
+
+- Ne jamais promettre l'absence de publicité : le projet souhaite ne pas en
+  mettre, il ne s'y engage pas. Les pastilles se limitent à gratuit, sans
+  compte, sans traqueur, open source.
+- iPhone : l'App Store est annoncé comme « à venir, avec plus de soutiens et
+  d'utilisateurs », sans date.
+
 ### À faire plus tard
 
-- Ajouter le badge Google Play quand la fiche de l'app Android sera publique.
 - Décliner en anglais si un club accueille beaucoup d'étrangers (l'app est
   déjà traduite en cinq langues).

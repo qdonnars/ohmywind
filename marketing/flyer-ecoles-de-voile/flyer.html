@@ -10,11 +10,11 @@
 
   Flyer A5 (148 × 210 mm), recto seul, fond blanc : il se tire sur n'importe
   quelle imprimante de bureau sans bord perdu. Tout le contenu tient dans une
-  marge de sécurité de 7 mm.
+  marge de sécurité de 6 mm.
 
   Ouvert tel quel : une page A5.
   Ouvert avec ?sheet=a4 : deux exemplaires côte à côte sur un A4 paysage,
-  avec la ligne de coupe au milieu. C'est ce que build.sh imprime en PDF.
+  avec deux repères de coupe dans la marge. C'est ce que build.sh imprime.
 
   Les polices sont celles du site (Inter, JetBrains Mono), lues directement
   dans packages/web : le flyer reste dans l'identité de l'app sans dupliquer
@@ -57,9 +57,6 @@
     --paper: #ffffff;
     --paper-2: #f4f6fb;
     --line: rgba(0, 0, 0, 0.10);
-    --w-3: #2dc97a;
-    --w-4: #e8c432;
-    --w-5: #e87a18;
   }
 
   @page { size: 148mm 210mm; margin: 0; }
@@ -80,9 +77,9 @@
   .sheet { display: flex; width: 148mm; height: 210mm; }
   html[data-sheet="a4"] .sheet { width: 297mm; height: 210mm; position: relative; }
   html[data-sheet="a4"] .flyer { width: 148.5mm; }
-  /* Ligne de coupe : un pointillé fin d'un bord à l'autre, dans la marge
-     blanche des deux flyers, plus deux repères pleins en tête et en pied. */
-  html[data-sheet="a4"] .sheet::before {
+  /* Repères de coupe : deux traits de 5 mm dans la marge, en tête et en pied.
+     Rien entre les deux, pour ne rien laisser sur le bord après la coupe. */
+  html[data-sheet="a4"] .sheet::after {
     content: '';
     position: absolute;
     left: calc(148.5mm - 0.15mm);
@@ -90,17 +87,7 @@
     width: 0.3mm;
     height: 100%;
     z-index: 3;
-    background: repeating-linear-gradient(to bottom, #b4bac6 0 1.2mm, transparent 1.2mm 2.6mm);
-  }
-  html[data-sheet="a4"] .sheet::after {
-    content: '';
-    position: absolute;
-    left: calc(148.5mm - 0.2mm);
-    top: 0;
-    width: 0.4mm;
-    height: 100%;
-    z-index: 3;
-    background: linear-gradient(to bottom, #6b7280 0 5mm, transparent 5mm calc(100% - 5mm), #6b7280 calc(100% - 5mm) 100%);
+    background: linear-gradient(to bottom, #9aa1ad 0 5mm, transparent 5mm calc(100% - 5mm), #9aa1ad calc(100% - 5mm) 100%);
   }
 
   /* ---- Le flyer -------------------------------------------------------- */
@@ -108,31 +95,32 @@
     position: relative;
     width: 148mm;
     height: 210mm;
-    padding: 7mm;
+    padding: 6mm;
     overflow: hidden;
     background: var(--paper);
     display: flex;
     flex-direction: column;
   }
 
-  /* Bandeau : le fond du site, encadré et non à fond perdu. */
+  /* Bandeau : le fond du site, encadré et non à fond perdu. Le titre prend
+     toute la largeur, l'accroche reste à gauche, la tablette vient se poser
+     sur la droite et déborde sur la page. */
   .hero {
     position: relative;
     background: var(--navy);
     color: #fff;
     border-radius: 3.5mm;
-    padding: 5.5mm 6mm 6mm;
-    height: 70mm;
+    padding: 5.5mm 6mm 5mm;
+    height: 54mm;
     overflow: hidden;
   }
-  /* Une lueur teal dans l'angle, comme la carte de nuit sous le vent. */
   .hero::after {
     content: '';
     position: absolute;
-    right: -20mm;
-    top: -25mm;
-    width: 75mm;
-    height: 75mm;
+    right: -6mm;
+    top: -8mm;
+    width: 80mm;
+    height: 80mm;
     border-radius: 50%;
     background: radial-gradient(closest-side, rgba(45, 212, 191, 0.22), rgba(45, 212, 191, 0));
     pointer-events: none;
@@ -152,75 +140,85 @@
   }
   .brand .name b { color: var(--teal); font-weight: 700; }
   .hero h1 {
-    margin-top: 9mm;
+    margin-top: 5mm;
     font-weight: 800;
     font-size: 22pt;
     line-height: 1.04;
     letter-spacing: -0.025em;
-    max-width: 78mm;
+    white-space: nowrap;
   }
   .hero h1 em { font-style: normal; color: var(--teal); }
   .hero .lead {
-    margin-top: 4.5mm;
-    max-width: 76mm;
-    font-size: 9.2pt;
-    line-height: 1.38;
+    margin-top: 3.6mm;
+    max-width: 62mm;
+    font-size: 9pt;
+    line-height: 1.36;
     color: #b9c2d2;
   }
   .hero .lead strong { color: #fff; font-weight: 600; }
 
-  /* Le téléphone déborde du bandeau sur la page blanche. */
-  .phone {
+  /* Les deux appareils. Positions dans le repère du flyer (marge comprise) :
+     la tablette naît dans le bandeau et en sort, le téléphone se pose devant
+     son coin bas droit. */
+  .device {
     position: absolute;
-    top: 14mm;
-    right: 11mm;
-    width: 45mm;
-    padding: 1.3mm;
-    border-radius: 5.2mm;
     background: var(--navy-2);
-    box-shadow: 0 3mm 8mm rgba(3, 7, 18, 0.32), 0 0.4mm 1mm rgba(3, 7, 18, 0.35);
-    z-index: 2;
+    box-shadow: 0 3mm 8mm rgba(3, 7, 18, 0.30), 0 0.4mm 1mm rgba(3, 7, 18, 0.35);
   }
-  .phone img {
+  .device img {
     display: block;
     width: 100%;
-    aspect-ratio: 9 / 16;
     object-fit: cover;
-    border-radius: 4mm;
     background: #fff;
   }
+  .tablet {
+    top: 38mm;
+    right: 7mm;
+    width: 64mm;
+    padding: 2.2mm;
+    border-radius: 4.2mm;
+    z-index: 1;
+  }
+  .tablet img { aspect-ratio: 1180 / 820; border-radius: 2.4mm; }
+  .phone {
+    top: 60mm;
+    right: 6.5mm;
+    width: 26mm;
+    padding: 1.1mm;
+    border-radius: 4mm;
+    z-index: 2;
+  }
+  .phone img { aspect-ratio: 9 / 19.5; border-radius: 3.1mm; }
 
   /* ---- Les quatre promesses ----------------------------------------- */
   .features {
-    margin-top: 5.5mm;
+    margin-top: 5mm;
     flex: 1 1 auto;
   }
-  /* Le bas du téléphone, en réserve : les premiers paragraphes s'écoulent à
-     gauche, les suivants reprennent toute la largeur. */
-  .phone-space {
-    float: right;
-    width: 52mm;
-    height: 12mm;
-  }
+  /* Deux réserves à droite, l'une sous l'autre : la tablette, puis le
+     téléphone qui dépasse plus bas mais moins large. Le texte s'écoule à
+     gauche et reprend toute la largeur en dessous. */
+  .space-tablet { float: right; clear: right; width: 68mm; height: 23mm; }
+  .space-phone  { float: right; clear: right; width: 29mm; height: 29mm; }
   .feature {
     display: flex;
-    gap: 3.2mm;
+    gap: 3mm;
     align-items: flex-start;
-    margin-bottom: 3.6mm;
+    margin-bottom: 4.4mm;
     break-inside: avoid;
   }
   .feature:last-child { margin-bottom: 0; }
   .feature .ico {
     flex: none;
-    width: 8.4mm;
-    height: 8.4mm;
+    width: 8mm;
+    height: 8mm;
     border-radius: 50%;
     background: var(--teal-soft);
     display: grid;
     place-items: center;
     margin-top: 0.2mm;
   }
-  .feature .ico svg { width: 5mm; height: 5mm; color: var(--teal-deep); }
+  .feature .ico svg { width: 4.8mm; height: 4.8mm; color: var(--teal-deep); }
   .feature h2 {
     font-size: 10.2pt;
     font-weight: 700;
@@ -228,77 +226,74 @@
     letter-spacing: -0.01em;
   }
   .feature p {
-    margin-top: 1mm;
-    font-size: 8.3pt;
+    margin-top: 0.9mm;
+    font-size: 8.4pt;
     line-height: 1.36;
     color: var(--ink-2);
   }
   .feature p b { color: var(--ink); font-weight: 600; }
 
-  /* ---- L'appel : QR + adresse -------------------------------------- */
+  /* ---- L'appel : le site, l'app Android, l'iPhone --------------------- */
   .cta {
-    margin-top: 4.5mm;
-    display: flex;
-    align-items: center;
-    gap: 4.5mm;
-    padding: 4mm 4.5mm 4mm 4mm;
+    margin-top: 3.5mm;
+    padding: 3.4mm 3.6mm;
     border-radius: 3.5mm;
     background: var(--paper-2);
     border: 0.3mm solid var(--line);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4mm;
+  }
+  .cta .col {
+    display: flex;
+    align-items: flex-start;
+    gap: 2.6mm;
   }
   .qr {
     flex: none;
-    width: 30mm;
-    height: 30mm;
-    padding: 2mm;             /* zone de silence, blanche */
+    width: 22mm;
+    height: 22mm;
+    padding: 1.4mm;             /* zone de silence, blanche */
     background: #fff;
-    border-radius: 2mm;
+    border-radius: 1.8mm;
     border: 0.3mm solid var(--line);
   }
   .qr img { display: block; width: 100%; height: 100%; }
   .cta .url {
     font-family: 'JetBrains Mono', monospace;
     font-weight: 500;
-    font-size: 19pt;
+    font-size: 13pt;
     letter-spacing: -0.02em;
     color: var(--teal-deep);
     line-height: 1;
+    margin-top: 0.6mm;
+  }
+  .cta .promise {
+    margin-top: 1.6mm;
+    font-size: 7.2pt;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--teal-deep);
   }
   .cta .how {
-    margin-top: 2mm;
-    font-size: 8.4pt;
-    line-height: 1.36;
+    margin-top: 1.2mm;
+    font-size: 7.2pt;
+    line-height: 1.32;
     color: var(--ink-2);
   }
-  .chips {
-    margin-top: 2.6mm;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1.2mm;
-    list-style: none;
-    padding: 0;
-  }
-  .chips li {
-    font-size: 6.4pt;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    color: var(--teal-deep);
-    background: #fff;
-    border: 0.3mm solid rgba(15, 118, 110, 0.35);
-    border-radius: 99px;
-    padding: 0.7mm 1.6mm;
-    line-height: 1.2;
-    white-space: nowrap;
-  }
+  .cta .how b { color: var(--ink); font-weight: 600; }
+  /* Badge officiel, non modifié, avec sa zone de dégagement (un quart de sa
+     hauteur), comme le demandent les règles d'usage de Google Play. */
+  .badge { display: block; width: 27mm; margin: -0.6mm 0 0.6mm -1mm; }
 
   /* ---- Mentions --------------------------------------------------- */
   .fine {
-    margin-top: 3.4mm;
-    font-size: 6.3pt;
-    line-height: 1.38;
+    margin-top: 2.8mm;
+    font-size: 6pt;
+    line-height: 1.36;
     color: var(--ink-3);
   }
-  .fine p + p { margin-top: 0.8mm; }
+  .fine p + p { margin-top: 0.6mm; }
   .fine b { color: var(--ink-2); font-weight: 600; }
 
   /* Écran : on centre la feuille sur un fond gris pour la relecture. */
@@ -325,7 +320,7 @@
       <span class="name">Oh<b>My</b>Wind</span>
     </div>
 
-    <h1>Combien de nœuds<br>demain&#8239;<em>?</em></h1>
+    <h1>Combien de nœuds demain&#8239;<em>?</em></h1>
     <p class="lead">
       <strong>Vent, vagues, marées et courants</strong>, heure par heure,
       de la Manche à la Méditerranée. Une météo marine lisible, gratuite,
@@ -333,12 +328,16 @@
     </p>
   </header>
 
-  <aside class="phone" aria-label="Aperçu de l'application">
+  <aside class="device tablet" aria-label="Aperçu sur tablette">
+    <img src="assets/capture-plan-ipad-fr.png" alt="OhMyWind sur tablette : une route Saint-Malo vers Chausey tracée sur la carte, et à droite distance, durée, heure d'arrivée et le détail par tronçon.">
+  </aside>
+  <aside class="device phone" aria-label="Aperçu sur téléphone">
     <img src="assets/capture-previsions-fr.png" alt="OhMyWind sur téléphone : la carte, les flèches de vent des quatre modèles et le tableau des prévisions heure par heure.">
   </aside>
 
   <section class="features">
-    <div class="phone-space" aria-hidden="true"></div>
+    <div class="space-tablet" aria-hidden="true"></div>
+    <div class="space-phone" aria-hidden="true"></div>
 
     <div class="feature">
       <span class="ico" aria-hidden="true">
@@ -350,7 +349,7 @@
       </span>
       <div>
         <h2>Le vent, heure par heure</h2>
-        <p>Quatre modèles côte à côte, dont <b>AROME à 1,3 km</b>, celui qui voit les brises thermiques. En nœuds, avec les rafales et la direction.</p>
+        <p>Quatre modèles côte à côte, dont <b>AROME à 1,3 km</b>, celui qui voit les brises thermiques. En nœuds, avec rafales et direction.</p>
       </div>
     </div>
 
@@ -399,25 +398,31 @@
   </section>
 
   <section class="cta">
-    <div class="qr">
-      <img src="assets/qr-ohmywind.svg" alt="QR code vers ohmywind.fr">
+    <div class="col">
+      <div class="qr">
+        <img src="assets/qr-ohmywind.svg" alt="QR code vers ohmywind.fr">
+      </div>
+      <div>
+        <div class="url">ohmywind.fr</div>
+        <p class="promise">Gratuit, sans compte, sans traqueur, open source.</p>
+        <p class="how">Dans le navigateur, sur téléphone, tablette ou ordinateur. Rien à installer&#8239;: ajoutez la page à l'écran d'accueil.</p>
+      </div>
     </div>
-    <div>
-      <div class="url">ohmywind.fr</div>
-      <p class="how">Scannez, c'est tout. Rien à installer&#8239;: ça tourne dans le navigateur, sur téléphone comme sur ordinateur. Ajoutez la page à l'écran d'accueil pour la retrouver comme une app.</p>
-      <ul class="chips">
-        <li>Gratuit</li>
-        <li>Sans compte</li>
-        <li>Sans pub</li>
-        <li>Sans traqueur</li>
-        <li>Open source</li>
-      </ul>
+    <div class="col">
+      <div class="qr">
+        <img src="assets/qr-google-play.svg" alt="QR code vers l'application OhMyWind sur Google Play">
+      </div>
+      <div>
+        <img class="badge" src="assets/google-play-badge-fr.png" alt="Disponible sur Google Play">
+        <p class="how"><b>L'app Android</b>, gratuite elle aussi.</p>
+        <p class="how"><b>Sur iPhone&#8239;?</b> L'App Store viendra avec plus de soutiens et d'utilisateurs. En attendant, Safari fait très bien l'affaire.</p>
+      </div>
     </div>
   </section>
 
   <footer class="fine">
     <p><b>Aide à la décision, pas un instrument de navigation.</b> OhMyWind ne remplace ni le bulletin météo marine officiel, ni des cartes à jour, ni votre jugement de chef de bord. Les modèles se trompent parfois&#8239;: vous restez responsable de votre navigation.</p>
-    <p>Projet libre (AGPL-3.0) porté par l'association Libramer · contact@ohmywind.fr · Données Open-Meteo, SHOM, MARC · Fond de carte © les contributeurs OpenStreetMap.</p>
+    <p>Projet libre (AGPL-3.0) porté par l'association Libramer · contact@ohmywind.fr · Données Open-Meteo, SHOM, MARC · Fond de carte © les contributeurs OpenStreetMap · Google Play est une marque de Google LLC.</p>
   </footer>
 
 </article>
