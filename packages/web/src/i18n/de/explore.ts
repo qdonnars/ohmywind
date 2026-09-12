@@ -92,6 +92,10 @@ export const explore: Record<keyof typeof frExplore, string> = {
 
   // Tide curve
   "explore.tideChart.curve": "Tidenkurve",
+  "explore.tideChart.datum.zh":
+    "Tidenhöhe über Kartennull (ZH), dem Bezugsniveau der Seekarten. Keine Wassertiefe: addieren Sie sie zur Kartentiefe.",
+  "explore.tideChart.datum.msl":
+    "Tidenhöhe bezogen auf den mittleren Meeresspiegel (MSL), nicht auf Kartennull. Keine Wassertiefe.",
 
   // Onboarding
   "explore.onboarding.title": "Eine Route planen?",

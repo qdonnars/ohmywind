@@ -94,6 +94,10 @@ export const explore = {
 
   // Courbe de marée
   "explore.tideChart.curve": "Courbe de marée",
+  "explore.tideChart.datum.zh":
+    "Hauteur de la marée au-dessus du zéro hydrographique (ZH), le zéro des cartes marines. Ce n'est pas une profondeur : ajoutez-la à la sonde de la carte.",
+  "explore.tideChart.datum.msl":
+    "Hauteur de la marée par rapport au niveau moyen de la mer (MSL), pas au zéro des cartes marines. Ce n'est pas une profondeur.",
 
   // Onboarding
   "explore.onboarding.title": "Planifier une route ?",

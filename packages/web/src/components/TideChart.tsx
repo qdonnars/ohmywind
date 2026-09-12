@@ -5,8 +5,9 @@ import { useMemo } from "react";
 import type { MarineHourly, ModelForecast } from "../types";
 import { TimelineHeader } from "./TimelineHeader";
 import { useTimezone } from "../hooks/useTimezone";
-import { nowParisHourPrefix } from "../domain/datetime";
-import { formatHour } from "../utils/format";
+import { nowParisHourPrefix, parisIsoToUtcMs } from "../domain/datetime";
+import { findTideExtrema } from "../domain/tideExtrema";
+import { formatHourMinute } from "../utils/format";
 import { useTimelineScroll } from "../hooks/useTimelineScroll";
 import { useT } from "../i18n";
 import { numFixed } from "../plan/format";
@@ -21,25 +22,6 @@ const STICKY_W = 56;
 const SVG_HEIGHT = 110;
 const PAD_TOP = 18;
 const PAD_BOTTOM = 26;
-
-interface Extremum {
-  idx: number;
-  type: "high" | "low";
-}
-
-function findExtrema(values: (number | null)[]): Extremum[] {
-  const out: Extremum[] = [];
-  for (let i = 1; i < values.length - 1; i++) {
-    const a = values[i - 1];
-    const b = values[i];
-    const c = values[i + 1];
-    if (a == null || b == null || c == null) continue;
-    // Use ≥ on one side to break ties on flat plateaus (rare but possible).
-    if (b > a && b >= c) out.push({ idx: i, type: "high" });
-    else if (b < a && b <= c) out.push({ idx: i, type: "low" });
-  }
-  return out;
-}
 
 interface TideChartProps {
   marine: MarineHourly;
@@ -76,12 +58,27 @@ export function TideChart({
   const unitLabel = useZh ? "m ZH" : "m";
   const valid = tides.filter((v): v is number => v != null);
   const hasData = valid.length >= 2;
-  const tideMin = hasData ? Math.min(...valid) : -1;
-  const tideMax = hasData ? Math.max(...valid) : 1;
+  // High and low waters, located between the hourly samples (see
+  // domain/tideExtrema). Their vertices sit a few centimetres beyond the
+  // extreme samples, so the band is sized on both. One pass over the series
+  // per render, not worth a memo (and the compiler lint refuses one here).
+  const extrema = findTideExtrema(tides);
+  const vertices = extrema.map((e) => e.height);
+  const tideMin = hasData ? Math.min(...valid, ...vertices) : -1;
+  const tideMax = hasData ? Math.max(...valid, ...vertices) : 1;
   // Clamp range so a totally flat tide line still renders inside the band.
   const range = Math.max(0.05, tideMax - tideMin);
 
   const xForIdx = (i: number) => i * CELL_W + CELL_W / 2;
+  // Instant of an extremum found at sample `idx`, `offset` steps away: the
+  // step is read off the neighbours (both exist: extrema are interior) so the
+  // arithmetic holds whatever the sampling.
+  const extremumMs = (idx: number, offset: number) => {
+    const at = parisIsoToUtcMs(masterTimeline[idx]);
+    const step =
+      (parisIsoToUtcMs(masterTimeline[idx + 1]) - parisIsoToUtcMs(masterTimeline[idx - 1])) / 2;
+    return at + offset * step;
+  };
   const yForTide = (h: number) =>
     PAD_TOP + (1 - (h - tideMin) / range) * (SVG_HEIGHT - PAD_TOP - PAD_BOTTOM);
 
@@ -105,8 +102,6 @@ export function TideChart({
     pathPoints.length >= 2
       ? `${pathLine} L ${pathPoints[pathPoints.length - 1][0]},${SVG_HEIGHT - PAD_BOTTOM + 4} L ${pathPoints[0][0]},${SVG_HEIGHT - PAD_BOTTOM + 4} Z`
       : "";
-
-  const extrema = useMemo(() => findExtrema(tides), [tides]);
 
   const svgWidth = masterTimeline.length * CELL_W;
 
@@ -333,17 +328,22 @@ export function TideChart({
                       })()
                     )}
 
-                    {/* Extrema markers + labels. High tides labelled above,
-                        low tides below, so they don't collide with the curve. */}
+                    {/* Extrema markers + labels, at the vertex between two
+                        cells rather than on the nearest sample: the hourly
+                        sample read "19, 6.89 m" for a high water the vertex
+                        puts at 18:38, 6.94 m (#388). High tides labelled above,
+                        low tides below, so they don't collide with the curve;
+                        the low labels sit 15 and 25 px under the dot so the
+                        height line stays inside the SVG on the lowest tide. */}
                     {extrema.map((e) => {
-                      const h = tides[e.idx] as number;
-                      const x = xForIdx(e.idx);
+                      const h = e.height;
+                      const x = xForIdx(e.idx) + e.offset * CELL_W;
                       const y = yForTide(h);
-                      const time = formatHour(masterTimeline[e.idx], timezoneMode);
+                      const time = formatHourMinute(extremumMs(e.idx, e.offset), timezoneMode);
                       const heightLabel = useZh
                         ? `${numFixed(h, 2)} m`
                         : `${h >= 0 ? "+" : ""}${numFixed(h, 2)} m`;
-                      const labelY = e.type === "high" ? y - 10 : y + 18;
+                      const labelY = e.type === "high" ? y - 10 : y + 15;
                       return (
                         <g key={`ext-${e.idx}`}>
                           <circle
@@ -372,7 +372,7 @@ export function TideChart({
                           </text>
                           <text
                             x={x}
-                            y={labelY + 11}
+                            y={labelY + (e.type === "high" ? 11 : 10)}
                             textAnchor="middle"
                             fontSize="9"
                             fill="var(--ow-fg-1)"
@@ -395,6 +395,22 @@ export function TideChart({
           </table>
         </div>
       </div>
+      {/* Which zero the heights count from, and that they are not depths.
+          Outside the scroller so it stays put while the timeline scrolls,
+          and painted like the rows: this panel floats over the map. The
+          wording follows the series actually drawn (ZH from MARC, else MSL
+          from Open-Meteo): a note about chart datum over an MSL curve would
+          be the very confusion it is here to prevent (#388). */}
+      <p
+        className="shrink-0 m-0 px-2 py-1 text-[10px] leading-snug border-t"
+        style={{
+          background: "var(--ow-bg-1)",
+          borderColor: "var(--ow-line-2)",
+          color: "var(--ow-fg-2)",
+        }}
+      >
+        {t(useZh ? "explore.tideChart.datum.zh" : "explore.tideChart.datum.msl")}
+      </p>
     </div>
   );
 }
