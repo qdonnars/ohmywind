@@ -59,6 +59,20 @@
   --ow-compare: #F4C25C;
   --ow-on-compare: #3a2a08;
 
+  /* The sea's own ramp, for the comparison page: the wave band under the
+     wind must not borrow the wind's colours, or two bands of one cell would
+     read as one quantity. Blues up to a metre and a half, then the same
+     warning yellow and red as the wind. */
+  --ow-wave-0: #1B3540;
+  --ow-wave-1: #2C5E72;
+  --ow-wave-2: #3F8AA8;
+  --ow-wave-3: #7FB8D4;
+  --ow-wave-4: #F2C84B;
+  --ow-wave-5: #DC4F4A;
+
+  /* Dim over the map while a menu is open on a phone. */
+  --ow-scrim: rgba(6, 11, 23, 0.55);
+
   /* Lines */
   --ow-line: rgba(255, 255, 255, 0.08);
   --ow-line-2: rgba(255, 255, 255, 0.14);
@@ -180,6 +194,15 @@
 
   --ow-compare: #F4C25C;
   --ow-on-compare: #3a2a08;
+
+  --ow-wave-0: #D6E4EA;
+  --ow-wave-1: #A2C5D5;
+  --ow-wave-2: #6FA9C2;
+  --ow-wave-3: #5C97B5;
+  --ow-wave-4: #F4D061;
+  --ow-wave-5: #E2655F;
+
+  --ow-scrim: rgba(15, 27, 46, 0.18);
 
   --ow-line: rgba(0, 0, 0, 0.08);
   --ow-line-2: rgba(0, 0, 0, 0.14);

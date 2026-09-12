@@ -3,6 +3,7 @@
 
 import App from "./App";
 import { PlanPage } from "./routes/PlanPage";
+import { ComparePage } from "./routes/ComparePage";
 import { ConfigPage } from "./routes/ConfigPage";
 import { LazyPageBoundary } from "./components/LazyPageBoundary";
 import { NotFoundPage } from "./routes/NotFoundPage";
@@ -70,6 +71,8 @@ export function Routes() {
   switch (matchRoute(path)) {
     case "plan":
       return <PlanPage key={key} />;
+    case "compare":
+      return <ComparePage key={key} />;
     case "config":
       return <ConfigPage key={key} />;
     case "methodologie":

@@ -162,13 +162,44 @@ def test_synthetic_registry_loads_and_covers(tmp_path: Path) -> None:
     assert reg.lats.size == 3
     assert "BREST" in reg.ref_ports
 
-    # In the bbox + within the 5 km tolerance.
+    # On a point, and 300 m from it: within the 0.5 km gate.
     assert reg.covers(47.50, -2.90) is True
+    assert reg.covers(47.5027, -2.90) is True
     # Outside the bbox by far.
     assert reg.covers(43.0, 5.5) is False
     # Inside the bbox but no point within 5 km (we only seeded points
     # around (47.5, -2.9), so a query at (47.5, -2.5) is ~30 km away).
     assert reg.covers(47.50, -2.50) is False
+
+
+def test_covers_stops_at_half_a_kilometre(tmp_path: Path) -> None:
+    """The gate is what makes SHOM win only in its fine cartouches.
+
+    The C2D files are 1988-2002 model outputs resampled on a lattice whose
+    pitch is sub-kilometre only in a few cartouches (SHOM notice, 2005);
+    elsewhere a "nearest point" 2 km away is a coarser sample than the
+    250 m MARC cell the cascade would otherwise use. 0.5 km keeps the
+    former and hands the latter to MARC.
+    """
+    _write_synthetic_registry(tmp_path)
+    reg = ShomC2dRegistry.from_directory(tmp_path)
+    # 0.7 km north of the northernmost seeded point (47.51, -2.89): no.
+    assert reg.covers(47.5163, -2.89) is False
+    assert (
+        reg.predict_current_series(47.5163, -2.89, [datetime(2026, 5, 15, 12, 0, tzinfo=UTC)])
+        is None
+    )
+    # 0.4 km north of it: yes.
+    assert reg.covers(47.5136, -2.89) is True
+
+
+def test_nearest_km_reports_the_distance_regardless_of_the_gate(tmp_path: Path) -> None:
+    _write_synthetic_registry(tmp_path)
+    reg = ShomC2dRegistry.from_directory(tmp_path)
+    assert reg.nearest_km(47.50, -2.90) == pytest.approx(0.0, abs=0.01)
+    # 1.11 km north of (47.51, -2.89), well past the gate, still answered.
+    assert reg.nearest_km(47.52, -2.89) == pytest.approx(1.11, abs=0.05)
+    assert ShomC2dRegistry.from_directory(tmp_path / "missing").nearest_km(47.5, -2.9) is None
 
 
 def test_predict_returns_none_outside_coverage(tmp_path: Path) -> None:

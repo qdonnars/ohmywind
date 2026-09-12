@@ -7,6 +7,7 @@ import { en } from "./en";
 import { es } from "./es";
 import { fr } from "./fr";
 import { common } from "./fr/common";
+import { compare } from "./fr/compare";
 import { config } from "./fr/config";
 import { explore } from "./fr/explore";
 import { panel } from "./fr/panel";
@@ -18,6 +19,7 @@ const tags = (s: string) => [...s.matchAll(/<(\w+)>/g)].map((m) => m[1]).sort();
 
 const NAMESPACES: Array<[string, Record<string, string>]> = [
   ["common", common],
+  ["compare", compare],
   ["config", config],
   ["explore", explore],
   ["plan", plan],

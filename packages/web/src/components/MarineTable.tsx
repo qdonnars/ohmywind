@@ -10,8 +10,37 @@ import { currentsLevel, tidesLevel, wavesLevel, windLevelVar } from "../domain/t
 import { useTimelineScroll } from "../hooks/useTimelineScroll";
 import { t, useLang, useT, type Key } from "../i18n";
 import { numFixed } from "../plan/format";
+import { describeCurrentSource, formatGridSize, shomDistanceM } from "../domain/currentSource";
+import { PanelNote } from "./PanelNote";
 
 type MarineMetric = Exclude<MetricView, "wind">;
+
+/**
+ * The line under the currents table: which source, and the one number that
+ * qualifies it. Tidal streams only for SHOM and MARC, so the wind is the
+ * thing to remember they leave out; SMOC has everything folded into an 8 km
+ * cell, so the grid is the thing to remember.
+ */
+function currentSourceNote(marine: MarineHourly): string {
+  const src = describeCurrentSource(
+    marine.current_source,
+    marine.marc_resolution_m,
+    marine.shom_nearest_km,
+  );
+  switch (src.kind) {
+    case "marc":
+      return t("explore.marineTable.currentSource.marc", { res: formatGridSize(src.resolutionM) });
+    case "shom": {
+      if (src.nearestKm == null) return t("explore.marineTable.currentSource.shomNoDistance");
+      const m = shomDistanceM(src.nearestKm);
+      return m < 50
+        ? t("explore.marineTable.currentSource.shomClose")
+        : t("explore.marineTable.currentSource.shom", { m: String(m) });
+    }
+    default:
+      return t("explore.marineTable.currentSource.smoc");
+  }
+}
 
 // One per displayed table row. ``waves`` exposes 3 (height/direction/period),
 // ``currents`` 2 (speed/direction), ``tides`` 1. Each row decides its own
@@ -480,6 +509,7 @@ export function MarineTable({
           </table>
         </div>
       </div>
+      {metric === "currents" && <PanelNote>{currentSourceNote(marine)}</PanelNote>}
     </div>
   );
 }

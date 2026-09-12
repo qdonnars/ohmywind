@@ -11,7 +11,6 @@ export const plan = {
   // ── PlanPage ──────────────────────────────────────────────────────────────
   "plan.page.urlError.title": "URL invalide",
   "plan.page.urlError.back": "← Explorer la météo",
-  "plan.page.backToExplore": "Retour à l'exploration",
   "plan.page.hint.placeStart": "Cliquez pour placer le départ",
   "plan.page.hint.drawRoute": "Cliquez pour tracer votre route",
   "plan.panel.resize": "Redimensionner le panneau",
@@ -20,7 +19,6 @@ export const plan = {
   "plan.hero.distance": "Distance",
   "plan.hero.duration": "Durée",
   "plan.hero.arrival": "Arrivée",
-  "plan.hero.openDetail": "Voir le détail du passage",
 
   // ── Barre des segments, sous les totaux ───────────────────────────────────
   "plan.segmentBar.groupLabel": "Pas du passage, un clic ouvre le pas",
@@ -69,6 +67,8 @@ export const plan = {
 
   // ── Carte ─────────────────────────────────────────────────────────────────
   "plan.map.waypoint.remove": "Supprimer ce point",
+  "plan.map.waypoint.removed": "Point {n} retiré",
+  "plan.map.waypoint.undo": "Annuler",
 
   // ── Validation de la fenêtre de comparaison ───────────────────────────────
   "plan.sweep.errors.missingWindow": "Renseignez une fenêtre de départ.",

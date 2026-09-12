@@ -35,7 +35,14 @@ from openwind_api.settings import Settings
 # Inside the synthetic SHOM zone (three points around 47.50, -2.90) and inside
 # the synthetic MARC atlas below, which is what the cascade needs to reach its
 # top tier: SHOM alone does not compose (see ``compose_marine_adapter``).
-MORBIHAN = [[47.50, -2.90], [47.51, -2.89]]
+# A short leg: the engine samples currents at the middle of each segment, and
+# SHOM only answers within 0.5 km of one of its points (its files are coarse
+# model samples outside the fine cartouches, see ``_MAX_NEAREST_KM``). The
+# midpoint here is 0.4 km from (47.50, -2.90).
+MORBIHAN = [[47.50, -2.90], [47.506, -2.894]]
+# The same two SHOM points 1.4 km apart: the midpoint is 0.7 km from either,
+# past the gate, so the cascade hands the leg to MARC.
+BETWEEN_COARSE_SHOM_POINTS = [[47.50, -2.90], [47.51, -2.89]]
 DEPARTURE = datetime(2026, 5, 1, 6, 0, tzinfo=UTC)
 
 
@@ -77,6 +84,14 @@ def test_a_live_passage_reports_the_shom_atlas_as_its_current_source(client) -> 
     assert sources == {"shom_c2d_558_test_zone"}
 
 
+def test_a_leg_between_two_coarse_shom_points_is_served_by_marc(client) -> None:
+    """Past 0.5 km from any C2D point the value is MARC's, not a far SHOM sample."""
+    resp = client.post("/api/v1/passage", json=_body(waypoints=BETWEEN_COARSE_SHOM_POINTS))
+    assert resp.status_code == 200, resp.text
+    sources = {seg["current_source"] for seg in resp.json()["passage"]["segments"]}
+    assert sources == {"marc_morbi_250m"}
+
+
 def test_the_same_request_off_the_browser_cache_keeps_the_browser_provenance(client) -> None:
     """The other door, unchanged and deliberately so.
 
@@ -87,7 +102,7 @@ def test_the_same_request_off_the_browser_cache_keeps_the_browser_provenance(cli
     looking at on the map.
     """
     axis = hourly_axis(DEPARTURE, DEPARTURE.replace(hour=18))
-    payload = browser_cache_payload([(47.50, -2.90), (47.51, -2.89)], axis)
+    payload = browser_cache_payload([(47.50, -2.90), (47.506, -2.894)], axis)
     resp = client.post("/api/v1/passage", json=_body(forecast_cache=payload))
     assert resp.status_code == 200, resp.text
     sources = {seg["current_source"] for seg in resp.json()["passage"]["segments"]}

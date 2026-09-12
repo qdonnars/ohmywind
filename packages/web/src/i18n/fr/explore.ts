@@ -9,7 +9,6 @@ export const explore = {
     "Touchez la carte pour la météo, appui long pour enregistrer un spot",
   "explore.emptyState.click":
     "Cliquez la carte pour la météo, clic droit pour enregistrer un spot",
-  "explore.planFab.title": "Planifier un passage",
 
   // Header
   "explore.header.settings": "Paramètres",
@@ -93,13 +92,24 @@ export const explore = {
   "explore.marineTable.aria.tideFalling": "Marée {value} {unit}, descendante",
   "explore.marineTable.aria.current": "Courant {value} kn",
 
+  // Légende sous le tableau des courants : la source et le chiffre qui la qualifie
+  "explore.marineTable.currentSource.smoc":
+    "Courant maille 8 km : marée, circulation et vagues confondues, trop grossier pour les passes.",
+  "explore.marineTable.currentSource.marc": "Courant de marée seul, maille {res} : vent ignoré.",
+  "explore.marineTable.currentSource.shom": "Courant de marée seul, relevé à {m} m : vent ignoré.",
+  "explore.marineTable.currentSource.shomClose": "Courant de marée seul, relevé sur place : vent ignoré.",
+  "explore.marineTable.currentSource.shomNoDistance":
+    "Courant de marée seul, relevé au point le plus proche : vent ignoré.",
+
   // Courbe de marée
   "explore.tideChart.curve": "Courbe de marée",
+  "explore.tideChart.datum.zh": "Hauteurs au-dessus du zéro des cartes marines (ZH), pas des profondeurs : à ajouter à la sonde.",
+  "explore.tideChart.datum.msl": "Hauteurs par rapport au niveau moyen de la mer (MSL), pas des profondeurs.",
 
   // Onboarding
   "explore.onboarding.title": "Planifier une route ?",
   "explore.onboarding.body":
-    "Pour tracer un trajet entre deux spots et estimer la durée, cliquez sur le compas.",
+    "Pour tracer un trajet entre deux spots et estimer la durée, ouvrez le menu et choisissez Planifier.",
   "explore.onboarding.dismiss": "Compris",
 
   // Recherche de spot

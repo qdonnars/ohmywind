@@ -9,7 +9,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
     "Tap the map for the forecast, press and hold to save a spot",
   "explore.emptyState.click":
     "Click the map for the forecast, right-click to save a spot",
-  "explore.planFab.title": "Plan a passage",
 
   // Header
   "explore.header.settings": "Settings",
@@ -92,13 +91,24 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.marineTable.aria.tideFalling": "Tide {value} {unit}, falling",
   "explore.marineTable.aria.current": "Current {value} kn",
 
+  // Caption under the currents table: the source and the one number that qualifies it
+  "explore.marineTable.currentSource.smoc":
+    "Current on an 8 km grid: tide, circulation and waves folded together, too coarse for the passes.",
+  "explore.marineTable.currentSource.marc": "Tidal stream only, {res} grid: wind ignored.",
+  "explore.marineTable.currentSource.shom": "Tidal stream only, sampled {m} m away: wind ignored.",
+  "explore.marineTable.currentSource.shomClose": "Tidal stream only, sampled on the spot: wind ignored.",
+  "explore.marineTable.currentSource.shomNoDistance":
+    "Tidal stream only, sampled at the nearest atlas point: wind ignored.",
+
   // Tide curve
   "explore.tideChart.curve": "Tide curve",
+  "explore.tideChart.datum.zh": "Heights above chart datum (ZH), not depths: add to the charted sounding.",
+  "explore.tideChart.datum.msl": "Heights relative to mean sea level (MSL), not depths.",
 
   // Onboarding
   "explore.onboarding.title": "Plan a route?",
   "explore.onboarding.body":
-    "To lay out a passage between two spots and estimate how long it takes, click the compass.",
+    "To lay out a passage between two spots and estimate how long it takes, open the menu and choose Plan.",
   "explore.onboarding.dismiss": "Got it",
 
   // Spot search

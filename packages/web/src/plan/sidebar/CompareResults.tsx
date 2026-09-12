@@ -6,10 +6,10 @@ import type { PassageWindow } from "../types";
 import { WindowsTable } from "../WindowsTable";
 import { Warn, RecapButton } from "../PlanStates";
 import { usePlan } from "../session/planContext";
-import { PlanHeaderRow } from "./PlanHeaderRow";
+import { PlanHeaderRow, ResetButton } from "./PlanHeaderRow";
 import { SweepForm } from "./SweepForm";
 import { ArchetypeSelector } from "./ArchetypeSelector";
-import { RecomputeBar, ResultsAnchor, StalePlaceholder } from "./parts";
+import { RecomputeButton, ResultsAnchor, StalePlaceholder } from "./parts";
 import { fmtClock, fmtDay } from "../../domain/datetime";
 import { useT } from "../../i18n";
 
@@ -30,19 +30,24 @@ export function CompareResults({
 
   return (
     <div className="animate-fade-in">
+      {/* Same compact row as single mode: pills on one line, Comparer as
+          the icon flush right, in the compare accent while a sweep can run. */}
       <div className="px-4 pt-4 pb-3" style={{ borderBottom: "1px solid var(--ow-line)" }}>
-        <PlanHeaderRow />
+        <PlanHeaderRow
+          compact
+          action={
+            <RecomputeButton
+              onClick={computeWindows}
+              disabled={!canCalculate}
+              style={{
+                background: canCalculate ? "var(--ow-compare)" : "var(--ow-bg-2)",
+                color: canCalculate ? "var(--ow-on-compare)" : "var(--ow-fg-3)",
+                border: `1px solid ${canCalculate ? "transparent" : "var(--ow-line)"}`,
+              }}
+            />
+          }
+        />
       </div>
-
-      <RecomputeBar
-        onClick={computeWindows}
-        disabled={!canCalculate}
-        style={{
-          background: canCalculate ? "var(--ow-compare)" : "var(--ow-bg-2)",
-          color: canCalculate ? "var(--ow-on-compare)" : "var(--ow-fg-3)",
-          border: `1px solid ${canCalculate ? "transparent" : "var(--ow-line)"}`,
-        }}
-      />
 
       <ResultsAnchor />
       <RecapButton
@@ -53,6 +58,7 @@ export function CompareResults({
         })}
         isOpen={isEditingParams}
         onClick={() => setIsEditingParams((v) => !v)}
+        trailing={<ResetButton danger />}
       />
       {isEditingParams && (
         <div className="px-4 py-3 space-y-3" style={{ borderBottom: "1px solid var(--ow-line)", background: "var(--ow-bg-2)" }}>

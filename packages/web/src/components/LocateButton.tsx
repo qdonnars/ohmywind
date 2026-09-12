@@ -13,7 +13,7 @@ interface LocateButtonProps {
   attempt: number;
   onClick: () => void;
   /** Positioning is left to the host map so each page can dodge its own
-      overlays (drawer, hero stats, data table). */
+      overlays (drawer, data table). */
   className?: string;
 }
 

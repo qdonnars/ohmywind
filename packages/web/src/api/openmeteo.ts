@@ -61,8 +61,11 @@ const MODEL_ENDPOINTS: Record<ModelName, { endpoint: string; extraParams?: strin
   METNO_NORDIC: { endpoint: "https://api.open-meteo.com/v1/metno" },
 };
 
-const PARAMS =
-  "hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code,is_day&wind_speed_unit=kn&timezone=Europe/Paris&forecast_days=7";
+const HOURLY_PARAMS =
+  "hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code,is_day&wind_speed_unit=kn&timezone=Europe/Paris";
+/** A week, which is as far as a passage is ever planned. */
+const DEFAULT_DAYS = 7;
+const PARAMS = `${HOURLY_PARAMS}&forecast_days=${DEFAULT_DAYS}`;
 
 const cache = new Map<string, { models: ModelForecast[]; fetchedAt: number }>();
 const CACHE_TTL = 30 * 60 * 1000;
@@ -195,8 +198,8 @@ const CORRIDOR_CACHE_MAX = 600;
 // two keys that differ below that resolution would have returned the same
 // forecast anyway. The model list is part of the key because an entry holds
 // exactly the chain that was asked for.
-function corridorKey(coord: { lat: number; lon: number }, models: ModelName[]): string {
-  return `${coord.lat.toFixed(4)},${coord.lon.toFixed(4)}|${models.join(",")}`;
+function corridorKey(coord: { lat: number; lon: number }, models: ModelName[], days: number): string {
+  return `${coord.lat.toFixed(4)},${coord.lon.toFixed(4)}|${models.join(",")}|${days}`;
 }
 
 function storeCorridorPoint(key: string, models: ModelForecast[], fetchedAt: number): void {
@@ -222,6 +225,10 @@ export function clearWindCorridorCache(): void {
 // requests, which matters because the browser caps ~6 concurrent connections
 // per host: fewer requests = fewer serialized waves = lower wall-clock.
 //
+// `days` is the horizon asked of every model, and part of the cache key: a
+// seven-day plan corridor and a twelve-day comparison corridor cover the same
+// points and must not be served one for the other.
+//
 // Returns, per coordinate (same order as `coords`), the list of ModelForecast
 // that returned data there. A model with no `hourly` at a coordinate (point
 // outside its grid) is simply omitted for that coordinate; the server's
@@ -231,6 +238,7 @@ export function clearWindCorridorCache(): void {
 export async function fetchWindCorridor(
   coords: { lat: number; lon: number }[],
   models: ModelName[],
+  days: number = DEFAULT_DAYS,
 ): Promise<ModelForecast[][]> {
   const out: ModelForecast[][] = coords.map(() => []);
   if (coords.length === 0 || models.length === 0) return out;
@@ -241,7 +249,7 @@ export async function fetchWindCorridor(
   const now = Date.now();
   const missing: number[] = [];
   for (let i = 0; i < coords.length; i++) {
-    const hit = corridorCache.get(corridorKey(coords[i], models));
+    const hit = corridorCache.get(corridorKey(coords[i], models, days));
     if (hit && now - hit.fetchedAt < CACHE_TTL) {
       out[i] = hit.models;
     } else {
@@ -252,7 +260,7 @@ export async function fetchWindCorridor(
 
   const lats = missing.map((i) => coords[i].lat).join(",");
   const lons = missing.map((i) => coords[i].lon).join(",");
-  const base = `?latitude=${lats}&longitude=${lons}&${PARAMS}`;
+  const base = `?latitude=${lats}&longitude=${lons}&${HOURLY_PARAMS}&forecast_days=${days}`;
 
   const perModel = await Promise.all(
     models.map(async (name) => {
@@ -289,7 +297,7 @@ export async function fetchWindCorridor(
   for (let k = 0; k < missing.length; k++) {
     out[missing[k]] = fetched[k];
     if (cacheable) {
-      storeCorridorPoint(corridorKey(coords[missing[k]], models), fetched[k], now);
+      storeCorridorPoint(corridorKey(coords[missing[k]], models, days), fetched[k], now);
     }
   }
   return out;

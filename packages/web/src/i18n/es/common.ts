@@ -11,4 +11,15 @@ export const common: Record<keyof typeof frCommon, string> = {
   "common.retry": "Reintentar",
   "common.days.one": "{count} día",
   "common.days.other": "{count} días",
+
+  // Navigation menu
+  "common.nav.open": "Abrir el menú",
+  "common.nav.close": "Cerrar el menú",
+  "common.nav.label": "Navegación",
+  "common.nav.explore.title": "Explorar",
+  "common.nav.explore.desc": "El mapa y el tiempo del spot",
+  "common.nav.plan.title": "Planificar",
+  "common.nav.plan.desc": "Simular una ruta, comparar ventanas",
+  "common.nav.compare.title": "Comparar mis spots",
+  "common.nav.compare.desc": "Mis favoritos lado a lado",
 };

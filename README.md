@@ -204,7 +204,7 @@ snapshots each (2880 pairs, seed 42), pairwise speed disagreement in knots:
 | MARC vs SMOC | 0.490 | 0.347 | 1.460 | 4.068 |
 
 Read the first row against the second. The MARC harmonic engine tracks the SHOM
-reference about twice as closely as the global model does, and direction tells
+atlas about twice as closely as the global model does, and direction tells
 the same story (7.3° median between SHOM and MARC, 23.6° between SHOM and SMOC).
 A p95 spread of 1.6 kn against a 5 kn boat is the difference between carrying a
 pass and fighting it. Note what this is not: SMOC adds wind-driven and Stokes
@@ -213,8 +213,20 @@ predictor skill with a genuine physical difference and is not a pure error
 metric. The third row is the one that decided the 5 GB payload was worth
 shipping.
 
-Full report, per-atlas breakdown and method:
-[`docs/bench/currents_3way_2026-05-10_1818.md`](docs/bench/currents_3way_2026-05-10_1818.md).
+Which of the two coastal sources wins where is measured too. SHOM C2D is not a
+set of measurements: per its own notice it is the output of 1988 to 2002 tidal
+models, depth-averaged and resampled on a lattice whose pitch is under a
+kilometre only in a few insets (Golfe du Morbihan, Rade de Brest, Sein, north
+Brittany) and 1.3 to 20 km elsewhere. A second bench (September 2026, 750 shelf
+points by distance to the nearest SHOM point, 16 named passes, 1,500 random
+points) found the two sources agree offshore whatever that distance, that MARC
+matches the HF-radar maxima in the Fromveur where SHOM's 1994 file does not,
+and that SHOM keeps an edge only in its fine insets. The cascade therefore
+takes SHOM only when a C2D point lies within 500 m, MARC next, SMOC last.
+
+Full reports, per-atlas breakdown and method:
+[`docs/bench/currents_3way_2026-05-10_1818.md`](docs/bench/currents_3way_2026-05-10_1818.md)
+and [`docs/bench/currents_resolution_2026-09-12_1347.md`](docs/bench/currents_resolution_2026-09-12_1347.md).
 
 ### Mediterranean defaults
 

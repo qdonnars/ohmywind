@@ -33,6 +33,7 @@ describe("storage key registry", () => {
       lastSimulation: "ow_last_simulation_v1",
       customSpots: "ohmywind_custom_spots",
       onboarding: "ohmywind:onboarding-v1",
+      compare: "ow_compare_v1",
     });
     expect(SESSION_STORAGE_KEYS).toEqual({
       configReturnPath: "ow_config_return_to",

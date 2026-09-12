@@ -9,12 +9,17 @@ plus a ``MarcAtlasRegistry`` and a ``ShomC2dRegistry``. Returns a
 MARC only — SHOM C2D does not carry heights) overridden by the finest
 available source at each waypoint:
 
-1. **SHOM Atlas C2D** (top priority): the French navigation reference.
-   Hand-curated scattered points on flow features in coastal cartouches.
-   Used wherever a SHOM point sits within ~5 km of the query.
+1. **SHOM Atlas C2D** (top priority, but only up close): the digital
+   edition of the French tidal-stream atlases. Per the SHOM notice these
+   are outputs of 1988-2002 tidal models, depth-averaged and resampled on
+   a lattice whose pitch is sub-kilometre in a few cartouches (Golfe du
+   Morbihan, Rade de Brest, Sein, Bretagne nord) and 1.3 to 20 km
+   elsewhere. Used only where a C2D point sits within 0.5 km of the query,
+   which selects those fine cartouches and nothing else (see
+   ``ShomC2dRegistry._MAX_NEAREST_KM`` for the evidence).
 2. **MARC PREVIMER** (mid priority): regular harmonic grid (250 m to
-   2 km). Fills the continuous coastal/shelf coverage that SHOM doesn't
-   sample.
+   2 km, 38 constituents, recent bathymetry). Carries the shelf, the wide
+   races and everything SHOM only sampled coarsely.
 3. **Open-Meteo SMOC** (fallback): 8 km global Mercator. Used only when
    neither SHOM nor MARC cover the waypoint.
 

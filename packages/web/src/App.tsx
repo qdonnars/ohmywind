@@ -14,6 +14,7 @@ import {
 } from "./api/marine";
 import { useCustomSpots } from "./hooks/useCustomSpots";
 import { Header } from "./components/Header";
+import { NavMenu } from "./components/NavMenu";
 import { WindTable } from "./components/WindTable";
 import { MarineTable } from "./components/MarineTable";
 import { MetricPills } from "./components/MetricPills";
@@ -26,6 +27,7 @@ import { useSeamarks } from "./hooks/useSeamarks";
 import { useGeolocation } from "./hooks/useGeolocation";
 import { useBackDismiss } from "./hooks/useBackDismiss";
 import { useMapView } from "./hooks/useMapView";
+import { LG_MEDIA_QUERY, useMediaQuery } from "./hooks/useMediaQuery";
 import { parseMapView, mapViewQuery } from "./utils/mapViewParams";
 import { hasDeclinedGeolocation } from "./config/geolocPreference";
 import { loadLastSpot, saveLastSpot } from "./config/lastSpot";
@@ -71,7 +73,6 @@ function EmptyState() {
 
 
 function App() {
-  const { t } = useT();
   const { customSpots, addSpot, removeSpot, renameSpot } = useCustomSpots();
   // New users (no saved spots, nothing consulted yet) land with no active
   // spot — no auto-loaded forecasts, no wind arrows on the map. The
@@ -236,7 +237,10 @@ function App() {
   };
   const effectiveView: MetricView = relevant[view] ? view : "wind";
 
-  const fabRef = useRef<HTMLAnchorElement>(null);
+  // The navigation menu's trigger, for the onboarding card to point at.
+  // Mounted once: in the header on a phone, on the map on a wide screen.
+  const navRef = useRef<HTMLButtonElement>(null);
+  const isDesktop = useMediaQuery(LG_MEDIA_QUERY);
   // Handed to SpotMap so camera moves can centre a point in the strip of map
   // the OPAQUE data tables leave visible, instead of the full (half-covered)
   // container. Attached to the tables area, not the whole overlay: the pills
@@ -259,6 +263,9 @@ function App() {
         nearLat={userPosition?.lat ?? mapView?.lat ?? spot?.latitude ?? null}
         nearLon={userPosition?.lon ?? mapView?.lon ?? spot?.longitude ?? null}
         savedSpots={customSpots}
+        current="explore"
+        mapQuery={mapViewQuery(mapView)}
+        navRef={navRef}
       />
 
       {/* Map fills the entire space; pills + table are an overlay floating
@@ -286,22 +293,23 @@ function App() {
           showSeamarks={seamarks}
         />
         {/* Marine-chart toggle — top right, the corner a layer control
-            conventionally lives in, and the one free corner here: the plan
-            FAB owns the top left and the data overlay owns the bottom. */}
+            conventionally lives in, and the one free corner here: the
+            navigation menu owns the top left and the data overlay owns the
+            bottom. */}
         <SeamarkButton enabled={seamarks} onToggle={toggleSeamarks} className="top-3 right-3" />
-        {/* Plan FAB — after SpotMap so it renders on top.
-            When a spot is active, propagate its lat/lon to /plan via `?center`
-            so the planner map opens centered on the spot the user was just
-            looking at, rather than a hardcoded default region. */}
-        <a
-          ref={fabRef}
-          href={`/plan${mapViewQuery(mapView)}`}
-          className="absolute top-3 left-3 z-[400] w-[58px] h-[58px] sm:w-20 sm:h-20 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95"
-          style={{ background: "var(--ow-accent)", color: "var(--ow-on-accent)" }}
-          title={t("explore.planFab.title")}
-        >
-          <img src="/compass.png" alt="" className="select-none w-[64px] h-[64px] sm:w-[88px] sm:h-[88px]" draggable={false} />
-        </a>
+        {/* Navigation menu — after SpotMap so it renders on top. The camera
+            travels with the links (`?center`, `?zoom`) so the planner opens
+            on the region the reader was just looking at. On a phone the
+            same menu sits in the header instead. */}
+        {isDesktop && (
+          <NavMenu
+            variant="map"
+            current="explore"
+            mapQuery={mapViewQuery(mapView)}
+            className="top-3 left-3"
+            triggerRef={navRef}
+          />
+        )}
 
         {/* Bottom overlay: pills (fixed at top of overlay) + scrollable table
             below. Pills sit in a ``shrink-0`` band so vertical scroll inside
@@ -368,7 +376,7 @@ function App() {
         </div>
       </div>
 
-      <Onboarding fabRef={fabRef} />
+      <Onboarding fabRef={navRef} />
     </div>
   );
 }

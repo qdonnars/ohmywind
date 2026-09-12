@@ -97,9 +97,12 @@ class TestTheAnswer:
 
     def test_each_tier_reports_what_it_has(self, client) -> None:
         shom, porquerolles, marc = _overlays(client.post(BATCH, json=_body()))
-        # SHOM: hand-curated currents, and no height series to give.
+        # SHOM: currents off the nearest C2D point, how far that point was,
+        # and no height series to give.
         assert shom["current_source"].startswith("shom_c2d_")
+        assert 0.0 <= shom["shom_nearest_km"] <= 0.5
         assert "tide_height_m" not in shom
+        assert "shom_nearest_km" not in marc
         # MARC: height and currents off one 250 m cell.
         assert marc["current_source"] == "marc_finis_250m"
         assert marc["atlas_resolution_m"] == 250
