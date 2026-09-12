@@ -4,6 +4,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 import { parsePlanUrl, buildPlanUrl } from "../plan/parseUrl";
 import { PlanMap, type PlanMapHandle } from "../plan/PlanMap";
+import { DRAWER_HANDLE_REACH_PX, UNDO_MS } from "../domain/gestures";
 import { PlanSidebar } from "../plan/PlanSidebar";
 import { fetchArchetypes } from "../api/passage";
 import { Header } from "../components/Header";
@@ -197,7 +198,7 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
   return (
     <div
       ref={outerRef}
-      className="shrink-0 overflow-y-auto border-t flex flex-col"
+      className="shrink-0 border-t flex flex-col"
       style={{
         height: `${vh}vh`,
         background: "var(--ow-bg-1)",
@@ -207,13 +208,17 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
     >
       {/* Grab handle. 28 px of full-width strip rather than the 14 px this
           shipped with: at 14 px the target was under half a fingertip and
-          users reported missing it outright. The handle sits flush against
-          the map, so the hit area cannot be widened with a negative margin
-          (the drawer is overflow-y-auto and would clip it) — the strip itself
-          has to carry the height. It stays under the 44 px touch guideline on
-          purpose: at DRAWER_MIN_VH the drawer is a peek, and a 44 px handle
-          would eat most of it. `chromePx` in the fit-to-results effect reads
-          the height from the DOM, so nothing else needs updating. */}
+          users reported missing it outright. It stays under the 44 px touch
+          guideline on purpose: at DRAWER_MIN_VH the drawer is a peek, and a
+          44 px handle would eat most of it. `chromePx` in the fit-to-results
+          effect reads the height from the DOM, so nothing else needs
+          updating.
+          The invisible strip inside reaches DRAWER_HANDLE_REACH_PX up over
+          the map: a thumb aiming at the handle lands above it more often
+          than below, and above it is the map, where a resting finger used
+          to place a waypoint (#389). Only the content scrolls, so nothing
+          clips the strip; it is raised above the Leaflet panes, which are
+          positioned with z-indexes of their own. */}
       <div
         role="separator"
         aria-orientation="horizontal"
@@ -222,9 +227,14 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        className="shrink-0 flex items-center justify-center cursor-row-resize touch-none"
+        className="relative shrink-0 flex items-center justify-center cursor-row-resize touch-none"
         style={{ height: 28, background: "var(--ow-bg-1)" }}
       >
+        <span
+          aria-hidden="true"
+          className="absolute inset-x-0"
+          style={{ top: -DRAWER_HANDLE_REACH_PX, height: DRAWER_HANDLE_REACH_PX, zIndex: 700 }}
+        />
         <span
           className="block rounded-full"
           style={{ width: 44, height: 5, background: "var(--ow-line-2)" }}
@@ -368,6 +378,30 @@ export function PlanPage() {
 
   const waypointDepths = useWaypointDepths(waypoints);
   const [archetypes, setArchetypes] = useState<Archetype[]>([]);
+
+  // A waypoint removed by a tap on its marker, or by the × badge, is offered
+  // back for a few seconds. On touch the tap is the lightest gesture there
+  // is, and a point in the middle of a route cannot be put back by hand
+  // where it was. Undo re-inserts it at its index, with its coordinates.
+  const [removed, setRemoved] = useState<{ index: number; lat: number; lon: number } | null>(null);
+  const handleDeleteWaypoint = useCallback(
+    (index: number) => {
+      const wp = waypoints[index];
+      actions.deleteWaypoint(index);
+      if (wp) setRemoved({ index, lat: wp[0], lon: wp[1] });
+    },
+    [actions, waypoints],
+  );
+  const handleUndoRemove = useCallback(() => {
+    if (!removed) return;
+    actions.insertWaypoint(removed.index - 1, removed.lat, removed.lon);
+    setRemoved(null);
+  }, [actions, removed]);
+  useEffect(() => {
+    if (!removed) return;
+    const timer = setTimeout(() => setRemoved(null), UNDO_MS);
+    return () => clearTimeout(timer);
+  }, [removed]);
 
   // Back collapses the open leg rather than leaving the planner (issue #300).
   const collapseLeg = useCallback(() => actions.selectLeg(null), [actions]);
@@ -519,7 +553,7 @@ export function PlanPage() {
             isStale={isStale}
             onWptMove={actions.moveWaypoint}
             onWptAdd={waypoints.length >= 2 ? actions.insertWaypoint : undefined}
-            onWptDelete={actions.deleteWaypoint}
+            onWptDelete={handleDeleteWaypoint}
             onMapClick={actions.appendWaypoint}
             initialCenter={initial.center}
             userPosition={userPosition}
@@ -556,6 +590,26 @@ export function PlanPage() {
             onClick={handleLocate}
             className="bottom-4 right-3"
           />
+          {/* Undo offer after a waypoint removal. Top centre: the corners
+              belong to the menu, the chart toggle and the locate button,
+              and the bottom edge to the hint while tracing. */}
+          {removed && (
+            <div
+              role="status"
+              className="absolute top-3 left-1/2 -translate-x-1/2 z-[500] flex items-center gap-3 rounded-xl px-3.5 py-2 text-sm font-medium whitespace-nowrap"
+              style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)", color: "var(--ow-fg-0)" }}
+            >
+              <span>{t("plan.map.waypoint.removed", { n: removed.index + 1 })}</span>
+              <button
+                type="button"
+                onClick={handleUndoRemove}
+                className="font-semibold underline underline-offset-2"
+                style={{ color: "var(--ow-accent)" }}
+              >
+                {t("plan.map.waypoint.undo")}
+              </button>
+            </div>
+          )}
           {/* Hint overlay while building the route */}
           {waypoints.length < 2 && (
             <div className="absolute inset-x-4 bottom-4 z-[400] flex justify-center pointer-events-none">

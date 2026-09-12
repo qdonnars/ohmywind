@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { HOLD_MS, HOLD_SLOP_PX } from "../domain/gestures";
 
 /**
  * Reordering a list by dragging a row, on a touchscreen as on a desktop.
@@ -30,10 +31,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
  * previewed and calls `onCommit` on drop, but never stores the list itself.
  */
 
-/** A still finger for this long lifts the row. */
-const HOLD_MS = 350;
-/** Movement beyond this before the hold fires means the user meant to scroll. */
-const HOLD_SLOP_PX = 10;
+// HOLD_MS and HOLD_SLOP_PX come from domain/gestures: the plan map lifts a
+// waypoint with the same hold, so a finger is judged the same way on both.
 /** Class the dedicated grab handle carries; a press on it skips the hold. */
 export const DRAG_HANDLE_CLASS = "config-handle";
 
