@@ -19,12 +19,11 @@ import { t, useLang } from "../i18n";
 import { computeLegSegmentRanges } from "./aggregateLegs";
 import { closestOnPolyline, TapGuard } from "./mapGestures";
 import {
-  HOLD_MS,
   HOLD_SLOP_PX,
   MARKER_SETTLE_MS,
   SEGMENT_HIT_PX,
-  TAP_MAX_MS,
   TAP_SLOP_PX,
+  WAYPOINT_GRAB_MS,
   isCoarsePointer,
 } from "../domain/gestures";
 
@@ -32,6 +31,27 @@ import {
     Below it the labels crowd the waypoint markers, so we let them fade out
     as the user zooms out. */
 const SEG_LABEL_MIN_PX = 90;
+
+/** Zoom granularity of this map. Leaflet frames a route at the largest
+    zoom on the snap grid that holds it, so at whole zoom levels a route
+    filled anywhere between half and all of the padded frame, depending on
+    where the doubling fell. A tenth of a level keeps every fit within 7 %
+    of the frame; wheel and pinch simply land on finer steps. */
+const ZOOM_SNAP = 0.1;
+
+/** Frame for a route: 8 % of the map on each side, so the waypoints span
+    about 84 % of the smaller dimension, and never less than what a marker
+    needs to stay whole at the edge: its disc, the × badge that stands 41 px
+    above its centre on touch, and the sounding 40 px below it. */
+function routePadding(map: L.Map): L.FitBoundsOptions {
+  const size = map.getSize();
+  const x = Math.max(24, size.x * 0.08);
+  const y = Math.max(28, size.y * 0.08);
+  return {
+    paddingTopLeft: L.point(x, Math.max(y, isCoarsePointer() ? 42 : 28)),
+    paddingBottomRight: L.point(x, Math.max(y, 40)),
+  };
+}
 
 export interface PlanMapHandle {
   recenter: (lat: number, lon: number) => void;
@@ -144,7 +164,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
       if (waypoints.length >= 2) {
         map.fitBounds(
           L.latLngBounds(waypoints.map(([lat, lon]) => L.latLng(lat, lon))),
-          { padding: [40, 40] },
+          routePadding(map),
         );
       } else if (waypoints.length === 1) {
         map.setView([waypoints[0][0], waypoints[0][1]], 10);
@@ -210,6 +230,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
       zoomControl: false,
       attributionControl: false,
       doubleClickZoom: false,
+      zoomSnap: ZOOM_SNAP,
       maxZoom: BASEMAP_MAX_ZOOM,
     });
 
@@ -245,14 +266,14 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
       const flyTimer = setTimeout(() => {
         map.invalidateSize();
         if (routeBounds) {
-          map.flyToBounds(routeBounds, { padding: [40, 40], duration: 1.2 });
+          map.flyToBounds(routeBounds, { ...routePadding(map), duration: 1.2 });
         } else {
           map.flyTo([waypoints[0][0], waypoints[0][1]], 10, { duration: 1.2 });
         }
       }, 80);
       flyTimerRef.current = flyTimer;
     } else if (routeBounds) {
-      map.fitBounds(routeBounds, { padding: [40, 40] });
+      map.fitBounds(routeBounds, routePadding(map));
     } else if (waypoints.length === 1) {
       map.setView([waypoints[0][0], waypoints[0][1]], 10);
     } else if (initialCenter) {
@@ -363,12 +384,14 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   // Draw the waypoint markers.
   //
   // Two models, chosen by the primary pointer. With a mouse, Leaflet's own
-  // drag (immediate, from the first pixel) and a × badge on hover. With a
-  // finger, neither: the badge used to cover the centre of the disc and
-  // Chrome snaps taps to the nearest button, so every touch deleted the
-  // waypoint and none could move it. On touch a waypoint is picked up by a
-  // press-and-hold and removed by a tap, the two gestures a phone already
-  // teaches, and a finger that moves before the hold fires pans the map.
+  // drag (immediate, from the first pixel) and a × badge on hover, on the
+  // corner of the disc. With a finger, the badge is always visible and sits
+  // above the disc, clear of it: it used to cover the centre of the disc,
+  // and Chrome snaps taps to the nearest button, so every touch deleted the
+  // waypoint and none could move it. On touch a tap on the badge removes the
+  // waypoint; a press held past WAYPOINT_GRAB_MS, on the disc or on the
+  // badge, picks the waypoint up; a tap on the disc does nothing; and a
+  // finger that moves before the grab fires pans the map.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -412,15 +435,22 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     // hold can be watched, and the capture keeps the up event on the icon
     // wherever the finger ends. Touch events are untouched by the capture,
     // which is what lets Leaflet pan the map when the hold is cancelled
-    // and pinch it when a second finger lands.
+    // and pinch it when a second finger lands. The × badge is handled here
+    // too, from the same pointer stream: its tap is read at pointerup rather
+    // than from the click, which the map's tap guard refuses anyway, and a
+    // press on it that outlives the grab delay is a grab like any other.
     const wireTouchMarker = (marker: L.Marker, el: HTMLElement, i: number): (() => void) => {
       // A held finger raises the native context menu; a double tap must
       // not reach the map either.
       L.DomEvent.on(el, "dblclick contextmenu", L.DomEvent.stop);
 
-      let pressed: { id: number; x: number; y: number; t: number } | null = null;
+      let pressed: { id: number; x: number; y: number; t: number; onBadge: boolean } | null = null;
       let lifted = false;
       let origin: L.LatLng | null = null;
+      // Where the marker sits relative to the finger at the grab, kept for
+      // the whole drag: grabbed by the badge, the disc stays 30 px under
+      // the finger instead of jumping up under it.
+      let grabOffset = L.point(0, 0);
       let timer: ReturnType<typeof setTimeout> | null = null;
 
       const disarm = () => {
@@ -436,8 +466,10 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
         clearPreview();
         map.dragging.enable();
         if (commit) {
+          // A grab released where it started (a slow tap on the ×, a
+          // change of mind) leaves the route as it was, not "to recompute".
           const pos = marker.getLatLng();
-          onWptMove(i, pos.lat, pos.lng);
+          if (!origin || !pos.equals(origin)) onWptMove(i, pos.lat, pos.lng);
         } else if (origin) {
           marker.setLatLng(origin);
           livePositionsRef.current = waypoints;
@@ -447,7 +479,8 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
       };
       const onDown = (e: PointerEvent) => {
         if (!e.isPrimary || pressed) return;
-        pressed = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() };
+        const onBadge = e.target instanceof Element && !!e.target.closest(".ow-wpt-x");
+        pressed = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), onBadge };
         try {
           el.setPointerCapture(e.pointerId);
         } catch {
@@ -459,6 +492,9 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
           if (!pressed) return;
           lifted = true;
           origin = marker.getLatLng();
+          grabOffset = map
+            .latLngToContainerPoint(origin)
+            .subtract(map.mouseEventToContainerPoint({ clientX: pressed.x, clientY: pressed.y } as MouseEvent));
           isDraggingRef.current = true;
           // The map's own drag was armed by the same touch; from here the
           // finger moves the waypoint, not the map.
@@ -470,7 +506,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
             // Optional feedback.
           }
           previewMove(i, marker.getLatLng());
-        }, HOLD_MS);
+        }, WAYPOINT_GRAB_MS);
       };
       const onMove = (e: PointerEvent) => {
         if (!pressed || e.pointerId !== pressed.id) return;
@@ -482,7 +518,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
           }
           return;
         }
-        const ll = map.containerPointToLatLng(map.mouseEventToContainerPoint(e));
+        const ll = map.containerPointToLatLng(map.mouseEventToContainerPoint(e).add(grabOffset));
         marker.setLatLng(ll);
         previewMove(i, ll);
       };
@@ -495,12 +531,14 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
           settle(true);
           return;
         }
+        // Released before the grab fired: a tap. On the disc it does
+        // nothing; on the × it removes the point.
+        if (!start.onBadge) return;
         const now = performance.now();
-        const tap =
-          now - start.t <= TAP_MAX_MS &&
-          Math.hypot(e.clientX - start.x, e.clientY - start.y) <= TAP_SLOP_PX;
-        // A marker younger than the settle time is the one a double tap
-        // just created: its second tap is not a request to remove it.
+        const tap = Math.hypot(e.clientX - start.x, e.clientY - start.y) <= TAP_SLOP_PX;
+        // A marker younger than the settle time was created by the tap
+        // before this one: the second tap of a double tap is not a request
+        // to remove it.
         if (tap && now - bornAt > MARKER_SETTLE_MS) onWptDeleteRef.current?.(i);
       };
       const onCancel = (e: PointerEvent) => {
@@ -540,7 +578,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
         isFirst ? "--ow-marker-active" : isLast ? "--ow-marker-end" : "--ow-marker-idle",
       );
       const marker = L.marker([lat, lon], {
-        icon: waypointIcon(label, bg, !!onWptDelete && !coarse),
+        icon: waypointIcon(label, bg, !!onWptDelete),
         draggable: !coarse,
       }).addTo(map);
       const el = marker.getElement();

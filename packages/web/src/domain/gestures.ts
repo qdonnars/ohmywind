@@ -22,13 +22,21 @@ export const TAP_MAX_MS = 300;
     browser slop on purpose: under it, no movement is reported at all. */
 export const TAP_SLOP_PX = 10;
 
-/** A still finger for this long lifts something: a waypoint on the plan
-    map, a row in the model list. Under the native context menu. */
+/** A still finger for this long lifts a row in the model list. Under the
+    native context menu. */
 export const HOLD_MS = 350;
 
 /** Movement beyond this before the hold fires cancels it: the user meant
     to pan or scroll. */
 export const HOLD_SLOP_PX = 10;
+
+/** On a waypoint marker, a press shorter than this is a tap (on the × it
+    removes the point) and a press held past it is a grab: the marker lifts
+    and follows the finger, from the disc or from the ×. Shorter than the
+    row hold above on purpose: the finger is already on the thing it wants
+    to move, and every extra beat before it lifts reads as the map not
+    answering. */
+export const WAYPOINT_GRAB_MS = 200;
 
 /** The explore map drops a spot after this long a press on open water. A
     touch longer than the hold above, because nothing is being picked up:

@@ -564,15 +564,16 @@ select,
 .ow-wpt-x:hover {
   background: #e84118;
 }
-/* Touch: no × badge at all. The badge used to stay visible there, with a
-   38 px tap zone that covered the centre of the 28 px disc, and Chrome snaps
-   taps to the nearest button: every touch on a waypoint deleted it, and none
-   could drag it. On coarse pointers PlanMap renders no badge; a tap on the
-   disc removes the waypoint (with an undo) and a press-and-hold picks it up.
-   The disc keeps its 28 px but answers to a 44 px circle, the usual thumb
-   target. `hover: none` alone still shows the badge on the rare fine-pointer
-   device that cannot hover (a stylus tablet), where opacity 0 would have
-   hidden the only way to delete. */
+/* Touch: the × badge is always visible and sits above the disc, clear of
+   it. It used to stay on the corner with a 38 px tap zone that covered the
+   centre of the 28 px disc, and Chrome snaps taps to the nearest button:
+   every touch on a waypoint deleted it, and none could drag it. Now a tap
+   on the badge removes the waypoint (with an undo, see PlanMap) and the
+   disc, which answers to a 44 px circle, is only ever picked up by a
+   press-and-hold. The badge's own halo stops at the top edge of the disc.
+   `hover: none` alone still shows the badge on the rare fine-pointer device
+   that cannot hover (a stylus tablet), where opacity 0 would have hidden
+   the only way to delete. */
 @media (hover: none) {
   .ow-wpt-x {
     opacity: 1;
@@ -584,6 +585,20 @@ select,
     position: absolute;
     inset: -8px;
     border-radius: 50%;
+  }
+  .ow-wpt-x {
+    opacity: 1;
+    width: 22px;
+    height: 22px;
+    font-size: 15px;
+    top: -30px;
+    left: 3px;
+    right: auto;
+  }
+  .ow-wpt-x::before {
+    content: "";
+    position: absolute;
+    inset: -6px;
   }
 }
 /* A lifted waypoint grows a little, so the hold is visibly acknowledged
