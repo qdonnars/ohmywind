@@ -4,6 +4,7 @@
 import { useMemo } from "react";
 import type { MarineHourly, ModelForecast } from "../types";
 import { TimelineHeader } from "./TimelineHeader";
+import { PanelNote } from "./PanelNote";
 import { useTimezone } from "../hooks/useTimezone";
 import { nowParisHourPrefix, parisIsoToUtcMs } from "../domain/datetime";
 import { findTideExtrema } from "../domain/tideExtrema";
@@ -396,21 +397,12 @@ export function TideChart({
         </div>
       </div>
       {/* Which zero the heights count from, and that they are not depths.
-          Outside the scroller so it stays put while the timeline scrolls,
-          and painted like the rows: this panel floats over the map. The
-          wording follows the series actually drawn (ZH from MARC, else MSL
-          from Open-Meteo): a note about chart datum over an MSL curve would
-          be the very confusion it is here to prevent (#388). */}
-      <p
-        className="shrink-0 m-0 px-2 py-[3px] text-[9px] leading-tight border-t"
-        style={{
-          background: "var(--ow-bg-1)",
-          borderColor: "var(--ow-line-2)",
-          color: "var(--ow-fg-2)",
-        }}
-      >
+          The wording follows the series actually drawn (ZH from MARC, else
+          MSL from Open-Meteo): a note about chart datum over an MSL curve
+          would be the very confusion it is here to prevent (#388). */}
+      <PanelNote>
         {t(useZh ? "explore.tideChart.datum.zh" : "explore.tideChart.datum.msl")}
-      </p>
+      </PanelNote>
     </div>
   );
 }
