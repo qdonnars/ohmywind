@@ -46,6 +46,8 @@ Il en faut deux pour `fr.ohmywind.app`, parce que les deux canaux de distributio
 - la **clé d'upload** (`android.keystore` local), pour les APK installés en direct via `bubblewrap install` / `adb install`;
 - la **clé Play App Signing**, celle avec laquelle Google re-signe le build qu'il distribue. Play Console la publie sous Test et publication → Intégrité de l'app → Clé de signature de l'app.
 
+Une troisième empreinte y a longtemps figuré, celle d'une clé locale créée le 2026-08-01 et remplacée le 2026-08-16 par la clé d'upload officielle. Elle n'a jamais été enregistrée chez Google et ne signe plus rien: retirée en 1.1.0. Un APK sideloadé avec elle entre ces deux dates s'ouvrira désormais avec la barre Chrome; le remède est de le réinstaller depuis un build courant. Le test `packages/web/src/manifest.test.ts` vérifie que les empreintes des `twa-manifest.json` et celles d'`assetlinks.json` restent le même jeu, flavor par flavor: c'est le seul garde-fou contre l'oubli d'un des deux fichiers.
+
 Ne jamais faire confiance à une empreinte recopiée à la main: la vérité terrain, c'est le certificat de l'APK réellement installé. Pour la mesurer:
 
 ```bash

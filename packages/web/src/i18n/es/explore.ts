@@ -9,7 +9,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
     "Toque el mapa para ver la previsión, mantenga pulsado para guardar un spot",
   "explore.emptyState.click":
     "Haga clic en el mapa para ver la previsión, clic derecho para guardar un spot",
-  "explore.planFab.title": "Planificar una travesía",
 
   // Header
   "explore.header.settings": "Ajustes",
@@ -91,13 +90,24 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.marineTable.aria.tideFalling": "Marea {value} {unit}, vaciante",
   "explore.marineTable.aria.current": "Corriente {value} kn",
 
+  // Nota bajo la tabla de corrientes: la fuente y la cifra que la matiza
+  "explore.marineTable.currentSource.smoc":
+    "Corriente en malla de 8 km: marea, circulación y olas mezcladas, demasiado gruesa para los pasos.",
+  "explore.marineTable.currentSource.marc": "Solo corriente de marea, malla {res}: viento ignorado.",
+  "explore.marineTable.currentSource.shom": "Solo corriente de marea, tomada a {m} m: viento ignorado.",
+  "explore.marineTable.currentSource.shomClose": "Solo corriente de marea, tomada en el punto: viento ignorado.",
+  "explore.marineTable.currentSource.shomNoDistance":
+    "Solo corriente de marea, tomada en el punto más cercano del atlas: viento ignorado.",
+
   // Tide curve
   "explore.tideChart.curve": "Curva de marea",
+  "explore.tideChart.datum.zh": "Alturas sobre el cero hidrográfico (ZH), no profundidades: súmelas a la sonda de la carta.",
+  "explore.tideChart.datum.msl": "Alturas respecto al nivel medio del mar (MSL), no profundidades.",
 
   // Onboarding
   "explore.onboarding.title": "¿Planificar una ruta?",
   "explore.onboarding.body":
-    "Para trazar un trayecto entre dos spots y estimar la duración, haga clic en el compás.",
+    "Para trazar un trayecto entre dos spots y estimar la duración, abra el menú y elija Planificar.",
   "explore.onboarding.dismiss": "Entendido",
 
   // Spot search

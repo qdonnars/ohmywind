@@ -7,7 +7,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
   // App
   "explore.emptyState.touch": "Toccare la mappa per il meteo, tenere premuto per salvare uno spot",
   "explore.emptyState.click": "Cliccare sulla mappa per il meteo, clic destro per salvare uno spot",
-  "explore.planFab.title": "Pianificare una traversata",
 
   // Header
   "explore.header.settings": "Impostazioni",
@@ -90,13 +89,24 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.marineTable.aria.tideFalling": "Marea {value} {unit}, calante",
   "explore.marineTable.aria.current": "Corrente {value} kn",
 
+  // Nota sotto la tabella delle correnti: la fonte e il numero che la qualifica
+  "explore.marineTable.currentSource.smoc":
+    "Corrente su griglia di 8 km: marea, circolazione e onde insieme, troppo grossolana per i passaggi.",
+  "explore.marineTable.currentSource.marc": "Solo corrente di marea, griglia {res}: vento ignorato.",
+  "explore.marineTable.currentSource.shom": "Solo corrente di marea, rilevata a {m} m: vento ignorato.",
+  "explore.marineTable.currentSource.shomClose": "Solo corrente di marea, rilevata sul posto: vento ignorato.",
+  "explore.marineTable.currentSource.shomNoDistance":
+    "Solo corrente di marea, rilevata al punto più vicino dell'atlante: vento ignorato.",
+
   // Tide curve
   "explore.tideChart.curve": "Curva di marea",
+  "explore.tideChart.datum.zh": "Altezze sopra lo zero delle carte nautiche (ZH), non profondità: da sommare al fondale della carta.",
+  "explore.tideChart.datum.msl": "Altezze rispetto al livello medio del mare (MSL), non profondità.",
 
   // Onboarding
   "explore.onboarding.title": "Pianificare una rotta?",
   "explore.onboarding.body":
-    "Per tracciare un percorso tra due spot e stimarne la durata, cliccare sulla bussola.",
+    "Per tracciare un percorso tra due spot e stimarne la durata, aprire il menu e scegliere Pianificare.",
   "explore.onboarding.dismiss": "Capito",
 
   // Spot search

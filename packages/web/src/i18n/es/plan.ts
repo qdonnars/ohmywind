@@ -7,7 +7,6 @@ export const plan: Record<keyof typeof frPlan, string> = {
   // ── PlanPage ──────────────────────────────────────────────────────────────
   "plan.page.urlError.title": "URL no válida",
   "plan.page.urlError.back": "← Explorar la meteorología",
-  "plan.page.backToExplore": "Volver a la exploración",
   "plan.page.hint.placeStart": "Haga clic para situar la salida",
   "plan.page.hint.drawRoute": "Haga clic para trazar su ruta",
   "plan.panel.resize": "Redimensionar el panel",
@@ -16,7 +15,6 @@ export const plan: Record<keyof typeof frPlan, string> = {
   "plan.hero.distance": "Distancia",
   "plan.hero.duration": "Duración",
   "plan.hero.arrival": "Llegada",
-  "plan.hero.openDetail": "Ver el detalle de la travesía",
 
   // ── Segment bar, under the totals ─────────────────────────────────────────
   "plan.segmentBar.groupLabel": "Pasos de la travesía, un clic abre el paso",
@@ -65,6 +63,8 @@ export const plan: Record<keyof typeof frPlan, string> = {
 
   // ── Map ───────────────────────────────────────────────────────────────────
   "plan.map.waypoint.remove": "Eliminar este punto",
+  "plan.map.waypoint.removed": "Punto {n} eliminado",
+  "plan.map.waypoint.undo": "Deshacer",
 
   // ── Comparison window validation ──────────────────────────────────────────
   "plan.sweep.errors.missingWindow": "Indique una ventana de salida.",

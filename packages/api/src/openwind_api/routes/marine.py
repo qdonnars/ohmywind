@@ -206,10 +206,14 @@ def overlay_for_point(
 
     # Cascade for currents: SHOM > MARC. atlas_resolution_m and z0_hydro_m
     # stay on MARC because SHOM resolution varies per cartouche and SHOM
-    # has no chart-datum reference.
+    # has no chart-datum reference. When SHOM primes, the distance to the
+    # C2D point actually sampled goes out instead: the web caption shows
+    # the user how far the value was taken from.
+    shom_nearest_km: float | None = None
     if shom_c_result is not None:
         c_speeds_dirs_source: tuple[Any, Any, str] | None = shom_c_result
         atlas_resolution_m = None
+        shom_nearest_km = services.shom.nearest_km(lat, lon)
     elif marc_c_result is not None:
         c_speeds_dirs_source = marc_c_result
         atlas_resolution_m = next(
@@ -241,6 +245,8 @@ def overlay_for_point(
         # to be reformatted into the canonical "marc_<atlas>_<res>m" pattern.
         if source.lower().startswith("shom_c2d_"):
             payload["current_source"] = source.lower()
+            if shom_nearest_km is not None:
+                payload["shom_nearest_km"] = round(shom_nearest_km, 2)
         elif cell and atlas_resolution_m:
             payload["current_source"] = f"marc_{cell.atlas_name.lower()}_{atlas_resolution_m}m"
         else:

@@ -16,6 +16,9 @@ interface TimelineHeaderProps {
   nowHour: string;
   timezoneMode: TimezoneMode;
   visibleDay: string; // ISO date "2025-04-26" of leftmost visible day
+  /** Width of the sticky first column, which the tables under this header
+      have to match. 56 px fits a model name; a spot name needs more. */
+  firstColumnPx?: number;
 }
 
 function wmoIcon(code: number | null, isDay: boolean): string {
@@ -154,6 +157,7 @@ export function TimelineHeader({
   nowHour,
   timezoneMode,
   visibleDay,
+  firstColumnPx = 56,
 }: TimelineHeaderProps) {
   const columns = useMemo(
     () => buildColumns(times, forecasts, timezoneMode),
@@ -170,8 +174,8 @@ export function TimelineHeader({
           left edge of the scroll viewport until the next day's cell crosses it. */}
       <tr className="hidden lg:table-row">
         <td
-          className="sticky left-0 z-30 min-w-[56px] border-r border-b"
-          style={{ background: 'var(--ow-bg-1)', borderColor: 'var(--ow-line-2)' }}
+          className="sticky left-0 z-30 border-r border-b"
+          style={{ minWidth: firstColumnPx, background: 'var(--ow-bg-1)', borderColor: 'var(--ow-line-2)' }}
         />
         {dayGroups.map((g, gi) => (
           <td
@@ -182,7 +186,7 @@ export function TimelineHeader({
               background: 'var(--ow-bg-1)',
               borderColor: 'var(--ow-line-2)',
               position: 'sticky',
-              left: 56,
+              left: firstColumnPx,
               zIndex: 19,
             }}
           >
@@ -204,8 +208,8 @@ export function TimelineHeader({
       <tr>
         <td
           rowSpan={2}
-          className="sticky left-0 z-20 min-w-[56px] px-2 border-r border-b"
-          style={{ background: 'var(--ow-bg-1)', borderColor: 'var(--ow-line-2)' }}
+          className="sticky left-0 z-20 px-2 border-r border-b"
+          style={{ minWidth: firstColumnPx, background: 'var(--ow-bg-1)', borderColor: 'var(--ow-line-2)' }}
         >
           <div className="lg:hidden flex flex-col items-center justify-center h-full leading-none gap-[2px]">
             <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--ow-accent)' }}>

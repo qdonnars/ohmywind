@@ -7,11 +7,11 @@ import { computeLegSegmentRanges, focusedSegmentIndex } from "../aggregateLegs";
 import { TimeAnchorToggle } from "../ModeToggle";
 import { Warn, RecapButton, HeroStats } from "../PlanStates";
 import { usePlan } from "../session/planContext";
-import { PlanHeaderRow } from "./PlanHeaderRow";
+import { PlanHeaderRow, ResetButton } from "./PlanHeaderRow";
 import { DepartureSlider } from "./DepartureSlider";
 import { ArchetypeSelector } from "./ArchetypeSelector";
 import { LegList } from "./LegList";
-import { RecomputeBar, ResultsAnchor, StalePlaceholder } from "./parts";
+import { RecomputeButton, ResultsAnchor, StalePlaceholder } from "./parts";
 import { capitalise, fmtClock, fmtDay } from "../../domain/datetime";
 import { useT } from "../../i18n";
 
@@ -61,20 +61,27 @@ export function SingleResults({
 
   return (
     <div className="animate-fade-in">
+      {/* Mode pills on one line, Recalculer as the icon flush right: the
+          row scrolls away above the results on mobile, so it is kept to
+          one line. Filled in accent once the route was edited. */}
       <div className="px-4 pt-4 pb-3" style={{ borderBottom: "1px solid var(--ow-line)" }}>
-        <PlanHeaderRow />
+        <PlanHeaderRow
+          compact
+          action={
+            <RecomputeButton
+              onClick={compute}
+              style={{
+                background: isStale ? "var(--ow-accent)" : "var(--ow-bg-2)",
+                color: isStale ? "var(--ow-on-accent)" : "var(--ow-fg-1)",
+                border: `1px solid ${isStale ? "transparent" : "var(--ow-line)"}`,
+              }}
+            />
+          }
+        />
       </div>
 
-      <RecomputeBar
-        onClick={compute}
-        style={{
-          background: isStale ? "var(--ow-accent)" : "var(--ow-bg-2)",
-          color: isStale ? "var(--ow-on-accent)" : "var(--ow-fg-1)",
-          border: `1px solid ${isStale ? "transparent" : "var(--ow-line)"}`,
-        }}
-      />
-
-      {/* Récap compact: click to edit departure / archetype inline. */}
+      {/* Récap compact: click to edit departure / archetype inline. The
+          trash sits at its end, the row the drawer opens on. */}
       <ResultsAnchor />
       <RecapButton
         primary={t(
@@ -86,6 +93,7 @@ export function SingleResults({
         secondary={boatLabel}
         isOpen={isEditingParams}
         onClick={() => setIsEditingParams((v) => !v)}
+        trailing={<ResetButton danger />}
       />
       {isEditingParams && (
         <div className="px-4 py-3 space-y-3" style={{ borderBottom: "1px solid var(--ow-line)", background: "var(--ow-bg-2)" }}>
@@ -96,10 +104,10 @@ export function SingleResults({
       )}
 
       {/* Total route stats (Distance / Durée / Arrivée + segment bar).
-          Desktop only: on mobile the floating overlay (PlanHeroStats) stays
-          the single source of truth for these totals, per the b90a5bf
-          decision. Hidden entirely when the route was edited without
-          recalculating, same rule as the mobile overlay. */}
+          Desktop only: on mobile the same three totals are the head of the
+          drawer (StatBand, mounted by PlanPage), where they stay on screen
+          however low the drawer sits. Hidden entirely when the route was
+          edited without recalculating, same rule as the band. */}
       {!isStale && (
         <div className="hidden lg:block px-4 py-3.5" style={{ borderBottom: "1px solid var(--ow-line)" }}>
           <HeroStats

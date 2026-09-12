@@ -9,7 +9,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
     "Karte antippen für das Wetter, lange drücken zum Speichern eines Spots",
   "explore.emptyState.click":
     "Karte klicken für das Wetter, Rechtsklick zum Speichern eines Spots",
-  "explore.planFab.title": "Törn planen",
 
   // Header
   "explore.header.settings": "Einstellungen",
@@ -91,13 +90,24 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.marineTable.aria.tideFalling": "Tide {value} {unit}, ablaufend",
   "explore.marineTable.aria.current": "Strom {value} kn",
 
+  // Hinweis unter der Stromtabelle: die Quelle und die eine Zahl, die sie einordnet
+  "explore.marineTable.currentSource.smoc":
+    "Strom auf 8-km-Gitter: Tide, Zirkulation und Wellen zusammengefasst, zu grob für die Passagen.",
+  "explore.marineTable.currentSource.marc": "Nur Gezeitenstrom, Gitter {res}: Wind nicht berücksichtigt.",
+  "explore.marineTable.currentSource.shom": "Nur Gezeitenstrom, {m} m entfernt erfasst: Wind nicht berücksichtigt.",
+  "explore.marineTable.currentSource.shomClose": "Nur Gezeitenstrom, vor Ort erfasst: Wind nicht berücksichtigt.",
+  "explore.marineTable.currentSource.shomNoDistance":
+    "Nur Gezeitenstrom, am nächsten Atlaspunkt erfasst: Wind nicht berücksichtigt.",
+
   // Tide curve
   "explore.tideChart.curve": "Tidenkurve",
+  "explore.tideChart.datum.zh": "Höhen über Kartennull (ZH), keine Wassertiefen: zur Kartentiefe addieren.",
+  "explore.tideChart.datum.msl": "Höhen bezogen auf den mittleren Meeresspiegel (MSL), keine Wassertiefen.",
 
   // Onboarding
   "explore.onboarding.title": "Eine Route planen?",
   "explore.onboarding.body":
-    "Um einen Weg zwischen zwei Spots zu zeichnen und die Dauer abzuschätzen, klicken Sie auf den Kompass.",
+    "Um einen Weg zwischen zwei Spots zu zeichnen und die Dauer abzuschätzen, öffnen Sie das Menü und wählen Sie Planen.",
   "explore.onboarding.dismiss": "Verstanden",
 
   // Spot search
