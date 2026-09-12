@@ -24,8 +24,8 @@ const SEG_LABEL_MIN_PX = 90;
 
 export interface PlanMapHandle {
   recenter: (lat: number, lon: number) => void;
-  /** Fit the camera to the current waypoints. Called explicitly when the user
-      asks for a computation (Calculer / Comparer) — never automatically on
+  /** Fit the camera to the current waypoints. Called when the computation
+      the user asked for (Calculer / Comparer) lands — never automatically on
       waypoint placement, so the map stays where the user left it. */
   fitToWaypoints: () => void;
 }
@@ -122,6 +122,11 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     fitToWaypoints() {
       const map = mapRef.current;
       if (!map) return;
+      // The container may have been resized in this very frame (the mobile
+      // drawer fitting itself to fresh results): Leaflet caches its size and
+      // the ResizeObserver below only refreshes it after this callback, so
+      // measure first, or the bounds are fitted to the map as it was.
+      map.invalidateSize({ animate: false });
       if (waypoints.length >= 2) {
         map.fitBounds(
           L.latLngBounds(waypoints.map(([lat, lon]) => L.latLng(lat, lon))),

@@ -96,10 +96,10 @@ export function SingleResults({
       )}
 
       {/* Total route stats (Distance / Durée / Arrivée + segment bar).
-          Desktop only: on mobile the floating overlay (PlanHeroStats) stays
-          the single source of truth for these totals, per the b90a5bf
-          decision. Hidden entirely when the route was edited without
-          recalculating, same rule as the mobile overlay. */}
+          Desktop only: on mobile the same three totals are the head of the
+          drawer (StatBand, mounted by PlanPage), where they stay on screen
+          however low the drawer sits. Hidden entirely when the route was
+          edited without recalculating, same rule as the band. */}
       {!isStale && (
         <div className="hidden lg:block px-4 py-3.5" style={{ borderBottom: "1px solid var(--ow-line)" }}>
           <HeroStats

@@ -177,16 +177,21 @@ export function HeroCell({
   value,
   unit,
   tone,
+  size = "md",
 }: {
   label: string;
   value: string;
   unit?: string;
   tone?: "warn" | "accent" | "default";
+  /** `lg` is the drawer head on mobile (StatBand): the three totals are the
+      headline there, not one block among the results. */
+  size?: "md" | "lg";
 }) {
   const color =
     tone === "warn" ? "var(--ow-warn)" :
     tone === "accent" ? "var(--ow-accent)" :
     "var(--ow-fg-0)";
+  const large = size === "lg";
   return (
     <div>
       <div className="text-[9px] uppercase tracking-widest font-bold mb-1" style={{ color: "var(--ow-fg-2)" }}>
@@ -194,13 +199,13 @@ export function HeroCell({
       </div>
       <div className="flex items-baseline gap-1">
         <span
-          className="text-xl font-bold tabular-nums"
-          style={{ color, letterSpacing: "-0.02em", lineHeight: 1, fontFamily: "var(--ow-font-mono)" }}
+          className={`${large ? "text-[28px]" : "text-xl"} font-bold tabular-nums`}
+          style={{ color, letterSpacing: large ? "-0.03em" : "-0.02em", lineHeight: 1, fontFamily: "var(--ow-font-mono)" }}
         >
           {value}
         </span>
         {unit && (
-          <span className="text-[10px]" style={{ color: "var(--ow-fg-2)", fontFamily: "var(--ow-font-mono)" }}>
+          <span className={large ? "text-xs" : "text-[10px]"} style={{ color: "var(--ow-fg-2)", fontFamily: "var(--ow-font-mono)" }}>
             {unit}
           </span>
         )}
@@ -327,6 +332,31 @@ export function HeroStats({
         style={{ color: "var(--ow-fg-2)", fontFamily: "var(--ow-font-mono)" }}
       >
         <span>&lt;10 · 10–15 · 15–20 · 20–25 · &gt;25 kn</span>
+      </div>
+    </div>
+  );
+}
+
+// ── StatBand ──────────────────────────────────────────────────────────────────
+// The three totals as the head of the mobile drawer: Distance / Durée /
+// Arrivée in large type, the arrival in accent. It sits in the drawer chrome
+// (under the grab handle, above the scrolling content), so it stays on screen
+// whether the drawer is a peek or pulled all the way up. It replaces the glass
+// strip that used to float over the map: the strip hid the bottom of the
+// route the map had just framed (#392). Desktop keeps HeroStats above, with
+// the segment bar, in the sidebar.
+
+export function StatBand({ passage }: { passage: PassageReport }) {
+  const { t } = useT();
+  const divider = { borderLeft: "1px solid var(--ow-line)" };
+  return (
+    <div className="grid grid-cols-3 px-4 pt-0.5 pb-3.5" style={{ borderBottom: "1px solid var(--ow-line)" }}>
+      <HeroCell size="lg" label={t("plan.hero.distance")} value={num1(passage.distance_nm)} unit="nm" />
+      <div className="pl-3.5" style={divider}>
+        <HeroCell size="lg" label={t("plan.hero.duration")} value={fmtDurationSafe(passage.duration_h)} />
+      </div>
+      <div className="pl-3.5" style={divider}>
+        <HeroCell size="lg" tone="accent" label={t("plan.hero.arrival")} value={fmtClock(passage.arrival_time)} />
       </div>
     </div>
   );
