@@ -92,7 +92,40 @@ class TestEngineFailures:
         )
         resp = await passage_routes.api_passage(FakeRequest(_body()))
         assert resp.status_code == 503
-        assert _payload(resp)["code"] == "upstream_rate_limited"
+        payload = _payload(resp)
+        assert payload["code"] == "upstream_rate_limited"
+        # No counter named, no wait invented: the client says "a few minutes".
+        assert "retry_after" not in payload
+        assert "window" not in payload
+        assert "Retry-After" not in resp.headers
+
+    async def test_upstream_rate_limited_carries_the_wait_until_the_counter_clears(
+        self, monkeypatch
+    ) -> None:
+        # A spent daily quota at 21:00 UTC is back at 00:01 UTC. The client
+        # needs the window to name the quota and the wait to give the hour;
+        # the header duplicates the body for fetches that cannot read it.
+        monkeypatch.setattr(
+            passage_routes,
+            "estimate_passage",
+            _raising(
+                UpstreamRateLimitError(
+                    "Daily API request limit exceeded. Please try again tomorrow.",
+                    retry_after_s=10_860.2,
+                    window="day",
+                )
+            ),
+        )
+        resp = await passage_routes.api_passage(FakeRequest(_body()))
+        assert resp.status_code == 503
+        payload = _payload(resp)
+        assert payload["code"] == "upstream_rate_limited"
+        assert payload["retry_after"] == 10_861
+        assert payload["window"] == "day"
+        assert resp.headers["Retry-After"] == "10861"
+        # ``error`` is still the engine's sentence, wait included, for logs
+        # and for a client predating ``window``.
+        assert "resets in about 4 h" in payload["error"]
 
     async def test_sweep_too_large(self) -> None:
         # 14 days of hourly departures is the documented cap; ask for a month.
