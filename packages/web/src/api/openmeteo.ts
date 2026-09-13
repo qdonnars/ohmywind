@@ -8,6 +8,7 @@ import {
   loadModelConfig,
   type ModelName,
 } from "../config/modelConfig";
+import { noteIfRefused } from "./openMeteoQuota";
 
 const MODEL_ENDPOINTS: Record<ModelName, { endpoint: string; extraParams?: string }> = {
   AROME: {
@@ -117,18 +118,22 @@ export function sanitizeHourly(hourly: HourlyData): HourlyData {
 // response shape when the requested point is outside the model grid, e.g.
 // AROME France queried at the Danish coast). The caller uses null to drive
 // the per-slot fallback to the next priority model.
+//
+// A 429 is null too, but `refused` says so: a spent quota is not a gap in
+// coverage, and the caller must not walk the fallback models over it.
 async function fetchOneModel(
   name: ModelName,
   base: string,
-): Promise<ModelForecast | null> {
+): Promise<{ forecast: ModelForecast | null; refused: boolean }> {
   const endpoint = MODEL_ENDPOINTS[name];
   try {
     const resp = await fetch(`${endpoint.endpoint}${base}${endpoint.extraParams || ""}`);
+    if (await noteIfRefused(resp)) return { forecast: null, refused: true };
     const data = await resp.json();
-    if (!data.hourly) return null;
-    return { modelName: name, hourly: sanitizeHourly(data.hourly) };
+    if (!data.hourly) return { forecast: null, refused: false };
+    return { forecast: { modelName: name, hourly: sanitizeHourly(data.hourly) }, refused: false };
   } catch {
-    return null;
+    return { forecast: null, refused: false };
   }
 }
 
@@ -159,16 +164,25 @@ export async function fetchAllModels(
   // "Ignorés" list sequentially until one returns data. Each fallback
   // model is consumed at most once (so two failed top slots won't both
   // try to claim the same fallback).
+  //
+  // Not over a refusal, though: a spent quota answers every model the same
+  // way, and the walk was up to a dozen requests refused one after the
+  // other. The table shows the quota instead (see `openMeteoQuota.ts`).
+  let refused = phase1.some((r) => r.refused);
   const pool = [...fallbackPool];
-  const slots: (ModelForecast | null)[] = phase1.slice();
-  for (let i = 0; i < slots.length; i++) {
+  const slots: (ModelForecast | null)[] = phase1.map((r) => r.forecast);
+  for (let i = 0; i < slots.length && !refused; i++) {
     if (slots[i] != null) continue;
     const originalSlot = top[i];
     while (pool.length > 0) {
       const candidate = pool.shift() as ModelName;
-      const data = await fetchOneModel(candidate, base);
-      if (data != null) {
-        slots[i] = { ...data, fellBackFrom: originalSlot };
+      const result = await fetchOneModel(candidate, base);
+      if (result.refused) {
+        refused = true;
+        break;
+      }
+      if (result.forecast != null) {
+        slots[i] = { ...result.forecast, fellBackFrom: originalSlot };
         break;
       }
     }
@@ -177,7 +191,9 @@ export async function fetchAllModels(
   // Drop slots where even the full fallback pool didn't yield a covering
   // model (rare: would need a spot outside every grid in the user's config).
   const models = slots.filter((s): s is ModelForecast => s != null);
-  cache.set(cacheKey, { models, fetchedAt: Date.now() });
+  // A refusal is not a forecast: caching it would pin the empty table until
+  // the TTL runs out, past the moment the quota may be back.
+  if (!refused) cache.set(cacheKey, { models, fetchedAt: Date.now() });
   return models;
 }
 
@@ -267,6 +283,10 @@ export async function fetchWindCorridor(
       const endpoint = MODEL_ENDPOINTS[name];
       try {
         const resp = await fetch(`${endpoint.endpoint}${base}${endpoint.extraParams || ""}`);
+        // A refusal used to parse as a body without `hourly`, i.e. as a
+        // corridor outside every grid, and was cached as such for half an
+        // hour. It is a failed batch: served empty, never stored.
+        if (await noteIfRefused(resp)) return { name, arr: [] as unknown[], ok: false };
         const data = await resp.json();
         // Multi-coordinate → array; a 1-coord request may come back as a bare
         // object, so normalize to an array aligned to `missing`.

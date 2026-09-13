@@ -309,6 +309,64 @@ describe("toError", () => {
     expect(error.message).toContain("Erreur serveur 503");
     expect(friendlyError(error)).toMatch(/indisponible/);
   });
+
+  it("reads the quota window off an upstream_rate_limited body", async () => {
+    const error = await failWith(
+      response(503, {
+        error: "upstream weather service rate limit reached (Daily API request limit exceeded.)",
+        code: "upstream_rate_limited",
+        retry_after: 10_861,
+        window: "day",
+      }),
+    );
+    expect(error.window).toBe("day");
+    expect(error.retryAfter).toBe(10_861);
+  });
+
+  it("ignores a window it does not know", async () => {
+    const error = await failWith(
+      response(503, { error: "x", code: "upstream_rate_limited", window: "fortnight" }),
+    );
+    expect(error.window).toBeNull();
+  });
+});
+
+// Le serveur a pu lire quel compteur Open-Meteo a refuse et quand il se
+// remet a zero. La phrase le dit : « quota du jour, de retour dans trois
+// heures » a 21 h UTC, la ou « quelques minutes » etait faux.
+describe("upstream_rate_limited avec fenetre", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("names the daily quota and the hours until it clears", () => {
+    const msg = friendlyError(
+      new ApiError("x", "upstream_rate_limited", 2.5 * 3600, "day"),
+    );
+    expect(msg).toContain("service météo gratuit");
+    expect(msg).toContain("par jour");
+    expect(msg).toContain("notre serveur");
+    expect(msg).toContain("pas lié à votre usage");
+    expect(msg).toContain("3 heures environ");
+  });
+
+  it("counts minutes for an hourly quota", () => {
+    const msg = friendlyError(new ApiError("x", "upstream_rate_limited", 25 * 60, "hour"));
+    expect(msg).toContain("par heure");
+    expect(msg).toContain("25 minutes");
+  });
+
+  it("derives the reset from the counter's clock when the server sent no wait", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-13T21:30:00Z"));
+    const msg = friendlyError(new ApiError("x", "upstream_rate_limited", null, "day"));
+    // 00:00 UTC plus the limiter's one-minute sweep: 2 h 31, said as 3 hours.
+    expect(msg).toContain("3 heures environ");
+  });
+
+  it("keeps the vaguer sentence when no counter was named", () => {
+    const msg = friendlyError(new ApiError("x", "upstream_rate_limited", null));
+    expect(msg).toContain("limite temporairement");
+    expect(msg).not.toContain("Réinitialisation");
+  });
 });
 
 // Une requete qui n'atteint jamais de serveur n'a pas de corps a lire : elle

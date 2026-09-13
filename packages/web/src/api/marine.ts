@@ -5,6 +5,7 @@ import type {
   MarineHourly,
 } from "../types";
 import { API_BASE } from "./config";
+import { noteIfRefused } from "./openMeteoQuota";
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { parisIsoToUtcMs } from "../domain/datetime";
 import {
@@ -515,9 +516,12 @@ export async function fetchMarine(lat: number, lon: number): Promise<MarineHourl
     // chains off it, so the only cost of asking is on a cold session: after
     // that the answer comes from memory or from localStorage.
     const [omResp, marcOverlay] = await Promise.all([
-      fetch(url).then(async (r) =>
-        r.ok ? ((await r.json()) as { hourly?: RawHourly }) : null,
-      ),
+      fetch(url).then(async (r) => {
+        // A 429 is recorded for the screens to name the quota; it is not a
+        // forecast, so it answers null like any other failure.
+        if (await noteIfRefused(r)) return null;
+        return r.ok ? ((await r.json()) as { hourly?: RawHourly }) : null;
+      }),
       fetchMarcCoverage().then((atlases) =>
         fetchMarcOverlayIfCovered(lat, lon, startIso, endIso, atlases),
       ),
@@ -590,6 +594,7 @@ export async function fetchMarineCorridor(
   let byMissingIndex: ({ hourly?: RawHourly } | null)[];
   try {
     const resp = await fetch(url);
+    if (await noteIfRefused(resp)) return out;
     if (!resp.ok) return out;
     const json: unknown = await resp.json();
     // Multi-coordinate answers with an array; a single coordinate may come

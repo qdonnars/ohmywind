@@ -7,6 +7,7 @@ import type { PolarData } from "../config/polarConfig";
 import { COEFF_DEFAULT } from "../config/polarConfig";
 import { API_BASE } from "./config";
 import { t, tn } from "../i18n";
+import { isQuotaWindow, openMeteoQuotaMessage, quotaResetAt, type QuotaWindow } from "./openMeteoQuota";
 import { postJson } from "./postJson";
 import type { ForecastCache } from "./forecastCache";
 import {
@@ -61,7 +62,7 @@ export function formatRetryDelay(seconds: number | null): string {
  * | `naive_datetime` | a date without a timezone where one is required |
  * | `sweep_too_large` | the sweep would produce too many windows |
  * | `upstream_timeout` | the weather service did not answer in time |
- * | `upstream_rate_limited` | the weather service is throttling *us* |
+ * | `upstream_rate_limited` | the weather service is throttling *us*, with `retry_after` and `window` when it named the quota |
  * | `upstream_unavailable` | the edge proxy could not reach our own backend |
  * | `body_too_large` | request body over the cap |
  * | `invalid_forecast_cache` | the attached corridor did not check out |
@@ -75,12 +76,20 @@ export class ApiError extends Error {
   readonly code: string | null;
   /** Seconds to wait, from `retry_after` or from the `Retry-After` header. */
   readonly retryAfter: number | null;
+  /** The Open-Meteo counter behind an `upstream_rate_limited`, when named. */
+  readonly window: QuotaWindow | null;
 
-  constructor(message: string, code: string | null, retryAfter: number | null) {
+  constructor(
+    message: string,
+    code: string | null,
+    retryAfter: number | null,
+    window: QuotaWindow | null = null,
+  ) {
     super(message);
     this.name = "ApiError";
     this.code = code;
     this.retryAfter = retryAfter;
+    this.window = window;
   }
 }
 
@@ -103,8 +112,9 @@ async function toError(res: Response): Promise<ApiError> {
   const retryAfter =
     parseSeconds(body["retry_after"]) ??
     (res.status === 429 ? parseSeconds(res.headers.get("Retry-After")) : null);
+  const window = isQuotaWindow(body["window"]) ? body["window"] : null;
   const withDelay = retryAfter !== null ? `${message}, retry in ${retryAfter}s` : message;
-  return new ApiError(withDelay, code, retryAfter);
+  return new ApiError(withDelay, code, retryAfter, window);
 }
 
 /**
@@ -156,7 +166,7 @@ export function coldStartDelay(raw: unknown): number | null {
 export function friendlyError(raw: string | Error): string {
   if (typeof raw === "string") return matchErrorText(raw);
   if (raw instanceof ApiError && raw.code !== null && raw.code in ERROR_COPY) {
-    return ERROR_COPY[raw.code](raw.retryAfter);
+    return ERROR_COPY[raw.code](raw.retryAfter, raw.window);
   }
   if (raw instanceof ApiShapeError) return ERROR_COPY.invalid_response(null);
   // Avant la lecture du texte : une requete qui n'a jamais atteint de serveur
@@ -190,8 +200,12 @@ function isNetworkFailure(error: Error): boolean {
 
 /** Copy per stable code, in the reader's language. Each entry is a function
     so the lookup happens when the message is produced, not at import time.
-    `retryAfter` is only read by `rate_limited` and `upstream_unavailable`. */
-const ERROR_COPY: Record<string, (retryAfter: number | null) => string> = {
+    `retryAfter` is only read by `rate_limited`, `upstream_unavailable` and
+    `upstream_rate_limited`; `window` by the last one alone. */
+const ERROR_COPY: Record<
+  string,
+  (retryAfter: number | null, window?: QuotaWindow | null) => string
+> = {
   // Cause la plus fréquente : date > today+15 (cap Open-Meteo). Mais peut
   // aussi survenir transitoirement quand un modèle de la chaîne tombe ;
   // d'où la formulation prudente. On rappelle l'horizon approximatif et on
@@ -219,7 +233,18 @@ const ERROR_COPY: Record<string, (retryAfter: number | null) => string> = {
   // egress IP and can be spent by an unrelated tenant of the same host, so
   // slowing down changes nothing. Distinct from `rate_limited` above, which
   // is our own limiter and IS about the caller's pace.
-  upstream_rate_limited: () => t("plan.api.errors.upstreamRateLimited"),
+  //
+  // When the server could read which counter tripped, the sentence names it
+  // and says when it clears: "the daily quota, back in about three hours"
+  // is what the reader needs at 21:00 UTC, and "a few minutes" was a lie
+  // there. The server's wait is preferred; without one the reset is derived
+  // from the counter's own clock, the same way the server would have.
+  upstream_rate_limited: (retryAfter, window) => {
+    if (!window) return t("plan.api.errors.upstreamRateLimited");
+    const now = Date.now();
+    const resetAt = retryAfter !== null ? now + retryAfter * 1000 : quotaResetAt(window, now);
+    return openMeteoQuotaMessage("server", window, resetAt, now);
+  },
   // Emis par le proxy de bord (Worker Cloudflare), pas par le Space : le
   // backend n'a pas repondu du tout. A ne pas confondre avec les deux
   // `upstream_*` ci-dessus, ou le service amont est Open-Meteo ; ici l'amont

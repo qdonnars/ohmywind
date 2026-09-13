@@ -26,7 +26,10 @@ from openwind_data.adapters.base import UpstreamRateLimitError
 from openwind_data.adapters.openmeteo import (
     FORECAST_URL,
     MARINE_URL,
+    RATE_LIMIT_SWEEP_S,
     OpenMeteoAdapter,
+    limit_window,
+    seconds_until_reset,
 )
 
 # Aligned on the shared fixtures' window, so a retried call yields real points
@@ -36,7 +39,12 @@ END = datetime(2026, 4, 26, 23, 0, tzinfo=UTC)
 
 # Shape of a real Open-Meteo rejection: the body names the counter that tripped.
 MINUTELY = {"error": True, "reason": "Minutely API request limit exceeded. Please try again later."}
+HOURLY = {
+    "error": True,
+    "reason": "Hourly API request limit exceeded. Please try again in the next hour.",
+}
 DAILY = {"error": True, "reason": "Daily API request limit exceeded. Please try again tomorrow."}
+CONCURRENT = {"error": True, "reason": "Too many concurrent requests"}
 
 
 def _adapter() -> OpenMeteoAdapter:
@@ -91,10 +99,15 @@ async def test_a_long_retry_after_fails_fast_instead_of_sleeping() -> None:
     request that hangs until something else times it out, and the user would
     learn nothing.
     """
+    # Both calls fail fast now that a daily refusal is never retried, so the
+    # marine one carries the same header: whichever surfaces first is
+    # asserted on, and the two must agree.
     forecast = respx.get(FORECAST_URL).mock(
         return_value=httpx.Response(429, json=DAILY, headers={"Retry-After": "3600"})
     )
-    respx.get(MARINE_URL).mock(return_value=httpx.Response(429, json=DAILY))
+    respx.get(MARINE_URL).mock(
+        return_value=httpx.Response(429, json=DAILY, headers={"Retry-After": "3600"})
+    )
 
     with pytest.raises(UpstreamRateLimitError) as excinfo:
         await _adapter().fetch(43.3, 5.36, START, END)
@@ -148,3 +161,85 @@ async def test_a_body_that_is_not_open_meteo_json_still_yields_a_usable_error() 
 
     assert excinfo.value.reason == ""
     assert "upstream weather service rate limit reached" in str(excinfo.value)
+
+
+# ------------------------------------------------------- the wait until reset
+
+
+def test_the_window_is_read_off_the_reason() -> None:
+    assert limit_window(MINUTELY["reason"]) == "minute"
+    assert limit_window(HOURLY["reason"]) == "hour"
+    assert limit_window(DAILY["reason"]) == "day"
+    # Momentary refusals and non-JSON bodies name no counter.
+    assert limit_window(CONCURRENT["reason"]) is None
+    assert limit_window("") is None
+
+
+def test_the_daily_counter_clears_at_midnight_utc_not_a_day_later() -> None:
+    """Fixed clock: refused at 21:30 UTC, the quota is back at 00:01 UTC."""
+    at = datetime(2026, 9, 13, 21, 30, tzinfo=UTC)
+    assert seconds_until_reset("day", at) == 2.5 * 3600 + RATE_LIMIT_SWEEP_S
+
+
+def test_the_hourly_counter_clears_at_the_next_full_hour() -> None:
+    at = datetime(2026, 9, 13, 10, 20, 30, tzinfo=UTC)
+    assert seconds_until_reset("hour", at) == 39.5 * 60 + RATE_LIMIT_SWEEP_S
+
+
+def test_the_minutely_counter_clears_within_one_sweep() -> None:
+    assert seconds_until_reset("minute", datetime(2026, 9, 13, 10, 20, 59, tzinfo=UTC)) == 60
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_a_daily_refusal_without_header_carries_the_wait_until_midnight_utc() -> None:
+    """Open-Meteo sends no Retry-After, so the wait is derived from the clock.
+
+    And nothing is retried: a spent daily counter does not drain in two
+    seconds, and the extra attempt was one more refusal in the log.
+    """
+    forecast = respx.get(FORECAST_URL).mock(return_value=httpx.Response(429, json=DAILY))
+    respx.get(MARINE_URL).mock(return_value=httpx.Response(429, json=DAILY))
+
+    before = datetime.now(UTC)
+    with pytest.raises(UpstreamRateLimitError) as excinfo:
+        await _adapter().fetch(43.3, 5.36, START, END)
+
+    err = excinfo.value
+    assert forecast.call_count == 1
+    assert err.window == "day"
+    assert err.retry_after_s is not None
+    expected = seconds_until_reset("day", before)
+    # Within the seconds the test itself took.
+    assert abs(err.retry_after_s - expected) < 5
+    assert "resets in about" in str(err)
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_an_advertised_retry_after_wins_over_the_derived_wait() -> None:
+    refusal = httpx.Response(429, json=HOURLY, headers={"Retry-After": "900"})
+    respx.get(FORECAST_URL).mock(return_value=refusal)
+    respx.get(MARINE_URL).mock(return_value=refusal)
+
+    with pytest.raises(UpstreamRateLimitError) as excinfo:
+        await _adapter().fetch(43.3, 5.36, START, END)
+
+    assert excinfo.value.window == "hour"
+    assert excinfo.value.retry_after_s == 900
+    assert "resets in about 15 min" in str(excinfo.value)
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_a_refusal_naming_no_counter_carries_no_wait() -> None:
+    """A concurrency refusal is momentary; inventing a wait for it would lie."""
+    respx.get(FORECAST_URL).mock(return_value=httpx.Response(429, json=CONCURRENT))
+    respx.get(MARINE_URL).mock(return_value=httpx.Response(429, json=CONCURRENT))
+
+    with pytest.raises(UpstreamRateLimitError) as excinfo:
+        await _adapter().fetch(43.3, 5.36, START, END)
+
+    assert excinfo.value.window is None
+    assert excinfo.value.retry_after_s is None
+    assert "resets in" not in str(excinfo.value)

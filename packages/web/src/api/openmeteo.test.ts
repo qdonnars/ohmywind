@@ -2,8 +2,24 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { clearWindCorridorCache, sanitizeHourly, fetchWindCorridor } from "./openmeteo";
+import {
+  clearWindCorridorCache,
+  sanitizeHourly,
+  fetchAllModels,
+  fetchWindCorridor,
+} from "./openmeteo";
+import { clearOpenMeteoQuota, openMeteoQuota } from "./openMeteoQuota";
+import { ALL_MODELS } from "../config/modelConfig";
 import type { HourlyData } from "../types";
+
+// Shape of a real Open-Meteo refusal, as the mocked fetch answers it.
+const DAILY_REFUSAL = {
+  status: 429,
+  json: async () => ({
+    error: true,
+    reason: "Daily API request limit exceeded. Please try again tomorrow.",
+  }),
+};
 
 function makeHourly(
   speeds: (number | null)[],
@@ -231,5 +247,55 @@ describe("fetchWindCorridor", () => {
     expect(await fetchWindCorridor(coords, ["AROME"])).toEqual([[]]);
     expect(await fetchWindCorridor(coords, ["AROME"])).toEqual([[]]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  // A refusal used to parse as a body without `hourly`, i.e. exactly like
+  // the Danish coast above, and was cached for half an hour: the corridor
+  // stayed empty long after the quota had come back.
+  it("does not cache a refused batch, and records the quota it hit", async () => {
+    clearOpenMeteoQuota();
+    const coords = [{ lat: 43.3, lon: 5.35 }];
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(DAILY_REFUSAL)
+      .mockResolvedValueOnce({ json: async () => [elementWithHourly(8)] });
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await fetchWindCorridor(coords, ["AROME"])).toEqual([[]]);
+    expect(openMeteoQuota()?.window).toBe("day");
+    clearOpenMeteoQuota();
+
+    const retry = await fetchWindCorridor(coords, ["AROME"]);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // asked again, not served from cache
+    expect(retry[0][0].hourly.wind_speed_10m).toEqual([8, 8]);
+  });
+});
+
+describe("fetchAllModels under a spent quota", () => {
+  // Unit environment, no DOM: `loadModelConfig` catches the missing
+  // localStorage and answers the default order, which is what is wanted.
+  beforeEach(() => clearOpenMeteoQuota());
+  afterEach(() => vi.restoreAllMocks());
+
+  it("stops at the refusal instead of walking every fallback model", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(DAILY_REFUSAL);
+    vi.stubGlobal("fetch", fetchMock);
+
+    // Coordinates nobody has looked at in this run, so nothing is cached.
+    expect(await fetchAllModels(41.1234, 9.4321)).toEqual([]);
+
+    // The four active models are asked together; the walk down the other
+    // ten would have been ten more refusals in a row.
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock.mock.calls.length).toBeLessThan(ALL_MODELS.length);
+    expect(openMeteoQuota()?.window).toBe("day");
+  });
+
+  it("does not cache the empty table, so the next look asks again", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(DAILY_REFUSAL);
+    vi.stubGlobal("fetch", fetchMock);
+    await fetchAllModels(41.5678, 9.8765);
+    await fetchAllModels(41.5678, 9.8765);
+    expect(fetchMock).toHaveBeenCalledTimes(8);
   });
 });
