@@ -44,6 +44,10 @@ export const explore: Record<keyof typeof frExplore, string> = {
     "Wassertiefen unter den Wegpunkten: <emodnet>EMODnet Bathymetry</emodnet> (CC BY 4.0), bezogen auf Kartennull wie auf einer Seekarte. Das Gitter misst rund 115 m: Es beantwortet gut „wie viel Wasser auf diesem Schlag“, und es ist blind für den einzelnen Felsen zwischen zwei Gitterpunkten. Nicht für die Navigation verwenden.",
   "explore.infoPanel.sources.privacy":
     "Kein Konto, kein Tracker: <a>Datenschutzerklärung</a>.",
+  "explore.infoPanel.press.title": "In der Presse",
+  "explore.infoPanel.press.body":
+    "Was die Wassersportpresse über das Projekt geschrieben hat, mit Link zu jedem Artikel.",
+  "explore.infoPanel.press.link": "Zum Pressespiegel",
   "explore.infoPanel.licence.title": "Lizenz und Marke",
   "explore.infoPanel.licence.body":
     "Der Code von OhMyWind ist Open Source, unter der <licence>Lizenz AGPL-3.0</licence>. Sie dürfen ihn forken, ändern und weitergeben. Wenn Sie eine geänderte Fassung über das Netz bereitstellen, müssen Sie deren Quelltext veröffentlichen. Der Name „OhMyWind“ ist dagegen als Marke beim INPI angemeldet, und die visuelle Identität (Logo, Symbole) bleibt urheberrechtlich geschützt: Ein Fork erscheint unter eigenem Namen und mit eigenen Symbolen. Einzelheiten in der <trademark>Markenrichtlinie</trademark>.",

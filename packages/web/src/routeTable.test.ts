@@ -12,6 +12,7 @@ describe("matchRoute", () => {
     expect(matchRoute("/config")).toBe("config");
     expect(matchRoute("/methodologie")).toBe("methodologie");
     expect(matchRoute("/confidentialite")).toBe("confidentialite");
+    expect(matchRoute("/presse")).toBe("press");
   });
 
   it("answers not-found for an unknown path", () => {
