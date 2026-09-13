@@ -43,6 +43,10 @@ export const explore: Record<keyof typeof frExplore, string> = {
     "Fondali sotto i waypoint: <emodnet>EMODnet Bathymetry</emodnet> (CC BY 4.0), riferiti al livello di riferimento delle carte come su una carta nautica. La griglia è di circa 115 m: risponde bene alla domanda «quanta acqua c'è su questa tratta», ed è cieca allo scoglio isolato tra due nodi. Da non utilizzare per la navigazione.",
   "explore.infoPanel.sources.privacy":
     "Nessun account, nessun tracciatore: <a>informativa sulla privacy</a>.",
+  "explore.infoPanel.press.title": "Sulla stampa",
+  "explore.infoPanel.press.body":
+    "Cosa ha scritto la stampa nautica sul progetto, con il link a ogni articolo.",
+  "explore.infoPanel.press.link": "Vedere la rassegna stampa",
   "explore.infoPanel.licence.title": "Licenza e marchio",
   "explore.infoPanel.licence.body":
     "Il codice di OhMyWind è open source, sotto <licence>licenza AGPL-3.0</licence>. È possibile forkarlo, modificarlo e ridistribuirlo. Chi espone in rete una versione modificata ne deve pubblicare i sorgenti. Il nome «OhMyWind», invece, è oggetto di un deposito di marchio presso l'INPI, e l'identità visiva (logo, icone) resta protetta dal diritto d'autore: un fork si pubblica con un proprio nome e proprie icone. Dettagli nella <trademark>politica di marchio</trademark>.",

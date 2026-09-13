@@ -44,6 +44,10 @@ export const explore: Record<keyof typeof frExplore, string> = {
     "Sondas bajo los waypoints: <emodnet>EMODnet Bathymetry</emodnet> (CC BY 4.0), referidas al cero hidrográfico como en una carta náutica. La retícula mide unos 115 m: responde bien a «cuánta agua hay en este tramo», y es ciega a la piedra aislada entre dos nodos. No debe utilizarse para la navegación.",
   "explore.infoPanel.sources.privacy":
     "Sin cuenta, sin rastreadores: <a>política de privacidad</a>.",
+  "explore.infoPanel.press.title": "En la prensa",
+  "explore.infoPanel.press.body":
+    "Lo que la prensa náutica ha escrito sobre el proyecto, con el enlace a cada artículo.",
+  "explore.infoPanel.press.link": "Ver la revista de prensa",
   "explore.infoPanel.licence.title": "Licencia y marca",
   "explore.infoPanel.licence.body":
     "El código de OhMyWind es open source, bajo <licence>licencia AGPL-3.0</licence>. Puede hacer un fork, modificarlo y redistribuirlo. Si expone en la red una versión modificada, debe publicar sus fuentes. En cambio, el nombre «OhMyWind» es objeto de un registro de marca en el INPI, y la identidad visual (logotipo, iconos) sigue protegida por el derecho de autor: un fork se publica con su propio nombre y sus propios iconos. Detalles en la <trademark>política de marca</trademark>.",

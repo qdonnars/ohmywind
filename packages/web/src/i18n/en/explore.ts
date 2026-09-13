@@ -45,6 +45,10 @@ export const explore: Record<keyof typeof frExplore, string> = {
     "Soundings under the waypoints: <emodnet>EMODnet Bathymetry</emodnet> (CC BY 4.0), referenced to chart datum as on a nautical chart. The grid is about 115 m: it answers “how much water on this leg” well, and it is blind to the isolated rock between two nodes. Not to be used for navigation.",
   "explore.infoPanel.sources.privacy":
     "No account, no tracker: <a>privacy policy</a>.",
+  "explore.infoPanel.press.title": "In the press",
+  "explore.infoPanel.press.body":
+    "What the sailing press has written about the project, with a link to each article.",
+  "explore.infoPanel.press.link": "See the press coverage",
   "explore.infoPanel.licence.title": "Licence and trade mark",
   "explore.infoPanel.licence.body":
     "The OhMyWind code is open source, under the <licence>AGPL-3.0 licence</licence>. You may fork it, modify it and redistribute it. If you expose a modified version over the network, you must publish its sources. The name “OhMyWind”, however, is the subject of a trade mark filing with the INPI, and the visual identity (logo, icons) remains protected by copyright: a fork is published under its own name and its own icons. Details in the <trademark>trade mark policy</trademark>.",

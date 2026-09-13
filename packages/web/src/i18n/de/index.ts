@@ -8,5 +8,6 @@ import { explore } from "./explore";
 import { plan } from "./plan";
 import { panel } from "./panel";
 import { compare } from "./compare";
+import { press } from "./press";
 
-export const de: Dict = { ...common, ...config, ...explore, ...plan, ...panel, ...compare };
+export const de: Dict = { ...common, ...config, ...explore, ...plan, ...panel, ...compare, ...press };

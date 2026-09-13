@@ -46,6 +46,10 @@ export const explore = {
     "Sondes sous les points de route : <emodnet>EMODnet Bathymetry</emodnet> (CC BY 4.0), rapportées au zéro hydrographique comme sur une carte marine. La grille fait environ 115 m : elle répond bien à « combien d'eau sur ce bord », et elle est aveugle au caillou isolé entre deux nœuds. À ne pas utiliser pour la navigation.",
   "explore.infoPanel.sources.privacy":
     "Aucun compte, aucun traqueur : <a>politique de confidentialité</a>.",
+  "explore.infoPanel.press.title": "Dans la presse",
+  "explore.infoPanel.press.body":
+    "Ce que la presse nautique a écrit sur le projet, avec le lien vers chaque article.",
+  "explore.infoPanel.press.link": "Voir la revue de presse",
   "explore.infoPanel.licence.title": "Licence et marque",
   "explore.infoPanel.licence.body":
     "Le code d'OhMyWind est open source, sous <licence>licence AGPL-3.0</licence>. Vous pouvez le forker, le modifier et le redistribuer. Si vous exposez une version modifiée sur le réseau, vous devez en publier les sources. En revanche, le nom « OhMyWind » fait l'objet d'un dépôt de marque à l'INPI, et l'identité visuelle (logo, icônes) reste protégée par le droit d'auteur : un fork se publie sous son propre nom et ses propres icônes. Détails dans la <trademark>politique de marque</trademark>.",
