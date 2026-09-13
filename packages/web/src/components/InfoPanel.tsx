@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import type { ReactNode } from "react";
-import { rich, useT } from "../i18n";
+import { rich, useT, type Key } from "../i18n";
 
 /** Every credit link opens in a new tab, hence the same three attributes on
     each: the panel is read mid-planning and must not take the map away. */
@@ -10,6 +10,40 @@ function ext(href: string) {
   return (chunk: ReactNode) => (
     <a href={href} target="_blank" rel="noreferrer" className="underline hover:opacity-80">
       {chunk}
+    </a>
+  );
+}
+
+/** A titled block of the panel: the eyebrow in the accent, then whatever
+    the section has to say. */
+function Section({ title, children }: { title: Key; children: ReactNode }) {
+  const { t } = useT();
+  return (
+    <section className="mb-5">
+      <h3
+        className="text-sm font-semibold mb-1.5 uppercase tracking-wider"
+        style={{ color: "var(--ow-accent)" }}
+      >
+        {t(title)}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+/** The way from a section to its full page, in-app. */
+function MoreLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a
+      href={href}
+      className="inline-flex items-center gap-2 text-sm font-medium transition-opacity hover:opacity-80"
+      style={{ color: "var(--ow-accent)" }}
+    >
+      {children}
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <line x1="5" y1="12" x2="19" y2="12" />
+        <polyline points="12 5 19 12 12 19" />
+      </svg>
     </a>
   );
 }
@@ -64,117 +98,44 @@ export function InfoPanel() {
         </p>
       </section>
 
-      <section className="mb-5">
-        <h3
-          className="text-sm font-semibold mb-1.5 uppercase tracking-wider"
-          style={{ color: "var(--ow-accent)" }}
-        >
-          {t("explore.infoPanel.project.title")}
-        </h3>
+      <Section title="explore.infoPanel.project.title">
         <p className="text-sm leading-relaxed" style={{ color: "var(--ow-fg-1)" }}>
           {t("explore.infoPanel.project.body")}
         </p>
-      </section>
+      </Section>
 
-      <section className="mb-5">
-        <h3
-          className="text-sm font-semibold mb-1.5 uppercase tracking-wider"
-          style={{ color: "var(--ow-accent)" }}
-        >
-          {t("explore.infoPanel.privacy.title")}
-        </h3>
-        <p className="text-sm leading-relaxed" style={{ color: "var(--ow-fg-1)" }}>
+      <Section title="explore.infoPanel.privacy.title">
+        <p className="text-sm leading-relaxed mb-3" style={{ color: "var(--ow-fg-1)" }}>
           {t("explore.infoPanel.privacy.body")}
         </p>
-      </section>
+        <MoreLink href="/confidentialite">{t("explore.infoPanel.privacy.link")}</MoreLink>
+      </Section>
 
-      <section className="mb-5">
-        <h3
-          className="text-sm font-semibold mb-1.5 uppercase tracking-wider"
-          style={{ color: "var(--ow-accent)" }}
-        >
-          {t("explore.infoPanel.sources.title")}
-        </h3>
+      {/* One sentence each and a link: the panel says what the page covers,
+          the page carries the detail. Listing every model and source here
+          made the paragraph the longest in the panel and the least read. */}
+      <Section title="explore.infoPanel.sources.title">
         <p className="text-sm leading-relaxed mb-3" style={{ color: "var(--ow-fg-1)" }}>
           {t("explore.infoPanel.sources.body")}
         </p>
-        <a
-          href="/methodologie"
-          className="inline-flex items-center gap-2 text-sm font-medium transition-opacity hover:opacity-80"
-          style={{ color: "var(--ow-accent)" }}
-        >
-          {t("explore.infoPanel.sources.link")}
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <line x1="5" y1="12" x2="19" y2="12" />
-            <polyline points="12 5 19 12 12 19" />
-          </svg>
-        </a>
-        {/* Map credits. The OSM Foundation allows the attribution to sit off
-            the map, but only if it stays findable through an info button or
-            an About menu, which is exactly this panel. Removing the corner
-            notice without this block would breach the ODbL. */}
-        <p className="text-xs leading-relaxed mt-4" style={{ color: "var(--ow-fg-2)" }}>
-          {rich(t("explore.infoPanel.sources.basemap"), {
-            osm: ext("https://www.openstreetmap.org/copyright"),
-            ofm: ext("https://openfreemap.org"),
-            omt: ext("https://openmaptiles.org"),
-            seamap: ext("https://www.openseamap.org"),
-            photon: ext("https://photon.komoot.io"),
-          })}
-        </p>
-        <p className="text-xs leading-relaxed mt-2" style={{ color: "var(--ow-fg-2)" }}>
-          {rich(t("explore.infoPanel.sources.bathymetry"), {
-            emodnet: ext("https://emodnet.ec.europa.eu/en/bathymetry"),
-          })}
-        </p>
-        <p className="text-xs leading-relaxed mt-2" style={{ color: "var(--ow-fg-2)" }}>
-          {rich(t("explore.infoPanel.sources.privacy"), {
-            a: (chunk) => (
-              <a href="/confidentialite" className="underline hover:opacity-80">
-                {chunk}
-              </a>
-            ),
-          })}
-        </p>
-      </section>
+        <MoreLink href="/methodologie">{t("explore.infoPanel.sources.link")}</MoreLink>
+      </Section>
 
-      <section className="mb-5">
-        <h3
-          className="text-sm font-semibold mb-1.5 uppercase tracking-wider"
-          style={{ color: "var(--ow-accent)" }}
-        >
-          {t("explore.infoPanel.press.title")}
-        </h3>
+      <Section title="explore.infoPanel.press.title">
         <p className="text-sm leading-relaxed mb-3" style={{ color: "var(--ow-fg-1)" }}>
           {t("explore.infoPanel.press.body")}
         </p>
-        <a
-          href="/presse"
-          className="inline-flex items-center gap-2 text-sm font-medium transition-opacity hover:opacity-80"
-          style={{ color: "var(--ow-accent)" }}
-        >
-          {t("explore.infoPanel.press.link")}
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <line x1="5" y1="12" x2="19" y2="12" />
-            <polyline points="12 5 19 12 12 19" />
-          </svg>
-        </a>
-      </section>
+        <MoreLink href="/presse">{t("explore.infoPanel.press.link")}</MoreLink>
+      </Section>
 
-      <section className="mb-5">
-        <h3
-          className="text-sm font-semibold mb-1.5 uppercase tracking-wider"
-          style={{ color: "var(--ow-accent)" }}
-        >
-          {t("explore.infoPanel.licence.title")}
-        </h3>
+      <Section title="explore.infoPanel.licence.title">
         <p className="text-sm leading-relaxed" style={{ color: "var(--ow-fg-1)" }}>
           {rich(t("explore.infoPanel.licence.body"), {
             licence: ext("https://github.com/qdonnars/ohmywind/blob/main/LICENSE"),
             trademark: ext("https://github.com/qdonnars/ohmywind/blob/main/TRADEMARK.md"),
           })}
         </p>
-      </section>
+      </Section>
 
       <section
         className="rounded-xl p-4 lg:p-5"
@@ -208,6 +169,28 @@ export function InfoPanel() {
           {t("explore.infoPanel.support.cta")}
         </a>
       </section>
+
+      {/* Map credits, last, as the small print of the panel. The OSM
+          Foundation allows the attribution to sit off the map, but only if
+          it stays findable through an info button or an About menu, which
+          is exactly this panel. Removing this block without putting the
+          corner notice back on the map would breach the ODbL. */}
+      <footer className="mt-6">
+        <p className="text-xs leading-relaxed" style={{ color: "var(--ow-fg-2)" }}>
+          {rich(t("explore.infoPanel.credits.basemap"), {
+            osm: ext("https://www.openstreetmap.org/copyright"),
+            ofm: ext("https://openfreemap.org"),
+            omt: ext("https://openmaptiles.org"),
+            seamap: ext("https://www.openseamap.org"),
+            photon: ext("https://photon.komoot.io"),
+          })}
+        </p>
+        <p className="text-xs leading-relaxed mt-2" style={{ color: "var(--ow-fg-2)" }}>
+          {rich(t("explore.infoPanel.credits.bathymetry"), {
+            emodnet: ext("https://emodnet.ec.europa.eu/en/bathymetry"),
+          })}
+        </p>
+      </footer>
     </div>
   );
 }

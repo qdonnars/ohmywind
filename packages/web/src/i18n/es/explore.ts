@@ -34,16 +34,11 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.infoPanel.privacy.title": "Sus datos",
   "explore.infoPanel.privacy.body":
     "Sin rastreo, sin cuenta, sin ningún dato registrado sobre usted. Todo funciona en su navegador, es una página de pura consulta. Las peticiones meteorológicas van directamente a las API públicas.",
+  "explore.infoPanel.privacy.link": "Leer la política de privacidad",
   "explore.infoPanel.sources.title": "Fuentes de datos y metodología",
   "explore.infoPanel.sources.body":
-    "Modelos de viento (AROME, ICON, ECMWF, GFS), olas y nivel del mar (Open-Meteo Marine, WaveWatch III), corrientes en cascada (SHOM Atlas C2D en los pasos críticos, MARC PREVIMER en la plataforma atlántica, SMOC Copernicus como respaldo global), convenciones, ecuaciones de planificación de la travesía y valoración de la complejidad: todo está detallado en la página de metodología.",
+    "De dónde vienen las previsiones de viento, olas, mareas y corrientes, cómo las combina el planificador y cómo valora la complejidad de una travesía.",
   "explore.infoPanel.sources.link": "Ver la metodología completa",
-  "explore.infoPanel.sources.basemap":
-    "Mapas base: <osm>© los colaboradores de OpenStreetMap</osm> (datos con licencia ODbL), teselas <ofm>OpenFreeMap</ofm> sobre el esquema <omt>© OpenMapTiles</omt>. Balizamiento (boyas, balizas, faros, luces): <seamap>© los colaboradores de OpenSeaMap</seamap>, teselas con licencia CC BY-SA sobre datos de OpenStreetMap. Esta capa es una ayuda a la preparación, no un documento de navegación: no sustituye ni a las cartas oficiales del SHOM ni a los avisos a los navegantes. Búsqueda de lugares: <photon>Photon</photon> y Open-Meteo Geocoding, ambos sobre datos de OpenStreetMap.",
-  "explore.infoPanel.sources.bathymetry":
-    "Sondas bajo los waypoints: <emodnet>EMODnet Bathymetry</emodnet> (CC BY 4.0), referidas al cero hidrográfico como en una carta náutica. La retícula mide unos 115 m: responde bien a «cuánta agua hay en este tramo», y es ciega a la piedra aislada entre dos nodos. No debe utilizarse para la navegación.",
-  "explore.infoPanel.sources.privacy":
-    "Sin cuenta, sin rastreadores: <a>política de privacidad</a>.",
   "explore.infoPanel.press.title": "En la prensa",
   "explore.infoPanel.press.body":
     "Lo que la prensa náutica ha escrito sobre el proyecto, con el enlace a cada artículo.",
@@ -55,6 +50,10 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.infoPanel.support.body":
     "Si esta app le gusta tanto como a mí, sepa que pronto harán falta servidores dedicados para mantenerla. No me apetece meter publicidad en esta app. Si a usted tampoco, no dude en ayudarme.",
   "explore.infoPanel.support.cta": "Apoyar en Ko-fi",
+  "explore.infoPanel.credits.basemap":
+    "Mapas base: <osm>© los colaboradores de OpenStreetMap</osm> (datos con licencia ODbL), teselas <ofm>OpenFreeMap</ofm> sobre el esquema <omt>© OpenMapTiles</omt>. Balizamiento (boyas, balizas, faros, luces): <seamap>© los colaboradores de OpenSeaMap</seamap>, teselas con licencia CC BY-SA sobre datos de OpenStreetMap. Esta capa es una ayuda a la preparación, no un documento de navegación: no sustituye ni a las cartas oficiales del SHOM ni a los avisos a los navegantes. Búsqueda de lugares: <photon>Photon</photon> y Open-Meteo Geocoding, ambos sobre datos de OpenStreetMap.",
+  "explore.infoPanel.credits.bathymetry":
+    "Sondas bajo los waypoints: <emodnet>EMODnet Bathymetry</emodnet> (CC BY 4.0), referidas al cero hidrográfico como en una carta náutica. La retícula mide unos 115 m: responde bien a «cuánta agua hay en este tramo», y es ciega a la piedra aislada entre dos nodos. No debe utilizarse para la navegación.",
 
   // Metric pills
   "explore.pills.groupLabel": "Tipo de previsión",
