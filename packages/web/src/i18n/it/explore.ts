@@ -33,16 +33,11 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.infoPanel.privacy.title": "I suoi dati",
   "explore.infoPanel.privacy.body":
     "Nessun tracciamento, nessun account, nessun dato registrato che la riguardi. Tutto gira nel suo browser, è una pagina di pura consultazione. Le richieste meteo partono direttamente verso le API pubbliche.",
+  "explore.infoPanel.privacy.link": "Leggere l'informativa sulla privacy",
   "explore.infoPanel.sources.title": "Fonti dei dati e metodologia",
   "explore.infoPanel.sources.body":
-    "Modelli di vento (AROME, ICON, ECMWF, GFS), onde e livello del mare (Open-Meteo Marine, WaveWatch III), correnti a cascata (SHOM Atlas C2D sui passaggi critici, MARC PREVIMER sulla piattaforma atlantica, SMOC Copernicus come ripiego globale), convenzioni, equazioni di pianificazione della traversata e valutazione della complessità: è tutto illustrato in dettaglio nella pagina della metodologia.",
+    "Da dove vengono le previsioni di vento, onde, maree e correnti, come il pianificatore le combina e come valuta la complessità di una traversata.",
   "explore.infoPanel.sources.link": "Vedere la metodologia completa",
-  "explore.infoPanel.sources.basemap":
-    "Sfondi cartografici: <osm>© i contributori di OpenStreetMap</osm> (dati con licenza ODbL), tile <ofm>OpenFreeMap</ofm> sullo schema <omt>© OpenMapTiles</omt>. Segnalamenti marittimi (boe, mede, fari, fanali): <seamap>© i contributori di OpenSeaMap</seamap>, tile con licenza CC BY-SA su dati OpenStreetMap. Questo livello è un aiuto alla preparazione, non un documento di navigazione: non sostituisce né le carte ufficiali dello SHOM né gli avvisi ai naviganti. Ricerca di luoghi: <photon>Photon</photon> e Open-Meteo Geocoding, entrambi su dati OpenStreetMap.",
-  "explore.infoPanel.sources.bathymetry":
-    "Fondali sotto i waypoint: <emodnet>EMODnet Bathymetry</emodnet> (CC BY 4.0), riferiti al livello di riferimento delle carte come su una carta nautica. La griglia è di circa 115 m: risponde bene alla domanda «quanta acqua c'è su questa tratta», ed è cieca allo scoglio isolato tra due nodi. Da non utilizzare per la navigazione.",
-  "explore.infoPanel.sources.privacy":
-    "Nessun account, nessun tracciatore: <a>informativa sulla privacy</a>.",
   "explore.infoPanel.press.title": "Sulla stampa",
   "explore.infoPanel.press.body":
     "Cosa ha scritto la stampa nautica sul progetto, con il link a ogni articolo.",
@@ -54,6 +49,10 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.infoPanel.support.body":
     "Se questa app le piace quanto piace a me, sappia che presto serviranno server dedicati per mantenerla in vita. Non ho voglia di mettere pubblicità in questa app. Se nemmeno lei ne ha voglia, non esiti ad aiutarmi.",
   "explore.infoPanel.support.cta": "Sostenere su Ko-fi",
+  "explore.infoPanel.credits.basemap":
+    "Sfondi cartografici: <osm>© i contributori di OpenStreetMap</osm> (dati con licenza ODbL), tile <ofm>OpenFreeMap</ofm> sullo schema <omt>© OpenMapTiles</omt>. Segnalamenti marittimi (boe, mede, fari, fanali): <seamap>© i contributori di OpenSeaMap</seamap>, tile con licenza CC BY-SA su dati OpenStreetMap. Questo livello è un aiuto alla preparazione, non un documento di navigazione: non sostituisce né le carte ufficiali dello SHOM né gli avvisi ai naviganti. Ricerca di luoghi: <photon>Photon</photon> e Open-Meteo Geocoding, entrambi su dati OpenStreetMap.",
+  "explore.infoPanel.credits.bathymetry":
+    "Fondali sotto i waypoint: <emodnet>EMODnet Bathymetry</emodnet> (CC BY 4.0), riferiti al livello di riferimento delle carte come su una carta nautica. La griglia è di circa 115 m: risponde bene alla domanda «quanta acqua c'è su questa tratta», ed è cieca allo scoglio isolato tra due nodi. Da non utilizzare per la navigazione.",
 
   // Metric pills
   "explore.pills.groupLabel": "Tipo di previsione",

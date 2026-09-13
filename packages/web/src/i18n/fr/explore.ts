@@ -36,16 +36,11 @@ export const explore = {
   "explore.infoPanel.privacy.title": "Vos données",
   "explore.infoPanel.privacy.body":
     "Aucun tracking, aucun compte, aucune donnée enregistrée vous concernant. Tout tourne dans votre navigateur, c'est une page de consultation pure. Les requêtes météo partent en direct vers les API publiques.",
+  "explore.infoPanel.privacy.link": "Lire la politique de confidentialité",
   "explore.infoPanel.sources.title": "Sources des données et méthodologie",
   "explore.infoPanel.sources.body":
-    "Modèles vent (AROME, ICON, ECMWF, GFS), vagues et niveau de la mer (Open-Meteo Marine, WaveWatch III), courants en cascade (SHOM Atlas C2D sur les passes critiques, MARC PREVIMER sur le plateau atlantique, SMOC Copernicus en repli global), conventions, équations de planification de passage et notation de complexité : tout est détaillé sur la page méthodologie.",
+    "D'où viennent les prévisions de vent, de vagues, de marées et de courants, comment le planificateur les combine, et comment il note la complexité d'une navigation.",
   "explore.infoPanel.sources.link": "Voir la méthodologie complète",
-  "explore.infoPanel.sources.basemap":
-    "Fonds de carte : <osm>© les contributeurs OpenStreetMap</osm> (données sous licence ODbL), tuiles <ofm>OpenFreeMap</ofm> sur le schéma <omt>© OpenMapTiles</omt>. Amers (bouées, balises, phares, feux) : <seamap>© les contributeurs OpenSeaMap</seamap>, tuiles sous licence CC BY-SA sur données OpenStreetMap. Cette couche est une aide à la préparation, pas un document de navigation : elle ne remplace pas les cartes officielles du SHOM ni les avis aux navigateurs. Recherche de lieux : <photon>Photon</photon> et Open-Meteo Geocoding, tous deux sur données OpenStreetMap.",
-  "explore.infoPanel.sources.bathymetry":
-    "Sondes sous les points de route : <emodnet>EMODnet Bathymetry</emodnet> (CC BY 4.0), rapportées au zéro hydrographique comme sur une carte marine. La grille fait environ 115 m : elle répond bien à « combien d'eau sur ce bord », et elle est aveugle au caillou isolé entre deux nœuds. À ne pas utiliser pour la navigation.",
-  "explore.infoPanel.sources.privacy":
-    "Aucun compte, aucun traqueur : <a>politique de confidentialité</a>.",
   "explore.infoPanel.press.title": "Dans la presse",
   "explore.infoPanel.press.body":
     "Ce que la presse nautique a écrit sur le projet, avec le lien vers chaque article.",
@@ -57,6 +52,10 @@ export const explore = {
   "explore.infoPanel.support.body":
     "Si vous adorez cette appli autant que moi, sachez qu'il faudra bientôt des serveurs dédiés pour la maintenir. Je n'ai pas envie de mettre de la pub dans cette app. Si vous non plus, n'hésitez pas à m'aider.",
   "explore.infoPanel.support.cta": "Soutenir sur Ko-fi",
+  "explore.infoPanel.credits.basemap":
+    "Fonds de carte : <osm>© les contributeurs OpenStreetMap</osm> (données sous licence ODbL), tuiles <ofm>OpenFreeMap</ofm> sur le schéma <omt>© OpenMapTiles</omt>. Amers (bouées, balises, phares, feux) : <seamap>© les contributeurs OpenSeaMap</seamap>, tuiles sous licence CC BY-SA sur données OpenStreetMap. Cette couche est une aide à la préparation, pas un document de navigation : elle ne remplace pas les cartes officielles du SHOM ni les avis aux navigateurs. Recherche de lieux : <photon>Photon</photon> et Open-Meteo Geocoding, tous deux sur données OpenStreetMap.",
+  "explore.infoPanel.credits.bathymetry":
+    "Sondes sous les points de route : <emodnet>EMODnet Bathymetry</emodnet> (CC BY 4.0), rapportées au zéro hydrographique comme sur une carte marine. La grille fait environ 115 m : elle répond bien à « combien d'eau sur ce bord », et elle est aveugle au caillou isolé entre deux nœuds. À ne pas utiliser pour la navigation.",
 
   // Onglets de métrique
   "explore.pills.groupLabel": "Type de prévision",
