@@ -10,7 +10,7 @@
  * for something the context does not carry fails here rather than at runtime.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PlanSidebar } from "./PlanSidebar";
 import { PlanFoot } from "./PlanFoot";
@@ -22,11 +22,12 @@ import type { InitialSession } from "./session/initial";
 import type { PlanActions } from "./session/usePlanSession";
 import type { PassageReport, ComplexityScore, PassageWindow, Archetype } from "./types";
 import { resetPolarConfigSnapshot } from "../config/usePolarConfig";
-import { fmtClock } from "../domain/datetime";
+import { fmtClock, toNaiveLocal } from "../domain/datetime";
 import type { ReactNode } from "react";
 
 const MARSEILLE: [number, number] = [43.29, 5.37];
 const PORQUEROLLES: [number, number] = [43.0, 6.2];
+const MID: [number, number] = [43.15, 5.8];
 
 const passage = (): PassageReport => ({
   archetype: "cruiser_30ft",
@@ -136,6 +137,17 @@ function stubActions(): PlanActions {
     setCompareAxis: vi.fn(),
     keepPlan: vi.fn(),
     applySweep: vi.fn(),
+    startVariant: vi.fn(),
+    addVariantPoint: vi.fn(),
+    moveVariantPoint: vi.fn(),
+    insertVariantPoint: vi.fn(),
+    deleteVariantPoint: vi.fn(),
+    cancelVariant: vi.fn(),
+    finishVariant: vi.fn(),
+    computeTracks: vi.fn(),
+    openTrack: vi.fn(),
+    highlightTrack: vi.fn(),
+    applyTrackDeparture: vi.fn(),
     selectLeg: vi.fn(),
     selectStep: vi.fn(),
     compute: vi.fn(),
@@ -324,6 +336,63 @@ describe("the comparison", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
+  it("lists the plan as the only option, then the variants, and opens one in the plan", async () => {
+    const alone = mount({ mode: "compare", compareAxis: "tracks", passage: passage(), complexity: complexity() });
+    expect(screen.getByRole("button", { name: /^Option 1 · Ouvrir ce tracé/ })).toBeTruthy();
+    expect(screen.getAllByText("1 option").length).toBeGreaterThanOrEqual(1);
+    await userEvent.click(screen.getByRole("button", { name: /Tracer une variante/ }));
+    expect(alone.actions.startVariant).toHaveBeenCalledTimes(1);
+    cleanup();
+
+    const two = mount({
+      mode: "compare",
+      compareAxis: "tracks",
+      tracks: [
+        { id: "plan", waypoints: [MARSEILLE, PORQUEROLLES], createdAt: "", passage: passage(), complexity: complexity(), error: null },
+        { id: "v1", waypoints: [MARSEILLE, MID, PORQUEROLLES], createdAt: "", passage: null, complexity: null, error: null },
+      ],
+      trackRequests: { v1: { id: 1, editSeq: 0 } },
+    });
+    expect(screen.getByText("calcul en cours…")).toBeTruthy();
+    // An option still computing cannot be opened; option 1 can.
+    expect((screen.getByRole("button", { name: /^Option 2/ }) as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(screen.getByRole("button", { name: /^Option 1/ }));
+    expect(two.actions.openTrack).toHaveBeenCalledWith("plan");
+    expect(screen.getByText("55,0 nm")).toBeTruthy();
+  });
+
+  it("swaps the list for the drawing controls while a variant is drawn", async () => {
+    const value = mount({ mode: "compare", compareAxis: "tracks", variant: [MARSEILLE, PORQUEROLLES] });
+    expect(screen.getByText("Option 2 · tracé en cours")).toBeTruthy();
+    expect(screen.getByText("2 points posés")).toBeTruthy();
+    // No axis switch, and no finishing a straight line.
+    expect(screen.queryByRole("tab")).toBeNull();
+    expect((screen.getByRole("button", { name: "Terminer et comparer" }) as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(screen.getByRole("button", { name: "Annuler" }));
+    expect(value.actions.cancelVariant).toHaveBeenCalledTimes(1);
+    cleanup();
+
+    const three = mount({ mode: "compare", compareAxis: "tracks", variant: [MARSEILLE, MID, PORQUEROLLES] });
+    await userEvent.click(screen.getByRole("button", { name: "Terminer et comparer" }));
+    expect(three.actions.finishVariant).toHaveBeenCalledTimes(1);
+  });
+
+  it("pins the frozen departure under the track axis, and applies a new one to every option", async () => {
+    const value = mountWith(<PlanFoot />, { mode: "compare", compareAxis: "tracks", departure: "2026-09-10T08:00" });
+    const row = screen.getByRole("button", { name: /Départ figé/ });
+    expect(row.textContent).toContain("08:00");
+    await userEvent.click(row);
+    const field = screen.getByLabelText("Départ commun aux tracés") as HTMLInputElement;
+    // jsdom takes the value straight; the picker is the browser's. Inside
+    // the forecast horizon, which is counted from the real clock.
+    const soon = new Date(Date.now() + 2 * 86_400_000);
+    soon.setMinutes(0, 0, 0);
+    const next = toNaiveLocal(soon);
+    fireEvent.change(field, { target: { value: next } });
+    await userEvent.click(screen.getByRole("button", { name: "Appliquer" }));
+    expect(value.actions.applyTrackDeparture).toHaveBeenCalledWith(next);
+  });
+
   it("keeps a way back over the map while a slot is open in the plan", async () => {
     const value = mountWith(<ReturnBanner />, { returnTo: "slots", windows: [aWindow()], passage: passage(), complexity: complexity() });
     await userEvent.click(screen.getByRole("button", { name: "Revenir à la comparaison" }));
@@ -340,8 +409,6 @@ describe("the comparison", () => {
 // Two server segments between the two waypoints, so the single leg has two
 // steps whose wind disagrees. The actions are stubs: each test mounts the
 // session in the state the previous click would have produced.
-
-const MID: [number, number] = [43.15, 5.8];
 
 const twoStepPassage = (): PassageReport => {
   const base = passage();

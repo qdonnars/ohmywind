@@ -10,16 +10,17 @@
 import { usePlan } from "../session/planContext";
 import { ContextRow } from "./ContextRow";
 import { WindowSettings } from "./WindowPanel";
-import { ClockIcon, RouteIcon } from "./icons";
+import { DepartureSettings } from "./DeparturePanel";
+import { RouteIcon } from "./icons";
 import { routeLengthNm } from "../../utils/geo";
 import { num1 } from "../format";
-import { capitalise, fmtClock, fmtDay } from "../../domain/datetime";
+import { fmtClock } from "../../domain/datetime";
 import { useT } from "../../i18n";
 
 export function CompareFoot() {
   const { t, tn } = useT();
   const { state, actions } = usePlan();
-  const { compareAxis, waypoints, departure, forecastUpdatedAt } = state;
+  const { compareAxis, waypoints, forecastUpdatedAt } = state;
   const slots = compareAxis === "slots";
   return (
     <div className="shrink-0" style={{ background: "var(--ow-bg-1)" }}>
@@ -33,13 +34,7 @@ export function CompareFoot() {
           onClick={actions.closeCompare}
         />
       ) : (
-        <ContextRow
-          icon={<ClockIcon />}
-          label={t("panel.compare.frozen.departure")}
-          value={`${capitalise(fmtDay(departure))} · ${fmtClock(departure)}`}
-          action={t("panel.compare.frozen.edit")}
-          onClick={actions.closeCompare}
-        />
+        <DepartureSettings />
       )}
       <p
         className="px-4 pt-2 pb-2.5 text-[10px] leading-snug"

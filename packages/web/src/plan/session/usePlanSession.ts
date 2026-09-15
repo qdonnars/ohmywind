@@ -52,6 +52,7 @@ import { toTzAware } from "../../domain/datetime";
 import type { PassageWindow } from "../types";
 import type { TimeAnchor } from "../ModeToggle";
 import { defaultSweep, type CompareAxis, type SweepParams } from "../compare/slots";
+import { isVariantComplete, PLAN_TRACK_ID } from "../compare/tracks";
 import {
   createInitialState,
   planReducer,
@@ -129,6 +130,25 @@ export interface PlanActions {
   /** « Appliquer » in the window settings: the sweep is set and recomputed
       in one go, so the list never shows a window it was not computed for. */
   applySweep: (sweep: SweepParams) => void;
+  // ── the track axis ────────────────────────────────────────────────────────
+  /** « Tracer une variante »: the map draws a new track between the plan's ends. */
+  startVariant: () => void;
+  addVariantPoint: (lat: number, lon: number) => void;
+  moveVariantPoint: (index: number, lat: number, lon: number) => void;
+  insertVariantPoint: (afterIndex: number, lat: number, lon: number) => void;
+  deleteVariantPoint: (index: number) => void;
+  cancelVariant: () => void;
+  /** « Terminer et comparer »: the variant becomes an option and is computed
+      with the plan's departure, the plan's own track too when it has no
+      fresh passage to lend. */
+  finishVariant: () => void;
+  /** Recompute every option on the departure and the boat as they stand. */
+  computeTracks: () => void;
+  openTrack: (id: string) => void;
+  highlightTrack: (id: string | null) => void;
+  /** The frozen departure of the track axis: set it and recompute the plan
+      and every option on it. */
+  applyTrackDeparture: (departure: string) => void;
   selectLeg: (index: number | null) => void;
   /** Open one step of the expanded leg in the card, null for its average. */
   selectStep: (index: number | null) => void;
@@ -281,6 +301,71 @@ export function usePlanSession(initial: InitialSession): PlanSession {
 
   // `sweep` overrides what the state holds: a caller that has just dispatched
   // new bounds cannot read them back from `stateRef` in the same tick.
+  // One controller per option: the options compute side by side, and a
+  // redraw of one must not cancel the others.
+  const trackAbortRef = useRef(new Map<string, AbortController>());
+  const runTrack = useCallback(
+    (track: { id: string; waypoints: [number, number][] }, departureOverride?: string) => {
+      const s = stateRef.current;
+      const departure = departureOverride ?? s.departure;
+      const { archetype, timeAnchor } = s;
+      trackAbortRef.current.get(track.id)?.abort();
+      const controller = new AbortController();
+      trackAbortRef.current.set(track.id, controller);
+      const requestId = requestIdRef.current + 1;
+      requestIdRef.current = requestId;
+      dispatch({ type: "TRACK_STARTED", trackId: track.id, requestId });
+      const overrides = resolveOverrides();
+      const departureIso = toTzAware(departure);
+      const anchorMs = Date.parse(departureIso);
+      const window_ =
+        timeAnchor === "arrival"
+          ? etaWindowMs(track.waypoints, anchorMs)
+          : singleWindowMs(track.waypoints, anchorMs);
+      buildForecastCacheSafe(track.waypoints, { window: window_ })
+        .then((forecastCache) =>
+          timeAnchor === "arrival"
+            ? fetchPassageByEta({
+                waypoints: track.waypoints,
+                targetArrival: departureIso,
+                archetype,
+                efficiency: resolveEfficiency(),
+                overrides,
+                forecastCache,
+                signal: controller.signal,
+              })
+            : fetchPassage({
+                waypoints: track.waypoints,
+                departure: departureIso,
+                archetype,
+                efficiency: resolveEfficiency(),
+                overrides,
+                forecastCache,
+                signal: controller.signal,
+              }),
+        )
+        .then((res) => {
+          dispatch({
+            type: "TRACK_COMPUTED",
+            trackId: track.id,
+            requestId,
+            passage: res.passage,
+            complexity: res.complexity,
+          });
+        })
+        .catch((error: unknown) => {
+          if (error instanceof DOMException && error.name === "AbortError") return;
+          dispatch({
+            type: "TRACK_FAILED",
+            trackId: track.id,
+            requestId,
+            error: friendlyError(error instanceof Error ? error : String(error)),
+          });
+        });
+    },
+    [],
+  );
+
   const runSweep = useCallback((sweep?: SweepParams) => {
     const { waypoints, archetype } = stateRef.current;
     const sweepEarliest = sweep?.earliest ?? stateRef.current.sweepEarliest;
@@ -332,13 +417,16 @@ export function usePlanSession(initial: InitialSession): PlanSession {
   }, [runSingle, runSweep]);
 
   // Leaving the page cancels whatever is in flight, retry timer included.
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // The map of controllers lives as long as the hook: reading it here
+    // rather than in the cleanup is what the lint asks, and the same object.
+    const trackAborts = trackAbortRef.current;
+    return () => {
       abortRef.current?.abort();
+      for (const controller of trackAborts.values()) controller.abort();
       clearRetryTimer();
-    },
-    [clearRetryTimer],
-  );
+    };
+  }, [clearRetryTimer]);
 
   // ── the one place this page writes to the outside world ───────────────────
   // One subscription to the state, in two phases. The commands the reducer
@@ -426,6 +514,43 @@ export function usePlanSession(initial: InitialSession): PlanSession {
         retryAttemptRef.current = 0;
         runSweep(sweep);
       },
+      startVariant: () => dispatch({ type: "VARIANT_STARTED" }),
+      addVariantPoint: (lat, lon) => dispatch({ type: "VARIANT_POINT_ADDED", lat, lon }),
+      moveVariantPoint: (index, lat, lon) =>
+        dispatch({ type: "VARIANT_POINT_MOVED", index, lat, lon }),
+      insertVariantPoint: (afterIndex, lat, lon) =>
+        dispatch({ type: "VARIANT_POINT_INSERTED", afterIndex, lat, lon }),
+      deleteVariantPoint: (index) => dispatch({ type: "VARIANT_POINT_DELETED", index }),
+      cancelVariant: () => dispatch({ type: "VARIANT_CANCELLED" }),
+      finishVariant: () => {
+        const s = stateRef.current;
+        if (!s.variant || !isVariantComplete(s.variant)) return;
+        const id = `v${Date.now()}`;
+        dispatch({ type: "VARIANT_FINISHED", id, createdAt: toNaiveLocal(new Date()) });
+        runTrack({ id, waypoints: s.variant });
+        // Read from the snapshot rather than the state the dispatch will
+        // produce: same rule as `runSweep`.
+        const planLendsPassage = !s.isStale && s.passage !== null && s.complexity !== null;
+        if (s.tracks.length === 0 && !planLendsPassage) {
+          runTrack({ id: PLAN_TRACK_ID, waypoints: s.waypoints });
+        }
+      },
+      computeTracks: () => {
+        for (const track of stateRef.current.tracks) runTrack(track);
+      },
+      openTrack: (id) =>
+        dispatch({ type: "TRACK_OPENED", id, configFingerprint: currentConfigFingerprint() }),
+      highlightTrack: (id) => dispatch({ type: "TRACK_HIGHLIGHTED", id }),
+      applyTrackDeparture: (departure) => {
+        const s = stateRef.current;
+        dispatch({ type: "DEPARTURE_CHANGED", departure });
+        if (s.waypoints.length < 2) return;
+        retryAttemptRef.current = 0;
+        // The plan first, so returning to it finds it fresh, then every
+        // option on the same departure.
+        runSingle(s.waypoints, s.archetype, departure, s.timeAnchor);
+        for (const track of s.tracks) runTrack(track, departure);
+      },
       selectLeg: (index) => dispatch({ type: "LEG_SELECTED", index }),
       selectStep: (index) => dispatch({ type: "STEP_SELECTED", index }),
       compute: () => {
@@ -454,6 +579,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
       },
       reset: () => {
         abortRef.current?.abort();
+        for (const controller of trackAbortRef.current.values()) controller.abort();
         const departure = tomorrowRoundedLocal(Date.now());
         dispatch({
           type: "RESET",
@@ -463,7 +589,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
         });
       },
     }),
-    [runSingle, runSweep],
+    [runSingle, runSweep, runTrack],
   );
 
   return {

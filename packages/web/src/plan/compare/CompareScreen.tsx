@@ -15,6 +15,7 @@
 import { usePlan } from "../session/planContext";
 import { ResultsAnchor } from "../sidebar/parts";
 import { SlotList } from "./SlotList";
+import { TrackList } from "./TrackList";
 import { spanHours, windowCount, type CompareAxis } from "./slots";
 import { ChevronIcon } from "./icons";
 import { useT } from "../../i18n";
@@ -26,14 +27,14 @@ const MONO = { fontFamily: "var(--ow-font-mono)" } as const;
 export function CompareHead() {
   const { t, tn } = useT();
   const { state, actions } = usePlan();
-  const { compareAxis, windows, isStale, sweepEarliest, sweepLatest, sweepIntervalHours } = state;
+  const { compareAxis, windows, isStale, sweepEarliest, sweepLatest, sweepIntervalHours, tracks } = state;
   const count =
     compareAxis === "slots"
       ? tn(
           "panel.compare.slots",
           !isStale && windows ? windows.length : windowCount(spanHours(sweepEarliest, sweepLatest), sweepIntervalHours),
         )
-      : tn("panel.compare.tracks", 1);
+      : tn("panel.compare.tracks", Math.max(1, tracks.length));
   return (
     <div className="flex items-center gap-2 px-4 pt-3 pb-1">
       <button
@@ -94,31 +95,14 @@ export function AxisToggle() {
   );
 }
 
-/** The track axis, before any variant exists. */
-function TrackList() {
-  const { t } = useT();
-  return (
-    <div className="px-4 py-4 space-y-3" style={{ borderTop: "1px solid var(--ow-line)" }}>
-      <p className="text-xs leading-relaxed" style={{ color: "var(--ow-fg-2)" }}>{t("panel.compare.tracksEmpty")}</p>
-      <button
-        type="button"
-        disabled
-        className="w-full rounded-lg px-3 py-2.5 text-[12.5px] font-medium"
-        style={{ background: "var(--ow-bg-2)", color: "var(--ow-fg-3)", border: "1px solid var(--ow-line)", cursor: "not-allowed" }}
-      >
-        + {t("panel.compare.tracksDraw")}
-      </button>
-    </div>
-  );
-}
-
 export function CompareScreen() {
   const { state } = usePlan();
   return (
     <div className="animate-fade-in">
       <ResultsAnchor />
       <CompareHead />
-      <AxisToggle />
+      {/* No axis switch while a variant is being drawn: the map is the form. */}
+      {state.variant === null && <AxisToggle />}
       {state.compareAxis === "slots" ? <SlotList /> : <TrackList />}
     </div>
   );

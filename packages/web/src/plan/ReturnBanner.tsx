@@ -3,6 +3,7 @@
 
 import { usePlan } from "./session/planContext";
 import { ChevronIcon } from "./compare/icons";
+import { trackColorToken } from "./compare/tracks";
 import { useT } from "../i18n";
 
 /**
@@ -14,12 +15,14 @@ import { useT } from "../i18n";
 export function ReturnBanner() {
   const { t, tn } = useT();
   const { state, actions } = usePlan();
-  const { mode, returnTo, windows } = state;
+  const { mode, returnTo, windows, tracks, openedTrackId } = state;
   if (mode !== "single" || returnTo === null) return null;
   const label =
     returnTo === "slots"
       ? t("panel.return.slots", { slots: tn("panel.compare.slots", windows?.length ?? 0) })
-      : t("panel.return.tracks", { tracks: tn("panel.compare.tracks", 1) });
+      : t("panel.return.tracks", { tracks: tn("panel.compare.tracks", tracks.length) });
+  // Which option is on screen, in its colour.
+  const openedIndex = tracks.findIndex((track) => track.id === openedTrackId);
   const glass = {
     background: "var(--ow-surface-pop)",
     backdropFilter: "blur(10px)",
@@ -43,6 +46,18 @@ export function ReturnBanner() {
       >
         <span className="shrink-0 flex" style={{ color: "var(--ow-fg-1)" }}><ChevronIcon direction="left" size={13} /></span>
         <span className="truncate">{label}</span>
+        {openedIndex >= 0 && (
+          <span
+            className="ml-auto shrink-0 rounded-full px-1.5 text-[10px] font-bold tabular-nums"
+            style={{
+              fontFamily: "var(--ow-font-mono)",
+              color: `var(${trackColorToken(openedIndex)})`,
+              border: `1.5px solid var(${trackColorToken(openedIndex)})`,
+            }}
+          >
+            {t("panel.tracks.option", { n: openedIndex + 1 })}
+          </span>
+        )}
       </button>
       <button
         type="button"

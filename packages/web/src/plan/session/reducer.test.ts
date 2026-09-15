@@ -297,6 +297,97 @@ describe("the comparison over the plan", () => {
   });
 });
 
+describe("the track axis", () => {
+  const MID: [number, number] = [43.15, 5.8];
+  const drawn = (over: Partial<PlanState> = {}) =>
+    run(
+      { ...start(), ...over },
+      { type: "VARIANT_STARTED" },
+      { type: "VARIANT_POINT_ADDED", lat: MID[0], lon: MID[1] },
+    );
+
+  it("draws a variant between the plan's ends, and keeps those ends", () => {
+    const s = drawn();
+    expect(s.variant).toEqual([MARSEILLE, MID, PORQUEROLLES]);
+    // The ends cannot go; a point between them can.
+    expect(run(s, { type: "VARIANT_POINT_DELETED", index: 0 }).variant).toHaveLength(3);
+    expect(run(s, { type: "VARIANT_POINT_DELETED", index: 2 }).variant).toHaveLength(3);
+    expect(run(s, { type: "VARIANT_POINT_DELETED", index: 1 }).variant).toEqual([MARSEILLE, PORQUEROLLES]);
+    expect(run(s, { type: "VARIANT_CANCELLED" }).variant).toBeNull();
+    // A straight line is not a variant.
+    expect(run(start(), { type: "VARIANT_STARTED" }, { type: "VARIANT_FINISHED", id: "v1", createdAt: "x" }).tracks).toHaveLength(0);
+  });
+
+  it("makes the plan option 1 with its fresh passage when the first variant lands", () => {
+    const computed = run(
+      start(),
+      { type: "FETCH_STARTED", requestId: 1, kind: "single" },
+      succeedSingle(1),
+    );
+    const s = run(
+      computed,
+      { type: "VARIANT_STARTED" },
+      { type: "VARIANT_POINT_ADDED", lat: MID[0], lon: MID[1] },
+      { type: "VARIANT_FINISHED", id: "v1", createdAt: "2026-09-10T07:00" },
+    );
+    expect(s.variant).toBeNull();
+    expect(s.tracks.map((t) => t.id)).toEqual(["plan", "v1"]);
+    expect(s.tracks[0].passage).not.toBeNull();
+    expect(s.tracks[1].passage).toBeNull();
+    expect(s.highlightedTrackId).toBe("v1");
+    // A stale plan lends nothing: the shell computes option 1 too.
+    const stale = run(drawn({ passage: passage(), complexity: complexity(), isStale: true }), { type: "VARIANT_FINISHED", id: "v1", createdAt: "x" });
+    expect(stale.tracks[0].passage).toBeNull();
+  });
+
+  it("computes each option on its own request, and drops a reply the departure outran", () => {
+    const s = run(drawn(), { type: "VARIANT_FINISHED", id: "v1", createdAt: "x" }, { type: "TRACK_STARTED", trackId: "v1", requestId: 7 });
+    expect(s.trackRequests.v1).toEqual({ id: 7, editSeq: s.editSeq });
+    const done = run(s, { type: "TRACK_COMPUTED", trackId: "v1", requestId: 7, passage: passage(), complexity: complexity() });
+    expect(done.tracks[1].passage).not.toBeNull();
+    expect(done.trackRequests.v1).toBeUndefined();
+    // Superseded id: ignored. Edited meanwhile: dropped, and the axis says stale.
+    expect(run(s, { type: "TRACK_COMPUTED", trackId: "v1", requestId: 6, passage: passage(), complexity: complexity() })).toBe(s);
+    const edited = run(s, { type: "DEPARTURE_CHANGED", departure: "2026-09-11T08:00" });
+    expect(edited.tracksStale).toBe(true);
+    const late = run(edited, { type: "TRACK_COMPUTED", trackId: "v1", requestId: 7, passage: passage(), complexity: complexity() });
+    expect(late.tracks[1].passage).toBeNull();
+    expect(late.trackRequests.v1).toBeUndefined();
+    // A failure is kept on the row.
+    expect(run(s, { type: "TRACK_FAILED", trackId: "v1", requestId: 7, error: "boom" }).tracks[1].error).toBe("boom");
+  });
+
+  it("opens an option in the plan, with the way back, and keeps or drops the options", () => {
+    const s = run(
+      drawn(),
+      { type: "VARIANT_FINISHED", id: "v1", createdAt: "x" },
+      { type: "TRACK_STARTED", trackId: "v1", requestId: 7 },
+      { type: "TRACK_COMPUTED", trackId: "v1", requestId: 7, passage: passage(), complexity: complexity() },
+    );
+    const opened = run(s, { type: "TRACK_OPENED", id: "v1", configFingerprint: "x" });
+    expect(opened.mode).toBe("single");
+    expect(opened.waypoints).toEqual([MARSEILLE, MID, PORQUEROLLES]);
+    expect(opened.returnTo).toBe("tracks");
+    expect(opened.openedTrackId).toBe("v1");
+    expect(opened.persist?.url).toContain("wpts=");
+    // Not computed yet: nothing to open.
+    expect(run(s, { type: "TRACK_OPENED", id: "plan", configFingerprint: "x" })).toBe(s);
+    // Back to the comparison keeps the options; keeping the plan drops them.
+    expect(run(opened, { type: "COMPARE_OPENED", axis: "tracks" }).tracks).toHaveLength(2);
+    const kept = run(opened, { type: "PLAN_KEPT" });
+    expect(kept.tracks).toHaveLength(0);
+    expect(kept.returnTo).toBeNull();
+    // Editing the route drops them too: the ends they shared are gone.
+    expect(run(opened, { type: "WAYPOINT_MOVED", index: 1, lat: 43.2, lon: 5.9 }).tracks).toHaveLength(0);
+  });
+
+  it("does not blank the track axis while a sweep runs", () => {
+    const s = run(start(), { type: "COMPARE_OPENED", axis: "tracks" }, { type: "FETCH_STARTED", requestId: 1, kind: "sweep" });
+    expect(isLoadingForMode(s)).toBe(false);
+    expect(isLoadingForMode({ ...s, compareAxis: "slots" })).toBe(true);
+  });
+});
+
 describe("computing", () => {
   it("commits the result, clears staleness and emits the two writes", () => {
     const s = run(

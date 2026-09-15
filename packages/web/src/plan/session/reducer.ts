@@ -39,6 +39,14 @@
 import type { PassageReport, ComplexityScore, PassageWindow } from "../types";
 import type { PlanMode, TimeAnchor } from "../ModeToggle";
 import type { CompareAxis, SweepParams } from "../compare/slots";
+import {
+  addVariantPoint,
+  isVariantComplete,
+  startVariant,
+  MAX_TRACKS,
+  PLAN_TRACK_ID,
+  type Track,
+} from "../compare/tracks";
 import { buildPlanUrl } from "../parseUrl";
 import type { InitialSession } from "./initial";
 import { toNaiveLocal } from "../../domain/datetime";
@@ -128,6 +136,22 @@ export interface PlanState {
       at it in the plan: the map keeps a way back to it. Null once the plan is
       kept, the route edited, or the comparison reopened. */
   returnTo: CompareAxis | null;
+
+  // ── the track axis ────────────────────────────────────────────────────────
+  /** The options: the plan's own track first, then the variants drawn on
+      the map. Empty until a first variant is finished; the plan alone is
+      then the only option, read straight from the plan. */
+  tracks: Track[];
+  /** The variant being drawn, the plan's two ends included, or null. */
+  variant: [number, number][] | null;
+  /** The departure or the boat changed since the tracks were computed. */
+  tracksStale: boolean;
+  /** The option loaded in the plan, while `returnTo` is "tracks". */
+  openedTrackId: string | null;
+  /** The option the list points at, drawn full while the others dim. */
+  highlightedTrackId: string | null;
+  /** In flight, per track. Same two guards as `pending`. */
+  trackRequests: Record<string, { id: number; editSeq: number }>;
   /** Edits not yet computed. */
   isStale: boolean;
   apiError: string | null;
@@ -166,6 +190,28 @@ export type PlanAction =
   | { type: "PLAN_KEPT" }
   /** Mobile: the compact step gives way to the form without computing. */
   | { type: "FORM_OPENED" }
+  // The variant being drawn: the plan's ends, and points between them.
+  | { type: "VARIANT_STARTED" }
+  | { type: "VARIANT_POINT_ADDED"; lat: number; lon: number }
+  | { type: "VARIANT_POINT_MOVED"; index: number; lat: number; lon: number }
+  | { type: "VARIANT_POINT_INSERTED"; afterIndex: number; lat: number; lon: number }
+  | { type: "VARIANT_POINT_DELETED"; index: number }
+  | { type: "VARIANT_CANCELLED" }
+  /** The variant becomes an option; the shell computes it. */
+  | { type: "VARIANT_FINISHED"; id: string; createdAt: string }
+  | { type: "TRACK_STARTED"; trackId: string; requestId: number }
+  | {
+      type: "TRACK_COMPUTED";
+      trackId: string;
+      requestId: number;
+      passage: PassageReport;
+      complexity: ComplexityScore;
+    }
+  | { type: "TRACK_FAILED"; trackId: string; requestId: number; error: string }
+  /** A row of the track axis: that option is the plan now, the comparison
+      kept behind it. */
+  | { type: "TRACK_OPENED"; id: string; configFingerprint: string }
+  | { type: "TRACK_HIGHLIGHTED"; id: string | null }
   | { type: "SWEEP_CHANGED"; earliest?: string; latest?: string; intervalHours?: number }
   | { type: "LEG_SELECTED"; index: number | null }
   | { type: "STEP_SELECTED"; index: number | null }
@@ -227,6 +273,12 @@ export function createInitialState(initial: InitialSession): PlanState {
     selectedStepIdx: null,
     actionTaken: initial.actionTaken,
     returnTo: null,
+    tracks: [],
+    variant: null,
+    tracksStale: false,
+    openedTrackId: null,
+    highlightedTrackId: null,
+    trackRequests: {},
     isStale: initial.isStale,
     apiError: null, retry: null,
     pending: null,
@@ -241,8 +293,26 @@ export function createInitialState(initial: InitialSession): PlanState {
     indices meaningless, and collapsing the card on every slider tick would be
     a nuisance. */
 function edited(state: PlanState, patch: Partial<PlanState>): PlanState {
-  return { ...state, ...patch, isStale: true, editSeq: state.editSeq + 1 };
+  return {
+    ...state,
+    // The tracks were computed on the departure and the boat as they were.
+    tracksStale: state.tracks.length > 0 ? true : state.tracksStale,
+    ...patch,
+    isStale: true,
+    editSeq: state.editSeq + 1,
+  };
 }
+
+/** The track axis, emptied: the options were drawn between the ends of a
+    route that no longer exists. */
+const NO_TRACKS = {
+  tracks: [] as Track[],
+  variant: null,
+  tracksStale: false,
+  openedTrackId: null,
+  highlightedTrackId: null,
+  trackRequests: {} as Record<string, { id: number; editSeq: number }>,
+};
 
 /** Any change to the route. Beyond the usual invalidation it drops the
     expanded leg, whose segment indices are about to stop meaning anything. */
@@ -252,8 +322,9 @@ function routeEdited(state: PlanState, waypoints: [number, number][]): PlanState
     selectedLegIdx: null,
     selectedStepIdx: null,
     // The comparison behind the plan was about the route as it was: nothing
-    // to go back to once it moved.
+    // to go back to once it moved, and no variant shares its ends any more.
     returnTo: null,
+    ...NO_TRACKS,
     // Dropping back under two waypoints rewinds the mobile panel to its
     // compact step, so reaching two again offers the choice again. Going
     // back up does not restore it on its own: only a tap in the panel does.
@@ -343,10 +414,152 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
       return { ...state, compareAxis: action.axis, apiError: null, retry: null };
 
     case "PLAN_KEPT":
-      return state.returnTo === null ? state : { ...state, returnTo: null };
+      if (state.returnTo === null) return state;
+      // Kept from the track axis, the option on screen is the plan and the
+      // other options go: reopening the comparison would otherwise list a
+      // "plan's track" that is no longer the plan's.
+      return state.returnTo === "tracks"
+        ? { ...state, returnTo: null, ...NO_TRACKS }
+        : { ...state, returnTo: null };
 
     case "FORM_OPENED":
       return state.actionTaken ? state : { ...state, actionTaken: true };
+
+    case "VARIANT_STARTED":
+      if (state.waypoints.length < 2 || state.tracks.length >= MAX_TRACKS) return state;
+      return { ...state, variant: startVariant(state.waypoints), highlightedTrackId: null };
+
+    case "VARIANT_POINT_ADDED":
+      if (!state.variant) return state;
+      return { ...state, variant: addVariantPoint(state.variant, action.lat, action.lon) };
+
+    case "VARIANT_POINT_MOVED":
+      if (!state.variant) return state;
+      return {
+        ...state,
+        variant: state.variant.map((wp, i): [number, number] =>
+          i === action.index ? [action.lat, action.lon] : wp,
+        ),
+      };
+
+    case "VARIANT_POINT_INSERTED": {
+      if (!state.variant) return state;
+      const next = [...state.variant];
+      next.splice(action.afterIndex + 1, 0, [action.lat, action.lon]);
+      return { ...state, variant: next };
+    }
+
+    case "VARIANT_POINT_DELETED": {
+      // The ends are the plan's: a variant keeps them by construction.
+      if (!state.variant) return state;
+      if (action.index <= 0 || action.index >= state.variant.length - 1) return state;
+      return { ...state, variant: state.variant.filter((_, i) => i !== action.index) };
+    }
+
+    case "VARIANT_CANCELLED":
+      return state.variant === null ? state : { ...state, variant: null };
+
+    case "VARIANT_FINISHED": {
+      if (!state.variant || !isVariantComplete(state.variant)) return state;
+      // The first variant makes the plan's own track option 1, with the
+      // passage it has when it is fresh; the shell computes it otherwise.
+      const fresh = !state.isStale && state.passage !== null && state.complexity !== null;
+      const base: Track[] =
+        state.tracks.length > 0
+          ? state.tracks
+          : [
+              {
+                id: PLAN_TRACK_ID,
+                waypoints: state.waypoints,
+                createdAt: action.createdAt,
+                passage: fresh ? state.passage : null,
+                complexity: fresh ? state.complexity : null,
+                error: null,
+              },
+            ];
+      const track: Track = {
+        id: action.id,
+        waypoints: state.variant,
+        createdAt: action.createdAt,
+        passage: null,
+        complexity: null,
+        error: null,
+      };
+      return { ...state, tracks: [...base, track], variant: null, highlightedTrackId: action.id };
+    }
+
+    case "TRACK_STARTED":
+      return {
+        ...state,
+        tracksStale: false,
+        tracks: state.tracks.map((t) => (t.id === action.trackId ? { ...t, error: null } : t)),
+        trackRequests: {
+          ...state.trackRequests,
+          [action.trackId]: { id: action.requestId, editSeq: state.editSeq },
+        },
+      };
+
+    case "TRACK_COMPUTED":
+    case "TRACK_FAILED": {
+      const request = state.trackRequests[action.trackId];
+      if (!request || request.id !== action.requestId) return state;
+      const rest = { ...state.trackRequests };
+      delete rest[action.trackId];
+      // Edited mid-flight: the answer is about a departure or a boat the
+      // reader has left behind. `tracksStale` already says so.
+      if (request.editSeq !== state.editSeq) return { ...state, trackRequests: rest };
+      return {
+        ...state,
+        trackRequests: rest,
+        tracks: state.tracks.map((t) =>
+          t.id !== action.trackId
+            ? t
+            : action.type === "TRACK_COMPUTED"
+              ? { ...t, passage: action.passage, complexity: action.complexity, error: null }
+              : { ...t, error: action.error },
+        ),
+      };
+    }
+
+    case "TRACK_OPENED": {
+      const track = state.tracks.find((t) => t.id === action.id);
+      if (!track || !track.passage || !track.complexity) return state;
+      const resolved = toNaiveLocal(new Date(track.passage.departure_time));
+      return withPersist(
+        {
+          ...state,
+          mode: "single",
+          waypoints: track.waypoints,
+          originWaypoints: track.waypoints,
+          passage: track.passage,
+          complexity: track.complexity,
+          isStale: false,
+          selectedLegIdx: null,
+          selectedStepIdx: null,
+          returnTo: "tracks",
+          openedTrackId: track.id,
+          apiError: null,
+          retry: null,
+          pending: null,
+        },
+        {
+          url: buildPlanUrl(track.waypoints, resolved, state.archetype),
+          cache: {
+            kind: "single",
+            waypoints: track.waypoints,
+            archetype: state.archetype,
+            configFingerprint: action.configFingerprint,
+            departure: resolved,
+            passage: track.passage,
+            complexity: track.complexity,
+            forecastUpdatedAt: state.forecastUpdatedAt ?? "",
+          },
+        },
+      );
+    }
+
+    case "TRACK_HIGHLIGHTED":
+      return state.highlightedTrackId === action.id ? state : { ...state, highlightedTrackId: action.id };
 
     case "SWEEP_CHANGED":
       // Moving the sweep range does not invalidate anything: no `editSeq`
@@ -542,6 +755,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
           selectedStepIdx: null,
           actionTaken: false,
           returnTo: null,
+          ...NO_TRACKS,
           isStale: false,
           apiError: null, retry: null,
           // Anything in flight stops counting: its reply will be dropped by
@@ -565,5 +779,7 @@ export function isFetching(state: PlanState, kind: FetchKind): boolean {
 /** What the panel currently shows as loading: the computation that belongs to
     the mode on screen, never the other one. */
 export function isLoadingForMode(state: PlanState): boolean {
-  return isFetching(state, state.mode === "compare" ? "sweep" : "single");
+  if (state.mode !== "compare") return isFetching(state, "single");
+  // The track axis shows each option computing on its own row.
+  return state.compareAxis === "slots" && isFetching(state, "sweep");
 }

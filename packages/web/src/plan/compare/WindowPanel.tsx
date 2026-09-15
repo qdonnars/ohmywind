@@ -124,7 +124,7 @@ function Chip({
 /** One bound of the window: a value one taps, with the native picker
     behind it. The input covers the card unseen; `showPicker` opens it on
     the click for the browsers that would only focus a field. */
-function BoundField({
+export function BoundField({
   label,
   value,
   hint,

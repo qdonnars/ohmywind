@@ -14,6 +14,7 @@ import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { StatBand } from "../plan/PlanStates";
 import { PlanFoot } from "../plan/PlanFoot";
 import { ReturnBanner } from "../plan/ReturnBanner";
+import { planAsTrack, routeOverlays } from "../plan/compare/tracks";
 import { loadPlanDraft } from "../plan/draft";
 import { loadLastSimulation } from "../plan/lastSimulation";
 import { resolveInitialSession, type InitialSession } from "../plan/session/initial";
@@ -386,9 +387,43 @@ export function PlanPage() {
   const { state, actions, isLoading } = usePlanSession(initial);
   // The page itself only needs what the map and the drawer are built on; the
   // panel reads everything else from the context below.
-  const { waypoints, passage, windows, mode: planMode, selectedLegIdx, selectedStepIdx, actionTaken, isStale } = state;
+  const {
+    waypoints,
+    passage,
+    complexity,
+    windows,
+    mode: planMode,
+    compareAxis,
+    tracks,
+    variant,
+    returnTo,
+    openedTrackId,
+    highlightedTrackId,
+    selectedLegIdx,
+    selectedStepIdx,
+    actionTaken,
+    isStale,
+  } = state;
 
-  const waypointDepths = useWaypointDepths(waypoints);
+  // While a variant is being drawn, the map's markers are the variant's
+  // points and the plan's route is a ghost behind them.
+  const drawing = variant !== null;
+  const mapWaypoints = drawing ? variant : waypoints;
+  const tracksAxis = planMode === "compare" && compareAxis === "tracks";
+  const overlays = useMemo(
+    () =>
+      routeOverlays({
+        options: tracks.length > 0 ? tracks : [planAsTrack(waypoints, isStale ? null : passage, isStale ? null : complexity)],
+        drawing,
+        tracksAxis,
+        openedInPlan: planMode === "single" && returnTo === "tracks",
+        highlightedTrackId,
+        openedTrackId,
+      }),
+    [tracks, waypoints, passage, complexity, isStale, drawing, tracksAxis, planMode, returnTo, highlightedTrackId, openedTrackId],
+  );
+
+  const waypointDepths = useWaypointDepths(mapWaypoints);
   const [archetypes, setArchetypes] = useState<Archetype[]>([]);
 
   // A waypoint removed by a tap on its marker, or by the × badge, is offered
@@ -418,8 +453,10 @@ export function PlanPage() {
   // Back collapses the open leg rather than leaving the planner (issue #300).
   const collapseLeg = useCallback(() => actions.selectLeg(null), [actions]);
   useBackDismiss(selectedLegIdx !== null, collapseLeg);
-  // And closes the comparison, back to the plan under it.
-  useBackDismiss(planMode === "compare", actions.closeCompare);
+  // And closes the comparison, back to the plan under it; a variant being
+  // drawn is dropped first.
+  useBackDismiss(planMode === "compare" && !drawing, actions.closeCompare);
+  useBackDismiss(drawing, actions.cancelVariant);
 
   useEffect(() => {
     fetchArchetypes().then(setArchetypes).catch(() => {});
@@ -555,7 +592,7 @@ export function PlanPage() {
         <div className="flex-1 min-h-0 relative">
           <PlanMap
             ref={mapRef}
-            waypoints={waypoints}
+            waypoints={mapWaypoints}
             // Only feed the condition-colored segments in single mode. In
             // compare mode there's no single "the conditions" to color by (each
             // window differs), and `passage` lags the route once it's edited
@@ -563,20 +600,24 @@ export function PlanPage() {
             // off a route that no longer matched the markers (#152 follow-up).
             // Compare mode falls back to a neutral line through the live
             // waypoints, so the drawn route always matches what's computed.
-            segments={planMode === "single" ? passage?.segments : undefined}
-            isStale={isStale}
-            onWptMove={actions.moveWaypoint}
-            onWptAdd={waypoints.length >= 2 ? actions.insertWaypoint : undefined}
-            onWptDelete={handleDeleteWaypoint}
-            onMapClick={actions.appendWaypoint}
+            segments={planMode === "single" && !drawing ? passage?.segments : undefined}
+            isStale={drawing ? false : isStale}
+            // Drawing a variant: every gesture edits the variant, not the plan.
+            onWptMove={drawing ? actions.moveVariantPoint : actions.moveWaypoint}
+            onWptAdd={drawing ? actions.insertVariantPoint : waypoints.length >= 2 ? actions.insertWaypoint : undefined}
+            onWptDelete={drawing ? actions.deleteVariantPoint : handleDeleteWaypoint}
+            onMapClick={drawing ? actions.addVariantPoint : actions.appendWaypoint}
+            overlays={overlays}
+            hideBaseRoute={tracksAxis && !drawing}
+            lockedEnds={drawing}
             initialCenter={initial.center}
             userPosition={userPosition}
             onViewChange={onViewChange}
             initialZoom={handedView?.zoom ?? null}
             showSeamarks={seamarks}
             depths={waypointDepths}
-            highlightedSegmentRange={highlightedSegmentRange}
-            focusedSegmentIdx={focusedSegmentIdx}
+            highlightedSegmentRange={drawing ? null : highlightedSegmentRange}
+            focusedSegmentIdx={drawing ? null : focusedSegmentIdx}
           />
           {/* Navigation menu — same control, same corner as on the home
               map; the camera travels with its links so going back to the
@@ -627,8 +668,19 @@ export function PlanPage() {
               </button>
             </div>
           )}
+          {/* Hint overlay while drawing a variant between the plan's ends */}
+          {drawing && (
+            <div className="absolute inset-x-4 bottom-4 z-[400] flex justify-center pointer-events-none">
+              <div
+                className="px-4 py-2 rounded-xl text-sm font-medium text-center"
+                style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)", color: "var(--ow-fg-1)" }}
+              >
+                {t("panel.tracks.drawing.hint")}
+              </div>
+            </div>
+          )}
           {/* Hint overlay while building the route */}
-          {waypoints.length < 2 && (
+          {!drawing && waypoints.length < 2 && (
             <div className="absolute inset-x-4 bottom-4 z-[400] flex justify-center pointer-events-none">
               <div
                 className="px-4 py-2 rounded-xl text-sm font-medium"
@@ -668,11 +720,13 @@ export function PlanPage() {
           ref={drawerRef}
           defaultVh={passage ? 38 : 60}
           targetVh={
-            waypoints.length < 2
-              ? 18
-              : !actionTaken
-                ? 26
-                : 65
+            drawing
+              ? 26
+              : waypoints.length < 2
+                ? 18
+                : !actionTaken
+                  ? 26
+                  : 65
           }
           resultsFitKey={resultsFitKey}
           head={passage && planMode === "single" && !isStale ? <StatBand passage={passage} /> : null}
