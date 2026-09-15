@@ -190,13 +190,13 @@ describe("PlanSidebar views", () => {
   it("shows a skeleton while computing, and no result", () => {
     mount({ passage: passage(), complexity: complexity() }, { isLoading: true });
     expect(screen.queryByText(/Recalculer/)).toBeNull();
-    expect(screen.queryByTitle("Votre route")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Nouveau plan" })).toBeNull();
   });
 
-  it("shows the error under the route line", () => {
+  it("shows the error, with the trash still reachable", () => {
     mount({ apiError: "Trop de calculs lancés coup sur coup." });
     expect(screen.getByText("Trop de calculs lancés coup sur coup.")).toBeTruthy();
-    expect(screen.getByTitle("Votre route")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Nouveau plan" })).toBeTruthy();
   });
 
   it("shows the error under the comparison head, with the way back, when it failed there", async () => {
@@ -206,11 +206,11 @@ describe("PlanSidebar views", () => {
     expect(value.actions.closeCompare).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the empty state under two waypoints, with no mode to pick", () => {
+  it("shows the empty state under two waypoints, with no mode to pick and nothing to reset", () => {
     mount({ waypoints: [MARSEILLE] });
     expect(screen.getByText("Tracez votre trajet")).toBeTruthy();
-    expect(screen.getByText("1 point placé")).toBeTruthy();
     expect(screen.queryByRole("tab")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Nouveau plan" })).toBeNull();
   });
 
   it("offers to compute or to open the form before anything was asked", async () => {
@@ -225,34 +225,42 @@ describe("PlanSidebar views", () => {
     expect(value.compute).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the single form and computes on demand", async () => {
+  it("shows the single form and computes on demand, the trash beside the action", async () => {
     const value = mount();
-    expect(screen.getByText(/^2 points · 1 tronçon · \d+,\d nm$/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Nouveau plan" })).toBeTruthy();
     const button = screen.getByRole("button", { name: /Calculer le passage/ });
     await userEvent.click(button);
     expect(value.compute).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the passage, its warnings folded, and its legs once computed", async () => {
-    mount({ passage: passage(), complexity: complexity(), forecastUpdatedAt: "2026-09-09T06:00:00Z" });
-    // Folded on a phone (jsdom matches no media query): one line, unfolded on a tap.
+  it("shows the passage, its alerts folded with their kinds, its legs, and the doors last", async () => {
+    const value = mount({ passage: passage(), complexity: complexity(), forecastUpdatedAt: "2026-09-09T06:00:00Z" });
+    // Folded: one line saying how many and about what, unfolded on a tap.
     expect(screen.queryByText("vent faible : passage très lent")).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "1 alerte" }));
+    // The name computation drops the spaces around the middle dot.
+    await userEvent.click(screen.getByRole("button", { name: /1 alerte.vent/ }));
     expect(screen.getByText("vent faible : passage très lent")).toBeTruthy();
     expect(screen.getByText(/Croiseur 30 pieds/)).toBeTruthy();
-    // Recalculer and the trash side by side on the route line.
+    // Recalculer and the trash at the end of the one recap row.
     expect(screen.getByRole("button", { name: "Recalculer" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Nouveau plan" })).toBeTruthy();
     // One row per leg, opening the build-up on click.
     expect(screen.getByRole("button", { name: /^1→2/ })).toBeTruthy();
     expect(screen.getByText(/Données fraîches au/)).toBeTruthy();
+    // The two doors, after everything else.
+    await userEvent.click(screen.getByRole("button", { name: "D'autres départs" }));
+    expect(value.actions.openCompare).toHaveBeenCalledWith("slots");
+    await userEvent.click(screen.getByRole("button", { name: "Un autre tracé" }));
+    expect(value.actions.openCompare).toHaveBeenCalledWith("tracks");
+    expect(value.actions.startVariant).toHaveBeenCalledTimes(1);
   });
 
-  it("hides the legs and the alerts behind a recompute prompt once the route moved", () => {
+  it("hides the legs, the alerts and the doors behind a recompute prompt once the route moved", () => {
     mount({ passage: passage(), complexity: complexity(), isStale: true });
     expect(screen.getByText(/Itinéraire modifié/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^1→2/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: "1 alerte" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /alerte/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "D'autres départs" })).toBeNull();
   });
 
   it("opens a leg through the session, not through local state", async () => {
@@ -285,10 +293,10 @@ describe("the comparison", () => {
     expect(value.actions.selectWindow).toHaveBeenCalled();
   });
 
-  it("marks the plan's own departure, and counts the alerts", () => {
+  it("marks the plan's own departure as chosen, and counts the alerts", () => {
     const w = aWindow();
     mount({ mode: "compare", windows: [{ ...w, warnings: ["a", "b"] }], departure: "2026-09-11T06:00" });
-    expect(screen.getByText("du plan")).toBeTruthy();
+    expect(screen.getByText("sélectionné")).toBeTruthy();
     expect(screen.getByTitle("2 alertes")).toBeTruthy();
   });
 
@@ -308,33 +316,29 @@ describe("the comparison", () => {
     expect(value.computeWindows).toHaveBeenCalledTimes(1);
   });
 
-  it("pins two doors under a computed plan, and the settings under the comparison", async () => {
-    const plan = mountWith(<PlanFoot />, { passage: passage(), complexity: complexity() });
-    await userEvent.click(screen.getByRole("button", { name: "D'autres départs" }));
-    expect(plan.actions.openCompare).toHaveBeenCalledWith("slots");
-    // The other door lands on the track axis and starts drawing when there
-    // is nothing to compare yet.
-    await userEvent.click(screen.getByRole("button", { name: "Un autre tracé" }));
-    expect(plan.actions.openCompare).toHaveBeenCalledWith("tracks");
-    expect(plan.actions.startVariant).toHaveBeenCalledTimes(1);
+  it("pins nothing under a computed plan, and the settings under the comparison", async () => {
+    mountWith(<PlanFoot />, { passage: passage(), complexity: complexity() });
+    expect(screen.queryByRole("button")).toBeNull();
     cleanup();
 
     const compare = mountWith(<PlanFoot />, { mode: "compare", windows: [aWindow()] });
     // The window, written once: the row is the summary and the button.
     const row = screen.getByRole("button", { name: /Fenêtre/ });
     expect(row.textContent).toContain("Les prochaines 48 h");
-    expect(row.textContent).toContain("1 créneau");
+    expect(row.textContent).toContain("toutes les 3 h");
     expect(screen.getByText("Tracé figé")).toBeTruthy();
     await userEvent.click(row);
     // Unfolded: the presets, and the step already deduced from the span,
-    // one tap away from another value.
+    // one tap away from another value; the dates under a link.
     expect(screen.getByRole("button", { name: "48 h" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByText("17 créneaux")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^1 h/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "3 h" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.queryByLabelText("Du")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Ajuster les dates" }));
+    expect((screen.getByLabelText("Du") as HTMLInputElement).value).toBe("2026-09-10T08:00");
     await userEvent.click(screen.getByRole("button", { name: "7 j" }));
     expect(screen.getByRole("button", { name: "7 j" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: /^6 h/ }).getAttribute("aria-pressed")).toBe("true");
-    await userEvent.click(screen.getByRole("button", { name: /^12 h/ }));
+    expect(screen.getByRole("button", { name: "6 h" }).getAttribute("aria-pressed")).toBe("true");
+    await userEvent.click(screen.getByRole("button", { name: "12 h" }));
     await userEvent.click(screen.getByRole("button", { name: "Appliquer" }));
     expect(compare.actions.applySweep).toHaveBeenCalledWith({
       earliest: "2026-09-10T08:00",
@@ -358,7 +362,8 @@ describe("the comparison", () => {
     const alone = mount({ mode: "compare", compareAxis: "tracks", passage: passage(), complexity: complexity() });
     expect(screen.getByRole("button", { name: /^Option 1 · Ouvrir ce tracé/ })).toBeTruthy();
     expect(screen.getAllByText("1 option").length).toBeGreaterThanOrEqual(1);
-    // The plan's own track has no trash.
+    // No sort on this axis, and the plan alone has no trash.
+    expect(screen.queryByRole("button", { name: "Durée" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Supprimer/ })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: /Tracer une variante/ }));
     expect(alone.actions.startVariant).toHaveBeenCalledTimes(1);
@@ -374,9 +379,11 @@ describe("the comparison", () => {
       trackRequests: { v1: { id: 1, editSeq: 0 } },
     });
     expect(screen.getByText("calcul en cours…")).toBeTruthy();
-    // The plan's route is option 1: marked, and the one the departure axis is about.
+    // The plan's route is option 1: marked as chosen, and the one the departure axis is about.
     expect(screen.getByRole("button", { name: /^Option 1 · Choisir/ }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByText("du plan")).toBeTruthy();
+    expect(screen.getByText("sélectionné")).toBeTruthy();
+    // The chosen option has no trash; the other has.
+    expect(screen.queryByRole("button", { name: "Supprimer l'option 1" })).toBeNull();
     // An option still computing can be neither chosen nor opened, only removed.
     expect((screen.getByRole("button", { name: /^Option 2 · Choisir/ }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: /^Option 2 · Ouvrir/ }) as HTMLButtonElement).disabled).toBe(true);
@@ -410,9 +417,9 @@ describe("the comparison", () => {
     const row = screen.getByRole("button", { name: /Départ figé/ });
     expect(row.textContent).toContain("08:00");
     await userEvent.click(row);
-    const field = screen.getByLabelText("Départ commun aux tracés") as HTMLInputElement;
-    // jsdom takes the value straight; the picker is the browser's. Inside
-    // the forecast horizon, which is counted from the real clock.
+    // The plan's own slider, on a copy: « Ajuster » shows the field.
+    await userEvent.click(screen.getByRole("button", { name: "Ajuster" }));
+    const field = screen.getByDisplayValue("2026-09-10T08:00") as HTMLInputElement;
     const soon = new Date(Date.now() + 2 * 86_400_000);
     soon.setMinutes(0, 0, 0);
     const next = toNaiveLocal(soon);

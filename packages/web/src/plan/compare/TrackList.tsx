@@ -6,43 +6,33 @@
  *
  * A track is a line too: the colour swatch stands where the hour stands,
  * then the duration and the arrival in full figures, and the distance, the
- * sea and the engine share as the grey sentence. Tapping the line chooses
- * that option as the plan's route without leaving the comparison, which is
- * also what the departure axis then compares on; the chevron opens it in
- * the plan, and a variant has its trash. Under the lines, « Tracer une
- * variante » opens the map for a new option between the plan's ends; while
- * one is being drawn, the list gives way to what the drawing needs (how
- * many points, cancel, finish).
+ * sea and the engine share as the grey sentence. Two or three options are
+ * read in the order they were drawn, so there is no sort here. Tapping the
+ * line chooses that option as the plan's route without leaving the
+ * comparison, which is also what the departure axis then compares on;
+ * « Ouvrir » opens it in the plan, and every option but the chosen one has
+ * its trash. Under the lines, « Tracer une variante » opens the map for a
+ * new option between the plan's ends; while one is being drawn, the list
+ * gives way to what the drawing needs (how many points, cancel, finish).
  */
 
-import { useState } from "react";
 import { usePlan } from "../session/planContext";
 import { StalePlaceholder } from "../sidebar/parts";
 import { fmtDurationSafe, num1 } from "../format";
 import { fmtClock } from "../../domain/datetime";
-import { useT, type Key } from "../../i18n";
+import { useT } from "../../i18n";
 import {
   isVariantComplete,
   planAsTrack,
-  sortTracks,
   summariseTrack,
   trackColorToken,
   MAX_TRACKS,
-  PLAN_TRACK_ID,
   type Track,
-  type TrackSort,
 } from "./tracks";
 import { waypointsEqual } from "../lastSimulation";
 import { ChevronIcon } from "./icons";
 
 const MONO = { fontFamily: "var(--ow-font-mono)" } as const;
-
-const SORTS: readonly TrackSort[] = ["order", "duration", "sea"];
-const SORT_KEYS: Record<TrackSort, Key> = {
-  order: "panel.compare.sort.order",
-  duration: "panel.compare.sort.duration",
-  sea: "panel.compare.sort.sea",
-};
 
 function Swatch({ index }: { index: number }) {
   return (
@@ -191,10 +181,11 @@ function TrackRow({
           disabled={!usable}
           aria-label={`${name} · ${t("panel.tracks.row.open")}`}
           title={t("panel.tracks.row.open")}
-          className={iconButton}
-          style={{ width: 32, height: 32, color: "var(--ow-fg-2)" }}
+          className="shrink-0 flex items-center gap-0.5 rounded-full pl-2.5 pr-1.5 py-1 text-[11px] font-semibold transition-colors enabled:hover:bg-[var(--ow-bg-3)] disabled:opacity-40"
+          style={{ background: "var(--ow-bg-2)", border: "1px solid var(--ow-line)", color: "var(--ow-fg-0)" }}
         >
-          <ChevronIcon direction="right" size={12} />
+          {t("panel.tracks.row.openShort")}
+          <ChevronIcon direction="right" size={10} />
         </button>
       </div>
     </div>
@@ -247,7 +238,7 @@ function DrawingPanel({ variant, optionNumber }: { variant: [number, number][]; 
 }
 
 export function TrackList() {
-  const { t, tn } = useT();
+  const { t } = useT();
   const { state, actions } = usePlan();
   const {
     tracks,
@@ -261,8 +252,6 @@ export function TrackList() {
     complexity,
     isStale,
   } = state;
-  const [sort, setSort] = useState<TrackSort>("order");
-
   const options: Track[] =
     tracks.length > 0 ? tracks : [planAsTrack(waypoints, isStale ? null : passage, isStale ? null : complexity)];
 
@@ -291,37 +280,11 @@ export function TrackList() {
   const selectedId = options.find((o) => waypointsEqual(o.waypoints, waypoints))?.id ?? null;
   const active = highlightedTrackId ?? openedTrackId ?? selectedId ?? options[0].id;
   const canDraw = waypoints.length >= 2 && options.length < MAX_TRACKS;
-  const sorted = sortTracks(options, sort);
 
   return (
     <div>
-      <div className="flex items-center gap-1.5 px-4 pt-2 pb-2.5" role="group" aria-label={t("panel.compare.sort.label")}>
-        <span className="text-[10.5px] mr-0.5" style={{ color: "var(--ow-fg-3)" }}>{t("panel.compare.sort.label")}</span>
-        {SORTS.map((s) => {
-          const on = s === sort;
-          return (
-            <button
-              key={s}
-              type="button"
-              aria-pressed={on}
-              onClick={() => setSort(s)}
-              className="rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors"
-              style={{
-                background: on ? "var(--ow-accent-soft)" : "var(--ow-bg-2)",
-                color: on ? "var(--ow-accent)" : "var(--ow-fg-2)",
-                border: `1px solid ${on ? "var(--ow-accent-line)" : "var(--ow-line)"}`,
-              }}
-            >
-              {t(SORT_KEYS[s])}
-            </button>
-          );
-        })}
-        <span className="ml-auto text-[10px] tabular-nums" style={{ ...MONO, color: "var(--ow-fg-3)" }}>
-          {tn("panel.compare.tracks", options.length)}
-        </span>
-      </div>
       <div style={{ borderTop: "1px solid var(--ow-line)" }}>
-        {sorted.map((track) => (
+        {options.map((track) => (
           <TrackRow
             key={track.id}
             track={track}
@@ -329,7 +292,7 @@ export function TrackList() {
             selected={track.id === selectedId}
             highlighted={track.id === active}
             computing={track.id in trackRequests}
-            removable={track.id !== PLAN_TRACK_ID && tracks.length > 0}
+            removable={track.id !== selectedId && tracks.length > 0}
             onSelect={() => actions.selectTrack(track.id)}
             onOpen={() => actions.openTrack(track.id)}
             onRemove={() => actions.removeTrack(track.id)}

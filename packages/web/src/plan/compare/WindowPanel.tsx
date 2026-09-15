@@ -3,26 +3,26 @@
 
 /**
  * The settings of the departure axis: the window the departures are taken
- * from, and how many of them.
+ * from, and how often.
  *
  * One row is the summary and the button (« Fenêtre · Les prochaines 48 h ·
- * 17 créneaux · Régler »). Unfolded, the panel shows the two bounds as
- * values one taps, spans as chips (« je veux partir dans les deux jours »),
- * and the step, already chosen from the span and changeable in one tap.
- * The panel edits a copy: « Annuler » drops it, and « Appliquer » sets the
- * sweep and recomputes in one go.
+ * toutes les 3 h · Régler »). Unfolded, the panel asks the two things one
+ * actually thinks in, each as a row of buttons: « les prochaines 24 h /
+ * 48 h / 3 j / 7 j / 12 j » from the plan's departure, and « toutes les
+ * 1 h / 3 h / 6 h / 12 h », proposed from the span and one tap away from
+ * another value. The exact dates are an adjustment kept under a link, as
+ * two plain date-time fields. No count of slots: the head says it once
+ * the sweep has run. The panel edits a copy: « Annuler » drops it, and
+ * « Appliquer » sets the sweep and recomputes in one go.
  *
  * Pinned under the list on a wide screen, the panel unfolds above the row;
  * in the flow of a phone's list, below it.
- *
- * The dual-thumb slider that used to ask for the bounds was imprecise under
- * a finger and unreadable over two weeks; the step buttons asked a question
- * the reader had no way to answer.
  */
 
 import { useCallback, useMemo, useState } from "react";
 import { usePlan } from "../session/planContext";
 import { useBackDismiss } from "../../hooks/useBackDismiss";
+import { useTheme } from "../../design/useTheme";
 import { validateSweep, SWEEP_HORIZON_DAYS } from "../validateSweep";
 import {
   autoStepHours,
@@ -30,33 +30,28 @@ import {
   presetLatest,
   spanHours,
   spanLabel,
-  windowCount,
   STEP_CHOICES_H,
   WINDOW_PRESETS_H,
   type SweepParams,
 } from "./slots";
 import { ContextRow } from "./ContextRow";
-import { ClockIcon } from "./icons";
+import { ChevronIcon, ClockIcon } from "./icons";
 import { capitalise, fmtClock, fmtDay, toNaiveLocal } from "../../domain/datetime";
-import { rich, useT } from "../../i18n";
+import { useT } from "../../i18n";
 
 const MONO = { fontFamily: "var(--ow-font-mono)" } as const;
 
 /** The row, and the panel it unfolds. */
 export function WindowSettings({ placement = "above" }: { placement?: "above" | "below" }) {
-  const { t, tn } = useT();
+  const { t } = useT();
   const { state, actions } = usePlan();
-  const { sweepEarliest, sweepLatest, sweepIntervalHours, windows, isStale, departure } = state;
+  const { sweepEarliest, sweepLatest, sweepIntervalHours, departure } = state;
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
   // Android's back closes the panel rather than the comparison (issue #300).
   useBackDismiss(open, close);
 
-  const span = spanHours(sweepEarliest, sweepLatest);
   const preset = matchPreset(sweepEarliest, sweepLatest);
-  // The windows on screen, or what the settings would produce.
-  const count =
-    !isStale && windows && windows.length > 0 ? windows.length : windowCount(span, sweepIntervalHours);
   const when =
     preset !== null && sweepEarliest === departure
       ? t("panel.window.next", { span: spanLabel(preset) })
@@ -65,7 +60,6 @@ export function WindowSettings({ placement = "above" }: { placement?: "above" | 
   const panel = open && (
     <WindowPanel
       initial={{ earliest: sweepEarliest, latest: sweepLatest, intervalHours: sweepIntervalHours }}
-      departure={departure}
       onCancel={close}
       onApply={(sweep) => {
         actions.applySweep(sweep);
@@ -79,7 +73,7 @@ export function WindowSettings({ placement = "above" }: { placement?: "above" | 
       <ContextRow
         icon={<ClockIcon />}
         label={t("panel.window.label")}
-        value={`${when} · ${tn("panel.compare.slots", count)}`}
+        value={`${when} · ${t("panel.window.everyValue", { step: spanLabel(sweepIntervalHours) })}`}
         action={open ? t("common.close") : t("panel.window.set")}
         chevron="down"
         open={open}
@@ -90,124 +84,103 @@ export function WindowSettings({ placement = "above" }: { placement?: "above" | 
   );
 }
 
-function Chip({
-  label,
-  active,
-  onClick,
-  sub,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-  sub?: string;
-}) {
+function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className="rounded-full text-[11.5px] font-semibold whitespace-nowrap transition-colors"
+      className="rounded-full px-3 py-1.5 text-xs font-semibold tabular-nums whitespace-nowrap transition-colors"
       style={{
-        padding: sub ? "6px 0" : "6px 11px",
-        flex: sub ? 1 : undefined,
-        borderRadius: sub ? 9 : 999,
+        ...MONO,
         background: active ? "var(--ow-accent-soft)" : "var(--ow-bg-2)",
         color: active ? "var(--ow-accent)" : "var(--ow-fg-1)",
         border: `1px solid ${active ? "var(--ow-accent-line)" : "var(--ow-line)"}`,
       }}
     >
-      <span className="block tabular-nums" style={MONO}>{label}</span>
-      {sub && (
-        <span className="block text-[9.5px] mt-0.5 tabular-nums" style={{ ...MONO, color: "var(--ow-fg-2)" }}>
-          {sub}
-        </span>
-      )}
+      {label}
     </button>
   );
 }
 
-/** One bound of the window: a value one taps, with the native picker
-    behind it. The input covers the card unseen; `showPicker` opens it on
-    the click for the browsers that would only focus a field. */
-export function BoundField({
+/** A row of the panel: a lead word, then the choices as chips. */
+function ChoiceRow({ lead, children }: { lead: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <span className="text-xs font-semibold mr-0.5" style={{ color: "var(--ow-fg-1)" }}>{lead}</span>
+      {children}
+    </div>
+  );
+}
+
+/** One bound as a plain date-time field, the way the plan's own « Ajuster »
+    shows one: labelled, visible, and the browser's picker behind it. */
+function DateField({
+  id,
   label,
   value,
-  hint,
   min,
   max,
-  ariaLabel,
   onChange,
 }: {
+  id: string;
   label: string;
   value: string;
-  hint?: string;
   min: string;
   max: string;
-  ariaLabel: string;
   onChange: (value: string) => void;
 }) {
+  const { resolvedTheme } = useTheme();
   return (
-    <label
-      className="relative flex-1 min-w-0 rounded-[10px] px-2.5 py-2 cursor-pointer"
-      style={{ background: "var(--ow-bg-2)", border: "1px solid var(--ow-line)" }}
-    >
-      <span className="block text-[10px] mb-0.5" style={{ color: "var(--ow-fg-3)" }}>{label}</span>
-      <span className="block text-[13px] font-bold tabular-nums" style={{ ...MONO, color: "var(--ow-fg-0)" }}>
-        {capitalise(fmtDay(value))}
-      </span>
-      <span className="block text-[13px] font-bold tabular-nums" style={{ ...MONO, color: "var(--ow-fg-0)" }}>
-        {fmtClock(value)}
-      </span>
-      {hint && <span className="block text-[10px] mt-0.5" style={{ color: "var(--ow-fg-3)" }}>{hint}</span>}
+    <div className="flex-1 min-w-0">
+      <label htmlFor={id} className="block text-[10px] uppercase tracking-widest font-semibold mb-1" style={{ color: "var(--ow-fg-2)" }}>
+        {label}
+      </label>
       <input
+        id={id}
         type="datetime-local"
         value={value}
         min={min}
         max={max}
         step={900}
-        aria-label={ariaLabel}
         onChange={(e) => {
           if (e.target.value) onChange(e.target.value);
         }}
-        onClick={(e) => {
-          try {
-            (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
-          } catch {
-            // Not allowed here: the field still takes a typed value.
-          }
+        className="ow-datetime-input w-full rounded-lg px-2.5 py-2 text-sm font-semibold tabular-nums"
+        style={{
+          ...MONO,
+          background: "var(--ow-bg-2)",
+          color: "var(--ow-fg-0)",
+          border: "1px solid var(--ow-line)",
+          colorScheme: resolvedTheme === "light" ? "light" : "dark",
         }}
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
       />
-    </label>
+    </div>
   );
 }
 
 export function WindowPanel({
   initial,
-  departure,
   onCancel,
   onApply,
 }: {
   initial: SweepParams;
-  /** The plan's departure, which the first bound is expected to be. */
-  departure: string;
   onCancel: () => void;
   onApply: (sweep: SweepParams) => void;
 }) {
-  const { t, tn } = useT();
+  const { t } = useT();
   const [earliest, setEarliest] = useState(initial.earliest);
   const [latest, setLatest] = useState(initial.latest);
   const [manualStep, setManualStep] = useState<number | null>(() => {
     const auto = autoStepHours(spanHours(initial.earliest, initial.latest));
     return initial.intervalHours === auto ? null : initial.intervalHours;
   });
+  const [datesOpen, setDatesOpen] = useState(false);
 
   const span = spanHours(earliest, latest);
   const step = manualStep ?? autoStepHours(span);
-  const count = windowCount(span, step);
   const preset = matchPreset(earliest, latest);
   const validation = validateSweep(earliest, latest, step);
-  const daysOut = Math.round(span / 24);
 
   // The bounds a picker may land on: from this hour to the end of the
   // forecast.
@@ -222,88 +195,59 @@ export function WindowPanel({
 
   return (
     <div
-      className="px-4 pt-3 pb-3.5 space-y-3.5"
+      className="px-4 pt-3 pb-3.5 space-y-3"
       style={{ background: "var(--ow-bg-1)", borderTop: "1px solid var(--ow-line)" }}
     >
+      <div className="text-[9px] uppercase tracking-widest font-bold" style={{ ...MONO, color: "var(--ow-fg-3)" }}>
+        {t("panel.window.title")}
+      </div>
+
+      <ChoiceRow lead={t("panel.window.lead")}>
+        {WINDOW_PRESETS_H.map((h) => (
+          <Chip
+            key={h}
+            label={spanLabel(h)}
+            active={preset === h}
+            onClick={() => {
+              setLatest(presetLatest(earliest, h, Date.now()));
+              // A new span proposes its own step again.
+              setManualStep(null);
+            }}
+          />
+        ))}
+      </ChoiceRow>
+
+      <ChoiceRow lead={t("panel.window.every")}>
+        {STEP_CHOICES_H.map((h) => (
+          <Chip
+            key={h}
+            label={spanLabel(h)}
+            active={step === h}
+            onClick={() => setManualStep(h === autoStepHours(span) ? null : h)}
+          />
+        ))}
+      </ChoiceRow>
+
       <div>
-        <div className="flex items-baseline gap-2 mb-1.5">
-          <span className="text-[9px] uppercase tracking-widest font-bold" style={{ ...MONO, color: "var(--ow-fg-3)" }}>
-            {t("panel.window.title")}
-          </span>
-          <span className="ml-auto text-[10.5px] font-semibold tabular-nums" style={{ ...MONO, color: "var(--ow-accent)" }}>
-            {spanLabel(span)}
-          </span>
-        </div>
-        <div className="flex gap-2 mb-2">
-          <BoundField
-            label={t("panel.window.from")}
-            value={earliest}
-            hint={earliest === departure ? t("panel.window.fromHint") : undefined}
-            min={min}
-            max={max}
-            ariaLabel={t("panel.window.fromAria")}
-            onChange={setEarliest}
-          />
-          <BoundField
-            label={t("panel.window.to")}
-            value={latest}
-            hint={t("panel.departure.dayPlus", { count: daysOut })}
-            min={min}
-            max={max}
-            ariaLabel={t("panel.window.toAria")}
-            onChange={setLatest}
-          />
-        </div>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[11.5px] font-semibold mr-0.5" style={{ color: "var(--ow-fg-1)" }}>
-            {t("panel.window.lead")}
-          </span>
-          {WINDOW_PRESETS_H.map((h) => (
-            <Chip
-              key={h}
-              label={spanLabel(h)}
-              active={preset === h}
-              onClick={() => {
-                setLatest(presetLatest(earliest, h, Date.now()));
-                setManualStep(null);
-              }}
-            />
-          ))}
-        </div>
+        <button
+          type="button"
+          onClick={() => setDatesOpen((v) => !v)}
+          aria-expanded={datesOpen}
+          className="flex items-center gap-1 text-[11px] font-semibold underline underline-offset-2"
+          style={{ color: "var(--ow-fg-2)" }}
+        >
+          {t("panel.window.adjustDates")}
+          <ChevronIcon direction={datesOpen ? "down" : "right"} size={9} />
+        </button>
+        {datesOpen && (
+          <div className="flex gap-2 mt-2">
+            <DateField id="ow-window-from" label={t("panel.window.from")} value={earliest} min={min} max={max} onChange={setEarliest} />
+            <DateField id="ow-window-to" label={t("panel.window.to")} value={latest} min={min} max={max} onChange={setLatest} />
+          </div>
+        )}
         {!validation.ok && validation.message && (
           <p className="text-[11px] mt-2" style={{ color: "var(--ow-warn)" }}>{validation.message}</p>
         )}
-      </div>
-
-      {/* The step, with its cost: the one setting that decides the computing
-          time. Proposed from the span, and one tap away from another value;
-          a preset picked afterwards proposes its own step again. */}
-      <div className="rounded-[10px]" style={{ background: "var(--ow-bg-2)", border: "1px solid var(--ow-line)" }}>
-        <div className="flex items-center gap-2 px-2.5 py-2">
-          <span className="shrink-0 flex" style={{ color: "var(--ow-accent)" }}><ClockIcon size={14} /></span>
-          <span className="min-w-0 text-[11.5px] leading-snug" style={{ color: "var(--ow-fg-1)" }}>
-            {rich(
-              t("panel.window.step", { slots: tn("panel.compare.slots", count), step: spanLabel(step) }),
-              { b: (c) => <b className="tabular-nums" style={{ ...MONO, color: "var(--ow-fg-0)" }}>{c}</b> },
-            )}
-          </span>
-        </div>
-        <div className="px-2.5 pb-2.5" role="group" aria-label={t("panel.window.step", { slots: "", step: "" }).replace(/<\/?b>/g, "").trim()}>
-          <div className="flex gap-1.5">
-            {STEP_CHOICES_H.map((h) => (
-              <Chip
-                key={h}
-                label={spanLabel(h)}
-                sub={String(windowCount(span, h))}
-                active={step === h}
-                onClick={() => setManualStep(h === autoStepHours(span) ? null : h)}
-              />
-            ))}
-          </div>
-          <p className="text-[10.5px] mt-2 leading-snug" style={{ color: "var(--ow-fg-2)" }}>
-            {t("panel.window.cost", { count: windowCount(span, 1) })}
-          </p>
-        </div>
       </div>
 
       <div className="flex items-center gap-2">

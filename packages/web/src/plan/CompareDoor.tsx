@@ -6,8 +6,8 @@ import { ClockIcon, RouteIcon } from "./compare/icons";
 import { useT } from "../i18n";
 
 /**
- * The two doors into « Comparer ce trajet », pinned at the bottom of the
- * plan's results: other departures on this track, or another track on this
+ * The two doors into « Comparer ce trajet », at the end of the plan's
+ * results: other departures on this track, or another track on this
  * departure. Each lands on its axis; the second starts drawing a variant
  * at once when there is none yet, since that is what one came for. The plan
  * keeps the lead, and the comparison is the last thing one reads, after
@@ -21,10 +21,7 @@ export function CompareDoor() {
     border: "1px solid var(--ow-line)",
   } as const;
   return (
-    <div
-      className="shrink-0 px-4 pt-2 pb-3"
-      style={{ background: "var(--ow-bg-1)", borderTop: "1px solid var(--ow-line)" }}
-    >
+    <div className="px-4 pt-2.5 pb-4" style={{ borderTop: "1px solid var(--ow-line)" }}>
       <div
         className="text-[9.5px] uppercase tracking-widest font-bold mb-1.5"
         style={{ color: "var(--ow-fg-3)", fontFamily: "var(--ow-font-mono)" }}

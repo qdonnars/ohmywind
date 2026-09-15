@@ -7,8 +7,10 @@ import { computeLegSegmentRanges, focusedSegmentIndex } from "../aggregateLegs";
 import { TimeAnchorToggle } from "../ModeToggle";
 import { RecapButton, HeroStats } from "../PlanStates";
 import { usePlan } from "../session/planContext";
-import { PlanHeaderRow } from "./PlanHeaderRow";
+import { ResetButton } from "./ResetButton";
+import { CompareDoor } from "../CompareDoor";
 import { Warnings } from "./Warnings";
+import { classifyAlert } from "./alerts";
 import { DepartureSlider } from "./DepartureSlider";
 import { ArchetypeSelector } from "./ArchetypeSelector";
 import { LegList } from "./LegList";
@@ -62,26 +64,9 @@ export function SingleResults({
 
   return (
     <div className="animate-fade-in">
-      {/* The route on one line, Recalculer and the trash flush right: the
-          row scrolls away above the results on mobile, so it is kept to
-          one line. Recalculer fills in accent once the route was edited. */}
-      <div className="px-4 pt-3 pb-3" style={{ borderBottom: "1px solid var(--ow-line)" }}>
-        <PlanHeaderRow
-          action={
-            <RecomputeButton
-              onClick={compute}
-              style={{
-                background: isStale ? "var(--ow-accent)" : "var(--ow-bg-2)",
-                color: isStale ? "var(--ow-on-accent)" : "var(--ow-fg-1)",
-                border: `1px solid ${isStale ? "transparent" : "var(--ow-line)"}`,
-              }}
-            />
-          }
-        />
-      </div>
-
       {/* Récap compact: click to edit departure / archetype inline. The row
-          the drawer opens on. */}
+          the drawer opens on, and the one line of controls: Recalculer,
+          filled in accent once the route was edited, and the trash. */}
       <ResultsAnchor />
       <RecapButton
         primary={t(
@@ -93,6 +78,19 @@ export function SingleResults({
         secondary={boatLabel}
         isOpen={isEditingParams}
         onClick={() => setIsEditingParams((v) => !v)}
+        trailing={
+          <>
+            <RecomputeButton
+              onClick={compute}
+              style={{
+                background: isStale ? "var(--ow-accent)" : "var(--ow-bg-2)",
+                color: isStale ? "var(--ow-on-accent)" : "var(--ow-fg-1)",
+                border: `1px solid ${isStale ? "transparent" : "var(--ow-line)"}`,
+              }}
+            />
+            <ResetButton />
+          </>
+        }
       />
       {isEditingParams && (
         <div className="px-4 py-3 space-y-3" style={{ borderBottom: "1px solid var(--ow-line)", background: "var(--ow-bg-2)" }}>
@@ -122,9 +120,9 @@ export function SingleResults({
           they describe a plan that is gone, like the legs below. */}
       {hasWarnings && !isStale && (
         <Warnings
-          messages={[
-            ...(complexity.warnings?.map((w) => w.message) ?? []),
-            ...(passage.warnings ?? []),
+          alerts={[
+            ...(complexity.warnings?.map((w) => ({ message: w.message, kind: w.kind })) ?? []),
+            ...(passage.warnings?.map((message) => ({ message, kind: classifyAlert(message) })) ?? []),
           ]}
         />
       )}
@@ -146,6 +144,10 @@ export function SingleResults({
           {t("panel.results.forecastUpdated", { time: fmtClock(forecastUpdatedAt) })}
         </p>
       )}
+
+      {/* The comparison, last: after the figures and the legs, at the end
+          of what scrolls rather than pinned over it. */}
+      {!isStale && <CompareDoor />}
     </div>
   );
 }

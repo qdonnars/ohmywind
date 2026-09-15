@@ -215,7 +215,7 @@ export type PlanAction =
   /** Same, without leaving the comparison: the option becomes the route
       the plan and the departure axis are about. */
   | { type: "TRACK_SELECTED"; id: string; configFingerprint: string }
-  /** A variant goes; the plan's own track cannot. */
+  /** An option goes; the one the plan is on cannot. */
   | { type: "TRACK_REMOVED"; id: string }
   | { type: "TRACK_HIGHLIGHTED"; id: string | null }
   | { type: "SWEEP_CHANGED"; earliest?: string; latest?: string; intervalHours?: number }
@@ -603,40 +603,22 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
     }
 
     case "TRACK_REMOVED": {
-      if (action.id === PLAN_TRACK_ID) return state;
       const removed = state.tracks.find((t) => t.id === action.id);
       if (!removed) return state;
+      // The option the plan is on stays: choose another one first. The
+      // plan's own track goes like any other once the plan is elsewhere.
+      if (waypointsEqual(removed.waypoints, state.waypoints)) return state;
       const rest = state.tracks.filter((t) => t.id !== action.id);
       const requests = { ...state.trackRequests };
       delete requests[action.id];
-      // Only the plan's own track left: the axis is back to the plan alone.
-      const tracks = rest.length > 1 ? rest : [];
-      const next: PlanState = {
+      return {
         ...state,
-        tracks,
+        // A single option left is the plan's route: the axis is the plan alone.
+        tracks: rest.length > 1 ? rest : [],
         trackRequests: requests,
         highlightedTrackId: state.highlightedTrackId === action.id ? null : state.highlightedTrackId,
         openedTrackId: state.openedTrackId === action.id ? null : state.openedTrackId,
         returnTo: state.openedTrackId === action.id ? null : state.returnTo,
-      };
-      // The removed option was the plan's route: the plan goes back to its
-      // own track, recomputed if that track has no fresh passage to give.
-      if (!waypointsEqual(removed.waypoints, state.waypoints)) return next;
-      const plan = rest.find((t) => t.id === PLAN_TRACK_ID);
-      if (!plan) return next;
-      const fresh = plan.passage !== null && plan.complexity !== null && !state.tracksStale;
-      return {
-        ...next,
-        waypoints: plan.waypoints,
-        originWaypoints: plan.waypoints,
-        passage: fresh ? plan.passage : state.passage,
-        complexity: fresh ? plan.complexity : state.complexity,
-        isStale: !fresh,
-        editSeq: fresh ? state.editSeq : state.editSeq + 1,
-        selectedLegIdx: null,
-        selectedStepIdx: null,
-        windows: null,
-        metaWarnings: [],
       };
     }
 

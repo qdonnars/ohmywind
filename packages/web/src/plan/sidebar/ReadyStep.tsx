@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { usePlan } from "../session/planContext";
-import { PlanHeaderRow } from "./PlanHeaderRow";
+import { ResetButton } from "./ResetButton";
 import { RefreshIcon } from "./parts";
 import { useT } from "../../i18n";
 
@@ -19,24 +19,26 @@ export function ReadyStep({ canCalculate }: { canCalculate: boolean }) {
   const { state, actions, compute } = usePlan();
   return (
     <div className="p-4 space-y-3 animate-fade-in">
-      <PlanHeaderRow />
-      <button
-        type="button"
-        onClick={compute}
-        disabled={!canCalculate}
-        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all"
-        style={{
-          background: canCalculate ? "var(--ow-accent)" : "var(--ow-bg-2)",
-          color: canCalculate ? "var(--ow-on-accent)" : "var(--ow-fg-3)",
-          border: `1px solid ${canCalculate ? "transparent" : "var(--ow-line-2)"}`,
-          cursor: canCalculate ? "pointer" : "not-allowed",
-        }}
-      >
-        <RefreshIcon size={14} />
-        {canCalculate
-          ? t("panel.form.calculate")
-          : t("panel.form.waypointsNeeded", { count: state.waypoints.length })}
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={compute}
+          disabled={!canCalculate}
+          className="flex-1 min-w-0 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all"
+          style={{
+            background: canCalculate ? "var(--ow-accent)" : "var(--ow-bg-2)",
+            color: canCalculate ? "var(--ow-on-accent)" : "var(--ow-fg-3)",
+            border: `1px solid ${canCalculate ? "transparent" : "var(--ow-line-2)"}`,
+            cursor: canCalculate ? "pointer" : "not-allowed",
+          }}
+        >
+          <RefreshIcon size={14} />
+          {canCalculate
+            ? t("panel.form.calculate")
+            : t("panel.form.waypointsNeeded", { count: state.waypoints.length })}
+        </button>
+        <ResetButton />
+      </div>
       <button
         type="button"
         onClick={actions.openForm}

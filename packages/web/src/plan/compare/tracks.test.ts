@@ -9,7 +9,6 @@ import {
   midpointAlong,
   planAsTrack,
   routeOverlays,
-  sortTracks,
   startVariant,
   summariseTrack,
   trackColorToken,
@@ -78,15 +77,6 @@ describe("reading the options", () => {
     expect(s.hsMaxM).toBe(2);
     expect(s.motorPct).toBe(25);
     expect(s.alerts).toBe(1);
-  });
-
-  it("sorts by duration or by sea, the uncomputed last, and keeps the drawn order otherwise", () => {
-    const slow = track("slow", passage([segment(10, 0.5)], 6));
-    const fast = track("fast", passage([segment(10, 2.5)], 4));
-    const none = track("none", null);
-    expect(sortTracks([slow, none, fast], "duration").map((t) => t.id)).toEqual(["fast", "slow", "none"]);
-    expect(sortTracks([slow, none, fast], "sea").map((t) => t.id)).toEqual(["slow", "fast", "none"]);
-    expect(sortTracks([slow, none, fast], "order").map((t) => t.id)).toEqual(["slow", "none", "fast"]);
   });
 
   it("colours the options by position and finds the middle of a line", () => {

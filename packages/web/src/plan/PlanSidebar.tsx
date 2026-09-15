@@ -24,7 +24,7 @@
 import { EmptyState } from "./PlanStates";
 import { usePolarConfig } from "../config/usePolarConfig";
 import { usePlan } from "./session/planContext";
-import { PlanHeaderRow } from "./sidebar/PlanHeaderRow";
+import { ResetButton } from "./sidebar/ResetButton";
 import { PlanForm } from "./sidebar/PlanForm";
 import { ReadyStep } from "./sidebar/ReadyStep";
 import { SingleResults } from "./sidebar/SingleResults";
@@ -63,9 +63,16 @@ export function PlanSidebar() {
   } = state;
   const polarConfig = usePolarConfig();
   const canCalculate = waypoints.length >= 2;
-  // In the comparison, the head with its way back to the plan stands where
-  // the route line stands in the plan.
-  const head = mode === "compare" ? <CompareHead /> : <PlanHeaderRow locked={!canCalculate} />;
+  // Above an error: in the comparison its head, with the way back to the
+  // plan; in the plan, the trash, so a broken plan can still be discarded.
+  const head =
+    mode === "compare" ? (
+      <CompareHead />
+    ) : (
+      <div className="flex justify-end">
+        <ResetButton />
+      </div>
+    );
 
   // 1. computing
   if (isLoading) return <LoadingSkeleton />;
@@ -100,7 +107,6 @@ export function PlanSidebar() {
   if (waypoints.length < 2) {
     return (
       <div className="p-4 animate-fade-in">
-        <PlanHeaderRow locked />
         <EmptyState />
       </div>
     );

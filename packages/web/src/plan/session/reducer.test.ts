@@ -401,21 +401,23 @@ describe("the track axis", () => {
     expect(run(chosen, { type: "TRACK_SELECTED", id: "v1", configFingerprint: "x" })).toBe(chosen);
   });
 
-  it("removes a variant, never the plan's track, and falls back to the plan's route", () => {
+  it("removes any option but the one the plan is on, the plan's own track included", () => {
     const s = run(
       drawn({ passage: passage(), complexity: complexity() }),
       { type: "VARIANT_FINISHED", id: "v1", createdAt: "x" },
       { type: "TRACK_STARTED", trackId: "v1", requestId: 7 },
       { type: "TRACK_COMPUTED", trackId: "v1", requestId: 7, passage: passage(), complexity: complexity() },
     );
-    expect(run(s, { type: "TRACK_REMOVED", id: "plan" }).tracks).toHaveLength(2);
+    // The plan is on its own track: that one stays, the variant can go.
+    expect(run(s, { type: "TRACK_REMOVED", id: "plan" })).toBe(s);
     // Only the plan left: the axis is the plan alone again.
     expect(run(s, { type: "TRACK_REMOVED", id: "v1" }).tracks).toHaveLength(0);
-    // The removed option was the plan's route: the plan takes its own track back.
+    // The plan moved to the variant: now the plan's own track can go.
     const chosen = run(s, { type: "TRACK_SELECTED", id: "v1", configFingerprint: "x" });
-    const back = run(chosen, { type: "TRACK_REMOVED", id: "v1" });
-    expect(back.waypoints).toEqual([MARSEILLE, PORQUEROLLES]);
-    expect(back.isStale).toBe(false);
+    expect(run(chosen, { type: "TRACK_REMOVED", id: "v1" })).toBe(chosen);
+    const gone = run(chosen, { type: "TRACK_REMOVED", id: "plan" });
+    expect(gone.tracks).toHaveLength(0);
+    expect(gone.waypoints).toEqual([MARSEILLE, MID, PORQUEROLLES]);
   });
 
   it("marks the options to recompute when a slot is picked on the other axis", () => {

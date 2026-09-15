@@ -105,20 +105,6 @@ export function summariseTrack(passage: PassageReport, complexity: ComplexitySco
   };
 }
 
-export type TrackSort = "order" | "duration" | "sea";
-
-/** The tracks in their drawn order, by duration, or by sea; a track not
-    computed yet stays where it is drawn, at the end of the sorted ones. */
-export function sortTracks(tracks: Track[], sort: TrackSort): Track[] {
-  if (sort === "order") return [...tracks];
-  const key = (t: Track): number => {
-    if (!t.passage) return Infinity;
-    if (sort === "duration") return t.passage.duration_h;
-    return summariseTrack(t.passage, t.complexity).hsMaxM ?? Infinity;
-  };
-  return [...tracks].sort((a, b) => key(a) - key(b) || tracks.indexOf(a) - tracks.indexOf(b));
-}
-
 /** What the map draws for one option. */
 export interface RouteOverlay {
   id: string;
