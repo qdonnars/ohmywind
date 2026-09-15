@@ -104,7 +104,6 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.route.legs.other": "{count} tramos",
   "panel.ready.adjust": "Ajustar la salida o el barco",
   "panel.door.title": "Comparar este trayecto",
-  "panel.door.sub": "Otras salidas u otros trazados",
   "panel.compare.back": "Plan",
   "panel.compare.backAria": "Volver al plan",
   "panel.compare.title": "Comparar este trayecto",
@@ -151,7 +150,6 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.window.spanHours": "{count} h",
   "panel.window.spanDays": "{count} d",
   "panel.window.step": "<b>{slots}</b> probadas, una cada <b>{step}</b>",
-  "panel.window.change": "Cambiar",
   "panel.window.cost": "Con un paso de 1 h, el cálculo de {count} franjas tarda unos treinta segundos.",
   "panel.window.note": "Recálculo inmediato",
   "panel.window.apply": "Aplicar",
@@ -181,4 +179,11 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.tracks.departure.note": "Cambiar esta salida recalcula todos los trazados. Para probar varias horas en un solo trazado, pase al eje Salidas.",
   "panel.tracks.departure.recompute.one": "Recálculo de {count} trazado",
   "panel.tracks.departure.recompute.other": "Recálculo de {count} trazados",
+
+  // ── two doors, track selection, folded alerts ──
+  "panel.door.slots": "Otras salidas",
+  "panel.door.tracks": "Otro trazado",
+  "panel.tracks.row.select": "Elegir la opción {n} para el plan",
+  "panel.tracks.row.remove": "Eliminar la opción {n}",
+  "panel.results.alertsToggle": "Avisos del paso",
 };

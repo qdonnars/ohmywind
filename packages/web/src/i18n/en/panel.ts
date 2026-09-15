@@ -103,7 +103,6 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.route.legs.other": "{count} legs",
   "panel.ready.adjust": "Set the departure or the boat",
   "panel.door.title": "Compare this trip",
-  "panel.door.sub": "Other departures or other tracks",
   "panel.compare.back": "Plan",
   "panel.compare.backAria": "Back to the plan",
   "panel.compare.title": "Compare this trip",
@@ -150,7 +149,6 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.window.spanHours": "{count} h",
   "panel.window.spanDays": "{count} d",
   "panel.window.step": "<b>{slots}</b> tested, one every <b>{step}</b>",
-  "panel.window.change": "Change",
   "panel.window.cost": "At a 1 h step, computing {count} slots takes about thirty seconds.",
   "panel.window.note": "Recomputed at once",
   "panel.window.apply": "Apply",
@@ -180,4 +178,11 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.tracks.departure.note": "Changing this departure recomputes every track. To try several hours on one track, switch to the Departures axis.",
   "panel.tracks.departure.recompute.one": "Recomputes {count} track",
   "panel.tracks.departure.recompute.other": "Recomputes {count} tracks",
+
+  // ── two doors, track selection, folded alerts ──
+  "panel.door.slots": "Other departures",
+  "panel.door.tracks": "Another track",
+  "panel.tracks.row.select": "Choose option {n} for the plan",
+  "panel.tracks.row.remove": "Remove option {n}",
+  "panel.results.alertsToggle": "Passage alerts",
 };

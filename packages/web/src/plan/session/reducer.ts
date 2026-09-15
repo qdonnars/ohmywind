@@ -48,6 +48,7 @@ import {
   type Track,
 } from "../compare/tracks";
 import { buildPlanUrl } from "../parseUrl";
+import { waypointsEqual } from "../lastSimulation";
 import type { InitialSession } from "./initial";
 import { toNaiveLocal } from "../../domain/datetime";
 
@@ -211,6 +212,11 @@ export type PlanAction =
   /** A row of the track axis: that option is the plan now, the comparison
       kept behind it. */
   | { type: "TRACK_OPENED"; id: string; configFingerprint: string }
+  /** Same, without leaving the comparison: the option becomes the route
+      the plan and the departure axis are about. */
+  | { type: "TRACK_SELECTED"; id: string; configFingerprint: string }
+  /** A variant goes; the plan's own track cannot. */
+  | { type: "TRACK_REMOVED"; id: string }
   | { type: "TRACK_HIGHLIGHTED"; id: string | null }
   | { type: "SWEEP_CHANGED"; earliest?: string; latest?: string; intervalHours?: number }
   | { type: "LEG_SELECTED"; index: number | null }
@@ -558,6 +564,82 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
       );
     }
 
+    case "TRACK_SELECTED": {
+      const track = state.tracks.find((t) => t.id === action.id);
+      if (!track || !track.passage || !track.complexity || state.tracksStale) return state;
+      if (waypointsEqual(track.waypoints, state.waypoints)) return state;
+      const resolved = toNaiveLocal(new Date(track.passage.departure_time));
+      return withPersist(
+        {
+          ...state,
+          waypoints: track.waypoints,
+          originWaypoints: track.waypoints,
+          passage: track.passage,
+          complexity: track.complexity,
+          isStale: false,
+          selectedLegIdx: null,
+          selectedStepIdx: null,
+          // The sweep was run on the route just left: the departure axis
+          // computes again on this one when it is next shown.
+          windows: null,
+          metaWarnings: [],
+          apiError: null,
+          retry: null,
+        },
+        {
+          url: buildPlanUrl(track.waypoints, resolved, state.archetype),
+          cache: {
+            kind: "single",
+            waypoints: track.waypoints,
+            archetype: state.archetype,
+            configFingerprint: action.configFingerprint,
+            departure: resolved,
+            passage: track.passage,
+            complexity: track.complexity,
+            forecastUpdatedAt: state.forecastUpdatedAt ?? "",
+          },
+        },
+      );
+    }
+
+    case "TRACK_REMOVED": {
+      if (action.id === PLAN_TRACK_ID) return state;
+      const removed = state.tracks.find((t) => t.id === action.id);
+      if (!removed) return state;
+      const rest = state.tracks.filter((t) => t.id !== action.id);
+      const requests = { ...state.trackRequests };
+      delete requests[action.id];
+      // Only the plan's own track left: the axis is back to the plan alone.
+      const tracks = rest.length > 1 ? rest : [];
+      const next: PlanState = {
+        ...state,
+        tracks,
+        trackRequests: requests,
+        highlightedTrackId: state.highlightedTrackId === action.id ? null : state.highlightedTrackId,
+        openedTrackId: state.openedTrackId === action.id ? null : state.openedTrackId,
+        returnTo: state.openedTrackId === action.id ? null : state.returnTo,
+      };
+      // The removed option was the plan's route: the plan goes back to its
+      // own track, recomputed if that track has no fresh passage to give.
+      if (!waypointsEqual(removed.waypoints, state.waypoints)) return next;
+      const plan = rest.find((t) => t.id === PLAN_TRACK_ID);
+      if (!plan) return next;
+      const fresh = plan.passage !== null && plan.complexity !== null && !state.tracksStale;
+      return {
+        ...next,
+        waypoints: plan.waypoints,
+        originWaypoints: plan.waypoints,
+        passage: fresh ? plan.passage : state.passage,
+        complexity: fresh ? plan.complexity : state.complexity,
+        isStale: !fresh,
+        editSeq: fresh ? state.editSeq : state.editSeq + 1,
+        selectedLegIdx: null,
+        selectedStepIdx: null,
+        windows: null,
+        metaWarnings: [],
+      };
+    }
+
     case "TRACK_HIGHLIGHTED":
       return state.highlightedTrackId === action.id ? state : { ...state, highlightedTrackId: action.id };
 
@@ -693,6 +775,9 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
         // The comparison stays open behind the plan: the map offers the way
         // back to it until this slot is kept or the route edited.
         returnTo: "slots",
+        // The options were computed on the departure just left; the shell
+        // recomputes them on this one.
+        tracksStale: state.tracks.length > 0 ? true : state.tracksStale,
         metaWarnings: [],
         apiError: null, retry: null,
       };

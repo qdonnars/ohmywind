@@ -381,6 +381,52 @@ describe("the track axis", () => {
     expect(run(opened, { type: "WAYPOINT_MOVED", index: 1, lat: 43.2, lon: 5.9 }).tracks).toHaveLength(0);
   });
 
+  it("chooses an option as the plan's route without leaving the comparison, and forgets the sweep", () => {
+    const s = run(
+      drawn(),
+      { type: "FETCH_STARTED", requestId: 1, kind: "sweep" },
+      succeedSweep(1),
+      { type: "VARIANT_FINISHED", id: "v1", createdAt: "x" },
+      { type: "TRACK_STARTED", trackId: "v1", requestId: 7 },
+      { type: "TRACK_COMPUTED", trackId: "v1", requestId: 7, passage: passage(), complexity: complexity() },
+    );
+    expect(s.windows).toHaveLength(1);
+    const chosen = run(s, { type: "TRACK_SELECTED", id: "v1", configFingerprint: "x" });
+    expect(chosen.mode).toBe(s.mode);
+    expect(chosen.waypoints).toEqual([MARSEILLE, MID, PORQUEROLLES]);
+    expect(chosen.windows).toBeNull();
+    expect(chosen.returnTo).toBeNull();
+    expect(chosen.persist?.url).toContain("wpts=");
+    // Choosing the option already on screen changes nothing.
+    expect(run(chosen, { type: "TRACK_SELECTED", id: "v1", configFingerprint: "x" })).toBe(chosen);
+  });
+
+  it("removes a variant, never the plan's track, and falls back to the plan's route", () => {
+    const s = run(
+      drawn({ passage: passage(), complexity: complexity() }),
+      { type: "VARIANT_FINISHED", id: "v1", createdAt: "x" },
+      { type: "TRACK_STARTED", trackId: "v1", requestId: 7 },
+      { type: "TRACK_COMPUTED", trackId: "v1", requestId: 7, passage: passage(), complexity: complexity() },
+    );
+    expect(run(s, { type: "TRACK_REMOVED", id: "plan" }).tracks).toHaveLength(2);
+    // Only the plan left: the axis is the plan alone again.
+    expect(run(s, { type: "TRACK_REMOVED", id: "v1" }).tracks).toHaveLength(0);
+    // The removed option was the plan's route: the plan takes its own track back.
+    const chosen = run(s, { type: "TRACK_SELECTED", id: "v1", configFingerprint: "x" });
+    const back = run(chosen, { type: "TRACK_REMOVED", id: "v1" });
+    expect(back.waypoints).toEqual([MARSEILLE, PORQUEROLLES]);
+    expect(back.isStale).toBe(false);
+  });
+
+  it("marks the options to recompute when a slot is picked on the other axis", () => {
+    const s = run(drawn(), { type: "VARIANT_FINISHED", id: "v1", createdAt: "x" });
+    const picked = run(
+      { ...s, mode: "compare" },
+      { type: "WINDOW_SELECTED", window: aWindow({ passage: passage(), complexity_full: complexity() }), departure: "2026-09-11T06:00", configFingerprint: "x" },
+    );
+    expect(picked.tracksStale).toBe(true);
+  });
+
   it("does not blank the track axis while a sweep runs", () => {
     const s = run(start(), { type: "COMPARE_OPENED", axis: "tracks" }, { type: "FETCH_STARTED", requestId: 1, kind: "sweep" });
     expect(isLoadingForMode(s)).toBe(false);

@@ -105,7 +105,6 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.route.legs.other": "{count} Abschnitte",
   "panel.ready.adjust": "Abfahrt oder Boot einstellen",
   "panel.door.title": "Diesen Törn vergleichen",
-  "panel.door.sub": "Andere Abfahrten oder andere Routen",
   "panel.compare.back": "Plan",
   "panel.compare.backAria": "Zurück zum Plan",
   "panel.compare.title": "Diesen Törn vergleichen",
@@ -152,7 +151,6 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.window.spanHours": "{count} h",
   "panel.window.spanDays": "{count} T.",
   "panel.window.step": "<b>{slots}</b> getestet, eines alle <b>{step}</b>",
-  "panel.window.change": "Ändern",
   "panel.window.cost": "Bei einem Schritt von 1 h dauert die Berechnung von {count} Zeitfenstern etwa dreißig Sekunden.",
   "panel.window.note": "Sofortige Neuberechnung",
   "panel.window.apply": "Übernehmen",
@@ -182,4 +180,11 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.tracks.departure.note": "Eine andere Abfahrt berechnet alle Routen neu. Um mehrere Uhrzeiten auf einer Route zu testen, wechseln Sie zur Achse Abfahrten.",
   "panel.tracks.departure.recompute.one": "Neuberechnung von {count} Route",
   "panel.tracks.departure.recompute.other": "Neuberechnung von {count} Routen",
+
+  // ── two doors, track selection, folded alerts ──
+  "panel.door.slots": "Andere Abfahrten",
+  "panel.door.tracks": "Eine andere Route",
+  "panel.tracks.row.select": "Option {n} für den Plan wählen",
+  "panel.tracks.row.remove": "Option {n} entfernen",
+  "panel.results.alertsToggle": "Warnungen des Törns",
 };

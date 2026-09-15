@@ -104,7 +104,6 @@ export const panel = {
   "panel.route.legs.other": "{count} tronçons",
   "panel.ready.adjust": "Régler le départ ou le bateau",
   "panel.door.title": "Comparer ce trajet",
-  "panel.door.sub": "D'autres départs ou d'autres tracés",
   "panel.compare.back": "Plan",
   "panel.compare.backAria": "Revenir au plan",
   "panel.compare.title": "Comparer ce trajet",
@@ -151,7 +150,6 @@ export const panel = {
   "panel.window.spanHours": "{count} h",
   "panel.window.spanDays": "{count} j",
   "panel.window.step": "<b>{slots}</b> testés, un toutes les <b>{step}</b>",
-  "panel.window.change": "Changer",
   "panel.window.cost": "Au pas 1 h, le calcul de {count} créneaux prend une trentaine de secondes.",
   "panel.window.note": "Recalcul immédiat",
   "panel.window.apply": "Appliquer",
@@ -181,4 +179,11 @@ export const panel = {
   "panel.tracks.departure.note": "Changer ce départ recalcule tous les tracés. Pour tester plusieurs heures sur un seul tracé, passez sur l'axe Départs.",
   "panel.tracks.departure.recompute.one": "Recalcul de {count} tracé",
   "panel.tracks.departure.recompute.other": "Recalcul de {count} tracés",
+
+  // ── two doors, track selection, folded alerts ──
+  "panel.door.slots": "D'autres départs",
+  "panel.door.tracks": "Un autre tracé",
+  "panel.tracks.row.select": "Choisir l'option {n} pour le plan",
+  "panel.tracks.row.remove": "Supprimer l'option {n}",
+  "panel.results.alertsToggle": "Alertes du passage",
 } as const;

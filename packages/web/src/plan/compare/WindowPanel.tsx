@@ -5,12 +5,15 @@
  * The settings of the departure axis: the window the departures are taken
  * from, and how many of them.
  *
- * One pinned row is the summary and the button (« Fenêtre · Les prochaines
- * 48 h · 17 créneaux · Régler »). Unfolded, the panel shows the two bounds
- * as values one taps, spans as chips (« je veux partir dans les deux
- * jours »), and the step already chosen from the span, with a « Changer »
- * for whoever cares. The panel edits a copy: « Annuler » drops it, and
- * « Appliquer » sets the sweep and recomputes in one go.
+ * One row is the summary and the button (« Fenêtre · Les prochaines 48 h ·
+ * 17 créneaux · Régler »). Unfolded, the panel shows the two bounds as
+ * values one taps, spans as chips (« je veux partir dans les deux jours »),
+ * and the step, already chosen from the span and changeable in one tap.
+ * The panel edits a copy: « Annuler » drops it, and « Appliquer » sets the
+ * sweep and recomputes in one go.
+ *
+ * Pinned under the list on a wide screen, the panel unfolds above the row;
+ * in the flow of a phone's list, below it.
  *
  * The dual-thumb slider that used to ask for the bounds was imprecise under
  * a finger and unreadable over two weeks; the step buttons asked a question
@@ -33,14 +36,14 @@ import {
   type SweepParams,
 } from "./slots";
 import { ContextRow } from "./ContextRow";
-import { ChevronIcon, ClockIcon } from "./icons";
+import { ClockIcon } from "./icons";
 import { capitalise, fmtClock, fmtDay, toNaiveLocal } from "../../domain/datetime";
 import { rich, useT } from "../../i18n";
 
 const MONO = { fontFamily: "var(--ow-font-mono)" } as const;
 
-/** The pinned row, and the panel it unfolds. */
-export function WindowSettings() {
+/** The row, and the panel it unfolds. */
+export function WindowSettings({ placement = "above" }: { placement?: "above" | "below" }) {
   const { t, tn } = useT();
   const { state, actions } = usePlan();
   const { sweepEarliest, sweepLatest, sweepIntervalHours, windows, isStale, departure } = state;
@@ -59,19 +62,20 @@ export function WindowSettings() {
       ? t("panel.window.next", { span: spanLabel(preset) })
       : `${capitalise(fmtDay(sweepEarliest))} ${fmtClock(sweepEarliest)} → ${capitalise(fmtDay(sweepLatest))} ${fmtClock(sweepLatest)}`;
 
+  const panel = open && (
+    <WindowPanel
+      initial={{ earliest: sweepEarliest, latest: sweepLatest, intervalHours: sweepIntervalHours }}
+      departure={departure}
+      onCancel={close}
+      onApply={(sweep) => {
+        actions.applySweep(sweep);
+        close();
+      }}
+    />
+  );
   return (
     <>
-      {open && (
-        <WindowPanel
-          initial={{ earliest: sweepEarliest, latest: sweepLatest, intervalHours: sweepIntervalHours }}
-          departure={departure}
-          onCancel={close}
-          onApply={(sweep) => {
-            actions.applySweep(sweep);
-            close();
-          }}
-        />
-      )}
+      {placement === "above" && panel}
       <ContextRow
         icon={<ClockIcon />}
         label={t("panel.window.label")}
@@ -81,6 +85,7 @@ export function WindowSettings() {
         open={open}
         onClick={() => setOpen((v) => !v)}
       />
+      {placement === "below" && panel}
     </>
   );
 }
@@ -196,7 +201,6 @@ export function WindowPanel({
     const auto = autoStepHours(spanHours(initial.earliest, initial.latest));
     return initial.intervalHours === auto ? null : initial.intervalHours;
   });
-  const [stepOpen, setStepOpen] = useState(manualStep !== null);
 
   const span = spanHours(earliest, latest);
   const step = manualStep ?? autoStepHours(span);
@@ -259,7 +263,10 @@ export function WindowPanel({
               key={h}
               label={spanLabel(h)}
               active={preset === h}
-              onClick={() => setLatest(presetLatest(earliest, h, Date.now()))}
+              onClick={() => {
+                setLatest(presetLatest(earliest, h, Date.now()));
+                setManualStep(null);
+              }}
             />
           ))}
         </div>
@@ -269,7 +276,8 @@ export function WindowPanel({
       </div>
 
       {/* The step, with its cost: the one setting that decides the computing
-          time. Proposed from the span, changeable for whoever wants to. */}
+          time. Proposed from the span, and one tap away from another value;
+          a preset picked afterwards proposes its own step again. */}
       <div className="rounded-[10px]" style={{ background: "var(--ow-bg-2)", border: "1px solid var(--ow-line)" }}>
         <div className="flex items-center gap-2 px-2.5 py-2">
           <span className="shrink-0 flex" style={{ color: "var(--ow-accent)" }}><ClockIcon size={14} /></span>
@@ -279,35 +287,23 @@ export function WindowPanel({
               { b: (c) => <b className="tabular-nums" style={{ ...MONO, color: "var(--ow-fg-0)" }}>{c}</b> },
             )}
           </span>
-          <button
-            type="button"
-            onClick={() => setStepOpen((v) => !v)}
-            aria-expanded={stepOpen}
-            className="ml-auto shrink-0 flex items-center gap-1 text-[11.5px] font-semibold whitespace-nowrap"
-            style={{ color: "var(--ow-accent)" }}
-          >
-            {t("panel.window.change")}
-            <ChevronIcon direction={stepOpen ? "down" : "right"} size={9} />
-          </button>
         </div>
-        {stepOpen && (
-          <div className="px-2.5 pb-2.5">
-            <div className="flex gap-1.5">
-              {STEP_CHOICES_H.map((h) => (
-                <Chip
-                  key={h}
-                  label={spanLabel(h)}
-                  sub={String(windowCount(span, h))}
-                  active={step === h}
-                  onClick={() => setManualStep(h === autoStepHours(span) ? null : h)}
-                />
-              ))}
-            </div>
-            <p className="text-[10.5px] mt-2 leading-snug" style={{ color: "var(--ow-fg-2)" }}>
-              {t("panel.window.cost", { count: windowCount(span, 1) })}
-            </p>
+        <div className="px-2.5 pb-2.5" role="group" aria-label={t("panel.window.step", { slots: "", step: "" }).replace(/<\/?b>/g, "").trim()}>
+          <div className="flex gap-1.5">
+            {STEP_CHOICES_H.map((h) => (
+              <Chip
+                key={h}
+                label={spanLabel(h)}
+                sub={String(windowCount(span, h))}
+                active={step === h}
+                onClick={() => setManualStep(h === autoStepHours(span) ? null : h)}
+              />
+            ))}
           </div>
-        )}
+          <p className="text-[10.5px] mt-2 leading-snug" style={{ color: "var(--ow-fg-2)" }}>
+            {t("panel.window.cost", { count: windowCount(span, 1) })}
+          </p>
+        </div>
       </div>
 
       <div className="flex items-center gap-2">

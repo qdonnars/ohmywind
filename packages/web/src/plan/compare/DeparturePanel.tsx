@@ -20,7 +20,7 @@ import { useT } from "../../i18n";
 
 const MONO = { fontFamily: "var(--ow-font-mono)" } as const;
 
-export function DepartureSettings() {
+export function DepartureSettings({ placement = "above" }: { placement?: "above" | "below" }) {
   const { t, tn } = useT();
   const { state, actions } = usePlan();
   const { departure, timeAnchor, tracks } = state;
@@ -31,19 +31,20 @@ export function DepartureSettings() {
     timeAnchor === "arrival"
       ? t("panel.departure.arrival")
       : t("panel.compare.frozen.departure");
+  const panel = open && (
+    <DeparturePanel
+      initial={departure}
+      count={Math.max(1, tracks.length)}
+      onCancel={close}
+      onApply={(value) => {
+        actions.applyTrackDeparture(value);
+        close();
+      }}
+    />
+  );
   return (
     <>
-      {open && (
-        <DeparturePanel
-          initial={departure}
-          count={Math.max(1, tracks.length)}
-          onCancel={close}
-          onApply={(value) => {
-            actions.applyTrackDeparture(value);
-            close();
-          }}
-        />
-      )}
+      {placement === "above" && panel}
       <ContextRow
         icon={<ClockIcon />}
         label={label}
@@ -53,6 +54,7 @@ export function DepartureSettings() {
         open={open}
         onClick={() => setOpen((v) => !v)}
       />
+      {placement === "below" && panel}
       {open && (
         <p className="px-4 pb-2.5 text-[11px] leading-relaxed" style={{ color: "var(--ow-fg-2)" }}>
           {t("panel.tracks.departure.note")}

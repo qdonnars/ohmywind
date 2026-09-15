@@ -6,10 +6,13 @@
  *
  * A track is a line too: the colour swatch stands where the hour stands,
  * then the duration and the arrival in full figures, and the distance, the
- * sea and the engine share as the grey sentence. Under the lines, « Tracer
- * une variante » opens the map for a new option between the plan's ends;
- * while one is being drawn, the list gives way to what the drawing needs
- * (how many points, cancel, finish).
+ * sea and the engine share as the grey sentence. Tapping the line chooses
+ * that option as the plan's route without leaving the comparison, which is
+ * also what the departure axis then compares on; the chevron opens it in
+ * the plan, and a variant has its trash. Under the lines, « Tracer une
+ * variante » opens the map for a new option between the plan's ends; while
+ * one is being drawn, the list gives way to what the drawing needs (how
+ * many points, cancel, finish).
  */
 
 import { useState } from "react";
@@ -25,9 +28,11 @@ import {
   summariseTrack,
   trackColorToken,
   MAX_TRACKS,
+  PLAN_TRACK_ID,
   type Track,
   type TrackSort,
 } from "./tracks";
+import { waypointsEqual } from "../lastSimulation";
 import { ChevronIcon } from "./icons";
 
 const MONO = { fontFamily: "var(--ow-font-mono)" } as const;
@@ -56,92 +61,143 @@ function Dot() {
 function TrackRow({
   track,
   index,
-  active,
+  selected,
+  highlighted,
   computing,
+  removable,
+  onSelect,
   onOpen,
+  onRemove,
   onPoint,
 }: {
   track: Track;
   /** Position among the options: names it and colours it. */
   index: number;
-  active: boolean;
+  /** The plan's route, hence the one the departure axis is about. */
+  selected: boolean;
+  /** Pointed at: drawn full on the map. */
+  highlighted: boolean;
   computing: boolean;
+  removable: boolean;
+  onSelect: () => void;
   onOpen: () => void;
+  onRemove: () => void;
   onPoint: (on: boolean) => void;
 }) {
   const { t, tn } = useT();
   const name = t("panel.tracks.option", { n: index + 1 });
   const summary = track.passage ? summariseTrack(track.passage, track.complexity) : null;
-  const openable = summary !== null;
+  const usable = summary !== null;
+  const iconButton = "shrink-0 flex items-center justify-center rounded-md transition-colors enabled:hover:bg-[var(--ow-bg-2)] disabled:opacity-40";
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      disabled={!openable}
-      onMouseEnter={() => onPoint(true)}
-      onMouseLeave={() => onPoint(false)}
-      onFocus={() => onPoint(true)}
-      onBlur={() => onPoint(false)}
-      aria-label={`${name} · ${t("panel.tracks.row.open")}`}
-      title={t("panel.tracks.row.open")}
-      className="w-full text-left flex flex-col gap-1 px-4 pt-2.5 pb-2.5 transition-colors enabled:hover:bg-[var(--ow-bg-2)] disabled:cursor-default"
+    <div
+      className="flex items-stretch"
       style={{
         borderTop: "1px solid var(--ow-line)",
-        background: active ? "var(--ow-accent-soft)" : "transparent",
+        background: highlighted ? "var(--ow-accent-soft)" : "transparent",
       }}
+      onMouseEnter={() => onPoint(true)}
+      onMouseLeave={() => onPoint(false)}
     >
-      <span className="flex items-baseline gap-2">
-        <Swatch index={index} />
-        <span className="w-[62px] shrink-0 text-[12.5px] font-semibold" style={{ color: "var(--ow-fg-0)" }}>
-          {name}
+      <button
+        type="button"
+        onClick={onSelect}
+        disabled={!usable}
+        aria-pressed={selected}
+        aria-label={`${name} · ${t("panel.tracks.row.select")}`}
+        title={t("panel.tracks.row.select")}
+        onFocus={() => onPoint(true)}
+        onBlur={() => onPoint(false)}
+        className="flex-1 min-w-0 text-left flex flex-col gap-1 pl-4 pr-2 pt-2.5 pb-2.5 disabled:cursor-default"
+      >
+        <span className="flex items-baseline gap-2">
+          <Swatch index={index} />
+          <span className="w-[62px] shrink-0 text-[12.5px] font-semibold" style={{ color: "var(--ow-fg-0)" }}>
+            {name}
+          </span>
+          <span className="w-[52px] shrink-0 text-base font-bold tabular-nums tracking-tight" style={{ ...MONO, color: "var(--ow-fg-0)" }}>
+            {summary ? fmtDurationSafe(summary.durationH) : "—"}
+          </span>
+          <span className="text-xs tabular-nums" style={{ ...MONO, color: "var(--ow-fg-2)" }}>
+            → {summary ? fmtClock(summary.arrival) : "—"}
+          </span>
+          <span className="ml-auto flex items-center gap-2">
+            {selected && (
+              <span className="text-[9.5px] font-bold uppercase tracking-wider" style={{ color: "var(--ow-accent)" }}>
+                {t("panel.compare.row.fromPlan")}
+              </span>
+            )}
+            {summary && summary.alerts > 0 && (
+              <span
+                title={tn("panel.compare.row.alerts", summary.alerts)}
+                className="flex items-center gap-0.5 text-[10.5px] font-bold tabular-nums"
+                style={{ ...MONO, color: "var(--ow-warn)" }}
+              >
+                <span className="text-[10px]">⚠</span>{summary.alerts}
+              </span>
+            )}
+          </span>
         </span>
-        <span className="w-[52px] shrink-0 text-base font-bold tabular-nums tracking-tight" style={{ ...MONO, color: "var(--ow-fg-0)" }}>
-          {summary ? fmtDurationSafe(summary.durationH) : "—"}
-        </span>
-        <span className="text-xs tabular-nums" style={{ ...MONO, color: "var(--ow-fg-2)" }}>
-          → {summary ? fmtClock(summary.arrival) : "—"}
-        </span>
-        <span className="ml-auto flex items-center gap-2">
-          {summary && summary.alerts > 0 && (
-            <span
-              title={tn("panel.compare.row.alerts", summary.alerts)}
-              className="flex items-center gap-0.5 text-[10.5px] font-bold tabular-nums"
-              style={{ ...MONO, color: "var(--ow-warn)" }}
-            >
-              <span className="text-[10px]">⚠</span>{summary.alerts}
-            </span>
+        <span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[11px]" style={{ color: "var(--ow-fg-2)" }}>
+          {summary ? (
+            <>
+              <span className="tabular-nums" style={MONO}>{num1(summary.distanceNm)} nm</span>
+              {summary.hsAvgM !== null && summary.hsMaxM !== null && (
+                <>
+                  <Dot />
+                  <span className="tabular-nums" style={MONO}>
+                    {t("panel.tracks.row.sea", { avg: num1(summary.hsAvgM), max: num1(summary.hsMaxM) })}
+                  </span>
+                </>
+              )}
+              {summary.motorPct !== null && (
+                <>
+                  <Dot />
+                  <span className="tabular-nums" style={MONO}>{t("panel.compare.row.motor", { pct: summary.motorPct })}</span>
+                </>
+              )}
+            </>
+          ) : computing ? (
+            <span>{t("panel.tracks.row.computing")}</span>
+          ) : track.error ? (
+            <span style={{ color: "var(--ow-warn)" }}>{track.error}</span>
+          ) : (
+            <span>—</span>
           )}
-          <span style={{ color: "var(--ow-fg-3)" }}><ChevronIcon direction="right" /></span>
         </span>
-      </span>
-      <span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[11px]" style={{ color: "var(--ow-fg-2)" }}>
-        {summary ? (
-          <>
-            <span className="tabular-nums" style={MONO}>{num1(summary.distanceNm)} nm</span>
-            {summary.hsAvgM !== null && summary.hsMaxM !== null && (
-              <>
-                <Dot />
-                <span className="tabular-nums" style={MONO}>
-                  {t("panel.tracks.row.sea", { avg: num1(summary.hsAvgM), max: num1(summary.hsMaxM) })}
-                </span>
-              </>
-            )}
-            {summary.motorPct !== null && (
-              <>
-                <Dot />
-                <span className="tabular-nums" style={MONO}>{t("panel.compare.row.motor", { pct: summary.motorPct })}</span>
-              </>
-            )}
-          </>
-        ) : computing ? (
-          <span>{t("panel.tracks.row.computing")}</span>
-        ) : track.error ? (
-          <span style={{ color: "var(--ow-warn)" }}>{track.error}</span>
-        ) : (
-          <span>—</span>
+      </button>
+      <div className="shrink-0 flex items-center gap-0.5 pr-2">
+        {removable && (
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label={t("panel.tracks.row.remove", { n: index + 1 })}
+            title={t("panel.tracks.row.remove", { n: index + 1 })}
+            className={iconButton}
+            style={{ width: 32, height: 32, color: "var(--ow-fg-2)" }}
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M2.5 4h11" />
+              <path d="M6 4V2.5h4V4" />
+              <path d="M3.5 4l.9 9.2a1 1 0 0 0 1 .8h5.2a1 1 0 0 0 1-.8L12.5 4" />
+              <path d="M6.5 6.5v5" />
+              <path d="M9.5 6.5v5" />
+            </svg>
+          </button>
         )}
-      </span>
-    </button>
+        <button
+          type="button"
+          onClick={onOpen}
+          disabled={!usable}
+          aria-label={`${name} · ${t("panel.tracks.row.open")}`}
+          title={t("panel.tracks.row.open")}
+          className={iconButton}
+          style={{ width: 32, height: 32, color: "var(--ow-fg-2)" }}
+        >
+          <ChevronIcon direction="right" size={12} />
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -230,7 +286,10 @@ export function TrackList() {
     );
   }
 
-  const active = highlightedTrackId ?? openedTrackId ?? options[0].id;
+  // The option that is the plan's route: what the departure axis compares
+  // on, and what « ‹ Plan » returns to.
+  const selectedId = options.find((o) => waypointsEqual(o.waypoints, waypoints))?.id ?? null;
+  const active = highlightedTrackId ?? openedTrackId ?? selectedId ?? options[0].id;
   const canDraw = waypoints.length >= 2 && options.length < MAX_TRACKS;
   const sorted = sortTracks(options, sort);
 
@@ -267,9 +326,13 @@ export function TrackList() {
             key={track.id}
             track={track}
             index={options.indexOf(track)}
-            active={track.id === active}
+            selected={track.id === selectedId}
+            highlighted={track.id === active}
             computing={track.id in trackRequests}
+            removable={track.id !== PLAN_TRACK_ID && tracks.length > 0}
+            onSelect={() => actions.selectTrack(track.id)}
             onOpen={() => actions.openTrack(track.id)}
+            onRemove={() => actions.removeTrack(track.id)}
             onPoint={(on) => actions.highlightTrack(on ? track.id : null)}
           />
         ))}

@@ -145,6 +145,9 @@ export interface PlanActions {
   /** Recompute every option on the departure and the boat as they stand. */
   computeTracks: () => void;
   openTrack: (id: string) => void;
+  /** The option becomes the plan's route without leaving the comparison. */
+  selectTrack: (id: string) => void;
+  removeTrack: (id: string) => void;
   highlightTrack: (id: string | null) => void;
   /** The frozen departure of the track axis: set it and recompute the plan
       and every option on it. */
@@ -501,7 +504,19 @@ export function usePlanSession(initial: InitialSession): PlanSession {
         }
       },
       closeCompare: () => dispatch({ type: "COMPARE_CLOSED" }),
-      setCompareAxis: (axis) => dispatch({ type: "COMPARE_AXIS_CHANGED", axis }),
+      setCompareAxis: (axis) => {
+        const s = stateRef.current;
+        dispatch({ type: "COMPARE_AXIS_CHANGED", axis });
+        // The departure axis with nothing fresh to show (a track was picked
+        // on the other axis, or the route moved) computes again on its own.
+        const fresh = s.windows !== null && s.windows.length > 0 && !s.isStale;
+        if (axis === "slots" && !fresh && s.waypoints.length >= 2) {
+          const sweep = defaultSweep(s.departure, Date.now());
+          dispatch({ type: "SWEEP_CHANGED", ...sweep });
+          retryAttemptRef.current = 0;
+          runSweep(sweep);
+        }
+      },
       keepPlan: () => dispatch({ type: "PLAN_KEPT" }),
       applySweep: (sweep) => {
         dispatch({
@@ -540,6 +555,13 @@ export function usePlanSession(initial: InitialSession): PlanSession {
       },
       openTrack: (id) =>
         dispatch({ type: "TRACK_OPENED", id, configFingerprint: currentConfigFingerprint() }),
+      selectTrack: (id) =>
+        dispatch({ type: "TRACK_SELECTED", id, configFingerprint: currentConfigFingerprint() }),
+      removeTrack: (id) => {
+        trackAbortRef.current.get(id)?.abort();
+        trackAbortRef.current.delete(id);
+        dispatch({ type: "TRACK_REMOVED", id });
+      },
       highlightTrack: (id) => dispatch({ type: "TRACK_HIGHLIGHTED", id }),
       applyTrackDeparture: (departure) => {
         const s = stateRef.current;
@@ -570,12 +592,15 @@ export function usePlanSession(initial: InitialSession): PlanSession {
           departure,
           configFingerprint: currentConfigFingerprint(),
         });
+        const s = stateRef.current;
         if (!window.passage || !window.complexity_full) {
           // Backwards-compatible fallback for deployments that answer the
           // sweep without the per-window detail.
-          const { waypoints, archetype } = stateRef.current;
-          runSingle(waypoints, archetype, departure);
+          runSingle(s.waypoints, s.archetype, departure);
         }
+        // The slot picked is the departure of the track axis too: every
+        // option follows it.
+        for (const track of s.tracks) runTrack(track, departure);
       },
       reset: () => {
         abortRef.current?.abort();

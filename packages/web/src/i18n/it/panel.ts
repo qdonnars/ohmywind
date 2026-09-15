@@ -104,7 +104,6 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.route.legs.other": "{count} tratte",
   "panel.ready.adjust": "Regolare la partenza o la barca",
   "panel.door.title": "Confrontare questo percorso",
-  "panel.door.sub": "Altre partenze o altre rotte",
   "panel.compare.back": "Piano",
   "panel.compare.backAria": "Tornare al piano",
   "panel.compare.title": "Confrontare questo percorso",
@@ -151,7 +150,6 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.window.spanHours": "{count} h",
   "panel.window.spanDays": "{count} g",
   "panel.window.step": "<b>{slots}</b> testate, una ogni <b>{step}</b>",
-  "panel.window.change": "Cambiare",
   "panel.window.cost": "Con un passo di 1 h, il calcolo di {count} finestre richiede una trentina di secondi.",
   "panel.window.note": "Ricalcolo immediato",
   "panel.window.apply": "Applicare",
@@ -181,4 +179,11 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.tracks.departure.note": "Cambiare questa partenza ricalcola tutte le rotte. Per provare più orari su una sola rotta, passi all'asse Partenze.",
   "panel.tracks.departure.recompute.one": "Ricalcolo di {count} rotta",
   "panel.tracks.departure.recompute.other": "Ricalcolo di {count} rotte",
+
+  // ── two doors, track selection, folded alerts ──
+  "panel.door.slots": "Altre partenze",
+  "panel.door.tracks": "Un'altra rotta",
+  "panel.tracks.row.select": "Scegliere l'opzione {n} per il piano",
+  "panel.tracks.row.remove": "Eliminare l'opzione {n}",
+  "panel.results.alertsToggle": "Avvisi del passaggio",
 };

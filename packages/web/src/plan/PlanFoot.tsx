@@ -17,7 +17,15 @@ export function PlanFoot() {
   const { state, isLoading } = usePlan();
   const { mode, passage, isStale, waypoints, apiError, retry, actionTaken } = state;
   if (isLoading || waypoints.length < 2 || !actionTaken) return null;
-  if (mode === "compare") return <CompareFoot />;
+  // The comparison's pinned zone is a wide-screen thing: on a phone it took
+  // the list's room, so the settings sit in the list instead.
+  if (mode === "compare") {
+    return (
+      <div className="hidden lg:block">
+        <CompareFoot />
+      </div>
+    );
+  }
   if (passage && !isStale && !apiError && !retry) return <CompareDoor />;
   return null;
 }

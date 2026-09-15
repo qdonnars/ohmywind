@@ -2,9 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 /**
- * What stays pinned under the list while the comparison is open: the
- * settings of the axis, what the axis keeps frozen, and the note under it.
- * The list is the only thing that scrolls.
+ * The settings of the axis, and what the axis keeps frozen.
+ *
+ * On a wide screen they stay pinned under the list, with the note under
+ * them: the list is the only thing that scrolls. On a phone the pinned
+ * zone ate the list, so the settings row alone sits at the top of the
+ * screen, in the flow, and its panel unfolds below it.
  */
 
 import { usePlan } from "../session/planContext";
@@ -17,6 +20,17 @@ import { num1 } from "../format";
 import { fmtClock } from "../../domain/datetime";
 import { useT } from "../../i18n";
 
+/** The one row of settings, for the phone's list. */
+export function CompareSettingsRow() {
+  const { state } = usePlan();
+  return state.compareAxis === "slots" ? (
+    <WindowSettings placement="below" />
+  ) : (
+    <DepartureSettings placement="below" />
+  );
+}
+
+/** The pinned zone of a wide screen. */
 export function CompareFoot() {
   const { t, tn } = useT();
   const { state, actions } = usePlan();
@@ -24,15 +38,17 @@ export function CompareFoot() {
   const slots = compareAxis === "slots";
   return (
     <div className="shrink-0" style={{ background: "var(--ow-bg-1)" }}>
-      {slots && <WindowSettings />}
       {slots ? (
-        <ContextRow
-          icon={<RouteIcon />}
-          label={t("panel.compare.frozen.track")}
-          value={`${tn("panel.route.legs", Math.max(0, waypoints.length - 1))} · ${num1(routeLengthNm(waypoints))} nm`}
-          action={t("panel.compare.frozen.edit")}
-          onClick={actions.closeCompare}
-        />
+        <>
+          <WindowSettings />
+          <ContextRow
+            icon={<RouteIcon />}
+            label={t("panel.compare.frozen.track")}
+            value={`${tn("panel.route.legs", Math.max(0, waypoints.length - 1))} · ${num1(routeLengthNm(waypoints))} nm`}
+            action={t("panel.compare.frozen.edit")}
+            onClick={actions.closeCompare}
+          />
+        </>
       ) : (
         <DepartureSettings />
       )}

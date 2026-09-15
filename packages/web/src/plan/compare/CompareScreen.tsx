@@ -16,6 +16,7 @@ import { usePlan } from "../session/planContext";
 import { ResultsAnchor } from "../sidebar/parts";
 import { SlotList } from "./SlotList";
 import { TrackList } from "./TrackList";
+import { CompareSettingsRow } from "./CompareFoot";
 import { spanHours, windowCount, type CompareAxis } from "./slots";
 import { ChevronIcon } from "./icons";
 import { useT } from "../../i18n";
@@ -101,8 +102,16 @@ export function CompareScreen() {
     <div className="animate-fade-in">
       <ResultsAnchor />
       <CompareHead />
-      {/* No axis switch while a variant is being drawn: the map is the form. */}
+      {/* No axis switch nor settings while a variant is being drawn: the
+          map is the form. */}
       {state.variant === null && <AxisToggle />}
+      {/* On a phone the settings row lives here, in the flow; a wide screen
+          pins it under the list instead (see PlanFoot). */}
+      {state.variant === null && (
+        <div className="lg:hidden">
+          <CompareSettingsRow />
+        </div>
+      )}
       {state.compareAxis === "slots" ? <SlotList /> : <TrackList />}
     </div>
   );

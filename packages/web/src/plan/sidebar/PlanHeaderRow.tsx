@@ -8,24 +8,22 @@ import { num1 } from "../format";
 import { useT } from "../../i18n";
 
 // Header row: the route in one line (its points, its legs, its length) and,
-// flush right, either the trash button that discards the plan (the forms)
-// or, in the filled views, the recompute control handed in as `action`.
-// There the trash moves down to the recap row (see ResetButton), which stays
-// reachable however low the mobile drawer sits.
+// flush right, the controls that act on the whole plan: the recompute
+// control handed in as `action` by the filled views, and the trash that
+// discards the plan. Side by side, so the two things one does to a plan
+// are found in one place; the title « Votre route » that used to sit
+// above the line said nothing the line did not.
 //
 // The mode pills used to sit here. A trip is one track and one departure;
 // the plan is that trip, and « Comparer ce trajet » a door at the bottom of
 // its results rather than a sibling mode to pick before seeing anything.
 export function PlanHeaderRow({
   locked,
-  compact,
   action,
 }: {
   /** Dimmed: the empty state, under two waypoints. */
   locked?: boolean;
-  /** Filled views: `action` instead of the trash. */
-  compact?: boolean;
-  /** Control rendered flush right of the route in the compact layout. */
+  /** Control rendered before the trash, in the filled views. */
   action?: ReactNode;
 }) {
   const { t, tn } = useT();
@@ -40,33 +38,26 @@ export function PlanHeaderRow({
           nm: num1(routeLengthNm(state.waypoints)),
         });
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 min-w-0">
-        <div
-          className="text-[13px] font-semibold leading-tight truncate"
-          style={{ color: locked ? "var(--ow-fg-2)" : "var(--ow-fg-0)" }}
-        >
-          {t("panel.route.title")}
-        </div>
-        <div
-          className="text-[10px] mt-0.5 tabular-nums truncate"
-          style={{ color: "var(--ow-fg-3)", fontFamily: "var(--ow-font-mono)" }}
-        >
-          {sub}
-        </div>
+    <div className="flex items-center gap-2" style={{ minHeight: 34 }}>
+      <div
+        className="flex-1 min-w-0 text-xs font-semibold tabular-nums truncate"
+        style={{ color: locked ? "var(--ow-fg-3)" : "var(--ow-fg-1)", fontFamily: "var(--ow-font-mono)" }}
+        title={t("panel.route.title")}
+      >
+        {sub}
       </div>
-      {compact ? action : <ResetButton />}
+      {action}
+      <ResetButton />
     </div>
   );
 }
 
 // The trash that discards the plan. Nothing to reset on a fully empty form,
 // so it only renders once the user has placed enough to have something to
-// clear. Tooltip: "Nouveau plan". Two looks for two rows: a muted square
-// next to the route line, a soft red pill in the recap row of a filled view
-// (design "Plan · résultats"), where it has to read as the destructive
-// action among the "Modifier" affordance and the totals.
-export function ResetButton({ danger }: { danger?: boolean }) {
+// clear. Tooltip: "Nouveau plan". A soft red square, the size of the
+// recompute control it sits next to, so it reads as the destructive action
+// of the row.
+export function ResetButton() {
   const { t } = useT();
   const { state, actions } = usePlan();
   if (state.waypoints.length < 2) return null;
@@ -76,27 +67,14 @@ export function ResetButton({ danger }: { danger?: boolean }) {
       onClick={actions.reset}
       title={t("panel.header.newPlan")}
       aria-label={t("panel.header.newPlan")}
-      className="shrink-0 flex items-center justify-center transition-colors hover:opacity-100"
-      style={
-        danger
-          ? {
-              width: 34,
-              height: 30,
-              borderRadius: 999,
-              background: "var(--ow-err-soft)",
-              border: "1px solid var(--ow-err-line)",
-              color: "var(--ow-err)",
-            }
-          : {
-              width: 38,
-              height: 34,
-              borderRadius: 8,
-              background: "var(--ow-bg-2)",
-              border: "1px solid var(--ow-line)",
-              color: "var(--ow-fg-2)",
-              opacity: 0.85,
-            }
-      }
+      className="shrink-0 flex items-center justify-center rounded-lg transition-colors"
+      style={{
+        width: 38,
+        height: 34,
+        background: "var(--ow-err-soft)",
+        border: "1px solid var(--ow-err-line)",
+        color: "var(--ow-err)",
+      }}
     >
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M2.5 4h11" />

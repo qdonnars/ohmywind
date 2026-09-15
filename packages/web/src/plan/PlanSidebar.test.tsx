@@ -146,6 +146,8 @@ function stubActions(): PlanActions {
     finishVariant: vi.fn(),
     computeTracks: vi.fn(),
     openTrack: vi.fn(),
+    selectTrack: vi.fn(),
+    removeTrack: vi.fn(),
     highlightTrack: vi.fn(),
     applyTrackDeparture: vi.fn(),
     selectLeg: vi.fn(),
@@ -188,13 +190,13 @@ describe("PlanSidebar views", () => {
   it("shows a skeleton while computing, and no result", () => {
     mount({ passage: passage(), complexity: complexity() }, { isLoading: true });
     expect(screen.queryByText(/Recalculer/)).toBeNull();
-    expect(screen.queryByText("Votre route")).toBeNull();
+    expect(screen.queryByTitle("Votre route")).toBeNull();
   });
 
   it("shows the error under the route line", () => {
     mount({ apiError: "Trop de calculs lancés coup sur coup." });
     expect(screen.getByText("Trop de calculs lancés coup sur coup.")).toBeTruthy();
-    expect(screen.getByText("Votre route")).toBeTruthy();
+    expect(screen.getByTitle("Votre route")).toBeTruthy();
   });
 
   it("shows the error under the comparison head, with the way back, when it failed there", async () => {
@@ -231,19 +233,26 @@ describe("PlanSidebar views", () => {
     expect(value.compute).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the passage, its warnings and its legs once computed", () => {
+  it("shows the passage, its warnings folded, and its legs once computed", async () => {
     mount({ passage: passage(), complexity: complexity(), forecastUpdatedAt: "2026-09-09T06:00:00Z" });
+    // Folded on a phone (jsdom matches no media query): one line, unfolded on a tap.
+    expect(screen.queryByText("vent faible : passage très lent")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "1 alerte" }));
     expect(screen.getByText("vent faible : passage très lent")).toBeTruthy();
     expect(screen.getByText(/Croiseur 30 pieds/)).toBeTruthy();
+    // Recalculer and the trash side by side on the route line.
+    expect(screen.getByRole("button", { name: "Recalculer" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Nouveau plan" })).toBeTruthy();
     // One row per leg, opening the build-up on click.
     expect(screen.getByRole("button", { name: /^1→2/ })).toBeTruthy();
     expect(screen.getByText(/Données fraîches au/)).toBeTruthy();
   });
 
-  it("hides the legs behind a recompute prompt once the route moved", () => {
+  it("hides the legs and the alerts behind a recompute prompt once the route moved", () => {
     mount({ passage: passage(), complexity: complexity(), isStale: true });
     expect(screen.getByText(/Itinéraire modifié/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^1→2/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "1 alerte" })).toBeNull();
   });
 
   it("opens a leg through the session, not through local state", async () => {
@@ -299,10 +308,15 @@ describe("the comparison", () => {
     expect(value.computeWindows).toHaveBeenCalledTimes(1);
   });
 
-  it("pins the door under a computed plan, and the settings under the comparison", async () => {
+  it("pins two doors under a computed plan, and the settings under the comparison", async () => {
     const plan = mountWith(<PlanFoot />, { passage: passage(), complexity: complexity() });
-    await userEvent.click(screen.getByRole("button", { name: /Comparer ce trajet/ }));
+    await userEvent.click(screen.getByRole("button", { name: "D'autres départs" }));
     expect(plan.actions.openCompare).toHaveBeenCalledWith("slots");
+    // The other door lands on the track axis and starts drawing when there
+    // is nothing to compare yet.
+    await userEvent.click(screen.getByRole("button", { name: "Un autre tracé" }));
+    expect(plan.actions.openCompare).toHaveBeenCalledWith("tracks");
+    expect(plan.actions.startVariant).toHaveBeenCalledTimes(1);
     cleanup();
 
     const compare = mountWith(<PlanFoot />, { mode: "compare", windows: [aWindow()] });
@@ -312,16 +326,20 @@ describe("the comparison", () => {
     expect(row.textContent).toContain("1 créneau");
     expect(screen.getByText("Tracé figé")).toBeTruthy();
     await userEvent.click(row);
-    // Unfolded: the presets, and the step already deduced from the span.
+    // Unfolded: the presets, and the step already deduced from the span,
+    // one tap away from another value.
     expect(screen.getByRole("button", { name: "48 h" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByText("17 créneaux")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^1 h/ })).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "7 j" }));
     expect(screen.getByRole("button", { name: "7 j" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: /^6 h/ }).getAttribute("aria-pressed")).toBe("true");
+    await userEvent.click(screen.getByRole("button", { name: /^12 h/ }));
     await userEvent.click(screen.getByRole("button", { name: "Appliquer" }));
     expect(compare.actions.applySweep).toHaveBeenCalledWith({
       earliest: "2026-09-10T08:00",
       latest: "2026-09-17T08:00",
-      intervalHours: 6,
+      intervalHours: 12,
     });
   });
 
@@ -336,10 +354,12 @@ describe("the comparison", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("lists the plan as the only option, then the variants, and opens one in the plan", async () => {
+  it("lists the plan as the only option, then the variants: choose, open, remove", async () => {
     const alone = mount({ mode: "compare", compareAxis: "tracks", passage: passage(), complexity: complexity() });
     expect(screen.getByRole("button", { name: /^Option 1 · Ouvrir ce tracé/ })).toBeTruthy();
     expect(screen.getAllByText("1 option").length).toBeGreaterThanOrEqual(1);
+    // The plan's own track has no trash.
+    expect(screen.queryByRole("button", { name: /Supprimer/ })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: /Tracer une variante/ }));
     expect(alone.actions.startVariant).toHaveBeenCalledTimes(1);
     cleanup();
@@ -354,10 +374,18 @@ describe("the comparison", () => {
       trackRequests: { v1: { id: 1, editSeq: 0 } },
     });
     expect(screen.getByText("calcul en cours…")).toBeTruthy();
-    // An option still computing cannot be opened; option 1 can.
-    expect((screen.getByRole("button", { name: /^Option 2/ }) as HTMLButtonElement).disabled).toBe(true);
-    await userEvent.click(screen.getByRole("button", { name: /^Option 1/ }));
+    // The plan's route is option 1: marked, and the one the departure axis is about.
+    expect(screen.getByRole("button", { name: /^Option 1 · Choisir/ }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("du plan")).toBeTruthy();
+    // An option still computing can be neither chosen nor opened, only removed.
+    expect((screen.getByRole("button", { name: /^Option 2 · Choisir/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: /^Option 2 · Ouvrir/ }) as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(screen.getByRole("button", { name: "Supprimer l'option 2" }));
+    expect(two.actions.removeTrack).toHaveBeenCalledWith("v1");
+    await userEvent.click(screen.getByRole("button", { name: /^Option 1 · Ouvrir/ }));
     expect(two.actions.openTrack).toHaveBeenCalledWith("plan");
+    await userEvent.click(screen.getByRole("button", { name: /^Option 1 · Choisir/ }));
+    expect(two.actions.selectTrack).toHaveBeenCalledWith("plan");
     expect(screen.getByText("55,0 nm")).toBeTruthy();
   });
 
