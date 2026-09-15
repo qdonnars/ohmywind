@@ -22,7 +22,7 @@ import type { InitialSession } from "./session/initial";
 import type { PlanActions } from "./session/usePlanSession";
 import type { PassageReport, ComplexityScore, PassageWindow, Archetype } from "./types";
 import { resetPolarConfigSnapshot } from "../config/usePolarConfig";
-import { fmtClock, toNaiveLocal } from "../domain/datetime";
+import { fmtClock, toNaiveLocal, toTzAware } from "../domain/datetime";
 import type { ReactNode } from "react";
 
 const MARSEILLE: [number, number] = [43.29, 5.37];
@@ -294,8 +294,10 @@ describe("the comparison", () => {
   });
 
   it("marks the plan's own departure as chosen, and counts the alerts", () => {
-    const w = aWindow();
-    mount({ mode: "compare", windows: [{ ...w, warnings: ["a", "b"] }], departure: "2026-09-11T06:00" });
+    // The slot is an instant, the plan's departure a naive local time: built
+    // from the same local value so the match holds on a UTC runner too.
+    const w = { ...aWindow(), departure: toTzAware("2026-09-11T06:00"), warnings: ["a", "b"] };
+    mount({ mode: "compare", windows: [w], departure: "2026-09-11T06:00" });
     expect(screen.getByText("sélectionné")).toBeTruthy();
     expect(screen.getByTitle("2 alertes")).toBeTruthy();
   });
