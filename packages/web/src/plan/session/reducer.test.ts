@@ -260,14 +260,15 @@ describe("the comparison over the plan", () => {
     expect(kept.compareAxis).toBe("tracks");
   });
 
-  it("clears the error when the comparison opens, closes or changes axis", () => {
+  it("clears the error when the comparison opens or closes, and takes the axis of the door", () => {
     const failed = run(
       start(),
       { type: "FETCH_STARTED", requestId: 1, kind: "single" },
       { type: "FETCH_FAILED", requestId: 1, error: "boom" },
     );
     expect(run(failed, { type: "COMPARE_OPENED", axis: "slots" }).apiError).toBeNull();
-    expect(run(failed, { type: "COMPARE_OPENED", axis: "slots" }, { type: "COMPARE_AXIS_CHANGED", axis: "tracks" }).compareAxis).toBe("tracks");
+    expect(run(failed, { type: "COMPARE_OPENED", axis: "tracks" }).compareAxis).toBe("tracks");
+    expect(run(failed, { type: "COMPARE_OPENED", axis: "tracks" }, { type: "COMPARE_CLOSED" }).mode).toBe("single");
   });
 
   it("keeps a way back to the comparison a slot was opened from, until the plan is kept or the route edited", () => {

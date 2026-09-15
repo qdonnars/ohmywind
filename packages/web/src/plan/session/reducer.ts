@@ -110,7 +110,8 @@ export interface PlanState {
       became a screen of the plan rather than a sibling of it. */
   mode: PlanMode;
   /** Which of the two things a trip is made of varies: the departure (the
-      sweep, read as slots) or the track (variants drawn on the map). */
+      sweep, read as slots) or the track (variants drawn on the map). Chosen
+      at the door; changing it means going back to the plan. */
   compareAxis: CompareAxis;
   sweepEarliest: string;
   sweepLatest: string;
@@ -186,7 +187,6 @@ export type PlanAction =
       the reducer cannot know the clock the horizon is counted from. */
   | { type: "COMPARE_OPENED"; axis: CompareAxis; sweep?: SweepParams }
   | { type: "COMPARE_CLOSED" }
-  | { type: "COMPARE_AXIS_CHANGED"; axis: CompareAxis }
   /** « Garder » on the return banner: this option is the plan now. */
   | { type: "PLAN_KEPT" }
   /** Mobile: the compact step gives way to the form without computing. */
@@ -414,10 +414,6 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
     case "COMPARE_CLOSED":
       if (state.mode === "single") return state;
       return { ...state, mode: "single", returnTo: null, apiError: null, retry: null };
-
-    case "COMPARE_AXIS_CHANGED":
-      if (action.axis === state.compareAxis) return state;
-      return { ...state, compareAxis: action.axis, apiError: null, retry: null };
 
     case "PLAN_KEPT":
       if (state.returnTo === null) return state;

@@ -124,7 +124,6 @@ export interface PlanActions {
   openCompare: (axis?: CompareAxis) => void;
   /** « ‹ Plan »: back to the plan, the windows kept for the next time. */
   closeCompare: () => void;
-  setCompareAxis: (axis: CompareAxis) => void;
   /** « Garder » on the return banner. */
   keepPlan: () => void;
   /** « Appliquer » in the window settings: the sweep is set and recomputed
@@ -504,19 +503,6 @@ export function usePlanSession(initial: InitialSession): PlanSession {
         }
       },
       closeCompare: () => dispatch({ type: "COMPARE_CLOSED" }),
-      setCompareAxis: (axis) => {
-        const s = stateRef.current;
-        dispatch({ type: "COMPARE_AXIS_CHANGED", axis });
-        // The departure axis with nothing fresh to show (a track was picked
-        // on the other axis, or the route moved) computes again on its own.
-        const fresh = s.windows !== null && s.windows.length > 0 && !s.isStale;
-        if (axis === "slots" && !fresh && s.waypoints.length >= 2) {
-          const sweep = defaultSweep(s.departure, Date.now());
-          dispatch({ type: "SWEEP_CHANGED", ...sweep });
-          retryAttemptRef.current = 0;
-          runSweep(sweep);
-        }
-      },
       keepPlan: () => dispatch({ type: "PLAN_KEPT" }),
       applySweep: (sweep) => {
         dispatch({
