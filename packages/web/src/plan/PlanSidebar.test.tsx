@@ -134,7 +134,6 @@ function stubActions(): PlanActions {
     openForm: vi.fn(),
     openCompare: vi.fn(),
     closeCompare: vi.fn(),
-    setCompareAxis: vi.fn(),
     keepPlan: vi.fn(),
     applySweep: vi.fn(),
     startVariant: vi.fn(),
@@ -281,7 +280,9 @@ describe("PlanSidebar views", () => {
 describe("the comparison", () => {
   it("lists the slots by day and opens one in the plan", async () => {
     const value = mount({ mode: "compare", windows: [aWindow()] });
-    expect(screen.getByText("Comparer ce trajet")).toBeTruthy();
+    // The head names the axis entered from the plan; there is no switch.
+    expect(screen.getByText("D'autres départs")).toBeTruthy();
+    expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.getAllByText("1 créneau").length).toBeGreaterThanOrEqual(1);
     // The line: hour, duration, arrival, then the conditions as a sentence.
     expect(screen.getByText("10h")).toBeTruthy();
@@ -302,12 +303,10 @@ describe("the comparison", () => {
     expect(screen.getByTitle("2 alertes")).toBeTruthy();
   });
 
-  it("goes back to the plan from the head, and switches axis", async () => {
+  it("goes back to the plan from the head", async () => {
     const value = mount({ mode: "compare", windows: [aWindow()] });
     await userEvent.click(screen.getByRole("button", { name: "Revenir au plan" }));
     expect(value.actions.closeCompare).toHaveBeenCalledTimes(1);
-    await userEvent.click(screen.getByRole("tab", { name: "Tracés" }));
-    expect(value.actions.setCompareAxis).toHaveBeenCalledWith("tracks");
   });
 
   it("hides the list behind a recompute prompt once the route moved", async () => {
@@ -362,7 +361,7 @@ describe("the comparison", () => {
 
   it("keeps the head and the chips while the sweep runs, the list alone waiting", () => {
     mount({ mode: "compare", windows: [aWindow()], pending: { id: 1, kind: "sweep", editSeq: 0 } }, { isLoading: true });
-    expect(screen.getByText("Comparer ce trajet")).toBeTruthy();
+    expect(screen.getByText("D'autres départs")).toBeTruthy();
     expect(screen.getByRole("button", { name: "48 h" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Ouvrir ce créneau/ })).toBeNull();
   });
