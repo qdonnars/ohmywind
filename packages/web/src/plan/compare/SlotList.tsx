@@ -245,6 +245,14 @@ export function SlotList() {
     return counts;
   }, [windows]);
 
+  // The sweep is running: the list, and only the list, waits.
+  if (state.pending?.kind === "sweep") {
+    return (
+      <div className="p-4 space-y-2 animate-fade-in" aria-busy="true">
+        {[0, 1, 2, 3, 4].map((i) => <div key={i} className="skeleton h-12 rounded-lg" />)}
+      </div>
+    );
+  }
   // The route moved since the sweep: the windows describe the old itinerary,
   // and opening one would draw a route that no longer matches the map (#152).
   if (isStale) return <RecomputeRow onClick={computeWindows}>{t("panel.compare.stale")}</RecomputeRow>;

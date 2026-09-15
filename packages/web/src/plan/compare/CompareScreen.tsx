@@ -5,18 +5,17 @@
  * « Comparer ce trajet »: one screen, one control.
  *
  * A trip is one track times one departure. Comparing is freezing one and
- * varying the other: the axis toggle is the only control of the screen, and
- * the same line, the same five figures and the same rule (nothing is
- * elected) hold on both sides. Each axis says what is frozen (the pinned
- * row at the bottom, see `CompareFoot`) and what varies (the list, and the
- * action under it).
+ * varying the other: the axis toggle is the first control of the screen,
+ * the settings of the axis come right under it, and the same line, the
+ * same five figures and the same rule (nothing is elected) hold on both
+ * sides.
  */
 
 import { usePlan } from "../session/planContext";
 import { ResultsAnchor } from "../sidebar/parts";
 import { SlotList } from "./SlotList";
 import { TrackList } from "./TrackList";
-import { CompareSettingsRow } from "./CompareFoot";
+import { CompareSettings } from "./CompareSettings";
 import { spanHours, windowCount, type CompareAxis } from "./slots";
 import { ChevronIcon } from "./icons";
 import { useT } from "../../i18n";
@@ -105,13 +104,7 @@ export function CompareScreen() {
       {/* No axis switch nor settings while a variant is being drawn: the
           map is the form. */}
       {state.variant === null && <AxisToggle />}
-      {/* On a phone the settings row lives here, in the flow; a wide screen
-          pins it under the list instead (see PlanFoot). */}
-      {state.variant === null && (
-        <div className="lg:hidden">
-          <CompareSettingsRow />
-        </div>
-      )}
+      {state.variant === null && <CompareSettings />}
       {state.compareAxis === "slots" ? <SlotList /> : <TrackList />}
     </div>
   );

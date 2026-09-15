@@ -61,7 +61,7 @@ describe("the window and its step", () => {
     expect(autoStepHours(24)).toBe(3);
     expect(autoStepHours(72)).toBe(3);
     expect(autoStepHours(168)).toBe(6);
-    expect(autoStepHours(288)).toBe(12);
+    expect(autoStepHours(288)).toBe(6);
   });
 
   it("counts both bounds, like the server", () => {
@@ -95,6 +95,8 @@ describe("the window and its step", () => {
     expect(matchPreset("2026-09-13T15:00", "2026-09-15T15:00")).toBe(48);
     expect(matchPreset("2026-09-13T15:00", "2026-09-16T15:00")).toBe(72);
     expect(matchPreset("2026-09-13T15:00", "2026-09-15T16:00")).toBeNull();
+    // Twelve days is no preset any more: too far out to plan a departure on.
+    expect(matchPreset("2026-09-13T15:00", "2026-09-25T15:00")).toBeNull();
   });
 
   it("opens on the two days after the plan's departure, at the deduced step", () => {
