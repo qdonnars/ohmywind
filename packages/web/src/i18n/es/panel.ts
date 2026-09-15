@@ -6,7 +6,6 @@ import type { panel as frPanel } from "../fr/panel";
 export const panel: Record<keyof typeof frPanel, string> = {
   // ── PlanForm ───────────────────────────────────────────────────────────────
   "panel.form.calculate": "Calcular la travesía",
-  "panel.form.compareWindows": "Comparar las ventanas",
   "panel.form.waypointsNeeded": "{count}/2 waypoints",
 
   // ── PlanHeaderRow ──────────────────────────────────────────────────────────
@@ -43,47 +42,12 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.departure.plusOneWeek": "+1 sem.",
   "panel.departure.plusTwoWeeks": "+2 sem.",
 
-  // ── DepartureRangeSlider ───────────────────────────────────────────────────
-  "panel.range.title": "Ventana de salida",
-  "panel.range.spanDays": "{value} d",
-  "panel.range.spanHours": "{value} h",
-  "panel.range.ariaEarliest": "Salida más temprana",
-  "panel.range.ariaLatest": "Salida más tardía",
-
-  // ── SweepForm ──────────────────────────────────────────────────────────────
-  "panel.sweep.samplingStep": "Paso de muestreo",
-  "panel.sweep.everyHour": "Cada hora",
-  "panel.sweep.everyNHours": "Cada {hours}h",
-
   // ── SingleResults ──────────────────────────────────────────────────────────
   "panel.results.recapDeparture": "Salida: {day} · {time}",
   "panel.results.recapArrival": "Llegada: {day} · {time}",
   "panel.results.stale":
     "Itinerario modificado. Haga clic en Recalcular para actualizar los detalles.",
   "panel.results.forecastUpdated": "Datos actualizados a las {time} · Open-Meteo.com (CC BY 4.0)",
-
-  // ── CompareResults ─────────────────────────────────────────────────────────
-  "panel.compare.recapStep": "paso {interval}h · {boat}",
-  "panel.compare.stale":
-    "Itinerario modificado. Haga clic en Recalcular para comparar las ventanas del nuevo trayecto.",
-  "panel.compare.windowsCompared.one":
-    "{count} ventana comparada · haga clic en una fila para abrir la simulación detallada",
-  "panel.compare.windowsCompared.other":
-    "{count} ventanas comparadas · haga clic en una fila para abrir la simulación detallada",
-
-  // ── WindowsTable ───────────────────────────────────────────────────────────
-  "panel.windows.colDeparture": "Salida",
-  "panel.windows.colDuration": "Duración",
-  "panel.windows.colEta": "ETA",
-  "panel.windows.colPointOfSail": "Rumbo",
-  "panel.windows.colWind": "Viento (kn)",
-  "panel.windows.colSea": "Mar",
-  "panel.windows.rowTitle": "Ver el detalle de esta ventana",
-  "panel.windows.complexityTitle": "{label}: {rationale}",
-  "panel.windows.sailUpwind": "Ceñida",
-  "panel.windows.sailBeamReach": "Través",
-  "panel.windows.sailBroadReach": "Largo",
-  "panel.windows.sailDownwind": "Empopada",
 
   // ── LegList / aggregateLegs ────────────────────────────────────────────────
   "panel.legs.colLeg": "Tramo",
@@ -130,4 +94,71 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.legDetail.noteMotorOnStep": "a motor en este paso",
   "panel.legDetail.noteAverage.one": "media de {count} paso",
   "panel.legDetail.noteAverage.other": "media de {count} pasos",
+
+  // ── RouteBar, ReadyStep, CompareDoor, CompareScreen, WindowPanel, ReturnBanner ──
+  "panel.route.title": "Su ruta",
+  "panel.route.points.one": "{count} punto colocado",
+  "panel.route.points.other": "{count} puntos colocados",
+  "panel.route.summary": "{points} puntos · {legs} · {nm} nm",
+  "panel.route.legs.one": "{count} tramo",
+  "panel.route.legs.other": "{count} tramos",
+  "panel.ready.adjust": "Ajustar la salida o el barco",
+  "panel.door.title": "Comparar este trayecto",
+  "panel.door.sub": "Otras salidas u otros trazados",
+  "panel.compare.back": "Plan",
+  "panel.compare.backAria": "Volver al plan",
+  "panel.compare.title": "Comparar este trayecto",
+  "panel.compare.slots.one": "{count} franja",
+  "panel.compare.slots.other": "{count} franjas",
+  "panel.compare.tracks.one": "{count} opción",
+  "panel.compare.tracks.other": "{count} opciones",
+  "panel.compare.axis.label": "Lo que varía",
+  "panel.compare.axis.slots": "Salidas",
+  "panel.compare.axis.tracks": "Trazados",
+  "panel.compare.sort.label": "Ordenar",
+  "panel.compare.sort.departure": "Salida",
+  "panel.compare.sort.order": "Orden",
+  "panel.compare.sort.duration": "Duración",
+  "panel.compare.sort.sea": "Mar",
+  "panel.compare.row.fromPlan": "actual",
+  "panel.compare.row.open": "Abrir esta franja en el plan",
+  "panel.compare.row.alerts.one": "{count} aviso",
+  "panel.compare.row.alerts.other": "{count} avisos",
+  "panel.compare.row.wind": "viento {range} kn",
+  "panel.compare.row.sea": "mar {range} m",
+  "panel.compare.row.motor": "motor {pct} %",
+  "panel.compare.sailUpwind": "Ceñida",
+  "panel.compare.sailBeamReach": "Través",
+  "panel.compare.sailBroadReach": "Largo",
+  "panel.compare.sailDownwind": "Empopada",
+  "panel.compare.stale": "Itinerario modificado. Recalcule para comparar las franjas del nuevo trayecto.",
+  "panel.compare.empty": "Ninguna franja que comparar por ahora. Ajuste la ventana y aplique.",
+  "panel.compare.foot.slots": "Toque una línea para abrir esta franja en el plan",
+  "panel.compare.foot.tracks": "Toque una línea para abrir este trazado en el plan",
+  "panel.compare.frozen.track": "Trazado fijo",
+  "panel.compare.frozen.departure": "Salida fija",
+  "panel.compare.frozen.edit": "Modificar",
+  "panel.compare.tracksEmpty": "Ninguna variante por ahora. Trace una para compararla con el trazado del plan.",
+  "panel.compare.tracksDraw": "Trazar una variante",
+  "panel.window.label": "Ventana",
+  "panel.window.next": "Las próximas {span}",
+  "panel.window.set": "Ajustar",
+  "panel.window.title": "Ventana de salida",
+  "panel.window.from": "Del",
+  "panel.window.to": "Al",
+  "panel.window.fromHint": "salida del plan",
+  "panel.window.lead": "Las próximas",
+  "panel.window.spanHours": "{count} h",
+  "panel.window.spanDays": "{count} d",
+  "panel.window.step": "<b>{slots}</b> probadas, una cada <b>{step}</b>",
+  "panel.window.change": "Cambiar",
+  "panel.window.cost": "Con un paso de 1 h, el cálculo de {count} franjas tarda unos treinta segundos.",
+  "panel.window.note": "Recálculo inmediato",
+  "panel.window.apply": "Aplicar",
+  "panel.window.fromAria": "Inicio de la ventana de salida",
+  "panel.window.toAria": "Fin de la ventana de salida",
+  "panel.return.slots": "Comparación · {slots}",
+  "panel.return.tracks": "Comparación · {tracks}",
+  "panel.return.back": "Volver a la comparación",
+  "panel.return.keep": "Conservar",
 };

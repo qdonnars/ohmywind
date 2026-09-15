@@ -6,7 +6,6 @@ import type { panel as frPanel } from "../fr/panel";
 export const panel: Record<keyof typeof frPanel, string> = {
   // ── PlanForm ───────────────────────────────────────────────────────────────
   "panel.form.calculate": "Törn berechnen",
-  "panel.form.compareWindows": "Fenster vergleichen",
   "panel.form.waypointsNeeded": "{count}/2 Wegpunkte",
 
   // ── PlanHeaderRow ──────────────────────────────────────────────────────────
@@ -43,18 +42,6 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.departure.plusOneWeek": "+1 Wo.",
   "panel.departure.plusTwoWeeks": "+2 Wo.",
 
-  // ── DepartureRangeSlider ───────────────────────────────────────────────────
-  "panel.range.title": "Abfahrtsfenster",
-  "panel.range.spanDays": "{value} T",
-  "panel.range.spanHours": "{value} h",
-  "panel.range.ariaEarliest": "Frühestmögliche Abfahrt",
-  "panel.range.ariaLatest": "Spätestmögliche Abfahrt",
-
-  // ── SweepForm ──────────────────────────────────────────────────────────────
-  "panel.sweep.samplingStep": "Abtastschritt",
-  "panel.sweep.everyHour": "Stündlich",
-  "panel.sweep.everyNHours": "Alle {hours} h",
-
   // ── SingleResults ──────────────────────────────────────────────────────────
   "panel.results.recapDeparture": "Abfahrt: {day} · {time}",
   "panel.results.recapArrival": "Ankunft: {day} · {time}",
@@ -62,29 +49,6 @@ export const panel: Record<keyof typeof frPanel, string> = {
     "Route geändert. Klicken Sie auf Neu berechnen, um die Details zu aktualisieren.",
   "panel.results.forecastUpdated":
     "Daten aktualisiert um {time} · Open-Meteo.com (CC BY 4.0)",
-
-  // ── CompareResults ─────────────────────────────────────────────────────────
-  "panel.compare.recapStep": "Schritt {interval} h · {boat}",
-  "panel.compare.stale":
-    "Route geändert. Klicken Sie auf Neu berechnen, um die Fenster der neuen Route zu vergleichen.",
-  "panel.compare.windowsCompared.one":
-    "{count} Fenster verglichen · klicken Sie auf eine Zeile, um die detaillierte Simulation zu öffnen",
-  "panel.compare.windowsCompared.other":
-    "{count} Fenster verglichen · klicken Sie auf eine Zeile, um die detaillierte Simulation zu öffnen",
-
-  // ── WindowsTable ───────────────────────────────────────────────────────────
-  "panel.windows.colDeparture": "Abfahrt",
-  "panel.windows.colDuration": "Dauer",
-  "panel.windows.colEta": "ETA",
-  "panel.windows.colPointOfSail": "Kurs",
-  "panel.windows.colWind": "Wind (kn)",
-  "panel.windows.colSea": "See",
-  "panel.windows.rowTitle": "Dieses Fenster im Detail ansehen",
-  "panel.windows.complexityTitle": "{label}: {rationale}",
-  "panel.windows.sailUpwind": "Am Wind",
-  "panel.windows.sailBeamReach": "Halbwind",
-  "panel.windows.sailBroadReach": "Raumschots",
-  "panel.windows.sailDownwind": "Vor dem Wind",
 
   // ── LegList / aggregateLegs ────────────────────────────────────────────────
   "panel.legs.colLeg": "Teilstr.",
@@ -131,4 +95,71 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.legDetail.noteMotorOnStep": "unter Motor auf diesem Abschnitt",
   "panel.legDetail.noteAverage.one": "Mittel aus {count} Abschnitt",
   "panel.legDetail.noteAverage.other": "Mittel aus {count} Abschnitten",
+
+  // ── RouteBar, ReadyStep, CompareDoor, CompareScreen, WindowPanel, ReturnBanner ──
+  "panel.route.title": "Ihre Route",
+  "panel.route.points.one": "{count} Punkt gesetzt",
+  "panel.route.points.other": "{count} Punkte gesetzt",
+  "panel.route.summary": "{points} Punkte · {legs} · {nm} nm",
+  "panel.route.legs.one": "{count} Abschnitt",
+  "panel.route.legs.other": "{count} Abschnitte",
+  "panel.ready.adjust": "Abfahrt oder Boot einstellen",
+  "panel.door.title": "Diesen Törn vergleichen",
+  "panel.door.sub": "Andere Abfahrten oder andere Routen",
+  "panel.compare.back": "Plan",
+  "panel.compare.backAria": "Zurück zum Plan",
+  "panel.compare.title": "Diesen Törn vergleichen",
+  "panel.compare.slots.one": "{count} Zeitfenster",
+  "panel.compare.slots.other": "{count} Zeitfenster",
+  "panel.compare.tracks.one": "{count} Option",
+  "panel.compare.tracks.other": "{count} Optionen",
+  "panel.compare.axis.label": "Was variiert",
+  "panel.compare.axis.slots": "Abfahrten",
+  "panel.compare.axis.tracks": "Routen",
+  "panel.compare.sort.label": "Sortieren",
+  "panel.compare.sort.departure": "Abfahrt",
+  "panel.compare.sort.order": "Reihenfolge",
+  "panel.compare.sort.duration": "Dauer",
+  "panel.compare.sort.sea": "See",
+  "panel.compare.row.fromPlan": "aktuell",
+  "panel.compare.row.open": "Dieses Zeitfenster im Plan öffnen",
+  "panel.compare.row.alerts.one": "{count} Warnung",
+  "panel.compare.row.alerts.other": "{count} Warnungen",
+  "panel.compare.row.wind": "Wind {range} kn",
+  "panel.compare.row.sea": "See {range} m",
+  "panel.compare.row.motor": "Motor {pct} %",
+  "panel.compare.sailUpwind": "Am Wind",
+  "panel.compare.sailBeamReach": "Halber Wind",
+  "panel.compare.sailBroadReach": "Raumschots",
+  "panel.compare.sailDownwind": "Vor dem Wind",
+  "panel.compare.stale": "Route geändert. Neu berechnen, um die Zeitfenster des neuen Törns zu vergleichen.",
+  "panel.compare.empty": "Noch kein Zeitfenster zum Vergleichen. Stellen Sie das Fenster ein und übernehmen Sie es.",
+  "panel.compare.foot.slots": "Tippen Sie auf eine Zeile, um dieses Zeitfenster im Plan zu öffnen",
+  "panel.compare.foot.tracks": "Tippen Sie auf eine Zeile, um diese Route im Plan zu öffnen",
+  "panel.compare.frozen.track": "Route fest",
+  "panel.compare.frozen.departure": "Abfahrt fest",
+  "panel.compare.frozen.edit": "Ändern",
+  "panel.compare.tracksEmpty": "Noch keine Variante. Zeichnen Sie eine, um sie mit der Route des Plans zu vergleichen.",
+  "panel.compare.tracksDraw": "Variante zeichnen",
+  "panel.window.label": "Fenster",
+  "panel.window.next": "Die nächsten {span}",
+  "panel.window.set": "Einstellen",
+  "panel.window.title": "Abfahrtsfenster",
+  "panel.window.from": "Von",
+  "panel.window.to": "Bis",
+  "panel.window.fromHint": "Abfahrt des Plans",
+  "panel.window.lead": "Die nächsten",
+  "panel.window.spanHours": "{count} h",
+  "panel.window.spanDays": "{count} T.",
+  "panel.window.step": "<b>{slots}</b> getestet, eines alle <b>{step}</b>",
+  "panel.window.change": "Ändern",
+  "panel.window.cost": "Bei einem Schritt von 1 h dauert die Berechnung von {count} Zeitfenstern etwa dreißig Sekunden.",
+  "panel.window.note": "Sofortige Neuberechnung",
+  "panel.window.apply": "Übernehmen",
+  "panel.window.fromAria": "Beginn des Abfahrtsfensters",
+  "panel.window.toAria": "Ende des Abfahrtsfensters",
+  "panel.return.slots": "Vergleich · {slots}",
+  "panel.return.tracks": "Vergleich · {tracks}",
+  "panel.return.back": "Zurück zum Vergleich",
+  "panel.return.keep": "Behalten",
 };

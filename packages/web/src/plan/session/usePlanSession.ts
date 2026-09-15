@@ -50,7 +50,8 @@ import {
 } from "../../config/polarConfig";
 import { toTzAware } from "../../domain/datetime";
 import type { PassageWindow } from "../types";
-import type { PlanMode, TimeAnchor } from "../ModeToggle";
+import type { TimeAnchor } from "../ModeToggle";
+import { defaultSweep, type CompareAxis, type SweepParams } from "../compare/slots";
 import {
   createInitialState,
   planReducer,
@@ -114,10 +115,20 @@ export interface PlanActions {
   selectPerso: () => void;
   setDeparture: (value: string) => void;
   setTimeAnchor: (anchor: TimeAnchor) => void;
-  setMode: (mode: PlanMode) => void;
-  setSweepEarliest: (value: string) => void;
-  setSweepLatest: (value: string) => void;
-  setSweepInterval: (hours: number) => void;
+  /** Mobile: leave the compact step for the form, without computing. */
+  openForm: () => void;
+  /** The door in the plan. On the departure axis, a comparison that has no
+      fresh windows to show is seeded on the plan's departure and computed
+      at once, so opening it is an answer rather than a form. */
+  openCompare: (axis?: CompareAxis) => void;
+  /** « ‹ Plan »: back to the plan, the windows kept for the next time. */
+  closeCompare: () => void;
+  setCompareAxis: (axis: CompareAxis) => void;
+  /** « Garder » on the return banner. */
+  keepPlan: () => void;
+  /** « Appliquer » in the window settings: the sweep is set and recomputed
+      in one go, so the list never shows a window it was not computed for. */
+  applySweep: (sweep: SweepParams) => void;
   selectLeg: (index: number | null) => void;
   /** Open one step of the expanded leg in the card, null for its average. */
   selectStep: (index: number | null) => void;
@@ -268,9 +279,13 @@ export function usePlanSession(initial: InitialSession): PlanSession {
     [startRequest, onFailure],
   );
 
-  const runSweep = useCallback(() => {
-    const { waypoints, archetype, sweepEarliest, sweepLatest, sweepIntervalHours } =
-      stateRef.current;
+  // `sweep` overrides what the state holds: a caller that has just dispatched
+  // new bounds cannot read them back from `stateRef` in the same tick.
+  const runSweep = useCallback((sweep?: SweepParams) => {
+    const { waypoints, archetype } = stateRef.current;
+    const sweepEarliest = sweep?.earliest ?? stateRef.current.sweepEarliest;
+    const sweepLatest = sweep?.latest ?? stateRef.current.sweepLatest;
+    const sweepIntervalHours = sweep?.intervalHours ?? stateRef.current.sweepIntervalHours;
     const { requestId, signal } = startRequest("sweep");
     const earliestIso = toTzAware(sweepEarliest);
     const latestIso = toTzAware(sweepLatest);
@@ -383,10 +398,34 @@ export function usePlanSession(initial: InitialSession): PlanSession {
       },
       setDeparture: (value) => dispatch({ type: "DEPARTURE_CHANGED", departure: value }),
       setTimeAnchor: (anchor) => dispatch({ type: "TIME_ANCHOR_CHANGED", timeAnchor: anchor }),
-      setMode: (mode) => dispatch({ type: "MODE_CHANGED", mode }),
-      setSweepEarliest: (value) => dispatch({ type: "SWEEP_CHANGED", earliest: value }),
-      setSweepLatest: (value) => dispatch({ type: "SWEEP_CHANGED", latest: value }),
-      setSweepInterval: (hours) => dispatch({ type: "SWEEP_CHANGED", intervalHours: hours }),
+      openForm: () => dispatch({ type: "FORM_OPENED" }),
+      openCompare: (axis = "slots") => {
+        const s = stateRef.current;
+        // Windows still describing this route are shown as they are; a
+        // comparison that has none, or whose route moved, starts over from
+        // the plan's departure.
+        const fresh = s.windows !== null && s.windows.length > 0 && !s.isStale;
+        const sweep = axis === "slots" && !fresh ? defaultSweep(s.departure, Date.now()) : undefined;
+        dispatch({ type: "COMPARE_OPENED", axis, sweep });
+        if (sweep && s.waypoints.length >= 2) {
+          retryAttemptRef.current = 0;
+          runSweep(sweep);
+        }
+      },
+      closeCompare: () => dispatch({ type: "COMPARE_CLOSED" }),
+      setCompareAxis: (axis) => dispatch({ type: "COMPARE_AXIS_CHANGED", axis }),
+      keepPlan: () => dispatch({ type: "PLAN_KEPT" }),
+      applySweep: (sweep) => {
+        dispatch({
+          type: "SWEEP_CHANGED",
+          earliest: sweep.earliest,
+          latest: sweep.latest,
+          intervalHours: sweep.intervalHours,
+        });
+        if (stateRef.current.waypoints.length < 2) return;
+        retryAttemptRef.current = 0;
+        runSweep(sweep);
+      },
       selectLeg: (index) => dispatch({ type: "LEG_SELECTED", index }),
       selectStep: (index) => dispatch({ type: "STEP_SELECTED", index }),
       compute: () => {

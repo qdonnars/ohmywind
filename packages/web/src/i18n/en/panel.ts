@@ -6,7 +6,6 @@ import type { panel as frPanel } from "../fr/panel";
 export const panel: Record<keyof typeof frPanel, string> = {
   // ── PlanForm ───────────────────────────────────────────────────────────────
   "panel.form.calculate": "Calculate the passage",
-  "panel.form.compareWindows": "Compare the windows",
   "panel.form.waypointsNeeded": "{count}/2 waypoints",
 
   // ── PlanHeaderRow ──────────────────────────────────────────────────────────
@@ -43,46 +42,11 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.departure.plusOneWeek": "+1 wk",
   "panel.departure.plusTwoWeeks": "+2 wks",
 
-  // ── DepartureRangeSlider ───────────────────────────────────────────────────
-  "panel.range.title": "Departure window",
-  "panel.range.spanDays": "{value} d",
-  "panel.range.spanHours": "{value} h",
-  "panel.range.ariaEarliest": "Earliest departure",
-  "panel.range.ariaLatest": "Latest departure",
-
-  // ── SweepForm ──────────────────────────────────────────────────────────────
-  "panel.sweep.samplingStep": "Sampling step",
-  "panel.sweep.everyHour": "Every hour",
-  "panel.sweep.everyNHours": "Every {hours}h",
-
   // ── SingleResults ──────────────────────────────────────────────────────────
   "panel.results.recapDeparture": "Departure: {day} · {time}",
   "panel.results.recapArrival": "Arrival: {day} · {time}",
   "panel.results.stale": "Route changed. Click Recalculate to update the details.",
   "panel.results.forecastUpdated": "Forecast updated at {time} · Open-Meteo.com (CC BY 4.0)",
-
-  // ── CompareResults ─────────────────────────────────────────────────────────
-  "panel.compare.recapStep": "{interval}h step · {boat}",
-  "panel.compare.stale":
-    "Route changed. Click Recalculate to compare the windows of the new route.",
-  "panel.compare.windowsCompared.one":
-    "{count} window compared · click a row to open the detailed simulation",
-  "panel.compare.windowsCompared.other":
-    "{count} windows compared · click a row to open the detailed simulation",
-
-  // ── WindowsTable ───────────────────────────────────────────────────────────
-  "panel.windows.colDeparture": "Departure",
-  "panel.windows.colDuration": "Duration",
-  "panel.windows.colEta": "ETA",
-  "panel.windows.colPointOfSail": "Point of sail",
-  "panel.windows.colWind": "Wind (kn)",
-  "panel.windows.colSea": "Sea",
-  "panel.windows.rowTitle": "View this window in detail",
-  "panel.windows.complexityTitle": "{label}: {rationale}",
-  "panel.windows.sailUpwind": "Upwind",
-  "panel.windows.sailBeamReach": "Beam reach",
-  "panel.windows.sailBroadReach": "Broad reach",
-  "panel.windows.sailDownwind": "Downwind",
 
   // ── LegList / aggregateLegs ────────────────────────────────────────────────
   "panel.legs.colLeg": "Leg",
@@ -129,4 +93,71 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.legDetail.noteMotorOnStep": "under engine on this step",
   "panel.legDetail.noteAverage.one": "average of {count} step",
   "panel.legDetail.noteAverage.other": "average of {count} steps",
+
+  // ── RouteBar, ReadyStep, CompareDoor, CompareScreen, WindowPanel, ReturnBanner ──
+  "panel.route.title": "Your route",
+  "panel.route.points.one": "{count} point placed",
+  "panel.route.points.other": "{count} points placed",
+  "panel.route.summary": "{points} points · {legs} · {nm} nm",
+  "panel.route.legs.one": "{count} leg",
+  "panel.route.legs.other": "{count} legs",
+  "panel.ready.adjust": "Set the departure or the boat",
+  "panel.door.title": "Compare this trip",
+  "panel.door.sub": "Other departures or other tracks",
+  "panel.compare.back": "Plan",
+  "panel.compare.backAria": "Back to the plan",
+  "panel.compare.title": "Compare this trip",
+  "panel.compare.slots.one": "{count} slot",
+  "panel.compare.slots.other": "{count} slots",
+  "panel.compare.tracks.one": "{count} option",
+  "panel.compare.tracks.other": "{count} options",
+  "panel.compare.axis.label": "What varies",
+  "panel.compare.axis.slots": "Departures",
+  "panel.compare.axis.tracks": "Tracks",
+  "panel.compare.sort.label": "Sort",
+  "panel.compare.sort.departure": "Departure",
+  "panel.compare.sort.order": "Order",
+  "panel.compare.sort.duration": "Duration",
+  "panel.compare.sort.sea": "Sea",
+  "panel.compare.row.fromPlan": "current",
+  "panel.compare.row.open": "Open this slot in the plan",
+  "panel.compare.row.alerts.one": "{count} alert",
+  "panel.compare.row.alerts.other": "{count} alerts",
+  "panel.compare.row.wind": "wind {range} kn",
+  "panel.compare.row.sea": "sea {range} m",
+  "panel.compare.row.motor": "engine {pct} %",
+  "panel.compare.sailUpwind": "Upwind",
+  "panel.compare.sailBeamReach": "Beam reach",
+  "panel.compare.sailBroadReach": "Broad reach",
+  "panel.compare.sailDownwind": "Downwind",
+  "panel.compare.stale": "Route edited. Recalculate to compare the slots of the new trip.",
+  "panel.compare.empty": "No slot to compare yet. Set the window, then apply.",
+  "panel.compare.foot.slots": "Tap a row to open that slot in the plan",
+  "panel.compare.foot.tracks": "Tap a row to open that track in the plan",
+  "panel.compare.frozen.track": "Track frozen",
+  "panel.compare.frozen.departure": "Departure frozen",
+  "panel.compare.frozen.edit": "Edit",
+  "panel.compare.tracksEmpty": "No variant yet. Draw one to compare it with the plan's track.",
+  "panel.compare.tracksDraw": "Draw a variant",
+  "panel.window.label": "Window",
+  "panel.window.next": "The next {span}",
+  "panel.window.set": "Set",
+  "panel.window.title": "Departure window",
+  "panel.window.from": "From",
+  "panel.window.to": "To",
+  "panel.window.fromHint": "the plan's departure",
+  "panel.window.lead": "The next",
+  "panel.window.spanHours": "{count} h",
+  "panel.window.spanDays": "{count} d",
+  "panel.window.step": "<b>{slots}</b> tested, one every <b>{step}</b>",
+  "panel.window.change": "Change",
+  "panel.window.cost": "At a 1 h step, computing {count} slots takes about thirty seconds.",
+  "panel.window.note": "Recomputed at once",
+  "panel.window.apply": "Apply",
+  "panel.window.fromAria": "Start of the departure window",
+  "panel.window.toAria": "End of the departure window",
+  "panel.return.slots": "Comparison · {slots}",
+  "panel.return.tracks": "Comparison · {tracks}",
+  "panel.return.back": "Back to the comparison",
+  "panel.return.keep": "Keep",
 };

@@ -5,62 +5,50 @@ import { TimeAnchorToggle } from "../ModeToggle";
 import { usePlan } from "../session/planContext";
 import { PlanHeaderRow } from "./PlanHeaderRow";
 import { DepartureSlider } from "./DepartureSlider";
-import { SweepForm } from "./SweepForm";
 import { ArchetypeSelector } from "./ArchetypeSelector";
 import { RefreshIcon } from "./parts";
 import { useT } from "../../i18n";
 
-/** The inputs of the picked mode, before it has a result to show. */
+/** The inputs of the plan, before it has a result to show: when to leave
+    (or when to arrive), on which boat. */
 export function PlanForm({ canCalculate }: { canCalculate: boolean }) {
   const { t } = useT();
-  const { state, actions, compute, computeWindows } = usePlan();
-  const { mode, timeAnchor, waypoints } = state;
-  const accent = mode === "compare" ? "var(--ow-compare)" : "var(--ow-accent)";
-  const ctaInk = mode === "compare" ? "var(--ow-on-compare)" : "var(--ow-on-accent)";
+  const { state, actions, compute } = usePlan();
+  const { timeAnchor, waypoints } = state;
 
   return (
     <div className="p-4 space-y-3 animate-fade-in">
       <PlanHeaderRow />
 
-      {/* Tab-panel: everything below is "the contents" of the picked mode.
-          The 2 px accent stripe at the top picks up the mode's color
-          (cyan for Simuler, amber for Comparer) so the panel reads as the
-          payload of the active pill above. */}
       <div
         className="rounded-xl p-4 space-y-3"
         style={{
           background: "var(--ow-bg-1)",
           border: "1px solid var(--ow-line)",
-          borderTop: `2px solid ${accent}`,
+          borderTop: "2px solid var(--ow-accent)",
         }}
       >
-        {mode === "single" ? (
-          <div className="space-y-3">
-            <TimeAnchorToggle value={timeAnchor} onChange={actions.setTimeAnchor} />
-            <DepartureSlider />
-          </div>
-        ) : (
-          <SweepForm />
-        )}
+        <div className="space-y-3">
+          <TimeAnchorToggle value={timeAnchor} onChange={actions.setTimeAnchor} />
+          <DepartureSlider />
+        </div>
 
         <ArchetypeSelector />
 
         <button
-          onClick={mode === "single" ? compute : computeWindows}
+          onClick={compute}
           disabled={!canCalculate}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all"
           style={{
-            background: canCalculate ? accent : "var(--ow-bg-2)",
-            color: canCalculate ? ctaInk : "var(--ow-fg-3)",
+            background: canCalculate ? "var(--ow-accent)" : "var(--ow-bg-2)",
+            color: canCalculate ? "var(--ow-on-accent)" : "var(--ow-fg-3)",
             border: `1px solid ${canCalculate ? "transparent" : "var(--ow-line-2)"}`,
             cursor: canCalculate ? "pointer" : "not-allowed",
           }}
         >
           <RefreshIcon size={14} />
           {canCalculate
-            ? mode === "single"
-              ? t("panel.form.calculate")
-              : t("panel.form.compareWindows")
+            ? t("panel.form.calculate")
             : t("panel.form.waypointsNeeded", { count: waypoints.length })}
         </button>
       </div>

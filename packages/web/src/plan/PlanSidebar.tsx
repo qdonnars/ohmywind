@@ -2,32 +2,34 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 /**
- * The planner panel: which of its five views is on screen, and nothing else.
+ * The planner panel: which of its views is on screen, and nothing else.
  *
  * This file used to be 1253 lines and take 33 props, with nine sub-components
  * inlined (annexe B, C2). Each of them now lives in its own file under
- * `sidebar/` and reads the session from `PlanContext`, so what is left here is
- * the branch itself.
+ * `sidebar/` or `compare/` and reads the session from `PlanContext`, so what
+ * is left here is the branch itself.
  *
  * Its order is load-bearing: every view assumes the ones above it did not
  * match.
  *
  * 1. computing: a skeleton, so the panel never shows half a plan;
- * 2. failed: the error, with the mode pills still reachable;
+ * 2. failed: the error, with the way back still reachable;
  * 3. no route yet: the empty state;
- * 4. a route but no mode picked: the compact pick-a-mode step;
- * 5. the picked mode, filled when it has a result, as a form otherwise.
+ * 4. a route but nothing asked yet: on a phone the compact step, on desktop
+ *    the form;
+ * 5. the comparison, when it is open over the plan;
+ * 6. the plan, filled when it has a result, as a form otherwise.
  */
 
-import { validateSweep, type SweepValidation } from "./validateSweep";
-import { EmptyState, ModePicker } from "./PlanStates";
+import { EmptyState } from "./PlanStates";
 import { usePolarConfig } from "../config/usePolarConfig";
 import { usePlan } from "./session/planContext";
 import { PlanHeaderRow } from "./sidebar/PlanHeaderRow";
 import { PlanForm } from "./sidebar/PlanForm";
-import { CompareResults } from "./sidebar/CompareResults";
+import { ReadyStep } from "./sidebar/ReadyStep";
 import { SingleResults } from "./sidebar/SingleResults";
 import { boatLabel } from "./sidebar/boatLabel";
+import { CompareHead, CompareScreen } from "./compare/CompareScreen";
 import { useT } from "../i18n";
 import { useEffect, useState } from "react";
 
@@ -48,28 +50,22 @@ function LoadingSkeleton() {
 
 export function PlanSidebar() {
   const { t } = useT();
-  const { state, actions, archetypes, isLoading } = usePlan();
+  const { state, archetypes, isLoading, compute, computeWindows } = usePlan();
   const {
     passage,
     complexity,
-    windows,
     apiError,
     retry,
     mode,
-    sweepEarliest,
-    sweepLatest,
-    sweepIntervalHours,
     actionTaken,
     waypoints,
     archetype,
   } = state;
   const polarConfig = usePolarConfig();
-
-  const sweepValid: SweepValidation =
-    mode === "compare"
-      ? validateSweep(sweepEarliest, sweepLatest, sweepIntervalHours)
-      : { ok: true };
-  const canCalculate = waypoints.length >= 2 && (mode === "single" || sweepValid.ok);
+  const canCalculate = waypoints.length >= 2;
+  // In the comparison, the head with its way back to the plan stands where
+  // the route line stands in the plan.
+  const head = mode === "compare" ? <CompareHead /> : <PlanHeaderRow locked={!canCalculate} />;
 
   // 1. computing
   if (isLoading) return <LoadingSkeleton />;
@@ -78,10 +74,10 @@ export function PlanSidebar() {
   if (retry) {
     return (
       <div className="p-4">
-        <PlanHeaderRow locked={waypoints.length < 2} />
+        {head}
         <WakingNotice
           retry={retry}
-          onRetryNow={mode === "compare" ? actions.computeWindows : actions.compute}
+          onRetryNow={mode === "compare" ? computeWindows : compute}
         />
       </div>
     );
@@ -91,7 +87,7 @@ export function PlanSidebar() {
   if (apiError) {
     return (
       <div className="p-4">
-        <PlanHeaderRow locked={waypoints.length < 2} />
+        {head}
         <div className="mt-4 rounded-xl p-4 text-sm" style={{ background: "var(--ow-err-soft)", color: "var(--ow-err)", border: "1px solid var(--ow-err-line)" }}>
           <p className="font-semibold mb-1">{t("plan.states.error.title")}</p>
           <p className="leading-relaxed">{apiError}</p>
@@ -110,30 +106,28 @@ export function PlanSidebar() {
     );
   }
 
-  // 4. a route, no mode picked.
-  // Mobile: pills and trash only, vertical real estate is precious and the
-  // drawer only animates up enough for the toggle. Desktop adds the larger
-  // narrative cards, which reassure first-time users with example phrasings.
-  // Either way, clicking a pill or a card unlocks the full panel.
+  // 4. a route, nothing asked yet. On a phone the drawer only opens enough
+  // for the compact step, so the map stays the focus while the route is
+  // still being traced; desktop has room for the form itself.
   if (!actionTaken) {
     return (
-      <div className="p-4 space-y-4 animate-fade-in">
-        <PlanHeaderRow pristine />
-        <div className="hidden lg:block">
-          <ModePicker onPick={actions.setMode} />
+      <>
+        <div className="lg:hidden">
+          <ReadyStep canCalculate={canCalculate} />
         </div>
-      </div>
+        <div className="hidden lg:block">
+          <PlanForm canCalculate={canCalculate} />
+        </div>
+      </>
     );
   }
 
-  // 5. the picked mode.
+  // 5. the comparison, open over the plan
+  if (mode === "compare") return <CompareScreen />;
+
+  // 6. the plan
+  if (!passage || !complexity) return <PlanForm canCalculate={canCalculate} />;
   const label = boatLabel(polarConfig, archetype, archetypes);
-  if (mode === "compare" && windows && windows.length > 0) {
-    return <CompareResults windows={windows} boatLabel={label} canCalculate={canCalculate} />;
-  }
-  if (mode === "compare" || !passage || !complexity) {
-    return <PlanForm canCalculate={canCalculate} />;
-  }
   return <SingleResults passage={passage} complexity={complexity} boatLabel={label} />;
 }
 

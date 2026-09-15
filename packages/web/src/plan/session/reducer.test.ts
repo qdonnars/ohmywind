@@ -101,6 +101,16 @@ function run(state: PlanState, ...actions: PlanAction[]): PlanState {
   return actions.reduce(planReducer, state);
 }
 
+const succeedSweep = (requestId: number): PlanAction => ({
+  type: "FETCH_SUCCEEDED",
+  requestId,
+  kind: "sweep",
+  configFingerprint: "arome|cruiser_30ft",
+  windows: [aWindow()],
+  metaWarnings: [],
+  forecastUpdatedAt: "2026-09-09T06:00:00Z",
+});
+
 const succeedSingle = (requestId: number, over: Partial<PassageReport> = {}): PlanAction => ({
   type: "FETCH_SUCCEEDED",
   requestId,
@@ -141,13 +151,16 @@ describe("route edits", () => {
     expect(s.selectedLegIdx).toBeNull();
   });
 
-  it("rewinds the mobile pick-a-mode step under two waypoints, and does not restore it on its own", () => {
+  it("rewinds the mobile compact step under two waypoints, and does not restore it on its own", () => {
     let s = run(start(), { type: "WAYPOINT_DELETED", index: 1 });
     expect(s.actionTaken).toBe(false);
     s = planReducer(s, { type: "WAYPOINT_APPENDED", lat: 42.9, lon: 6.4 });
     expect(s.actionTaken).toBe(false);
-    s = planReducer(s, { type: "MODE_CHANGED", mode: "single" });
-    expect(s.actionTaken).toBe(true);
+    // Opening the form, asking for a computation or opening the comparison
+    // all leave the compact step.
+    expect(planReducer(s, { type: "FORM_OPENED" }).actionTaken).toBe(true);
+    expect(planReducer(s, { type: "FETCH_STARTED", requestId: 1, kind: "single" }).actionTaken).toBe(true);
+    expect(planReducer(s, { type: "COMPARE_OPENED", axis: "slots" }).actionTaken).toBe(true);
   });
 
   it("keeps the open leg through a departure change", () => {
@@ -210,26 +223,65 @@ describe("step of the open leg", () => {
   });
 });
 
-describe("mode and sweep", () => {
-  it("keeps the opposite mode's results in memory", () => {
+describe("the comparison over the plan", () => {
+  it("keeps the plan's results in memory while the comparison is open", () => {
     const withResults = run(
       start(),
       { type: "FETCH_STARTED", requestId: 1, kind: "single" },
       succeedSingle(1),
-      { type: "MODE_CHANGED", mode: "compare" },
+      { type: "COMPARE_OPENED", axis: "slots" },
     );
     expect(withResults.mode).toBe("compare");
+    expect(withResults.compareAxis).toBe("slots");
     expect(withResults.passage).not.toBeNull();
+    // And the windows under the plan once it closes.
+    const closed = run(
+      withResults,
+      { type: "FETCH_STARTED", requestId: 2, kind: "sweep" },
+      succeedSweep(2),
+      { type: "COMPARE_CLOSED" },
+    );
+    expect(closed.mode).toBe("single");
+    expect(closed.windows).toHaveLength(1);
   });
 
-  it("clears the error when the user switches mode", () => {
-    const s = run(
+  it("seeds the window the shell hands it, and only then", () => {
+    const seeded = planReducer(start(), {
+      type: "COMPARE_OPENED",
+      axis: "slots",
+      sweep: { earliest: "2026-09-10T08:00", latest: "2026-09-12T08:00", intervalHours: 3 },
+    });
+    expect(seeded.sweepLatest).toBe("2026-09-12T08:00");
+    const kept = planReducer(
+      { ...seeded, sweepLatest: "2026-09-13T08:00" },
+      { type: "COMPARE_OPENED", axis: "tracks" },
+    );
+    expect(kept.sweepLatest).toBe("2026-09-13T08:00");
+    expect(kept.compareAxis).toBe("tracks");
+  });
+
+  it("clears the error when the comparison opens, closes or changes axis", () => {
+    const failed = run(
       start(),
       { type: "FETCH_STARTED", requestId: 1, kind: "single" },
       { type: "FETCH_FAILED", requestId: 1, error: "boom" },
-      { type: "MODE_CHANGED", mode: "compare" },
     );
-    expect(s.apiError).toBeNull();
+    expect(run(failed, { type: "COMPARE_OPENED", axis: "slots" }).apiError).toBeNull();
+    expect(run(failed, { type: "COMPARE_OPENED", axis: "slots" }, { type: "COMPARE_AXIS_CHANGED", axis: "tracks" }).compareAxis).toBe("tracks");
+  });
+
+  it("keeps a way back to the comparison a slot was opened from, until the plan is kept or the route edited", () => {
+    const opened = run(
+      start({ mode: "compare" }),
+      { type: "WINDOW_SELECTED", window: aWindow({ passage: passage(), complexity_full: complexity() }), departure: "2026-09-11T06:00", configFingerprint: "x" },
+    );
+    expect(opened.mode).toBe("single");
+    expect(opened.returnTo).toBe("slots");
+    expect(run(opened, { type: "PLAN_KEPT" }).returnTo).toBeNull();
+    expect(run(opened, { type: "WAYPOINT_APPENDED", lat: 42.9, lon: 6.4 }).returnTo).toBeNull();
+    expect(run(opened, { type: "COMPARE_OPENED", axis: "slots" }).returnTo).toBeNull();
+    // A departure change is not a route change: the windows still apply.
+    expect(run(opened, { type: "DEPARTURE_CHANGED", departure: "2026-09-11T09:00" }).returnTo).toBe("slots");
   });
 
   it("does not invalidate anything when the sweep range moves", () => {
@@ -409,11 +461,11 @@ describe("the race (annexe B, C1)", () => {
     expect(s.pending).toBeNull();
   });
 
-  it("keeps a reply whose plan only saw a mode switch or a sweep tweak", () => {
+  it("keeps a reply whose plan only saw the comparison open or a sweep tweak", () => {
     const s = run(
       start(),
       { type: "FETCH_STARTED", requestId: 1, kind: "single" },
-      { type: "MODE_CHANGED", mode: "compare" },
+      { type: "COMPARE_OPENED", axis: "slots" },
       { type: "SWEEP_CHANGED", latest: "2026-09-14T08:00" },
       succeedSingle(1),
     );
@@ -528,7 +580,7 @@ describe("persist commands", () => {
       start(),
       { type: "WAYPOINT_APPENDED", lat: 42.9, lon: 6.4 },
       { type: "DEPARTURE_CHANGED", departure: "2026-09-11T08:00" },
-      { type: "MODE_CHANGED", mode: "compare" },
+      { type: "COMPARE_OPENED", axis: "slots" },
     );
     expect(s.persist).toBeNull();
   });
@@ -550,10 +602,10 @@ describe("cold-start retry", () => {
     expect(s.pending?.id).toBe(2);
   });
 
-  it("clears the wait when a request starts, fails or the mode changes", () => {
+  it("clears the wait when a request starts, fails or the comparison opens", () => {
     const waiting = run(start(), { type: "FETCH_STARTED", requestId: 1, kind: "single" }, scheduled);
     expect(run(waiting, { type: "FETCH_STARTED", requestId: 2, kind: "single" }).retry).toBeNull();
-    expect(run(waiting, { type: "MODE_CHANGED", mode: "compare" }).retry).toBeNull();
+    expect(run(waiting, { type: "COMPARE_OPENED", axis: "slots" }).retry).toBeNull();
     const failed = run(
       waiting,
       { type: "FETCH_STARTED", requestId: 2, kind: "single" },

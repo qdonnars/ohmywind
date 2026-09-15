@@ -30,15 +30,7 @@ export const plan = {
   // ── Etats du panneau ──────────────────────────────────────────────────────
   "plan.states.empty.title": "Tracez votre trajet",
   "plan.states.empty.body":
-    "Cliquez sur la carte pour placer un départ et une arrivée. Vous pourrez ensuite simuler le temps du trajet ou comparer plusieurs créneaux de départ.",
-  "plan.states.picker.title": "Que voulez-vous faire ?",
-  "plan.states.picker.single.body":
-    "Vous savez quand partir. OhMyWind calcule le temps du trajet, l'ETA et les conditions sur chaque segment.",
-  "plan.states.picker.single.example": "Ex. : « Si je pars samedi 17:00, j'arrive quand ? »",
-  "plan.states.picker.compare.body":
-    "Vous savez où aller. OhMyWind teste plusieurs heures de départ et classe les créneaux par confort.",
-  "plan.states.picker.compare.example":
-    "Ex. : « Quel est le meilleur départ entre samedi et lundi ? »",
+    "Cliquez sur la carte pour placer un départ et une arrivée. Vous pourrez ensuite calculer le passage, puis comparer d'autres départs ou d'autres tracés.",
   "plan.states.error.title": "Erreur",
   "plan.states.waking.title": "Le serveur météo se réveille",
   "plan.states.waking.body":
@@ -47,11 +39,6 @@ export const plan = {
   "plan.recap.edit": "Modifier",
 
   // ── Selecteur de mode et ancrage horaire ──────────────────────────────────
-  "plan.mode.tablist": "Mode de planification",
-  "plan.mode.single.title": "Simuler ma route",
-  "plan.mode.single.sub": "Combien de temps pour ce trajet ?",
-  "plan.mode.compare.title": "Comparer les fenêtres",
-  "plan.mode.compare.sub": "Le meilleur créneau pour partir ?",
   "plan.timeAnchor.tablist": "Ancrage horaire",
   "plan.timeAnchor.departure.title": "Définir le départ",
   "plan.timeAnchor.departure.sub": "Comprendre le temps de trajet",

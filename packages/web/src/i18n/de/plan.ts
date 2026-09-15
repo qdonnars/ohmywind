@@ -26,16 +26,7 @@ export const plan: Record<keyof typeof frPlan, string> = {
   // ── Panel states ──────────────────────────────────────────────────────────
   "plan.states.empty.title": "Zeichnen Sie Ihre Route",
   "plan.states.empty.body":
-    "Klicken Sie auf die Karte, um Abfahrt und Ankunft zu setzen. Danach können Sie die Fahrtzeit simulieren oder mehrere Abfahrtsfenster vergleichen.",
-  "plan.states.picker.title": "Was möchten Sie tun?",
-  "plan.states.picker.single.body":
-    "Sie wissen, wann Sie ablegen. OhMyWind berechnet die Fahrtzeit, die ETA und die Bedingungen auf jedem Segment.",
-  "plan.states.picker.single.example":
-    "Z. B.: „Wenn ich Samstag um 17:00 ablege, wann komme ich an?“",
-  "plan.states.picker.compare.body":
-    "Sie wissen, wohin es geht. OhMyWind testet mehrere Abfahrtszeiten und ordnet die Fenster nach Komfort.",
-  "plan.states.picker.compare.example":
-    "Z. B.: „Welche ist die beste Abfahrt zwischen Samstag und Montag?“",
+    "Klicken Sie auf die Karte, um Abfahrt und Ankunft zu setzen. Danach können Sie den Törn berechnen und dann andere Abfahrten oder andere Routen vergleichen.",
   "plan.states.error.title": "Fehler",
   "plan.states.waking.title": "Der Wetterserver wacht auf",
   "plan.states.waking.body":
@@ -44,11 +35,6 @@ export const plan: Record<keyof typeof frPlan, string> = {
   "plan.recap.edit": "Ändern",
 
   // ── Mode picker and time anchor ───────────────────────────────────────────
-  "plan.mode.tablist": "Planungsmodus",
-  "plan.mode.single.title": "Meine Route simulieren",
-  "plan.mode.single.sub": "Wie lange dauert dieser Törn?",
-  "plan.mode.compare.title": "Fenster vergleichen",
-  "plan.mode.compare.sub": "Das beste Fenster zum Ablegen?",
   "plan.timeAnchor.tablist": "Zeitbezug",
   "plan.timeAnchor.departure.title": "Abfahrt festlegen",
   "plan.timeAnchor.departure.sub": "Die Fahrtzeit verstehen",

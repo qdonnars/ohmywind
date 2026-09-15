@@ -38,6 +38,7 @@
 
 import type { PassageReport, ComplexityScore, PassageWindow } from "../types";
 import type { PlanMode, TimeAnchor } from "../ModeToggle";
+import type { CompareAxis, SweepParams } from "../compare/slots";
 import { buildPlanUrl } from "../parseUrl";
 import type { InitialSession } from "./initial";
 import { toNaiveLocal } from "../../domain/datetime";
@@ -94,7 +95,14 @@ export interface PlanState {
   /** Naive local "YYYY-MM-DDTHH:MM". A target arrival in `arrival` anchor. */
   departure: string;
   timeAnchor: TimeAnchor;
+  /** "single" is the plan itself; "compare" is « Comparer ce trajet » open
+      over it, on `compareAxis`. Kept as a mode for the draft and the cache,
+      which have persisted it under this name since before the comparison
+      became a screen of the plan rather than a sibling of it. */
   mode: PlanMode;
+  /** Which of the two things a trip is made of varies: the departure (the
+      sweep, read as slots) or the track (variants drawn on the map). */
+  compareAxis: CompareAxis;
   sweepEarliest: string;
   sweepLatest: string;
   sweepIntervalHours: number;
@@ -113,8 +121,13 @@ export interface PlanState {
       drives the focus dot on the map. Follows the leg: any change of leg, of
       route or of result drops it. */
   selectedStepIdx: number | null;
-  /** Mobile: the user confirmed a mode, so the panel can open full height. */
+  /** Mobile: the user went past the compact step (asked for a computation,
+      opened the form or the comparison), so the panel can open full height. */
   actionTaken: boolean;
+  /** The comparison a slot or a track was opened from, while the reader looks
+      at it in the plan: the map keeps a way back to it. Null once the plan is
+      kept, the route edited, or the comparison reopened. */
+  returnTo: CompareAxis | null;
   /** Edits not yet computed. */
   isStale: boolean;
   apiError: string | null;
@@ -143,7 +156,16 @@ export type PlanAction =
   | { type: "ARCHETYPE_CHANGED"; archetype: string }
   | { type: "DEPARTURE_CHANGED"; departure: string }
   | { type: "TIME_ANCHOR_CHANGED"; timeAnchor: TimeAnchor }
-  | { type: "MODE_CHANGED"; mode: PlanMode }
+  /** The door in the plan, or the return from an option. `sweep` seeds the
+      window when the shell decided the comparison has nothing fresh to show:
+      the reducer cannot know the clock the horizon is counted from. */
+  | { type: "COMPARE_OPENED"; axis: CompareAxis; sweep?: SweepParams }
+  | { type: "COMPARE_CLOSED" }
+  | { type: "COMPARE_AXIS_CHANGED"; axis: CompareAxis }
+  /** « Garder » on the return banner: this option is the plan now. */
+  | { type: "PLAN_KEPT" }
+  /** Mobile: the compact step gives way to the form without computing. */
+  | { type: "FORM_OPENED" }
   | { type: "SWEEP_CHANGED"; earliest?: string; latest?: string; intervalHours?: number }
   | { type: "LEG_SELECTED"; index: number | null }
   | { type: "STEP_SELECTED"; index: number | null }
@@ -192,6 +214,7 @@ export function createInitialState(initial: InitialSession): PlanState {
     departure: initial.departure,
     timeAnchor: initial.timeAnchor,
     mode: initial.mode,
+    compareAxis: "slots",
     sweepEarliest: initial.sweepEarliest,
     sweepLatest: initial.sweepLatest,
     sweepIntervalHours: initial.sweepIntervalHours,
@@ -203,6 +226,7 @@ export function createInitialState(initial: InitialSession): PlanState {
     selectedLegIdx: null,
     selectedStepIdx: null,
     actionTaken: initial.actionTaken,
+    returnTo: null,
     isStale: initial.isStale,
     apiError: null, retry: null,
     pending: null,
@@ -227,10 +251,12 @@ function routeEdited(state: PlanState, waypoints: [number, number][]): PlanState
     waypoints,
     selectedLegIdx: null,
     selectedStepIdx: null,
+    // The comparison behind the plan was about the route as it was: nothing
+    // to go back to once it moved.
+    returnTo: null,
     // Dropping back under two waypoints rewinds the mobile panel to its
-    // compact "pick a mode" step, so reaching two again offers the choice
-    // again. Going back up does not restore it on its own: only a pill click
-    // does.
+    // compact step, so reaching two again offers the choice again. Going
+    // back up does not restore it on its own: only a tap in the panel does.
     actionTaken: waypoints.length < 2 ? false : state.actionTaken,
   });
 }
@@ -286,18 +312,41 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
       if (action.timeAnchor === state.timeAnchor) return state;
       return edited(state, { timeAnchor: action.timeAnchor });
 
-    case "MODE_CHANGED": {
-      // Any pill click confirms the user's intent, even a click on the mode
-      // already active: that is what unlocks the compact view on mobile.
-      if (action.mode === state.mode) {
-        return state.actionTaken ? state : { ...state, actionTaken: true };
-      }
-      const confirmed = { ...state, actionTaken: true };
-      // Opposite-mode results are deliberately kept in memory so the user can
-      // toggle back and forth without recomputing. The render branches gate on
-      // `mode`, so nothing stale leaks visually.
-      return { ...confirmed, mode: action.mode, apiError: null, retry: null };
-    }
+    case "COMPARE_OPENED":
+      // The plan's results stay in memory under the comparison, and the
+      // windows stay under the plan when it closes: the render branches gate
+      // on `mode`, so nothing stale leaks visually, and toggling back and
+      // forth costs no computation.
+      return {
+        ...state,
+        mode: "compare",
+        compareAxis: action.axis,
+        actionTaken: true,
+        returnTo: null,
+        apiError: null,
+        retry: null,
+        ...(action.sweep
+          ? {
+              sweepEarliest: action.sweep.earliest,
+              sweepLatest: action.sweep.latest,
+              sweepIntervalHours: action.sweep.intervalHours,
+            }
+          : {}),
+      };
+
+    case "COMPARE_CLOSED":
+      if (state.mode === "single") return state;
+      return { ...state, mode: "single", returnTo: null, apiError: null, retry: null };
+
+    case "COMPARE_AXIS_CHANGED":
+      if (action.axis === state.compareAxis) return state;
+      return { ...state, compareAxis: action.axis, apiError: null, retry: null };
+
+    case "PLAN_KEPT":
+      return state.returnTo === null ? state : { ...state, returnTo: null };
+
+    case "FORM_OPENED":
+      return state.actionTaken ? state : { ...state, actionTaken: true };
 
     case "SWEEP_CHANGED":
       // Moving the sweep range does not invalidate anything: no `editSeq`
@@ -321,6 +370,9 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
     case "FETCH_STARTED":
       return {
         ...state,
+        // Asking for a computation is the one gesture the compact step of
+        // the mobile panel waits for.
+        actionTaken: true,
         apiError: null, retry: null,
         pending: { id: action.requestId, kind: action.kind, editSeq: state.editSeq },
       };
@@ -425,6 +477,9 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
         ...state,
         mode: "single",
         departure: action.departure,
+        // The comparison stays open behind the plan: the map offers the way
+        // back to it until this slot is kept or the route edited.
+        returnTo: "slots",
         metaWarnings: [],
         apiError: null, retry: null,
       };
@@ -474,6 +529,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
           departure: action.departure,
           timeAnchor: "departure",
           mode: "single",
+          compareAxis: "slots",
           sweepEarliest: action.departure,
           sweepLatest: action.sweepLatest,
           sweepIntervalHours: 3,
@@ -485,6 +541,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
           selectedLegIdx: null,
           selectedStepIdx: null,
           actionTaken: false,
+          returnTo: null,
           isStale: false,
           apiError: null, retry: null,
           // Anything in flight stops counting: its reply will be dropped by

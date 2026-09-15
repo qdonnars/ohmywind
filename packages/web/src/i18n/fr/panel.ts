@@ -6,7 +6,6 @@
 export const panel = {
   // ── PlanForm ───────────────────────────────────────────────────────────────
   "panel.form.calculate": "Calculer le passage",
-  "panel.form.compareWindows": "Comparer les créneaux",
   "panel.form.waypointsNeeded": "{count}/2 waypoints",
 
   // ── PlanHeaderRow ──────────────────────────────────────────────────────────
@@ -43,47 +42,12 @@ export const panel = {
   "panel.departure.plusOneWeek": "+1 sem.",
   "panel.departure.plusTwoWeeks": "+2 sem.",
 
-  // ── DepartureRangeSlider ───────────────────────────────────────────────────
-  "panel.range.title": "Fenêtre de départ",
-  "panel.range.spanDays": "{value} j",
-  "panel.range.spanHours": "{value} h",
-  "panel.range.ariaEarliest": "Départ au plus tôt",
-  "panel.range.ariaLatest": "Départ au plus tard",
-
-  // ── SweepForm ──────────────────────────────────────────────────────────────
-  "panel.sweep.samplingStep": "Pas d'échantillonnage",
-  "panel.sweep.everyHour": "Toutes les heures",
-  "panel.sweep.everyNHours": "Toutes les {hours}h",
-
   // ── SingleResults ──────────────────────────────────────────────────────────
   "panel.results.recapDeparture": "Départ : {day} · {time}",
   "panel.results.recapArrival": "Arrivée : {day} · {time}",
   "panel.results.stale":
     "Itinéraire modifié. Cliquez sur Recalculer pour mettre à jour les détails.",
   "panel.results.forecastUpdated": "Données fraîches au {time} · Open-Meteo.com (CC BY 4.0)",
-
-  // ── CompareResults ─────────────────────────────────────────────────────────
-  "panel.compare.recapStep": "pas {interval}h · {boat}",
-  "panel.compare.stale":
-    "Itinéraire modifié. Cliquez sur Recalculer pour comparer les créneaux du nouveau trajet.",
-  "panel.compare.windowsCompared.one":
-    "{count} fenêtre comparée · cliquez sur une ligne pour ouvrir la simulation détaillée",
-  "panel.compare.windowsCompared.other":
-    "{count} fenêtres comparées · cliquez sur une ligne pour ouvrir la simulation détaillée",
-
-  // ── WindowsTable ───────────────────────────────────────────────────────────
-  "panel.windows.colDeparture": "Départ",
-  "panel.windows.colDuration": "Durée",
-  "panel.windows.colEta": "ETA",
-  "panel.windows.colPointOfSail": "Allure",
-  "panel.windows.colWind": "Vent (kn)",
-  "panel.windows.colSea": "Mer",
-  "panel.windows.rowTitle": "Voir le détail de cette fenêtre",
-  "panel.windows.complexityTitle": "{label} : {rationale}",
-  "panel.windows.sailUpwind": "Près",
-  "panel.windows.sailBeamReach": "Travers",
-  "panel.windows.sailBroadReach": "Largue",
-  "panel.windows.sailDownwind": "Portant",
 
   // ── LegList / aggregateLegs ────────────────────────────────────────────────
   "panel.legs.colLeg": "Tronçon",
@@ -130,4 +94,71 @@ export const panel = {
   "panel.legDetail.noteMotorOnStep": "au moteur sur ce pas",
   "panel.legDetail.noteAverage.one": "moyenne de {count} pas",
   "panel.legDetail.noteAverage.other": "moyenne de {count} pas",
+
+  // ── RouteBar, ReadyStep, CompareDoor, CompareScreen, WindowPanel, ReturnBanner ──
+  "panel.route.title": "Votre route",
+  "panel.route.points.one": "{count} point placé",
+  "panel.route.points.other": "{count} points placés",
+  "panel.route.summary": "{points} points · {legs} · {nm} nm",
+  "panel.route.legs.one": "{count} tronçon",
+  "panel.route.legs.other": "{count} tronçons",
+  "panel.ready.adjust": "Régler le départ ou le bateau",
+  "panel.door.title": "Comparer ce trajet",
+  "panel.door.sub": "D'autres départs ou d'autres tracés",
+  "panel.compare.back": "Plan",
+  "panel.compare.backAria": "Revenir au plan",
+  "panel.compare.title": "Comparer ce trajet",
+  "panel.compare.slots.one": "{count} créneau",
+  "panel.compare.slots.other": "{count} créneaux",
+  "panel.compare.tracks.one": "{count} option",
+  "panel.compare.tracks.other": "{count} options",
+  "panel.compare.axis.label": "Ce qui varie",
+  "panel.compare.axis.slots": "Départs",
+  "panel.compare.axis.tracks": "Tracés",
+  "panel.compare.sort.label": "Trier",
+  "panel.compare.sort.departure": "Départ",
+  "panel.compare.sort.order": "Ordre",
+  "panel.compare.sort.duration": "Durée",
+  "panel.compare.sort.sea": "Mer",
+  "panel.compare.row.fromPlan": "du plan",
+  "panel.compare.row.open": "Ouvrir ce créneau dans le plan",
+  "panel.compare.row.alerts.one": "{count} alerte",
+  "panel.compare.row.alerts.other": "{count} alertes",
+  "panel.compare.row.wind": "vent {range} kn",
+  "panel.compare.row.sea": "mer {range} m",
+  "panel.compare.row.motor": "moteur {pct} %",
+  "panel.compare.sailUpwind": "Près",
+  "panel.compare.sailBeamReach": "Travers",
+  "panel.compare.sailBroadReach": "Largue",
+  "panel.compare.sailDownwind": "Portant",
+  "panel.compare.stale": "Itinéraire modifié. Recalculez pour comparer les créneaux du nouveau trajet.",
+  "panel.compare.empty": "Aucun créneau à comparer pour l'instant. Réglez la fenêtre puis appliquez.",
+  "panel.compare.foot.slots": "Touchez une ligne pour ouvrir ce créneau dans le plan",
+  "panel.compare.foot.tracks": "Touchez une ligne pour ouvrir ce tracé dans le plan",
+  "panel.compare.frozen.track": "Tracé figé",
+  "panel.compare.frozen.departure": "Départ figé",
+  "panel.compare.frozen.edit": "Modifier",
+  "panel.compare.tracksEmpty": "Aucune variante pour l'instant. Tracez-en une pour la comparer au tracé du plan.",
+  "panel.compare.tracksDraw": "Tracer une variante",
+  "panel.window.label": "Fenêtre",
+  "panel.window.next": "Les prochaines {span}",
+  "panel.window.set": "Régler",
+  "panel.window.title": "Fenêtre de départ",
+  "panel.window.from": "Du",
+  "panel.window.to": "Au",
+  "panel.window.fromHint": "départ du plan",
+  "panel.window.lead": "Les prochaines",
+  "panel.window.spanHours": "{count} h",
+  "panel.window.spanDays": "{count} j",
+  "panel.window.step": "<b>{slots}</b> testés, un toutes les <b>{step}</b>",
+  "panel.window.change": "Changer",
+  "panel.window.cost": "Au pas 1 h, le calcul de {count} créneaux prend une trentaine de secondes.",
+  "panel.window.note": "Recalcul immédiat",
+  "panel.window.apply": "Appliquer",
+  "panel.window.fromAria": "Début de la fenêtre de départ",
+  "panel.window.toAria": "Fin de la fenêtre de départ",
+  "panel.return.slots": "Comparaison · {slots}",
+  "panel.return.tracks": "Comparaison · {tracks}",
+  "panel.return.back": "Revenir à la comparaison",
+  "panel.return.keep": "Garder",
 } as const;

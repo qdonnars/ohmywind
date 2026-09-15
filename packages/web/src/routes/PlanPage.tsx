@@ -12,6 +12,8 @@ import { NavMenu } from "../components/NavMenu";
 import type { Archetype } from "../plan/types";
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { StatBand } from "../plan/PlanStates";
+import { PlanFoot } from "../plan/PlanFoot";
+import { ReturnBanner } from "../plan/ReturnBanner";
 import { loadPlanDraft } from "../plan/draft";
 import { loadLastSimulation } from "../plan/lastSimulation";
 import { resolveInitialSession, type InitialSession } from "../plan/session/initial";
@@ -68,8 +70,11 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
    *  measure, since both take their height from the drawer, not from the
    *  content below the anchor. */
   head?: React.ReactNode;
+  /** Pinned under the scrolling content, in the drawer chrome like `head`:
+   *  the door into the comparison, or its settings and frozen row. */
+  foot?: React.ReactNode;
   children: React.ReactNode;
-}>(function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, head, children }, ref) {
+}>(function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, head, foot, children }, ref) {
   const { t } = useT();
   const [vh, setVh] = useState<number>(() => {
     try {
@@ -242,6 +247,7 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
       </div>
       {head}
       <div ref={contentRef} className="flex-1 min-h-0 overflow-y-auto">{children}</div>
+      {foot}
     </div>
   );
 });
@@ -257,9 +263,12 @@ const SIDEBAR_MAX_PX = 800;
 
 function ResizableDesktopSidebar({
   defaultPx,
+  foot,
   children,
 }: {
   defaultPx: number;
+  /** Pinned under the scrolling content, see the drawer. */
+  foot?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const { t } = useT();
@@ -325,7 +334,10 @@ function ResizableDesktopSidebar({
           style={{ width: 4, height: 56, background: "var(--ow-fg-3)" }}
         />
       </div>
-      <div className="flex-1 min-w-0 overflow-y-auto">{children}</div>
+      <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>
+        {foot}
+      </div>
     </div>
   );
 }
@@ -406,6 +418,8 @@ export function PlanPage() {
   // Back collapses the open leg rather than leaving the planner (issue #300).
   const collapseLeg = useCallback(() => actions.selectLeg(null), [actions]);
   useBackDismiss(selectedLegIdx !== null, collapseLeg);
+  // And closes the comparison, back to the plan under it.
+  useBackDismiss(planMode === "compare", actions.closeCompare);
 
   useEffect(() => {
     fetchArchetypes().then(setArchetypes).catch(() => {});
@@ -580,6 +594,9 @@ export function PlanPage() {
               the menu owns the top left and the locate button plus its
               error bubble own the bottom right. */}
           <SeamarkButton enabled={seamarks} onToggle={toggleSeamarks} className="top-3 right-3" />
+          {/* Way back to the comparison a slot was opened from, while it is
+              still open behind the plan. */}
+          <ReturnBanner />
           {/* Locate FAB — bottom right of the map container, which shrinks as
               the mobile drawer is dragged up, so the button follows it.
               16 px above the drawer edge, the reference gap reused on the
@@ -631,7 +648,7 @@ export function PlanPage() {
             panel twice, re-read ow_polar_config_v1 twice, and every button of
             the planner existed twice for assistive technology. */}
         {isDesktop && (
-          <ResizableDesktopSidebar defaultPx={384}>
+          <ResizableDesktopSidebar defaultPx={384} foot={<PlanFoot />}>
             <PlanSidebar />
           </ResizableDesktopSidebar>
         )}
@@ -639,9 +656,9 @@ export function PlanPage() {
 
       {/* Mobile drawer — below map. Auto-slides to a target height based on
           where the user is in the flow (no waypoints → minimal so the map
-          stays the focus; 2 waypoints → tall enough to surface just the
-          mode pills; mode confirmed → full content height). The drag handle
-          still lets the user override at any time.
+          stays the focus; 2 waypoints → tall enough to surface the route
+          line and « Calculer »; something asked → full content height). The
+          drag handle still lets the user override at any time.
           Its head carries the totals of a computed passage, single mode
           only. Hidden as soon as the route was edited without recalculating:
           stale totals would contradict the "Recalculer" hint in the drawer.
@@ -654,11 +671,12 @@ export function PlanPage() {
             waypoints.length < 2
               ? 18
               : !actionTaken
-                ? 22
+                ? 26
                 : 65
           }
           resultsFitKey={resultsFitKey}
           head={passage && planMode === "single" && !isStale ? <StatBand passage={passage} /> : null}
+          foot={<PlanFoot />}
         >
           <PlanSidebar />
         </ResizableMobileDrawer>
