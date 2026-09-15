@@ -26,16 +26,7 @@ export const plan: Record<keyof typeof frPlan, string> = {
   // ── Panel states ──────────────────────────────────────────────────────────
   "plan.states.empty.title": "Draw your route",
   "plan.states.empty.body":
-    "Click on the map to place a departure and an arrival. You can then simulate the passage time or compare several departure windows.",
-  "plan.states.picker.title": "What would you like to do?",
-  "plan.states.picker.single.body":
-    "You know when you are leaving. OhMyWind works out the passage time, the ETA and the conditions on every segment.",
-  "plan.states.picker.single.example":
-    "E.g. “If I leave on Saturday at 17:00, when do I arrive?”",
-  "plan.states.picker.compare.body":
-    "You know where you are going. OhMyWind tries several departure times and ranks the windows by comfort.",
-  "plan.states.picker.compare.example":
-    "E.g. “Which is the best departure between Saturday and Monday?”",
+    "Click the map to place a departure and an arrival. You can then compute the passage, then compare other departures or other tracks.",
   "plan.states.error.title": "Error",
   "plan.states.waking.title": "The weather server is waking up",
   "plan.states.waking.body":
@@ -44,11 +35,6 @@ export const plan: Record<keyof typeof frPlan, string> = {
   "plan.recap.edit": "Edit",
 
   // ── Mode picker and time anchor ───────────────────────────────────────────
-  "plan.mode.tablist": "Planning mode",
-  "plan.mode.single.title": "Simulate my route",
-  "plan.mode.single.sub": "How long for this passage?",
-  "plan.mode.compare.title": "Compare the windows",
-  "plan.mode.compare.sub": "The best window to set off?",
   "plan.timeAnchor.tablist": "Time anchor",
   "plan.timeAnchor.departure.title": "Set the departure",
   "plan.timeAnchor.departure.sub": "Work out the passage time",

@@ -10,9 +10,11 @@
  * for something the context does not carry fails here rather than at runtime.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PlanSidebar } from "./PlanSidebar";
+import { PlanFoot } from "./PlanFoot";
+import { ReturnBanner } from "./ReturnBanner";
 import { PlanProvider } from "./session/PlanProvider";
 import type { PlanContextValue } from "./session/planContext";
 import { createInitialState, type PlanState } from "./session/reducer";
@@ -20,10 +22,12 @@ import type { InitialSession } from "./session/initial";
 import type { PlanActions } from "./session/usePlanSession";
 import type { PassageReport, ComplexityScore, PassageWindow, Archetype } from "./types";
 import { resetPolarConfigSnapshot } from "../config/usePolarConfig";
-import { fmtClock } from "../domain/datetime";
+import { fmtClock, toNaiveLocal, toTzAware } from "../domain/datetime";
+import type { ReactNode } from "react";
 
 const MARSEILLE: [number, number] = [43.29, 5.37];
 const PORQUEROLLES: [number, number] = [43.0, 6.2];
+const MID: [number, number] = [43.15, 5.8];
 
 const passage = (): PassageReport => ({
   archetype: "cruiser_30ft",
@@ -127,10 +131,25 @@ function stubActions(): PlanActions {
     selectPerso: vi.fn(),
     setDeparture: vi.fn(),
     setTimeAnchor: vi.fn(),
-    setMode: vi.fn(),
-    setSweepEarliest: vi.fn(),
-    setSweepLatest: vi.fn(),
-    setSweepInterval: vi.fn(),
+    openForm: vi.fn(),
+    openCompare: vi.fn(),
+    closeCompare: vi.fn(),
+    setCompareAxis: vi.fn(),
+    keepPlan: vi.fn(),
+    applySweep: vi.fn(),
+    startVariant: vi.fn(),
+    addVariantPoint: vi.fn(),
+    moveVariantPoint: vi.fn(),
+    insertVariantPoint: vi.fn(),
+    deleteVariantPoint: vi.fn(),
+    cancelVariant: vi.fn(),
+    finishVariant: vi.fn(),
+    computeTracks: vi.fn(),
+    openTrack: vi.fn(),
+    selectTrack: vi.fn(),
+    removeTrack: vi.fn(),
+    highlightTrack: vi.fn(),
+    applyTrackDeparture: vi.fn(),
     selectLeg: vi.fn(),
     selectStep: vi.fn(),
     compute: vi.fn(),
@@ -140,7 +159,8 @@ function stubActions(): PlanActions {
   };
 }
 
-function mount(
+function mountWith(
+  children: ReactNode,
   state: Partial<PlanState> = {},
   extra: Partial<PlanContextValue> = {},
 ): PlanContextValue {
@@ -153,12 +173,12 @@ function mount(
     computeWindows: vi.fn(),
     ...extra,
   };
-  render(
-    <PlanProvider value={value}>
-      <PlanSidebar />
-    </PlanProvider>,
-  );
+  render(<PlanProvider value={value}>{children}</PlanProvider>);
   return value;
+}
+
+function mount(state: Partial<PlanState> = {}, extra: Partial<PlanContextValue> = {}): PlanContextValue {
+  return mountWith(<PlanSidebar />, state, extra);
 }
 
 beforeEach(() => {
@@ -170,77 +190,83 @@ describe("PlanSidebar views", () => {
   it("shows a skeleton while computing, and no result", () => {
     mount({ passage: passage(), complexity: complexity() }, { isLoading: true });
     expect(screen.queryByText(/Recalculer/)).toBeNull();
-    expect(screen.queryByRole("tab")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Nouveau plan" })).toBeNull();
   });
 
-  it("shows the error, with the mode pills still reachable", () => {
+  it("shows the error, with the trash still reachable", () => {
     mount({ apiError: "Trop de calculs lancés coup sur coup." });
     expect(screen.getByText("Trop de calculs lancés coup sur coup.")).toBeTruthy();
-    expect(screen.getAllByRole("tab")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Nouveau plan" })).toBeTruthy();
   });
 
-  it("shows the empty state and locks the pills under two waypoints", () => {
+  it("shows the error under the comparison head, with the way back, when it failed there", async () => {
+    const value = mount({ mode: "compare", apiError: "boom" });
+    expect(screen.getByText("boom")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Revenir au plan" }));
+    expect(value.actions.closeCompare).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the empty state under two waypoints, with no mode to pick and nothing to reset", () => {
     mount({ waypoints: [MARSEILLE] });
-    for (const tab of screen.getAllByRole("tab")) {
-      expect((tab as HTMLButtonElement).disabled).toBe(true);
-    }
+    expect(screen.getByText("Tracez votre trajet")).toBeTruthy();
+    expect(screen.queryByRole("tab")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Nouveau plan" })).toBeNull();
   });
 
-  it("shows the pick-a-mode step before the user confirms", () => {
-    mount({ actionTaken: false });
-    for (const tab of screen.getAllByRole("tab")) {
-      expect(tab.getAttribute("aria-selected")).toBe("false");
-    }
-    expect(screen.queryByRole("button", { name: /Calculer le passage/ })).toBeNull();
+  it("offers to compute or to open the form before anything was asked", async () => {
+    const value = mount({ actionTaken: false });
+    // The compact step and the form are both in the DOM: CSS picks one per
+    // layout, jsdom shows both.
+    const calculate = screen.getAllByRole("button", { name: /Calculer le passage/ });
+    expect(calculate.length).toBeGreaterThanOrEqual(1);
+    await userEvent.click(screen.getByRole("button", { name: "Régler le départ ou le bateau" }));
+    expect(value.actions.openForm).toHaveBeenCalledTimes(1);
+    await userEvent.click(calculate[0]);
+    expect(value.compute).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the single form and computes on demand", async () => {
+  it("shows the single form and computes on demand, the trash beside the action", async () => {
     const value = mount();
+    expect(screen.getByRole("button", { name: "Nouveau plan" })).toBeTruthy();
     const button = screen.getByRole("button", { name: /Calculer le passage/ });
     await userEvent.click(button);
     expect(value.compute).toHaveBeenCalledTimes(1);
   });
 
-  it("refuses to compute a sweep whose range is invalid", () => {
-    mount({ mode: "compare", sweepEarliest: "2026-09-12T08:00", sweepLatest: "2026-09-10T08:00" });
-    const button = screen.getByRole("button", { name: /Comparer les créneaux|waypoints/ });
-    expect((button as HTMLButtonElement).disabled).toBe(true);
-  });
-
-  it("shows the passage, its warnings and its legs once computed", () => {
-    mount({ passage: passage(), complexity: complexity(), forecastUpdatedAt: "2026-09-09T06:00:00Z" });
+  it("shows the passage, its alerts folded with their kinds, its legs, and the doors last", async () => {
+    const value = mount({ passage: passage(), complexity: complexity(), forecastUpdatedAt: "2026-09-09T06:00:00Z" });
+    // Folded: one line saying how many and about what, unfolded on a tap.
+    expect(screen.queryByText("vent faible : passage très lent")).toBeNull();
+    // The name computation drops the spaces around the middle dot.
+    await userEvent.click(screen.getByRole("button", { name: /1 alerte.vent/ }));
     expect(screen.getByText("vent faible : passage très lent")).toBeTruthy();
     expect(screen.getByText(/Croiseur 30 pieds/)).toBeTruthy();
+    // Recalculer and the trash at the end of the one recap row.
+    expect(screen.getByRole("button", { name: "Recalculer" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Nouveau plan" })).toBeTruthy();
     // One row per leg, opening the build-up on click.
     expect(screen.getByRole("button", { name: /^1→2/ })).toBeTruthy();
     expect(screen.getByText(/Données fraîches au/)).toBeTruthy();
+    // The two doors, after everything else.
+    await userEvent.click(screen.getByRole("button", { name: "D'autres départs" }));
+    expect(value.actions.openCompare).toHaveBeenCalledWith("slots");
+    await userEvent.click(screen.getByRole("button", { name: "Un autre tracé" }));
+    expect(value.actions.openCompare).toHaveBeenCalledWith("tracks");
+    expect(value.actions.startVariant).toHaveBeenCalledTimes(1);
   });
 
-  it("hides the legs behind a recompute prompt once the route moved", () => {
+  it("hides the legs, the alerts and the doors behind a recompute prompt once the route moved", () => {
     mount({ passage: passage(), complexity: complexity(), isStale: true });
     expect(screen.getByText(/Itinéraire modifié/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^1→2/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /alerte/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "D'autres départs" })).toBeNull();
   });
 
   it("opens a leg through the session, not through local state", async () => {
     const value = mount({ passage: passage(), complexity: complexity() });
     await userEvent.click(screen.getByRole("button", { name: /^1→2/ }));
     expect(value.actions.selectLeg).toHaveBeenCalledWith(0);
-  });
-
-  it("shows the compare table and drills into a window", async () => {
-    const value = mount({ mode: "compare", windows: [aWindow()] });
-    expect(screen.getByText(/1 fenêtre comparée/)).toBeTruthy();
-    // The window rows are buttons in a CSS grid, not a <table>.
-    const row = screen.getByText("0.3–0.8 m").closest("button");
-    await userEvent.click(row!);
-    expect(value.actions.selectWindow).toHaveBeenCalled();
-  });
-
-  it("hides the compare table once the route moved", () => {
-    mount({ mode: "compare", windows: [aWindow()], isStale: true });
-    expect(screen.getByText(/comparer les créneaux du nouveau trajet/)).toBeTruthy();
-    expect(screen.queryByText(/1 fenêtre comparée/)).toBeNull();
   });
 
   it("offers the reset only once there is something to clear", () => {
@@ -250,12 +276,176 @@ describe("PlanSidebar views", () => {
   });
 });
 
+// ── « Comparer ce trajet » ───────────────────────────────────────────────────
+
+describe("the comparison", () => {
+  it("lists the slots by day and opens one in the plan", async () => {
+    const value = mount({ mode: "compare", windows: [aWindow()] });
+    expect(screen.getByText("Comparer ce trajet")).toBeTruthy();
+    expect(screen.getAllByText("1 créneau").length).toBeGreaterThanOrEqual(1);
+    // The line: hour, duration, arrival, then the conditions as a sentence.
+    expect(screen.getByText("10h")).toBeTruthy();
+    expect(screen.getByText("vent 8–14 kn")).toBeTruthy();
+    expect(screen.getByText("mer 0,3–0,8 m")).toBeTruthy();
+    // No complexity index on the line.
+    expect(screen.queryByText("⚡")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: /Ouvrir ce créneau dans le plan/ }));
+    expect(value.actions.selectWindow).toHaveBeenCalled();
+  });
+
+  it("marks the plan's own departure as chosen, and counts the alerts", () => {
+    // The slot is an instant, the plan's departure a naive local time: built
+    // from the same local value so the match holds on a UTC runner too.
+    const w = { ...aWindow(), departure: toTzAware("2026-09-11T06:00"), warnings: ["a", "b"] };
+    mount({ mode: "compare", windows: [w], departure: "2026-09-11T06:00" });
+    expect(screen.getByText("sélectionné")).toBeTruthy();
+    expect(screen.getByTitle("2 alertes")).toBeTruthy();
+  });
+
+  it("goes back to the plan from the head, and switches axis", async () => {
+    const value = mount({ mode: "compare", windows: [aWindow()] });
+    await userEvent.click(screen.getByRole("button", { name: "Revenir au plan" }));
+    expect(value.actions.closeCompare).toHaveBeenCalledTimes(1);
+    await userEvent.click(screen.getByRole("tab", { name: "Tracés" }));
+    expect(value.actions.setCompareAxis).toHaveBeenCalledWith("tracks");
+  });
+
+  it("hides the list behind a recompute prompt once the route moved", async () => {
+    const value = mount({ mode: "compare", windows: [aWindow()], isStale: true });
+    expect(screen.getByText(/comparer les créneaux du nouveau trajet/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Ouvrir ce créneau/ })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Recalculer" }));
+    expect(value.computeWindows).toHaveBeenCalledTimes(1);
+  });
+
+  it("pins nothing under a computed plan, and the settings under the comparison", async () => {
+    mountWith(<PlanFoot />, { passage: passage(), complexity: complexity() });
+    expect(screen.queryByRole("button")).toBeNull();
+    cleanup();
+
+    const compare = mountWith(<PlanFoot />, { mode: "compare", windows: [aWindow()] });
+    // The window, written once: the row is the summary and the button.
+    const row = screen.getByRole("button", { name: /Fenêtre/ });
+    expect(row.textContent).toContain("Les prochaines 48 h");
+    expect(row.textContent).toContain("toutes les 3 h");
+    expect(screen.getByText("Tracé figé")).toBeTruthy();
+    await userEvent.click(row);
+    // Unfolded: the presets, and the step already deduced from the span,
+    // one tap away from another value; the dates under a link.
+    expect(screen.getByRole("button", { name: "48 h" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "3 h" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.queryByLabelText("Du")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Ajuster les dates" }));
+    expect((screen.getByLabelText("Du") as HTMLInputElement).value).toBe("2026-09-10T08:00");
+    await userEvent.click(screen.getByRole("button", { name: "7 j" }));
+    expect(screen.getByRole("button", { name: "7 j" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "6 h" }).getAttribute("aria-pressed")).toBe("true");
+    await userEvent.click(screen.getByRole("button", { name: "12 h" }));
+    await userEvent.click(screen.getByRole("button", { name: "Appliquer" }));
+    expect(compare.actions.applySweep).toHaveBeenCalledWith({
+      earliest: "2026-09-10T08:00",
+      latest: "2026-09-17T08:00",
+      intervalHours: 12,
+    });
+  });
+
+  it("shows nothing pinned while computing, before a route, or under a stale plan", () => {
+    mountWith(<PlanFoot />, { passage: passage(), complexity: complexity() }, { isLoading: true });
+    expect(screen.queryByRole("button")).toBeNull();
+    cleanup();
+    mountWith(<PlanFoot />, { waypoints: [MARSEILLE] });
+    expect(screen.queryByRole("button")).toBeNull();
+    cleanup();
+    mountWith(<PlanFoot />, { passage: passage(), complexity: complexity(), isStale: true });
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("lists the plan as the only option, then the variants: choose, open, remove", async () => {
+    const alone = mount({ mode: "compare", compareAxis: "tracks", passage: passage(), complexity: complexity() });
+    expect(screen.getByRole("button", { name: /^Option 1 · Ouvrir ce tracé/ })).toBeTruthy();
+    expect(screen.getAllByText("1 option").length).toBeGreaterThanOrEqual(1);
+    // No sort on this axis, and the plan alone has no trash.
+    expect(screen.queryByRole("button", { name: "Durée" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Supprimer/ })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: /Tracer une variante/ }));
+    expect(alone.actions.startVariant).toHaveBeenCalledTimes(1);
+    cleanup();
+
+    const two = mount({
+      mode: "compare",
+      compareAxis: "tracks",
+      tracks: [
+        { id: "plan", waypoints: [MARSEILLE, PORQUEROLLES], createdAt: "", passage: passage(), complexity: complexity(), error: null },
+        { id: "v1", waypoints: [MARSEILLE, MID, PORQUEROLLES], createdAt: "", passage: null, complexity: null, error: null },
+      ],
+      trackRequests: { v1: { id: 1, editSeq: 0 } },
+    });
+    expect(screen.getByText("calcul en cours…")).toBeTruthy();
+    // The plan's route is option 1: marked as chosen, and the one the departure axis is about.
+    expect(screen.getByRole("button", { name: /^Option 1 · Choisir/ }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("sélectionné")).toBeTruthy();
+    // The chosen option has no trash; the other has.
+    expect(screen.queryByRole("button", { name: "Supprimer l'option 1" })).toBeNull();
+    // An option still computing can be neither chosen nor opened, only removed.
+    expect((screen.getByRole("button", { name: /^Option 2 · Choisir/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: /^Option 2 · Ouvrir/ }) as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(screen.getByRole("button", { name: "Supprimer l'option 2" }));
+    expect(two.actions.removeTrack).toHaveBeenCalledWith("v1");
+    await userEvent.click(screen.getByRole("button", { name: /^Option 1 · Ouvrir/ }));
+    expect(two.actions.openTrack).toHaveBeenCalledWith("plan");
+    await userEvent.click(screen.getByRole("button", { name: /^Option 1 · Choisir/ }));
+    expect(two.actions.selectTrack).toHaveBeenCalledWith("plan");
+    expect(screen.getByText("55,0 nm")).toBeTruthy();
+  });
+
+  it("swaps the list for the drawing controls while a variant is drawn", async () => {
+    const value = mount({ mode: "compare", compareAxis: "tracks", variant: [MARSEILLE, PORQUEROLLES] });
+    expect(screen.getByText("Option 2 · tracé en cours")).toBeTruthy();
+    expect(screen.getByText("2 points posés")).toBeTruthy();
+    // No axis switch, and no finishing a straight line.
+    expect(screen.queryByRole("tab")).toBeNull();
+    expect((screen.getByRole("button", { name: "Terminer et comparer" }) as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(screen.getByRole("button", { name: "Annuler" }));
+    expect(value.actions.cancelVariant).toHaveBeenCalledTimes(1);
+    cleanup();
+
+    const three = mount({ mode: "compare", compareAxis: "tracks", variant: [MARSEILLE, MID, PORQUEROLLES] });
+    await userEvent.click(screen.getByRole("button", { name: "Terminer et comparer" }));
+    expect(three.actions.finishVariant).toHaveBeenCalledTimes(1);
+  });
+
+  it("pins the frozen departure under the track axis, and applies a new one to every option", async () => {
+    const value = mountWith(<PlanFoot />, { mode: "compare", compareAxis: "tracks", departure: "2026-09-10T08:00" });
+    const row = screen.getByRole("button", { name: /Départ figé/ });
+    expect(row.textContent).toContain("08:00");
+    await userEvent.click(row);
+    // The plan's own slider, on a copy: « Ajuster » shows the field.
+    await userEvent.click(screen.getByRole("button", { name: "Ajuster" }));
+    const field = screen.getByDisplayValue("2026-09-10T08:00") as HTMLInputElement;
+    const soon = new Date(Date.now() + 2 * 86_400_000);
+    soon.setMinutes(0, 0, 0);
+    const next = toNaiveLocal(soon);
+    fireEvent.change(field, { target: { value: next } });
+    await userEvent.click(screen.getByRole("button", { name: "Appliquer" }));
+    expect(value.actions.applyTrackDeparture).toHaveBeenCalledWith(next);
+  });
+
+  it("keeps a way back over the map while a slot is open in the plan", async () => {
+    const value = mountWith(<ReturnBanner />, { returnTo: "slots", windows: [aWindow()], passage: passage(), complexity: complexity() });
+    await userEvent.click(screen.getByRole("button", { name: "Revenir à la comparaison" }));
+    expect(value.actions.openCompare).toHaveBeenCalledWith("slots");
+    await userEvent.click(screen.getByRole("button", { name: "Garder" }));
+    expect(value.actions.keepPlan).toHaveBeenCalledTimes(1);
+    cleanup();
+    mountWith(<ReturnBanner />, { returnTo: null });
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+});
+
 // ── The open leg: average by default, one step on demand ─────────────────────
 // Two server segments between the two waypoints, so the single leg has two
 // steps whose wind disagrees. The actions are stubs: each test mounts the
 // session in the state the previous click would have produced.
-
-const MID: [number, number] = [43.15, 5.8];
 
 const twoStepPassage = (): PassageReport => {
   const base = passage();

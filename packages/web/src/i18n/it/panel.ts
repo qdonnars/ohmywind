@@ -6,7 +6,6 @@ import type { panel as frPanel } from "../fr/panel";
 export const panel: Record<keyof typeof frPanel, string> = {
   // ── PlanForm ───────────────────────────────────────────────────────────────
   "panel.form.calculate": "Calcolare la traversata",
-  "panel.form.compareWindows": "Confrontare le finestre",
   "panel.form.waypointsNeeded": "{count}/2 waypoint",
 
   // ── PlanHeaderRow ──────────────────────────────────────────────────────────
@@ -43,47 +42,12 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.departure.plusOneWeek": "+1 sett.",
   "panel.departure.plusTwoWeeks": "+2 sett.",
 
-  // ── DepartureRangeSlider ───────────────────────────────────────────────────
-  "panel.range.title": "Finestra di partenza",
-  "panel.range.spanDays": "{value} gg",
-  "panel.range.spanHours": "{value} h",
-  "panel.range.ariaEarliest": "Partenza al più presto",
-  "panel.range.ariaLatest": "Partenza al più tardi",
-
-  // ── SweepForm ──────────────────────────────────────────────────────────────
-  "panel.sweep.samplingStep": "Passo di campionamento",
-  "panel.sweep.everyHour": "Ogni ora",
-  "panel.sweep.everyNHours": "Ogni {hours}h",
-
   // ── SingleResults ──────────────────────────────────────────────────────────
   "panel.results.recapDeparture": "Partenza: {day} · {time}",
   "panel.results.recapArrival": "Arrivo: {day} · {time}",
   "panel.results.stale":
     "Itinerario modificato. Cliccare su Ricalcolare per aggiornare i dettagli.",
   "panel.results.forecastUpdated": "Dati aggiornati alle {time} · Open-Meteo.com (CC BY 4.0)",
-
-  // ── CompareResults ─────────────────────────────────────────────────────────
-  "panel.compare.recapStep": "passo {interval}h · {boat}",
-  "panel.compare.stale":
-    "Itinerario modificato. Cliccare su Ricalcolare per confrontare le finestre del nuovo percorso.",
-  "panel.compare.windowsCompared.one":
-    "{count} finestra confrontata · cliccare su una riga per aprire la simulazione dettagliata",
-  "panel.compare.windowsCompared.other":
-    "{count} finestre confrontate · cliccare su una riga per aprire la simulazione dettagliata",
-
-  // ── WindowsTable ───────────────────────────────────────────────────────────
-  "panel.windows.colDeparture": "Partenza",
-  "panel.windows.colDuration": "Durata",
-  "panel.windows.colEta": "ETA",
-  "panel.windows.colPointOfSail": "Andatura",
-  "panel.windows.colWind": "Vento (kn)",
-  "panel.windows.colSea": "Mare",
-  "panel.windows.rowTitle": "Vedere il dettaglio di questa finestra",
-  "panel.windows.complexityTitle": "{label}: {rationale}",
-  "panel.windows.sailUpwind": "Bolina",
-  "panel.windows.sailBeamReach": "Traverso",
-  "panel.windows.sailBroadReach": "Lasco",
-  "panel.windows.sailDownwind": "Portante",
 
   // ── LegList / aggregateLegs ────────────────────────────────────────────────
   "panel.legs.colLeg": "Tratta",
@@ -130,4 +94,94 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.legDetail.noteMotorOnStep": "a motore su questa tappa",
   "panel.legDetail.noteAverage.one": "media di {count} tappa",
   "panel.legDetail.noteAverage.other": "media di {count} tappe",
+
+  // ── RouteBar, ReadyStep, CompareDoor, CompareScreen, WindowPanel, ReturnBanner ──
+  "panel.route.legs.one": "{count} tratta",
+  "panel.route.legs.other": "{count} tratte",
+  "panel.ready.adjust": "Regolare la partenza o la barca",
+  "panel.door.title": "Confrontare questo percorso",
+  "panel.compare.back": "Piano",
+  "panel.compare.backAria": "Tornare al piano",
+  "panel.compare.title": "Confrontare questo percorso",
+  "panel.compare.slots.one": "{count} finestra",
+  "panel.compare.slots.other": "{count} finestre",
+  "panel.compare.tracks.one": "{count} opzione",
+  "panel.compare.tracks.other": "{count} opzioni",
+  "panel.compare.axis.label": "Ciò che varia",
+  "panel.compare.axis.slots": "Partenze",
+  "panel.compare.axis.tracks": "Rotte",
+  "panel.compare.sort.label": "Ordina",
+  "panel.compare.sort.departure": "Partenza",
+  "panel.compare.sort.order": "Ordine",
+  "panel.compare.sort.duration": "Durata",
+  "panel.compare.sort.sea": "Mare",
+  "panel.compare.row.fromPlan": "selezionato",
+  "panel.compare.row.open": "Aprire questa finestra nel piano",
+  "panel.compare.row.alerts.one": "{count} avviso",
+  "panel.compare.row.alerts.other": "{count} avvisi",
+  "panel.compare.row.wind": "vento {range} kn",
+  "panel.compare.row.sea": "mare {range} m",
+  "panel.compare.row.motor": "motore {pct} %",
+  "panel.compare.sailUpwind": "Bolina",
+  "panel.compare.sailBeamReach": "Traverso",
+  "panel.compare.sailBroadReach": "Lasco",
+  "panel.compare.sailDownwind": "Poppa",
+  "panel.compare.stale": "Itinerario modificato. Ricalcoli per confrontare le finestre del nuovo percorso.",
+  "panel.compare.empty": "Nessuna finestra da confrontare per ora. Regoli la finestra, poi applichi.",
+  "panel.compare.foot.slots": "Tocchi una riga per aprire questa finestra nel piano",
+  "panel.compare.foot.tracks": "Tocchi una riga per aprire questa rotta nel piano",
+  "panel.compare.frozen.track": "Rotta fissa",
+  "panel.compare.frozen.departure": "Partenza fissa",
+  "panel.compare.frozen.edit": "Modificare",
+  "panel.compare.tracksEmpty": "Nessuna variante per ora. Ne tracci una per confrontarla con la rotta del piano.",
+  "panel.compare.tracksDraw": "Tracciare una variante",
+  "panel.window.label": "Finestra",
+  "panel.window.next": "Le prossime {span}",
+  "panel.window.set": "Regolare",
+  "panel.window.title": "Finestra di partenza",
+  "panel.window.from": "Dal",
+  "panel.window.to": "Al",
+  "panel.window.lead": "Le prossime",
+  "panel.window.spanHours": "{count} h",
+  "panel.window.spanDays": "{count} g",
+  "panel.window.note": "Ricalcolo immediato",
+  "panel.window.apply": "Applicare",
+  "panel.return.slots": "Confronto · {slots}",
+  "panel.return.tracks": "Confronto · {tracks}",
+  "panel.return.back": "Tornare al confronto",
+  "panel.return.keep": "Tenere",
+
+  // ── TrackList, DeparturePanel ──
+  "panel.tracks.option": "Opzione {n}",
+  "panel.tracks.planSub": "rotta del piano",
+  "panel.tracks.drawnAt": "variante tracciata alle {time}",
+  "panel.tracks.max": "Al massimo tre opzioni.",
+  "panel.tracks.drawing.title": "Opzione {n} · in corso di tracciamento",
+  "panel.tracks.drawing.points.one": "{count} punto posizionato",
+  "panel.tracks.drawing.points.other": "{count} punti posizionati",
+  "panel.tracks.drawing.hint": "Tocchi la mappa per posizionare un punto tra la partenza e l'arrivo del piano.",
+  "panel.tracks.drawing.finish": "Terminare e confrontare",
+  "panel.tracks.row.open": "Aprire questa rotta nel piano",
+  "panel.tracks.row.sea": "mare {avg} m (max {max})",
+  "panel.tracks.row.computing": "calcolo in corso…",
+  "panel.tracks.stale": "Partenza o barca modificata. Ricalcoli per confrontare le rotte.",
+  "panel.tracks.departure.title": "Partenza, comune a tutte le rotte",
+  "panel.tracks.departure.note": "Cambiare questa partenza ricalcola tutte le rotte. Per provare più orari su una sola rotta, passi all'asse Partenze.",
+  "panel.tracks.departure.recompute.one": "Ricalcolo di {count} rotta",
+  "panel.tracks.departure.recompute.other": "Ricalcolo di {count} rotte",
+
+  // ── two doors, track selection, folded alerts ──
+  "panel.door.slots": "Altre partenze",
+  "panel.door.tracks": "Un'altra rotta",
+  "panel.tracks.row.select": "Scegliere l'opzione {n} per il piano",
+  "panel.tracks.row.remove": "Eliminare l'opzione {n}",
+  "panel.results.alertsToggle": "Avvisi del passaggio",
+  "panel.results.alertKind.wind": "vento",
+  "panel.results.alertKind.sea": "mare",
+  "panel.results.alertKind.current": "corrente",
+  "panel.results.alertKind.other": "altro",
+  "panel.tracks.row.openShort": "Aprire",
+  "panel.window.every": "Ogni",
+  "panel.window.everyValue": "ogni {step}",
+  "panel.window.adjustDates": "Regolare le date",
 };

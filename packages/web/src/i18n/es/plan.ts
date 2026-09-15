@@ -26,15 +26,7 @@ export const plan: Record<keyof typeof frPlan, string> = {
   // ── Panel states ──────────────────────────────────────────────────────────
   "plan.states.empty.title": "Trace su trayecto",
   "plan.states.empty.body":
-    "Haga clic en el mapa para situar una salida y una llegada. Después podrá simular la duración del trayecto o comparar varias ventanas de salida.",
-  "plan.states.picker.title": "¿Qué desea hacer?",
-  "plan.states.picker.single.body":
-    "Usted sabe cuándo salir. OhMyWind calcula la duración del trayecto, la ETA y las condiciones en cada segmento.",
-  "plan.states.picker.single.example": "Ej.: «Si salgo el sábado a las 17:00, ¿cuándo llego?»",
-  "plan.states.picker.compare.body":
-    "Usted sabe adónde ir. OhMyWind prueba varias horas de salida y clasifica las ventanas por comodidad.",
-  "plan.states.picker.compare.example":
-    "Ej.: «¿Cuál es la mejor salida entre el sábado y el lunes?»",
+    "Haga clic en el mapa para colocar una salida y una llegada. Después podrá calcular el paso y luego comparar otras salidas u otros trazados.",
   "plan.states.error.title": "Error",
   "plan.states.waking.title": "El servidor meteorológico se está reactivando",
   "plan.states.waking.body":
@@ -43,11 +35,6 @@ export const plan: Record<keyof typeof frPlan, string> = {
   "plan.recap.edit": "Modificar",
 
   // ── Mode picker and time anchor ───────────────────────────────────────────
-  "plan.mode.tablist": "Modo de planificación",
-  "plan.mode.single.title": "Simular mi ruta",
-  "plan.mode.single.sub": "¿Cuánto dura este trayecto?",
-  "plan.mode.compare.title": "Comparar las ventanas",
-  "plan.mode.compare.sub": "¿La mejor ventana para salir?",
   "plan.timeAnchor.tablist": "Anclaje horario",
   "plan.timeAnchor.departure.title": "Definir la salida",
   "plan.timeAnchor.departure.sub": "Entender la duración del trayecto",

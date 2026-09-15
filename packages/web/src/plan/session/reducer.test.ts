@@ -101,6 +101,16 @@ function run(state: PlanState, ...actions: PlanAction[]): PlanState {
   return actions.reduce(planReducer, state);
 }
 
+const succeedSweep = (requestId: number): PlanAction => ({
+  type: "FETCH_SUCCEEDED",
+  requestId,
+  kind: "sweep",
+  configFingerprint: "arome|cruiser_30ft",
+  windows: [aWindow()],
+  metaWarnings: [],
+  forecastUpdatedAt: "2026-09-09T06:00:00Z",
+});
+
 const succeedSingle = (requestId: number, over: Partial<PassageReport> = {}): PlanAction => ({
   type: "FETCH_SUCCEEDED",
   requestId,
@@ -141,13 +151,16 @@ describe("route edits", () => {
     expect(s.selectedLegIdx).toBeNull();
   });
 
-  it("rewinds the mobile pick-a-mode step under two waypoints, and does not restore it on its own", () => {
+  it("rewinds the mobile compact step under two waypoints, and does not restore it on its own", () => {
     let s = run(start(), { type: "WAYPOINT_DELETED", index: 1 });
     expect(s.actionTaken).toBe(false);
     s = planReducer(s, { type: "WAYPOINT_APPENDED", lat: 42.9, lon: 6.4 });
     expect(s.actionTaken).toBe(false);
-    s = planReducer(s, { type: "MODE_CHANGED", mode: "single" });
-    expect(s.actionTaken).toBe(true);
+    // Opening the form, asking for a computation or opening the comparison
+    // all leave the compact step.
+    expect(planReducer(s, { type: "FORM_OPENED" }).actionTaken).toBe(true);
+    expect(planReducer(s, { type: "FETCH_STARTED", requestId: 1, kind: "single" }).actionTaken).toBe(true);
+    expect(planReducer(s, { type: "COMPARE_OPENED", axis: "slots" }).actionTaken).toBe(true);
   });
 
   it("keeps the open leg through a departure change", () => {
@@ -210,26 +223,65 @@ describe("step of the open leg", () => {
   });
 });
 
-describe("mode and sweep", () => {
-  it("keeps the opposite mode's results in memory", () => {
+describe("the comparison over the plan", () => {
+  it("keeps the plan's results in memory while the comparison is open", () => {
     const withResults = run(
       start(),
       { type: "FETCH_STARTED", requestId: 1, kind: "single" },
       succeedSingle(1),
-      { type: "MODE_CHANGED", mode: "compare" },
+      { type: "COMPARE_OPENED", axis: "slots" },
     );
     expect(withResults.mode).toBe("compare");
+    expect(withResults.compareAxis).toBe("slots");
     expect(withResults.passage).not.toBeNull();
+    // And the windows under the plan once it closes.
+    const closed = run(
+      withResults,
+      { type: "FETCH_STARTED", requestId: 2, kind: "sweep" },
+      succeedSweep(2),
+      { type: "COMPARE_CLOSED" },
+    );
+    expect(closed.mode).toBe("single");
+    expect(closed.windows).toHaveLength(1);
   });
 
-  it("clears the error when the user switches mode", () => {
-    const s = run(
+  it("seeds the window the shell hands it, and only then", () => {
+    const seeded = planReducer(start(), {
+      type: "COMPARE_OPENED",
+      axis: "slots",
+      sweep: { earliest: "2026-09-10T08:00", latest: "2026-09-12T08:00", intervalHours: 3 },
+    });
+    expect(seeded.sweepLatest).toBe("2026-09-12T08:00");
+    const kept = planReducer(
+      { ...seeded, sweepLatest: "2026-09-13T08:00" },
+      { type: "COMPARE_OPENED", axis: "tracks" },
+    );
+    expect(kept.sweepLatest).toBe("2026-09-13T08:00");
+    expect(kept.compareAxis).toBe("tracks");
+  });
+
+  it("clears the error when the comparison opens, closes or changes axis", () => {
+    const failed = run(
       start(),
       { type: "FETCH_STARTED", requestId: 1, kind: "single" },
       { type: "FETCH_FAILED", requestId: 1, error: "boom" },
-      { type: "MODE_CHANGED", mode: "compare" },
     );
-    expect(s.apiError).toBeNull();
+    expect(run(failed, { type: "COMPARE_OPENED", axis: "slots" }).apiError).toBeNull();
+    expect(run(failed, { type: "COMPARE_OPENED", axis: "slots" }, { type: "COMPARE_AXIS_CHANGED", axis: "tracks" }).compareAxis).toBe("tracks");
+  });
+
+  it("keeps a way back to the comparison a slot was opened from, until the plan is kept or the route edited", () => {
+    const opened = run(
+      start({ mode: "compare" }),
+      { type: "WINDOW_SELECTED", window: aWindow({ passage: passage(), complexity_full: complexity() }), departure: "2026-09-11T06:00", configFingerprint: "x" },
+    );
+    expect(opened.mode).toBe("single");
+    expect(opened.returnTo).toBe("slots");
+    expect(run(opened, { type: "PLAN_KEPT" }).returnTo).toBeNull();
+    expect(run(opened, { type: "WAYPOINT_APPENDED", lat: 42.9, lon: 6.4 }).returnTo).toBeNull();
+    expect(run(opened, { type: "COMPARE_OPENED", axis: "slots" }).returnTo).toBeNull();
+    // A departure change is not a route change: the windows still apply.
+    expect(run(opened, { type: "DEPARTURE_CHANGED", departure: "2026-09-11T09:00" }).returnTo).toBe("slots");
   });
 
   it("does not invalidate anything when the sweep range moves", () => {
@@ -242,6 +294,145 @@ describe("mode and sweep", () => {
     expect(s.sweepIntervalHours).toBe(6);
     expect(s.isStale).toBe(false);
     expect(s.editSeq).toBe(computed.editSeq);
+  });
+});
+
+describe("the track axis", () => {
+  const MID: [number, number] = [43.15, 5.8];
+  const drawn = (over: Partial<PlanState> = {}) =>
+    run(
+      { ...start(), ...over },
+      { type: "VARIANT_STARTED" },
+      { type: "VARIANT_POINT_ADDED", lat: MID[0], lon: MID[1] },
+    );
+
+  it("draws a variant between the plan's ends, and keeps those ends", () => {
+    const s = drawn();
+    expect(s.variant).toEqual([MARSEILLE, MID, PORQUEROLLES]);
+    // The ends cannot go; a point between them can.
+    expect(run(s, { type: "VARIANT_POINT_DELETED", index: 0 }).variant).toHaveLength(3);
+    expect(run(s, { type: "VARIANT_POINT_DELETED", index: 2 }).variant).toHaveLength(3);
+    expect(run(s, { type: "VARIANT_POINT_DELETED", index: 1 }).variant).toEqual([MARSEILLE, PORQUEROLLES]);
+    expect(run(s, { type: "VARIANT_CANCELLED" }).variant).toBeNull();
+    // A straight line is not a variant.
+    expect(run(start(), { type: "VARIANT_STARTED" }, { type: "VARIANT_FINISHED", id: "v1", createdAt: "x" }).tracks).toHaveLength(0);
+  });
+
+  it("makes the plan option 1 with its fresh passage when the first variant lands", () => {
+    const computed = run(
+      start(),
+      { type: "FETCH_STARTED", requestId: 1, kind: "single" },
+      succeedSingle(1),
+    );
+    const s = run(
+      computed,
+      { type: "VARIANT_STARTED" },
+      { type: "VARIANT_POINT_ADDED", lat: MID[0], lon: MID[1] },
+      { type: "VARIANT_FINISHED", id: "v1", createdAt: "2026-09-10T07:00" },
+    );
+    expect(s.variant).toBeNull();
+    expect(s.tracks.map((t) => t.id)).toEqual(["plan", "v1"]);
+    expect(s.tracks[0].passage).not.toBeNull();
+    expect(s.tracks[1].passage).toBeNull();
+    expect(s.highlightedTrackId).toBe("v1");
+    // A stale plan lends nothing: the shell computes option 1 too.
+    const stale = run(drawn({ passage: passage(), complexity: complexity(), isStale: true }), { type: "VARIANT_FINISHED", id: "v1", createdAt: "x" });
+    expect(stale.tracks[0].passage).toBeNull();
+  });
+
+  it("computes each option on its own request, and drops a reply the departure outran", () => {
+    const s = run(drawn(), { type: "VARIANT_FINISHED", id: "v1", createdAt: "x" }, { type: "TRACK_STARTED", trackId: "v1", requestId: 7 });
+    expect(s.trackRequests.v1).toEqual({ id: 7, editSeq: s.editSeq });
+    const done = run(s, { type: "TRACK_COMPUTED", trackId: "v1", requestId: 7, passage: passage(), complexity: complexity() });
+    expect(done.tracks[1].passage).not.toBeNull();
+    expect(done.trackRequests.v1).toBeUndefined();
+    // Superseded id: ignored. Edited meanwhile: dropped, and the axis says stale.
+    expect(run(s, { type: "TRACK_COMPUTED", trackId: "v1", requestId: 6, passage: passage(), complexity: complexity() })).toBe(s);
+    const edited = run(s, { type: "DEPARTURE_CHANGED", departure: "2026-09-11T08:00" });
+    expect(edited.tracksStale).toBe(true);
+    const late = run(edited, { type: "TRACK_COMPUTED", trackId: "v1", requestId: 7, passage: passage(), complexity: complexity() });
+    expect(late.tracks[1].passage).toBeNull();
+    expect(late.trackRequests.v1).toBeUndefined();
+    // A failure is kept on the row.
+    expect(run(s, { type: "TRACK_FAILED", trackId: "v1", requestId: 7, error: "boom" }).tracks[1].error).toBe("boom");
+  });
+
+  it("opens an option in the plan, with the way back, and keeps or drops the options", () => {
+    const s = run(
+      drawn(),
+      { type: "VARIANT_FINISHED", id: "v1", createdAt: "x" },
+      { type: "TRACK_STARTED", trackId: "v1", requestId: 7 },
+      { type: "TRACK_COMPUTED", trackId: "v1", requestId: 7, passage: passage(), complexity: complexity() },
+    );
+    const opened = run(s, { type: "TRACK_OPENED", id: "v1", configFingerprint: "x" });
+    expect(opened.mode).toBe("single");
+    expect(opened.waypoints).toEqual([MARSEILLE, MID, PORQUEROLLES]);
+    expect(opened.returnTo).toBe("tracks");
+    expect(opened.openedTrackId).toBe("v1");
+    expect(opened.persist?.url).toContain("wpts=");
+    // Not computed yet: nothing to open.
+    expect(run(s, { type: "TRACK_OPENED", id: "plan", configFingerprint: "x" })).toBe(s);
+    // Back to the comparison keeps the options; keeping the plan drops them.
+    expect(run(opened, { type: "COMPARE_OPENED", axis: "tracks" }).tracks).toHaveLength(2);
+    const kept = run(opened, { type: "PLAN_KEPT" });
+    expect(kept.tracks).toHaveLength(0);
+    expect(kept.returnTo).toBeNull();
+    // Editing the route drops them too: the ends they shared are gone.
+    expect(run(opened, { type: "WAYPOINT_MOVED", index: 1, lat: 43.2, lon: 5.9 }).tracks).toHaveLength(0);
+  });
+
+  it("chooses an option as the plan's route without leaving the comparison, and forgets the sweep", () => {
+    const s = run(
+      drawn(),
+      { type: "FETCH_STARTED", requestId: 1, kind: "sweep" },
+      succeedSweep(1),
+      { type: "VARIANT_FINISHED", id: "v1", createdAt: "x" },
+      { type: "TRACK_STARTED", trackId: "v1", requestId: 7 },
+      { type: "TRACK_COMPUTED", trackId: "v1", requestId: 7, passage: passage(), complexity: complexity() },
+    );
+    expect(s.windows).toHaveLength(1);
+    const chosen = run(s, { type: "TRACK_SELECTED", id: "v1", configFingerprint: "x" });
+    expect(chosen.mode).toBe(s.mode);
+    expect(chosen.waypoints).toEqual([MARSEILLE, MID, PORQUEROLLES]);
+    expect(chosen.windows).toBeNull();
+    expect(chosen.returnTo).toBeNull();
+    expect(chosen.persist?.url).toContain("wpts=");
+    // Choosing the option already on screen changes nothing.
+    expect(run(chosen, { type: "TRACK_SELECTED", id: "v1", configFingerprint: "x" })).toBe(chosen);
+  });
+
+  it("removes any option but the one the plan is on, the plan's own track included", () => {
+    const s = run(
+      drawn({ passage: passage(), complexity: complexity() }),
+      { type: "VARIANT_FINISHED", id: "v1", createdAt: "x" },
+      { type: "TRACK_STARTED", trackId: "v1", requestId: 7 },
+      { type: "TRACK_COMPUTED", trackId: "v1", requestId: 7, passage: passage(), complexity: complexity() },
+    );
+    // The plan is on its own track: that one stays, the variant can go.
+    expect(run(s, { type: "TRACK_REMOVED", id: "plan" })).toBe(s);
+    // Only the plan left: the axis is the plan alone again.
+    expect(run(s, { type: "TRACK_REMOVED", id: "v1" }).tracks).toHaveLength(0);
+    // The plan moved to the variant: now the plan's own track can go.
+    const chosen = run(s, { type: "TRACK_SELECTED", id: "v1", configFingerprint: "x" });
+    expect(run(chosen, { type: "TRACK_REMOVED", id: "v1" })).toBe(chosen);
+    const gone = run(chosen, { type: "TRACK_REMOVED", id: "plan" });
+    expect(gone.tracks).toHaveLength(0);
+    expect(gone.waypoints).toEqual([MARSEILLE, MID, PORQUEROLLES]);
+  });
+
+  it("marks the options to recompute when a slot is picked on the other axis", () => {
+    const s = run(drawn(), { type: "VARIANT_FINISHED", id: "v1", createdAt: "x" });
+    const picked = run(
+      { ...s, mode: "compare" },
+      { type: "WINDOW_SELECTED", window: aWindow({ passage: passage(), complexity_full: complexity() }), departure: "2026-09-11T06:00", configFingerprint: "x" },
+    );
+    expect(picked.tracksStale).toBe(true);
+  });
+
+  it("does not blank the track axis while a sweep runs", () => {
+    const s = run(start(), { type: "COMPARE_OPENED", axis: "tracks" }, { type: "FETCH_STARTED", requestId: 1, kind: "sweep" });
+    expect(isLoadingForMode(s)).toBe(false);
+    expect(isLoadingForMode({ ...s, compareAxis: "slots" })).toBe(true);
   });
 });
 
@@ -409,11 +600,11 @@ describe("the race (annexe B, C1)", () => {
     expect(s.pending).toBeNull();
   });
 
-  it("keeps a reply whose plan only saw a mode switch or a sweep tweak", () => {
+  it("keeps a reply whose plan only saw the comparison open or a sweep tweak", () => {
     const s = run(
       start(),
       { type: "FETCH_STARTED", requestId: 1, kind: "single" },
-      { type: "MODE_CHANGED", mode: "compare" },
+      { type: "COMPARE_OPENED", axis: "slots" },
       { type: "SWEEP_CHANGED", latest: "2026-09-14T08:00" },
       succeedSingle(1),
     );
@@ -528,7 +719,7 @@ describe("persist commands", () => {
       start(),
       { type: "WAYPOINT_APPENDED", lat: 42.9, lon: 6.4 },
       { type: "DEPARTURE_CHANGED", departure: "2026-09-11T08:00" },
-      { type: "MODE_CHANGED", mode: "compare" },
+      { type: "COMPARE_OPENED", axis: "slots" },
     );
     expect(s.persist).toBeNull();
   });
@@ -550,10 +741,10 @@ describe("cold-start retry", () => {
     expect(s.pending?.id).toBe(2);
   });
 
-  it("clears the wait when a request starts, fails or the mode changes", () => {
+  it("clears the wait when a request starts, fails or the comparison opens", () => {
     const waiting = run(start(), { type: "FETCH_STARTED", requestId: 1, kind: "single" }, scheduled);
     expect(run(waiting, { type: "FETCH_STARTED", requestId: 2, kind: "single" }).retry).toBeNull();
-    expect(run(waiting, { type: "MODE_CHANGED", mode: "compare" }).retry).toBeNull();
+    expect(run(waiting, { type: "COMPARE_OPENED", axis: "slots" }).retry).toBeNull();
     const failed = run(
       waiting,
       { type: "FETCH_STARTED", requestId: 2, kind: "single" },

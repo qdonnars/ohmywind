@@ -12,7 +12,7 @@ import { useT } from "../i18n";
 
 // ── EmptyState ────────────────────────────────────────────────────────────────
 // Shown when fewer than 2 waypoints are placed: invites the user to draw a
-// route on the map. The mode tabs above are dimmed (locked) until placement.
+// route on the map. The route bar above is dimmed (locked) until placement.
 
 export function RouteSketch() {
   return (
@@ -54,116 +54,6 @@ export function EmptyState() {
           {t("plan.states.empty.body")}
         </div>
       </div>
-    </div>
-  );
-}
-
-// ── ModePicker ────────────────────────────────────────────────────────────────
-// Desktop-only "narrative" cards rendered alongside the compact pills+trash
-// once the user has placed 2 waypoints. Mobile keeps the compact pills-only
-// view (handled in PlanSidebar via responsive classes) because vertical
-// real-estate is precious on phones; on desktop the extra context fits and
-// reassures first-time users.
-
-function PickerIcon({ name, color }: { name: "route" | "clock"; color: string }) {
-  if (name === "clock") {
-    return (
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="8" cy="8" r="6.5" />
-        <path d="M8 4.5V8l2.5 1.5" />
-      </svg>
-    );
-  }
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 12c2-4 5-1 7-3 1-1 2-3 3-3" />
-      <circle cx="3" cy="12" r="1.5" fill={color} stroke="none" />
-      <circle cx="13" cy="6" r="1.5" fill={color} stroke="none" />
-    </svg>
-  );
-}
-
-function BigCard({
-  icon,
-  accent,
-  title,
-  body,
-  example,
-  onClick,
-}: {
-  icon: "route" | "clock";
-  accent: string;
-  title: string;
-  body: string;
-  example: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full text-left rounded-xl px-4 py-3.5 transition-all"
-      style={{ background: "var(--ow-bg-2)", border: "1px solid var(--ow-line)" }}
-    >
-      <div className="flex items-center gap-2 mb-1.5">
-        <span
-          className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
-          style={{ background: accent, color: "var(--ow-cell-ink)" }}
-        >
-          <PickerIcon name={icon} color="var(--ow-cell-ink)" />
-        </span>
-        <div
-          className="text-sm font-semibold"
-          style={{ color: "var(--ow-fg-0)", letterSpacing: "-0.005em" }}
-        >
-          {title}
-        </div>
-        <span className="ml-auto" aria-hidden="true">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--ow-fg-2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M6 3l5 5-5 5" />
-          </svg>
-        </span>
-      </div>
-      <div className="text-xs leading-relaxed mb-1.5" style={{ color: "var(--ow-fg-1)" }}>
-        {body}
-      </div>
-      <div className="text-[10px] italic" style={{ color: "var(--ow-fg-2)", fontFamily: "var(--ow-font-mono)" }}>
-        {example}
-      </div>
-    </button>
-  );
-}
-
-export function ModePicker({
-  onPick,
-}: {
-  onPick: (m: "single" | "compare") => void;
-}) {
-  const { t } = useT();
-  return (
-    <div className="flex flex-col gap-2.5">
-      <div
-        className="text-base font-semibold"
-        style={{ color: "var(--ow-fg-0)", letterSpacing: "-0.005em" }}
-      >
-        {t("plan.states.picker.title")}
-      </div>
-      <BigCard
-        icon="route"
-        accent="var(--ow-accent)"
-        title={t("plan.mode.single.title")}
-        body={t("plan.states.picker.single.body")}
-        example={t("plan.states.picker.single.example")}
-        onClick={() => onPick("single")}
-      />
-      <BigCard
-        icon="clock"
-        accent="var(--ow-compare)"
-        title={t("plan.mode.compare.title")}
-        body={t("plan.states.picker.compare.body")}
-        example={t("plan.states.picker.compare.example")}
-        onClick={() => onPick("compare")}
-      />
     </div>
   );
 }
