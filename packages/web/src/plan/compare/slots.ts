@@ -24,27 +24,27 @@ import { t } from "../../i18n";
 export type CompareAxis = "slots" | "tracks";
 
 /** Spans offered as chips, in hours from the plan's departure: 24 h, 48 h,
-    3 days, 7 days, 12 days. Twelve days is the end of the forecast. */
-export const WINDOW_PRESETS_H = [24, 48, 72, 168, 288] as const;
+    3 days, 7 days. Nobody plans a departure further out than a week on a
+    forecast, so the chips stop there; the exact dates can still reach the
+    end of the forecast. */
+export const WINDOW_PRESETS_H = [24, 48, 72, 168] as const;
 
 /** The window a comparison opens on: the two days after the plan's departure,
     « je veux partir dans les deux jours ». */
 export const DEFAULT_WINDOW_H = 48;
 
-/** Steps the reader may pick once « Changer » is open. */
-export const STEP_CHOICES_H = [1, 3, 6, 12] as const;
+/** Steps offered as chips. Twelve hours told nothing a day did not. */
+export const STEP_CHOICES_H = [1, 3, 6] as const;
 
 const HOUR_MS = 3_600_000;
 
 /**
  * The step deduced from the span: fine enough to read a day, coarse enough
  * that a week does not cost a minute of computation. 24 h to 3 days at 3 h
- * (9 to 25 slots), a week at 6 h (29), twelve days at 12 h (25).
+ * (9 to 25 slots), beyond at 6 h (29 for a week).
  */
-export function autoStepHours(spanH: number): 3 | 6 | 12 {
-  if (spanH <= 72) return 3;
-  if (spanH <= 168) return 6;
-  return 12;
+export function autoStepHours(spanH: number): 3 | 6 {
+  return spanH <= 72 ? 3 : 6;
 }
 
 /** How many departures a sweep of `spanH` hours tests at `stepH`. Mirrors

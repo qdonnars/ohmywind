@@ -36,15 +36,3 @@ export function fmtNm(nm: number): string {
   }
   return `${Math.round(nm)} nm`;
 }
-
-/** Length of a route through `waypoints`, as the sum of its great-circle
-    legs, in nautical miles. 0 under two points. */
-export function routeLengthNm(waypoints: [number, number][]): number {
-  let nm = 0;
-  for (let i = 1; i < waypoints.length; i++) {
-    const [aLat, aLon] = waypoints[i - 1];
-    const [bLat, bLon] = waypoints[i];
-    nm += haversineNm(aLat, aLon, bLat, bLon);
-  }
-  return nm;
-}

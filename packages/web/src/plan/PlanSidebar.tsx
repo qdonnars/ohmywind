@@ -74,8 +74,9 @@ export function PlanSidebar() {
       </div>
     );
 
-  // 1. computing
-  if (isLoading) return <LoadingSkeleton />;
+  // 1. computing. On the departure axis the list waits on its own (see
+  // SlotList), so the chips that launched the sweep stay under the hand.
+  if (isLoading && !(mode === "compare" && state.compareAxis === "slots")) return <LoadingSkeleton />;
 
   // 2a. the backend is waking up: the request goes again on its own
   if (retry) {

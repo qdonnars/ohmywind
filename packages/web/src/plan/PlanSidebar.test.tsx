@@ -13,7 +13,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PlanSidebar } from "./PlanSidebar";
-import { PlanFoot } from "./PlanFoot";
 import { ReturnBanner } from "./ReturnBanner";
 import { PlanProvider } from "./session/PlanProvider";
 import type { PlanContextValue } from "./session/planContext";
@@ -23,6 +22,7 @@ import type { PlanActions } from "./session/usePlanSession";
 import type { PassageReport, ComplexityScore, PassageWindow, Archetype } from "./types";
 import { resetPolarConfigSnapshot } from "../config/usePolarConfig";
 import { fmtClock, toNaiveLocal, toTzAware } from "../domain/datetime";
+import { presetLatest } from "./compare/slots";
 import type { ReactNode } from "react";
 
 const MARSEILLE: [number, number] = [43.29, 5.37];
@@ -318,116 +318,53 @@ describe("the comparison", () => {
     expect(value.computeWindows).toHaveBeenCalledTimes(1);
   });
 
-  it("pins nothing under a computed plan, and the settings under the comparison", async () => {
-    mountWith(<PlanFoot />, { passage: passage(), complexity: complexity() });
-    expect(screen.queryByRole("button")).toBeNull();
-    cleanup();
-
-    const compare = mountWith(<PlanFoot />, { mode: "compare", windows: [aWindow()] });
-    // The window, written once: the row is the summary and the button.
-    const row = screen.getByRole("button", { name: /Fenêtre/ });
-    expect(row.textContent).toContain("Les prochaines 48 h");
-    expect(row.textContent).toContain("toutes les 3 h");
-    expect(screen.getByText("Tracé figé")).toBeTruthy();
-    await userEvent.click(row);
-    // Unfolded: the presets, and the step already deduced from the span,
-    // one tap away from another value; the dates under a link.
+  it("sets the window from the chips at the top of the list, applied at once", async () => {
+    const departure = "2026-09-10T08:00";
+    const value = mount({ mode: "compare", windows: [aWindow()], departure });
+    // The presets, and the step already deduced from the span. No 12 days:
+    // too far out to plan a departure on.
     expect(screen.getByRole("button", { name: "48 h" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: "3 h" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.queryByRole("button", { name: "12 j" })).toBeNull();
+    // A span, from the plan's departure, at the step it proposes.
+    await userEvent.click(screen.getByRole("button", { name: "7 j" }));
+    expect(value.actions.applySweep).toHaveBeenLastCalledWith({
+      earliest: departure,
+      latest: presetLatest(departure, 168, Date.now()),
+      intervalHours: 6,
+    });
+    // A step alone, on the window as it stands. No 12 h: a day says it.
+    expect(screen.queryByRole("button", { name: "12 h" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "6 h" }));
+    expect(value.actions.applySweep).toHaveBeenLastCalledWith({
+      earliest: departure,
+      latest: "2026-09-12T08:00",
+      intervalHours: 6,
+    });
+    // The exact dates, under a link, applied with a button.
     expect(screen.queryByLabelText("Du")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Ajuster les dates" }));
-    expect((screen.getByLabelText("Du") as HTMLInputElement).value).toBe("2026-09-10T08:00");
-    await userEvent.click(screen.getByRole("button", { name: "7 j" }));
-    expect(screen.getByRole("button", { name: "7 j" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: "6 h" }).getAttribute("aria-pressed")).toBe("true");
-    await userEvent.click(screen.getByRole("button", { name: "12 h" }));
-    await userEvent.click(screen.getByRole("button", { name: "Appliquer" }));
-    expect(compare.actions.applySweep).toHaveBeenCalledWith({
-      earliest: "2026-09-10T08:00",
-      latest: "2026-09-17T08:00",
-      intervalHours: 12,
-    });
-  });
-
-  it("shows nothing pinned while computing, before a route, or under a stale plan", () => {
-    mountWith(<PlanFoot />, { passage: passage(), complexity: complexity() }, { isLoading: true });
-    expect(screen.queryByRole("button")).toBeNull();
-    cleanup();
-    mountWith(<PlanFoot />, { waypoints: [MARSEILLE] });
-    expect(screen.queryByRole("button")).toBeNull();
-    cleanup();
-    mountWith(<PlanFoot />, { passage: passage(), complexity: complexity(), isStale: true });
-    expect(screen.queryByRole("button")).toBeNull();
-  });
-
-  it("lists the plan as the only option, then the variants: choose, open, remove", async () => {
-    const alone = mount({ mode: "compare", compareAxis: "tracks", passage: passage(), complexity: complexity() });
-    expect(screen.getByRole("button", { name: /^Option 1 · Ouvrir ce tracé/ })).toBeTruthy();
-    expect(screen.getAllByText("1 option").length).toBeGreaterThanOrEqual(1);
-    // No sort on this axis, and the plan alone has no trash.
-    expect(screen.queryByRole("button", { name: "Durée" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Supprimer/ })).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: /Tracer une variante/ }));
-    expect(alone.actions.startVariant).toHaveBeenCalledTimes(1);
-    cleanup();
-
-    const two = mount({
-      mode: "compare",
-      compareAxis: "tracks",
-      tracks: [
-        { id: "plan", waypoints: [MARSEILLE, PORQUEROLLES], createdAt: "", passage: passage(), complexity: complexity(), error: null },
-        { id: "v1", waypoints: [MARSEILLE, MID, PORQUEROLLES], createdAt: "", passage: null, complexity: null, error: null },
-      ],
-      trackRequests: { v1: { id: 1, editSeq: 0 } },
-    });
-    expect(screen.getByText("calcul en cours…")).toBeTruthy();
-    // The plan's route is option 1: marked as chosen, and the one the departure axis is about.
-    expect(screen.getByRole("button", { name: /^Option 1 · Choisir/ }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByText("sélectionné")).toBeTruthy();
-    // The chosen option has no trash; the other has.
-    expect(screen.queryByRole("button", { name: "Supprimer l'option 1" })).toBeNull();
-    // An option still computing can be neither chosen nor opened, only removed.
-    expect((screen.getByRole("button", { name: /^Option 2 · Choisir/ }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole("button", { name: /^Option 2 · Ouvrir/ }) as HTMLButtonElement).disabled).toBe(true);
-    await userEvent.click(screen.getByRole("button", { name: "Supprimer l'option 2" }));
-    expect(two.actions.removeTrack).toHaveBeenCalledWith("v1");
-    await userEvent.click(screen.getByRole("button", { name: /^Option 1 · Ouvrir/ }));
-    expect(two.actions.openTrack).toHaveBeenCalledWith("plan");
-    await userEvent.click(screen.getByRole("button", { name: /^Option 1 · Choisir/ }));
-    expect(two.actions.selectTrack).toHaveBeenCalledWith("plan");
-    expect(screen.getByText("55,0 nm")).toBeTruthy();
-  });
-
-  it("swaps the list for the drawing controls while a variant is drawn", async () => {
-    const value = mount({ mode: "compare", compareAxis: "tracks", variant: [MARSEILLE, PORQUEROLLES] });
-    expect(screen.getByText("Option 2 · tracé en cours")).toBeTruthy();
-    expect(screen.getByText("2 points posés")).toBeTruthy();
-    // No axis switch, and no finishing a straight line.
-    expect(screen.queryByRole("tab")).toBeNull();
-    expect((screen.getByRole("button", { name: "Terminer et comparer" }) as HTMLButtonElement).disabled).toBe(true);
-    await userEvent.click(screen.getByRole("button", { name: "Annuler" }));
-    expect(value.actions.cancelVariant).toHaveBeenCalledTimes(1);
-    cleanup();
-
-    const three = mount({ mode: "compare", compareAxis: "tracks", variant: [MARSEILLE, MID, PORQUEROLLES] });
-    await userEvent.click(screen.getByRole("button", { name: "Terminer et comparer" }));
-    expect(three.actions.finishVariant).toHaveBeenCalledTimes(1);
-  });
-
-  it("pins the frozen departure under the track axis, and applies a new one to every option", async () => {
-    const value = mountWith(<PlanFoot />, { mode: "compare", compareAxis: "tracks", departure: "2026-09-10T08:00" });
-    const row = screen.getByRole("button", { name: /Départ figé/ });
-    expect(row.textContent).toContain("08:00");
-    await userEvent.click(row);
-    // The plan's own slider, on a copy: « Ajuster » shows the field.
-    await userEvent.click(screen.getByRole("button", { name: "Ajuster" }));
-    const field = screen.getByDisplayValue("2026-09-10T08:00") as HTMLInputElement;
-    const soon = new Date(Date.now() + 2 * 86_400_000);
+    const from = screen.getByLabelText("Du") as HTMLInputElement;
+    expect(from.value).toBe(departure);
+    expect((screen.getByRole("button", { name: "Appliquer" }) as HTMLButtonElement).disabled).toBe(true);
+    const soon = new Date(Date.now() + 86_400_000);
     soon.setMinutes(0, 0, 0);
-    const next = toNaiveLocal(soon);
-    fireEvent.change(field, { target: { value: next } });
+    const later = new Date(soon.getTime() + 2 * 86_400_000);
+    fireEvent.change(from, { target: { value: toNaiveLocal(soon) } });
+    fireEvent.change(screen.getByLabelText("Au"), { target: { value: toNaiveLocal(later) } });
     await userEvent.click(screen.getByRole("button", { name: "Appliquer" }));
-    expect(value.actions.applyTrackDeparture).toHaveBeenCalledWith(next);
+    expect(value.actions.applySweep).toHaveBeenLastCalledWith({
+      earliest: toNaiveLocal(soon),
+      latest: toNaiveLocal(later),
+      intervalHours: 3,
+    });
+  });
+
+  it("keeps the head and the chips while the sweep runs, the list alone waiting", () => {
+    mount({ mode: "compare", windows: [aWindow()], pending: { id: 1, kind: "sweep", editSeq: 0 } }, { isLoading: true });
+    expect(screen.getByText("Comparer ce trajet")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "48 h" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Ouvrir ce créneau/ })).toBeNull();
   });
 
   it("keeps a way back over the map while a slot is open in the plan", async () => {

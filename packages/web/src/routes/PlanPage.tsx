@@ -12,7 +12,6 @@ import { NavMenu } from "../components/NavMenu";
 import type { Archetype } from "../plan/types";
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { StatBand } from "../plan/PlanStates";
-import { PlanFoot } from "../plan/PlanFoot";
 import { ReturnBanner } from "../plan/ReturnBanner";
 import { planAsTrack, routeOverlays } from "../plan/compare/tracks";
 import { loadPlanDraft } from "../plan/draft";
@@ -71,11 +70,8 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
    *  measure, since both take their height from the drawer, not from the
    *  content below the anchor. */
   head?: React.ReactNode;
-  /** Pinned under the scrolling content, in the drawer chrome like `head`:
-   *  the door into the comparison, or its settings and frozen row. */
-  foot?: React.ReactNode;
   children: React.ReactNode;
-}>(function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, head, foot, children }, ref) {
+}>(function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, head, children }, ref) {
   const { t } = useT();
   const [vh, setVh] = useState<number>(() => {
     try {
@@ -248,7 +244,6 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
       </div>
       {head}
       <div ref={contentRef} className="flex-1 min-h-0 overflow-y-auto">{children}</div>
-      {foot}
     </div>
   );
 });
@@ -264,12 +259,9 @@ const SIDEBAR_MAX_PX = 800;
 
 function ResizableDesktopSidebar({
   defaultPx,
-  foot,
   children,
 }: {
   defaultPx: number;
-  /** Pinned under the scrolling content, see the drawer. */
-  foot?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const { t } = useT();
@@ -335,10 +327,7 @@ function ResizableDesktopSidebar({
           style={{ width: 4, height: 56, background: "var(--ow-fg-3)" }}
         />
       </div>
-      <div className="flex-1 min-w-0 flex flex-col">
-        <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>
-        {foot}
-      </div>
+      <div className="flex-1 min-w-0 overflow-y-auto">{children}</div>
     </div>
   );
 }
@@ -700,7 +689,7 @@ export function PlanPage() {
             panel twice, re-read ow_polar_config_v1 twice, and every button of
             the planner existed twice for assistive technology. */}
         {isDesktop && (
-          <ResizableDesktopSidebar defaultPx={384} foot={<PlanFoot />}>
+          <ResizableDesktopSidebar defaultPx={384}>
             <PlanSidebar />
           </ResizableDesktopSidebar>
         )}
@@ -730,7 +719,6 @@ export function PlanPage() {
           }
           resultsFitKey={resultsFitKey}
           head={passage && planMode === "single" && !isStale ? <StatBand passage={passage} /> : null}
-          foot={<PlanFoot />}
         >
           <PlanSidebar />
         </ResizableMobileDrawer>
