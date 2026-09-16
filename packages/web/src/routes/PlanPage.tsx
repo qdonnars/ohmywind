@@ -68,6 +68,12 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
    *  block sits one scroll-up away, and the map gets the freed space. No-op
    *  when the sidebar isn't showing a filled view (no anchor in the DOM). */
   resultsFitKey?: object | null;
+  /** Fit the drawer to the whole of its content: the short steps before a
+   *  result (the invitation, the « Calculer » row, the drawing controls)
+   *  used to sit in a fixed slot with room to spare under them. Same
+   *  contract as `resultsFitKey`: a new identity re-fits, null leaves the
+   *  height alone. */
+  contentFitKey?: object | null;
   /** Rendered in the drawer chrome, between the grab handle and the
    *  scrolling content, so it never scrolls away: the totals band of a
    *  computed passage. Counted with the handle in the fit-to-results
@@ -75,7 +81,7 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
    *  content below the anchor. */
   head?: React.ReactNode;
   children: React.ReactNode;
-}>(function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, head, children }, ref) {
+}>(function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, contentFitKey, head, children }, ref) {
   const { t } = useT();
   const [vh, setVh] = useState<number>(() => {
     try {
@@ -174,6 +180,29 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
     });
     return () => cancelAnimationFrame(raf);
   }, [resultsFitKey, targetVh]);
+
+  // Fit-to-content: see the ``contentFitKey`` prop doc. Measured one frame
+  // after render like the fit above, from the content's real extent rather
+  // than ``scrollHeight``, which is floored at the container's height.
+  // Animated: it moves the drawer to a height the reader did not choose,
+  // and a jump would read as a glitch. Bounded like every other height.
+  useEffect(() => {
+    if (contentFitKey == null) return;
+    const raf = requestAnimationFrame(() => {
+      const outer = outerRef.current;
+      const container = contentRef.current;
+      if (!outer || !container || outer.offsetHeight === 0) return;
+      const top = container.getBoundingClientRect().top;
+      const end = container.lastElementChild?.getBoundingClientRect().bottom ?? top;
+      const contentPx = end - top + container.scrollTop;
+      const chromePx = outer.offsetHeight - container.clientHeight;
+      const desiredVh = ((contentPx + chromePx + 1) / window.innerHeight) * 100;
+      container.scrollTop = 0;
+      setIsAnimating(true);
+      setVh(Math.max(DRAWER_MIN_VH, Math.min(DRAWER_MAX_VH, desiredVh)));
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [contentFitKey]);
 
   useImperativeHandle(ref, () => ({
     scrollToTop: () => {
@@ -474,6 +503,15 @@ export function PlanPage() {
     return filled ? {} : null;
   }, [passage, windows, planMode, isLoading]);
 
+  // The short steps of the mobile drawer, fitted to what they hold rather
+  // than to a fixed slot: nothing drawn yet, a route with nothing asked yet,
+  // a variant being drawn. New identity when one of them is entered.
+  const compactStep = waypoints.length < 2 || !actionTaken;
+  const contentFitKey = useMemo(
+    () => (!isLoading && (compactStep || drawing) ? {} : null),
+    [isLoading, compactStep, drawing],
+  );
+
   // Memoised: PlanMap keys an effect on this tuple, and a fresh one on every
   // render made it destroy and redraw the highlight polyline each time a
   // slider ticked.
@@ -709,11 +747,11 @@ export function PlanPage() {
         )}
       </div>
 
-      {/* Mobile drawer — below map. Auto-slides to a target height based on
-          where the user is in the flow (no waypoints → minimal so the map
-          stays the focus; 2 waypoints → tall enough to surface the route
-          line and « Calculer »; something asked → full content height). The
-          drag handle still lets the user override at any time.
+      {/* Mobile drawer — below map. Fitted to its content in the short
+          steps (nothing drawn, route with nothing asked, variant being
+          drawn), so the map keeps the room; opened to a full slot once
+          something was asked, then fitted to the results. The drag handle
+          still lets the user override at any time.
           Its head carries the totals of a computed passage, single mode
           only. Hidden as soon as the route was edited without recalculating:
           stale totals would contradict the "Recalculer" hint in the drawer.
@@ -722,16 +760,9 @@ export function PlanPage() {
         <ResizableMobileDrawer
           ref={drawerRef}
           defaultVh={passage ? 38 : 60}
-          targetVh={
-            drawing
-              ? 26
-              : waypoints.length < 2
-                ? 18
-                : !actionTaken
-                  ? 26
-                  : 65
-          }
+          targetVh={compactStep || drawing ? undefined : 65}
           resultsFitKey={resultsFitKey}
+          contentFitKey={contentFitKey}
           head={passage && planMode === "single" && !isStale ? <StatBand passage={passage} /> : null}
         >
           <PlanSidebar />
