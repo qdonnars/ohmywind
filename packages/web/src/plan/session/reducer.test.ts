@@ -315,6 +315,10 @@ describe("the track axis", () => {
     expect(run(s, { type: "VARIANT_POINT_DELETED", index: 2 }).variant).toHaveLength(3);
     expect(run(s, { type: "VARIANT_POINT_DELETED", index: 1 }).variant).toEqual([MARSEILLE, PORQUEROLLES]);
     expect(run(s, { type: "VARIANT_CANCELLED" }).variant).toBeNull();
+    // Leaving the comparison drops a variant half drawn: kept, it held the
+    // map in drawing mode and hid the settings of the other axis.
+    expect(run({ ...s, mode: "compare" }, { type: "COMPARE_CLOSED" }).variant).toBeNull();
+    expect(run(s, { type: "COMPARE_OPENED", axis: "slots" }).variant).toBeNull();
     // A straight line is not a variant.
     expect(run(start(), { type: "VARIANT_STARTED" }, { type: "VARIANT_FINISHED", id: "v1", createdAt: "x" }).tracks).toHaveLength(0);
   });

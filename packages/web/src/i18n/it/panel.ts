@@ -153,7 +153,7 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.tracks.row.computing": "calcolo in corso…",
   "panel.tracks.stale": "Partenza o barca modificata. Ricalcoli per confrontare le rotte.",
   "panel.tracks.departure.title": "Partenza, comune a tutte le rotte",
-  "panel.tracks.departure.note": "Cambiare questa partenza ricalcola tutte le rotte. Per provare più orari su una sola rotta, passi all'asse Partenze.",
+  "panel.tracks.departure.note": "Cambiare questa partenza ricalcola tutte le rotte. Per provare più orari su una sola rotta, torni al piano e scelga « Altre partenze ».",
   "panel.tracks.departure.recompute.one": "Ricalcolo di {count} rotta",
   "panel.tracks.departure.recompute.other": "Ricalcolo di {count} rotte",
 
@@ -170,4 +170,8 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.tracks.row.openShort": "Vedere",
   "panel.window.every": "Ogni",
   "panel.window.adjustDates": "Regolare le date",
+  "panel.hint.title": "E se confrontasse?",
+  "panel.hint.body": "In fondo ai risultati, due porte: altre partenze su questa rotta, o un'altra rotta. Le rotte confrontate partono e arrivano nello stesso posto; cambiano solo i punti intermedi.",
+  "panel.hint.go": "Andiamo",
+  "panel.hint.dismiss": "Capito",
 };

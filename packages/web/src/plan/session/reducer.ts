@@ -398,6 +398,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
         ...state,
         mode: "compare",
         compareAxis: action.axis,
+        variant: null,
         actionTaken: true,
         returnTo: null,
         apiError: null,
@@ -413,7 +414,9 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
 
     case "COMPARE_CLOSED":
       if (state.mode === "single") return state;
-      return { ...state, mode: "single", returnTo: null, apiError: null, retry: null };
+      // A variant half drawn goes with the screen it was drawn on: kept, it
+      // held the map in drawing mode and hid the settings of the other axis.
+      return { ...state, mode: "single", variant: null, returnTo: null, apiError: null, retry: null };
 
     case "PLAN_KEPT":
       if (state.returnTo === null) return state;
@@ -531,6 +534,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
         {
           ...state,
           mode: "single",
+          variant: null,
           waypoints: track.waypoints,
           originWaypoints: track.waypoints,
           passage: track.passage,
@@ -749,6 +753,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
       const base: PlanState = {
         ...state,
         mode: "single",
+        variant: null,
         departure: action.departure,
         // The comparison stays open behind the plan: the map offers the way
         // back to it until this slot is kept or the route edited.
