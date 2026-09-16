@@ -38,11 +38,14 @@ export function RouteSketch() {
   );
 }
 
+// The words come first: on a phone the drawer opens as a peek on this
+// view, and the top of it has to be the invitation, not the middle of a
+// sketch. The sketch is for the wide screen, where the panel has room; on
+// a phone the map itself is where the route gets drawn.
 export function EmptyState() {
   const { t } = useT();
   return (
-    <div className="px-2 py-6 flex flex-col gap-4">
-      <RouteSketch />
+    <div className="px-2 pt-2 pb-6 lg:py-6 flex flex-col gap-4">
       <div>
         <div
           className="text-base font-semibold mb-1.5 leading-snug"
@@ -53,6 +56,9 @@ export function EmptyState() {
         <div className="text-xs leading-relaxed" style={{ color: "var(--ow-fg-1)" }}>
           {t("plan.states.empty.body")}
         </div>
+      </div>
+      <div className="hidden lg:block">
+        <RouteSketch />
       </div>
     </div>
   );
