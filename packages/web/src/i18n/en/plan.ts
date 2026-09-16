@@ -26,7 +26,7 @@ export const plan: Record<keyof typeof frPlan, string> = {
   // ── Panel states ──────────────────────────────────────────────────────────
   "plan.states.empty.title": "Draw your route",
   "plan.states.empty.body":
-    "Click the map to place a departure and an arrival. You can then compute the passage, then compare other departures or other tracks.",
+    "Click the map to place a departure and an arrival. You can then compute the passage, then compare other departures or other routes.",
   "plan.states.error.title": "Error",
   "plan.states.waking.title": "The weather server is waking up",
   "plan.states.waking.body":

@@ -26,7 +26,7 @@ export const plan: Record<keyof typeof frPlan, string> = {
   // ── Panel states ──────────────────────────────────────────────────────────
   "plan.states.empty.title": "Trace su trayecto",
   "plan.states.empty.body":
-    "Haga clic en el mapa para colocar una salida y una llegada. Después podrá calcular el paso y luego comparar otras salidas u otros trazados.",
+    "Haga clic en el mapa para colocar una salida y una llegada. Después podrá calcular el paso y luego comparar otras salidas u otras rutas.",
   "plan.states.error.title": "Error",
   "plan.states.waking.title": "El servidor meteorológico se está reactivando",
   "plan.states.waking.body":

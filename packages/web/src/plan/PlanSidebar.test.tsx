@@ -249,7 +249,7 @@ describe("PlanSidebar views", () => {
     // The two doors, after everything else.
     await userEvent.click(screen.getByRole("button", { name: "D'autres départs" }));
     expect(value.actions.openCompare).toHaveBeenCalledWith("slots");
-    await userEvent.click(screen.getByRole("button", { name: "Un autre tracé" }));
+    await userEvent.click(screen.getByRole("button", { name: "Un autre itinéraire" }));
     expect(value.actions.openCompare).toHaveBeenCalledWith("tracks");
     expect(value.actions.startVariant).toHaveBeenCalledTimes(1);
   });

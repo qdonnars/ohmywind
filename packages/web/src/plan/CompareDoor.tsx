@@ -21,7 +21,7 @@ export function CompareDoor() {
     border: "1px solid var(--ow-line)",
   } as const;
   return (
-    <div className="px-4 pt-2.5 pb-4" style={{ borderTop: "1px solid var(--ow-line)" }}>
+    <div data-compare-doors className="px-4 pt-2.5 pb-4" style={{ borderTop: "1px solid var(--ow-line)" }}>
       <div
         className="text-[9.5px] uppercase tracking-widest font-bold mb-1.5"
         style={{ color: "var(--ow-fg-3)", fontFamily: "var(--ow-font-mono)" }}

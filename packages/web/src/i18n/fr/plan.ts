@@ -30,7 +30,7 @@ export const plan = {
   // ── Etats du panneau ──────────────────────────────────────────────────────
   "plan.states.empty.title": "Tracez votre trajet",
   "plan.states.empty.body":
-    "Cliquez sur la carte pour placer un départ et une arrivée. Vous pourrez ensuite calculer le passage, puis comparer d'autres départs ou d'autres tracés.",
+    "Cliquez sur la carte pour placer un départ et une arrivée. Vous pourrez ensuite calculer le passage, puis comparer d'autres départs ou d'autres itinéraires.",
   "plan.states.error.title": "Erreur",
   "plan.states.waking.title": "Le serveur météo se réveille",
   "plan.states.waking.body":
