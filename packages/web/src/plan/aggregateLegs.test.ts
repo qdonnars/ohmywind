@@ -354,3 +354,66 @@ describe("labels follow the active language", () => {
     );
   });
 });
+
+describe("aggregateLegs.speedBuildUp", () => {
+  const waypoints: [number, number][] = [[43.0, 5.0], [43.1, 5.1]];
+  const one = (s: SegmentReport) => aggregateLegs([s], waypoints, 0.75, 45)[0];
+
+  // Regression: on a tacking step the server sails the optimal-VMG angle and
+  // reports the speed that geometry gives, while `polar_speed_kn` is still
+  // the raw polar read at the direct course, inside the no-go zone. Building
+  // the polar term from that raw value pushed the tacking difference into the
+  // sea term, which read "−0,5 mer" (bundled polar, clamped high) or "+3,0
+  // mer" (imported polar with a 0° row, interpolated towards zero) on steps
+  // where the server applied no wave correction at all.
+  it("starts the build-up from the speed the server sailed, not the raw polar in the no-go zone", () => {
+    // cruiser_40ft at 12.4 kn, TWA 21°: raw polar 5.46 (clamped on the 40°
+    // column), sailed 5.25 × 0.75 = 3.94, derate 1.
+    const clamped = one(seg({ twa_deg: 21, polar_speed_kn: 5.46, boat_speed_kn: 3.94, wave_derate_factor: 1 }));
+    expect(clamped.polar_after_eff_kn).toBeCloseTo(3.94, 5);
+    expect(clamped.wave_delta_kn).toBeCloseTo(0, 5);
+
+    // Same step on a polar carrying a 0° row of zeros: raw polar 2.90.
+    const zeroRow = one(seg({ twa_deg: 20, polar_speed_kn: 2.9, boat_speed_kn: 4.14, wave_derate_factor: 1 }));
+    expect(zeroRow.polar_after_eff_kn).toBeCloseTo(4.14, 5);
+    expect(zeroRow.wave_delta_kn).toBeCloseTo(0, 5);
+  });
+
+  it("attributes to the sea exactly what the wave derate took, never a gain", () => {
+    const leg = one(seg({ polar_speed_kn: 5.5, boat_speed_kn: 4.5, wave_derate_factor: 0.9 }));
+    expect(leg.polar_after_eff_kn).toBeCloseTo(5.0, 5);
+    expect(leg.wave_delta_kn).toBeCloseTo(-0.5, 5);
+    expect(leg.polar_after_eff_kn + leg.wave_delta_kn).toBeCloseTo(leg.boat_speed_kn, 5);
+  });
+
+  it("keeps the sum exact across a leg of mixed steps", () => {
+    const leg = aggregateLegs(
+      [
+        seg({ distance_nm: 3, boat_speed_kn: 3.9, wave_derate_factor: 1 }),
+        seg({ distance_nm: 7, boat_speed_kn: 4.5, wave_derate_factor: 0.9 }),
+        seg({ distance_nm: 2, boat_speed_kn: 5.0, motor_used: true, wave_derate_factor: 0.8 }),
+      ],
+      waypoints,
+      0.75,
+      45,
+    )[0];
+    expect(leg.polar_after_eff_kn + leg.wave_delta_kn).toBeCloseTo(leg.boat_speed_kn, 5);
+    expect(leg.wave_delta_kn).toBeLessThanOrEqual(0);
+  });
+
+  it("shows no sea term under engine, where the derate did not apply", () => {
+    // The server reports the derate it computed even when the motor bypassed
+    // it; the motoring speed must not be inflated by it.
+    const leg = one(seg({ motor_used: true, polar_speed_kn: 2.0, boat_speed_kn: 5.0, wave_derate_factor: 0.8 }));
+    expect(leg.polar_after_eff_kn).toBeCloseTo(5.0, 5);
+    expect(leg.wave_delta_kn).toBeCloseTo(0, 5);
+  });
+
+  it("treats a missing or broken derate as no derate", () => {
+    for (const derate of [0, -1, 1.5, Number.NaN, undefined]) {
+      const leg = one(seg({ boat_speed_kn: 4.5, wave_derate_factor: derate as number }));
+      expect(leg.polar_after_eff_kn).toBeCloseTo(4.5, 5);
+      expect(leg.wave_delta_kn).toBeCloseTo(0, 5);
+    }
+  });
+});
