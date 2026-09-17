@@ -286,13 +286,9 @@ export function LegDetailCard({
               {view.motor_used ? (
                 // Under engine neither the polar nor the sea apply: the boat
                 // does the motoring speed and only the current moves the
-                // figure. Spelling it out as "polar + sea" showed the sea
-                // adding speed, which was the residual of a formula that is
-                // not in force on this step (2,3 polaire +1,8 mer at 4 kn).
+                // figure, so the one term is the speed through water itself.
                 <span style={{ color: "var(--ow-fg-1)" }}>
-                  {t("panel.legDetail.buildUpMotor", {
-                    value: num1(view.polar_after_eff_kn + view.wave_delta_kn),
-                  })}
+                  {t("panel.legDetail.buildUpMotor", { value: num1(view.boat_speed_kn) })}
                 </span>
               ) : (
                 <>
