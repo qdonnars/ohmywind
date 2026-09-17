@@ -109,4 +109,28 @@ export const plan: Record<keyof typeof frPlan, string> = {
     "Der Server ist nicht erreichbar. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
   "plan.api.errors.invalidResponse":
     "Der Server hat eine unerwartete Antwort geliefert. Versuchen Sie es in Kürze erneut.",
+  "plan.notice.passage.long_route":
+    "lange Route ({route_nm} nm): {points} Wetterpunkte abgetastet (~{spacing_nm} nm Abstand) statt alle {requested_nm} nm, um API-Anfragen zu begrenzen.",
+  "plan.notice.passage.light_wind":
+    "schwacher Wind: Mindestgeschwindigkeit {min_speed_kn} kn, sehr langsame Passage",
+  "plan.notice.passage.model_fallback":
+    "Modell {model} ohne Daten an {fallback_count}/{total} Punkten (vermutlich außerhalb der Abdeckung); automatischer Rückgriff auf {others}",
+  "plan.notice.complexity.wind.3": "Frischer Wind: TWS {tws_range} kn auf {nm} nm",
+  "plan.notice.complexity.wind.4": "Starker Wind: TWS {tws_range} kn auf {nm} nm",
+  "plan.notice.complexity.wind.5": "Sehr starker Wind: TWS {tws_range} kn auf {nm} nm",
+  "plan.notice.complexity.sea.3": "Grobe See: Hs {hs_range} m auf {nm} nm",
+  "plan.notice.complexity.sea.4": "Sehr grobe See: Hs {hs_range} m auf {nm} nm",
+  "plan.notice.complexity.sea.5": "Hohe See: Hs {hs_range} m auf {nm} nm",
+  "plan.notice.complexity.current":
+    "Wind gegen Strom: {current_range} kn Gegenstrom auf {nm} nm, kabbelige See wahrscheinlich",
+  "plan.notice.complexity.chop_short":
+    "Kurze Kabbelsee: Hs {hs_range} m bei Tp {tp_range} s auf {nm} nm, unangenehme See",
+  "plan.notice.complexity.chop_following":
+    "Mitlaufende Kabbelsee: Hs {hs_range} m bei Tp {tp_range} s auf {nm} nm",
+  "plan.notice.sweep.widened_interval":
+    "Abtastung auf alle {effective_h} h erweitert (statt {requested_h} h): die Route hat {segments} Abschnitte, zu viele, um so viele Zeitfenster zu simulieren.",
+  "plan.notice.sweep.skipped_windows":
+    "{skipped} Zeitfenster ohne Wetterabdeckung übersprungen (Horizont überschritten): die restlichen {kept} werden angezeigt.",
+  "plan.notice.sweep.no_window_near_eta":
+    "kein Zeitfenster kommt innerhalb von ±2 h um target_eta={target_eta} an; alle {count} Zeitfenster zurückgegeben",
 };

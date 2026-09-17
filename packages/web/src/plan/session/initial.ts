@@ -78,7 +78,7 @@ import { isParsedOk } from "../parseUrl";
 import type { PlanDraft } from "../draft";
 import type { LastSimulation } from "../lastSimulation";
 import { waypointsEqual } from "../lastSimulation";
-import type { PassageReport, ComplexityScore, PassageWindow } from "../types";
+import type { PassageReport, ComplexityScore, Notice, PassageWindow } from "../types";
 import type { PolarConfig } from "../../config/polarConfig";
 import { initialPlanBoat, isPersoActive } from "../../config/polarConfig";
 import type { TimeAnchor, PlanMode } from "../ModeToggle";
@@ -122,7 +122,7 @@ export interface InitialSession {
   passage: PassageReport | null;
   complexity: ComplexityScore | null;
   windows: PassageWindow[] | null;
-  metaWarnings: string[];
+  metaWarnings: Notice[];
   forecastUpdatedAt: string | null;
 
   /** "Edited since the last computation". True for a restored draft. */
@@ -267,7 +267,7 @@ export function resolveInitialSession(input: InitialSessionInput): InitialSessio
     passage: null,
     complexity: null,
     windows: null,
-    metaWarnings: [] as string[],
+    metaWarnings: [] as Notice[],
     forecastUpdatedAt: null,
     isStale: seedDraft != null,
     actionTaken:

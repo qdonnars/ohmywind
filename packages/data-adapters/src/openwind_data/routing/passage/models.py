@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from openwind_data.routing.geometry import Point
+from openwind_data.routing.notices import Notice
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +81,10 @@ class PassageReport:
     # values beyond ~2-3 h are the signal that a second sampling pass at
     # corrected mid-times would be worth its cost.
     max_sampling_drift_h: float | None = None
+    # The same warnings as ``warnings``, one for one, with the code and the
+    # values a client needs to say them in its own language (#411). Declared
+    # last so the JSON keeps its recorded order.
+    notices: tuple[Notice, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True, slots=True)

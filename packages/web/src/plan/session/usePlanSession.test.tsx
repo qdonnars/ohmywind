@@ -322,6 +322,7 @@ describe("usePlanSession", () => {
       sweep.resolve({
         windows: [aWindow()],
         meta_warnings: [],
+        meta_notices: [],
         forecast_updated_at: "2026-09-09T06:00:00Z",
       });
       await sweep.promise;
@@ -333,6 +334,7 @@ describe("usePlanSession", () => {
     fetchPassageWindows.mockResolvedValue({
       windows: [aWindow({ passage: passage(), complexity_full: complexity() })],
       meta_warnings: [],
+      meta_notices: [],
       forecast_updated_at: "2026-09-09T06:00:00Z",
     });
     const { result } = renderHook(() => usePlanSession(session({ mode: "compare" })));
@@ -360,6 +362,7 @@ describe("usePlanSession", () => {
     fetchPassageWindows.mockResolvedValue({
       windows: [aWindow()],
       meta_warnings: [],
+      meta_notices: [],
       forecast_updated_at: "2026-09-09T06:00:00Z",
     });
     fetchPassage.mockResolvedValue({

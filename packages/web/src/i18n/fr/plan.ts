@@ -112,4 +112,32 @@ export const plan = {
     "Impossible de joindre le serveur. Vérifiez votre connexion puis réessayez.",
   "plan.api.errors.invalidResponse":
     "Le serveur a renvoyé une réponse inattendue. Réessayez dans quelques instants.",
+  // The passage engine's warnings, by the code the server sends with each
+  // one (see plan/notices.ts). Word for word the sentences the server itself
+  // writes in French, so a French reader sees no change; the values are the
+  // server's, already formatted.
+  "plan.notice.passage.long_route":
+    "trajet long ({route_nm} nm) : {points} points météo échantillonnés (~{spacing_nm} nm entre points) au lieu de {requested_nm} nm pour limiter les requêtes API.",
+  "plan.notice.passage.light_wind":
+    "vent faible : vitesse mini {min_speed_kn} kn, passage très lent",
+  "plan.notice.passage.model_fallback":
+    "modèle {model} sans données sur {fallback_count}/{total} points (probable hors zone de couverture) ; fallback automatique sur {others}",
+  "plan.notice.complexity.wind.3": "Vent soutenu : TWS {tws_range} kn sur {nm} nm",
+  "plan.notice.complexity.wind.4": "Vent fort : TWS {tws_range} kn sur {nm} nm",
+  "plan.notice.complexity.wind.5": "Vent très fort : TWS {tws_range} kn sur {nm} nm",
+  "plan.notice.complexity.sea.3": "Mer agitée : Hs {hs_range} m sur {nm} nm",
+  "plan.notice.complexity.sea.4": "Mer forte : Hs {hs_range} m sur {nm} nm",
+  "plan.notice.complexity.sea.5": "Mer très forte : Hs {hs_range} m sur {nm} nm",
+  "plan.notice.complexity.current":
+    "Vent contre courant : courant {current_range} kt opposé sur {nm} nm, mer hachée probable",
+  "plan.notice.complexity.chop_short":
+    "Clapot court : Hs {hs_range} m à Tp {tp_range} s sur {nm} nm, mer désagréable",
+  "plan.notice.complexity.chop_following":
+    "Clapot suiveur : Hs {hs_range} m à Tp {tp_range} s sur {nm} nm",
+  "plan.notice.sweep.widened_interval":
+    "pas d'échantillonnage élargi à {effective_h} h (au lieu de {requested_h} h) : la route compte {segments} tronçons, trop pour simuler autant de créneaux.",
+  "plan.notice.sweep.skipped_windows":
+    "{skipped} fenêtre(s) ignorée(s) faute de couverture météo (horizon dépassé) : affichage des {kept} restantes.",
+  "plan.notice.sweep.no_window_near_eta":
+    "aucune fenêtre n'arrive dans ±2h de target_eta={target_eta} ; toutes les {count} fenêtres retournées",
 } as const;

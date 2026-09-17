@@ -26,12 +26,14 @@ import type {
   PassageResponse,
   PassageByEtaResponse,
   MultiWindowResponse,
+  Notice,
   PassageReport,
   ComplexityScore,
   PassageWindow,
   SegmentReport,
   Archetype,
 } from "../plan/types";
+import { noticeFromMessage } from "../plan/notices";
 
 /**
  * A body that is not the contract.
@@ -107,6 +109,20 @@ function parseSegment(v: unknown, path: string): SegmentReport {
   return s as unknown as SegmentReport;
 }
 
+/**
+ * The coded form of a warning list. Optional on every envelope: an older
+ * server sends the sentences alone, and the callers fall back to them.
+ */
+function parseNotices(v: unknown, path: string): Notice[] {
+  return requireArray(v, path).map((n, i) => {
+    const notice = requireRecord(n, `${path}[${i}]`);
+    requireString(notice.code, `${path}[${i}].code`);
+    requireRecord(notice.params, `${path}[${i}].params`);
+    requireString(notice.message, `${path}[${i}].message`);
+    return notice as unknown as Notice;
+  });
+}
+
 export function parsePassageReport(v: unknown, path = "passage"): PassageReport {
   const p = requireRecord(v, path);
   requireString(p.archetype, `${path}.archetype`);
@@ -120,6 +136,7 @@ export function parsePassageReport(v: unknown, path = "passage"): PassageReport 
     parseSegment(s, `${path}.segments[${i}]`),
   );
   requireStringArray(p.warnings, `${path}.warnings`);
+  if (p.notices !== undefined) parseNotices(p.notices, `${path}.notices`);
   return p as unknown as PassageReport;
 }
 
@@ -152,6 +169,7 @@ function parseWindow(v: unknown, path: string): PassageWindow {
   requireString(complexity.label, `${path}.complexity.label`);
   requireRecord(w.conditions_summary, `${path}.conditions_summary`);
   requireStringArray(w.warnings, `${path}.warnings`);
+  if (w.notices !== undefined) parseNotices(w.notices, `${path}.notices`);
   // Per-window detail is optional: older deployments answer without it and the
   // drill-down falls back to a computation.
   if (w.passage !== undefined) parsePassageReport(w.passage, `${path}.passage`);
@@ -186,6 +204,7 @@ export function parseMultiWindowResponse(body: unknown): MultiWindowResponse {
   const windows = requireArray(b.windows, "windows").map((w, i) =>
     parseWindow(w, `windows[${i}]`),
   );
+  const metaWarnings = requireStringArray(b.meta_warnings, "meta_warnings");
   return {
     mode: "multi_window",
     sweep: {
@@ -195,7 +214,11 @@ export function parseMultiWindowResponse(body: unknown): MultiWindowResponse {
       window_count: requireNumber(sweep.window_count, "sweep.window_count"),
     },
     windows,
-    meta_warnings: requireStringArray(b.meta_warnings, "meta_warnings"),
+    meta_warnings: metaWarnings,
+    meta_notices:
+      b.meta_notices !== undefined
+        ? parseNotices(b.meta_notices, "meta_notices")
+        : metaWarnings.map(noticeFromMessage),
     forecast_updated_at: requireString(b.forecast_updated_at, "forecast_updated_at"),
   };
 }

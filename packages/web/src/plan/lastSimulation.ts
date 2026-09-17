@@ -5,8 +5,10 @@ import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import type {
   PassageReport,
   ComplexityScore,
+  Notice,
   PassageWindow,
 } from "./types";
+import { noticeFromMessage } from "./notices";
 
 // Persists the last successful simulation (single-mode passage and/or
 // compare-mode windows) so the user sees their plan immediately on reload —
@@ -64,7 +66,7 @@ export interface LastSimulation {
     sweepIntervalHours: number;
     sweepTargetEta?: string;
     windows: PassageWindow[];
-    metaWarnings: string[];
+    metaWarnings: Notice[];
     forecastUpdatedAt: string;
   };
   cachedAt: number;
@@ -100,6 +102,23 @@ function isCoordPair(v: unknown): v is [number, number] {
 
 function isStringArray(v: unknown): v is string[] {
   return Array.isArray(v) && v.every((s) => typeof s === "string");
+}
+
+function isNotice(v: unknown): v is Notice {
+  return (
+    isRecord(v) &&
+    typeof v.code === "string" &&
+    typeof v.message === "string" &&
+    isRecord(v.params)
+  );
+}
+
+/** Notices as written since #411, or the plain sentences a cache from
+    before it holds: those still render, in French, through their message. */
+function readMetaWarnings(v: unknown): Notice[] {
+  if (Array.isArray(v) && v.every(isNotice)) return v;
+  if (isStringArray(v)) return v.map(noticeFromMessage);
+  return [];
 }
 
 function isPassageReport(v: unknown): v is PassageReport {
@@ -163,7 +182,7 @@ function parseCompare(v: unknown): LastSimulation["compare"] {
     windows: v.windows,
     // Warnings are decoration: a bad list is emptied, not a reason to lose the
     // table it annotates.
-    metaWarnings: isStringArray(v.metaWarnings) ? v.metaWarnings : [],
+    metaWarnings: readMetaWarnings(v.metaWarnings),
     forecastUpdatedAt: v.forecastUpdatedAt,
   };
 }

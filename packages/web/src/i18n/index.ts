@@ -10,7 +10,7 @@ export {
   isLang,
   type Lang,
 } from "./types";
-export { getLang, getLocale, initI18n, setLang, t, tn, type Key, type PluralKey } from "./store";
+export { getLang, getLocale, hasKey, initI18n, setLang, t, tn, type Key, type PluralKey } from "./store";
 export { useLang, useT } from "./useT";
 export { rich, type RichTags } from "./rich";
 export type { Params } from "./interpolate";

@@ -44,6 +44,12 @@ export function subscribe(fn: () => void): () => void {
   };
 }
 
+/** Whether `key` is one the dictionaries define. For keys assembled at
+    runtime, such as a server code turned into `plan.notice.<code>`. */
+export function hasKey(key: string): key is Key {
+  return key in fr;
+}
+
 /** The string for `key` in the active language, placeholders filled in. */
 export function t(key: Key, params?: Params): string {
   return interpolate(dict[key] ?? fr[key] ?? key, params);

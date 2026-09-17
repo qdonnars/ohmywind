@@ -399,7 +399,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
           kind: "sweep",
           configFingerprint: currentConfigFingerprint(),
           windows: res.windows,
-          metaWarnings: res.meta_warnings,
+          metaWarnings: res.meta_notices,
           forecastUpdatedAt: res.forecast_updated_at,
         });
       })

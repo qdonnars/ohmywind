@@ -18,6 +18,7 @@ from openwind_data.adapters.base import ForecastBundle, ForecastHorizonError, Ma
 from openwind_data.currents.narrow_pass import confidence_for_point
 from openwind_data.routing.archetypes import BoatPolar, get_polar, lookup_polar
 from openwind_data.routing.geometry import Point, Segment, normalize_twa
+from openwind_data.routing.notices import Notice, notice
 from openwind_data.routing.passage.constants import (
     LIGHT_WIND_THRESHOLD_KN,
     MIN_BOAT_SPEED_KN,
@@ -136,7 +137,7 @@ def _collect_warnings(
     requested_length_nm: float,
     min_boat_speed_kn: float,
     model: str,
-) -> tuple[list[str], str]:
+) -> tuple[list[Notice], str]:
     """Return the route-level warnings and the model to report.
 
     Three sources, in the order they are appended to the report: the sampling
@@ -149,16 +150,19 @@ def _collect_warnings(
     route is split across models, the primary stays the reported one and a
     warning names how many points fell through and to what.
     """
-    warnings: list[str] = []
+    warnings: list[Notice] = []
     if sampling.capped_route_nm is not None:
         warnings.append(
-            f"trajet long ({sampling.capped_route_nm:.0f} nm) : "
-            f"{len(sampling.segments)} points météo "
-            f"échantillonnés (~{sampling.effective_length_nm:.0f} nm entre points) au lieu de "
-            f"{requested_length_nm:.0f} nm pour limiter les requêtes API."
+            notice(
+                "passage.long_route",
+                route_nm=f"{sampling.capped_route_nm:.0f}",
+                points=len(sampling.segments),
+                spacing_nm=f"{sampling.effective_length_nm:.0f}",
+                requested_nm=f"{requested_length_nm:.0f}",
+            )
         )
     if min_boat_speed_kn < LIGHT_WIND_THRESHOLD_KN:
-        warnings.append(f"vent faible : vitesse mini {min_boat_speed_kn:.1f} kn, passage très lent")
+        warnings.append(notice("passage.light_wind", min_speed_kn=f"{min_boat_speed_kn:.1f}"))
 
     seg_models = sampling.models
     used_distinct: list[str] = []
@@ -173,9 +177,13 @@ def _collect_warnings(
             fallback_count = sum(1 for m in seg_models if m != model)
             others = [m for m in used_distinct if m != model]
             warnings.append(
-                f"modèle {model} sans données sur {fallback_count}/{len(seg_models)} "
-                f"points (probable hors zone de couverture) ; fallback automatique sur "
-                f"{', '.join(others)}"
+                notice(
+                    "passage.model_fallback",
+                    model=model,
+                    fallback_count=fallback_count,
+                    total=len(seg_models),
+                    others=", ".join(others),
+                )
             )
     return warnings, resolved_model
 
@@ -274,6 +282,7 @@ async def _estimate_with_model(
         efficiency=efficiency,
         model=resolved_model,
         segments=tuple(reports),
-        warnings=tuple(warnings),
+        warnings=tuple(w.message for w in warnings),
         max_sampling_drift_h=round(max_drift_h, 2),
+        notices=tuple(warnings),
     )
