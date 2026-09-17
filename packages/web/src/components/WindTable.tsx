@@ -29,7 +29,8 @@ function modelDescription(name: string): string {
   return `${meta.label} (${meta.nativeStepHours}h) . ${translate(meta.provider)}`;
 }
 
-// Approximate cell width (must match WindCell min-w-[36px])
+// Nominal cell width, the fallback useTimelineScroll uses before the table
+// is laid out; once it is, the hook measures the real columns (#413).
 const CELL_W = 36;
 
 function autoResolution(forecasts: ModelForecast[]): number {

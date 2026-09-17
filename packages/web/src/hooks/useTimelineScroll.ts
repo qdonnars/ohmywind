@@ -16,7 +16,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
  * - **Day boundaries.** The first timestamp of each day, so a cell can draw
  *   the separator that makes the table scannable.
  * - **The day being read.** The leftmost visible column drives the sticky day
- *   label above the table.
+ *   label above the table. Which column that is comes from the header cells'
+ *   real positions, measured once per timeline (and again on resize), not
+ *   from a nominal width: the cells are content-sized, 32 px on a phone and
+ *   56 px on a desktop, and a constant of 36 drifted the label by an hour a
+ *   day until the badge still said the 17th on the 18th's morning (#413).
+ *   `cellWidthPx` is the fallback before the table is laid out.
  * - **End of scroll.** Whether the fade-out on the right edge should show.
  * - **Mouse drag.** A press-and-drag with a mouse pans the table, as a thumb
  *   does on a phone; on a desktop the only other way across the week was the
@@ -29,6 +34,40 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
  *   restoring: the anchor hour already is the leftmost cell wanted, and
  *   subtracting 60 again would drift the table a few pixels every switch.
  */
+
+/** Left edge, in the scroller's content, of every hour column. */
+type ColumnLefts = readonly number[];
+
+/**
+ * The column read as leftmost when the visible strip starts at `x`: the
+ * first one at least half in view. A column showing only its last few
+ * pixels under the edge does not name the day: that was the other half of
+ * #413, a strip full of the 18th labelled after the 17th's 23:00 sliver.
+ */
+function leftmostColumn(lefts: ColumnLefts, x: number): number {
+  let lo = 0;
+  let hi = lefts.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (lefts[mid] <= x) lo = mid;
+    else hi = mid - 1;
+  }
+  if (lo + 1 < lefts.length && (lefts[lo] + lefts[lo + 1]) / 2 < x) return lo + 1;
+  return lo;
+}
+
+/**
+ * The hour columns' left edges, read from the header cells. `null` when the
+ * table is not laid out (hidden, or under jsdom), in which case the callers
+ * fall back to the nominal width.
+ */
+function measureColumns(el: HTMLElement, count: number): ColumnLefts | null {
+  const cells = el.querySelectorAll<HTMLElement>('th[scope="col"]');
+  if (count === 0 || cells.length !== count) return null;
+  const origin = el.getBoundingClientRect().left - el.scrollLeft;
+  const lefts = Array.from(cells, (cell) => cell.getBoundingClientRect().left - origin);
+  return lefts[lefts.length - 1] > 0 ? lefts : null;
+}
 
 export interface TimelineScroll {
   /** Attach to the scrolling container. */
@@ -49,6 +88,8 @@ export function useTimelineScroll(
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrolledEnd, setScrolledEnd] = useState(false);
   const [visibleDay, setVisibleDay] = useState("");
+  // Measured on every timeline change and on resize; null until laid out.
+  const columnLeftsRef = useRef<ColumnLefts | null>(null);
 
   const dayStarts = useMemo(() => {
     const set = new Set<string>();
@@ -71,7 +112,12 @@ export function useTimelineScroll(
   const updateVisibleDay = useCallback(() => {
     const el = scrollRef.current;
     if (!el || masterTimeline.length === 0) return;
-    const leftmostIdx = Math.max(0, Math.floor(el.scrollLeft / cellWidthPx));
+    const lefts = columnLeftsRef.current;
+    // The sticky first column hides the start of the strip: the first hour
+    // column begins where it ends, so that is where "visible" starts.
+    const leftmostIdx = lefts
+      ? leftmostColumn(lefts, el.scrollLeft + lefts[0])
+      : Math.max(0, Math.floor(el.scrollLeft / cellWidthPx));
     const t = masterTimeline[Math.min(leftmostIdx, masterTimeline.length - 1)];
     if (t) {
       setVisibleDay(t.slice(0, 10));
@@ -88,7 +134,10 @@ export function useTimelineScroll(
   }, [updateVisibleDay]);
 
   useEffect(() => {
-    if (!scrollRef.current || masterTimeline.length === 0) return;
+    const el = scrollRef.current;
+    if (!el || masterTimeline.length === 0) return;
+    const lefts = measureColumns(el, masterTimeline.length);
+    columnLeftsRef.current = lefts;
     const hasAnchor = leftmostHourRef.current != null;
     const anchor = leftmostHourRef.current ?? nowHour;
     const idx = masterTimeline.findIndex((t) => t.startsWith(anchor.slice(0, 13)));
@@ -96,10 +145,29 @@ export function useTimelineScroll(
       idx >= 0 ? idx : masterTimeline.findIndex((t) => t > anchor.slice(0, 13));
     if (nearestIdx > 0) {
       const offset = hasAnchor ? 0 : 60;
-      scrollRef.current.scrollLeft = Math.max(0, nearestIdx * cellWidthPx - offset);
+      // Measured: the column's own edge, brought out from under the sticky
+      // first column so it is the leftmost one actually in view.
+      const left = lefts ? lefts[nearestIdx] - lefts[0] : nearestIdx * cellWidthPx;
+      el.scrollLeft = Math.max(0, left - offset);
     }
     checkScrollEnd();
   }, [masterTimeline, nowHour, checkScrollEnd, cellWidthPx]);
+
+  // The columns move when the table does: a phone turned sideways crosses
+  // the breakpoint that doubles them, and the webfont landing after the
+  // first paint reflows every cell. Re-measure, and re-read the day.
+  useEffect(() => {
+    const el = scrollRef.current;
+    const table = el?.firstElementChild;
+    if (!el || !table || masterTimeline.length === 0) return;
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      columnLeftsRef.current = measureColumns(el, masterTimeline.length);
+      updateVisibleDay();
+    });
+    ro.observe(table);
+    return () => ro.disconnect();
+  }, [masterTimeline, updateVisibleDay]);
 
   useEffect(() => {
     const el = scrollRef.current;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render } from "@testing-library/react";
 import { useTimelineScroll } from "./useTimelineScroll";
 
@@ -118,6 +118,114 @@ describe("useTimelineScroll", () => {
     // Back on the anchored column, and this time without the 60 px offset,
     // which would otherwise drift the table a little on every switch.
     expect(el.scrollLeft).toBe(30 * CELL_W);
+  });
+
+  describe("with a laid-out table", () => {
+    // The real cells are content-sized (32 px on a phone under a 56 px sticky
+    // column), so the hook measures them instead of trusting `cellWidthPx`.
+    // jsdom lays nothing out: each cell answers with the position the strip
+    // would give it, offset by the scroller's current scroll, as a browser
+    // would.
+    const STICKY = 56;
+    let cellW = 32;
+    const original = HTMLElement.prototype.getBoundingClientRect;
+    beforeEach(() => {
+      cellW = 32;
+      HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+        const rect = { top: 0, bottom: 0, width: 0, height: 0, right: 0, x: 0, y: 0, left: 0, toJSON: () => ({}) };
+        const idx = this.dataset.col;
+        if (idx !== undefined) {
+          const scroller = this.closest("[data-testid=scroller]") as HTMLElement;
+          rect.left = STICKY + Number(idx) * cellW - scroller.scrollLeft;
+        }
+        return rect as DOMRect;
+      };
+    });
+    afterEach(() => {
+      HTMLElement.prototype.getBoundingClientRect = original;
+    });
+
+    function LaidOut({ times, nowHour }: { times: string[]; nowHour: string }) {
+      const { scrollRef, visibleDay } = useTimelineScroll(times, CELL_W, nowHour);
+      return (
+        <div>
+          <div data-testid="scroller" ref={scrollRef}>
+            <table>
+              <thead>
+                <tr>
+                  {times.map((t, i) => (
+                    <th key={t} scope="col" data-col={i}>
+                      {t}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+            </table>
+          </div>
+          <span data-testid="day">{visibleDay}</span>
+        </div>
+      );
+    }
+
+    it("reads the day from the measured columns, not the nominal width", () => {
+      const times = hours(72);
+      const { getByTestId } = render(<LaidOut times={times} nowHour="2026-09-02T00" />);
+      const el = getByTestId("scroller");
+      sizeScroller(el);
+      // 23:00 of the first day sits at content x 792..824. Scrolled so that
+      // the strip past the sticky column starts 20 px into it: more than half
+      // of that cell is hidden, so the leftmost column read is 00:00 of the
+      // second day. The old arithmetic (756 / 36 = column 21) still said the
+      // first day, an hour late, and later by another hour every day (#413).
+      el.scrollLeft = 792 - STICKY + 20;
+      act(() => {
+        el.dispatchEvent(new Event("scroll"));
+      });
+      expect(getByTestId("day").textContent).toBe("2026-09-03");
+
+      // Nine pixels in: the 23:00 cell is mostly visible and still names the day.
+      el.scrollLeft = 792 - STICKY + 9;
+      act(() => {
+        el.dispatchEvent(new Event("scroll"));
+      });
+      expect(getByTestId("day").textContent).toBe("2026-09-02");
+    });
+
+    it("lands on the current hour from the measured columns", () => {
+      const { getByTestId } = render(<LaidOut times={hours(72)} nowHour="2026-09-02T10" />);
+      const el = getByTestId("scroller") as HTMLDivElement;
+      // Column 10 begins 320 px into the strip; it is brought out from under
+      // the sticky column with 60 px of the past kept in view before it.
+      expect(el.scrollLeft).toBe(10 * cellW - 60);
+    });
+
+    it("re-measures when the table resizes", () => {
+      const observers: Array<() => void> = [];
+      const RO = class {
+        constructor(cb: () => void) {
+          observers.push(cb);
+        }
+        observe() {}
+        disconnect() {}
+      };
+      const had = globalThis.ResizeObserver;
+      globalThis.ResizeObserver = RO as unknown as typeof ResizeObserver;
+      try {
+        const { getByTestId } = render(<LaidOut times={hours(72)} nowHour="2026-09-02T00" />);
+        const el = getByTestId("scroller");
+        sizeScroller(el);
+        // Turned sideways: the cells now span 56 px. Without a re-measure the
+        // 32 px columns would put this scroll on the third day.
+        cellW = 56;
+        el.scrollLeft = 30 * 56;
+        act(() => {
+          for (const cb of observers) cb();
+        });
+        expect(getByTestId("day").textContent).toBe("2026-09-03");
+      } finally {
+        globalThis.ResizeObserver = had;
+      }
+    });
   });
 
   it("pans with a mouse drag and swallows the click that ends it", () => {
