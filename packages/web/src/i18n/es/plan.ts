@@ -112,4 +112,28 @@ export const plan: Record<keyof typeof frPlan, string> = {
     "No se puede contactar con el servidor. Compruebe su conexión y vuelva a intentarlo.",
   "plan.api.errors.invalidResponse":
     "El servidor ha devuelto una respuesta inesperada. Inténtelo de nuevo dentro de unos instantes.",
+  "plan.notice.passage.long_route":
+    "ruta larga ({route_nm} nm): {points} puntos meteorológicos muestreados (~{spacing_nm} nm entre puntos) en lugar de {requested_nm} nm, para limitar las peticiones a la API.",
+  "plan.notice.passage.light_wind":
+    "viento flojo: velocidad mínima {min_speed_kn} kn, travesía muy lenta",
+  "plan.notice.passage.model_fallback":
+    "modelo {model} sin datos en {fallback_count}/{total} puntos (probablemente fuera de cobertura); recurso automático a {others}",
+  "plan.notice.complexity.wind.3": "Viento fresco: TWS {tws_range} kn en {nm} nm",
+  "plan.notice.complexity.wind.4": "Viento fuerte: TWS {tws_range} kn en {nm} nm",
+  "plan.notice.complexity.wind.5": "Viento muy fuerte: TWS {tws_range} kn en {nm} nm",
+  "plan.notice.complexity.sea.3": "Marejada: Hs {hs_range} m en {nm} nm",
+  "plan.notice.complexity.sea.4": "Fuerte marejada: Hs {hs_range} m en {nm} nm",
+  "plan.notice.complexity.sea.5": "Mar gruesa: Hs {hs_range} m en {nm} nm",
+  "plan.notice.complexity.current":
+    "Viento contra corriente: corriente contraria de {current_range} kt en {nm} nm, mar corta probable",
+  "plan.notice.complexity.chop_short":
+    "Mar corta: Hs {hs_range} m a Tp {tp_range} s en {nm} nm, mar incómoda",
+  "plan.notice.complexity.chop_following":
+    "Mar corta de popa: Hs {hs_range} m a Tp {tp_range} s en {nm} nm",
+  "plan.notice.sweep.widened_interval":
+    "muestreo ampliado a {effective_h} h (en lugar de {requested_h} h): la ruta cuenta {segments} tramos, demasiados para simular tantas franjas.",
+  "plan.notice.sweep.skipped_windows":
+    "{skipped} franja(s) omitida(s) por falta de cobertura meteorológica (horizonte superado): se muestran las {kept} restantes.",
+  "plan.notice.sweep.no_window_near_eta":
+    "ninguna franja llega dentro de ±2 h de target_eta={target_eta}; se devuelven las {count} franjas",
 };

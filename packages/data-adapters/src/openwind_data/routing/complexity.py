@@ -17,8 +17,8 @@ V1 design choices:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Literal
+from dataclasses import dataclass, field
+from typing import Any, Literal
 
 from openwind_data.adapters.base import (
     CHOP_FOLLOWING_TWA_DEG,
@@ -27,6 +27,7 @@ from openwind_data.adapters.base import (
     WIND_AGAINST_CURRENT_OPPOSITION_DEG,
     WIND_AGAINST_CURRENT_WARNING_THRESHOLD_KN,
 )
+from openwind_data.routing.notices import notice
 from openwind_data.routing.passage import PassageReport
 
 # (upper_bound_exclusive, level, label). Last bucket has math.inf.
@@ -92,6 +93,11 @@ class ComplexityWarning:
     level: int  # 1..5 — same scale as the axis that triggered it
     message: str
     affected_segments: tuple[int, ...]  # indices into PassageReport.segments
+    # ``message`` as a code and the values that filled it, for a client that
+    # says it in another language (see ``routing.notices``). Defaults keep
+    # the positional constructors of the tests working.
+    code: str = ""
+    params: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,12 +159,15 @@ def score_complexity(
         affected = tuple(i for i, s in enumerate(passage.segments) if s.tws_kn >= threshold)
         affected_nm = sum(passage.segments[i].distance_nm for i in affected)
         tws_range = _compact_range([passage.segments[i].tws_kn for i in affected], 0)
+        n = notice(f"complexity.wind.{wind_level}", tws_range=tws_range, nm=f"{affected_nm:.0f}")
         warnings.append(
             ComplexityWarning(
                 kind="wind",
                 level=wind_level,
-                message=f"Vent {wind_label} : TWS {tws_range} kn sur {affected_nm:.0f} nm",
+                message=n.message,
                 affected_segments=affected,
+                code=n.code,
+                params=n.params,
             )
         )
     if sea_level is not None and sea_level >= 3 and max_hs_m is not None:
@@ -178,12 +187,15 @@ def score_complexity(
         # tested. The walrus makes the filtered list actually ``list[float]``.
         affected_hs = [hs for i in affected_sea if (hs := passage.segments[i].hs_m) is not None]
         hs_range = _compact_range(affected_hs, 1) if affected_hs else f"{max_hs_m:.1f}"
+        n = notice(f"complexity.sea.{sea_level}", hs_range=hs_range, nm=f"{affected_sea_nm:.0f}")
         warnings.append(
             ComplexityWarning(
                 kind="sea",
                 level=sea_level,
-                message=f"Mer {sea_label} : Hs {hs_range} m sur {affected_sea_nm:.0f} nm",
+                message=n.message,
                 affected_segments=affected_sea,
+                code=n.code,
+                params=n.params,
             )
         )
 
@@ -249,15 +261,15 @@ def score_complexity(
         affected_wac = tuple(wac_indices)
         affected_wac_nm = sum(passage.segments[i].distance_nm for i in affected_wac)
         cur_range = _compact_range(wac_currents, 1)
+        n = notice("complexity.current", current_range=cur_range, nm=f"{affected_wac_nm:.0f}")
         warnings.append(
             ComplexityWarning(
                 kind="current",
                 level=bumped_level,
-                message=(
-                    f"Vent contre courant : courant {cur_range} kt opposé sur "
-                    f"{affected_wac_nm:.0f} nm, mer hachée probable"
-                ),
+                message=n.message,
                 affected_segments=affected_wac,
+                code=n.code,
+                params=n.params,
             )
         )
         rationale = f"{rationale}, vent contre courant"
@@ -269,22 +281,21 @@ def score_complexity(
         tp_range = _compact_range(chop_tp, 0)
         if chop_following_only:
             chop_label = "Clapot suiveur"
-            chop_suffix: str | None = None
+            chop_code = "complexity.chop_following"
             chop_warning_level = level  # no bump credited to this warning
         else:
             chop_label = "Clapot court"
-            chop_suffix = "mer désagréable"
+            chop_code = "complexity.chop_short"
             chop_warning_level = bumped_level
-        suffix_part = f", {chop_suffix}" if chop_suffix else ""
+        n = notice(chop_code, hs_range=hs_range, tp_range=tp_range, nm=f"{affected_chop_nm:.0f}")
         warnings.append(
             ComplexityWarning(
                 kind="chop",
                 level=chop_warning_level,
-                message=(
-                    f"{chop_label} : Hs {hs_range} m à Tp {tp_range} s sur "
-                    f"{affected_chop_nm:.0f} nm{suffix_part}"
-                ),
+                message=n.message,
                 affected_segments=affected_chop,
+                code=n.code,
+                params=n.params,
             )
         )
         rationale = f"{rationale}, {chop_label.lower()}"

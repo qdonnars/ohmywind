@@ -5,8 +5,6 @@
     page 404 et l'écran d'attente des pages chargées à la demande. */
 export const config = {
   "config.lang.label": "Langue",
-  "config.lang.backendNote":
-    "Les avertissements calculés par le moteur de passage restent en français pour le moment.",
 
   "config.header.title": "Configuration",
   "config.reset": "Réinitialiser",

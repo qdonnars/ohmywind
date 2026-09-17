@@ -479,12 +479,12 @@ describe("computing", () => {
         kind: "sweep",
         configFingerprint: "arome|cruiser_30ft",
         windows: [aWindow()],
-        metaWarnings: ["modèle dégradé"],
+        metaWarnings: [{ code: "", params: {}, message: "modèle dégradé" }],
         forecastUpdatedAt: "2026-09-09T06:00:00Z",
       },
     );
     expect(s.windows).toHaveLength(1);
-    expect(s.metaWarnings).toEqual(["modèle dégradé"]);
+    expect(s.metaWarnings).toEqual([{ code: "", params: {}, message: "modèle dégradé" }]);
     expect(s.persist?.url).toBeUndefined();
     expect(s.persist?.cache).toMatchObject({ kind: "compare", sweepIntervalHours: 3 });
   });
@@ -633,7 +633,7 @@ describe("window drill-down", () => {
         kind: "sweep",
         configFingerprint: "arome|cruiser_30ft",
         windows: [aWindow({ passage: passage(), complexity_full: complexity() })],
-        metaWarnings: ["modèle dégradé"],
+        metaWarnings: [{ code: "", params: {}, message: "modèle dégradé" }],
         forecastUpdatedAt: "2026-09-09T06:00:00Z",
       },
     );

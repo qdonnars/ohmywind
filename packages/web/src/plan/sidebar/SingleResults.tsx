@@ -10,7 +10,7 @@ import { usePlan } from "../session/planContext";
 import { ResetButton } from "./ResetButton";
 import { CompareDoor } from "../CompareDoor";
 import { Warnings } from "./Warnings";
-import { classifyAlert } from "./alerts";
+import { alertsOf } from "./alerts";
 import { DepartureSlider } from "./DepartureSlider";
 import { ArchetypeSelector } from "./ArchetypeSelector";
 import { LegList } from "./LegList";
@@ -119,12 +119,7 @@ export function SingleResults({
       {/* The alerts belong to the passage as computed: once the route moved
           they describe a plan that is gone, like the legs below. */}
       {hasWarnings && !isStale && (
-        <Warnings
-          alerts={[
-            ...(complexity.warnings?.map((w) => ({ message: w.message, kind: w.kind })) ?? []),
-            ...(passage.warnings?.map((message) => ({ message, kind: classifyAlert(message) })) ?? []),
-          ]}
-        />
+        <Warnings alerts={alertsOf(passage, complexity)} />
       )}
 
       {/* Legs. Click any row to see the build-up.

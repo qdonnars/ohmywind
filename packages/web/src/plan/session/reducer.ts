@@ -36,7 +36,7 @@
  * already true, so the panel is already offering « Recalculer ».
  */
 
-import type { PassageReport, ComplexityScore, PassageWindow } from "../types";
+import type { PassageReport, ComplexityScore, Notice, PassageWindow } from "../types";
 import type { PlanMode, TimeAnchor } from "../ModeToggle";
 import type { CompareAxis, SweepParams } from "../compare/slots";
 import {
@@ -89,7 +89,7 @@ export type CacheWrite =
       sweepLatest: string;
       sweepIntervalHours: number;
       windows: PassageWindow[];
-      metaWarnings: string[];
+      metaWarnings: Notice[];
       forecastUpdatedAt: string;
     };
 
@@ -121,7 +121,7 @@ export interface PlanState {
   passage: PassageReport | null;
   complexity: ComplexityScore | null;
   windows: PassageWindow[] | null;
-  metaWarnings: string[];
+  metaWarnings: Notice[];
   forecastUpdatedAt: string | null;
 
   // ── ui ────────────────────────────────────────────────────────────────────
@@ -237,7 +237,7 @@ export type PlanAction =
       kind: "sweep";
       configFingerprint: string;
       windows: PassageWindow[];
-      metaWarnings: string[];
+      metaWarnings: Notice[];
       forecastUpdatedAt: string;
     }
   | { type: "FETCH_FAILED"; requestId: number; error: string }

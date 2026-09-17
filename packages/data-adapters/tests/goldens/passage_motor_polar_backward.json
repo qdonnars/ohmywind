@@ -164,5 +164,6 @@
     }
   ],
   "warnings": [],
-  "max_sampling_drift_h": 0.22
+  "max_sampling_drift_h": 0.22,
+  "notices": []
 }

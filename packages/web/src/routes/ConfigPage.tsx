@@ -301,9 +301,6 @@ export function LangPicker() {
           </button>
         ))}
       </div>
-      {lang !== "fr" && (
-        <p className="w-full text-xs opacity-60 m-0">{t("config.lang.backendNote")}</p>
-      )}
     </section>
   );
 }
