@@ -420,7 +420,8 @@ select,
 }
 
 /* Planner-hint popup: halo around the compass FAB, card entry animation,
-   and caret arrows pointing from the card back to the FAB. */
+   and caret arrows pointing from the card back to the FAB. The comparison
+   hint reuses the card and the carets, pointed at the two doors. */
 @keyframes onboardHalo {
   0%, 100% {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--ow-accent) 70%, transparent),
@@ -446,7 +447,9 @@ select,
 }
 
 .onboard-caret-up,
-.onboard-caret-left {
+.onboard-caret-left,
+.onboard-caret-right,
+.onboard-caret-down {
   width: 0;
   height: 0;
 }
@@ -464,23 +467,36 @@ select,
   border-bottom: 8px solid transparent;
   border-right: 8px solid var(--ow-accent-line);
 }
+.onboard-caret-right {
+  right: -8px;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 8px solid var(--ow-accent-line);
+}
+.onboard-caret-down {
+  bottom: -8px;
+  left: 50%;
+  margin-left: -8px;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid var(--ow-accent-line);
+}
 
-/* "Pick a mode" pristine state for ModeToggle: each pill is lifted into its
-   own button-shaped surface with a soft pulsing accent ring, so the control
-   reads as "two distinct buttons to choose from" rather than "one box with a
-   divider". Both pills pulse in sync. */
-@keyframes modeTogglePristinePulse {
+/* The two comparison doors lit up by « Y aller » on the hint: three turns
+   of a halo that starts and ends on nothing, so dropping the class at the
+   end (SPOTLIGHT_MS in CompareDoor) cuts nothing short. */
+@keyframes doorSpotlight {
   0%, 100% {
-    box-shadow: var(--ow-shadow-sm),
-                0 0 0 0 color-mix(in srgb, var(--ow-accent) 0%, transparent);
+    box-shadow: 0 0 0 0 transparent;
   }
   50% {
-    box-shadow: var(--ow-shadow-sm),
-                0 0 0 3px color-mix(in srgb, var(--ow-accent) 25%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ow-accent) 80%, transparent),
+                0 0 0 14px color-mix(in srgb, var(--ow-accent) 12%, transparent),
+                0 0 32px 6px color-mix(in srgb, var(--ow-accent) 45%, transparent);
   }
 }
-.mode-toggle-pristine-pill {
-  animation: modeTogglePristinePulse 2.2s ease-in-out infinite;
+.door-spotlight {
+  animation: doorSpotlight 1.2s ease-in-out 3;
 }
 
 /* Plan waypoint marker + hover delete badge */
@@ -738,77 +754,32 @@ select,
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--ow-accent) 35%, transparent);
 }
 
-/* Dual-thumb range (compare-windows form). Two overlapping native sliders;
-   z-index swaps in JS based on which thumb is closer to either edge. */
-.ow-range-track {
-  position: relative;
-  height: 22px;
-  display: flex;
-  align-items: center;
-}
-.ow-range-track-bg {
-  position: absolute;
-  inset: 8px 0 8px 0;
-  background: var(--ow-bg-2);
-  border: 1px solid var(--ow-line-2);
-  border-radius: 3px;
-}
-.ow-range-track-fill {
-  position: absolute;
-  top: 8px;
-  bottom: 8px;
-  background: var(--ow-accent-soft);
-  border-top: 1px solid var(--ow-accent);
-  border-bottom: 1px solid var(--ow-accent);
-}
-.ow-range-input {
-  -webkit-appearance: none;
-  appearance: none;
+/* Option pill on a track of « Comparer ce trajet »: its number and its
+   duration at the midpoint of the line, in the line's colour. The tooltip
+   itself is bare; the inner span is the pill, so the colour can be set
+   inline per route. */
+.leaflet-tooltip.ow-route-label {
   background: transparent;
-  cursor: pointer;
-  height: 22px;
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  pointer-events: none; /* track itself ignores clicks; thumbs re-enable */
-  margin: 0;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  pointer-events: none;
 }
-.ow-range-input:focus { outline: none; }
-.ow-range-input::-webkit-slider-runnable-track {
-  height: 6px;
-  background: transparent;
-  border: none;
+.leaflet-tooltip.ow-route-label::before {
+  display: none;
 }
-.ow-range-input::-moz-range-track {
-  height: 6px;
-  background: transparent;
-  border: none;
-}
-.ow-range-input::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--ow-accent);
-  border: 2px solid var(--ow-bg-1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
-  margin-top: -7px;
-  cursor: pointer;
-  pointer-events: auto;
-}
-.ow-range-input::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--ow-accent);
-  border: 2px solid var(--ow-bg-1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
-  cursor: pointer;
-  pointer-events: auto;
-}
-.ow-range-input:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ow-accent) 35%, transparent);
+.ow-route-label span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--ow-surface-pop);
+  border: 1.5px solid;
+  box-shadow: var(--ow-shadow-1);
+  font: 600 10px var(--ow-font-mono);
+  color: var(--ow-fg-0);
+  white-space: nowrap;
 }
 
 /* ── Theme-aware table header ────────────────────────────────── */

@@ -13,11 +13,22 @@ import { useT } from "../../i18n";
 // the slider at 14 d to leave 1 d of margin (clock skew, TZ crossings).
 const SLIDER_MAX_HOURS = 14 * 24;
 
-export function DepartureSlider() {
+/**
+ * The plan's departure by default; handed a `value` and an `onChange`, the
+ * same control edits a copy instead (the frozen departure of the track
+ * axis, applied on « Appliquer »).
+ */
+export function DepartureSlider({
+  value: valueProp,
+  onChange: onChangeProp,
+}: {
+  value?: string;
+  onChange?: (value: string) => void;
+} = {}) {
   const { t, tn } = useT();
   const { state, actions } = usePlan();
-  const value = state.departure;
-  const onChange = actions.setDeparture;
+  const value = valueProp ?? state.departure;
+  const onChange = onChangeProp ?? actions.setDeparture;
   const timeAnchor = state.timeAnchor;
   const { resolvedTheme } = useTheme();
   const [showManual, setShowManual] = useState(false);

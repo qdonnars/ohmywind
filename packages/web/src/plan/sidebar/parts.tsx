@@ -39,7 +39,7 @@ export function RecomputeButton({
       title={t("panel.parts.recompute")}
       aria-label={t("panel.parts.recompute")}
       className="shrink-0 flex items-center justify-center rounded-lg transition-all"
-      style={{ width: 38, ...style }}
+      style={{ width: 38, height: 34, ...style }}
     >
       <RefreshIcon size={13} />
     </button>

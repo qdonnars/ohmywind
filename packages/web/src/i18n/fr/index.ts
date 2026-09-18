@@ -14,7 +14,8 @@ import { explore } from "./explore";
 import { plan } from "./plan";
 import { panel } from "./panel";
 import { compare } from "./compare";
+import { press } from "./press";
 
-export const fr = { ...common, ...config, ...explore, ...plan, ...panel, ...compare } as const;
+export const fr = { ...common, ...config, ...explore, ...plan, ...panel, ...compare, ...press } as const;
 
 export type Dict = Record<keyof typeof fr, string>;

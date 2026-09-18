@@ -26,16 +26,7 @@ export const plan: Record<keyof typeof frPlan, string> = {
   // ── Panel states ──────────────────────────────────────────────────────────
   "plan.states.empty.title": "Draw your route",
   "plan.states.empty.body":
-    "Click on the map to place a departure and an arrival. You can then simulate the passage time or compare several departure windows.",
-  "plan.states.picker.title": "What would you like to do?",
-  "plan.states.picker.single.body":
-    "You know when you are leaving. OhMyWind works out the passage time, the ETA and the conditions on every segment.",
-  "plan.states.picker.single.example":
-    "E.g. “If I leave on Saturday at 17:00, when do I arrive?”",
-  "plan.states.picker.compare.body":
-    "You know where you are going. OhMyWind tries several departure times and ranks the windows by comfort.",
-  "plan.states.picker.compare.example":
-    "E.g. “Which is the best departure between Saturday and Monday?”",
+    "Click the map to place a departure and an arrival. You can then compute the passage, then compare other departures or other routes.",
   "plan.states.error.title": "Error",
   "plan.states.waking.title": "The weather server is waking up",
   "plan.states.waking.body":
@@ -44,11 +35,6 @@ export const plan: Record<keyof typeof frPlan, string> = {
   "plan.recap.edit": "Edit",
 
   // ── Mode picker and time anchor ───────────────────────────────────────────
-  "plan.mode.tablist": "Planning mode",
-  "plan.mode.single.title": "Simulate my route",
-  "plan.mode.single.sub": "How long for this passage?",
-  "plan.mode.compare.title": "Compare the windows",
-  "plan.mode.compare.sub": "The best window to set off?",
   "plan.timeAnchor.tablist": "Time anchor",
   "plan.timeAnchor.departure.title": "Set the departure",
   "plan.timeAnchor.departure.sub": "Work out the passage time",
@@ -122,4 +108,28 @@ export const plan: Record<keyof typeof frPlan, string> = {
     "Cannot reach the server. Check your connection, then try again.",
   "plan.api.errors.invalidResponse":
     "The server returned an unexpected response. Try again in a moment.",
+  "plan.notice.passage.long_route":
+    "long route ({route_nm} nm): {points} weather points sampled (~{spacing_nm} nm apart) instead of every {requested_nm} nm, to limit API requests.",
+  "plan.notice.passage.light_wind":
+    "light wind: minimum speed {min_speed_kn} kn, a very slow passage",
+  "plan.notice.passage.model_fallback":
+    "model {model} has no data at {fallback_count}/{total} points (probably outside its coverage); automatic fallback to {others}",
+  "plan.notice.complexity.wind.3": "Fresh wind: TWS {tws_range} kn over {nm} nm",
+  "plan.notice.complexity.wind.4": "Strong wind: TWS {tws_range} kn over {nm} nm",
+  "plan.notice.complexity.wind.5": "Very strong wind: TWS {tws_range} kn over {nm} nm",
+  "plan.notice.complexity.sea.3": "Rough sea: Hs {hs_range} m over {nm} nm",
+  "plan.notice.complexity.sea.4": "Very rough sea: Hs {hs_range} m over {nm} nm",
+  "plan.notice.complexity.sea.5": "High sea: Hs {hs_range} m over {nm} nm",
+  "plan.notice.complexity.current":
+    "Wind against current: {current_range} kt of opposing current over {nm} nm, choppy sea likely",
+  "plan.notice.complexity.chop_short":
+    "Short chop: Hs {hs_range} m at Tp {tp_range} s over {nm} nm, uncomfortable sea",
+  "plan.notice.complexity.chop_following":
+    "Following chop: Hs {hs_range} m at Tp {tp_range} s over {nm} nm",
+  "plan.notice.sweep.widened_interval":
+    "sampling widened to every {effective_h} h (instead of {requested_h} h): the route has {segments} legs, too many to simulate that many slots.",
+  "plan.notice.sweep.skipped_windows":
+    "{skipped} slot(s) skipped for lack of forecast coverage (beyond the horizon): showing the {kept} remaining.",
+  "plan.notice.sweep.no_window_near_eta":
+    "no slot arrives within ±2 h of target_eta={target_eta}; all {count} slots returned",
 };

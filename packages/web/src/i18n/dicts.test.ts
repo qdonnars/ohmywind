@@ -12,6 +12,7 @@ import { config } from "./fr/config";
 import { explore } from "./fr/explore";
 import { panel } from "./fr/panel";
 import { plan } from "./fr/plan";
+import { press } from "./fr/press";
 import { it as itDict } from "./it";
 
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
@@ -24,6 +25,7 @@ const NAMESPACES: Array<[string, Record<string, string>]> = [
   ["explore", explore],
   ["plan", plan],
   ["panel", panel],
+  ["press", press],
 ];
 
 /** Every translation, keyed by language, checked against the French reference. */

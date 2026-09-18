@@ -47,7 +47,10 @@ code                         status  meaning
 ``unsupported_encoding``     415     ``Content-Encoding`` we cannot decode
 ``rate_limited``             429     our own limiter, with ``retry_after``
 ``upstream_timeout``         503     Open-Meteo did not answer in time
-``upstream_rate_limited``    503     Open-Meteo is refusing us
+``upstream_rate_limited``    503     Open-Meteo is refusing us; ``retry_after``
+                                     and ``window`` (``minute``, ``hour`` or
+                                     ``day``) when its reason named the
+                                     counter that tripped
 ===========================  ======  ===========================================
 
 A caller that does not recognise a code must fall back on the status: the list
@@ -62,6 +65,8 @@ contract, and a caller does not care which module answered.
 """
 
 from __future__ import annotations
+
+import math
 
 import httpx
 from openwind_data.adapters.base import ForecastHorizonError, UpstreamRateLimitError
@@ -153,5 +158,29 @@ def engine_error_response(exc: Exception) -> JSONResponse | None:
             status=503,
         )
     if isinstance(exc, UpstreamRateLimitError):
-        return error(str(exc), "upstream_rate_limited", status=503)
+        return upstream_rate_limited_response(exc)
     return None
+
+
+def upstream_rate_limited_response(exc: UpstreamRateLimitError) -> JSONResponse:
+    """The 503 for a weather API that is refusing us, with the wait spelled out.
+
+    Open-Meteo's free tier counts per IP on fixed clocks and sends no
+    ``Retry-After``; the adapter derives the wait from the counter its reason
+    named (see ``openmeteo.seconds_until_reset``). ``retry_after`` follows the
+    shape of our own limiter's 429 so a client reads one field for both, and
+    ``window`` is what lets it say "the daily quota, back in three hours"
+    rather than "try again in a few minutes" at 21:00 UTC. Both are absent
+    when the refusal named no counter, and the client falls back on its
+    vaguer sentence. The header duplicates the body for the same reason the
+    limiter's does: a cross-origin fetch cannot always read it.
+    """
+    extra: dict[str, object] = {}
+    if exc.retry_after_s is not None:
+        extra["retry_after"] = max(1, math.ceil(exc.retry_after_s))
+    if exc.window is not None:
+        extra["window"] = exc.window
+    response = error(str(exc), "upstream_rate_limited", status=503, **extra)
+    if "retry_after" in extra:
+        response.headers["Retry-After"] = str(extra["retry_after"])
+    return response

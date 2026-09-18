@@ -25,10 +25,20 @@ export interface AggregatedLeg {
   // ── Boat speed build-up (all in knots) ────────────────────────────────────
   // Distance-weighted means computed per-segment then averaged, so the
   // build-up adds up exactly: polar_after_eff_kn + wave_delta_kn (≤ 0)
-  // ≈ boat_speed_kn, and boat_speed_kn + current_delta_kn = target_speed_kn.
-  polar_after_eff_kn: number; // polar lookup × passage efficiency (no waves, no current)
-  wave_delta_kn: number; // ≤ 0, loss from wave_derate; > 0 only under engine,
-  // where boat_speed_kn is the motoring speed and the card shows one motor term
+  // = boat_speed_kn, and boat_speed_kn + current_delta_kn = target_speed_kn.
+  //
+  // The sail speed the server started from before the wave derate, that is
+  // boat_speed_kn / wave_derate_factor. Not polar_speed_kn × efficiency: that
+  // field is the raw polar read at the direct course, and on a tacking step
+  // (course inside the no-go zone) the server sails the optimal-VMG angle
+  // instead, so the two differ by the tacking geometry. Deriving the term
+  // from the raw polar used to push that difference into the sea term, which
+  // then read "+3,0 mer" on a step where no wave correction applied at all.
+  polar_after_eff_kn: number;
+  // ≤ 0 by construction: what the wave derate took, nothing else. Under
+  // engine boat_speed_kn is the motoring speed, the derate did not apply and
+  // this is 0: the card shows one motor term.
+  wave_delta_kn: number;
   current_delta_kn: number | null; // signed — gain when along, loss when against; null without current data
   boat_speed_kn: number; // STW (polar × efficiency × derate)
   target_speed_kn: number; // SOG when current modelled, else STW — used for duration
@@ -224,6 +234,20 @@ function twaToSeaDirection(twa: number): "face" | "travers" | "arrière" {
   return "arrière";
 }
 
+/**
+ * The sail speed the server derated for waves on this segment: its speed
+ * through water put back before the derate. Under engine the derate did not
+ * apply (the motor speed bypasses it), so the motoring speed comes back as
+ * is. A derate the server did not send, or sent outside (0, 1], counts as no
+ * derate rather than as a division by nothing.
+ */
+function sailSpeedBeforeDerate(s: SegmentReport): number {
+  if (s.motor_used) return s.boat_speed_kn;
+  const derate = s.wave_derate_factor;
+  if (!Number.isFinite(derate) || derate <= 0 || derate > 1) return s.boat_speed_kn;
+  return s.boat_speed_kn / derate;
+}
+
 function classifyCurrent(deltaKn: number, currentSpeedKn: number | null): "portant" | "contraire" | "travers" {
   // |delta| / current_speed ~ |cos(angle)|. > 0.5 → mostly along (portant or contraire); < 0.5 → mostly travers.
   if (currentSpeedKn != null && currentSpeedKn > 0 && Math.abs(deltaKn) / currentSpeedKn < 0.5) return "travers";
@@ -259,7 +283,7 @@ export function aggregateSegments(
   const gust_max_kn = gusts.length > 0 ? Math.max(...gusts) : null;
 
   // Speed build-up (per-segment, then weighted averaged so the additions stay coherent)
-  const polar_after_eff_kn = wsum((s) => s.polar_speed_kn * efficiency);
+  const polar_after_eff_kn = wsum(sailSpeedBeforeDerate);
   const boat_speed_kn = wsum((s) => s.boat_speed_kn);
   const wave_delta_kn = boat_speed_kn - polar_after_eff_kn; // ≤ 0
 

@@ -15,6 +15,7 @@ import httpx
 from openwind_data.adapters.base import (
     ForecastBundle,
     ForecastHorizonError,
+    RateLimitWindow,
     SeaPoint,
     SeaSeries,
     UpstreamRateLimitError,
@@ -201,15 +202,19 @@ class OpenMeteoAdapter:
             return resp
 
         advertised = _retry_after_seconds(resp)
+        reason = _error_reason(resp)
         wait = RATE_LIMIT_RETRY_DEFAULT_WAIT_S if advertised is None else advertised
+        # A spent hourly or daily counter does not drain in two seconds
+        # whatever the header says or omits; retrying is one more refusal.
+        retrying = wait <= RATE_LIMIT_RETRY_MAX_WAIT_S and limit_window(reason) in (None, "minute")
         _logger.warning(
             "open-meteo refused a request: host=%s reason=%r retry_after=%s retrying=%s",
             httpx.URL(url).host,
-            _error_reason(resp),
+            reason,
             "-" if advertised is None else f"{advertised:g}s",
-            wait <= RATE_LIMIT_RETRY_MAX_WAIT_S,
+            retrying,
         )
-        if wait > RATE_LIMIT_RETRY_MAX_WAIT_S:
+        if not retrying:
             return resp
 
         await asyncio.sleep(wait)
@@ -626,6 +631,51 @@ def _retry_after_seconds(resp: httpx.Response) -> float | None:
     return seconds if seconds >= 0 else None
 
 
+# Which counter tripped, read off Open-Meteo's own wording: "Minutely API
+# request limit exceeded. Please try again in one minute.", "Hourly ... in the
+# next hour.", "Daily ... tomorrow." (RateLimitError.reason in
+# open-meteo/open-meteo, Sources/App/Helper/Vapor/RateLimiter.swift). A 429
+# that names none of them ("Too many concurrent requests") is momentary.
+_LIMIT_WINDOWS: tuple[tuple[str, RateLimitWindow], ...] = (
+    ("minutely", "minute"),
+    ("hourly", "hour"),
+    ("daily", "day"),
+)
+_WINDOW_PERIOD_S: dict[RateLimitWindow, int] = {"minute": 60, "hour": 3600, "day": 86400}
+
+# The same limiter clears its counters from a sweep that runs once a minute,
+# on a fixed clock rather than a rolling window: the minutely counters on
+# every sweep, the hourly ones on the first sweep of each hour, the daily ones
+# on the first sweep of each UTC day. So a counter outlives its boundary by up
+# to one sweep, and "tomorrow" at 21:00 UTC means 00:01 UTC, not 21:00.
+RATE_LIMIT_SWEEP_S = 60
+
+
+def limit_window(reason: str) -> RateLimitWindow | None:
+    """The counter a 429 reason names, or None when it names none."""
+    lowered = reason.lower()
+    for needle, window in _LIMIT_WINDOWS:
+        if needle in lowered:
+            return window
+    return None
+
+
+def seconds_until_reset(window: RateLimitWindow, now: datetime | None = None) -> float:
+    """Seconds until Open-Meteo clears the counter ``window`` names.
+
+    Includes the sweep margin, so the number never runs out before the
+    counter does: told to wait three hours, the reader must not come back to
+    the same refusal. Open-Meteo sends no ``Retry-After``, so this is the only
+    wait a client ever gets for a spent hourly or daily quota.
+    """
+    if window == "minute":
+        # Cleared on every sweep, wherever the clock stands.
+        return float(RATE_LIMIT_SWEEP_S)
+    period = _WINDOW_PERIOD_S[window]
+    elapsed = (now or datetime.now(UTC)).timestamp() % period
+    return period - elapsed + RATE_LIMIT_SWEEP_S
+
+
 def _raise_for_status_with_horizon(
     resp: httpx.Response, model: str, requested_time: datetime
 ) -> None:
@@ -649,10 +699,17 @@ def _raise_for_status_with_horizon(
     A 429 becomes ``UpstreamRateLimitError``. Without this it reached callers
     as a raw ``HTTPStatusError`` carrying the full upstream URL: a 500 on the
     REST route and, over MCP, an unactionable wall of query string that told
-    the model nothing about whether to wait or give up.
+    the model nothing about whether to wait or give up. The error carries the
+    counter that tripped and the wait until it clears, derived from the
+    counter's clock when no ``Retry-After`` says otherwise.
     """
     if resp.status_code == 429:
-        raise UpstreamRateLimitError(_error_reason(resp), _retry_after_seconds(resp))
+        reason = _error_reason(resp)
+        window = limit_window(reason)
+        retry_after = _retry_after_seconds(resp)
+        if retry_after is None and window is not None:
+            retry_after = seconds_until_reset(window)
+        raise UpstreamRateLimitError(reason, retry_after, window)
     if resp.status_code == 400:
         try:
             payload = resp.json()

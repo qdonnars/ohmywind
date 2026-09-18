@@ -30,6 +30,19 @@ export interface SegmentReport {
   motor_used?: boolean;
 }
 
+/**
+ * A warning as the server codes it. `plan.notice.<code>` is its key in the
+ * dictionaries and `params` fill that entry; `message` is the server's own
+ * French sentence, shown when the code is one this build does not know (an
+ * older app meeting a newer server) or when an older server sent none.
+ * The values are display strings or counts, never formatted again here.
+ */
+export interface Notice {
+  code: string;
+  params: Record<string, string | number>;
+  message: string;
+}
+
 export interface PassageReport {
   archetype: string;
   departure_time: string;
@@ -40,13 +53,18 @@ export interface PassageReport {
   model: string;
   segments: SegmentReport[];
   warnings: string[];
+  /** `warnings`, one for one, as notices. Absent from an older server. */
+  notices?: Notice[];
 }
 
 export interface ComplexityWarning {
-  kind: "wind" | "sea";
+  kind: "wind" | "sea" | "current" | "chop";
   level: number;
   message: string;
   affected_segments: number[];
+  /** The notice behind `message`; absent from an older server. */
+  code?: string;
+  params?: Record<string, string | number>;
 }
 
 export interface ComplexityScore {
@@ -103,6 +121,9 @@ export interface PassageWindow {
   };
   conditions_summary: ConditionsSummary;
   warnings: string[];
+  /** `warnings` as notices, the passage's then the score's. Absent from an
+      older server. */
+  notices?: Notice[];
   // Full per-window detail for instant drill-down (no re-fetch). Optional
   // because older HF Space deployments may still serve responses without
   // these fields — frontend must fall back to fetching when missing.
@@ -120,6 +141,9 @@ export interface MultiWindowResponse {
   };
   windows: PassageWindow[];
   meta_warnings: string[];
+  /** `meta_warnings` as notices. The parser fills it from the sentences when
+      an older server sends none, so it is always there to render. */
+  meta_notices: Notice[];
   forecast_updated_at: string;
 }
 

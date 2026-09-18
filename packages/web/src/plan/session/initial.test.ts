@@ -85,7 +85,7 @@ const compareBlock = (over: Partial<NonNullable<LastSimulation["compare"]>> = {}
   sweepLatest: "2026-09-13T06:00",
   sweepIntervalHours: 6,
   windows: [aWindow()],
-  metaWarnings: ["modèle dégradé"],
+  metaWarnings: [{ code: "", params: {}, message: "modèle dégradé" }],
   forecastUpdatedAt: "2026-09-02T05:00:00Z",
   ...over,
 });
@@ -391,7 +391,7 @@ describe("resolveInitialSession: restoring results from the URL (path A)", () =>
       cache: cache({ mode: "compare", single: undefined, compare: compareBlock() }),
     });
     expect(s.windows).toHaveLength(1);
-    expect(s.metaWarnings).toEqual(["modèle dégradé"]);
+    expect(s.metaWarnings).toEqual([{ code: "", params: {}, message: "modèle dégradé" }]);
     // The sweep's own stamp is used when no single-mode block was restored.
     expect(s.forecastUpdatedAt).toBe("2026-09-02T05:00:00Z");
     expect(s.mount.fetch).toBe(false);

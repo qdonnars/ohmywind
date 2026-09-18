@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useState, useEffect, useMemo, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
-import { parsePlanUrl, buildPlanUrl } from "../plan/parseUrl";
+import { parsePlanUrl } from "../plan/parseUrl";
 import { PlanMap, type PlanMapHandle } from "../plan/PlanMap";
 import { DRAWER_HANDLE_REACH_PX, UNDO_MS } from "../domain/gestures";
 import { PlanSidebar } from "../plan/PlanSidebar";
@@ -12,6 +12,9 @@ import { NavMenu } from "../components/NavMenu";
 import type { Archetype } from "../plan/types";
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { StatBand } from "../plan/PlanStates";
+import { ReturnBanner } from "../plan/ReturnBanner";
+import { CompareHint } from "../plan/CompareHint";
+import { planAsTrack, routeOverlays } from "../plan/compare/tracks";
 import { loadPlanDraft } from "../plan/draft";
 import { loadLastSimulation } from "../plan/lastSimulation";
 import { resolveInitialSession, type InitialSession } from "../plan/session/initial";
@@ -28,7 +31,6 @@ import { useBackDismiss } from "../hooks/useBackDismiss";
 import { useMapView } from "../hooks/useMapView";
 import { LG_MEDIA_QUERY, useMediaQuery } from "../hooks/useMediaQuery";
 import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
-import { navigate } from "../navigation";
 import { useT } from "../i18n";
 
 // ── ResizableMobileDrawer ────────────────────────────────────────────────────
@@ -39,15 +41,19 @@ import { useT } from "../i18n";
 const DRAWER_HEIGHT_KEY = LOCAL_STORAGE_KEYS.drawerHeight;
 const DRAWER_MIN_VH = 12;
 const DRAWER_MAX_VH = 90;
+/** The grab handle as drawn, and how far its target reaches under it. */
+const HANDLE_VISIBLE_PX = 12;
+const HANDLE_REACH_BELOW_PX = 16;
 
-interface DrawerHandle {
+export interface DrawerHandle {
   /** Scroll the drawer content back to the top — used when the route turns
    *  stale so the Recalculer bar (hidden by the results fit below) is
    *  visible next to the "Cliquez sur Recalculer" placeholder. */
   scrollToTop: () => void;
 }
 
-const ResizableMobileDrawer = forwardRef<DrawerHandle, {
+/** Exported for its test only: the page around it needs a map to render. */
+export const ResizableMobileDrawer = forwardRef<DrawerHandle, {
   defaultVh: number;
   /** Optional auto-target height. When this value changes the drawer
    *  animates to it (CSS transition on ``height``). Manual drag still
@@ -62,6 +68,12 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
    *  block sits one scroll-up away, and the map gets the freed space. No-op
    *  when the sidebar isn't showing a filled view (no anchor in the DOM). */
   resultsFitKey?: object | null;
+  /** Fit the drawer to the whole of its content: the short steps before a
+   *  result (the invitation, the « Calculer » row, the drawing controls)
+   *  used to sit in a fixed slot with room to spare under them. Same
+   *  contract as `resultsFitKey`: a new identity re-fits, null leaves the
+   *  height alone. */
+  contentFitKey?: object | null;
   /** Rendered in the drawer chrome, between the grab handle and the
    *  scrolling content, so it never scrolls away: the totals band of a
    *  computed passage. Counted with the handle in the fit-to-results
@@ -69,7 +81,7 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
    *  content below the anchor. */
   head?: React.ReactNode;
   children: React.ReactNode;
-}>(function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, head, children }, ref) {
+}>(function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, contentFitKey, head, children }, ref) {
   const { t } = useT();
   const [vh, setVh] = useState<number>(() => {
     try {
@@ -169,6 +181,29 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
     return () => cancelAnimationFrame(raf);
   }, [resultsFitKey, targetVh]);
 
+  // Fit-to-content: see the ``contentFitKey`` prop doc. Measured one frame
+  // after render like the fit above, from the content's real extent rather
+  // than ``scrollHeight``, which is floored at the container's height.
+  // Animated: it moves the drawer to a height the reader did not choose,
+  // and a jump would read as a glitch. Bounded like every other height.
+  useEffect(() => {
+    if (contentFitKey == null) return;
+    const raf = requestAnimationFrame(() => {
+      const outer = outerRef.current;
+      const container = contentRef.current;
+      if (!outer || !container || outer.offsetHeight === 0) return;
+      const top = container.getBoundingClientRect().top;
+      const end = container.lastElementChild?.getBoundingClientRect().bottom ?? top;
+      const contentPx = end - top + container.scrollTop;
+      const chromePx = outer.offsetHeight - container.clientHeight;
+      const desiredVh = ((contentPx + chromePx + 1) / window.innerHeight) * 100;
+      container.scrollTop = 0;
+      setIsAnimating(true);
+      setVh(Math.max(DRAWER_MIN_VH, Math.min(DRAWER_MAX_VH, desiredVh)));
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [contentFitKey]);
+
   useImperativeHandle(ref, () => ({
     scrollToTop: () => {
       contentRef.current?.scrollTo({ top: 0 });
@@ -206,19 +241,26 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
         transition: isAnimating ? "height 280ms cubic-bezier(0.4, 0, 0.2, 1)" : undefined,
       }}
     >
-      {/* Grab handle. 28 px of full-width strip rather than the 14 px this
-          shipped with: at 14 px the target was under half a fingertip and
-          users reported missing it outright. It stays under the 44 px touch
-          guideline on purpose: at DRAWER_MIN_VH the drawer is a peek, and a
-          44 px handle would eat most of it. `chromePx` in the fit-to-results
-          effect reads the height from the DOM, so nothing else needs
-          updating.
-          The invisible strip inside reaches DRAWER_HANDLE_REACH_PX up over
+      {/* Grab handle. 12 px on screen, up to 40 px under the finger: the
+          strip itself is what the eye sees, and two invisible strips inside
+          it extend the target. One reaches DRAWER_HANDLE_REACH_PX up over
           the map: a thumb aiming at the handle lands above it more often
           than below, and above it is the map, where a resting finger used
-          to place a waypoint (#389). Only the content scrolls, so nothing
-          clips the strip; it is raised above the Leaflet panes, which are
-          positioned with z-indexes of their own. */}
+          to place a waypoint (#389). The other reaches HANDLE_REACH_BELOW_PX
+          down over the head of the drawer, the totals band, which nothing
+          taps. That strip exists only with a head: without one, the first
+          line of the scrolling content sits right under the handle, and the
+          strip took the taps meant for it. The « ‹ Plan » of a comparison,
+          16 px tall, was under it for all but its last pixels, and the
+          content fitted to the results scrolls a few pixels more under the
+          chrome (QA of 2026-09-18). The 28 px this shipped with as a
+          visible strip took a quarter of the peek for a bar 4 px tall. It
+          stays under the 44 px touch guideline on purpose: at DRAWER_MIN_VH
+          the drawer is a peek. `chromePx` in the fit-to-results effect
+          reads the height from the DOM, so nothing else needs updating.
+          Only the content scrolls, so nothing clips the strips; they are
+          raised above the Leaflet panes, which are positioned with
+          z-indexes of their own. */}
       <div
         role="separator"
         aria-orientation="horizontal"
@@ -228,16 +270,25 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         className="relative shrink-0 flex items-center justify-center cursor-row-resize touch-none"
-        style={{ height: 28, background: "var(--ow-bg-1)" }}
+        style={{ height: HANDLE_VISIBLE_PX, background: "var(--ow-bg-1)", zIndex: 1 }}
       >
         <span
           aria-hidden="true"
+          data-handle-reach="above"
           className="absolute inset-x-0"
           style={{ top: -DRAWER_HANDLE_REACH_PX, height: DRAWER_HANDLE_REACH_PX, zIndex: 700 }}
         />
+        {head != null && (
+          <span
+            aria-hidden="true"
+            data-handle-reach="below"
+            className="absolute inset-x-0"
+            style={{ bottom: -HANDLE_REACH_BELOW_PX, height: HANDLE_REACH_BELOW_PX, zIndex: 700 }}
+          />
+        )}
         <span
           className="block rounded-full"
-          style={{ width: 44, height: 5, background: "var(--ow-line-2)" }}
+          style={{ width: 36, height: 4, background: "var(--ow-line-2)" }}
         />
       </div>
       {head}
@@ -374,9 +425,44 @@ export function PlanPage() {
   const { state, actions, isLoading } = usePlanSession(initial);
   // The page itself only needs what the map and the drawer are built on; the
   // panel reads everything else from the context below.
-  const { waypoints, passage, windows, mode: planMode, selectedLegIdx, selectedStepIdx, actionTaken, isStale } = state;
+  const {
+    waypoints,
+    passage,
+    complexity,
+    windows,
+    mode: planMode,
+    compareAxis,
+    tracks,
+    variant,
+    returnTo,
+    openedTrackId,
+    highlightedTrackId,
+    selectedLegIdx,
+    selectedStepIdx,
+    actionTaken,
+    isStale,
+  } = state;
 
-  const waypointDepths = useWaypointDepths(waypoints);
+  // While a variant is being drawn, the map's markers are the variant's
+  // points and the plan's route is a ghost behind them. Only on the track
+  // axis of an open comparison: elsewhere a variant is a leftover.
+  const drawing = variant !== null && planMode === "compare" && compareAxis === "tracks";
+  const mapWaypoints = drawing ? variant : waypoints;
+  const tracksAxis = planMode === "compare" && compareAxis === "tracks";
+  const overlays = useMemo(
+    () =>
+      routeOverlays({
+        options: tracks.length > 0 ? tracks : [planAsTrack(waypoints, isStale ? null : passage, isStale ? null : complexity)],
+        drawing,
+        tracksAxis,
+        openedInPlan: planMode === "single" && returnTo === "tracks",
+        highlightedTrackId,
+        openedTrackId,
+      }),
+    [tracks, waypoints, passage, complexity, isStale, drawing, tracksAxis, planMode, returnTo, highlightedTrackId, openedTrackId],
+  );
+
+  const waypointDepths = useWaypointDepths(mapWaypoints);
   const [archetypes, setArchetypes] = useState<Archetype[]>([]);
 
   // A waypoint removed by a tap on its marker, or by the × badge, is offered
@@ -406,6 +492,10 @@ export function PlanPage() {
   // Back collapses the open leg rather than leaving the planner (issue #300).
   const collapseLeg = useCallback(() => actions.selectLeg(null), [actions]);
   useBackDismiss(selectedLegIdx !== null, collapseLeg);
+  // And closes the comparison, back to the plan under it; a variant being
+  // drawn is dropped first.
+  useBackDismiss(planMode === "compare" && !drawing, actions.closeCompare);
+  useBackDismiss(drawing, actions.cancelVariant);
 
   useEffect(() => {
     fetchArchetypes().then(setArchetypes).catch(() => {});
@@ -422,6 +512,15 @@ export function PlanPage() {
     const filled = planMode === "compare" ? !!windows && windows.length > 0 : !!passage;
     return filled ? {} : null;
   }, [passage, windows, planMode, isLoading]);
+
+  // The short steps of the mobile drawer, fitted to what they hold rather
+  // than to a fixed slot: nothing drawn yet, a route with nothing asked yet,
+  // a variant being drawn. New identity when one of them is entered.
+  const compactStep = waypoints.length < 2 || !actionTaken;
+  const contentFitKey = useMemo(
+    () => (!isLoading && (compactStep || drawing) ? {} : null),
+    [isLoading, compactStep, drawing],
+  );
 
   // Memoised: PlanMap keys an effect on this tuple, and a fresh one on every
   // render made it destroy and redraw the highlight polyline each time a
@@ -445,20 +544,11 @@ export function PlanPage() {
   }, [isStale]);
 
   // Everything the resolved session could seed synchronously already is, in
-  // `createInitialState`. What is left needs the outside world: syncing the
-  // address bar when the cache supplied the route (so reload and share work),
-  // and computing when nothing usable could be restored.
+  // `createInitialState`, the address bar included when the cache supplied
+  // the route: the session writes it as its first persist command, before
+  // the layers above push their history entries. What is left is computing
+  // when nothing usable could be restored.
   useEffect(() => {
-    if (initial.mount.rewriteUrl) {
-      // Through the router, not through `history` directly: this rewrite
-      // happens on the page the reader is already on, and a router left
-      // holding the previous URL remounted the planner at the next back
-      // press, results and all.
-      navigate(
-        buildPlanUrl(initial.waypoints, initial.departure, initial.archetype),
-        { replace: true },
-      );
-    }
     if (initial.mount.fetch) actions.compute();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -541,7 +631,7 @@ export function PlanPage() {
         <div className="flex-1 min-h-0 relative">
           <PlanMap
             ref={mapRef}
-            waypoints={waypoints}
+            waypoints={mapWaypoints}
             // Only feed the condition-colored segments in single mode. In
             // compare mode there's no single "the conditions" to color by (each
             // window differs), and `passage` lags the route once it's edited
@@ -549,20 +639,24 @@ export function PlanPage() {
             // off a route that no longer matched the markers (#152 follow-up).
             // Compare mode falls back to a neutral line through the live
             // waypoints, so the drawn route always matches what's computed.
-            segments={planMode === "single" ? passage?.segments : undefined}
-            isStale={isStale}
-            onWptMove={actions.moveWaypoint}
-            onWptAdd={waypoints.length >= 2 ? actions.insertWaypoint : undefined}
-            onWptDelete={handleDeleteWaypoint}
-            onMapClick={actions.appendWaypoint}
+            segments={planMode === "single" && !drawing ? passage?.segments : undefined}
+            isStale={drawing ? false : isStale}
+            // Drawing a variant: every gesture edits the variant, not the plan.
+            onWptMove={drawing ? actions.moveVariantPoint : actions.moveWaypoint}
+            onWptAdd={drawing ? actions.insertVariantPoint : waypoints.length >= 2 ? actions.insertWaypoint : undefined}
+            onWptDelete={drawing ? actions.deleteVariantPoint : handleDeleteWaypoint}
+            onMapClick={drawing ? actions.addVariantPoint : actions.appendWaypoint}
+            overlays={overlays}
+            hideBaseRoute={tracksAxis && !drawing}
+            lockedEnds={drawing}
             initialCenter={initial.center}
             userPosition={userPosition}
             onViewChange={onViewChange}
             initialZoom={handedView?.zoom ?? null}
             showSeamarks={seamarks}
             depths={waypointDepths}
-            highlightedSegmentRange={highlightedSegmentRange}
-            focusedSegmentIdx={focusedSegmentIdx}
+            highlightedSegmentRange={drawing ? null : highlightedSegmentRange}
+            focusedSegmentIdx={drawing ? null : focusedSegmentIdx}
           />
           {/* Navigation menu — same control, same corner as on the home
               map; the camera travels with its links so going back to the
@@ -580,6 +674,12 @@ export function PlanPage() {
               the menu owns the top left and the locate button plus its
               error bubble own the bottom right. */}
           <SeamarkButton enabled={seamarks} onToggle={toggleSeamarks} className="top-3 right-3" />
+          {/* Way back to the comparison a slot was opened from, while it is
+              still open behind the plan. */}
+          <ReturnBanner />
+          {/* Once, after the first plan: the comparison is at the end of the
+              results, and what comparing two routes means. */}
+          <CompareHint />
           {/* Locate FAB — bottom right of the map container, which shrinks as
               the mobile drawer is dragged up, so the button follows it.
               16 px above the drawer edge, the reference gap reused on the
@@ -610,8 +710,19 @@ export function PlanPage() {
               </button>
             </div>
           )}
+          {/* Hint overlay while drawing a variant between the plan's ends */}
+          {drawing && (
+            <div className="absolute inset-x-4 bottom-4 z-[400] flex justify-center pointer-events-none">
+              <div
+                className="px-4 py-2 rounded-xl text-sm font-medium text-center"
+                style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)", color: "var(--ow-fg-1)" }}
+              >
+                {t("panel.tracks.drawing.hint")}
+              </div>
+            </div>
+          )}
           {/* Hint overlay while building the route */}
-          {waypoints.length < 2 && (
+          {!drawing && waypoints.length < 2 && (
             <div className="absolute inset-x-4 bottom-4 z-[400] flex justify-center pointer-events-none">
               <div
                 className="px-4 py-2 rounded-xl text-sm font-medium"
@@ -637,10 +748,10 @@ export function PlanPage() {
         )}
       </div>
 
-      {/* Mobile drawer — below map. Auto-slides to a target height based on
-          where the user is in the flow (no waypoints → minimal so the map
-          stays the focus; 2 waypoints → tall enough to surface just the
-          mode pills; mode confirmed → full content height). The drag handle
+      {/* Mobile drawer — below map. Fitted to its content in the short
+          steps (nothing drawn, route with nothing asked, variant being
+          drawn), so the map keeps the room; opened to a full slot once
+          something was asked, then fitted to the results. The drag handle
           still lets the user override at any time.
           Its head carries the totals of a computed passage, single mode
           only. Hidden as soon as the route was edited without recalculating:
@@ -650,14 +761,9 @@ export function PlanPage() {
         <ResizableMobileDrawer
           ref={drawerRef}
           defaultVh={passage ? 38 : 60}
-          targetVh={
-            waypoints.length < 2
-              ? 18
-              : !actionTaken
-                ? 22
-                : 65
-          }
+          targetVh={compactStep || drawing ? undefined : 65}
           resultsFitKey={resultsFitKey}
+          contentFitKey={contentFitKey}
           head={passage && planMode === "single" && !isStale ? <StatBand passage={passage} /> : null}
         >
           <PlanSidebar />

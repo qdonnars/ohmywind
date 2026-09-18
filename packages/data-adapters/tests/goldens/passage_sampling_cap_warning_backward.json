@@ -322,5 +322,24 @@
     "trajet long (154 nm) : 10 points météo échantillonnés (~15 nm entre points) au lieu de 10 nm pour limiter les requêtes API.",
     "vent faible : vitesse mini 2.4 kn, passage très lent"
   ],
-  "max_sampling_drift_h": 10.1
+  "max_sampling_drift_h": 10.1,
+  "notices": [
+    {
+      "code": "passage.long_route",
+      "params": {
+        "route_nm": "154",
+        "points": 10,
+        "spacing_nm": "15",
+        "requested_nm": "10"
+      },
+      "message": "trajet long (154 nm) : 10 points météo échantillonnés (~15 nm entre points) au lieu de 10 nm pour limiter les requêtes API."
+    },
+    {
+      "code": "passage.light_wind",
+      "params": {
+        "min_speed_kn": "2.4"
+      },
+      "message": "vent faible : vitesse mini 2.4 kn, passage très lent"
+    }
+  ]
 }

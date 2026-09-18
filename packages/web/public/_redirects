@@ -4,7 +4,7 @@
 # la racine du build : sans 404.html, il bascule en mode application a page
 # unique et sert index.html avec un statut 200 pour toute route qui ne
 # correspond a aucun fichier. C'est exactement ce qu'il faut pour /plan,
-# /config, /methodologie et /confidentialite.
+# /config, /methodologie, /confidentialite et /presse.
 #
 # L'ancienne regle "/confidentialite /index.html 200" faisait l'inverse de ce
 # qu'on attendait : Pages la canonisait et repondait 308 vers /, donc le

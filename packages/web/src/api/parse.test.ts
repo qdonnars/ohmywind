@@ -96,6 +96,21 @@ describe("parseMultiWindowResponse", () => {
     expect(parsed.windows).toHaveLength(2);
     expect(parsed.windows[0].passage).toBeDefined();
     expect(parsed.meta_warnings).toEqual([]);
+    expect(parsed.meta_notices).toEqual([]);
+  });
+
+  it("reads the coded meta warnings, and wraps the sentences of a server without them", () => {
+    const coded = {
+      ...clone(sweep),
+      meta_warnings: ["3 fenêtre(s) ignorée(s)"],
+      meta_notices: [{ code: "sweep.skipped_windows", params: { skipped: 3, kept: 21 }, message: "3 fenêtre(s) ignorée(s)" }],
+    };
+    expect(parseMultiWindowResponse(coded).meta_notices[0].code).toBe("sweep.skipped_windows");
+    const older = { ...clone(sweep), meta_warnings: ["modèle dégradé"] };
+    delete (older as Record<string, unknown>).meta_notices;
+    expect(parseMultiWindowResponse(older).meta_notices).toEqual([
+      { code: "", params: {}, message: "modèle dégradé" },
+    ]);
   });
 
   it("rejects a single-passage body handed to the sweep parser", () => {
@@ -107,6 +122,7 @@ describe("parseMultiWindowResponse", () => {
     ["sweep.interval_hours", "sweep.interval_hours", "6h"],
     ["windows", "windows", {}],
     ["meta_warnings", "meta_warnings", "aucun"],
+    ["meta_notices", "meta_notices", [{ code: 3 }]],
   ])("rejects a body whose %s is wrong", (_label, path, value) => {
     expect(() => parseMultiWindowResponse(withField(sweep, path, value))).toThrow(ApiShapeError);
   });

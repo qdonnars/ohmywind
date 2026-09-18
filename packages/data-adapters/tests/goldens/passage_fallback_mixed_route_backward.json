@@ -198,5 +198,24 @@
     "vent faible : vitesse mini 2.2 kn, passage très lent",
     "modèle meteofrance_arome_france sans données sur 2/6 points (probable hors zone de couverture) ; fallback automatique sur icon_eu"
   ],
-  "max_sampling_drift_h": 4.54
+  "max_sampling_drift_h": 4.54,
+  "notices": [
+    {
+      "code": "passage.light_wind",
+      "params": {
+        "min_speed_kn": "2.2"
+      },
+      "message": "vent faible : vitesse mini 2.2 kn, passage très lent"
+    },
+    {
+      "code": "passage.model_fallback",
+      "params": {
+        "model": "meteofrance_arome_france",
+        "fallback_count": 2,
+        "total": 6,
+        "others": "icon_eu"
+      },
+      "message": "modèle meteofrance_arome_france sans données sur 2/6 points (probable hors zone de couverture) ; fallback automatique sur icon_eu"
+    }
+  ]
 }

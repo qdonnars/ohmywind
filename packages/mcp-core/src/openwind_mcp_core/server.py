@@ -63,6 +63,7 @@ from openwind_data.routing import (
 from openwind_data.routing import (
     score_complexity as _score_complexity,
 )
+from openwind_data.routing.notices import Notice
 from openwind_data.views import (
     filter_windows_by_target_eta,
     passage_envelope,
@@ -868,6 +869,10 @@ def build_server(
           angle, hs_min/max), ``warnings``, ``passage`` (full per-segment
           report), ``complexity_full`` (full score), ``openwind_url``.
         - ``meta_warnings``: top-level notes ("3 fenêtres ignorées …").
+        - ``notices`` / ``meta_notices``: the same warnings as codes with
+          their values (``{"code": "sweep.skipped_windows", "params": …}``),
+          for a client that says them in another language. Read the French
+          ``message`` and ignore these.
         - ``disclaimer``: usage warning to relay (see below).
 
         ## ALWAYS relay the disclaimer
@@ -1021,7 +1026,7 @@ def build_server(
                 for r in reports
             ]
 
-            meta_warnings: list[str] = []
+            meta_notices: list[Notice] = []
             # The engine widens the interval when windows x segments would blow
             # the simulation budget, so report what the sweep actually did
             # rather than what was asked for.
@@ -1033,7 +1038,7 @@ def build_server(
                     len(reports[0].segments),
                 )
                 if effective_interval != sweep_interval_hours:
-                    meta_warnings.append(
+                    meta_notices.append(
                         widened_interval_warning(
                             effective_interval, sweep_interval_hours, len(reports[0].segments)
                         )
@@ -1043,14 +1048,14 @@ def build_server(
                     windows, datetime.fromisoformat(target_eta), target_eta
                 )
                 if unmatched is not None:
-                    meta_warnings.append(unmatched)
+                    meta_notices.append(unmatched)
 
             return sweep_view(
                 earliest=dep,
                 latest=latest_dep,
                 interval_hours=effective_interval,
                 windows=windows,
-                meta_warnings=meta_warnings,
+                meta_notices=meta_notices,
             ) | {"disclaimer": PASSAGE_DISCLAIMER}
 
         # --- SINGLE MODE ---

@@ -9,7 +9,7 @@ import { t } from "../i18n";
 
 // Match the single-mode slider cap: Open-Meteo forecast tops out at ~today+15;
 // we keep 14 d to leave 1 d of margin for clock skew / TZ crossings.
-const SWEEP_HORIZON_DAYS = 14;
+export const SWEEP_HORIZON_DAYS = 14;
 // Backend safety cap: 14 d × 24 h = 336 windows. Mirror it here so we can
 // surface a friendly hint before sending an oversize request.
 const MAX_SWEEP_WINDOWS = 336;

@@ -166,6 +166,23 @@ describe("parseLastSimulation", () => {
     expect(parsed?.compare?.windows).toHaveLength(1);
     expect(parsed?.compare?.metaWarnings).toEqual([]);
   });
+
+  it("keeps the plain sentences of a cache written before the warnings were coded", () => {
+    const sim = full({
+      compare: {
+        sweepEarliest: "2026-09-03T08:00",
+        sweepLatest: "2026-09-05T08:00",
+        sweepIntervalHours: 3,
+        windows: [window_(0)],
+        metaWarnings: ["modèle dégradé"],
+        forecastUpdatedAt: "2026-09-02T06:00:00Z",
+      } as unknown as LastSimulation["compare"],
+    });
+    const parsed = parseLastSimulation(JSON.stringify(sim));
+    expect(parsed?.compare?.metaWarnings).toEqual([
+      { code: "", params: {}, message: "modèle dégradé" },
+    ]);
+  });
 });
 
 // `saveLastSimulation` writes through localStorage, absent from the node

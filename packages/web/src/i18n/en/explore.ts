@@ -35,16 +35,15 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.infoPanel.privacy.title": "Your data",
   "explore.infoPanel.privacy.body":
     "No tracking, no account, no data recorded about you. Everything runs in your browser, this is a pure reading page. Weather requests go straight to the public APIs.",
+  "explore.infoPanel.privacy.link": "Read the privacy policy",
   "explore.infoPanel.sources.title": "Data sources and methodology",
   "explore.infoPanel.sources.body":
-    "Wind models (AROME, ICON, ECMWF, GFS), waves and sea level (Open-Meteo Marine, WaveWatch III), currents in cascade (SHOM Atlas C2D over the critical passes, MARC PREVIMER over the Atlantic shelf, SMOC Copernicus as the global fallback), conventions, passage planning equations and complexity scoring: it is all set out on the methodology page.",
+    "Where the wind, wave, tide and current forecasts come from, how the planner combines them, and how it rates the complexity of a passage.",
   "explore.infoPanel.sources.link": "Read the full methodology",
-  "explore.infoPanel.sources.basemap":
-    "Base maps: <osm>© OpenStreetMap contributors</osm> (data under the ODbL licence), tiles <ofm>OpenFreeMap</ofm> on the <omt>© OpenMapTiles</omt> schema. Sea marks (buoys, beacons, lighthouses, lights): <seamap>© OpenSeaMap contributors</seamap>, tiles under CC BY-SA on OpenStreetMap data. This layer is an aid to preparation, not a navigation document: it replaces neither the official SHOM charts nor the notices to mariners. Place search: <photon>Photon</photon> and Open-Meteo Geocoding, both on OpenStreetMap data.",
-  "explore.infoPanel.sources.bathymetry":
-    "Soundings under the waypoints: <emodnet>EMODnet Bathymetry</emodnet> (CC BY 4.0), referenced to chart datum as on a nautical chart. The grid is about 115 m: it answers “how much water on this leg” well, and it is blind to the isolated rock between two nodes. Not to be used for navigation.",
-  "explore.infoPanel.sources.privacy":
-    "No account, no tracker: <a>privacy policy</a>.",
+  "explore.infoPanel.press.title": "In the press",
+  "explore.infoPanel.press.body":
+    "What the sailing press has written about the project, with a link to each article.",
+  "explore.infoPanel.press.link": "See the press coverage",
   "explore.infoPanel.licence.title": "Licence and trade mark",
   "explore.infoPanel.licence.body":
     "The OhMyWind code is open source, under the <licence>AGPL-3.0 licence</licence>. You may fork it, modify it and redistribute it. If you expose a modified version over the network, you must publish its sources. The name “OhMyWind”, however, is the subject of a trade mark filing with the INPI, and the visual identity (logo, icons) remains protected by copyright: a fork is published under its own name and its own icons. Details in the <trademark>trade mark policy</trademark>.",
@@ -52,6 +51,10 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.infoPanel.support.body":
     "If you love this app as much as I do, know that dedicated servers will soon be needed to keep it running. I have no wish to put adverts in it. If you feel the same, your help is welcome.",
   "explore.infoPanel.support.cta": "Support on Ko-fi",
+  "explore.infoPanel.credits.basemap":
+    "Base maps: <osm>© OpenStreetMap contributors</osm> (data under the ODbL licence), tiles <ofm>OpenFreeMap</ofm> on the <omt>© OpenMapTiles</omt> schema. Sea marks (buoys, beacons, lighthouses, lights): <seamap>© OpenSeaMap contributors</seamap>, tiles under CC BY-SA on OpenStreetMap data. This layer is an aid to preparation, not a navigation document: it replaces neither the official SHOM charts nor the notices to mariners. Place search: <photon>Photon</photon> and Open-Meteo Geocoding, both on OpenStreetMap data.",
+  "explore.infoPanel.credits.bathymetry":
+    "Soundings under the waypoints: <emodnet>EMODnet Bathymetry</emodnet> (CC BY 4.0), referenced to chart datum as on a nautical chart. The grid is about 115 m: it answers “how much water on this leg” well, and it is blind to the isolated rock between two nodes. Not to be used for navigation.",
 
   // Metric pills
   "explore.pills.groupLabel": "Forecast metric",
