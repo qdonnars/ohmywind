@@ -7,19 +7,28 @@ import { BackStack, isLayerEntry, type HistoryLike } from "./useBackDismiss";
 /** Just enough of the history API to observe what the stack does to it. A
     real `back()` is asynchronous and fires `popstate`; here the test plays
     that part by calling `handlePop()` itself, which is also what the real
-    listener does. */
+    listener does. `replaceState` is what the app's URL rewrites do to the
+    current entry, state and URL together. */
 class FakeHistory implements HistoryLike {
-  entries: unknown[] = [null];
+  entries: { state: unknown; url: string }[] = [{ state: null, url: "/plan" }];
   index = 0;
 
   get state(): unknown {
-    return this.entries[this.index];
+    return this.entries[this.index].state;
+  }
+
+  get url(): string {
+    return this.entries[this.index].url;
   }
 
   pushState(data: unknown): void {
     this.entries.length = this.index + 1;
-    this.entries.push(data);
+    this.entries.push({ state: data, url: this.url });
     this.index += 1;
+  }
+
+  replaceState(data: unknown, url: string): void {
+    this.entries[this.index] = { state: data, url };
   }
 
   back(): void {
@@ -106,6 +115,45 @@ describe("BackStack", () => {
     stack.close(under);
     expect(history.index).toBe(2);
     expect(stack.depth).toBe(1);
+  });
+
+  it("leaves an entry behind once a rewrite reset its state", () => {
+    // What `replaceState(null, …)` on the layer's entry costs: the token is
+    // gone, so the stack cannot tell the entry from one it never owned and
+    // leaves it in place. The next back press lands on it, nothing closes,
+    // and the address bar shows the URL from before the rewrite. This is the
+    // sequence a slot picked in the comparison used to run.
+    const history = new FakeHistory();
+    const stack = new BackStack(history);
+    const token = stack.open(() => {});
+    history.replaceState(null, "/plan?departure=12:00");
+
+    stack.close(token);
+    expect(stack.depth).toBe(0);
+    expect(history.index).toBe(1);
+    expect(history.url).toBe("/plan?departure=12:00");
+    stack.handlePop();
+
+    history.back();
+    stack.handlePop();
+    expect(history.url).toBe("/plan");
+  });
+
+  it("pops an entry whose URL was rewritten with its state kept", () => {
+    // The same rewrite, state preserved: the layer still owns the entry and
+    // pops it on close. The pop lands on the entry under it, whose URL
+    // predates the rewrite; putting it right is the page's job, not the
+    // stack's (see `plan/session/persist.ts`).
+    const history = new FakeHistory();
+    const stack = new BackStack(history);
+    const token = stack.open(() => {});
+    history.replaceState(history.state, "/plan?departure=12:00");
+
+    stack.close(token);
+    expect(history.index).toBe(0);
+    expect(history.url).toBe("/plan");
+    stack.handlePop();
+    expect(stack.depth).toBe(0);
   });
 
   it("consumes a self-pop only once", () => {

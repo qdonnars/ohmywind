@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useState, useEffect, useMemo, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
-import { parsePlanUrl, buildPlanUrl } from "../plan/parseUrl";
+import { parsePlanUrl } from "../plan/parseUrl";
 import { PlanMap, type PlanMapHandle } from "../plan/PlanMap";
 import { DRAWER_HANDLE_REACH_PX, UNDO_MS } from "../domain/gestures";
 import { PlanSidebar } from "../plan/PlanSidebar";
@@ -31,7 +31,6 @@ import { useBackDismiss } from "../hooks/useBackDismiss";
 import { useMapView } from "../hooks/useMapView";
 import { LG_MEDIA_QUERY, useMediaQuery } from "../hooks/useMediaQuery";
 import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
-import { navigate } from "../navigation";
 import { useT } from "../i18n";
 
 // ── ResizableMobileDrawer ────────────────────────────────────────────────────
@@ -545,20 +544,11 @@ export function PlanPage() {
   }, [isStale]);
 
   // Everything the resolved session could seed synchronously already is, in
-  // `createInitialState`. What is left needs the outside world: syncing the
-  // address bar when the cache supplied the route (so reload and share work),
-  // and computing when nothing usable could be restored.
+  // `createInitialState`, the address bar included when the cache supplied
+  // the route: the session writes it as its first persist command, before
+  // the layers above push their history entries. What is left is computing
+  // when nothing usable could be restored.
   useEffect(() => {
-    if (initial.mount.rewriteUrl) {
-      // Through the router, not through `history` directly: this rewrite
-      // happens on the page the reader is already on, and a router left
-      // holding the previous URL remounted the planner at the next back
-      // press, results and all.
-      navigate(
-        buildPlanUrl(initial.waypoints, initial.departure, initial.archetype),
-        { replace: true },
-      );
-    }
     if (initial.mount.fetch) actions.compute();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

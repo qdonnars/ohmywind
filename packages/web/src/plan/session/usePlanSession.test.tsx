@@ -12,7 +12,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { useBackDismiss } from "../../hooks/useBackDismiss";
+import { isLayerEntry, useBackDismiss } from "../../hooks/useBackDismiss";
 import type { PassageReport, ComplexityScore, PassageWindow } from "../types";
 import type { InitialSession } from "./initial";
 import { toTzAware } from "../../domain/datetime";
@@ -455,5 +455,101 @@ describe("usePlanSession", () => {
 
     unmount();
     expect(signal.aborted).toBe(true);
+  });
+});
+
+/**
+ * The comparison as PlanPage wires it: a layer with a history entry of its
+ * own, so the Android back button closes it rather than leaving the app.
+ * Picking a slot closes that layer and rewrites the URL in the same commit,
+ * and restoring the comparison at mount rewrites the URL as the layer opens:
+ * the two moments where `history` is written by both sides at once.
+ */
+describe("the comparison's history entry", () => {
+  /** Let the pop a closing layer asks for actually land: jsdom traverses
+      its history on a queue of two tasks, then fires `popstate`. */
+  const settle = () =>
+    act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+  const here = () => window.location.pathname + window.location.search;
+
+  function useSessionWithCompareLayer(initial: InitialSession) {
+    const session = usePlanSession(initial);
+    useBackDismiss(session.state.mode === "compare", () => session.actions.closeCompare());
+    return session;
+  }
+
+  const windowWithDetail = () => aWindow({ passage: passage(), complexity_full: complexity() });
+
+  it("is popped when a slot is picked, and the address bar stays on the plan at the next back press", async () => {
+    fetchPassageWindows.mockResolvedValue({
+      windows: [windowWithDetail()],
+      meta_warnings: [],
+      meta_notices: [],
+      forecast_updated_at: "2026-09-09T06:00:00Z",
+    });
+    // An entry under the plan's own, for the back press at the end to land on.
+    window.history.pushState(null, "", "/plan");
+    const initial = session({ mode: "compare" });
+    const { result } = renderHook(() => useSessionWithCompareLayer(initial));
+    expect(isLayerEntry(window.history.state)).toBe(true);
+
+    act(() => result.current.actions.computeWindows());
+    await waitFor(() => expect(result.current.state.windows).toHaveLength(1));
+
+    act(() => result.current.actions.selectWindow(result.current.state.windows![0]));
+    await settle();
+    expect(result.current.state.mode).toBe("single");
+    const planUrl = here();
+    expect(planUrl).toContain(`departure=${encodeURIComponent(WINDOW_DEPARTURE)}`);
+    // The layer's entry is gone with the layer: the current entry is the
+    // plan's own, not a leftover the next back press would spend for nothing.
+    expect(window.history.state).toBeNull();
+
+    // Seed: that leftover made the press after the slot a dead one, and the
+    // address bar went back to the departure from before the slot while the
+    // panel kept showing the slot's plan (QA, 2026-09-18). Nothing is open
+    // now, so the press leaves the plan's entry; the page stays, and the
+    // address bar has to stay with it.
+    window.history.back();
+    await settle();
+    expect(result.current.state.passage).not.toBeNull();
+    expect(here()).toBe(planUrl);
+  });
+
+  it("sits above the address bar rewritten at mount when the comparison is restored from the cache", async () => {
+    window.history.pushState(null, "", "/plan");
+    const initial = session({
+      mode: "compare",
+      windows: [windowWithDetail()],
+      mount: { rewriteUrl: true, fetch: false },
+      sources: { route: "cache", boat: "cache", departure: "cache" },
+    });
+    const { result } = renderHook(() => useSessionWithCompareLayer(initial));
+    const planUrl = here();
+    expect(planUrl).toContain("wpts=43.29000,5.37000;43.00000,6.20000");
+    // Seed: the rewrite used to run after the layer had pushed its entry, so
+    // it landed on that entry and wiped its token: `history.state` was null
+    // right after mount, and « ‹ Plan » could not pop the entry.
+    expect(isLayerEntry(window.history.state)).toBe(true);
+
+    // The Android back button: the comparison closes, the page stays, the
+    // address bar keeps the plan.
+    window.history.back();
+    await settle();
+    expect(result.current.state.mode).toBe("single");
+    expect(window.history.state).toBeNull();
+    expect(here()).toBe(planUrl);
+
+    // « ‹ Plan » on the comparison reopened: same outcome, from the inside.
+    act(() => result.current.actions.openCompare("slots"));
+    expect(isLayerEntry(window.history.state)).toBe(true);
+    act(() => result.current.actions.closeCompare());
+    await settle();
+    expect(window.history.state).toBeNull();
+    expect(here()).toBe(planUrl);
+    expect(fetchPassageWindows).not.toHaveBeenCalled();
   });
 });
