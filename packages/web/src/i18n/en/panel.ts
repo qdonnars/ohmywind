@@ -169,8 +169,8 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.tracks.row.openShort": "View",
   "panel.window.every": "Every",
   "panel.window.adjustDates": "Adjust the dates",
-  "panel.hint.title": "How about comparing?",
-  "panel.hint.body": "At the end of the results, two doors: other departures on this route, or another route. Compared routes leave from and arrive at the same places; only the points in between change.",
+  "panel.hint.title": "The interface is changing",
+  "panel.hint.body": "You can compare departures, as before, and now routes too: enough to tell whether it is better to pass on one side or the other, depending on the current for instance. The two buttons are at the end of the results.",
   "panel.hint.go": "Take me there",
   "panel.hint.dismiss": "Got it",
 };

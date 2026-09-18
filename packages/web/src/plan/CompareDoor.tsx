@@ -3,6 +3,7 @@
 
 import { usePlan } from "./session/planContext";
 import { ClockIcon, RouteIcon } from "./compare/icons";
+import { useDoorsSpotlight } from "./doorsSpotlight";
 import { useT } from "../i18n";
 
 /**
@@ -16,10 +17,14 @@ import { useT } from "../i18n";
 export function CompareDoor() {
   const { t } = useT();
   const { state, actions } = usePlan();
+  const lit = useDoorsSpotlight();
   const door = {
     background: "var(--ow-bg-2)",
     border: "1px solid var(--ow-line)",
   } as const;
+  const doorClass =
+    "flex items-center gap-2 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-[var(--ow-bg-3)]" +
+    (lit ? " door-spotlight" : "");
   return (
     <div data-compare-doors className="px-4 pt-2.5 pb-4" style={{ borderTop: "1px solid var(--ow-line)" }}>
       <div
@@ -28,11 +33,11 @@ export function CompareDoor() {
       >
         {t("panel.door.title")}
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div data-compare-doors-row className="grid grid-cols-2 gap-2">
         <button
           type="button"
           onClick={() => actions.openCompare("slots")}
-          className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-[var(--ow-bg-3)]"
+          className={doorClass}
           style={door}
         >
           <span className="shrink-0 flex" style={{ color: "var(--ow-accent)" }}><ClockIcon size={15} /></span>
@@ -46,7 +51,7 @@ export function CompareDoor() {
             actions.openCompare("tracks");
             if (state.tracks.length === 0) actions.startVariant();
           }}
-          className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-[var(--ow-bg-3)]"
+          className={doorClass}
           style={door}
         >
           <span className="shrink-0 flex" style={{ color: "var(--ow-accent)" }}><RouteIcon size={15} /></span>

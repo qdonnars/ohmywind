@@ -170,8 +170,8 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.tracks.row.openShort": "Ver",
   "panel.window.every": "Cada",
   "panel.window.adjustDates": "Ajustar las fechas",
-  "panel.hint.title": "¿Y si comparara?",
-  "panel.hint.body": "Al final de los resultados, dos puertas: otras salidas en esta ruta, u otra ruta. Las rutas comparadas salen y llegan al mismo sitio; solo cambian los puntos intermedios.",
+  "panel.hint.title": "La interfaz evoluciona",
+  "panel.hint.body": "Puede comparar salidas, como antes, y ahora también rutas: para saber si conviene pasar por un lado o por el otro, según la corriente por ejemplo. Los dos botones están al final de los resultados.",
   "panel.hint.go": "Ir allí",
   "panel.hint.dismiss": "Entendido",
 };

@@ -171,8 +171,8 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.tracks.row.openShort": "Ansehen",
   "panel.window.every": "Alle",
   "panel.window.adjustDates": "Daten anpassen",
-  "panel.hint.title": "Wie wäre es mit einem Vergleich?",
-  "panel.hint.body": "Am Ende der Ergebnisse zwei Türen: andere Abfahrten auf dieser Route, oder eine andere Route. Verglichene Routen starten und enden am selben Ort; nur die Punkte dazwischen ändern sich.",
+  "panel.hint.title": "Die Oberfläche entwickelt sich",
+  "panel.hint.body": "Sie können wie bisher Abfahrten vergleichen und jetzt auch Routen: so sehen Sie, ob es besser ist, auf der einen oder der anderen Seite vorbeizufahren, etwa je nach Strömung. Die beiden Schaltflächen finden Sie am Ende der Ergebnisse.",
   "panel.hint.go": "Dorthin",
   "panel.hint.dismiss": "Verstanden",
 };

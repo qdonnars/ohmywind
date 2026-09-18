@@ -170,8 +170,8 @@ export const panel = {
   "panel.tracks.row.openShort": "Voir",
   "panel.window.every": "Toutes les",
   "panel.window.adjustDates": "Ajuster les dates",
-  "panel.hint.title": "Et si vous compariez ?",
-  "panel.hint.body": "En bas des résultats, deux portes : d'autres départs sur cet itinéraire, ou un autre itinéraire. Les itinéraires comparés partent et arrivent au même endroit, seuls les points intermédiaires changent.",
+  "panel.hint.title": "L'interface évolue",
+  "panel.hint.body": "Vous pouvez comparer des départs, comme avant, et désormais aussi des itinéraires : de quoi savoir s'il vaut mieux passer d'un côté ou de l'autre, selon le courant par exemple. Les deux boutons sont en bas des résultats.",
   "panel.hint.go": "Y aller",
   "panel.hint.dismiss": "Compris",
 } as const;
