@@ -420,7 +420,8 @@ select,
 }
 
 /* Planner-hint popup: halo around the compass FAB, card entry animation,
-   and caret arrows pointing from the card back to the FAB. */
+   and caret arrows pointing from the card back to the FAB. The comparison
+   hint reuses the card and the carets, pointed at the two doors. */
 @keyframes onboardHalo {
   0%, 100% {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--ow-accent) 70%, transparent),
@@ -446,7 +447,9 @@ select,
 }
 
 .onboard-caret-up,
-.onboard-caret-left {
+.onboard-caret-left,
+.onboard-caret-right,
+.onboard-caret-down {
   width: 0;
   height: 0;
 }
@@ -463,6 +466,37 @@ select,
   border-top: 8px solid transparent;
   border-bottom: 8px solid transparent;
   border-right: 8px solid var(--ow-accent-line);
+}
+.onboard-caret-right {
+  right: -8px;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 8px solid var(--ow-accent-line);
+}
+.onboard-caret-down {
+  bottom: -8px;
+  left: 50%;
+  margin-left: -8px;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid var(--ow-accent-line);
+}
+
+/* The two comparison doors lit up by « Y aller » on the hint: three turns
+   of a halo that starts and ends on nothing, so dropping the class at the
+   end (SPOTLIGHT_MS in CompareDoor) cuts nothing short. */
+@keyframes doorSpotlight {
+  0%, 100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ow-accent) 80%, transparent),
+                0 0 0 14px color-mix(in srgb, var(--ow-accent) 12%, transparent),
+                0 0 32px 6px color-mix(in srgb, var(--ow-accent) 45%, transparent);
+  }
+}
+.door-spotlight {
+  animation: doorSpotlight 1.2s ease-in-out 3;
 }
 
 /* Plan waypoint marker + hover delete badge */
