@@ -257,8 +257,19 @@ export type PlanAction =
       sweepLatest: string;
     };
 
-/** Seed the machine from the resolved initial session (`initial.ts`). */
+/** Seed the machine from the resolved initial session (`initial.ts`).
+
+    When the cache supplied the route, the address bar is synced with it as
+    the first persist command, so reload and share work. A command rather
+    than a write from the page: the session applies it in the layout phase,
+    before the layers of the page (`useBackDismiss`) push their history
+    entries. Written after them, the rewrite landed on the entry of a
+    comparison restored at mount and wiped the token that let it pop the
+    entry when it closed, and the next back press did nothing visible. */
 export function createInitialState(initial: InitialSession): PlanState {
+  const persist: PersistCommand | null = initial.mount.rewriteUrl
+    ? { seq: 1, url: buildPlanUrl(initial.waypoints, initial.departure, initial.archetype) }
+    : null;
   return {
     waypoints: initial.waypoints,
     originWaypoints: initial.originWaypoints,
@@ -289,8 +300,8 @@ export function createInitialState(initial: InitialSession): PlanState {
     apiError: null, retry: null,
     pending: null,
     editSeq: 0,
-    persist: null,
-    persistSeq: 0,
+    persist,
+    persistSeq: persist ? persist.seq : 0,
   };
 }
 

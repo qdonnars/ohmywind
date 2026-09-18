@@ -705,6 +705,28 @@ describe("reset", () => {
 });
 
 describe("persist commands", () => {
+  it("syncs the address bar at mount when the cache supplied the route", () => {
+    // The first command of the session, so it is applied in the layout phase
+    // like every other URL write: before the page's layers push their
+    // history entries, not on top of them.
+    const s = start({ mount: { rewriteUrl: true, fetch: false } });
+    expect(s.persist).toEqual({ seq: 1, url: expect.stringContaining("/plan?wpts=43.29000,5.37000;43.00000,6.20000") });
+    expect(s.persist?.url).toContain(`departure=${encodeURIComponent("2026-09-10T08:00")}`);
+    expect(s.persistSeq).toBe(1);
+    // The commands that follow keep counting from it.
+    const next = run(
+      s,
+      { type: "FETCH_STARTED", requestId: 1, kind: "single" },
+      succeedSingle(1),
+    );
+    expect(next.persist!.seq).toBe(2);
+  });
+
+  it("writes nothing at mount when the URL already carries the route", () => {
+    expect(start().persist).toBeNull();
+    expect(start().persistSeq).toBe(0);
+  });
+
   it("gives every command a strictly increasing sequence number", () => {
     const first = run(
       start(),

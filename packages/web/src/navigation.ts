@@ -93,18 +93,22 @@ export interface NavigateOptions {
    * away from a page whose open panel had pushed an entry of its own.
    */
   replace?: boolean;
+  /**
+   * With `replace`: keep `history.state` on the rewritten entry. A URL that
+   * describes the page the reader is already on may land on the entry an
+   * open panel pushed for itself (`hooks/useBackDismiss.ts`); that entry is
+   * the panel's, and it keeps the token that lets the panel pop it when it
+   * closes. Without this flag a replace resets the state, which is what a
+   * navigation *away* from such a page wants: the panel is gone with it.
+   */
+  preserveState?: boolean;
 }
 
-/**
- * Change the address bar, and tell the router.
- *
- * `replaceState(null, …)` also resets `history.state`, which is the signal
- * `BackStack.close` reads to leave behind an entry it no longer owns. That
- * behaviour is unchanged and load-bearing; see `hooks/useBackDismiss.ts`.
- */
+/** Change the address bar, and tell the router. */
 export function navigate(url: string, options: NavigateOptions = {}): void {
   if (options.replace) {
-    window.history.replaceState(null, "", url);
+    const state = options.preserveState ? window.history.state : null;
+    window.history.replaceState(state, "", url);
   } else {
     window.history.pushState(null, "", url);
   }

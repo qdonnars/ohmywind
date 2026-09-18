@@ -63,7 +63,7 @@ import {
 import type { InitialSession } from "./initial";
 import { defaultSweepLatest, tomorrowRoundedLocal } from "./initial";
 import { toNaiveLocal } from "../../domain/datetime";
-import { applyCacheCommand, applyUrlWrite, syncDraft } from "./persist";
+import { applyCacheCommand, applyUrlWrite, resyncUrl, syncDraft } from "./persist";
 
 // Build the plan-time overrides payload from current /config preferences.
 // Read at request time (not at mount) so a /config tweak takes effect on the
@@ -440,13 +440,24 @@ export function usePlanSession(initial: InitialSession): PlanSession {
   // waits for the passive pass so a big simulation is never stringified
   // between a commit and its paint.
   const appliedUrlSeq = useRef(0);
+  const writtenUrl = useRef<string | null>(null);
   useLayoutEffect(() => {
     const command = state.persist;
     if (command && command.seq > appliedUrlSeq.current) {
       appliedUrlSeq.current = command.seq;
+      if (command.url !== undefined) writtenUrl.current = command.url;
       applyUrlWrite(command);
     }
   }, [state]);
+
+  // A back press that keeps the reader on the page lands on an entry written
+  // before the last rewrite; the plan on screen has not moved, so the address
+  // bar is put back on it (see `resyncUrl`).
+  useEffect(() => {
+    const onPopState = () => resyncUrl(writtenUrl.current);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   const appliedCacheSeq = useRef(0);
   useEffect(() => {

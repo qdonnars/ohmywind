@@ -8,7 +8,7 @@
  *
  * | Medium | Written | Cleared |
  * |---|---|---|
- * | address bar | when a result is committed, and on reset | never (reset rewrites to `/plan`) |
+ * | address bar | at mount when the cache supplied the route, when a result is committed, on reset, and put back after a back press | never (reset rewrites to `/plan`) |
  * | `ow_last_simulation_v1` | when a result is committed | on reset |
  * | `ow_plan_draft_v1` | on every edit while the plan is stale | the moment it stops being stale |
  *
@@ -25,7 +25,8 @@ import {
 } from "../lastSimulation";
 import { savePlanDraft, clearPlanDraft } from "../draft";
 import type { CacheWrite, PersistCommand, PlanState } from "./reducer";
-import { navigate } from "../../navigation";
+import { navigate, normalisePath } from "../../navigation";
+import { backStack } from "../../hooks/useBackDismiss";
 
 /**
  * Merge a committed result into the persisted simulation.
@@ -88,21 +89,55 @@ export function applyCacheWrite(write: CacheWrite): void {
  *
  * Split from the storage writes because it is ordering-sensitive: `history`
  * is shared with `useBackDismiss`, which gives every open layer (an expanded
- * leg, here) a history entry of its own and pops it when the layer closes.
- * Committing a result closes the expanded leg, so this write and that pop
- * land in the same commit. Writing first is what keeps them compatible: a
- * `replaceState` resets `history.state` to null, which is exactly the signal
- * `BackStack.close` reads to leave an entry it no longer owns alone. Called
- * from a layout effect for that reason, while the rest waits for the passive
- * pass.
+ * leg, the comparison) a history entry of its own and pops it when the layer
+ * closes. Picking a slot in the comparison, or committing a result over an
+ * expanded leg, closes the layer and rewrites the URL in the same commit, so
+ * this write lands on the layer's own entry. It keeps that entry's state:
+ * the token is what lets `BackStack.close` pop the entry once the layer is
+ * gone. Written with the state reset instead, the entry stayed behind, dead:
+ * the next back press moved the address bar to the departure the plan had
+ * before the slot, and the plan on screen did not follow. Called from a
+ * layout effect so it runs before the pop, which the passive pass asks for.
+ *
+ * The pop then lands on the entry under the layer, whose URL is the one from
+ * before this write; `resyncUrl` is what puts it right.
  *
  * Goes through `navigate` rather than `history` directly so the router is told
  * about the rewrite; see `navigation.ts` for what silence cost.
  */
 export function applyUrlWrite(command: PersistCommand): void {
   if (command.url !== undefined) {
-    navigate(command.url, { replace: true });
+    navigate(command.url, { replace: true, preserveState: keepLayerState() });
   }
+}
+
+/** Whether the current entry may be an open layer's, whose token has to
+    survive a rewrite. With no layer open, whatever the entry carries is a
+    leftover (a token the page could not pop), and a reset clears it: the
+    router takes a layer entry for a page to replace rather than stack on. */
+function keepLayerState(): boolean {
+  return backStack.depth > 0;
+}
+
+/**
+ * After a back press: the address bar, put back on the plan.
+ *
+ * Every entry of `/plan` below the current one was written before the last
+ * rewrite, so the URL it carries describes an earlier plan: the departure
+ * before a slot was picked, the route before a track was opened. Landing on
+ * it is a press that closed a layer (from the user, or the pop `BackStack`
+ * asks for) or one that had nothing left to close; in both cases the page
+ * stays and its plan with it, so the entry takes the plan's URL. Nothing to
+ * do when the press left the page, or when the entry is already right.
+ *
+ * `written` is the URL of the last rewrite, `null` before any.
+ */
+export function resyncUrl(written: string | null): void {
+  if (written === null) return;
+  const here = window.location.pathname + window.location.search;
+  if (here === written) return;
+  if (normalisePath(window.location.pathname) !== normalisePath(written.split("?")[0])) return;
+  navigate(written, { replace: true, preserveState: keepLayerState() });
 }
 
 /** Write the committed result to `ow_last_simulation_v1`, or clear it. */

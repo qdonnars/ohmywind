@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useState, useEffect, useMemo, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
-import { parsePlanUrl, buildPlanUrl } from "../plan/parseUrl";
+import { parsePlanUrl } from "../plan/parseUrl";
 import { PlanMap, type PlanMapHandle } from "../plan/PlanMap";
 import { DRAWER_HANDLE_REACH_PX, UNDO_MS } from "../domain/gestures";
 import { PlanSidebar } from "../plan/PlanSidebar";
@@ -31,7 +31,6 @@ import { useBackDismiss } from "../hooks/useBackDismiss";
 import { useMapView } from "../hooks/useMapView";
 import { LG_MEDIA_QUERY, useMediaQuery } from "../hooks/useMediaQuery";
 import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
-import { navigate } from "../navigation";
 import { useT } from "../i18n";
 
 // ── ResizableMobileDrawer ────────────────────────────────────────────────────
@@ -46,14 +45,15 @@ const DRAWER_MAX_VH = 90;
 const HANDLE_VISIBLE_PX = 12;
 const HANDLE_REACH_BELOW_PX = 16;
 
-interface DrawerHandle {
+export interface DrawerHandle {
   /** Scroll the drawer content back to the top — used when the route turns
    *  stale so the Recalculer bar (hidden by the results fit below) is
    *  visible next to the "Cliquez sur Recalculer" placeholder. */
   scrollToTop: () => void;
 }
 
-const ResizableMobileDrawer = forwardRef<DrawerHandle, {
+/** Exported for its test only: the page around it needs a map to render. */
+export const ResizableMobileDrawer = forwardRef<DrawerHandle, {
   defaultVh: number;
   /** Optional auto-target height. When this value changes the drawer
    *  animates to it (CSS transition on ``height``). Manual drag still
@@ -241,20 +241,26 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
         transition: isAnimating ? "height 280ms cubic-bezier(0.4, 0, 0.2, 1)" : undefined,
       }}
     >
-      {/* Grab handle. 12 px on screen, 28 px under the finger: the strip
-          itself is what the eye sees, and two invisible strips inside it
-          extend the target. One reaches DRAWER_HANDLE_REACH_PX up over the
-          map: a thumb aiming at the handle lands above it more often than
-          below, and above it is the map, where a resting finger used to
-          place a waypoint (#389). The other reaches HANDLE_REACH_BELOW_PX
+      {/* Grab handle. 12 px on screen, up to 40 px under the finger: the
+          strip itself is what the eye sees, and two invisible strips inside
+          it extend the target. One reaches DRAWER_HANDLE_REACH_PX up over
+          the map: a thumb aiming at the handle lands above it more often
+          than below, and above it is the map, where a resting finger used
+          to place a waypoint (#389). The other reaches HANDLE_REACH_BELOW_PX
           down over the head of the drawer, the totals band, which nothing
-          taps. The 28 px this shipped with as a visible strip took a
-          quarter of the peek for a bar 4 px tall. It stays under the 44 px
-          touch guideline on purpose: at DRAWER_MIN_VH the drawer is a peek.
-          `chromePx` in the fit-to-results effect reads the height from the
-          DOM, so nothing else needs updating. Only the content scrolls, so
-          nothing clips the strips; they are raised above the Leaflet panes,
-          which are positioned with z-indexes of their own. */}
+          taps. That strip exists only with a head: without one, the first
+          line of the scrolling content sits right under the handle, and the
+          strip took the taps meant for it. The « ‹ Plan » of a comparison,
+          16 px tall, was under it for all but its last pixels, and the
+          content fitted to the results scrolls a few pixels more under the
+          chrome (QA of 2026-09-18). The 28 px this shipped with as a
+          visible strip took a quarter of the peek for a bar 4 px tall. It
+          stays under the 44 px touch guideline on purpose: at DRAWER_MIN_VH
+          the drawer is a peek. `chromePx` in the fit-to-results effect
+          reads the height from the DOM, so nothing else needs updating.
+          Only the content scrolls, so nothing clips the strips; they are
+          raised above the Leaflet panes, which are positioned with
+          z-indexes of their own. */}
       <div
         role="separator"
         aria-orientation="horizontal"
@@ -268,14 +274,18 @@ const ResizableMobileDrawer = forwardRef<DrawerHandle, {
       >
         <span
           aria-hidden="true"
+          data-handle-reach="above"
           className="absolute inset-x-0"
           style={{ top: -DRAWER_HANDLE_REACH_PX, height: DRAWER_HANDLE_REACH_PX, zIndex: 700 }}
         />
-        <span
-          aria-hidden="true"
-          className="absolute inset-x-0"
-          style={{ bottom: -HANDLE_REACH_BELOW_PX, height: HANDLE_REACH_BELOW_PX, zIndex: 700 }}
-        />
+        {head != null && (
+          <span
+            aria-hidden="true"
+            data-handle-reach="below"
+            className="absolute inset-x-0"
+            style={{ bottom: -HANDLE_REACH_BELOW_PX, height: HANDLE_REACH_BELOW_PX, zIndex: 700 }}
+          />
+        )}
         <span
           className="block rounded-full"
           style={{ width: 36, height: 4, background: "var(--ow-line-2)" }}
@@ -534,20 +544,11 @@ export function PlanPage() {
   }, [isStale]);
 
   // Everything the resolved session could seed synchronously already is, in
-  // `createInitialState`. What is left needs the outside world: syncing the
-  // address bar when the cache supplied the route (so reload and share work),
-  // and computing when nothing usable could be restored.
+  // `createInitialState`, the address bar included when the cache supplied
+  // the route: the session writes it as its first persist command, before
+  // the layers above push their history entries. What is left is computing
+  // when nothing usable could be restored.
   useEffect(() => {
-    if (initial.mount.rewriteUrl) {
-      // Through the router, not through `history` directly: this rewrite
-      // happens on the page the reader is already on, and a router left
-      // holding the previous URL remounted the planner at the next back
-      // press, results and all.
-      navigate(
-        buildPlanUrl(initial.waypoints, initial.departure, initial.archetype),
-        { replace: true },
-      );
-    }
     if (initial.mount.fetch) actions.compute();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
