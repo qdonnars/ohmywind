@@ -108,7 +108,17 @@ export function syncSpotMarkers({
       // Unticking the third favourite must not renumber the fourth, but a
       // favourite deleted or added does shift the ranks below it, so the
       // digit is rewritten on every sync rather than bound once.
-      if (number != null) existing.setTooltipContent(String(number));
+      existing.setTooltipContent(number != null ? String(number) : spot.name);
+      // A rename keeps the point, so it keeps the marker, and the marker
+      // used to keep the object it was built from: tooltip, long-press
+      // lookup and click all handed back the old name until a reload
+      // rebuilt the layer (#412). Rebind the three to the spot as it is now.
+      existing.off("click").on("click", () => onSelect(spot));
+      const existingEl = (existing as unknown as WithSvgPath)._path;
+      if (existingEl) {
+        elementToSpot.set(existingEl, spot);
+        if (number != null) existingEl.setAttribute("aria-label", spot.name);
+      }
       continue;
     }
     const marker = L.circleMarker([spot.latitude, spot.longitude], {

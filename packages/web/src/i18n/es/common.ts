@@ -22,4 +22,17 @@ export const common: Record<keyof typeof frCommon, string> = {
   "common.nav.plan.desc": "Simular una ruta, comparar ventanas",
   "common.nav.compare.title": "Comparar mis spots",
   "common.nav.compare.desc": "Mis favoritos lado a lado",
+
+  "common.quota.connection":
+    "El servicio meteorológico gratuito (Open-Meteo) ha alcanzado su límite de peticiones {window} para su conexión. {reset}",
+  "common.quota.server":
+    "El servicio meteorológico gratuito (Open-Meteo) ha alcanzado su límite de peticiones {window} para nuestro servidor. No tiene relación con su uso. {reset}",
+  "common.quota.window.minute": "por minuto",
+  "common.quota.window.hour": "por hora",
+  "common.quota.window.day": "por día",
+  "common.quota.reset.soon": "Se restablece en menos de un minuto.",
+  "common.quota.reset.minutes.one": "Se restablece en {count} minuto.",
+  "common.quota.reset.minutes.other": "Se restablece en {count} minutos.",
+  "common.quota.reset.hours.one": "Se restablece en {count} hora aproximadamente.",
+  "common.quota.reset.hours.other": "Se restablece en {count} horas aproximadamente.",
 };

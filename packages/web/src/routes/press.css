@@ -1,0 +1,219 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* SPDX-FileCopyrightText: 2026 Quentin Donnars */
+
+/*
+ * Styles for /presse.
+ *
+ * On the app's tokens, so the page follows the theme like /config does; the
+ * white-paper look is kept for the two documents (/methodologie,
+ * /confidentialite). Each article is a card: masthead and date on top, the
+ * headline as the link, the outlet's lead as a quotation, then the way in.
+ */
+
+.press-root {
+  background: var(--ow-bg-0);
+  color: var(--ow-fg-0);
+}
+.press-header {
+  /* iPhone: the status bar area, see .safe-top in index.css. */
+  padding-top: env(safe-area-inset-top, 0px);
+  background: color-mix(in srgb, var(--ow-bg-0) 75%, transparent);
+  border-color: var(--ow-line-2);
+}
+
+/* Page head */
+.press-eyebrow {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ow-accent);
+}
+.press-title {
+  margin: 0 0 0.75rem;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+.press-intro {
+  margin: 0 0 2.25rem;
+  max-width: 38rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--ow-fg-1);
+}
+
+/* Articles */
+.press-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.press-card {
+  padding: 1.25rem 1.25rem 1.125rem;
+  border-radius: var(--ow-r-lg);
+  background: var(--ow-bg-1);
+  border: 1px solid var(--ow-line-2);
+}
+@media (min-width: 640px) {
+  .press-card {
+    padding: 1.5rem 1.625rem 1.375rem;
+  }
+}
+.press-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  color: var(--ow-fg-1);
+}
+.press-card-outlet {
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ow-fg-0);
+}
+.press-card-publisher::before {
+  content: "·";
+  margin-right: 0.5rem;
+  color: var(--ow-fg-2);
+}
+/* A short rule between the masthead and the date, quieter than a dot
+   between two things of different kinds. */
+.press-card-sep {
+  width: 1.25rem;
+  height: 1px;
+  background: var(--ow-line-2);
+}
+.press-card-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.3rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.press-card-title a {
+  color: var(--ow-fg-0);
+  text-decoration: none;
+}
+.press-card-title a:hover {
+  color: var(--ow-accent);
+}
+.press-card-author {
+  margin: 0 0 1rem;
+  font-size: 0.8rem;
+  color: var(--ow-fg-2);
+}
+.press-card-lead {
+  margin: 0 0 1.125rem;
+  padding: 0.125rem 0 0.125rem 0.875rem;
+  border-left: 2px solid var(--ow-accent-line);
+  font-size: 0.925rem;
+  line-height: 1.6;
+  color: var(--ow-fg-1);
+}
+.press-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
+  margin: 0;
+}
+.press-card-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ow-accent);
+  transition: opacity 0.15s;
+}
+.press-card-cta:hover {
+  opacity: 0.8;
+}
+.press-card-editions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0.875rem 0 0;
+  padding-top: 0.875rem;
+  border-top: 1px solid var(--ow-line);
+  font-size: 0.75rem;
+  color: var(--ow-fg-2);
+}
+.press-card-editions-label {
+  margin-right: 0.125rem;
+}
+.press-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--ow-fg-1);
+  background: var(--ow-bg-3);
+  border: 1px solid transparent;
+}
+.press-chip-link {
+  transition: color 0.15s, border-color 0.15s;
+}
+.press-chip-link:hover {
+  color: var(--ow-accent);
+  border-color: var(--ow-accent-line);
+}
+
+/* Contact */
+.press-contact {
+  margin-top: 2.5rem;
+  padding: 1.25rem;
+  border-radius: var(--ow-r-lg);
+  background: var(--ow-accent-soft);
+  border: 1px solid var(--ow-accent-line);
+}
+.press-contact-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ow-accent);
+}
+.press-contact-body {
+  margin: 0 0 0.875rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+.press-contact-body a {
+  color: var(--ow-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.press-contact-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.press-contact-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--ow-accent);
+  transition: opacity 0.15s;
+}
+.press-contact-links a:hover {
+  opacity: 0.8;
+}

@@ -26,9 +26,10 @@ Atlantic above on most legs).
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 
 CURRENT_RELEVANCE_THRESHOLD_KN = 0.3
 TIDE_RANGE_RELEVANCE_THRESHOLD_M = 0.5
@@ -68,6 +69,20 @@ class ForecastHorizonError(RuntimeError):
         )
 
 
+# The counter Open-Meteo's free tier refused on. Three per IP, on fixed
+# clocks: 600 requests a minute, 5 000 an hour, 10 000 a day.
+RateLimitWindow = Literal["minute", "hour", "day"]
+
+
+def _humanize_wait(seconds: float) -> str:
+    """``3 h``, ``12 min`` or ``45 s``, rounded up so the wait never runs short."""
+    if seconds >= 3600:
+        return f"{math.ceil(seconds / 3600)} h"
+    if seconds >= 60:
+        return f"{math.ceil(seconds / 60)} min"
+    return f"{math.ceil(seconds)} s"
+
+
 class UpstreamRateLimitError(RuntimeError):
     """Raised when Open-Meteo answers 429.
 
@@ -82,13 +97,28 @@ class UpstreamRateLimitError(RuntimeError):
     by an unrelated tenant. That is why ``reason`` is surfaced verbatim: it
     names which counter tripped, which is the only way to tell "wait a moment"
     apart from "this address is done for the day".
+
+    ``window`` is that counter, read off the reason, and ``retry_after_s`` the
+    wait until it clears: the advertised ``Retry-After`` when the upstream
+    sends one, otherwise derived from the counter's fixed clock (see
+    ``openmeteo.seconds_until_reset``). Both travel to the client, and the
+    wait is spelled out in the message too, because over MCP the message is
+    all the model gets: "resets in about 3 h" is something it can relay,
+    "try again tomorrow" at 21:00 UTC is not.
     """
 
-    def __init__(self, reason: str = "", retry_after_s: float | None = None) -> None:
+    def __init__(
+        self,
+        reason: str = "",
+        retry_after_s: float | None = None,
+        window: RateLimitWindow | None = None,
+    ) -> None:
         self.reason = reason
         self.retry_after_s = retry_after_s
+        self.window = window
         detail = f" ({reason})" if reason else ""
-        super().__init__(f"upstream weather service rate limit reached{detail}")
+        wait = f"; resets in about {_humanize_wait(retry_after_s)}" if retry_after_s else ""
+        super().__init__(f"upstream weather service rate limit reached{detail}{wait}")
 
 
 @dataclass(frozen=True, slots=True)

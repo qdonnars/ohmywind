@@ -16,6 +16,7 @@ from typing import Any
 
 from openwind_data.adapters.base import MarineDataAdapter
 from openwind_data.routing.complexity import score_complexity
+from openwind_data.routing.notices import Notice
 from openwind_data.routing.passage import (
     estimate_passage,
     estimate_passage_for_arrival,
@@ -228,17 +229,17 @@ async def _sweep(
         window["complexity_full"] = complexity_view(score)
         windows.append(window)
 
-    meta_warnings: list[str] = []
+    meta_notices: list[Notice] = []
     if effective_interval != sweep_interval:
-        meta_warnings.append(
+        meta_notices.append(
             widened_interval_warning(effective_interval, sweep_interval, len(reports[0].segments))
         )
     if skipped_count > 0:
-        meta_warnings.append(skipped_windows_warning(skipped_count, len(windows)))
+        meta_notices.append(skipped_windows_warning(skipped_count, len(windows)))
     if target_eta_dt is not None:
         windows, unmatched = filter_windows_by_target_eta(windows, target_eta_dt, target_eta_raw)
         if unmatched is not None:
-            meta_warnings.append(unmatched)
+            meta_notices.append(unmatched)
 
     return JSONResponse(
         sweep_view(
@@ -246,7 +247,7 @@ async def _sweep(
             latest=latest_departure,
             interval_hours=effective_interval,
             windows=windows,
-            meta_warnings=meta_warnings,
+            meta_notices=meta_notices,
         )
         | {"forecast_updated_at": datetime.now(UTC).isoformat()}
     )

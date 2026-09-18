@@ -30,15 +30,7 @@ export const plan = {
   // ── Etats du panneau ──────────────────────────────────────────────────────
   "plan.states.empty.title": "Tracez votre trajet",
   "plan.states.empty.body":
-    "Cliquez sur la carte pour placer un départ et une arrivée. Vous pourrez ensuite simuler le temps du trajet ou comparer plusieurs créneaux de départ.",
-  "plan.states.picker.title": "Que voulez-vous faire ?",
-  "plan.states.picker.single.body":
-    "Vous savez quand partir. OhMyWind calcule le temps du trajet, l'ETA et les conditions sur chaque segment.",
-  "plan.states.picker.single.example": "Ex. : « Si je pars samedi 17:00, j'arrive quand ? »",
-  "plan.states.picker.compare.body":
-    "Vous savez où aller. OhMyWind teste plusieurs heures de départ et classe les créneaux par confort.",
-  "plan.states.picker.compare.example":
-    "Ex. : « Quel est le meilleur départ entre samedi et lundi ? »",
+    "Cliquez sur la carte pour placer un départ et une arrivée. Vous pourrez ensuite calculer le passage, puis comparer d'autres départs ou d'autres itinéraires.",
   "plan.states.error.title": "Erreur",
   "plan.states.waking.title": "Le serveur météo se réveille",
   "plan.states.waking.body":
@@ -47,11 +39,6 @@ export const plan = {
   "plan.recap.edit": "Modifier",
 
   // ── Selecteur de mode et ancrage horaire ──────────────────────────────────
-  "plan.mode.tablist": "Mode de planification",
-  "plan.mode.single.title": "Simuler ma route",
-  "plan.mode.single.sub": "Combien de temps pour ce trajet ?",
-  "plan.mode.compare.title": "Comparer les fenêtres",
-  "plan.mode.compare.sub": "Le meilleur créneau pour partir ?",
   "plan.timeAnchor.tablist": "Ancrage horaire",
   "plan.timeAnchor.departure.title": "Définir le départ",
   "plan.timeAnchor.departure.sub": "Comprendre le temps de trajet",
@@ -125,4 +112,32 @@ export const plan = {
     "Impossible de joindre le serveur. Vérifiez votre connexion puis réessayez.",
   "plan.api.errors.invalidResponse":
     "Le serveur a renvoyé une réponse inattendue. Réessayez dans quelques instants.",
+  // The passage engine's warnings, by the code the server sends with each
+  // one (see plan/notices.ts). Word for word the sentences the server itself
+  // writes in French, so a French reader sees no change; the values are the
+  // server's, already formatted.
+  "plan.notice.passage.long_route":
+    "trajet long ({route_nm} nm) : {points} points météo échantillonnés (~{spacing_nm} nm entre points) au lieu de {requested_nm} nm pour limiter les requêtes API.",
+  "plan.notice.passage.light_wind":
+    "vent faible : vitesse mini {min_speed_kn} kn, passage très lent",
+  "plan.notice.passage.model_fallback":
+    "modèle {model} sans données sur {fallback_count}/{total} points (probable hors zone de couverture) ; fallback automatique sur {others}",
+  "plan.notice.complexity.wind.3": "Vent soutenu : TWS {tws_range} kn sur {nm} nm",
+  "plan.notice.complexity.wind.4": "Vent fort : TWS {tws_range} kn sur {nm} nm",
+  "plan.notice.complexity.wind.5": "Vent très fort : TWS {tws_range} kn sur {nm} nm",
+  "plan.notice.complexity.sea.3": "Mer agitée : Hs {hs_range} m sur {nm} nm",
+  "plan.notice.complexity.sea.4": "Mer forte : Hs {hs_range} m sur {nm} nm",
+  "plan.notice.complexity.sea.5": "Mer très forte : Hs {hs_range} m sur {nm} nm",
+  "plan.notice.complexity.current":
+    "Vent contre courant : courant {current_range} kt opposé sur {nm} nm, mer hachée probable",
+  "plan.notice.complexity.chop_short":
+    "Clapot court : Hs {hs_range} m à Tp {tp_range} s sur {nm} nm, mer désagréable",
+  "plan.notice.complexity.chop_following":
+    "Clapot suiveur : Hs {hs_range} m à Tp {tp_range} s sur {nm} nm",
+  "plan.notice.sweep.widened_interval":
+    "pas d'échantillonnage élargi à {effective_h} h (au lieu de {requested_h} h) : la route compte {segments} tronçons, trop pour simuler autant de créneaux.",
+  "plan.notice.sweep.skipped_windows":
+    "{skipped} fenêtre(s) ignorée(s) faute de couverture météo (horizon dépassé) : affichage des {kept} restantes.",
+  "plan.notice.sweep.no_window_near_eta":
+    "aucune fenêtre n'arrive dans ±2h de target_eta={target_eta} ; toutes les {count} fenêtres retournées",
 } as const;

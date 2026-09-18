@@ -9,6 +9,8 @@ import { useTimezone } from "../hooks/useTimezone";
 import { nowParisHourPrefix } from "../domain/datetime";
 import { useTimelineScroll } from "../hooks/useTimelineScroll";
 import { useOnline } from "../hooks/useOnline";
+import { useOpenMeteoQuota } from "../hooks/useOpenMeteoQuota";
+import { openMeteoQuotaMessage } from "../api/openMeteoQuota";
 import { MODEL_META, type ModelName } from "../config/modelConfig";
 import { useT, t as translate } from "../i18n";
 
@@ -27,7 +29,8 @@ function modelDescription(name: string): string {
   return `${meta.label} (${meta.nativeStepHours}h) . ${translate(meta.provider)}`;
 }
 
-// Approximate cell width (must match WindCell min-w-[36px])
+// Nominal cell width, the fallback useTimelineScroll uses before the table
+// is laid out; once it is, the hook measures the real columns (#413).
 const CELL_W = 36;
 
 function autoResolution(forecasts: ModelForecast[]): number {
@@ -88,13 +91,22 @@ function SkeletonTable() {
  * comme un point hors de toutes les grilles : le tableau ne peut donc pas
  * distinguer les deux cas tout seul. Le navigateur, lui, le sait. Hors ligne,
  * on nomme la cause au lieu de laisser croire que la mer n'a pas de meteo.
+ * Meme chose quand Open-Meteo a refuse la connexion pour quota epuise : le
+ * refus est note par le fetcher, et la phrase dit quel quota et quand il
+ * revient (voir `api/openMeteoQuota.ts`). Hors ligne passe devant : sans
+ * reseau, la question du quota ne se pose pas encore.
  */
 function EmptyForecast() {
   const online = useOnline();
+  const quota = useOpenMeteoQuota();
   const { t } = useT();
+  let text: string;
+  if (!online) text = t("explore.windTable.offline");
+  else if (quota) text = openMeteoQuotaMessage("connection", quota.window, quota.resetAt);
+  else text = t("explore.windTable.empty");
   return (
     <div className="text-center py-8 px-4 text-sm" style={{ color: 'var(--ow-fg-2)' }}>
-      {online ? t("explore.windTable.empty") : t("explore.windTable.offline")}
+      {text}
     </div>
   );
 }

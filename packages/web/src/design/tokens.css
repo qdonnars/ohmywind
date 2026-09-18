@@ -164,6 +164,14 @@
   --ow-map-sea-1: #060B17;
   --ow-map-land-0: #0F1A2A;
   --ow-map-land-1: #0A1424;
+
+  /* The options of « Comparer ce trajet », drawn side by side on the map and
+     as a swatch on their row: the plan's track in the accent (written out,
+     not through var(): design/tokens.ts hands Leaflet the raw value), the
+     variants in two hues the wind palette does not use. */
+  --ow-route-a: #2dd4bf;
+  --ow-route-b: #8B7BF5;
+  --ow-route-c: #E0729B;
 }
 
 [data-theme="light"] {
@@ -286,4 +294,8 @@
   --ow-current: #3b82f6;
 
   --ow-sketch-end: #FF7A59;
+
+  --ow-route-a: #0f766e;
+  --ow-route-b: #5B4BD6;
+  --ow-route-c: #B8476F;
 }

@@ -133,6 +133,7 @@ def widened_sweep(monkeypatch):
             duration_h=8.0,
             distance_nm=41.4,
             warnings=[],
+            notices=[],
             segments=[object()] * n_segments,
         )
         for i in range(int(span_h / interval_h) + 1)

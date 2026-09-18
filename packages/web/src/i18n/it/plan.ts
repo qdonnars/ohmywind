@@ -26,14 +26,7 @@ export const plan: Record<keyof typeof frPlan, string> = {
   // ── Panel states ──────────────────────────────────────────────────────────
   "plan.states.empty.title": "Tracciare il percorso",
   "plan.states.empty.body":
-    "Cliccare sulla mappa per posizionare una partenza e un arrivo. Sarà poi possibile simulare la durata del percorso oppure confrontare più finestre di partenza.",
-  "plan.states.picker.title": "Cosa desidera fare?",
-  "plan.states.picker.single.body":
-    "Sa quando partire. OhMyWind calcola la durata del percorso, l'ETA e le condizioni su ogni segmento.",
-  "plan.states.picker.single.example": "Es.: «Se parto sabato alle 17:00, quando arrivo?»",
-  "plan.states.picker.compare.body":
-    "Sa dove andare. OhMyWind prova più orari di partenza e classifica le finestre per comfort.",
-  "plan.states.picker.compare.example": "Es.: «Qual è la partenza migliore tra sabato e lunedì?»",
+    "Clicchi sulla mappa per posizionare una partenza e un arrivo. Potrà poi calcolare il passaggio, quindi confrontare altre partenze o altre rotte.",
   "plan.states.error.title": "Errore",
   "plan.states.waking.title": "Il server meteo si sta riavviando",
   "plan.states.waking.body":
@@ -42,11 +35,6 @@ export const plan: Record<keyof typeof frPlan, string> = {
   "plan.recap.edit": "Modificare",
 
   // ── Mode picker and time anchor ───────────────────────────────────────────
-  "plan.mode.tablist": "Modalità di pianificazione",
-  "plan.mode.single.title": "Simulare la mia rotta",
-  "plan.mode.single.sub": "Quanto dura questo percorso?",
-  "plan.mode.compare.title": "Confrontare le finestre",
-  "plan.mode.compare.sub": "La finestra migliore per partire?",
   "plan.timeAnchor.tablist": "Ancoraggio orario",
   "plan.timeAnchor.departure.title": "Definire la partenza",
   "plan.timeAnchor.departure.sub": "Capire la durata del percorso",
@@ -124,4 +112,28 @@ export const plan: Record<keyof typeof frPlan, string> = {
     "Impossibile raggiungere il server. Verificare la connessione e riprovare.",
   "plan.api.errors.invalidResponse":
     "Il server ha restituito una risposta inattesa. Riprovare tra qualche istante.",
+  "plan.notice.passage.long_route":
+    "rotta lunga ({route_nm} nm): {points} punti meteo campionati (~{spacing_nm} nm tra i punti) invece di {requested_nm} nm, per limitare le richieste API.",
+  "plan.notice.passage.light_wind":
+    "vento debole: velocità minima {min_speed_kn} kn, traversata molto lenta",
+  "plan.notice.passage.model_fallback":
+    "modello {model} senza dati su {fallback_count}/{total} punti (probabilmente fuori copertura); ripiego automatico su {others}",
+  "plan.notice.complexity.wind.3": "Vento teso: TWS {tws_range} kn su {nm} nm",
+  "plan.notice.complexity.wind.4": "Vento forte: TWS {tws_range} kn su {nm} nm",
+  "plan.notice.complexity.wind.5": "Vento molto forte: TWS {tws_range} kn su {nm} nm",
+  "plan.notice.complexity.sea.3": "Mare molto mosso: Hs {hs_range} m su {nm} nm",
+  "plan.notice.complexity.sea.4": "Mare agitato: Hs {hs_range} m su {nm} nm",
+  "plan.notice.complexity.sea.5": "Mare molto agitato: Hs {hs_range} m su {nm} nm",
+  "plan.notice.complexity.current":
+    "Vento contro corrente: corrente contraria di {current_range} kt su {nm} nm, mare corto probabile",
+  "plan.notice.complexity.chop_short":
+    "Mare corto: Hs {hs_range} m a Tp {tp_range} s su {nm} nm, mare sgradevole",
+  "plan.notice.complexity.chop_following":
+    "Mare corto di poppa: Hs {hs_range} m a Tp {tp_range} s su {nm} nm",
+  "plan.notice.sweep.widened_interval":
+    "campionamento allargato a {effective_h} h (invece di {requested_h} h): la rotta conta {segments} tratti, troppi per simulare tante finestre.",
+  "plan.notice.sweep.skipped_windows":
+    "{skipped} finestra/e ignorata/e per mancanza di copertura meteo (orizzonte superato): mostrate le {kept} restanti.",
+  "plan.notice.sweep.no_window_near_eta":
+    "nessuna finestra arriva entro ±2 h da target_eta={target_eta}; restituite tutte le {count} finestre",
 };

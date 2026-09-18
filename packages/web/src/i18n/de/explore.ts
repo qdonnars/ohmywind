@@ -34,16 +34,15 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.infoPanel.privacy.title": "Ihre Daten",
   "explore.infoPanel.privacy.body":
     "Kein Tracking, kein Konto, keine über Sie gespeicherten Daten. Alles läuft in Ihrem Browser, dies ist eine reine Leseseite. Die Wetteranfragen gehen direkt an die öffentlichen APIs.",
+  "explore.infoPanel.privacy.link": "Datenschutzerklärung lesen",
   "explore.infoPanel.sources.title": "Datenquellen und Methodik",
   "explore.infoPanel.sources.body":
-    "Windmodelle (AROME, ICON, ECMWF, GFS), Wellen und Meeresspiegel (Open-Meteo Marine, WaveWatch III), Strom in Kaskade (SHOM Atlas C2D an den kritischen Passagen, MARC PREVIMER über dem atlantischen Schelf, SMOC Copernicus als globaler Fallback), Konventionen, Gleichungen der Törnplanung und Komplexitätsbewertung: Das alles steht ausführlich auf der Seite zur Methodik.",
+    "Woher die Vorhersagen für Wind, Wellen, Gezeiten und Strömungen stammen, wie der Planer sie kombiniert und wie er die Komplexität eines Törns bewertet.",
   "explore.infoPanel.sources.link": "Die vollständige Methodik lesen",
-  "explore.infoPanel.sources.basemap":
-    "Kartengrundlagen: <osm>© OpenStreetMap-Mitwirkende</osm> (Daten unter der Lizenz ODbL), Kacheln <ofm>OpenFreeMap</ofm> nach dem Schema <omt>© OpenMapTiles</omt>. Seezeichen (Tonnen, Baken, Leuchttürme, Feuer): <seamap>© OpenSeaMap-Mitwirkende</seamap>, Kacheln unter der Lizenz CC BY-SA auf OpenStreetMap-Daten. Diese Ebene hilft bei der Vorbereitung, sie ist kein Navigationsdokument: Sie ersetzt weder die amtlichen Seekarten des SHOM noch die Nachrichten für Seefahrer. Ortssuche: <photon>Photon</photon> und Open-Meteo Geocoding, beide auf OpenStreetMap-Daten.",
-  "explore.infoPanel.sources.bathymetry":
-    "Wassertiefen unter den Wegpunkten: <emodnet>EMODnet Bathymetry</emodnet> (CC BY 4.0), bezogen auf Kartennull wie auf einer Seekarte. Das Gitter misst rund 115 m: Es beantwortet gut „wie viel Wasser auf diesem Schlag“, und es ist blind für den einzelnen Felsen zwischen zwei Gitterpunkten. Nicht für die Navigation verwenden.",
-  "explore.infoPanel.sources.privacy":
-    "Kein Konto, kein Tracker: <a>Datenschutzerklärung</a>.",
+  "explore.infoPanel.press.title": "In der Presse",
+  "explore.infoPanel.press.body":
+    "Was die Wassersportpresse über das Projekt geschrieben hat, mit Link zu jedem Artikel.",
+  "explore.infoPanel.press.link": "Zum Pressespiegel",
   "explore.infoPanel.licence.title": "Lizenz und Marke",
   "explore.infoPanel.licence.body":
     "Der Code von OhMyWind ist Open Source, unter der <licence>Lizenz AGPL-3.0</licence>. Sie dürfen ihn forken, ändern und weitergeben. Wenn Sie eine geänderte Fassung über das Netz bereitstellen, müssen Sie deren Quelltext veröffentlichen. Der Name „OhMyWind“ ist dagegen als Marke beim INPI angemeldet, und die visuelle Identität (Logo, Symbole) bleibt urheberrechtlich geschützt: Ein Fork erscheint unter eigenem Namen und mit eigenen Symbolen. Einzelheiten in der <trademark>Markenrichtlinie</trademark>.",
@@ -51,6 +50,10 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.infoPanel.support.body":
     "Wenn Sie diese App so mögen wie ich, sollten Sie wissen, dass es bald eigene Server braucht, um sie am Laufen zu halten. Ich möchte keine Werbung in dieser App. Wenn es Ihnen genauso geht, helfen Sie mir gern dabei.",
   "explore.infoPanel.support.cta": "Auf Ko-fi unterstützen",
+  "explore.infoPanel.credits.basemap":
+    "Kartengrundlagen: <osm>© OpenStreetMap-Mitwirkende</osm> (Daten unter der Lizenz ODbL), Kacheln <ofm>OpenFreeMap</ofm> nach dem Schema <omt>© OpenMapTiles</omt>. Seezeichen (Tonnen, Baken, Leuchttürme, Feuer): <seamap>© OpenSeaMap-Mitwirkende</seamap>, Kacheln unter der Lizenz CC BY-SA auf OpenStreetMap-Daten. Diese Ebene hilft bei der Vorbereitung, sie ist kein Navigationsdokument: Sie ersetzt weder die amtlichen Seekarten des SHOM noch die Nachrichten für Seefahrer. Ortssuche: <photon>Photon</photon> und Open-Meteo Geocoding, beide auf OpenStreetMap-Daten.",
+  "explore.infoPanel.credits.bathymetry":
+    "Wassertiefen unter den Wegpunkten: <emodnet>EMODnet Bathymetry</emodnet> (CC BY 4.0), bezogen auf Kartennull wie auf einer Seekarte. Das Gitter misst rund 115 m: Es beantwortet gut „wie viel Wasser auf diesem Schlag“, und es ist blind für den einzelnen Felsen zwischen zwei Gitterpunkten. Nicht für die Navigation verwenden.",
 
   // Metric pills
   "explore.pills.groupLabel": "Art der Vorhersage",

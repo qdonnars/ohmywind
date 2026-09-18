@@ -31,6 +31,7 @@ import dataclasses
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from openwind_data.routing.notices import Notice, notice
 from openwind_data.routing.passage import build_conditions_summary
 
 # How far a window's arrival may sit from a requested ``target_eta`` and still
@@ -96,6 +97,8 @@ def window_view(report: Any, score: Any) -> dict[str, Any]:
         },
         "conditions_summary": build_conditions_summary(report),
         "warnings": list(report.warnings) + [w.message for w in score.warnings],
+        "notices": [to_json(n) for n in report.notices]
+        + [{"code": w.code, "params": w.params, "message": w.message} for w in score.warnings],
     }
 
 
@@ -105,12 +108,15 @@ def sweep_view(
     latest: datetime,
     interval_hours: int,
     windows: list[dict[str, Any]],
-    meta_warnings: list[str],
+    meta_notices: list[Notice],
 ) -> dict[str, Any]:
     """The compare-windows envelope.
 
     ``window_count`` counts what is actually returned, so it reflects the
     ``target_eta`` filter: call this after filtering, never before.
+
+    ``meta_warnings`` is the sentences of ``meta_notices``, kept as the list
+    of strings every client has read since the sweep exists.
     """
     return {
         "mode": "multi_window",
@@ -121,38 +127,36 @@ def sweep_view(
             "window_count": len(windows),
         },
         "windows": windows,
-        "meta_warnings": meta_warnings,
+        "meta_warnings": [n.message for n in meta_notices],
+        "meta_notices": [to_json(n) for n in meta_notices],
     }
 
 
 def widened_interval_warning(
     effective_interval_h: int, requested_interval_h: int, n_segments: int
-) -> str:
+) -> Notice:
     """Say that the sweep ran coarser than asked, and why.
 
     The engine widens the spacing rather than refusing when windows times
     segments would blow the simulation budget. Silently returning half the
     windows would read as a forecast that ran out.
     """
-    return (
-        f"pas d'échantillonnage élargi à {effective_interval_h} h "
-        f"(au lieu de {requested_interval_h} h) : la route compte "
-        f"{n_segments} tronçons, trop pour simuler "
-        f"autant de créneaux."
+    return notice(
+        "sweep.widened_interval",
+        effective_h=effective_interval_h,
+        requested_h=requested_interval_h,
+        segments=n_segments,
     )
 
 
-def skipped_windows_warning(skipped_count: int, kept_count: int) -> str:
+def skipped_windows_warning(skipped_count: int, kept_count: int) -> Notice:
     """Say that some windows fell past the forecast horizon."""
-    return (
-        f"{skipped_count} fenêtre(s) ignorée(s) faute de couverture météo "
-        f"(horizon dépassé) : affichage des {kept_count} restantes."
-    )
+    return notice("sweep.skipped_windows", skipped=skipped_count, kept=kept_count)
 
 
 def filter_windows_by_target_eta(
     windows: list[dict[str, Any]], target_eta: datetime, target_eta_label: str
-) -> tuple[list[dict[str, Any]], str | None]:
+) -> tuple[list[dict[str, Any]], Notice | None]:
     """Keep the windows arriving within tolerance of ``target_eta``.
 
     Returns the windows to serve and a warning to append, or ``None``. When
@@ -184,8 +188,7 @@ def filter_windows_by_target_eta(
         if abs((datetime.fromisoformat(w["arrival"]) - target_utc).total_seconds()) <= tolerance_s
     ]
     if not filtered:
-        return windows, (
-            f"aucune fenêtre n'arrive dans ±2h de target_eta={target_eta_label} ; "
-            f"toutes les {len(windows)} fenêtres retournées"
+        return windows, notice(
+            "sweep.no_window_near_eta", target_eta=target_eta_label, count=len(windows)
         )
     return filtered, None

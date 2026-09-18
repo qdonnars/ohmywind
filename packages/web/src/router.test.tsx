@@ -106,6 +106,23 @@ describe("useRouter", () => {
     expect(window.history.length).toBe(before + 1);
   });
 
+  it("resets the entry's state on a replace, unless asked to keep it", () => {
+    // A layer's entry carries a token; a URL that describes the page the
+    // reader is on may land on it and must leave the token alone, so the
+    // layer can still pop its entry. A navigation away replaces the entry
+    // whole, token included.
+    window.history.pushState({ "ohmywind:layer": 7 }, "");
+    act(() => {
+      navigate("/plan?wpts=43.29,5.37", { replace: true, preserveState: true });
+    });
+    expect(window.history.state).toEqual({ "ohmywind:layer": 7 });
+    expect(window.location.search).toBe("?wpts=43.29,5.37");
+    act(() => {
+      navigate("/config", { replace: true });
+    });
+    expect(window.history.state).toBeNull();
+  });
+
   it("follows a back press", () => {
     const { getByTestId } = render(<Probe />);
     act(() => {

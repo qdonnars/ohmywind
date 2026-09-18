@@ -6,7 +6,6 @@ import type { panel as frPanel } from "../fr/panel";
 export const panel: Record<keyof typeof frPanel, string> = {
   // ── PlanForm ───────────────────────────────────────────────────────────────
   "panel.form.calculate": "Calculate the passage",
-  "panel.form.compareWindows": "Compare the windows",
   "panel.form.waypointsNeeded": "{count}/2 waypoints",
 
   // ── PlanHeaderRow ──────────────────────────────────────────────────────────
@@ -43,46 +42,11 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.departure.plusOneWeek": "+1 wk",
   "panel.departure.plusTwoWeeks": "+2 wks",
 
-  // ── DepartureRangeSlider ───────────────────────────────────────────────────
-  "panel.range.title": "Departure window",
-  "panel.range.spanDays": "{value} d",
-  "panel.range.spanHours": "{value} h",
-  "panel.range.ariaEarliest": "Earliest departure",
-  "panel.range.ariaLatest": "Latest departure",
-
-  // ── SweepForm ──────────────────────────────────────────────────────────────
-  "panel.sweep.samplingStep": "Sampling step",
-  "panel.sweep.everyHour": "Every hour",
-  "panel.sweep.everyNHours": "Every {hours}h",
-
   // ── SingleResults ──────────────────────────────────────────────────────────
   "panel.results.recapDeparture": "Departure: {day} · {time}",
   "panel.results.recapArrival": "Arrival: {day} · {time}",
   "panel.results.stale": "Route changed. Click Recalculate to update the details.",
   "panel.results.forecastUpdated": "Forecast updated at {time} · Open-Meteo.com (CC BY 4.0)",
-
-  // ── CompareResults ─────────────────────────────────────────────────────────
-  "panel.compare.recapStep": "{interval}h step · {boat}",
-  "panel.compare.stale":
-    "Route changed. Click Recalculate to compare the windows of the new route.",
-  "panel.compare.windowsCompared.one":
-    "{count} window compared · click a row to open the detailed simulation",
-  "panel.compare.windowsCompared.other":
-    "{count} windows compared · click a row to open the detailed simulation",
-
-  // ── WindowsTable ───────────────────────────────────────────────────────────
-  "panel.windows.colDeparture": "Departure",
-  "panel.windows.colDuration": "Duration",
-  "panel.windows.colEta": "ETA",
-  "panel.windows.colPointOfSail": "Point of sail",
-  "panel.windows.colWind": "Wind (kn)",
-  "panel.windows.colSea": "Sea",
-  "panel.windows.rowTitle": "View this window in detail",
-  "panel.windows.complexityTitle": "{label}: {rationale}",
-  "panel.windows.sailUpwind": "Upwind",
-  "panel.windows.sailBeamReach": "Beam reach",
-  "panel.windows.sailBroadReach": "Broad reach",
-  "panel.windows.sailDownwind": "Downwind",
 
   // ── LegList / aggregateLegs ────────────────────────────────────────────────
   "panel.legs.colLeg": "Leg",
@@ -129,4 +93,84 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.legDetail.noteMotorOnStep": "under engine on this step",
   "panel.legDetail.noteAverage.one": "average of {count} step",
   "panel.legDetail.noteAverage.other": "average of {count} steps",
+
+  // ── ReadyStep, CompareDoor, CompareScreen, WindowChips, ReturnBanner ──
+  "panel.ready.adjust": "Set the departure or the boat",
+  "panel.door.title": "Compare this trip",
+  "panel.compare.back": "Plan",
+  "panel.compare.backAria": "Back to the plan",
+  "panel.compare.slots.one": "{count} slot",
+  "panel.compare.slots.other": "{count} slots",
+  "panel.compare.tracks.one": "{count} option",
+  "panel.compare.tracks.other": "{count} options",
+  "panel.compare.sort.label": "Sort",
+  "panel.compare.sort.departure": "Departure",
+  "panel.compare.sort.order": "Order",
+  "panel.compare.sort.duration": "Duration",
+  "panel.compare.sort.sea": "Sea",
+  "panel.compare.row.fromPlan": "selected",
+  "panel.compare.row.open": "Open this slot in the plan",
+  "panel.compare.row.alerts.one": "{count} alert",
+  "panel.compare.row.alerts.other": "{count} alerts",
+  "panel.compare.row.wind": "wind {range} kn",
+  "panel.compare.row.sea": "sea {range} m",
+  "panel.compare.row.motor": "engine {pct} %",
+  "panel.compare.sailUpwind": "Upwind",
+  "panel.compare.sailBeamReach": "Beam reach",
+  "panel.compare.sailBroadReach": "Broad reach",
+  "panel.compare.sailDownwind": "Downwind",
+  "panel.compare.stale": "Route edited. Recalculate to compare the slots of the new trip.",
+  "panel.compare.empty": "No slot to compare yet. Set the window, then apply.",
+  "panel.compare.frozen.departure": "Departure frozen",
+  "panel.compare.frozen.edit": "Edit",
+  "panel.compare.tracksEmpty": "No variant yet. Draw one to compare it with the plan's route.",
+  "panel.compare.tracksDraw": "Draw a variant",
+  "panel.window.title": "Departure window",
+  "panel.window.from": "From",
+  "panel.window.to": "To",
+  "panel.window.lead": "The next",
+  "panel.window.spanHours": "{count} h",
+  "panel.window.spanDays": "{count} d",
+  "panel.window.apply": "Apply",
+  "panel.return.slots": "Comparison · {slots}",
+  "panel.return.tracks": "Comparison · {tracks}",
+  "panel.return.back": "Back to the comparison",
+  "panel.return.keep": "Keep",
+
+  // ── TrackList, DeparturePanel ──
+  "panel.tracks.option": "Option {n}",
+  "panel.tracks.planSub": "the plan's route",
+  "panel.tracks.drawnAt": "variant drawn at {time}",
+  "panel.tracks.max": "Three options at most.",
+  "panel.tracks.drawing.title": "Option {n} · being drawn",
+  "panel.tracks.drawing.points.one": "{count} point placed",
+  "panel.tracks.drawing.points.other": "{count} points placed",
+  "panel.tracks.drawing.hint": "Tap the map to place a point between the plan's departure and arrival.",
+  "panel.tracks.drawing.finish": "Finish and compare",
+  "panel.tracks.row.open": "Open this route in the plan",
+  "panel.tracks.row.sea": "sea {avg} m (max {max})",
+  "panel.tracks.row.computing": "computing…",
+  "panel.tracks.stale": "Departure or boat changed. Recalculate to compare the routes.",
+  "panel.tracks.departure.title": "Departure, shared by every route",
+  "panel.tracks.departure.note": "Changing this departure recomputes every route. To try several hours on one route, go back to the plan and choose « Other departures ».",
+  "panel.tracks.departure.recompute.one": "Recomputes {count} route",
+  "panel.tracks.departure.recompute.other": "Recomputes {count} routes",
+
+  // ── two doors, track selection, folded alerts ──
+  "panel.door.slots": "Other departures",
+  "panel.door.tracks": "Another route",
+  "panel.tracks.row.select": "Choose option {n} for the plan",
+  "panel.tracks.row.remove": "Remove option {n}",
+  "panel.results.alertsToggle": "Passage alerts",
+  "panel.results.alertKind.wind": "wind",
+  "panel.results.alertKind.sea": "sea",
+  "panel.results.alertKind.current": "current",
+  "panel.results.alertKind.other": "other",
+  "panel.tracks.row.openShort": "View",
+  "panel.window.every": "Every",
+  "panel.window.adjustDates": "Adjust the dates",
+  "panel.hint.title": "The interface is changing",
+  "panel.hint.body": "You can compare departures, as before, and now routes too: enough to tell whether it is better to pass on one side or the other, depending on the current for instance. The two buttons are at the end of the results.",
+  "panel.hint.go": "Take me there",
+  "panel.hint.dismiss": "Got it",
 };

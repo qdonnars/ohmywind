@@ -5,6 +5,7 @@ import App from "./App";
 import { PlanPage } from "./routes/PlanPage";
 import { ComparePage } from "./routes/ComparePage";
 import { ConfigPage } from "./routes/ConfigPage";
+import { PressPage } from "./routes/PressPage";
 import { LazyPageBoundary } from "./components/LazyPageBoundary";
 import { NotFoundPage } from "./routes/NotFoundPage";
 import { useT } from "./i18n";
@@ -75,6 +76,8 @@ export function Routes() {
       return <ComparePage key={key} />;
     case "config":
       return <ConfigPage key={key} />;
+    case "press":
+      return <PressPage key={key} />;
     case "methodologie":
       return <LazyPageBoundary key={key} load={loadMethodologie} fallback={<DocFallback />} />;
     case "confidentialite":

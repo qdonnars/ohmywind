@@ -105,8 +105,10 @@ class TestTargetEtaFilter:
         kept, warning = filter_windows_by_target_eta(windows, target, "2026-05-04T06:00:00+00:00")
         assert kept == windows
         assert warning is not None
-        assert "2026-05-04T06:00:00+00:00" in warning
-        assert "toutes les 1 fenêtres retournées" in warning
+        assert "2026-05-04T06:00:00+00:00" in warning.message
+        assert "toutes les 1 fenêtres retournées" in warning.message
+        assert warning.code == "sweep.no_window_near_eta"
+        assert warning.params == {"target_eta": "2026-05-04T06:00:00+00:00", "count": 1}
 
     def test_the_label_is_echoed_verbatim(self) -> None:
         # The user reads back the string they sent, not a normalised rewrite
@@ -114,7 +116,7 @@ class TestTargetEtaFilter:
         target = DEPARTURE + timedelta(days=3)
         _, warning = filter_windows_by_target_eta([_window(DEPARTURE)], target, "samedi 18h")
         assert warning is not None
-        assert "target_eta=samedi 18h" in warning
+        assert "target_eta=samedi 18h" in warning.message
 
     def test_an_offset_target_is_compared_in_utc(self) -> None:
         # 08:00+02:00 is 06:00 UTC. Comparing the wall clocks instead would
@@ -142,7 +144,7 @@ class TestSweepEnvelope:
             latest=DEPARTURE + timedelta(hours=5),
             interval_hours=1,
             windows=[_window(DEPARTURE + timedelta(hours=8))],
-            meta_warnings=[],
+            meta_notices=[],
         )
         assert envelope["sweep"]["window_count"] == 1
 
@@ -154,9 +156,9 @@ class TestSweepEnvelope:
             latest=DEPARTURE + timedelta(hours=5),
             interval_hours=1,
             windows=[],
-            meta_warnings=[],
+            meta_notices=[],
         )
-        assert list(envelope) == ["mode", "sweep", "windows", "meta_warnings"]
+        assert list(envelope) == ["mode", "sweep", "windows", "meta_warnings", "meta_notices"]
         assert list(envelope["sweep"]) == [
             "earliest",
             "latest",
@@ -167,10 +169,36 @@ class TestSweepEnvelope:
 
 class TestMetaWarnings:
     def test_the_widened_interval_names_both_intervals_and_the_cause(self) -> None:
-        message = widened_interval_warning(2, 1, 29)
-        assert "2 h" in message and "1 h" in message and "29 tronçons" in message
+        n = widened_interval_warning(2, 1, 29)
+        assert "2 h" in n.message and "1 h" in n.message and "29 tronçons" in n.message
+        assert n.code == "sweep.widened_interval"
+        assert n.params == {"effective_h": 2, "requested_h": 1, "segments": 29}
 
     def test_the_skipped_windows_warning_names_both_counts(self) -> None:
-        message = skipped_windows_warning(3, 21)
-        assert "3 fenêtre(s) ignorée(s)" in message
-        assert "21 restantes" in message
+        n = skipped_windows_warning(3, 21)
+        assert "3 fenêtre(s) ignorée(s)" in n.message
+        assert "21 restantes" in n.message
+        assert n.code == "sweep.skipped_windows"
+        assert n.params == {"skipped": 3, "kept": 21}
+
+    def test_the_envelope_says_each_notice_twice_sentence_and_code(self) -> None:
+        # The sentence is what every client has read since the sweep exists;
+        # the code is what the web app translates (#411). Same order, one
+        # for one.
+        envelope = sweep_view(
+            earliest=DEPARTURE,
+            latest=DEPARTURE + timedelta(hours=5),
+            interval_hours=2,
+            windows=[],
+            meta_notices=[widened_interval_warning(2, 1, 29), skipped_windows_warning(3, 21)],
+        )
+        assert [n["code"] for n in envelope["meta_notices"]] == [
+            "sweep.widened_interval",
+            "sweep.skipped_windows",
+        ]
+        assert envelope["meta_warnings"] == [n["message"] for n in envelope["meta_notices"]]
+        assert envelope["meta_notices"][0]["params"] == {
+            "effective_h": 2,
+            "requested_h": 1,
+            "segments": 29,
+        }

@@ -18,6 +18,7 @@ import type { MapView } from "../utils/mapViewParams";
 import { t, useLang } from "../i18n";
 import { computeLegSegmentRanges } from "./aggregateLegs";
 import { closestOnPolyline, TapGuard } from "./mapGestures";
+import { midpointAlong, type RouteOverlay } from "./compare/tracks";
 import {
   HOLD_SLOP_PX,
   MARKER_SETTLE_MS,
@@ -102,6 +103,15 @@ interface PlanMapProps {
       is still loading, `null` is nothing to show. Fetching belongs to the
       page: the map only draws what it is handed. */
   depths?: (number | null | undefined)[];
+  /** The options of « Comparer ce trajet », drawn over the map in their
+      own colours, not interactive. */
+  overlays?: RouteOverlay[];
+  /** Skip the line through `waypoints` (and its insertion zones): the
+      overlays draw every option, the plan's included. Markers stay. */
+  hideBaseRoute?: boolean;
+  /** The first and last waypoints cannot be removed: a variant keeps the
+      plan's ends. */
+  lockedEnds?: boolean;
 }
 
 function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon {
@@ -123,7 +133,7 @@ function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon 
 }
 
 export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
-  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, focusedSegmentIdx = null, initialCenter, userPosition, onViewChange, initialZoom, showSeamarks = false, depths }: PlanMapProps,
+  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, focusedSegmentIdx = null, initialCenter, userPosition, onViewChange, initialZoom, showSeamarks = false, depths, overlays, hideBaseRoute = false, lockedEnds = false }: PlanMapProps,
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -133,6 +143,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   const polylinesRef = useRef<L.Polyline[]>([]);
   const highlightLayerRef = useRef<L.LayerGroup | null>(null);
   const focusLayerRef = useRef<L.LayerGroup | null>(null);
+  const overlayLayerRef = useRef<L.LayerGroup | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
   const dragLineRef = useRef<L.Polyline | null>(null);
   const segLabelsRef = useRef<L.Tooltip[]>([]);
@@ -592,7 +603,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
         isFirst ? "--ow-marker-active" : isLast ? "--ow-marker-end" : "--ow-marker-idle",
       );
       const marker = L.marker([lat, lon], {
-        icon: waypointIcon(label, bg, !!onWptDelete),
+        icon: waypointIcon(label, bg, !!onWptDelete && !(lockedEnds && (isFirst || isLast))),
         draggable: !coarse,
       }).addTo(map);
       const el = marker.getElement();
@@ -648,7 +659,7 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     // Leaflet keeps the resolved string in the icon markup. `lang` for the
     // same reason, applied to the label of the delete button.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [waypoints, resolvedTheme, lang]);
+  }, [waypoints, resolvedTheme, lang, lockedEnds]);
 
   // Fill the sounding slot of each waypoint icon.
   //
@@ -686,8 +697,8 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
     for (const p of polylinesRef.current) p.remove();
     polylinesRef.current = [];
 
-    if (waypoints.length < 2) {
-      drawSegLabels(map, waypoints);
+    if (waypoints.length < 2 || hideBaseRoute) {
+      drawSegLabels(map, hideBaseRoute ? [] : waypoints);
       return;
     }
 
@@ -757,7 +768,46 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
       ];
       addHitLine(path, () => legIdx);
     });
-  }, [waypoints, segments, isStale]);
+  }, [waypoints, segments, isStale, hideBaseRoute]);
+
+  // The options of the comparison, each in its colour, with a pill at the
+  // middle of the line saying which one it is and how long it takes. Not
+  // interactive, for the same reason as the highlight below.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (overlayLayerRef.current) {
+      overlayLayerRef.current.remove();
+      overlayLayerRef.current = null;
+    }
+    if (!overlays || overlays.length === 0) return;
+    const layers: L.Layer[] = [];
+    for (const o of overlays) {
+      if (o.waypoints.length < 2) continue;
+      const color = readToken(o.colorToken);
+      layers.push(
+        L.polyline(o.waypoints.map(([la, lo]) => L.latLng(la, lo)), {
+          color,
+          weight: o.dim ? 3 : 5,
+          opacity: o.dim ? 0.35 : 0.9,
+          dashArray: o.dashed ? "6 5" : undefined,
+          lineCap: "round",
+          lineJoin: "round",
+          interactive: false,
+        }),
+      );
+      if (o.label) {
+        const [la, lo] = midpointAlong(o.waypoints);
+        const text = o.label.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
+        layers.push(
+          L.tooltip({ permanent: true, direction: "center", className: "ow-route-label", opacity: o.dim ? 0.55 : 1 })
+            .setLatLng([la, lo])
+            .setContent(`<span style="border-color:${color}">${text}</span>`),
+        );
+      }
+    }
+    overlayLayerRef.current = L.layerGroup(layers).addTo(map);
+  }, [overlays, resolvedTheme]);
 
   // Selected-leg highlight overlay, drawn on top of the colored segments in
   // the brand accent so it pops against the wind palette. Small ticks mark

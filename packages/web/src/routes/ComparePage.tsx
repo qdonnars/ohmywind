@@ -43,6 +43,8 @@ import { useGeolocation } from "../hooks/useGeolocation";
 import { useMapView } from "../hooks/useMapView";
 import { LG_MEDIA_QUERY, useMediaQuery } from "../hooks/useMediaQuery";
 import { useOnline } from "../hooks/useOnline";
+import { useOpenMeteoQuota } from "../hooks/useOpenMeteoQuota";
+import { openMeteoQuotaMessage } from "../api/openMeteoQuota";
 import { useT } from "../i18n";
 import type { Spot } from "../types";
 import { haversineNm } from "../utils/geo";
@@ -106,6 +108,9 @@ function SkeletonRows({ rows, dense }: { rows: number; dense: boolean }) {
 export function ComparePage() {
   const { t } = useT();
   const online = useOnline();
+  // Same three-way empty state as the explore table: offline first, then a
+  // spent Open-Meteo quota with its return time, then a bare "no data".
+  const quota = useOpenMeteoQuota();
   const { customSpots, addSpot, removeSpot, renameSpot } = useCustomSpots();
   const isDesktop = useMediaQuery(LG_MEDIA_QUERY);
   const { position: userPosition, locate } = useGeolocation();
@@ -323,7 +328,11 @@ export function ComparePage() {
     if (!hasData) {
       return (
         <div className="text-center py-8 px-4 text-sm" style={{ color: "var(--ow-fg-2)" }}>
-          {online ? t("compare.table.empty") : t("compare.table.offline")}
+          {!online
+            ? t("compare.table.offline")
+            : quota
+              ? openMeteoQuotaMessage("connection", quota.window, quota.resetAt)
+              : t("compare.table.empty")}
         </div>
       );
     }

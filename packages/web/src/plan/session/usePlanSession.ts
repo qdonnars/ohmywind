@@ -50,7 +50,9 @@ import {
 } from "../../config/polarConfig";
 import { toTzAware } from "../../domain/datetime";
 import type { PassageWindow } from "../types";
-import type { PlanMode, TimeAnchor } from "../ModeToggle";
+import type { TimeAnchor } from "../ModeToggle";
+import { defaultSweep, type CompareAxis, type SweepParams } from "../compare/slots";
+import { isVariantComplete, PLAN_TRACK_ID } from "../compare/tracks";
 import {
   createInitialState,
   planReducer,
@@ -61,7 +63,7 @@ import {
 import type { InitialSession } from "./initial";
 import { defaultSweepLatest, tomorrowRoundedLocal } from "./initial";
 import { toNaiveLocal } from "../../domain/datetime";
-import { applyCacheCommand, applyUrlWrite, syncDraft } from "./persist";
+import { applyCacheCommand, applyUrlWrite, resyncUrl, syncDraft } from "./persist";
 
 // Build the plan-time overrides payload from current /config preferences.
 // Read at request time (not at mount) so a /config tweak takes effect on the
@@ -114,10 +116,41 @@ export interface PlanActions {
   selectPerso: () => void;
   setDeparture: (value: string) => void;
   setTimeAnchor: (anchor: TimeAnchor) => void;
-  setMode: (mode: PlanMode) => void;
-  setSweepEarliest: (value: string) => void;
-  setSweepLatest: (value: string) => void;
-  setSweepInterval: (hours: number) => void;
+  /** Mobile: leave the compact step for the form, without computing. */
+  openForm: () => void;
+  /** The door in the plan. On the departure axis, a comparison that has no
+      fresh windows to show is seeded on the plan's departure and computed
+      at once, so opening it is an answer rather than a form. */
+  openCompare: (axis?: CompareAxis) => void;
+  /** « ‹ Plan »: back to the plan, the windows kept for the next time. */
+  closeCompare: () => void;
+  /** « Garder » on the return banner. */
+  keepPlan: () => void;
+  /** « Appliquer » in the window settings: the sweep is set and recomputed
+      in one go, so the list never shows a window it was not computed for. */
+  applySweep: (sweep: SweepParams) => void;
+  // ── the track axis ────────────────────────────────────────────────────────
+  /** « Tracer une variante »: the map draws a new track between the plan's ends. */
+  startVariant: () => void;
+  addVariantPoint: (lat: number, lon: number) => void;
+  moveVariantPoint: (index: number, lat: number, lon: number) => void;
+  insertVariantPoint: (afterIndex: number, lat: number, lon: number) => void;
+  deleteVariantPoint: (index: number) => void;
+  cancelVariant: () => void;
+  /** « Terminer et comparer »: the variant becomes an option and is computed
+      with the plan's departure, the plan's own track too when it has no
+      fresh passage to lend. */
+  finishVariant: () => void;
+  /** Recompute every option on the departure and the boat as they stand. */
+  computeTracks: () => void;
+  openTrack: (id: string) => void;
+  /** The option becomes the plan's route without leaving the comparison. */
+  selectTrack: (id: string) => void;
+  removeTrack: (id: string) => void;
+  highlightTrack: (id: string | null) => void;
+  /** The frozen departure of the track axis: set it and recompute the plan
+      and every option on it. */
+  applyTrackDeparture: (departure: string) => void;
   selectLeg: (index: number | null) => void;
   /** Open one step of the expanded leg in the card, null for its average. */
   selectStep: (index: number | null) => void;
@@ -268,9 +301,78 @@ export function usePlanSession(initial: InitialSession): PlanSession {
     [startRequest, onFailure],
   );
 
-  const runSweep = useCallback(() => {
-    const { waypoints, archetype, sweepEarliest, sweepLatest, sweepIntervalHours } =
-      stateRef.current;
+  // `sweep` overrides what the state holds: a caller that has just dispatched
+  // new bounds cannot read them back from `stateRef` in the same tick.
+  // One controller per option: the options compute side by side, and a
+  // redraw of one must not cancel the others.
+  const trackAbortRef = useRef(new Map<string, AbortController>());
+  const runTrack = useCallback(
+    (track: { id: string; waypoints: [number, number][] }, departureOverride?: string) => {
+      const s = stateRef.current;
+      const departure = departureOverride ?? s.departure;
+      const { archetype, timeAnchor } = s;
+      trackAbortRef.current.get(track.id)?.abort();
+      const controller = new AbortController();
+      trackAbortRef.current.set(track.id, controller);
+      const requestId = requestIdRef.current + 1;
+      requestIdRef.current = requestId;
+      dispatch({ type: "TRACK_STARTED", trackId: track.id, requestId });
+      const overrides = resolveOverrides();
+      const departureIso = toTzAware(departure);
+      const anchorMs = Date.parse(departureIso);
+      const window_ =
+        timeAnchor === "arrival"
+          ? etaWindowMs(track.waypoints, anchorMs)
+          : singleWindowMs(track.waypoints, anchorMs);
+      buildForecastCacheSafe(track.waypoints, { window: window_ })
+        .then((forecastCache) =>
+          timeAnchor === "arrival"
+            ? fetchPassageByEta({
+                waypoints: track.waypoints,
+                targetArrival: departureIso,
+                archetype,
+                efficiency: resolveEfficiency(),
+                overrides,
+                forecastCache,
+                signal: controller.signal,
+              })
+            : fetchPassage({
+                waypoints: track.waypoints,
+                departure: departureIso,
+                archetype,
+                efficiency: resolveEfficiency(),
+                overrides,
+                forecastCache,
+                signal: controller.signal,
+              }),
+        )
+        .then((res) => {
+          dispatch({
+            type: "TRACK_COMPUTED",
+            trackId: track.id,
+            requestId,
+            passage: res.passage,
+            complexity: res.complexity,
+          });
+        })
+        .catch((error: unknown) => {
+          if (error instanceof DOMException && error.name === "AbortError") return;
+          dispatch({
+            type: "TRACK_FAILED",
+            trackId: track.id,
+            requestId,
+            error: friendlyError(error instanceof Error ? error : String(error)),
+          });
+        });
+    },
+    [],
+  );
+
+  const runSweep = useCallback((sweep?: SweepParams) => {
+    const { waypoints, archetype } = stateRef.current;
+    const sweepEarliest = sweep?.earliest ?? stateRef.current.sweepEarliest;
+    const sweepLatest = sweep?.latest ?? stateRef.current.sweepLatest;
+    const sweepIntervalHours = sweep?.intervalHours ?? stateRef.current.sweepIntervalHours;
     const { requestId, signal } = startRequest("sweep");
     const earliestIso = toTzAware(sweepEarliest);
     const latestIso = toTzAware(sweepLatest);
@@ -297,7 +399,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
           kind: "sweep",
           configFingerprint: currentConfigFingerprint(),
           windows: res.windows,
-          metaWarnings: res.meta_warnings,
+          metaWarnings: res.meta_notices,
           forecastUpdatedAt: res.forecast_updated_at,
         });
       })
@@ -317,13 +419,16 @@ export function usePlanSession(initial: InitialSession): PlanSession {
   }, [runSingle, runSweep]);
 
   // Leaving the page cancels whatever is in flight, retry timer included.
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // The map of controllers lives as long as the hook: reading it here
+    // rather than in the cleanup is what the lint asks, and the same object.
+    const trackAborts = trackAbortRef.current;
+    return () => {
       abortRef.current?.abort();
+      for (const controller of trackAborts.values()) controller.abort();
       clearRetryTimer();
-    },
-    [clearRetryTimer],
-  );
+    };
+  }, [clearRetryTimer]);
 
   // ── the one place this page writes to the outside world ───────────────────
   // One subscription to the state, in two phases. The commands the reducer
@@ -335,13 +440,24 @@ export function usePlanSession(initial: InitialSession): PlanSession {
   // waits for the passive pass so a big simulation is never stringified
   // between a commit and its paint.
   const appliedUrlSeq = useRef(0);
+  const writtenUrl = useRef<string | null>(null);
   useLayoutEffect(() => {
     const command = state.persist;
     if (command && command.seq > appliedUrlSeq.current) {
       appliedUrlSeq.current = command.seq;
+      if (command.url !== undefined) writtenUrl.current = command.url;
       applyUrlWrite(command);
     }
   }, [state]);
+
+  // A back press that keeps the reader on the page lands on an entry written
+  // before the last rewrite; the plan on screen has not moved, so the address
+  // bar is put back on it (see `resyncUrl`).
+  useEffect(() => {
+    const onPopState = () => resyncUrl(writtenUrl.current);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   const appliedCacheSeq = useRef(0);
   useEffect(() => {
@@ -383,10 +499,77 @@ export function usePlanSession(initial: InitialSession): PlanSession {
       },
       setDeparture: (value) => dispatch({ type: "DEPARTURE_CHANGED", departure: value }),
       setTimeAnchor: (anchor) => dispatch({ type: "TIME_ANCHOR_CHANGED", timeAnchor: anchor }),
-      setMode: (mode) => dispatch({ type: "MODE_CHANGED", mode }),
-      setSweepEarliest: (value) => dispatch({ type: "SWEEP_CHANGED", earliest: value }),
-      setSweepLatest: (value) => dispatch({ type: "SWEEP_CHANGED", latest: value }),
-      setSweepInterval: (hours) => dispatch({ type: "SWEEP_CHANGED", intervalHours: hours }),
+      openForm: () => dispatch({ type: "FORM_OPENED" }),
+      openCompare: (axis = "slots") => {
+        const s = stateRef.current;
+        // Windows still describing this route are shown as they are; a
+        // comparison that has none, or whose route moved, starts over from
+        // the plan's departure.
+        const fresh = s.windows !== null && s.windows.length > 0 && !s.isStale;
+        const sweep = axis === "slots" && !fresh ? defaultSweep(s.departure, Date.now()) : undefined;
+        dispatch({ type: "COMPARE_OPENED", axis, sweep });
+        if (sweep && s.waypoints.length >= 2) {
+          retryAttemptRef.current = 0;
+          runSweep(sweep);
+        }
+      },
+      closeCompare: () => dispatch({ type: "COMPARE_CLOSED" }),
+      keepPlan: () => dispatch({ type: "PLAN_KEPT" }),
+      applySweep: (sweep) => {
+        dispatch({
+          type: "SWEEP_CHANGED",
+          earliest: sweep.earliest,
+          latest: sweep.latest,
+          intervalHours: sweep.intervalHours,
+        });
+        if (stateRef.current.waypoints.length < 2) return;
+        retryAttemptRef.current = 0;
+        runSweep(sweep);
+      },
+      startVariant: () => dispatch({ type: "VARIANT_STARTED" }),
+      addVariantPoint: (lat, lon) => dispatch({ type: "VARIANT_POINT_ADDED", lat, lon }),
+      moveVariantPoint: (index, lat, lon) =>
+        dispatch({ type: "VARIANT_POINT_MOVED", index, lat, lon }),
+      insertVariantPoint: (afterIndex, lat, lon) =>
+        dispatch({ type: "VARIANT_POINT_INSERTED", afterIndex, lat, lon }),
+      deleteVariantPoint: (index) => dispatch({ type: "VARIANT_POINT_DELETED", index }),
+      cancelVariant: () => dispatch({ type: "VARIANT_CANCELLED" }),
+      finishVariant: () => {
+        const s = stateRef.current;
+        if (!s.variant || !isVariantComplete(s.variant)) return;
+        const id = `v${Date.now()}`;
+        dispatch({ type: "VARIANT_FINISHED", id, createdAt: toNaiveLocal(new Date()) });
+        runTrack({ id, waypoints: s.variant });
+        // Read from the snapshot rather than the state the dispatch will
+        // produce: same rule as `runSweep`.
+        const planLendsPassage = !s.isStale && s.passage !== null && s.complexity !== null;
+        if (s.tracks.length === 0 && !planLendsPassage) {
+          runTrack({ id: PLAN_TRACK_ID, waypoints: s.waypoints });
+        }
+      },
+      computeTracks: () => {
+        for (const track of stateRef.current.tracks) runTrack(track);
+      },
+      openTrack: (id) =>
+        dispatch({ type: "TRACK_OPENED", id, configFingerprint: currentConfigFingerprint() }),
+      selectTrack: (id) =>
+        dispatch({ type: "TRACK_SELECTED", id, configFingerprint: currentConfigFingerprint() }),
+      removeTrack: (id) => {
+        trackAbortRef.current.get(id)?.abort();
+        trackAbortRef.current.delete(id);
+        dispatch({ type: "TRACK_REMOVED", id });
+      },
+      highlightTrack: (id) => dispatch({ type: "TRACK_HIGHLIGHTED", id }),
+      applyTrackDeparture: (departure) => {
+        const s = stateRef.current;
+        dispatch({ type: "DEPARTURE_CHANGED", departure });
+        if (s.waypoints.length < 2) return;
+        retryAttemptRef.current = 0;
+        // The plan first, so returning to it finds it fresh, then every
+        // option on the same departure.
+        runSingle(s.waypoints, s.archetype, departure, s.timeAnchor);
+        for (const track of s.tracks) runTrack(track, departure);
+      },
       selectLeg: (index) => dispatch({ type: "LEG_SELECTED", index }),
       selectStep: (index) => dispatch({ type: "STEP_SELECTED", index }),
       compute: () => {
@@ -406,15 +589,19 @@ export function usePlanSession(initial: InitialSession): PlanSession {
           departure,
           configFingerprint: currentConfigFingerprint(),
         });
+        const s = stateRef.current;
         if (!window.passage || !window.complexity_full) {
           // Backwards-compatible fallback for deployments that answer the
           // sweep without the per-window detail.
-          const { waypoints, archetype } = stateRef.current;
-          runSingle(waypoints, archetype, departure);
+          runSingle(s.waypoints, s.archetype, departure);
         }
+        // The slot picked is the departure of the track axis too: every
+        // option follows it.
+        for (const track of s.tracks) runTrack(track, departure);
       },
       reset: () => {
         abortRef.current?.abort();
+        for (const controller of trackAbortRef.current.values()) controller.abort();
         const departure = tomorrowRoundedLocal(Date.now());
         dispatch({
           type: "RESET",
@@ -424,7 +611,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
         });
       },
     }),
-    [runSingle, runSweep],
+    [runSingle, runSweep, runTrack],
   );
 
   return {

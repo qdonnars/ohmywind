@@ -5,8 +5,6 @@ import type { config as frConfig } from "../fr/config";
 
 export const config: Record<keyof typeof frConfig, string> = {
   "config.lang.label": "Idioma",
-  "config.lang.backendNote":
-    "Los avisos calculados por el motor de travesía siguen en francés por el momento.",
 
   "config.header.title": "Configuración",
   "config.reset": "Restablecer",
