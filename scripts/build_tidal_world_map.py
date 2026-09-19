@@ -123,6 +123,7 @@ def current_coverage(build_dir: Path) -> dict:
                 "properties": {
                     "layer": "marc",
                     "name": f"MARC {meta['atlas']} {meta['resolution_m']} m",
+                    "label": f"marc_{meta['atlas'].lower()}_{meta['resolution_m']}m",
                     "rank": meta["rank"],
                     "resolution_m": meta["resolution_m"],
                 },
@@ -138,7 +139,12 @@ def current_coverage(build_dir: Path) -> dict:
             feats.append(
                 _bbox_feature(
                     f"SHOM C2D {atlas_id} {zone}",
-                    {"layer": "shom", "points": g.height},
+                    {
+                        "layer": "shom",
+                        "points": g.height,
+                        "atlas_id": int(atlas_id),
+                        "zone": str(zone),
+                    },
                     float(g["lat"].min()),
                     float(g["lon"].min()),
                     float(g["lat"].max()),
@@ -154,6 +160,7 @@ def current_coverage(build_dir: Path) -> dict:
                 "properties": {
                     "layer": "spike",
                     "name": f"{meta['atlas']} {meta['resolution_m']} m (spike)",
+                    "label": f"{meta['source']['short']}_{meta['atlas'].split('_', 1)[1].lower()}_{meta['resolution_m']}m",
                     "rank": meta["rank"],
                     "resolution_m": meta["resolution_m"],
                     "record_hours": meta["analysis"]["record_hours"],
@@ -165,7 +172,7 @@ def current_coverage(build_dir: Path) -> dict:
     feats.append(
         _bbox_feature(
             "Open-Meteo SMOC 8 km (fallback)",
-            {"layer": "smoc"},
+            {"layer": "smoc", "label": "openmeteo_smoc", "resolution_m": 8000},
             -80.0,
             -180.0,
             90.0,
@@ -198,7 +205,9 @@ def resolution_class(res_m: float | None) -> str:
     return "global"
 
 
-def compute_gaps(coverage: dict, masks: dict, gazetteer: dict, sources: dict) -> dict:
+def compute_gaps(
+    coverage: dict, masks: dict, gazetteer: dict, sources: dict, objective: dict
+) -> dict:
     """Strong-current zones without a production source at 1 km or finer.
 
     Production layers are ``shom`` and ``marc`` (``spike`` is not shipped,
@@ -225,6 +234,11 @@ def compute_gaps(coverage: dict, masks: dict, gazetteer: dict, sources: dict) ->
         if f["properties"]["status"] == "ok"
         and f["properties"].get("kind") != "station_points"
     ]
+    objective_geom = (
+        unary_union([shape(f["geometry"]) for f in objective["features"]])
+        if objective["features"]
+        else None
+    )
     points = []
     for f in gazetteer["features"]:
         pt = shape(f["geometry"])
@@ -244,6 +258,9 @@ def compute_gaps(coverage: dict, masks: dict, gazetteer: dict, sources: dict) ->
             "best_resolution_m": best[0] if best else None,
             "coverage_class": klass,
             "candidates": [f"{n} ({r} m)" if r else n for n, r in cands],
+            "in_objective": bool(
+                objective_geom is not None and objective_geom.contains(pt)
+            ),
         }
         points.append(
             {"type": "Feature", "properties": props, "geometry": f["geometry"]}
@@ -254,6 +271,8 @@ def compute_gaps(coverage: dict, masks: dict, gazetteer: dict, sources: dict) ->
             if f["properties"].get("threshold_kt", 0) < 1.5:
                 continue
             left = shape(f["geometry"]).difference(fine_union)
+            if objective_geom is not None:
+                left = left.intersection(objective_geom)
             if not left.is_empty:
                 gap_polys.append(
                     {
@@ -268,6 +287,74 @@ def compute_gaps(coverage: dict, masks: dict, gazetteer: dict, sources: dict) ->
                     }
                 )
     return {"type": "FeatureCollection", "features": points + gap_polys}
+
+
+def shom_points(build_dir: Path) -> dict:
+    """The SHOM C2D points themselves, because the cascade uses a point only
+    within 0.5 km: a zone's box says nothing about where SHOM really answers.
+
+    Compact form for the page: ``{"zones": [...labels], "points": [[lat, lon, zone_index], ...]}``.
+    """
+    shom = build_dir / "shom_c2d" / "shom_c2d_points.parquet"
+    if not shom.exists():
+        return {"zones": [], "points": []}
+    import polars as pl
+
+    df = pl.read_parquet(shom).select(["atlas_id", "zone", "lat", "lon"])
+    zones: list[str] = []
+    index: dict[str, int] = {}
+    pts = []
+    for atlas_id, zone, lat, lon in df.iter_rows():
+        label = f"shom_c2d_{atlas_id}_{str(zone).lower()}"
+        if label not in index:
+            index[label] = len(zones)
+            zones.append(label)
+        pts.append([round(float(lat), 4), round(float(lon), 4), index[label]])
+    return {"zones": zones, "points": pts}
+
+
+def effective_coverage(coverage: dict) -> dict:
+    """One polygon per precision class, without overlaps.
+
+    A point belongs to the class of the finest MARC atlas whose tiles hold it,
+    which is what the cascade picks (rank, then resolution). Drawn instead of
+    the per-atlas boxes, so the map reads as "here the answer is fine, here it
+    is coarse" rather than as a pile of overlapping rectangles. SHOM is not
+    an area: it is drawn as its points.
+    """
+    from shapely.geometry import mapping, shape
+    from shapely.ops import unary_union
+
+    marc = [
+        (shape(f["geometry"]), f["properties"])
+        for f in coverage["features"]
+        if f["properties"]["layer"] == "marc"
+    ]
+    by_class: dict[str, list] = {"fine": [], "medium": [], "coarse": []}
+    for g, p in marc:
+        by_class[resolution_class(p.get("resolution_m"))].append(g)
+    feats = []
+    taken = None
+    for klass in ("fine", "medium", "coarse"):
+        if not by_class[klass]:
+            continue
+        geom = unary_union(by_class[klass])
+        if taken is not None:
+            geom = geom.difference(taken)
+        taken = geom if taken is None else unary_union([taken, geom])
+        if not geom.is_empty:
+            if klass == "coarse":
+                # 0.5 degree tiles draw as a staircase; round the corners so the
+                # eye reads an area, not a grid. Never applied to fine classes.
+                geom = geom.buffer(0.2).buffer(-0.2).simplify(0.05)
+            feats.append(
+                {
+                    "type": "Feature",
+                    "properties": {"class": klass},
+                    "geometry": mapping(geom.simplify(0.002)),
+                }
+            )
+    return {"type": "FeatureCollection", "features": feats}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -307,7 +394,13 @@ def main(argv: list[str] | None = None) -> int:
         f["properties"]["resolution_class"] = resolution_class(
             f["properties"].get("resolution_m")
         )
-    gaps = compute_gaps(coverage, masks, gazetteer, sources)
+    objective_path = MAP_DIR / "objective.geojson"
+    objective = (
+        json.loads(objective_path.read_text())
+        if objective_path.exists()
+        else {"type": "FeatureCollection", "features": []}
+    )
+    gaps = compute_gaps(coverage, masks, gazetteer, sources, objective)
     (MAP_DIR / "gaps.geojson").write_text(
         json.dumps(gaps, ensure_ascii=False, separators=(",", ":"))
     )
@@ -321,14 +414,27 @@ def main(argv: list[str] | None = None) -> int:
         f"gaps.geojson: {n_gap_points} gazetteer entries without fine coverage, {len(gaps['features']) - len(gazetteer['features'])} mask polygons"
     )
 
+    effective = effective_coverage(coverage)
+    shom = (
+        shom_points(args.build_dir)
+        if args.build_dir.exists()
+        else {"zones": [], "points": []}
+    )
+    print(
+        f"effective coverage: {[f['properties']['class'] for f in effective['features']]}, {len(shom['points'])} SHOM points"
+    )
+
     payload = {
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "sources": sources,
         "gazetteer": gazetteer,
         "masks": masks,
         "coverage": coverage,
+        "coverage_effective": effective,
+        "objective": objective,
+        "shom": shom,
         "gaps": gaps,
-        "classes": {"fine_m": FINE_M, "medium_m": MEDIUM_M},
+        "classes": {"fine_m": FINE_M, "medium_m": MEDIUM_M, "shom_max_km": 0.5},
     }
     out = MAP_DIR / "data.js"
     out.write_text(
