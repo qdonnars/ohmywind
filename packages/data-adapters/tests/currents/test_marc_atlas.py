@@ -603,3 +603,133 @@ def test_cell_at_is_memoised_for_a_repeated_point(tmp_path: Path) -> None:
     _write_cells(atlas_dir, 48.0, -5.0, [(48.26, -4.76)])
     again = registry.cell_at(48.25, -4.75)
     assert again is first
+
+
+def _write_single_cell_atlas(root: Path, name: str, metadata: dict, lat: float, lon: float) -> None:
+    """One-cell atlas at (lat, lon) with M2 constants and the given metadata."""
+    atlas_dir = root / name
+    atlas_dir.mkdir()
+    (atlas_dir / "metadata.json").write_text(json.dumps(metadata))
+    (atlas_dir / "coverage.geojson").write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {"atlas": name},
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [
+                                [
+                                    [lon - 1, lat - 1],
+                                    [lon + 1, lat - 1],
+                                    [lon + 1, lat + 1],
+                                    [lon - 1, lat + 1],
+                                    [lon - 1, lat - 1],
+                                ]
+                            ],
+                        },
+                    }
+                ],
+            }
+        )
+    )
+    tile_lat = (lat // 0.5) * 0.5
+    tile_lon = (lon // 0.5) * 0.5
+    tile_dir = atlas_dir / f"tile_lat={tile_lat:.1f}" / f"tile_lon={tile_lon:.1f}"
+    tile_dir.mkdir(parents=True)
+    pl.DataFrame(
+        {
+            "lat": [lat],
+            "lon": [lon],
+            "M2_u_amp": [0.8],
+            "M2_u_g": [100.0],
+            "M2_v_amp": [0.3],
+            "M2_v_g": [190.0],
+        }
+    ).write_parquet(tile_dir / "data.parquet")
+
+
+def test_schema3_metadata_drives_label_and_validity(tmp_path: Path) -> None:
+    """A schema 3 atlas answers with its own label and refuses outside its validity box.
+
+    Two cells 0.4 degrees apart, both inside the bbox, only one inside
+    ``validity_bbox``: the other one must fall through to ``None`` even
+    though a cell sits right there.
+    """
+    _write_single_cell_atlas(
+        tmp_path,
+        "BSH_CUXBRU",
+        {
+            "atlas": "BSH_CUXBRU",
+            "zone": "cuxbru",
+            "rank": 3,
+            "resolution_m": 90,
+            "source": {"short": "bsh"},
+            "confidence": "high",
+            "validity_bbox": [53.8, 8.6, 53.95, 9.0],
+            "schema_version": 3,
+        },
+        53.88,
+        8.70,
+    )
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    atlas = registry.covers(53.88, 8.70)
+    assert atlas is not None
+    assert atlas.source_label == "bsh_cuxbru_90m"
+    assert atlas.validity_bbox == (53.8, 8.6, 53.95, 9.0)
+    assert registry.atlas_named("BSH_CUXBRU") is atlas
+    # Inside the bbox of the atlas (1 degree square) but outside validity.
+    assert registry.covers(54.3, 8.70) is None
+    assert registry.covers(53.88, 9.4) is None
+
+
+def test_schema2_metadata_keeps_historical_label(fixture_atlas: Path) -> None:
+    """The MARC fixture carries no source or zone: label and validity default."""
+    atlas = MarcAtlasRegistry.from_directory(fixture_atlas).covers(48.35, -4.80)
+    assert atlas is not None
+    assert atlas.source_label == "marc_finis_250m"
+    assert atlas.validity_bbox is None
+    assert atlas.confidence == "high"
+
+
+def test_validity_bbox_confines_a_coarse_atlas_but_not_a_fine_one(tmp_path: Path) -> None:
+    """ATLNE-style: coarse atlas valid only west of 3 E, fine atlas everywhere.
+
+    East of the line the coarse atlas must not answer, and with no fine
+    atlas there the registry returns ``None`` (the caller falls back to
+    SMOC); west of it the coarse atlas still answers.
+    """
+    _write_single_cell_atlas(
+        tmp_path,
+        "ATLNE",
+        {
+            "atlas": "ATLNE",
+            "rank": 0,
+            "resolution_m": 2000,
+            "validity_bbox": [40.0, -20.0, 53.0, 3.0],
+            "schema_version": 3,
+        },
+        53.87,
+        8.70,
+    )
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    assert registry.covers(53.87, 8.70) is None  # Cuxhaven: east of the line
+    # Same registry, a west-of-the-line atlas of the same kind still covers.
+    _write_single_cell_atlas(
+        tmp_path,
+        "ATLNE_W",
+        {
+            "atlas": "ATLNE_W",
+            "rank": 0,
+            "resolution_m": 2000,
+            "validity_bbox": [40.0, -20.0, 53.0, 3.0],
+            "schema_version": 3,
+        },
+        47.0,
+        -5.0,
+    )
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    atlas = registry.covers(47.0, -5.0)
+    assert atlas is not None and atlas.source_label == "marc_atlne_w_2000m"

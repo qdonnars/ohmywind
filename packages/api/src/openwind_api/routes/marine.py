@@ -216,10 +216,8 @@ def overlay_for_point(
         shom_nearest_km = services.shom.nearest_km(lat, lon)
     elif marc_c_result is not None:
         c_speeds_dirs_source = marc_c_result
-        atlas_resolution_m = next(
-            (a.resolution_m for a in services.marc.atlases if cell and a.name == cell.atlas_name),
-            None,
-        )
+        atlas_meta = services.marc.atlas_named(cell.atlas_name) if cell else None
+        atlas_resolution_m = atlas_meta.resolution_m if atlas_meta else None
     else:
         c_speeds_dirs_source = None
         atlas_resolution_m = None
@@ -241,18 +239,21 @@ def overlay_for_point(
         speeds, dirs, source = c_speeds_dirs_source
         payload["current_speed_kn"] = [round(float(v), 4) for v in speeds]
         payload["current_direction_to_deg"] = [round(float(v), 2) for v in dirs]
-        # SHOM source already comes as "shom_c2d_<atlas>_<zone>"; MARC needs
-        # to be reformatted into the canonical "marc_<atlas>_<res>m" pattern.
+        # SHOM source already comes as "shom_c2d_<atlas>_<zone>"; an atlas
+        # answers with its own label from the metadata ("marc_<atlas>_<res>m").
+        atlas_meta = services.marc.atlas_named(cell.atlas_name) if cell else None
         if source.lower().startswith("shom_c2d_"):
             payload["current_source"] = source.lower()
             if shom_nearest_km is not None:
                 payload["shom_nearest_km"] = round(shom_nearest_km, 2)
-        elif cell and atlas_resolution_m:
-            payload["current_source"] = f"marc_{cell.atlas_name.lower()}_{atlas_resolution_m}m"
+        elif atlas_meta is not None:
+            payload["current_source"] = atlas_meta.source_label
         else:
             payload["current_source"] = source.lower()
-    elif h_result is not None and cell and atlas_resolution_m:
-        payload["current_source"] = f"marc_{cell.atlas_name.lower()}_{atlas_resolution_m}m"
+    elif h_result is not None and cell:
+        atlas_meta = services.marc.atlas_named(cell.atlas_name)
+        if atlas_meta is not None:
+            payload["current_source"] = atlas_meta.source_label
     return payload, 86400
 
 
