@@ -188,11 +188,14 @@ Sens des champs qui ne se devinent pas :
 - `validity_bbox` : optionnel, `[lat_min, lon_min, lat_max, lon_max]`. Là où
   un modèle a une emprise plus large que sa zone validée (ATLNE couvre la mer
   du Nord sans y avoir été validé par PREVIMER), ce champ permet de refuser
-  la couverture hors zone. **Non implémenté dans le registry aujourd'hui**,
-  proposé dans le rapport.
-- `confidence` : `high` / `medium` / `low`, ce que `narrow_pass.confidence_for_point`
-  déduit aujourd'hui du préfixe du label. Avec ce champ, la règle devient une
-  lecture de métadonnée.
+  la couverture hors zone. Implémenté dans `covers()` ; posé sur ATLNE par
+  la migration.
+- `confidence` : `high` / `medium` / `low`, la confiance que le builder
+  attribue à l'atlas. Le runtime déduit la sienne de la résolution portée
+  par le label (`narrow_pass.confidence_for_point` : `high` à 1 km ou plus
+  fin, `medium` au-delà), ce qui donne le même résultat pour tous les
+  atlas construits à ce jour ; ce champ documente le choix et servira le
+  jour où un atlas fin mérite `medium` (modèle non validé localement).
 - `inputs` : empreinte SHA-256 de chaque entrée, pour reproduire un build.
 
 ## 5. `coverage.geojson`
@@ -279,12 +282,19 @@ temps de `coverage_cells()` (un footer Parquet par tuile au démarrage).
 | `coverage.geojson` | bbox seule | bbox en feature 0 + tuiles en feature 1 | non (feature 1 optionnelle, calculable depuis l'arborescence) |
 | Label de source (`marc_finis_250m`) | codé dans `router._marc_source_label` | `f"{source.short}_{zone}_{resolution_m}m"` lu des métadonnées | non |
 
-Le registry actuel (`MarcAtlasRegistry`) lit déjà tout ce qu'un atlas au
-schéma 3 contient de nécessaire : il ignore les clés qu'il ne connaît pas.
-Les atlas BSH construits dans cette PR sont donc **chargeables par le
-runtime tel quel** (vérifié en test : `MarcAtlasRegistry.from_directory`
-sur un répertoire contenant `BSH_CUXBRU` répond aux `covers` et
-`predict_current_series`). Ce qui manque au runtime pour être « générique »
-tient en trois changements, décrits dans le rapport (section « Refacto du
-registry ») : le label depuis les métadonnées, la confiance depuis les
-métadonnées, `validity_bbox`.
+Le registry (`HarmonicAtlasRegistry`, alias historique `MarcAtlasRegistry`)
+lit désormais les clés du schéma 3 qui pilotent la cascade :
+
+- `source.short` et `zone` forment le label de provenance
+  `<source>_<zone>_<résolution>m` porté par chaque point (les labels MARC
+  sont inchangés byte pour byte) ;
+- `validity_bbox` restreint `covers()` à la zone validée ;
+- la confiance par point se déduit de la résolution portée par le label :
+  `high` à 1 km ou plus fin, `medium` au-delà et pour SMOC.
+
+Un atlas au schéma 2 charge toujours, avec les valeurs par défaut qui
+reproduisent le comportement historique. La migration des sept
+`metadata.json` MARC se fait par `scripts/migrate_atlas_metadata.py`
+(sans rebuild), qui pose sur ATLNE la boîte de validité
+`[40.0, -20.03, 53.0, 3.0]` (golfe de Gascogne, Manche, mer Celtique) et la
+confiance `medium`.
