@@ -59,8 +59,12 @@ from openwind_data.currents.marc_atlas import MarcAtlasRegistry
 
 MS_TO_KN = 1.0 / 0.514444
 HFR_POINTS = {
-    "helgoland": (54.18, 7.90),
+    "helgoland": (54.18, 7.90),  # on the island's harbour: kept to show a bad point
+    "helgoland_se": (54.13, 7.95),
+    "helgoland_n": (54.26, 7.88),
     "elbe_approach": (54.00, 8.10),
+    "elbe_outer": (53.98, 8.45),
+    "eider_approach": (54.10, 8.60),
     "bight_mid": (54.30, 7.30),
     "elbe_mouth": (53.95, 8.40),
     "amrum_bank": (54.50, 8.20),
@@ -334,7 +338,13 @@ def hfr_check(
         "MU2",
     )
     for name, (lat, lon) in HFR_POINTS.items():
-        paths = sorted(hfr_dir.glob(f"hfr_{name}*.csv"))
+        # ``hfr_<name>.csv`` plus the per-year refetches ``hfr_<name>_2019.csv``;
+        # never ``hfr_<name>_se.csv``, which is another point.
+        paths = sorted(
+            p
+            for p in hfr_dir.glob(f"hfr_{name}*.csv")
+            if p.stem == f"hfr_{name}" or p.stem[len(f"hfr_{name}_") :].isdigit()
+        )
         if not paths:
             continue
         times, u, v = read_hfr(paths)
