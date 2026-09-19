@@ -77,7 +77,7 @@
     <label><span class="sw" style="background:var(--blocked)"></span><input type="checkbox" data-layer="src_blocked"> Bloquée <span class="count" id="c-src_blocked"></span></label>
     <label><span class="sw" style="background:var(--nocur)"></span><input type="checkbox" data-layer="src_nocur"> Sans courants <span class="count" id="c-src_nocur"></span></label>
   </details>
-  <div class="note">Le calcul « où il y a du courant » vient de MARC ATLNE (2 km) et ne dit rien d'une passe plus étroite que la maille : les passes connues complètent. La couverture est dessinée telle que la cascade la choisit, sans chevauchement.</div>
+  <div class="note">Le calcul « où il y a du courant » vient de MARC ATLNE (2 km) et ne dit rien d'une passe plus étroite que la maille : les passes connues complètent. La couverture est dessinée telle que la cascade la choisit, sans chevauchement, à la tuile près : le moteur exige en plus une cellule à moins de 5 km (ou cinq fois la résolution), donc en frange côtière la réponse au clic est indicative.</div>
 </div>
 <script src="data.js"></script>
 <script>
@@ -114,6 +114,11 @@
     return false;
   }
   const kmBetween = (lat1, lon1, lat2, lon2) => Math.hypot((lat2 - lat1) * 111, (lon2 - lon1) * 111 * Math.cos((lat1 + lat2) / 2 * Math.PI / 180));
+  // The SHOM registry scales longitudes with the cosine of the cloud's mean
+  // latitude, not of the local one; same ruler here so the 500 m threshold
+  // falls on the same points.
+  const shomCos = Math.cos(((D.shom && D.shom.mean_lat) || 48.0) * Math.PI / 180);
+  const kmShom = (lat1, lon1, lat2, lon2) => Math.hypot((lat2 - lat1) * 111, (lon2 - lon1) * 111 * shomCos);
 
   const cov = (D.coverage && D.coverage.features) || [];
   const shomZones = (D.shom && D.shom.zones) || [];
@@ -127,7 +132,7 @@
     let best = null;
     for (const p of shomPts) {
       if (Math.abs(p[0] - lat) > 0.01 || Math.abs(p[1] - lon) > 0.02) continue;
-      const d = kmBetween(lat, lon, p[0], p[1]);
+      const d = kmShom(lat, lon, p[0], p[1]);
       if (d <= shomMaxKm && (!best || d < best.d)) best = { d, label: shomZones[p[2]] };
     }
     if (best) return { label: best.label, name: 'SHOM Atlas C2D', cls: 'fine', confidence: 'haute', detail: `point SHOM à ${Math.round(best.d * 1000)} m` };
