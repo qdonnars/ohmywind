@@ -316,7 +316,9 @@ def shom_points(build_dir: Path) -> dict:
         if label not in index:
             index[label] = len(zones)
             zones.append(label)
-        pts.append([round(float(lat), 4), round(float(lon), 4), index[label]])
+        # Five decimals: four moved a point by up to 5 m and flipped the
+        # 500 m threshold on 0.25 % of the shoreline tests.
+        pts.append([round(float(lat), 5), round(float(lon), 5), index[label]])
     mean_lat = float(df["lat"].mean()) if df.height else 48.0
     return {"zones": zones, "points": pts, "mean_lat": round(mean_lat, 4)}
 
