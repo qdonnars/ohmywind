@@ -44,29 +44,30 @@
 <div id="map" role="application" aria-label="Carte des sources de courants de marée"></div>
 <div id="panel">
   <h1>Courants de marée dans le monde</h1>
-  <div class="sub" id="generated">Sources, couverture actuelle, trous. Généré par <code>scripts/build_tidal_world_map.py</code>.</div>
-  <fieldset><legend>Où les courants comptent</legend>
-    <label><span class="sw" style="background:#ffb84d"></span><input type="checkbox" data-layer="mask05" checked> ATLNE : max &gt; 0,5 kt <span class="count" id="c-mask05"></span></label>
-    <label><span class="sw" style="background:#e8590c"></span><input type="checkbox" data-layer="mask15" checked> ATLNE : max &gt; 1,5 kt <span class="count" id="c-mask15"></span></label>
-    <label><span class="sw pt" style="background:#111"></span><input type="checkbox" data-layer="gazetteer" checked> Passes, raz, estuaires (gazetteer) <span class="count" id="c-gazetteer"></span></label>
+  <div class="sub" id="generated">Où il y a du courant, ce que nous couvrons et à quelle précision, ce qui manque. Le nom des sources s'affiche au clic.</div>
+  <fieldset><legend>1. Où il y a du courant</legend>
+    <label><span class="sw" style="background:#ffb84d"></span><input type="checkbox" data-layer="mask05" checked> Plus de 0,5 kt (calculé, Atlantique NE)</label>
+    <label><span class="sw" style="background:#e8590c"></span><input type="checkbox" data-layer="mask15" checked> Plus de 1,5 kt (calculé, Atlantique NE)</label>
+    <label><span class="sw pt" style="background:#111"></span><input type="checkbox" data-layer="gazetteer" checked> Passes et raz connus, taille selon le courant <span class="count" id="c-gazetteer"></span></label>
   </fieldset>
-  <fieldset><legend>Couverture actuelle</legend>
-    <label><span class="sw" style="background:#e34a33"></span><input type="checkbox" data-layer="shom" checked> SHOM C2D (≤ 0,5 km d'un point) <span class="count" id="c-shom"></span></label>
-    <label><span class="sw" style="background:#2c7fb8"></span><input type="checkbox" data-layer="marc" checked> MARC PREVIMER <span class="count" id="c-marc"></span></label>
-    <label><span class="sw" style="background:var(--spike)"></span><input type="checkbox" data-layer="spike" checked> Spike BSH (cette PR) <span class="count" id="c-spike"></span></label>
-    <label><span class="sw" style="background:#bbb"></span><input type="checkbox" data-layer="smoc"> Open-Meteo SMOC 8 km (partout)</label>
+  <fieldset><legend>2. Ce que nous couvrons aujourd'hui</legend>
+    <label><span class="sw" style="background:#08306b"></span><input type="checkbox" data-layer="cov_fine" checked> Fin : 500 m ou mieux, résout une passe <span class="count" id="c-cov_fine"></span></label>
+    <label><span class="sw" style="background:#2b6cb0"></span><input type="checkbox" data-layer="cov_medium" checked> Moyen : jusqu'à 1 km, résout un estuaire <span class="count" id="c-cov_medium"></span></label>
+    <label><span class="sw" style="background:#9ecae1"></span><input type="checkbox" data-layer="cov_coarse" checked> Grossier : 2 km, dit seulement « il y a de la marée » <span class="count" id="c-cov_coarse"></span></label>
+    <label><span class="sw" style="background:#ddd"></span><input type="checkbox" data-layer="cov_global"> Mondial : 8 km, partout ailleurs</label>
+    <label><span class="sw" style="background:transparent;border:2px dashed #7b3fd4"></span><input type="checkbox" data-layer="cov_spike" checked> En préparation (spike BSH, pas en production) <span class="count" id="c-cov_spike"></span></label>
   </fieldset>
-  <fieldset><legend>Sources candidates (statut licence)</legend>
-    <label><span class="sw" style="background:var(--ok)"></span><input type="checkbox" data-layer="src_ok" checked> OK <span class="count" id="c-src_ok"></span></label>
-    <label><span class="sw" style="background:var(--clarify)"></span><input type="checkbox" data-layer="src_clarify" checked> À clarifier <span class="count" id="c-src_clarify"></span></label>
-    <label><span class="sw" style="background:var(--blocked)"></span><input type="checkbox" data-layer="src_blocked" checked> Bloquée <span class="count" id="c-src_blocked"></span></label>
+  <fieldset><legend>3. Ce qui manque</legend>
+    <label><span class="sw" style="background:#d43f3a"></span><input type="checkbox" data-layer="gap_mask" checked> Plus de 1,5 kt sans source fine ni moyenne <span class="count" id="c-gap_mask"></span></label>
+    <label><span class="sw pt" style="background:#fff;border:3px solid #d43f3a"></span><input type="checkbox" data-layer="gap_points" checked> Passe connue sans source fine ni moyenne <span class="count" id="c-gap_points"></span></label>
+  </fieldset>
+  <details><summary style="cursor:pointer;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;font-weight:600">Registre des sources candidates</summary>
+    <label><span class="sw" style="background:var(--ok)"></span><input type="checkbox" data-layer="src_ok"> Licence compatible <span class="count" id="c-src_ok"></span></label>
+    <label><span class="sw" style="background:var(--clarify)"></span><input type="checkbox" data-layer="src_clarify"> À clarifier <span class="count" id="c-src_clarify"></span></label>
+    <label><span class="sw" style="background:var(--blocked)"></span><input type="checkbox" data-layer="src_blocked"> Bloquée <span class="count" id="c-src_blocked"></span></label>
     <label><span class="sw" style="background:var(--nocur)"></span><input type="checkbox" data-layer="src_nocur"> Sans courants <span class="count" id="c-src_nocur"></span></label>
-    <label><span class="sw" style="background:var(--current)"></span><input type="checkbox" data-layer="src_current"> Dans la cascade <span class="count" id="c-src_current"></span></label>
-  </fieldset>
-  <fieldset><legend>Trous</legend>
-    <label><span class="sw pt" style="background:var(--blocked)"></span><input type="checkbox" data-layer="gaps" checked> Fort courant sans source ouverte <span class="count" id="c-gaps"></span></label>
-  </fieldset>
-  <div class="note">Les emprises des sources sont des boîtes indicatives. Masque calculé depuis MARC ATLNE (2 km) : rien n'est dit sur une passe plus étroite que la maille. Licences lues à la date indiquée dans chaque fiche.</div>
+  </details>
+  <div class="note">Le calcul « où il y a du courant » vient de MARC ATLNE (2 km) et ne dit rien d'une passe plus étroite que la maille : les passes connues complètent. Les emprises sont des boîtes. Une zone « manque » a souvent une source candidate : elle est nommée dans la fiche au clic.</div>
 </div>
 <script src="data.js"></script>
 <script>
@@ -102,69 +103,80 @@
       </dl>`;
   }
   function coveragePopup(p) {
-    return `<h3>${esc(p.name)}</h3><dl>${row('Rang', p.rank)}${row('Résolution', p.resolution_m ? p.resolution_m + ' m' : null)}
+    return `<h3>${esc(p.name)}</h3><dl>${row('Précision', esc(CLASS_LABEL[p.resolution_class] || p.resolution_class))}${row('Rang', p.rank)}${row('Résolution', p.resolution_m ? p.resolution_m + ' m' : null)}
       ${row('Points', p.points)}${row('Enregistrement analysé', p.record_hours ? p.record_hours + ' h' : null)}
       ${row('Résolus', p.resolved ? esc(p.resolved.join(', ')) : null)}</dl>`;
   }
   function gazPopup(p) {
-    return `<h3>${esc(p.name)}</h3><dl>${row('Pays', esc(p.country))}${row('Courant de vive-eau', p.max_spring_kt != null ? esc(p.max_spring_kt) + ' kt' + (p.uncertain ? ' (incertain)' : '') : null)}
-      ${row('Source ouverte', esc(p.open_source_status))}${row('Référence', p.source_url ? `<a href="${esc(p.source_url)}" target="_blank" rel="noopener">lien</a>` : null)}${row('Notes', esc(p.notes))}</dl>`;
+    const cov = p.best_source ? `${esc(p.best_source)} : ${esc(CLASS_LABEL[p.coverage_class] || '')}` : 'aucune, SMOC 8 km seulement';
+    const cands = (p.candidates || []).length ? p.candidates.map(esc).join('<br>') : 'aucune identifiée';
+    return `<h3>${esc(p.name)}</h3><dl>${row('Pays', esc(p.country))}${row('Courant de vive-eau publié', p.max_spring_text ? esc(p.max_spring_text) + ' kt' : null)}${row('Confiance', esc(p.confidence))}
+      ${row('Couverture actuelle', cov)}${row('Sources candidates', cands)}${row('Référence', p.source_url ? `<a href="${esc(p.source_url)}" target="_blank" rel="noopener">lien</a>` : null)}</dl>`;
   }
 
   const layers = {};
-  const counts = {};
-  function add(key, layer, n) { layers[key] = layer; counts[key] = n; const c = document.getElementById('c-' + key); if (c) c.textContent = n ? '(' + n + ')' : ''; }
+  function add(key, layer, n) { layers[key] = layer; const c = document.getElementById('c-' + key); if (c) c.textContent = n ? '(' + n + ')' : ''; }
+  const CLASS_LABEL = { fine: 'fin (500 m ou mieux)', medium: 'moyen (jusqu\'à 1 km)', coarse: 'grossier (2 km)', global: 'mondial (8 km)' };
+  const CLASS_COLOR = { fine: '#08306b', medium: '#2b6cb0', coarse: '#9ecae1', global: '#ddd' };
 
-  // Masks
-  const masks = D.masks || {};
-  Object.values(masks).forEach((fc) => {
-    (fc.features || []).forEach((f) => {
-      const key = f.properties.threshold_kt >= 1.5 ? 'mask15' : 'mask05';
-      const color = key === 'mask15' ? '#e8590c' : '#ffb84d';
-      const lyr = L.geoJSON(f, { style: { color, weight: 0.6, fillColor: color, fillOpacity: 0.35, interactive: false } });
-      add(key, lyr, (f.geometry.coordinates || []).length);
-    });
-  });
-  // Gazetteer + gaps (gaps = gazetteer entries flagged without an open source)
-  const gaz = (D.gazetteer && D.gazetteer.features) || [];
-  const gazLayer = L.geoJSON({ type: 'FeatureCollection', features: gaz.filter((f) => f.properties.open_source_status !== 'none') }, {
-    pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 4 + Math.min(6, (f.properties.max_spring_kt || 1)), color: '#111', weight: 1, fillColor: '#111', fillOpacity: 0.55 }),
+  // 1. Where the current is.
+  Object.values(D.masks || {}).forEach((fc) => (fc.features || []).forEach((f) => {
+    const key = f.properties.threshold_kt >= 1.5 ? 'mask15' : 'mask05';
+    const color = key === 'mask15' ? '#e8590c' : '#ffb84d';
+    add(key, L.geoJSON(f, { style: { color, weight: 0.6, fillColor: color, fillOpacity: 0.35, interactive: false } }), 0);
+  }));
+  const gaps = (D.gaps && D.gaps.features) || [];
+  const gazPts = gaps.filter((f) => f.geometry.type === 'Point');
+  const covered = gazPts.filter((f) => !['coarse', 'global'].includes(f.properties.coverage_class));
+  const uncovered = gazPts.filter((f) => ['coarse', 'global'].includes(f.properties.coverage_class));
+  const radius = (p) => 3 + Math.min(7, (p.max_spring_kt || 1) * 0.6);
+  add('gazetteer', L.geoJSON({ type: 'FeatureCollection', features: covered }, {
+    pointToLayer: (f, ll) => L.circleMarker(ll, { radius: radius(f.properties), color: '#111', weight: 1, fillColor: '#111', fillOpacity: 0.55 }),
     onEachFeature: (f, l) => l.bindPopup(gazPopup(f.properties))
-  });
-  add('gazetteer', gazLayer, gaz.filter((f) => f.properties.open_source_status !== 'none').length);
-  const gapsLayer = L.geoJSON({ type: 'FeatureCollection', features: gaz.filter((f) => f.properties.open_source_status === 'none') }, {
-    pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 5 + Math.min(6, (f.properties.max_spring_kt || 1)), color: css('var(--blocked)'), weight: 2, fillColor: css('var(--blocked)'), fillOpacity: 0.5 }),
-    onEachFeature: (f, l) => l.bindPopup(gazPopup(f.properties))
-  });
-  add('gaps', gapsLayer, gaz.filter((f) => f.properties.open_source_status === 'none').length);
+  }), covered.length);
 
-  // Current coverage
+  // 2. What we cover today, by resolution class.
   const cov = (D.coverage && D.coverage.features) || [];
-  const covStyle = { shom: '#e34a33', marc: '#2c7fb8', spike: css('var(--spike)'), smoc: '#bbb' };
-  ['shom', 'marc', 'spike', 'smoc'].forEach((k) => {
-    const feats = cov.filter((f) => f.properties.layer === k);
-    const lyr = L.geoJSON({ type: 'FeatureCollection', features: feats }, {
-      style: { color: covStyle[k], weight: k === 'smoc' ? 0.5 : 1.2, fillColor: covStyle[k], fillOpacity: k === 'smoc' ? 0.05 : 0.15 },
+  const isProd = (p) => p.layer === 'shom' || p.layer === 'marc';
+  ['fine', 'medium', 'coarse'].forEach((k) => {
+    const feats = cov.filter((f) => isProd(f.properties) && f.properties.resolution_class === k);
+    add('cov_' + k, L.geoJSON({ type: 'FeatureCollection', features: feats }, {
+      style: { color: CLASS_COLOR[k], weight: 1, fillColor: CLASS_COLOR[k], fillOpacity: k === 'coarse' ? 0.18 : 0.35 },
       onEachFeature: (f, l) => l.bindPopup(coveragePopup(f.properties))
-    });
-    add(k, lyr, feats.length);
+    }), feats.length);
   });
+  const smoc = cov.filter((f) => f.properties.layer === 'smoc');
+  add('cov_global', L.geoJSON({ type: 'FeatureCollection', features: smoc }, { style: { color: '#bbb', weight: 0.5, fillColor: '#ddd', fillOpacity: 0.15 }, onEachFeature: (f, l) => l.bindPopup(coveragePopup(f.properties)) }), 0);
+  const spike = cov.filter((f) => f.properties.layer === 'spike');
+  add('cov_spike', L.geoJSON({ type: 'FeatureCollection', features: spike }, {
+    style: { color: css('var(--spike)'), weight: 2, dashArray: '5 4', fillColor: css('var(--spike)'), fillOpacity: 0.08 },
+    onEachFeature: (f, l) => l.bindPopup(coveragePopup(f.properties))
+  }), spike.length);
 
-  // Candidate sources by status
+  // 3. What is missing.
+  const gapMask = gaps.filter((f) => f.geometry.type !== 'Point');
+  add('gap_mask', L.geoJSON({ type: 'FeatureCollection', features: gapMask }, {
+    style: { color: css('var(--blocked)'), weight: 0.8, fillColor: css('var(--blocked)'), fillOpacity: 0.45 },
+    onEachFeature: (f, l) => l.bindPopup(`<h3>Fort courant sans source fine</h3><p>${esc(f.properties.note)}</p>`)
+  }), gapMask.reduce((n, f) => n + (f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates.length : 1), 0));
+  add('gap_points', L.geoJSON({ type: 'FeatureCollection', features: uncovered }, {
+    pointToLayer: (f, ll) => L.circleMarker(ll, { radius: radius(f.properties) + 1, color: css('var(--blocked)'), weight: 3, fillColor: '#fff', fillOpacity: 0.9 }),
+    onEachFeature: (f, l) => l.bindPopup(gazPopup(f.properties))
+  }), uncovered.length);
+
+  // Registry of candidate sources, folded by default.
   const src = (D.sources && D.sources.features) || [];
-  const groups = { src_ok: 'ok', src_clarify: 'clarify', src_blocked: 'blocked', src_nocur: 'no_currents', src_current: 'current' };
+  const groups = { src_ok: 'ok', src_clarify: 'clarify', src_blocked: 'blocked', src_nocur: 'no_currents' };
   Object.entries(groups).forEach(([key, status]) => {
     const feats = src.filter((f) => f.properties.status === status);
     const color = css(STATUS[status]);
-    const lyr = L.geoJSON({ type: 'FeatureCollection', features: feats }, {
+    add(key, L.geoJSON({ type: 'FeatureCollection', features: feats }, {
       style: { color, weight: 1.5, dashArray: status === 'blocked' ? '4 4' : null, fillColor: color, fillOpacity: 0.06 },
       onEachFeature: (f, l) => l.bindPopup(sourcePopup(f.properties), { maxWidth: 380 })
-    });
-    add(key, lyr, feats.length);
+    }), feats.length);
   });
 
-  // Draw order: big boxes below, points on top.
-  ['smoc', 'src_current', 'src_nocur', 'src_blocked', 'src_clarify', 'src_ok', 'marc', 'shom', 'spike', 'mask05', 'mask15', 'gazetteer', 'gaps'].forEach((k) => {
+  ['cov_global', 'src_nocur', 'src_blocked', 'src_clarify', 'src_ok', 'cov_coarse', 'cov_medium', 'cov_fine', 'cov_spike', 'mask05', 'mask15', 'gap_mask', 'gazetteer', 'gap_points'].forEach((k) => {
     const box = document.querySelector(`input[data-layer="${k}"]`);
     if (layers[k] && box && box.checked) layers[k].addTo(map);
   });
