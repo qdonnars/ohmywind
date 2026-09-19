@@ -6,7 +6,7 @@
 <title>Courants de marée dans le monde : sources, couverture, trous</title>
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later
      SPDX-FileCopyrightText: 2026 Quentin Donnars
-     Page autonome : Leaflet + tuiles OpenStreetMap (sans clé), données dans data.js
+     Page autonome : Leaflet + tuiles EMODnet Bathymetry (sans clé), données dans data.js
      (généré par scripts/build_tidal_world_map.py). Ouvrir le fichier directement
      dans un navigateur suffit. -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -73,8 +73,10 @@
 (function () {
   const D = window.TIDAL_WORLD || {};
   const map = L.map('map', { worldCopyJump: true }).setView([52, 4], 5);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 12, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  // Fond EMODnet Bathymetry (sans clé, prévu pour cet usage) : les tuiles OSM
+  // refusent une page ouverte en local (403 « tile usage policy »).
+  L.tileLayer('https://tiles.emodnet-bathymetry.eu/2020/baselayer/web_mercator/{z}/{x}/{y}.png', {
+    maxZoom: 12, attribution: '&copy; <a href="https://emodnet.ec.europa.eu/en/bathymetry">EMODnet Bathymetry Consortium</a>'
   }).addTo(map);
 
   const STATUS = { ok: 'var(--ok)', clarify: 'var(--clarify)', blocked: 'var(--blocked)', no_currents: 'var(--nocur)', current: 'var(--current)' };
