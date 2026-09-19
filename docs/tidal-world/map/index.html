@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Courants de marée dans le monde : sources, couverture, trous</title>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later
+     SPDX-FileCopyrightText: 2026 Quentin Donnars
+     Page autonome : Leaflet + tuiles OpenStreetMap (sans clé), données dans data.js
+     (généré par scripts/build_tidal_world_map.py). Ouvrir le fichier directement
+     dans un navigateur suffit. -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<style>
+  :root { --bg: #f7f7f4; --fg: #1d1d1b; --muted: #6b6b66; --panel: #ffffff; --line: #d9d9d3;
+          --ok: #2a9d5c; --clarify: #e0a100; --blocked: #d43f3a; --current: #2f6fdd; --nocur: #8a8a84; --spike: #7b3fd4; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #14141a; --fg: #ecece6; --muted: #a2a29a; --panel: #1e1e26; --line: #33333d; } }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #map { position: absolute; inset: 0; }
+  #panel { position: absolute; top: 12px; left: 12px; z-index: 1000; width: min(340px, calc(100vw - 24px));
+           background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; box-shadow: 0 4px 18px rgba(0,0,0,.12);
+           max-height: calc(100vh - 24px); overflow: auto; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+  fieldset { border: 0; padding: 0; margin: 0 0 8px; }
+  legend { font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 4px; }
+  label { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
+  .sw { width: 14px; height: 14px; border-radius: 3px; flex: 0 0 auto; border: 1px solid rgba(0,0,0,.25); }
+  .sw.pt { border-radius: 50%; }
+  .count { color: var(--muted); font-size: 12px; margin-left: auto; }
+  .leaflet-popup-content { font-size: 13px; line-height: 1.4; min-width: 240px; }
+  .leaflet-popup-content h3 { margin: 0 0 6px; font-size: 14px; }
+  .leaflet-popup-content dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; }
+  .leaflet-popup-content dt { color: var(--muted); }
+  .leaflet-popup-content dd { margin: 0; }
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 999px; color: #fff; font-size: 11px; font-weight: 600; }
+  .note { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  a { color: var(--current); }
+</style>
+</head>
+<body>
+<div id="map" role="application" aria-label="Carte des sources de courants de marée"></div>
+<div id="panel">
+  <h1>Courants de marée dans le monde</h1>
+  <div class="sub" id="generated">Sources, couverture actuelle, trous. Généré par <code>scripts/build_tidal_world_map.py</code>.</div>
+  <fieldset><legend>Où les courants comptent</legend>
+    <label><span class="sw" style="background:#ffb84d"></span><input type="checkbox" data-layer="mask05" checked> ATLNE : max &gt; 0,5 kt <span class="count" id="c-mask05"></span></label>
+    <label><span class="sw" style="background:#e8590c"></span><input type="checkbox" data-layer="mask15" checked> ATLNE : max &gt; 1,5 kt <span class="count" id="c-mask15"></span></label>
+    <label><span class="sw pt" style="background:#111"></span><input type="checkbox" data-layer="gazetteer" checked> Passes, raz, estuaires (gazetteer) <span class="count" id="c-gazetteer"></span></label>
+  </fieldset>
+  <fieldset><legend>Couverture actuelle</legend>
+    <label><span class="sw" style="background:#e34a33"></span><input type="checkbox" data-layer="shom" checked> SHOM C2D (≤ 0,5 km d'un point) <span class="count" id="c-shom"></span></label>
+    <label><span class="sw" style="background:#2c7fb8"></span><input type="checkbox" data-layer="marc" checked> MARC PREVIMER <span class="count" id="c-marc"></span></label>
+    <label><span class="sw" style="background:var(--spike)"></span><input type="checkbox" data-layer="spike" checked> Spike BSH (cette PR) <span class="count" id="c-spike"></span></label>
+    <label><span class="sw" style="background:#bbb"></span><input type="checkbox" data-layer="smoc"> Open-Meteo SMOC 8 km (partout)</label>
+  </fieldset>
+  <fieldset><legend>Sources candidates (statut licence)</legend>
+    <label><span class="sw" style="background:var(--ok)"></span><input type="checkbox" data-layer="src_ok" checked> OK <span class="count" id="c-src_ok"></span></label>
+    <label><span class="sw" style="background:var(--clarify)"></span><input type="checkbox" data-layer="src_clarify" checked> À clarifier <span class="count" id="c-src_clarify"></span></label>
+    <label><span class="sw" style="background:var(--blocked)"></span><input type="checkbox" data-layer="src_blocked" checked> Bloquée <span class="count" id="c-src_blocked"></span></label>
+    <label><span class="sw" style="background:var(--nocur)"></span><input type="checkbox" data-layer="src_nocur"> Sans courants <span class="count" id="c-src_nocur"></span></label>
+    <label><span class="sw" style="background:var(--current)"></span><input type="checkbox" data-layer="src_current"> Dans la cascade <span class="count" id="c-src_current"></span></label>
+  </fieldset>
+  <fieldset><legend>Trous</legend>
+    <label><span class="sw pt" style="background:var(--blocked)"></span><input type="checkbox" data-layer="gaps" checked> Fort courant sans source ouverte <span class="count" id="c-gaps"></span></label>
+  </fieldset>
+  <div class="note">Les emprises des sources sont des boîtes indicatives. Masque calculé depuis MARC ATLNE (2 km) : rien n'est dit sur une passe plus étroite que la maille. Licences lues à la date indiquée dans chaque fiche.</div>
+</div>
+<script src="data.js"></script>
+<script>
+(function () {
+  const D = window.TIDAL_WORLD || {};
+  const map = L.map('map', { worldCopyJump: true }).setView([52, 4], 5);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 12, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(map);
+
+  const STATUS = { ok: 'var(--ok)', clarify: 'var(--clarify)', blocked: 'var(--blocked)', no_currents: 'var(--nocur)', current: 'var(--current)' };
+  const STATUS_LABEL = { ok: 'OK', clarify: 'à clarifier', blocked: 'bloquée', no_currents: 'sans courants', current: 'dans la cascade' };
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v.replace(/^var\(|\)$/g, '')).trim() || v;
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const row = (k, v) => v == null || v === '' ? '' : `<dt>${esc(k)}</dt><dd>${v}</dd>`;
+
+  function sourcePopup(p) {
+    const color = css(STATUS[p.status] || '#999');
+    return `<h3>${esc(p.name)}</h3>
+      <span class="badge" style="background:${color}">${esc(STATUS_LABEL[p.status] || p.status)}</span>
+      <dl style="margin-top:6px">
+      ${row('Fournisseur', esc(p.provider))}${row('Zone', esc(p.zone))}
+      ${row('Type', esc(p.kind))}${row('Résolution', p.resolution_m ? esc(p.resolution_m) + ' m' : null)}
+      ${row('Vertical', esc(p.vertical))}${row('Constituants', esc(p.constituents))}
+      ${row('Accès', esc(p.access))}${row('Archive', esc(p.archive))}
+      ${row('Licence', `<a href="${esc(p.licence_url)}" target="_blank" rel="noopener">${esc(p.licence)}</a> <small>(lue le ${esc(p.licence_read_at)})</small>`)}
+      ${row('Dérivés redistribuables', esc(p.derivative_redistribution))}
+      ${row('Attribution', esc(p.attribution))}
+      ${row('Effort', esc(p.effort))}${row('Étape roadmap', p.roadmap_step == null ? null : esc(p.roadmap_step))}
+      ${row('Notes', esc(p.notes))}
+      </dl>`;
+  }
+  function coveragePopup(p) {
+    return `<h3>${esc(p.name)}</h3><dl>${row('Rang', p.rank)}${row('Résolution', p.resolution_m ? p.resolution_m + ' m' : null)}
+      ${row('Points', p.points)}${row('Enregistrement analysé', p.record_hours ? p.record_hours + ' h' : null)}
+      ${row('Résolus', p.resolved ? esc(p.resolved.join(', ')) : null)}</dl>`;
+  }
+  function gazPopup(p) {
+    return `<h3>${esc(p.name)}</h3><dl>${row('Pays', esc(p.country))}${row('Courant de vive-eau', p.max_spring_kt != null ? esc(p.max_spring_kt) + ' kt' + (p.uncertain ? ' (incertain)' : '') : null)}
+      ${row('Source ouverte', esc(p.open_source_status))}${row('Référence', p.source_url ? `<a href="${esc(p.source_url)}" target="_blank" rel="noopener">lien</a>` : null)}${row('Notes', esc(p.notes))}</dl>`;
+  }
+
+  const layers = {};
+  const counts = {};
+  function add(key, layer, n) { layers[key] = layer; counts[key] = n; const c = document.getElementById('c-' + key); if (c) c.textContent = n ? '(' + n + ')' : ''; }
+
+  // Masks
+  const masks = D.masks || {};
+  Object.values(masks).forEach((fc) => {
+    (fc.features || []).forEach((f) => {
+      const key = f.properties.threshold_kt >= 1.5 ? 'mask15' : 'mask05';
+      const color = key === 'mask15' ? '#e8590c' : '#ffb84d';
+      const lyr = L.geoJSON(f, { style: { color, weight: 0.6, fillColor: color, fillOpacity: 0.35, interactive: false } });
+      add(key, lyr, (f.geometry.coordinates || []).length);
+    });
+  });
+  // Gazetteer + gaps (gaps = gazetteer entries flagged without an open source)
+  const gaz = (D.gazetteer && D.gazetteer.features) || [];
+  const gazLayer = L.geoJSON({ type: 'FeatureCollection', features: gaz.filter((f) => f.properties.open_source_status !== 'none') }, {
+    pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 4 + Math.min(6, (f.properties.max_spring_kt || 1)), color: '#111', weight: 1, fillColor: '#111', fillOpacity: 0.55 }),
+    onEachFeature: (f, l) => l.bindPopup(gazPopup(f.properties))
+  });
+  add('gazetteer', gazLayer, gaz.filter((f) => f.properties.open_source_status !== 'none').length);
+  const gapsLayer = L.geoJSON({ type: 'FeatureCollection', features: gaz.filter((f) => f.properties.open_source_status === 'none') }, {
+    pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 5 + Math.min(6, (f.properties.max_spring_kt || 1)), color: css('var(--blocked)'), weight: 2, fillColor: css('var(--blocked)'), fillOpacity: 0.5 }),
+    onEachFeature: (f, l) => l.bindPopup(gazPopup(f.properties))
+  });
+  add('gaps', gapsLayer, gaz.filter((f) => f.properties.open_source_status === 'none').length);
+
+  // Current coverage
+  const cov = (D.coverage && D.coverage.features) || [];
+  const covStyle = { shom: '#e34a33', marc: '#2c7fb8', spike: css('var(--spike)'), smoc: '#bbb' };
+  ['shom', 'marc', 'spike', 'smoc'].forEach((k) => {
+    const feats = cov.filter((f) => f.properties.layer === k);
+    const lyr = L.geoJSON({ type: 'FeatureCollection', features: feats }, {
+      style: { color: covStyle[k], weight: k === 'smoc' ? 0.5 : 1.2, fillColor: covStyle[k], fillOpacity: k === 'smoc' ? 0.05 : 0.15 },
+      onEachFeature: (f, l) => l.bindPopup(coveragePopup(f.properties))
+    });
+    add(k, lyr, feats.length);
+  });
+
+  // Candidate sources by status
+  const src = (D.sources && D.sources.features) || [];
+  const groups = { src_ok: 'ok', src_clarify: 'clarify', src_blocked: 'blocked', src_nocur: 'no_currents', src_current: 'current' };
+  Object.entries(groups).forEach(([key, status]) => {
+    const feats = src.filter((f) => f.properties.status === status);
+    const color = css(STATUS[status]);
+    const lyr = L.geoJSON({ type: 'FeatureCollection', features: feats }, {
+      style: { color, weight: 1.5, dashArray: status === 'blocked' ? '4 4' : null, fillColor: color, fillOpacity: 0.06 },
+      onEachFeature: (f, l) => l.bindPopup(sourcePopup(f.properties), { maxWidth: 380 })
+    });
+    add(key, lyr, feats.length);
+  });
+
+  // Draw order: big boxes below, points on top.
+  ['smoc', 'src_current', 'src_nocur', 'src_blocked', 'src_clarify', 'src_ok', 'marc', 'shom', 'spike', 'mask05', 'mask15', 'gazetteer', 'gaps'].forEach((k) => {
+    const box = document.querySelector(`input[data-layer="${k}"]`);
+    if (layers[k] && box && box.checked) layers[k].addTo(map);
+  });
+  document.querySelectorAll('input[data-layer]').forEach((box) => box.addEventListener('change', () => {
+    const l = layers[box.dataset.layer]; if (!l) return; box.checked ? l.addTo(map) : map.removeLayer(l);
+  }));
+  if (D.generated_at) document.getElementById('generated').textContent = 'Données générées le ' + D.generated_at.slice(0, 10) + ' par scripts/build_tidal_world_map.py.';
+})();
+</script>
+</body>
+</html>
