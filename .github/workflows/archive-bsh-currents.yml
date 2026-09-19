@@ -1,0 +1,74 @@
+# Archive the BSH surface-current forecasts (ftp.bsh.de/Stroemungsvorhersagen)
+# every day, because the FTP keeps about three days and a harmonic atlas
+# needs a year. See docs/tidal-world/README.md, section "Archivage".
+#
+# DISABLED BY DEFAULT: no schedule is active until the `if:` guard below is
+# switched to true. Enabling it means committing to an HF Dataset as
+# destination and to the volume below.
+#
+# Volume, measured on 2026-09-19 (bz2 sizes on the FTP): one day of the eight
+# German areas we care about (db, idb, nfi, ofi, AusAlt, CuxBru, BruPag,
+# PagHam) is about 55 MB across the two daily runs and their 2 to 3 forecast
+# days; keeping only the freshest file per calendar day (what the builder
+# selects) is about 22 MB/day, hence 8 GB/year raw or about 3 GB/year after
+# de-duplication by the builder. Adding the 3 nm North Sea grid (no) costs
+# 4 MB/day more. GitHub-hosted runner minutes: about 3 minutes per day.
+#
+# Destination: an HF Dataset (public, since the source is CC BY 4.0) named
+# by the HF_ARCHIVE_DATASET repository variable, written with the HF_TOKEN
+# secret (write scope on that dataset only). Nothing is written to the
+# private MARC dataset.
+
+name: Archive BSH currents
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 04:30 and 16:30 UTC: BSH publishes around 08:00 and 20:00 UTC
+    # (10:00 / 22:00 local); the FTP holds ~3 days so a missed run is fine.
+    - cron: "30 4,16 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  archive:
+    # Flip to `true` (and set the repository variable + secret) to enable.
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      AREAS: db,idb,nfi,ofi,AusAlt,CuxBru,BruPag,PagHam
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts/archive_bsh_currents.py
+          sparse-checkout-cone-mode: false
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Pull the existing manifest so we only fetch what is new
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_ARCHIVE_DATASET: ${{ vars.HF_ARCHIVE_DATASET }}
+        run: |
+          mkdir -p archive
+          uvx --from huggingface_hub hf download "$HF_ARCHIVE_DATASET" manifest.jsonl \
+            --repo-type dataset --local-dir archive || echo "no manifest yet"
+
+      - name: Fetch new GRIB2 files from ftp.bsh.de
+        run: |
+          uv run scripts/archive_bsh_currents.py --archive-dir archive --areas "$AREAS"
+          du -sh archive
+
+      - name: Push new files to the HF Dataset
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_ARCHIVE_DATASET: ${{ vars.HF_ARCHIVE_DATASET }}
+        run: |
+          # Upload only what this run fetched (the archive dir holds only
+          # new files plus the manifest, since nothing was pulled but the
+          # manifest). Files are immutable once published, so no overwrite.
+          uvx --from huggingface_hub hf upload "$HF_ARCHIVE_DATASET" archive . \
+            --repo-type dataset --commit-message "archive: $(date -u +%F)"
