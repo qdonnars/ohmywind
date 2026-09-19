@@ -263,6 +263,25 @@ def _merge_tiles_into_rectangles(tiles: Iterable[tuple[float, float]]) -> _Boxes
     return tuple(boxes)
 
 
+def _clip_boxes(boxes: _Boxes, clip: _Box | None) -> _Boxes:
+    """Intersect coverage rectangles with a validity box, dropping the rest.
+
+    Keeps the promise of :meth:`MarcAtlasRegistry.coverage_cells` exact once
+    ``covers`` refuses outside ``validity_bbox``: a client filtering on the
+    published rectangles must not be told to ask where the atlas will not
+    answer.
+    """
+    if clip is None:
+        return boxes
+    out: list[_Box] = []
+    for lat_min, lon_min, lat_max, lon_max in boxes:
+        c_lat_min, c_lon_min = max(lat_min, clip[0]), max(lon_min, clip[1])
+        c_lat_max, c_lon_max = min(lat_max, clip[2]), min(lon_max, clip[3])
+        if c_lat_min < c_lat_max and c_lon_min < c_lon_max:
+            out.append((c_lat_min, c_lon_min, c_lat_max, c_lon_max))
+    return tuple(out)
+
+
 @lru_cache(maxsize=32)
 def _atlas_coverage_cells(parquet_dir: str) -> _Boxes:
     """Rectangles covering the non-empty tiles of one atlas directory.
@@ -382,6 +401,9 @@ class MarcAtlasRegistry:
         precisely the case worth skipping (14 uncovered answers out of 14 in
         the live measurement).
 
+        Rectangles are clipped to the atlas's ``validity_bbox`` when it has
+        one, so the contract survives the validity rule.
+
         The contract, and it is exact rather than approximate: **a point
         outside every rectangle is a point :meth:`covers` refuses**;
         :attr:`AtlasMeta.bbox` stays the outer envelope. ``covers`` reads the
@@ -397,7 +419,10 @@ class MarcAtlasRegistry:
         directory: the walk reads one Parquet footer per tile and nothing
         else, but that is still thousands of file opens on a large atlas.
         """
-        return tuple((a.name, _atlas_coverage_cells(str(a.parquet_dir))) for a in self.atlases)
+        return tuple(
+            (a.name, _clip_boxes(_atlas_coverage_cells(str(a.parquet_dir)), a.validity_bbox))
+            for a in self.atlases
+        )
 
     # Tolerance for "the nearest cell is close enough to be considered valid".
     # Coverage polygons are bbox-only at build time, so the bbox can extend

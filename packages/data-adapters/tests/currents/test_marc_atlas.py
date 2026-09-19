@@ -733,3 +733,37 @@ def test_validity_bbox_confines_a_coarse_atlas_but_not_a_fine_one(tmp_path: Path
     registry = MarcAtlasRegistry.from_directory(tmp_path)
     atlas = registry.covers(47.0, -5.0)
     assert atlas is not None and atlas.source_label == "marc_atlne_w_2000m"
+
+
+def test_coverage_cells_are_clipped_to_the_validity_bbox(tmp_path: Path) -> None:
+    """Published rectangles never extend where ``covers`` would refuse."""
+    _write_single_cell_atlas(
+        tmp_path,
+        "ATLNE",
+        {
+            "atlas": "ATLNE",
+            "rank": 0,
+            "resolution_m": 2000,
+            "validity_bbox": [40.0, -20.0, 53.0, 3.0],
+            "schema_version": 3,
+        },
+        53.87,
+        8.70,
+    )
+    _write_single_cell_atlas(
+        tmp_path,
+        "ATLNE_W",
+        {
+            "atlas": "ATLNE_W",
+            "rank": 0,
+            "resolution_m": 2000,
+            "validity_bbox": [40.0, -20.0, 53.0, 3.0],
+            "schema_version": 3,
+        },
+        52.9,
+        2.9,
+    )
+    cells = dict(MarcAtlasRegistry.from_directory(tmp_path).coverage_cells())
+    assert cells["ATLNE"] == ()  # the only tile lies east of 3 E
+    # The western tile (52.5 to 53.0 N, 2.5 to 3.0 E) touches the box edge and is kept whole.
+    assert cells["ATLNE_W"] == ((52.5, 2.5, 53.0, 3.0),)
