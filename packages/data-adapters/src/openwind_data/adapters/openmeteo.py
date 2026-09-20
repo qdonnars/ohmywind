@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import re
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -417,7 +419,7 @@ class OpenMeteoAdapter:
             # fallback chain in ``estimate_passage`` can advance to the next
             # model without a 500.
             return WindSeries(model=model, points=())
-        return _parse_wind(resp.json(), model, start, end)
+        return _parse_wind(_json(resp), model, start, end)
 
     async def _fetch_sea(
         self,
@@ -440,7 +442,7 @@ class OpenMeteoAdapter:
             _raise_for_status_with_horizon(resp, "open-meteo-marine", start)
         except _OffCoverageError:
             return SeaSeries(points=())
-        return _parse_sea(resp.json(), start, end)
+        return _parse_sea(_json(resp), start, end)
 
     # ---- batched multi-coordinate prewarm --------------------------------
     # A passage samples one (lat, lon) per segment; the per-segment ``fetch``
@@ -570,7 +572,7 @@ class OpenMeteoAdapter:
             # Whole batch off-coverage: empty series per point → per-segment
             # fallback chain advances, same as the single-point path.
             return [WindSeries(model=model, points=()) for _ in points]
-        elems = _as_coord_list(resp.json(), len(points))
+        elems = _as_coord_list(_json(resp), len(points))
         return [_parse_wind(el, model, start, end) for el in elems]
 
     async def _fetch_sea_batch(
@@ -593,7 +595,7 @@ class OpenMeteoAdapter:
             _raise_for_status_with_horizon(resp, "open-meteo-marine", start)
         except _OffCoverageError:
             return [SeaSeries(points=()) for _ in points]
-        elems = _as_coord_list(resp.json(), len(points))
+        elems = _as_coord_list(_json(resp), len(points))
         return [_parse_sea(el, start, end) for el in elems]
 
 
@@ -606,7 +608,7 @@ def _error_reason(resp: httpx.Response) -> str:
     knowing the egress IP is spent for the day.
     """
     try:
-        payload = resp.json()
+        payload = _json(resp)
     except ValueError:
         return ""
     if not isinstance(payload, dict):
@@ -712,7 +714,7 @@ def _raise_for_status_with_horizon(
         raise UpstreamRateLimitError(reason, retry_after, window)
     if resp.status_code == 400:
         try:
-            payload = resp.json()
+            payload = _json(resp)
         except ValueError:
             payload = {}
         reason = str(payload.get("reason", ""))
@@ -757,6 +759,27 @@ def _slice_bundle(bundle: ForecastBundle, start: datetime, end: datetime) -> For
         sea=sliced_sea,
         requested_at=bundle.requested_at,
     )
+
+
+_BARE_NAN = re.compile(r"(?<=[:\[,])\s*nan(?=\s*[,\]}])")
+
+
+def _json(resp: httpx.Response) -> Any:
+    """``resp.json()`` that survives Open-Meteo's bare ``nan``.
+
+    A multi-coordinate request for a regional model returns, for a point
+    outside that model's domain, an element whose ``latitude`` and
+    ``longitude`` are the bare token ``nan``, which no JSON parser accepts:
+    the whole passage failed south of AROME's domain (Gibraltar, Lisbon,
+    Messina) with a decode error read as an invalid request. The token
+    becomes ``null``; such an element then parses to an empty series and the
+    per-segment fallback chain moves on to the next model, as for a proper
+    off-coverage answer.
+    """
+    try:
+        return resp.json()
+    except ValueError:
+        return json.loads(_BARE_NAN.sub("null", resp.text))
 
 
 def _as_coord_list(data: Any, n: int) -> list[dict[str, Any]]:

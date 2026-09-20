@@ -127,3 +127,35 @@ async def test_estimate_passage_call_count_independent_of_segments(
     assert report.segments
     assert fc.call_count == 1
     assert mr.call_count == 1
+
+
+@respx.mock
+async def test_prewarm_batch_survives_bare_nan_outside_a_regional_model(
+    forecast_marseille_arome, marine_porquerolles
+):
+    """South of AROME's domain Open-Meteo answers ``"latitude":nan`` (a bare
+    token, invalid JSON) for the out-of-domain points: the batch must parse,
+    those points get an empty series, the others keep their wind."""
+    import json as _json
+
+    off = '{"latitude":nan,"longitude":nan,"generationtime_ms":0.01,"utc_offset_seconds":0}'
+    body = "[" + _json.dumps(forecast_marseille_arome) + "," + off + "," + off + "]"
+    fc = respx.get(FORECAST_URL).mock(
+        return_value=httpx.Response(
+            200, content=body.encode(), headers={"content-type": "application/json"}
+        )
+    )
+    respx.get(MARINE_URL).mock(
+        return_value=httpx.Response(200, json=[marine_porquerolles] * len(POINTS))
+    )
+    adapter = OpenMeteoAdapter(http_min_interval_s=0)
+    start, end = _start_end()
+
+    await adapter.prewarm_batch(POINTS, start, end, [DEFAULT_MODEL])
+    assert fc.call_count == 1
+    first = await adapter.fetch(*POINTS[0], start, end, models=[DEFAULT_MODEL])
+    assert first.wind_by_model[DEFAULT_MODEL].points
+    for lat, lon in POINTS[1:]:
+        bundle = await adapter.fetch(lat, lon, start, end, models=[DEFAULT_MODEL])
+        assert bundle.wind_by_model[DEFAULT_MODEL].points == ()
+    assert fc.call_count == 1
