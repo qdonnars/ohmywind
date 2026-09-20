@@ -311,11 +311,15 @@
   display: grid;
   /* The value track may shrink below its content, and long identifiers
      (a Copernicus product id) break anywhere: nothing runs past the card. */
-  grid-template-columns: max-content minmax(0, 1fr);
+  /* Labels take at most two fifths of the card and wrap beyond that: a
+     max-content label column once ate the whole width on a phone and left
+     the values one letter per line. */
+  grid-template-columns: fit-content(40%) minmax(0, 1fr);
   gap: 2px 10px;
 }
 .methodo-map-popup-grid dt {
   color: #64748b;
+  overflow-wrap: normal;
 }
 .methodo-map-popup-grid dd {
   margin: 0;
