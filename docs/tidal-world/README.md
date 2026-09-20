@@ -1,7 +1,13 @@
 # Courants de marée partout dans le monde, étape par étape
 
-Rapport de recommandation. Branche `explore/tidal-currents-worldwide`, PR
-draft vers `dev`, rien de câblé dans le runtime.
+Rapport de recommandation issu de l'exploration `explore/tidal-currents-worldwide`
+(2026-09-19). Mise à jour du 2026-09-20 : la branche `feat/tidal-currents-coverage`
+regroupe ce rapport avec ce qu'il recommandait en premier, désormais fait :
+registry générique et règles de priorité dans les métadonnées (section 8,
+implémentée), ATLNE confiné à sa zone validée, page méthodologie avec la carte
+interactive dans `packages/web`, et l'avertissement `currents.tidal_gap` quand
+un tronçon sans source fine traverse une zone de fort courant. Les sections 8
+et 11 se lisent donc au passé pour la première PR.
 
 Chaque affirmation est marquée **[vérifié]** (source et date de consultation)
 ou **[supposé]**. Les licences ont toutes été lues le **2026-09-19** par
