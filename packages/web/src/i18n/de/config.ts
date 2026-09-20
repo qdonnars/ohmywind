@@ -184,7 +184,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.methodo.tidal.legend.target": "Nicht abgedeckt, offene Quelle identifiziert",
   "config.methodo.tidal.legend.blocked": "Nicht abgedeckt, Daten vorhanden, aber geschlossen oder unklar",
   "config.methodo.tidal.legend.unknown": "Nicht abgedeckt, keine bekannte Quelle",
-  "config.methodo.tidal.legend.passes": "Bekannte Passagen und Raz, gleiche Farben (abgedeckt = 1 km oder feiner)",
+  "config.methodo.tidal.legend.passes": "Bekannte Passagen und Raz, gleiche Farben; eine Passage gilt nur bei 1 km oder feiner als abgedeckt, auch mitten in einer grünen Zone",
   "config.methodo.tidal.legend.objective": "Zielgebiet",
   "config.methodo.tidal.note": "Anderswo nutzt die App das globale Open-Meteo-Modell SMOC mit 8 km. Die Berechnung „wo es Strom gibt“ stammt aus den Atlanten ATLNE (2 km) und FES2014 (7 km): eine Passage, die schmaler als das Gitter ist, erscheint dort nicht, die bekannten Passagen ergänzen sie.",
   "config.methodo.tidal.popup.title": "Hier nutzt die App",

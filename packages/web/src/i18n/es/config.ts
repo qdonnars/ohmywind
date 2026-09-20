@@ -181,7 +181,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.methodo.tidal.legend.target": "No cubierto, fuente abierta identificada",
   "config.methodo.tidal.legend.blocked": "No cubierto, datos existentes pero cerrados o por aclarar",
   "config.methodo.tidal.legend.unknown": "No cubierto, ninguna fuente conocida",
-  "config.methodo.tidal.legend.passes": "Pasos y rasas conocidos, mismos colores (cubierto = 1 km o más fino)",
+  "config.methodo.tidal.legend.passes": "Pasos y rasas conocidos, mismos colores; un paso solo cuenta como cubierto a 1 km o más fino, incluso dentro de una zona verde",
   "config.methodo.tidal.legend.objective": "Zona objetivo",
   "config.methodo.tidal.note": "En el resto, la aplicación usa el modelo global Open-Meteo SMOC a 8 km. El cálculo « dónde hay corriente » procede de los atlas ATLNE (2 km) y FES2014 (7 km): un paso más estrecho que la malla no aparece, los pasos conocidos lo completan.",
   "config.methodo.tidal.popup.title": "Aquí la aplicación usa",

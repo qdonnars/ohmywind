@@ -179,7 +179,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.methodo.tidal.legend.target": "Not covered, an open source is identified",
   "config.methodo.tidal.legend.blocked": "Not covered, data exists but is closed or unclear",
   "config.methodo.tidal.legend.unknown": "Not covered, no known source",
-  "config.methodo.tidal.legend.passes": "Known passes and races, same colours (covered = 1 km or finer)",
+  "config.methodo.tidal.legend.passes": "Known passes and races, same colours; a pass counts as covered only at 1 km or finer, even inside a green area",
   "config.methodo.tidal.legend.objective": "Target area",
   "config.methodo.tidal.note": "Elsewhere the app uses the global Open-Meteo SMOC model at 8 km. The \"where there is current\" computation comes from the ATLNE (2 km) and FES2014 (7 km) atlases: a pass narrower than the grid does not show there, the known passes complete it.",
   "config.methodo.tidal.popup.title": "Here the app uses",

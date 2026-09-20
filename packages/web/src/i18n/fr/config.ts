@@ -189,7 +189,7 @@ export const config = {
   "config.methodo.tidal.legend.target": "Non couvert, source ouverte identifiée",
   "config.methodo.tidal.legend.blocked": "Non couvert, données existantes mais fermées ou à clarifier",
   "config.methodo.tidal.legend.unknown": "Non couvert, aucune source connue",
-  "config.methodo.tidal.legend.passes": "Passes et raz connus, même code couleur (couvert = 1 km ou plus fin)",
+  "config.methodo.tidal.legend.passes": "Passes et raz connus, même code couleur ; une passe n'est couverte qu'à 1 km ou mieux, même au milieu d'une zone verte",
   "config.methodo.tidal.legend.objective": "Zone objectif",
   "config.methodo.tidal.note": "Ailleurs, l'application utilise le modèle global Open-Meteo SMOC à 8 km. Le calcul « où il y a du courant » vient des atlas ATLNE (2 km) et FES2014 (7 km) : une passe plus étroite que la maille n'y apparaît pas, les passes connues complètent.",
   "config.methodo.tidal.popup.title": "Ici, l'application utilise",
