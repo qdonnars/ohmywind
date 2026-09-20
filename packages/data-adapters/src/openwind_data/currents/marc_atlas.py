@@ -39,6 +39,10 @@ import polars as pl
 
 from openwind_data.currents.harmonic import predict as schureman_predict
 
+# Tile pitch of the historical MARC layout. An atlas may declare its own in
+# ``metadata.json`` (``grid.tile_deg``): a global 7 km atlas cut in 0.5 degree
+# tiles would be a quarter of a million files, and ``coverage_cells`` opens
+# one footer per tile at start-up.
 _TILE_SIZE_DEG = 0.5
 # m/s to knots — conversion shared with the runtime adapters layer.
 _MS_TO_KN = 1.0 / 0.514444
@@ -71,6 +75,7 @@ class AtlasMeta:
     zone: str = ""
     confidence: str = "high"
     validity_bbox: tuple[float, float, float, float] | None = None
+    tile_deg: float = _TILE_SIZE_DEG
 
     @property
     def source_label(self) -> str:
@@ -136,6 +141,7 @@ def _scan_atlas(parquet_dir: Path) -> AtlasMeta | None:
         zone=str(meta.get("zone") or meta["atlas"].lower()),
         confidence=str(meta.get("confidence") or "high"),
         validity_bbox=validity_bbox,
+        tile_deg=float((meta.get("grid") or {}).get("tile_deg") or _TILE_SIZE_DEG),
     )
 
 
@@ -151,11 +157,13 @@ def _read_tile(parquet_path: str) -> pl.DataFrame | None:
     return pl.read_parquet(parquet_path)
 
 
-def _tile_origin_of(lat: float, lon: float) -> tuple[float, float]:
+def _tile_origin_of(
+    lat: float, lon: float, tile_deg: float = _TILE_SIZE_DEG
+) -> tuple[float, float]:
     """South-west corner of the tile a point falls in, in degrees."""
     return (
-        float(np.floor(lat / _TILE_SIZE_DEG) * _TILE_SIZE_DEG),
-        float(np.floor(lon / _TILE_SIZE_DEG) * _TILE_SIZE_DEG),
+        float(np.floor(lat / tile_deg) * tile_deg),
+        float(np.floor(lon / tile_deg) * tile_deg),
     )
 
 
@@ -165,7 +173,9 @@ def _tile_path_at(atlas: AtlasMeta, tile_lat: float, tile_lon: float) -> Path:
     )
 
 
-def _neighbour_tiles(lat: float, lon: float) -> list[tuple[float, float, float]]:
+def _neighbour_tiles(
+    lat: float, lon: float, tile_deg: float = _TILE_SIZE_DEG
+) -> list[tuple[float, float, float]]:
     """The eight tiles around the one holding ``(lat, lon)``, nearest first.
 
     Each entry is ``(tile_lat, tile_lon, floor_distance_m)`` where the floor is
@@ -180,12 +190,12 @@ def _neighbour_tiles(lat: float, lon: float) -> list[tuple[float, float, float]]
     Distances use the same flat-earth ruler as the cell-distance check, so a
     tile is never opened for a cell the threshold would then reject.
     """
-    tile_lat, tile_lon = _tile_origin_of(lat, lon)
+    tile_lat, tile_lon = _tile_origin_of(lat, lon, tile_deg)
     m_per_deg_lon = _M_PER_DEG * float(np.cos(np.deg2rad(lat)))
     to_south = (lat - tile_lat) * _M_PER_DEG
-    to_north = (tile_lat + _TILE_SIZE_DEG - lat) * _M_PER_DEG
+    to_north = (tile_lat + tile_deg - lat) * _M_PER_DEG
     to_west = (lon - tile_lon) * m_per_deg_lon
-    to_east = (tile_lon + _TILE_SIZE_DEG - lon) * m_per_deg_lon
+    to_east = (tile_lon + tile_deg - lon) * m_per_deg_lon
 
     out: list[tuple[float, float, float]] = []
     for di, d_lat_m in ((-1, to_south), (0, 0.0), (1, to_north)):
@@ -195,8 +205,8 @@ def _neighbour_tiles(lat: float, lon: float) -> list[tuple[float, float, float]]
             floor_m = float(np.hypot(d_lat_m if di else 0.0, d_lon_m if dj else 0.0))
             out.append(
                 (
-                    tile_lat + di * _TILE_SIZE_DEG,
-                    tile_lon + dj * _TILE_SIZE_DEG,
+                    tile_lat + di * tile_deg,
+                    tile_lon + dj * tile_deg,
                     floor_m,
                 )
             )
@@ -237,7 +247,9 @@ def _tile_has_rows(parquet_path: Path) -> bool:
         return False
 
 
-def _merge_tiles_into_rectangles(tiles: Iterable[tuple[float, float]]) -> _Boxes:
+def _merge_tiles_into_rectangles(
+    tiles: Iterable[tuple[float, float]], tile_deg: float = _TILE_SIZE_DEG
+) -> _Boxes:
     """Coalesce ``(tile_lat, tile_lon)`` origins into as few boxes as possible.
 
     Run-length along longitude inside each latitude row: a row of adjacent
@@ -259,12 +271,12 @@ def _merge_tiles_into_rectangles(tiles: Iterable[tuple[float, float]]) -> _Boxes
         lons = sorted(rows[tile_lat])
         run_start = run_end = lons[0]
         for lon in lons[1:]:
-            if abs(lon - run_end - _TILE_SIZE_DEG) < 1e-9:
+            if abs(lon - run_end - tile_deg) < 1e-9:
                 run_end = lon
                 continue
-            boxes.append((tile_lat, run_start, tile_lat + _TILE_SIZE_DEG, run_end + _TILE_SIZE_DEG))
+            boxes.append((tile_lat, run_start, tile_lat + tile_deg, run_end + tile_deg))
             run_start = run_end = lon
-        boxes.append((tile_lat, run_start, tile_lat + _TILE_SIZE_DEG, run_end + _TILE_SIZE_DEG))
+        boxes.append((tile_lat, run_start, tile_lat + tile_deg, run_end + tile_deg))
     return tuple(boxes)
 
 
@@ -288,7 +300,7 @@ def _clip_boxes(boxes: _Boxes, clip: _Box | None) -> _Boxes:
 
 
 @lru_cache(maxsize=32)
-def _atlas_coverage_cells(parquet_dir: str) -> _Boxes:
+def _atlas_coverage_cells(parquet_dir: str, tile_deg: float = _TILE_SIZE_DEG) -> _Boxes:
     """Rectangles covering the non-empty tiles of one atlas directory.
 
     Module-level cache rather than per-instance state on purpose: the
@@ -313,7 +325,7 @@ def _atlas_coverage_cells(parquet_dir: str) -> _Boxes:
             parquet = lon_dir / "data.parquet"
             if parquet.is_file() and _tile_has_rows(parquet):
                 tiles.append((tile_lat, tile_lon))
-    return _merge_tiles_into_rectangles(tiles)
+    return _merge_tiles_into_rectangles(tiles, tile_deg)
 
 
 def _nearest_cell_with_distance(
@@ -425,7 +437,10 @@ class MarcAtlasRegistry:
         else, but that is still thousands of file opens on a large atlas.
         """
         return tuple(
-            (a.name, _clip_boxes(_atlas_coverage_cells(str(a.parquet_dir)), a.validity_bbox))
+            (
+                a.name,
+                _clip_boxes(_atlas_coverage_cells(str(a.parquet_dir), a.tile_deg), a.validity_bbox),
+            )
             for a in self.atlases
         )
 
@@ -491,7 +506,7 @@ class MarcAtlasRegistry:
         opens exactly one tile.
         """
         threshold = self._cell_threshold_m(atlas)
-        tile_lat, tile_lon = _tile_origin_of(lat, lon)
+        tile_lat, tile_lon = _tile_origin_of(lat, lon, atlas.tile_deg)
         df = _read_tile(str(_tile_path_at(atlas, tile_lat, tile_lon)))
         if df is None or df.height == 0:
             return None
@@ -502,7 +517,7 @@ class MarcAtlasRegistry:
             best, best_d = (df, found[0]), found[1]
         if not neighbours:
             return best
-        for n_lat, n_lon, floor_m in _neighbour_tiles(lat, lon):
+        for n_lat, n_lon, floor_m in _neighbour_tiles(lat, lon, atlas.tile_deg):
             if floor_m >= best_d:
                 # Sorted by floor distance, so nothing further can win either.
                 break

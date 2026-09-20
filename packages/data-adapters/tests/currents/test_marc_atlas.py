@@ -767,3 +767,65 @@ def test_coverage_cells_are_clipped_to_the_validity_bbox(tmp_path: Path) -> None
     assert cells["ATLNE"] == ()  # the only tile lies east of 3 E
     # The western tile (52.5 to 53.0 N, 2.5 to 3.0 E) touches the box edge and is kept whole.
     assert cells["ATLNE_W"] == ((52.5, 2.5, 53.0, 3.0),)
+
+
+def test_atlas_can_declare_its_own_tile_pitch(tmp_path: Path) -> None:
+    """A global atlas cut in 2 degree tiles is found, predicted and published.
+
+    ``grid.tile_deg`` in the metadata drives the tile lookup, the seam
+    search and the coverage rectangles; the 0.5 degree default stays what
+    every MARC atlas uses.
+    """
+    atlas_dir = tmp_path / "FES_GLOBAL"
+    atlas_dir.mkdir()
+    (atlas_dir / "metadata.json").write_text(
+        json.dumps(
+            {
+                "atlas": "FES_GLOBAL",
+                "zone": "global",
+                "rank": 0,
+                "resolution_m": 7000,
+                "source": {"short": "fes"},
+                "grid": {"type": "regular_ll", "tile_deg": 2.0},
+                "schema_version": 3,
+            }
+        )
+    )
+    (atlas_dir / "coverage.geojson").write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {"atlas": "FES_GLOBAL"},
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[[0, 50], [12, 50], [12, 56], [0, 56], [0, 50]]],
+                        },
+                    }
+                ],
+            }
+        )
+    )
+    tile_dir = atlas_dir / "tile_lat=52.0" / "tile_lon=8.0"
+    tile_dir.mkdir(parents=True)
+    pl.DataFrame(
+        {
+            "lat": [53.1],
+            "lon": [9.3],
+            "M2_u_amp": [0.4],
+            "M2_u_g": [100.0],
+            "M2_v_amp": [0.1],
+            "M2_v_g": [190.0],
+        }
+    ).write_parquet(tile_dir / "data.parquet")
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    atlas = registry.covers(53.12, 9.31)
+    assert atlas is not None and atlas.tile_deg == 2.0
+    assert atlas.source_label == "fes_global_7000m"
+    # 7 km pitch: the threshold is 5 x 7 km = 35 km, so a point 20 km away
+    # in the same 2 degree tile is still answered by that cell.
+    assert registry.covers(53.28, 9.30) is atlas
+    assert registry.predict_current(53.12, 9.31, datetime(2026, 9, 20, tzinfo=UTC)) is not None
+    assert dict(registry.coverage_cells())["FES_GLOBAL"] == ((52.0, 8.0, 54.0, 10.0),)
