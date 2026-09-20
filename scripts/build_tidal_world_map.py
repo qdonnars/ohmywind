@@ -152,7 +152,7 @@ def _tile_deg(meta: dict) -> float:
     return float((meta.get("grid") or {}).get("tile_deg") or 0.5)
 
 
-def current_coverage(build_dir: Path) -> dict:
+def current_coverage(build_dir: Path, shipped: frozenset[str] = frozenset()) -> dict:
     feats: list[dict] = []
     for cov in sorted(build_dir.glob("marc/*/coverage.geojson")):
         meta = json.loads((cov.parent / "metadata.json").read_text())
@@ -220,7 +220,7 @@ def current_coverage(build_dir: Path) -> dict:
                     "type": "Feature",
                     "properties": {
                         "layer": "built",
-                        "shipped": False,
+                        "shipped": meta["atlas"] in shipped,
                         "name": f"{meta.get('label') or meta['atlas']} ({meta['resolution_m']} m)",
                         "label": f"{short}_{zone}_{meta['resolution_m']}m",
                         "rank": meta["rank"],
@@ -268,15 +268,31 @@ def resolution_class(res_m: float | None) -> str:
     return "global"
 
 
-# The four colours of the page. An area of strong current (1.5 kt mask) is
-# "covered" when a tidal source at COVER_MAX_M or finer serves it (MARC, a
-# built atlas; SHOM is points inside MARC), "target" when an open-licence
+# The four colours of the page. Green is where the tide is worth a look
+# (0.5 kt mask) and a tidal source at COVER_MAX_M or finer serves it (MARC,
+# a built atlas; SHOM is points inside MARC): drawn over the whole covered
+# extent, not only the strong zones, so the rade de Brest or the Elbe read
+# as covered rather than as "no current". The other three colours are the
+# strong zones (1.5 kt mask) nothing covers: "target" when an open-licence
 # gridded source of that class exists there, "blocked" when the only known
 # sources are closed or unclear, "unknown" when the registry knows nothing.
 # A pass needs MEDIUM_M or finer to count as covered or as targetable.
 COVER_MAX_M = 5000
 COVERED_LAYERS = ("shom", "marc", "built")
 GRID_KINDS = ("forecast_grid", "harmonic_constants")
+
+
+def _served(props: dict) -> bool:
+    """A source the runtime answers with today: SHOM, MARC, or a built atlas
+    already published in the dataset. A built atlas still under ``build/``
+    is an open source at hand, not coverage: the map must not promise what
+    the server does not serve."""
+    layer = props["layer"]
+    if layer in ("shom", "marc"):
+        return True
+    return layer == "built" and bool(props.get("shipped"))
+
+
 ZONE_STATUSES = ("covered", "target", "blocked", "unknown")
 
 
@@ -318,27 +334,42 @@ def zone_status(coverage: dict, masks: dict, sources: dict) -> dict:
     from shapely.ops import unary_union
     from shapely.validation import make_valid
 
-    strong = unary_union(
-        [
-            make_valid(shape(f["geometry"]))
-            for fc in masks.values()
-            for f in fc["features"]
-            if f["properties"].get("threshold_kt", 0) >= 1.5
-        ]
-    )
+    def mask_union(threshold: float):
+        return unary_union(
+            [
+                make_valid(shape(f["geometry"]))
+                for fc in masks.values()
+                for f in fc["features"]
+                if f["properties"].get("threshold_kt", 0) >= threshold
+            ]
+        )
+
+    strong = mask_union(1.5)
+    notable = mask_union(0.5)
+    fine_enough = [
+        f
+        for f in coverage["features"]
+        if f["properties"]["layer"] in COVERED_LAYERS
+        and (f["properties"].get("resolution_m") or 10**9) <= COVER_MAX_M
+    ]
     covered = unary_union(
         [
             make_valid(shape(f["geometry"]))
-            for f in coverage["features"]
-            if f["properties"]["layer"] in COVERED_LAYERS
-            and (f["properties"].get("resolution_m") or 10**9) <= COVER_MAX_M
+            for f in fine_enough
+            if _served(f["properties"])
         ]
     )
+    at_hand = [
+        make_valid(shape(f["geometry"]))
+        for f in fine_enough
+        if not _served(f["properties"])
+    ]
     if not covered.is_valid or not strong.is_valid:
         raise RuntimeError("invalid geometry after union, check the coverage layer")
     open_src, closed_src = _source_unions(sources, COVER_MAX_M, unknown_res_ok=True)
+    open_src = unary_union([open_src, *at_hand])
     rest = _polygonal(strong.difference(covered))
-    parts = {"covered": _polygonal(strong.intersection(covered))}
+    parts = {"covered": _polygonal(notable.intersection(covered))}
     parts["target"] = _polygonal(rest.intersection(open_src))
     rest = _polygonal(rest.difference(open_src))
     parts["blocked"] = _polygonal(rest.intersection(closed_src))
@@ -386,9 +417,20 @@ def compute_gaps(
     prod = [
         (shape(f["geometry"]), f["properties"])
         for f in coverage["features"]
-        if f["properties"]["layer"] in COVERED_LAYERS
+        if f["properties"]["layer"] in COVERED_LAYERS and _served(f["properties"])
+    ]
+    at_hand = [
+        (shape(f["geometry"]), f["properties"])
+        for f in coverage["features"]
+        if f["properties"]["layer"] == "built" and not _served(f["properties"])
     ]
     open_fine_src, closed_src = _source_unions(sources, MEDIUM_M, unknown_res_ok=False)
+    open_fine_src = unary_union(
+        [
+            open_fine_src,
+            *[g for g, p in at_hand if (p.get("resolution_m") or 10**9) <= MEDIUM_M],
+        ]
+    )
     fine_union = unary_union(
         [g for g, p in prod if (p.get("resolution_m") or 10**9) <= MEDIUM_M]
     )
@@ -418,7 +460,11 @@ def compute_gaps(
                     best = (res, p["name"])
         klass = resolution_class(best[0] if best else None)
         cands = sorted(
-            (p["name"], p.get("resolution_m")) for g, p in candidates if g.contains(pt)
+            {
+                (p["name"], p.get("resolution_m"))
+                for g, p in [*candidates, *at_hand]
+                if g.contains(pt)
+            }
         )
         props = {
             **f["properties"],
@@ -539,7 +585,7 @@ GAPS_FILES = (
 )
 
 
-def server_gaps(coverage: dict, masks: dict, gaps: dict, include_built: bool) -> dict:
+def server_gaps(coverage: dict, masks: dict, gaps: dict) -> dict:
     """The snapshot behind the ``currents.tidal_gap`` notice, server and web.
 
     Worldwide, unlike the map's gap layer which stays inside the target area:
@@ -547,9 +593,10 @@ def server_gaps(coverage: dict, masks: dict, gaps: dict, include_built: bool) ->
     tags high confidence), plus the known passes without such a source. The
     two copies must stay identical (``tidalGaps.test.ts`` reads the web one).
 
-    Only shipped sources count unless ``include_built``: an atlas built here
-    but not yet in the dataset must keep the warning alive where it will one
-    day answer, otherwise Cuxhaven loses its notice before BSH serves it.
+    Only SHOM and MARC are subtracted, never a built atlas even once it is
+    published: the engine only raises the notice where the served source is
+    not fine, so listing Cuxhaven costs nothing while BSH answers there and
+    keeps the warning for a deployment that lacks the atlas.
     """
     from shapely.geometry import mapping, shape
     from shapely.ops import unary_union
@@ -563,7 +610,7 @@ def server_gaps(coverage: dict, masks: dict, gaps: dict, include_built: bool) ->
             if f["properties"].get("threshold_kt", 0) >= 1.5
         ]
     )
-    layers = COVERED_LAYERS if include_built else ("shom", "marc")
+    layers = ("shom", "marc")
     fine_feats = [
         f
         for f in coverage["features"]
@@ -703,9 +750,9 @@ def main(argv: list[str] | None = None) -> int:
         help="rewrite the tidal_gaps snapshot served by the engine and bundled by the web app",
     )
     parser.add_argument(
-        "--gaps-include-built",
-        action="store_true",
-        help="count the atlases built under build/ as served (after their publication)",
+        "--shipped",
+        default="BSH_AUSALT,BSH_CUXBRU,BSH_DB,BSH_IDB",
+        help="built atlases already published in the dataset, comma separated",
     )
     parser.add_argument(
         "--web-dir",
@@ -729,7 +776,8 @@ def main(argv: list[str] | None = None) -> int:
     }
     coverage_path = MAP_DIR / "coverage_current.geojson"
     if not args.skip_coverage and args.build_dir.exists():
-        coverage = current_coverage(args.build_dir)
+        shipped = frozenset(x.strip() for x in args.shipped.split(",") if x.strip())
+        coverage = current_coverage(args.build_dir, shipped)
         coverage_path.write_text(json.dumps(coverage, separators=(",", ":")))
         print(f"coverage_current.geojson: {len(coverage['features'])} features")
     coverage = (
@@ -806,7 +854,7 @@ def main(argv: list[str] | None = None) -> int:
         export_web(args.web_dir, masks, gaps, status, objective, coverage, sources)
     if args.write_gaps:
         snapshot = json.dumps(
-            server_gaps(coverage, masks, gaps, args.gaps_include_built),
+            server_gaps(coverage, masks, gaps),
             ensure_ascii=False,
             separators=(",", ":"),
         )

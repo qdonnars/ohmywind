@@ -113,62 +113,66 @@ def _closing(a: np.ndarray) -> np.ndarray:
     return _shift_max(_shift_max(a, np.max), np.min)
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--atlas-dir", type=Path, default=Path("build/marc/ATLNE"))
-    parser.add_argument(
-        "--out", type=Path, default=Path("docs/tidal-world/map/mask_atlne.geojson")
-    )
-    parser.add_argument(
-        "--grid-deg", type=float, default=0.02, help="raster pitch for contouring"
-    )
-    parser.add_argument("--simplify-deg", type=float, default=0.01)
-    parser.add_argument("--days", type=int, default=15)
-    parser.add_argument(
-        "--min-area-deg2",
-        type=float,
-        default=0.003,
-        help="drop speckles smaller than this (0.003 deg^2 is about 7 pixels at 0.02 deg)",
-    )
-    args = parser.parse_args(argv)
+def _auto_grid_deg(resolution_m: float | None) -> float:
+    """Raster pitch of about one and a half atlas cells, never finer than 100 m."""
+    res = float(resolution_m or 2000.0)
+    return max(0.001, round(res * 1.5 / 111_000.0, 4))
 
-    meta = json.loads((args.atlas_dir / "metadata.json").read_text())
-    src = meta.get("source")
-    source_label = (
-        f"{src.get('name') if isinstance(src, dict) else src or meta.get('label') or meta['atlas']}"
-        ", harmonic atlas in the standard format (docs/harmonic_atlas_format.md)"
-    )
+
+def mask_of_atlas(
+    atlas_dir: Path,
+    *,
+    grid_deg: float | None,
+    days: int,
+    min_area_deg2: float | None,
+    simplify_deg: float | None,
+) -> tuple[dict, dict[float, MultiPolygon]]:
+    """``(metadata, {threshold_kt: MultiPolygon})`` for one atlas.
+
+    The raster pitch, the speckle floor and the simplification default to
+    the atlas resolution, so a 250 m atlas draws the goulet de Brest and a
+    7 km one draws the world without a quarter of a billion pixels. The
+    result is clipped to the atlas ``validity_bbox`` when it declares one:
+    a mask from ATLNE in the North Sea would show tide where the atlas is
+    not trusted.
+    """
+    from rasterio import features
+    from rasterio.transform import from_origin
+    from shapely.geometry import box, shape
+
+    meta = json.loads((atlas_dir / "metadata.json").read_text())
+    g = grid_deg or _auto_grid_deg(meta.get("resolution_m"))
+    min_area = min_area_deg2 if min_area_deg2 is not None else 7 * g * g
+    simplify = simplify_deg if simplify_deg is not None else g / 2
     t0 = time.perf_counter()
-    start = datetime(
-        2026, 3, 1, tzinfo=UTC
-    )  # any start: a full spring/neap cycle follows
-    times = [start + timedelta(hours=h) for h in range(24 * args.days)]
+    start = datetime(2026, 3, 1, tzinfo=UTC)  # any start: a spring/neap cycle follows
+    times = [start + timedelta(hours=h) for h in range(24 * days)]
     x_cache: dict = {}
     lats, lons, speeds = [], [], []
-    tiles = sorted(args.atlas_dir.glob("tile_lat=*/tile_lon=*/data.parquet"))
+    tiles = sorted(atlas_dir.glob("tile_lat=*/tile_lon=*/data.parquet"))
     for i, tile in enumerate(tiles):
         df = pl.read_parquet(tile)
         if df.height == 0:
             continue
-        s = max_speed_of_tile(df, x_cache, times)
         lats.append(df["lat"].to_numpy())
         lons.append(df["lon"].to_numpy())
-        speeds.append(s)
-        if i % 200 == 0:
+        speeds.append(max_speed_of_tile(df, x_cache, times))
+        if i % 200 == 0 and i:
             print(
                 f"  {i}/{len(tiles)} tiles, {time.perf_counter() - t0:.0f} s",
                 file=sys.stderr,
             )
+    if not lats:
+        return meta, {thr: MultiPolygon([]) for thr in THRESHOLDS_KN}
     lat = np.concatenate(lats)
     lon = np.concatenate(lons)
     kn = np.concatenate(speeds) * MS_TO_KN
     print(
-        f"{lat.size} cells; max {np.nanmax(kn):.2f} kt; p50 {np.nanmedian(kn):.2f} kt",
+        f"[{meta.get('atlas')}] {lat.size} cells at {g} deg; max {np.nanmax(kn):.2f} kt; "
+        f"p50 {np.nanmedian(kn):.2f} kt",
         file=sys.stderr,
     )
-
     # Rasterise on a regular grid (max per pixel), then contour.
-    g = args.grid_deg
     lat_edges = np.arange(np.floor(lat.min()), np.ceil(lat.max()) + g, g)
     lon_edges = np.arange(np.floor(lon.min()), np.ceil(lon.max()) + g, g)
     iy = np.clip(((lat - lat_edges[0]) / g).astype(int), 0, lat_edges.size - 2)
@@ -178,20 +182,18 @@ def main(argv: list[str] | None = None) -> int:
     order = np.argsort(kn)
     raster.ravel()[flat[order]] = kn[order]  # last write wins: the max
     filled = np.where(np.isfinite(raster), raster, 0.0)
-
-    from rasterio import features
-    from rasterio.transform import from_origin
-    from shapely.geometry import shape
-
     # A pixel with no cell (the atlas pitch in longitude exceeds the raster
     # pitch at high latitude, or a land-locked gap) would cut the mask into
     # stripes: close one-pixel holes with a 3x3 dilation followed by a 3x3
     # erosion before contouring.
     filled = _closing(filled)
-    # Row 0 of ``filled`` is the southernmost row; rasterio expects north-up.
-    north_up = filled[::-1]
+    north_up = filled[::-1]  # row 0 is the southernmost row; rasterio expects north-up
     transform = from_origin(lon_edges[0], lat_edges[-1], g, g)
-    features_out = []
+    clip = None
+    vb = meta.get("validity_bbox")
+    if vb:
+        clip = box(vb[1], vb[0], vb[3], vb[2])
+    out: dict[float, MultiPolygon] = {}
     for thr in THRESHOLDS_KN:
         above = (north_up >= thr).astype(np.uint8)
         polys = [
@@ -201,37 +203,109 @@ def main(argv: list[str] | None = None) -> int:
             )
             if value == 1
         ]
-        polys = [p for p in polys if p.area >= args.min_area_deg2]
-        merged = unary_union(polys).simplify(args.simplify_deg, preserve_topology=True)
+        polys = [p for p in polys if p.area >= min_area]
+        merged = unary_union(polys).simplify(simplify, preserve_topology=True)
+        if clip is not None:
+            merged = merged.intersection(clip)
         if merged.is_empty:
             merged = MultiPolygon([])
         elif merged.geom_type == "Polygon":
+            merged = MultiPolygon([merged])
+        elif merged.geom_type == "GeometryCollection":
+            merged = MultiPolygon([p for p in merged.geoms if p.geom_type == "Polygon"])
+        out[thr] = merged
+        print(
+            f"  {thr} kt: {len(merged.geoms)} polygons, area {merged.area:.2f} deg^2",
+            file=sys.stderr,
+        )
+    return meta, out
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument(
+        "--atlas-dir",
+        type=Path,
+        nargs="+",
+        default=[Path("build/marc/ATLNE")],
+        help="one or more atlases; their masks are merged per threshold",
+    )
+    parser.add_argument(
+        "--out", type=Path, default=Path("docs/tidal-world/map/mask_atlne.geojson")
+    )
+    parser.add_argument(
+        "--name", default=None, help="mask name (default: from the first atlas)"
+    )
+    parser.add_argument(
+        "--grid-deg",
+        type=float,
+        default=None,
+        help="raster pitch (default: 1.5 atlas cells)",
+    )
+    parser.add_argument("--simplify-deg", type=float, default=None)
+    parser.add_argument("--days", type=int, default=15)
+    parser.add_argument(
+        "--min-area-deg2",
+        type=float,
+        default=None,
+        help="drop speckles smaller than this (default: about 7 pixels)",
+    )
+    args = parser.parse_args(argv)
+
+    t0 = time.perf_counter()
+    metas = []
+    per_thr: dict[float, list] = {thr: [] for thr in THRESHOLDS_KN}
+    for atlas_dir in args.atlas_dir:
+        meta, masks = mask_of_atlas(
+            atlas_dir,
+            grid_deg=args.grid_deg,
+            days=args.days,
+            min_area_deg2=args.min_area_deg2,
+            simplify_deg=args.simplify_deg,
+        )
+        metas.append(meta)
+        for thr, geom in masks.items():
+            if not geom.is_empty:
+                per_thr[thr].append(geom)
+    features_out = []
+    for thr in THRESHOLDS_KN:
+        merged = unary_union(per_thr[thr]) if per_thr[thr] else MultiPolygon([])
+        if merged.geom_type == "Polygon":
             merged = MultiPolygon([merged])
         features_out.append(
             {
                 "type": "Feature",
                 "properties": {
                     "threshold_kt": thr,
-                    "atlas": meta.get("atlas"),
-                    "resolution_m": meta.get("resolution_m"),
+                    "atlas": ", ".join(str(m.get("atlas")) for m in metas),
+                    "resolution_m": min(
+                        int(m.get("resolution_m") or 10**9) for m in metas
+                    ),
                     "method": f"max speed over {args.days} days hourly, all constituents",
                     "area_deg2": round(merged.area, 2),
                 },
                 "geometry": mapping(merged),
             }
         )
-        print(
-            f"  {thr} kt: {len(merged.geoms)} polygons, area {merged.area:.1f} deg^2",
-            file=sys.stderr,
+    sources = []
+    for m in metas:
+        src = m.get("source")
+        sources.append(
+            str(
+                src.get("name")
+                if isinstance(src, dict)
+                else src or m.get("label") or m["atlas"]
+            )
         )
-    features = features_out
+    name = args.name or str(metas[0].get("atlas", "atlas")).lower()
     args.out.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "type": "FeatureCollection",
-        "name": f"tidal_current_mask_{meta.get('atlas', 'atlas').lower()}",
+        "name": f"tidal_current_mask_{name}",
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
-        "source": source_label,
-        "features": features,
+        "source": "; ".join(sources)
+        + ", harmonic atlases in the standard format (docs/harmonic_atlas_format.md)",
+        "features": features_out,
     }
     args.out.write_text(json.dumps(payload, separators=(",", ":")))
     print(

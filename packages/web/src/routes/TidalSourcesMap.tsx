@@ -96,15 +96,21 @@ async function loadJson<T>(name: string): Promise<T> {
   return (await resp.json()) as T;
 }
 
-/** The computed "where the current is" masks, finest first: ATLNE (2 km,
-    North-East Atlantic) over FES2014 (7 km, world) when the latter has been
-    built. A missing file is simply skipped. */
+/** The computed "where the current is" masks, finest first: the fine
+    atlases (MARC 250 to 700 m, BSH 90 to 926 m), the Copernicus regional
+    ones (1.5 to 4 km), ATLNE (2 km, in its validity box) and FES2014 (7 km,
+    the world). A missing file is simply skipped. */
 async function loadMasks(): Promise<MaskFC> {
-  const [atlne, fes] = await Promise.all(
-    ["mask_atlne.geojson", "mask_fes.geojson"].map((name) => loadJson<MaskFC>(name).catch(() => null)),
+  const [fine, cmems, atlne, fes] = await Promise.all(
+    ["mask_fine.geojson", "mask_cmems.geojson", "mask_atlne.geojson", "mask_fes.geojson"].map((name) =>
+      loadJson<MaskFC>(name).catch(() => null),
+    ),
   );
   const worldwide = (fes?.features ?? []).map((f) => ({ ...f, properties: { ...f.properties, global: true } }));
-  return { type: "FeatureCollection", features: [...(atlne?.features ?? []), ...worldwide] };
+  return {
+    type: "FeatureCollection",
+    features: [...(fine?.features ?? []), ...(cmems?.features ?? []), ...(atlne?.features ?? []), ...worldwide],
+  };
 }
 
 async function loadLayers(): Promise<Layers> {

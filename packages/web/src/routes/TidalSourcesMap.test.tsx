@@ -85,11 +85,11 @@ describe("TidalSourcesMap", () => {
     for (const name of Object.keys(FILES)) expect(fetched.some((u) => u.endsWith(name))).toBe(true);
     // The worldwide mask is optional: asked for, tolerated when absent.
     expect(fetched.some((u) => u.endsWith("mask_fes.geojson"))).toBe(true);
-    expect(screen.getByText(/Là où le courant de marée dépasse 1,5 kt/)).toBeTruthy();
+    expect(screen.getByText(/Courant de marée calculé depuis les atlas/)).toBeTruthy();
     expect(screen.getByText(/^Couvert :/)).toBeTruthy();
     expect(screen.getByText(/source ouverte identifiée$/)).toBeTruthy();
     expect(screen.getByText(/fermées ou à clarifier$/)).toBeTruthy();
-    expect(screen.getByText(/aucune source connue$/)).toBeTruthy();
+    expect(screen.getByText(/Plus de 1,5 kt non couvert, aucune source connue$/)).toBeTruthy();
     expect(container.querySelector(".methodo-map-canvas")?.getAttribute("aria-busy")).toBe("false");
     // The registry: one row per source, its box draws the extent, a mailto row last.
     const box = container.querySelector<HTMLInputElement>("#tidal-source-norkyst800");
