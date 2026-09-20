@@ -819,7 +819,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--shipped",
-        default="BSH_AUSALT,BSH_CUXBRU,BSH_DB,BSH_IDB",
+        default="BSH_AUSALT,BSH_CUXBRU,BSH_DB,BSH_IDB,CMEMS_NWS,CMEMS_IBI,CMEMS_MED",
         help="built atlases already published in the dataset, comma separated",
     )
     parser.add_argument(
