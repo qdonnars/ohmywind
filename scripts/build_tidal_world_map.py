@@ -80,8 +80,10 @@ def _bbox_feature(name: str, props: dict, lat_min, lon_min, lat_max, lon_max) ->
     }
 
 
-def _tiles_union(atlas_dir: Path, clip_to: dict | None = None) -> dict | None:
-    """Union of the 0.5 degree tiles that hold at least one cell.
+def _tiles_union(
+    atlas_dir: Path, clip_to: dict | None = None, tile_deg: float = 0.5
+) -> dict | None:
+    """Union of the tiles (``tile_deg`` wide, 0.5 for MARC) that hold at least one cell.
 
     The bbox in ``coverage.geojson`` is what the runtime filters on first, but
     it is far too coarse to show: ATLNE's box swallows the Mediterranean where
@@ -103,7 +105,7 @@ def _tiles_union(atlas_dir: Path, clip_to: dict | None = None) -> dict | None:
             continue
         lat = float(parquet.parent.parent.name.split("=")[1])
         lon = float(parquet.parent.name.split("=")[1])
-        boxes.append(box(lon, lat, lon + 0.5, lat + 0.5))
+        boxes.append(box(lon, lat, lon + tile_deg, lat + tile_deg))
     if not boxes:
         return None
     union = unary_union(boxes)
@@ -112,6 +114,10 @@ def _tiles_union(atlas_dir: Path, clip_to: dict | None = None) -> dict | None:
 
         union = union.intersection(shape(clip_to))
     return mapping(union.simplify(0.001))
+
+
+def _tile_deg(meta: dict) -> float:
+    return float((meta.get("grid") or {}).get("tile_deg") or 0.5)
 
 
 def current_coverage(build_dir: Path) -> dict:
@@ -123,7 +129,9 @@ def current_coverage(build_dir: Path) -> dict:
         # tile: a union of whole tiles alone overflows the bbox by up to 55 km
         # and would promise FINIS 250 m where MANGA 700 m is served (measured
         # on 350 random sea points: 61 % agreement before the clip, 96 % after).
-        geometry = _tiles_union(cov.parent, bbox_geometry) or bbox_geometry
+        geometry = (
+            _tiles_union(cov.parent, bbox_geometry, _tile_deg(meta)) or bbox_geometry
+        )
         feats.append(
             {
                 "type": "Feature",
@@ -158,24 +166,35 @@ def current_coverage(build_dir: Path) -> dict:
                     float(g["lon"].max()),
                 )
             )
-    for cov in sorted(build_dir.glob("bsh/atlas/*/coverage.geojson")):
-        meta = json.loads((cov.parent / "metadata.json").read_text())
-        geo = json.loads(cov.read_text())["features"][0]
-        feats.append(
-            {
-                "type": "Feature",
-                "properties": {
-                    "layer": "spike",
-                    "name": f"{meta['atlas']} {meta['resolution_m']} m (spike)",
-                    "label": f"{meta['source']['short']}_{meta['atlas'].split('_', 1)[1].lower()}_{meta['resolution_m']}m",
-                    "rank": meta["rank"],
-                    "resolution_m": meta["resolution_m"],
-                    "record_hours": meta["analysis"]["record_hours"],
-                    "resolved": meta["analysis"]["resolved"],
-                },
-                "geometry": geo["geometry"],
-            }
-        )
+    # Atlases built in this repo but not shipped to the dataset yet: BSH
+    # (spike) and Copernicus Marine (regional). Drawn from their tiles, clipped
+    # to the validity box when the metadata declares one, like MARC above.
+    for pattern in ("bsh/atlas/*/coverage.geojson", "cmems/atlas/*/coverage.geojson"):
+        for cov in sorted(build_dir.glob(pattern)):
+            meta = json.loads((cov.parent / "metadata.json").read_text())
+            bbox_geometry = json.loads(cov.read_text())["features"][0]["geometry"]
+            geometry = (
+                _tiles_union(cov.parent, bbox_geometry, _tile_deg(meta))
+                or bbox_geometry
+            )
+            short = meta["source"]["short"]
+            zone = str(meta.get("zone") or meta["atlas"].split("_", 1)[-1]).lower()
+            feats.append(
+                {
+                    "type": "Feature",
+                    "properties": {
+                        "layer": "built",
+                        "name": f"{meta['atlas']} {meta['resolution_m']} m (built, not shipped)",
+                        "label": f"{short}_{zone}_{meta['resolution_m']}m",
+                        "rank": meta["rank"],
+                        "resolution_m": meta["resolution_m"],
+                        "record_hours": meta["analysis"]["record_hours"],
+                        "resolved": meta["analysis"]["resolved"],
+                        "cells": meta.get("cells"),
+                    },
+                    "geometry": geometry,
+                }
+            )
     feats.append(
         _bbox_feature(
             "Open-Meteo SMOC 8 km (fallback)",
@@ -212,6 +231,118 @@ def resolution_class(res_m: float | None) -> str:
     return "global"
 
 
+# The four colours of the page. An area of strong current (1.5 kt mask) is
+# "covered" when a tidal source at COVER_MAX_M or finer serves it (MARC, a
+# built atlas; SHOM is points inside MARC), "target" when an open-licence
+# gridded source of that class exists there, "blocked" when the only known
+# sources are closed or unclear, "unknown" when the registry knows nothing.
+# A pass needs MEDIUM_M or finer to count as covered or as targetable.
+COVER_MAX_M = 5000
+COVERED_LAYERS = ("shom", "marc", "built")
+GRID_KINDS = ("forecast_grid", "harmonic_constants")
+ZONE_STATUSES = ("covered", "target", "blocked", "unknown")
+
+
+def _polygonal(geom):
+    """Keep the areal part of a shapely result (intersections may add lines)."""
+    from shapely.geometry import GeometryCollection
+    from shapely.ops import unary_union
+
+    if geom.is_empty:
+        return geom
+    if geom.geom_type == "GeometryCollection":
+        parts = [g for g in geom.geoms if g.geom_type in ("Polygon", "MultiPolygon")]
+        return unary_union(parts) if parts else GeometryCollection()
+    return (
+        geom if geom.geom_type in ("Polygon", "MultiPolygon") else GeometryCollection()
+    )
+
+
+def _source_unions(sources: dict, max_res_m: float, unknown_res_ok: bool):
+    """(open gridded sources at ``max_res_m`` or finer, closed or unclear sources).
+
+    An open source without a stated resolution counts only when
+    ``unknown_res_ok`` (an area can be served by a regional model of unstated
+    pitch, a pass cannot be promised one); closed data of unstated pitch (a
+    hydrographic office's tables, a national model) still means "the data
+    exists" and always counts. Sources of global extent (FES, TPXO) are the
+    fallback tier, not a target for a zone, so they never colour it.
+    """
+    from shapely.geometry import shape
+    from shapely.ops import unary_union
+
+    open_geoms, closed_geoms = [], []
+    for f in sources["features"]:
+        p = f["properties"]
+        if p.get("kind") == "station_points" and p["status"] == "ok":
+            continue
+        geom = shape(f["geometry"])
+        if geom.bounds[2] - geom.bounds[0] > 180:
+            continue
+        res = p.get("resolution_m")
+        if res is not None and res > max_res_m:
+            continue
+        if p["status"] == "ok" and p.get("kind") in GRID_KINDS:
+            if res is not None or unknown_res_ok:
+                open_geoms.append(geom)
+        elif p["status"] in ("blocked", "clarify"):
+            closed_geoms.append(geom)
+    return unary_union(open_geoms), unary_union(closed_geoms)
+
+
+def zone_status(coverage: dict, masks: dict, sources: dict) -> dict:
+    """The 1.5 kt mask split into the four statuses, one feature per status."""
+    from shapely.geometry import mapping, shape
+    from shapely.ops import unary_union
+
+    strong = unary_union(
+        [
+            shape(f["geometry"])
+            for fc in masks.values()
+            for f in fc["features"]
+            if f["properties"].get("threshold_kt", 0) >= 1.5
+        ]
+    )
+    covered = unary_union(
+        [
+            shape(f["geometry"])
+            for f in coverage["features"]
+            if f["properties"]["layer"] in COVERED_LAYERS
+            and (f["properties"].get("resolution_m") or 10**9) <= COVER_MAX_M
+        ]
+    )
+    open_src, closed_src = _source_unions(sources, COVER_MAX_M, unknown_res_ok=True)
+    rest = _polygonal(strong.difference(covered))
+    parts = {"covered": _polygonal(strong.intersection(covered))}
+    parts["target"] = _polygonal(rest.intersection(open_src))
+    rest = _polygonal(rest.difference(open_src))
+    parts["blocked"] = _polygonal(rest.intersection(closed_src))
+    parts["unknown"] = _polygonal(rest.difference(closed_src))
+    feats = []
+    for status in ZONE_STATUSES:
+        geom = parts[status]
+        if geom.is_empty:
+            continue
+        feats.append(
+            {
+                "type": "Feature",
+                "properties": {"status": status, "area_deg2": round(geom.area, 2)},
+                "geometry": mapping(geom.simplify(0.005)),
+            }
+        )
+    return {"type": "FeatureCollection", "features": feats}
+
+
+def pass_status(best_res_m, open_fine: bool, closed: bool) -> str:
+    if best_res_m is not None and best_res_m <= MEDIUM_M:
+        return "covered"
+    if open_fine:
+        return "target"
+    if closed:
+        return "blocked"
+    return "unknown"
+
+
 def compute_gaps(
     coverage: dict, masks: dict, gazetteer: dict, sources: dict, objective: dict
 ) -> dict:
@@ -230,8 +361,9 @@ def compute_gaps(
     prod = [
         (shape(f["geometry"]), f["properties"])
         for f in coverage["features"]
-        if f["properties"]["layer"] in ("shom", "marc")
+        if f["properties"]["layer"] in COVERED_LAYERS
     ]
+    open_fine_src, closed_src = _source_unions(sources, MEDIUM_M, unknown_res_ok=False)
     fine_union = unary_union(
         [g for g, p in prod if (p.get("resolution_m") or 10**9) <= MEDIUM_M]
     )
@@ -267,6 +399,11 @@ def compute_gaps(
             "candidates": [f"{n} ({r} m)" if r else n for n, r in cands],
             "in_objective": bool(
                 objective_geom is not None and objective_geom.contains(pt)
+            ),
+            "status": pass_status(
+                best[0] if best else None,
+                open_fine_src.contains(pt),
+                closed_src.contains(pt),
             ),
         }
         points.append(
@@ -367,6 +504,52 @@ def effective_coverage(coverage: dict) -> dict:
     return {"type": "FeatureCollection", "features": feats}
 
 
+def export_web(
+    web_dir: Path,
+    masks: dict,
+    gaps: dict,
+    status: dict,
+    objective: dict,
+    coverage: dict,
+    sources: dict,
+) -> None:
+    """The static files ``TidalSourcesMap`` fetches, one per layer, compact JSON.
+
+    The page reads the masks (for the current band in the click card), the
+    gazetteer with its status, the four-status polygons, the target area, the
+    registry and the ATLNE footprint; the built atlases are exported for the
+    card's benefit only. Everything else in ``data.js`` is for the docs page.
+    """
+    web_dir.mkdir(parents=True, exist_ok=True)
+    compact = {"ensure_ascii": False, "separators": (",", ":")}
+    for name, fc in masks.items():
+        (web_dir / f"{name}.geojson").write_text(json.dumps(fc, **compact))
+    points = [f for f in gaps["features"] if f["geometry"]["type"] == "Point"]
+    (web_dir / "gazetteer.geojson").write_text(
+        json.dumps({"type": "FeatureCollection", "features": points}, **compact)
+    )
+    (web_dir / "status.geojson").write_text(json.dumps(status, **compact))
+    (web_dir / "objective.geojson").write_text(json.dumps(objective, **compact))
+    built = [f for f in coverage["features"] if f["properties"]["layer"] == "built"]
+    (web_dir / "coverage_built.geojson").write_text(
+        json.dumps({"type": "FeatureCollection", "features": built}, **compact)
+    )
+    (web_dir / "sources.geojson").write_text(json.dumps(sources, **compact))
+    footprint = MAP_DIR / "atlne_footprint.geojson"
+    if footprint.exists():
+        (web_dir / "atlne_footprint.geojson").write_text(
+            json.dumps(json.loads(footprint.read_text()), **compact)
+        )
+    for stale in (
+        "gaps_mask.geojson",
+        "coverage_spike.geojson",
+        "coverage_effective.geojson",
+        "shom_points.json",
+    ):
+        (web_dir / stale).unlink(missing_ok=True)
+    print(f"web layers written to {web_dir}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--build-dir", type=Path, default=REPO / "build")
@@ -374,6 +557,12 @@ def main(argv: list[str] | None = None) -> int:
         "--skip-coverage",
         action="store_true",
         help="keep the versioned coverage_current.geojson",
+    )
+    parser.add_argument(
+        "--web-dir",
+        type=Path,
+        default=None,
+        help="also write the layers the web page loads (packages/web/public/methodologie/tidal)",
     )
     args = parser.parse_args(argv)
 
@@ -424,6 +613,17 @@ def main(argv: list[str] | None = None) -> int:
         f"gaps.geojson: {n_gap_points} gazetteer entries without fine coverage, {len(gaps['features']) - len(gazetteer['features'])} mask polygons"
     )
 
+    status = zone_status(coverage, masks, sources)
+    (MAP_DIR / "status.geojson").write_text(
+        json.dumps(status, ensure_ascii=False, separators=(",", ":"))
+    )
+    print(
+        "status.geojson: "
+        + ", ".join(
+            f"{f['properties']['status']} {f['properties']['area_deg2']} deg2"
+            for f in status["features"]
+        )
+    )
     effective = effective_coverage(coverage)
     shom = (
         shom_points(args.build_dir)
@@ -444,6 +644,7 @@ def main(argv: list[str] | None = None) -> int:
         "objective": objective,
         "shom": shom,
         "gaps": gaps,
+        "status": status,
         "classes": {"fine_m": FINE_M, "medium_m": MEDIUM_M, "shom_max_km": 0.5},
     }
     out = MAP_DIR / "data.js"
@@ -452,6 +653,8 @@ def main(argv: list[str] | None = None) -> int:
         + json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
         + ";\n"
     )
+    if args.web_dir is not None:
+        export_web(args.web_dir, masks, gaps, status, objective, coverage, sources)
     print(
         f"data.js: {out.stat().st_size / 1e3:.0f} kB, {len(sources['features'])} sources, "
         f"{len(gazetteer['features'])} gazetteer entries, {len(masks)} mask(s), {len(coverage['features'])} coverage features"

@@ -11,7 +11,9 @@ import {
   nearestPass,
   pointInGeometry,
   precisionClass,
+  statusAt,
   type PassProperties,
+  type ZoneStatus,
 } from "./tidalMapGeo";
 
 describe("precisionClass", () => {
@@ -102,7 +104,7 @@ describe("nearestPass and distances", () => {
       {
         type: "Feature",
         geometry: { type: "Point", coordinates: [-4.77, 48.04] },
-        properties: { name: "Raz de Sein", country: "France", max_spring_kt: 6, max_spring_text: "6", confidence: "medium", source_url: null, coverage_class: "fine", best_source: "SHOM", candidates: [], in_objective: true },
+        properties: { name: "Raz de Sein", status: "covered", country: "France", max_spring_kt: 6, max_spring_text: "6", confidence: "medium", source_url: null, coverage_class: "fine", best_source: "SHOM", candidates: [], in_objective: true },
       },
     ],
   };
@@ -114,5 +116,21 @@ describe("nearestPass and distances", () => {
   });
   it("escapes what goes into popups", () => {
     expect(esc('<b>"x" & y</b>')).toBe("&lt;b&gt;&quot;x&quot; &amp; y&lt;/b&gt;");
+  });
+});
+
+describe("statusAt", () => {
+  it("returns the status of the area under the point, null outside", () => {
+    const fc: FeatureCollection<Geometry, { status: ZoneStatus }> = {
+      type: "FeatureCollection",
+      features: [
+        { type: "Feature", properties: { status: "covered" }, geometry: { type: "Polygon", coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]] } },
+        { type: "Feature", properties: { status: "blocked" }, geometry: { type: "Polygon", coordinates: [[[2, 0], [3, 0], [3, 1], [2, 1], [2, 0]]] } },
+      ],
+    };
+    expect(statusAt(0.5, 0.5, fc)).toBe("covered");
+    expect(statusAt(2.5, 0.5, fc)).toBe("blocked");
+    expect(statusAt(1.5, 0.5, fc)).toBeNull();
+    expect(statusAt(0.5, 0.5, null)).toBeNull();
   });
 });

@@ -123,8 +123,29 @@ export function currentBand(
   return atlneFootprint && pointInGeometry(lon, lat, atlneFootprint) ? "under05" : "unknown";
 }
 
+/**
+ * The four colours of the map, computed by ``build_tidal_world_map.py`` for
+ * the 1.5 kt areas and for each known pass: served by a tidal source,
+ * not served but an open source exists, not served and the known data is
+ * closed or unclear, not served and nothing is known.
+ */
+export type ZoneStatus = "covered" | "target" | "blocked" | "unknown";
+export const ZONE_STATUSES: readonly ZoneStatus[] = ["covered", "target", "blocked", "unknown"];
+
+/** The status of the strong-current area under a point, ``null`` outside them. */
+export function statusAt(
+  lon: number,
+  lat: number,
+  status: FeatureCollection<Geometry, { status: ZoneStatus }> | null,
+): ZoneStatus | null {
+  if (!status) return null;
+  const hit = status.features.find((f) => pointInGeometry(lon, lat, f.geometry));
+  return hit ? hit.properties.status : null;
+}
+
 export interface PassProperties {
   name: string;
+  status: ZoneStatus;
   country: string;
   max_spring_kt: number | null;
   max_spring_text: string | null;

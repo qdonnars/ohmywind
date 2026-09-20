@@ -150,7 +150,7 @@
 
   function clickPopup(lat, lon) {
     const here = cascadeAt(lat, lon);
-    const spike = cov.filter((f) => f.properties.layer === 'spike' && inGeometry(lon, lat, f.geometry))
+    const spike = cov.filter((f) => f.properties.layer === 'built' && inGeometry(lon, lat, f.geometry))
       .sort((a, b) => a.properties.resolution_m - b.properties.resolution_m)[0];
     const m15 = masks.some((f) => f.properties.threshold_kt >= 1.5 && inGeometry(lon, lat, f.geometry));
     const m05 = m15 || masks.some((f) => f.properties.threshold_kt < 1.5 && inGeometry(lon, lat, f.geometry));
@@ -231,7 +231,7 @@
   }), shomPts.length);
   const smoc = cov.filter((f) => f.properties.layer === 'smoc');
   add('cov_global', L.geoJSON({ type: 'FeatureCollection', features: smoc }, { style: { color: '#bbb', weight: 0.5, fillColor: css('var(--global)'), fillOpacity: 0.25, interactive: false } }), 0);
-  const spike = cov.filter((f) => f.properties.layer === 'spike');
+  const spike = cov.filter((f) => f.properties.layer === 'built');
   add('cov_spike', L.geoJSON({ type: 'FeatureCollection', features: spike }, {
     style: { color: css('var(--spike)'), weight: 2, dashArray: '5 4', fillColor: css('var(--spike)'), fillOpacity: 0.08, interactive: false }
   }), spike.length);

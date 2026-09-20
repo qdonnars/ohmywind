@@ -226,31 +226,71 @@ code, seulement du dataset.
 
 ## 6. Carte interactive
 
-`docs/tidal-world/map/index.html`, Leaflet 1.9 depuis unpkg (intégrité
-vérifiée), tuiles OpenStreetMap, aucune clé, aucun backend. Les données
-sont dans `data.js`, généré par `scripts/build_tidal_world_map.py` depuis :
+Deux rendus de la même donnée, générés par `scripts/build_tidal_world_map.py` :
+la page méthodologie du site (`packages/web`, composant `TidalSourcesMap`,
+couches statiques écrites sous `public/methodologie/tidal/` par l'option
+`--web-dir`) et la page autonome `docs/tidal-world/map/index.html` (Leaflet,
+`data.js`, toutes les couches de travail).
 
-- `sources.geojson` : **le registre de référence** (41 sources, une fiche
+**Lecture par défaut : quatre couleurs** (demande du 2026-09-20). La carte du
+site ne montre que les zones où le courant tidal maximal dépasse 1,5 kt
+(masques calculés, ci-dessous) et les passes connues, colorées selon quatre
+statuts calculés par `zone_status()` et `pass_status()` :
+
+- **vert, couvert** : une source de marée à 5 km ou plus fin sert la zone
+  (SHOM, MARC dans sa zone validée, atlas construits BSH et Copernicus) ;
+  pour une passe, 1 km ou plus fin ;
+- **orange, cible identifiée** : pas couvert, mais une source en licence
+  ouverte du registre (`status: ok`, grille de modèle ou constantes
+  harmoniques, résolution 5 km ou mieux, 1 km ou mieux pour une passe)
+  existe à cet endroit ;
+- **violet, données fermées ou à clarifier** : pas couvert, et les seules
+  sources connues sont `blocked` ou `clarify` (UKHO, Puertos del Estado,
+  SSW-RS, Rijkswaterstaat) ;
+- **rouge, aucune source connue** : rien dans le registre (Messine, Euripe,
+  Bosphore, Dardanelles).
+
+Les sources d'emprise mondiale (FES, TPXO) ne colorent jamais une zone :
+elles sont le dernier étage de la cascade, pas une cible. Une source ouverte
+sans résolution déclarée (DMI DKSS) peut colorer une zone en orange, pas une
+passe. Les atlas construits mais pas encore publiés dans le dataset (BSH,
+Copernicus) comptent comme couverts : leur publication fait partie de la
+liste de merge, sinon la carte promet plus que le serveur.
+
+Le registre des sources est replié sous la carte : une ligne par source
+(nom, producteur, licence lue et datée, statut), une case pour dessiner son
+emprise, et une dernière ligne qui ouvre un courriel à contact@ohmywind.fr
+pour en proposer une. Un clic sur la mer interroge `/api/v1/marine/marc` et
+affiche la source que le serveur choisirait, sa précision, le statut de la
+zone et la passe connue la plus proche.
+
+Entrées du script :
+
+- `sources.geojson` : **le registre de référence** (44 sources, une fiche
   par source avec licence, URL, date de lecture, accès, effort, étape) ;
 - `coverage_current.geojson` : SHOM C2D (boîtes des 40 cartouches), MARC
-  (7 emprises), atlas du spike, SMOC ; recalculé depuis `build/` quand il
-  est présent ;
+  (7 emprises, tuiles réelles coupées à la boîte de validité), atlas
+  construits (`bsh/atlas`, `cmems/atlas`, couche `built`), SMOC ;
+  recalculé depuis `build/` quand il est présent ;
 - `mask_atlne.geojson` : **masque calculé** des zones où le courant tidal
-  maximal dépasse 0,5 et 1,5 kt, par `scripts/build_tidal_world_mask.py` ;
+  maximal dépasse 0,5 et 1,5 kt, par `scripts/build_tidal_world_mask.py`
+  depuis ATLNE (2 km, Atlantique nord-est) ;
+- `mask_fes.geojson` : le même masque, mondial, depuis l'atlas FES2014
+  construit par `scripts/build_fes_atlas.py` (compte AVISO créé le
+  2026-09-20, archives de courants téléchargées, 16 constituants, 1/16°) ;
 - `gazetteer.geojson` : passes, raz et estuaires, avec le courant de
   vive-eau typique et le statut « source ouverte ».
 
-**Approche retenue pour « là où les courants comptent »** : les deux.
-Le masque calculé est faisable tout de suite **en Europe** à partir d'ATLNE
-(déjà en local, 2 km, 17 constituants : reconstruction horaire sur 15 jours
-de chaque cellule, maximum, rastérisation à 0,03°, vectorisation), et il est
-juste là où ATLNE l'est. Il ne l'est pas dans le monde, faute d'atlas
-mondial de courants sous licence ouverte disponible sans compte (FES2014
-demande un compte AVISO, SMOC un compte Copernicus). Le gazetteer couvre
-donc le monde et, en Europe, les passes plus étroites que 2 km que le
-masque ne voit pas (Saltstraumen, Corryvreckan, Menai). Quand FES2014 sera
-téléchargé, le même script produit le masque mondial en changeant
-`--atlas-dir`.
+Sorties : `coverage_current.geojson`, `gaps.geojson` (gazetteer enrichi du
+statut et de la meilleure source, polygones du masque sans source fine),
+`status.geojson` (les quatre statuts), `data.js`.
+
+**Masques « là où les courants comptent »** : reconstruction horaire sur
+15 jours de chaque cellule d'un atlas, maximum, rastérisation, fermeture
+morphologique, vectorisation. Le masque ATLNE est juste là où ATLNE l'est
+et ne voit pas une passe plus étroite que 2 km ; le masque FES2014 couvre le
+monde à 7 km et voit encore moins fin. Le gazetteer complète donc les deux
+(Saltstraumen, Corryvreckan, Menai).
 
 Le gazetteer compte 88 entrées (recherche déléguée, sources par entrée,
 confiance haute pour 10 d'entre elles issues de services hydrographiques
@@ -264,12 +304,6 @@ est bien sous Licence Ouverte 2.0, le masque France se calcule directement
 depuis la vitesse maximale au coefficient 95 de chaque maille, à 250 m en
 Iroise, sans analyse harmonique, et remplace avantageusement le masque
 ATLNE sur la façade.
-
-Pour devenir une page « méthodologie » plus tard : la page est déjà
-autonome ; il suffirait de la servir sous `packages/web/public/methodologie/`
-et de brancher `data.js` sur l'endpoint de couverture existant
-(`/api/v1/marine/coverage`) au lieu du fichier statique. Sans changement de
-`packages/web` dans cette PR.
 
 ## 7. Spike BSH, en bref
 
@@ -355,8 +389,9 @@ Priorité = usage réel × force du courant × disponibilité open data × 1/eff
 | Étape | Zone et source | Pourquoi | Effort | Critère de « done » | Passage-test |
 |---|---|---|---|---|---|
 | **1** | **Allemagne : BSH** (baie allemande 926 m, Elbe 90 m, Frise 926 m) | premier pays d'usage, courants 2 à 4 kt, source sans clé, spike validé | S (fait) + archive | atlas ≥ 29 jours (S2, N2 résolus) dans le dataset public ; `bsh_cuxbru_90m` répond à Cuxhaven ; ATLNE amputé de la mer du Nord par `validity_bbox` ; ETA Cuxhaven → Helgoland varie de ≥ 1 h selon l'heure de départ | Cuxhaven → Helgoland (26 nm) ; Cuxhaven → Brunsbüttel (16 nm dans le chenal) |
-| **2** | **Monde : FES2014 courants** (compte AVISO) ou analyse de `utide/vtide` SMOC (compte Copernicus) | remplace SMOC 8 km météo-dépendant par un vrai atlas tidal mondial ; débloque le masque mondial | M | atlas mondial 1/16° dans le dataset public, rang 0 ; ATLNE ne sert plus qu'en Atlantique | Cherbourg → Alderney (raz Blanchard, comparaison SHOM) ; Cook Strait NZ (sanity) |
-| **3** | **UK, Irlande, mer du Nord, Manche : CMEMS NWS 1,5 km** (compte Copernicus) | deuxième bassin d'usage probable ; Solent, Portland, Douvres, Pentland, Irlande à 1,5 km ; couvre aussi les Pays-Bas et le Danemark | M (1 an d'archive = 4 Go, ou 2 ans déjà en ligne) | atlas NWS rang 1 ; masque Europe recalculé dessus | Cowes → Cherbourg ; Ramsgate → Dunkerque ; Dun Laoghaire → Holyhead |
+| **2** | **Monde : FES2014 courants** (compte AVISO créé le 2026-09-20, 4,4 Go d'archives téléchargées, `scripts/build_fes_atlas.py`) | remplace SMOC 8 km météo-dépendant par un vrai atlas tidal mondial ; débloque le masque mondial | M (atlas et masque construits en local) | atlas mondial 1/16° dans le dataset public, rang 0 ; ATLNE ne sert plus qu'en Atlantique | Cherbourg → Alderney (raz Blanchard, comparaison SHOM) ; Cook Strait NZ (sanity) |
+| **3** | **UK, Irlande, mer du Nord, Manche : CMEMS NWS 1,5 km** (compte Copernicus créé le 2026-09-20, `scripts/build_cmems_atlas.py`) | deuxième bassin d'usage probable ; Solent, Portland, Douvres, Pentland, Irlande à 1,5 km ; couvre aussi les Pays-Bas et le Danemark | M (un an d'archive horaire = 37 Go pour le domaine entier, 3 Go par mois ; un an de baie allemande analysé et validé contre le radar, voir `spike-cmems.md`) | atlas NWS rang 0 (un atlas MARC ou BSH gagne toujours dessus) ; masque Europe recalculé dessus | Cowes → Cherbourg ; Ramsgate → Dunkerque ; Dun Laoghaire → Holyhead |
+| **3b** | **Ibérie, Maroc, Canaries : CMEMS IBI 3 km ; Méditerranée jusqu'à Israël : CMEMS MED 4,2 km** (même compte) | ferme la zone objectif au sud et à l'est ; la Méditerranée ne garde que les cellules où la marée dépasse 0,2 kt (Gibraltar, Messine à la maille près, Venise) | M (même chaîne, 47 + 28 Go d'archive) | atlas IBI et MED rang 0 ; Gibraltar répond `cmems_ibi_*` | Tarifa → Ceuta ; Marseille → Porquerolles (doit rester sur SMOC ou vide, marée négligeable) |
 | **4** | **Norvège : NorKyst800** ; **Danemark : DMI DKSS** | courants forts localisés (Lofoten), source sans clé | M | atlas 800 m rang 1 ; Saltstraumen documenté comme non résolu (gazetteer) | Bodø → Lofoten ; Skagen → Göteborg |
 | **5** | **Amérique du Nord : NOAA OFS + ECCC CIOPS** | domaine public, S3 sans clé, archive depuis 2022 ; Salish Sea 500 m | M par système | atlas par système, rang 2 ; harcon NOAA en points de contrôle | Seattle → Victoria (Salish) ; Annapolis → Norfolk (Chesapeake) |
 | **6** | Australie : AusTEN (CC BY-SA, à arbitrer) et eReefs | seul atlas de constituants de courant ouvert hors Europe | M | décision licence prise ; atlas rang 1 | Sydney → Newcastle ; Banks Strait |
