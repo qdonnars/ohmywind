@@ -133,6 +133,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     meta = json.loads((args.atlas_dir / "metadata.json").read_text())
+    src = meta.get("source")
+    source_label = (
+        f"{src.get('name') if isinstance(src, dict) else src or meta.get('label') or meta['atlas']}"
+        ", harmonic atlas in the standard format (docs/harmonic_atlas_format.md)"
+    )
     t0 = time.perf_counter()
     start = datetime(
         2026, 3, 1, tzinfo=UTC
@@ -225,7 +230,7 @@ def main(argv: list[str] | None = None) -> int:
         "type": "FeatureCollection",
         "name": f"tidal_current_mask_{meta.get('atlas', 'atlas').lower()}",
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
-        "source": "MARC PREVIMER harmonic atlas (Ifremer), see docs/marc_atlas_format.md",
+        "source": source_label,
         "features": features,
     }
     args.out.write_text(json.dumps(payload, separators=(",", ":")))

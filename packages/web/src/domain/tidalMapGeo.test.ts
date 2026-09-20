@@ -95,6 +95,14 @@ describe("currentBand", () => {
     expect(currentBand(20, 20, masks, footprint)).toBe("unknown");
     expect(currentBand(1.5, 1.5, null, footprint)).toBe("unknown");
   });
+  it("calls the rest of the world calm once a worldwide mask is loaded", () => {
+    const worldwide: FeatureCollection<Geometry, { threshold_kt: number; global?: boolean }> = {
+      type: "FeatureCollection",
+      features: [...masks.features, { type: "Feature", properties: { threshold_kt: 1.5, global: true }, geometry: { type: "Polygon", coordinates: [[[30, 30], [31, 30], [31, 31], [30, 31], [30, 30]]] } }],
+    };
+    expect(currentBand(30.5, 30.5, worldwide, footprint)).toBe("over15");
+    expect(currentBand(20, 20, worldwide, footprint)).toBe("under05");
+  });
 });
 
 describe("nearestPass and distances", () => {

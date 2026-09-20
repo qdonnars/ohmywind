@@ -38,7 +38,7 @@ const DATA_BASE = `${import.meta.env.BASE_URL}methodologie/tidal/`;
 const MARC_URL = `${API_BASE}/api/v1/marine/marc`;
 const CONTACT = "contact@ohmywind.fr";
 
-type MaskFC = FeatureCollection<Geometry, { threshold_kt: number }>;
+type MaskFC = FeatureCollection<Geometry, { threshold_kt: number; global?: boolean }>;
 type PassFC = FeatureCollection<Point, PassProperties>;
 type StatusFC = FeatureCollection<Geometry, { status: ZoneStatus }>;
 interface SourceProperties {
@@ -97,10 +97,11 @@ async function loadJson<T>(name: string): Promise<T> {
     North-East Atlantic) over FES2014 (7 km, world) when the latter has been
     built. A missing file is simply skipped. */
 async function loadMasks(): Promise<MaskFC> {
-  const parts = await Promise.all(
+  const [atlne, fes] = await Promise.all(
     ["mask_atlne.geojson", "mask_fes.geojson"].map((name) => loadJson<MaskFC>(name).catch(() => null)),
   );
-  return { type: "FeatureCollection", features: parts.flatMap((fc) => fc?.features ?? []) };
+  const worldwide = (fes?.features ?? []).map((f) => ({ ...f, properties: { ...f.properties, global: true } }));
+  return { type: "FeatureCollection", features: [...(atlne?.features ?? []), ...worldwide] };
 }
 
 async function loadLayers(): Promise<Layers> {

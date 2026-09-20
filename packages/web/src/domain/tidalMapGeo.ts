@@ -101,14 +101,16 @@ export function pointInGeometry(lon: number, lat: number, geometry: Geometry | n
 export type CurrentBand = "over15" | "over05" | "under05" | "unknown";
 
 /**
- * The computed "where the current matters" band at a point: the 1.5 kt and
- * 0.5 kt masks were reconstructed from the MARC ATLNE atlas, so outside
- * its footprint the answer is ``unknown`` rather than ``under05``.
+ * The computed "where the current matters" band at a point. The 1.5 kt and
+ * 0.5 kt masks come from the MARC ATLNE atlas (North-East Atlantic) and,
+ * when built, from FES2014 for the whole world: with a worldwide mask
+ * loaded (a feature flagged ``global``), a point outside both bands is
+ * calm; with ATLNE alone, outside its footprint the answer is ``unknown``.
  */
 export function currentBand(
   lon: number,
   lat: number,
-  masks: FeatureCollection<Geometry, { threshold_kt: number }> | null,
+  masks: FeatureCollection<Geometry, { threshold_kt: number; global?: boolean }> | null,
   atlneFootprint: Geometry | null,
 ): CurrentBand {
   if (!masks) return "unknown";
@@ -120,6 +122,7 @@ export function currentBand(
     (f) => f.properties.threshold_kt < 1.5 && pointInGeometry(lon, lat, f.geometry),
   );
   if (over05) return "over05";
+  if (masks.features.some((f) => f.properties.global)) return "under05";
   return atlneFootprint && pointInGeometry(lon, lat, atlneFootprint) ? "under05" : "unknown";
 }
 
