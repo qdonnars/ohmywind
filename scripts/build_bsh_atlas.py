@@ -366,10 +366,13 @@ def build(
         "format": "ohmywind-harmonic-atlas",
         "schema_version": 3,
         "atlas": atlas_id,
+        "zone": atlas_id.split("_", 1)[-1].lower(),
         "label": info["label"],
         "rank": info["rank"],
         "resolution_m": info["resolution_m"],
         "effective_resolution_m": info["resolution_m"],
+        "confidence": "high" if info["resolution_m"] <= 1000 else "medium",
+        "validity_bbox": None,
         "grid": {
             "type": "regular_ll",
             "dlat_deg": float(grid.lats[1] - grid.lats[0])

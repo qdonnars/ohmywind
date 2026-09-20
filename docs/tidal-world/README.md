@@ -286,7 +286,14 @@ Entrées du script :
   construit par `scripts/build_fes_atlas.py` (compte AVISO créé le
   2026-09-20, archives de courants téléchargées, 16 constituants, 1/16°) ;
 - `gazetteer.geojson` : passes, raz et estuaires, avec le courant de
-  vive-eau typique et le statut « source ouverte ».
+  vive-eau typique et le statut « source ouverte » ;
+- `build/natural_earth/ne_10m_ocean.geojson` (Natural Earth 10 m, domaine
+  public, téléchargé depuis le miroir `nvkelso/natural-earth-vector`, non
+  versionné) : les quatre couleurs sont coupées à l'océan, parce que les
+  grilles régulières MARC portent des valeurs extrapolées sur la terre et
+  qu'un pixel FES de 7 km chevauche la côte. À chaque endroit, seul le
+  masque de l'atlas le plus fin compte (`layered_mask`) ; les plus grossiers
+  ne servent qu'en dehors de l'emprise des plus fins.
 
 Sorties : `coverage_current.geojson`, `gaps.geojson` (gazetteer enrichi du
 statut et de la meilleure source, polygones du masque sans source fine),
@@ -402,7 +409,7 @@ Priorité = usage réel × force du courant × disponibilité open data × 1/eff
 
 | Étape | Zone et source | Pourquoi | Effort | Critère de « done » | Passage-test |
 |---|---|---|---|---|---|
-| **1** | **Allemagne : BSH** (baie allemande 926 m, Elbe 90 m, Frise 926 m) | premier pays d'usage, courants 2 à 4 kt, source sans clé, spike validé | S (fait) + archive | atlas ≥ 29 jours (S2, N2 résolus) dans le dataset public ; `bsh_cuxbru_90m` répond à Cuxhaven ; ATLNE amputé de la mer du Nord par `validity_bbox` ; ETA Cuxhaven → Helgoland varie de ≥ 1 h selon l'heure de départ | Cuxhaven → Helgoland (26 nm) ; Cuxhaven → Brunsbüttel (16 nm dans le chenal) |
+| **1** | **Allemagne : BSH** (baie allemande 926 m, Elbe 90 m, Frise 926 m) | premier pays d'usage, courants 2 à 4 kt, source sans clé, spike validé. **Publié dans le dataset le 2026-09-20** (quatre atlas du spike, 3 à 5 jours d'archive, M2 K1 M4 M6 résolus, S2 N2 inférés d'ATLNE) : le Space dev répond `bsh_db_926m` à Helgoland et `bsh_ausalt_90m` en rade de Cuxhaven. Le critère « 29 jours » reste à atteindre par l'archivage. | S (fait) + archive | atlas ≥ 29 jours (S2, N2 résolus) dans le dataset public ; `bsh_cuxbru_90m` répond à Cuxhaven ; ATLNE amputé de la mer du Nord par `validity_bbox` ; ETA Cuxhaven → Helgoland varie de ≥ 1 h selon l'heure de départ | Cuxhaven → Helgoland (26 nm) ; Cuxhaven → Brunsbüttel (16 nm dans le chenal) |
 | **2** | **Monde : FES2014 courants** (compte AVISO créé le 2026-09-20, 4,4 Go d'archives téléchargées, `scripts/build_fes_atlas.py`) | remplace SMOC 8 km météo-dépendant par un vrai atlas tidal mondial ; débloque le masque mondial | M (atlas et masque construits en local) | atlas mondial 1/16° dans le dataset public, rang 0 ; ATLNE ne sert plus qu'en Atlantique | Cherbourg → Alderney (raz Blanchard, comparaison SHOM) ; Cook Strait NZ (sanity) |
 | **3** | **UK, Irlande, mer du Nord, Manche : CMEMS NWS 1,5 km** (compte Copernicus créé le 2026-09-20, `scripts/build_cmems_atlas.py`) | deuxième bassin d'usage probable ; Solent, Portland, Douvres, Pentland, Irlande à 1,5 km ; couvre aussi les Pays-Bas et le Danemark | M (un an d'archive horaire = 37 Go pour le domaine entier, 3 Go par mois ; un an de baie allemande analysé et validé contre le radar, voir `spike-cmems.md`) | atlas NWS rang 0 (un atlas MARC ou BSH gagne toujours dessus) ; masque Europe recalculé dessus | Cowes → Cherbourg ; Ramsgate → Dunkerque ; Dun Laoghaire → Holyhead |
 | **3b** | **Ibérie, Maroc, Canaries : CMEMS IBI 3 km ; Méditerranée jusqu'à Israël : CMEMS MED 4,2 km** (même compte) | ferme la zone objectif au sud et à l'est ; la Méditerranée ne garde que les cellules où la marée dépasse 0,2 kt (Gibraltar, Messine à la maille près, Venise) | M (même chaîne, 47 + 28 Go d'archive) | atlas IBI et MED rang 0 ; Gibraltar répond `cmems_ibi_*` | Tarifa → Ceuta ; Marseille → Porquerolles (doit rester sur SMOC ou vide, marée négligeable) |
