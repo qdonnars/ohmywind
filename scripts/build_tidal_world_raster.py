@@ -31,8 +31,9 @@ a click.
 Rules, the same as the masks: the maximum is reconstructed hourly over one
 spring/neap cycle from all the constituents of the cell; land pixels are
 removed with the Natural Earth 10 m ocean polygon (the regridded MARC
-atlases carry extrapolated values over land); where a finer atlas has a
-cell, the coarser atlas is blanked, so the finest atlas wins everywhere.
+atlases carry extrapolated values over land); where an atlas ahead in the
+cascade (rank, then resolution) has a cell, the one behind is blanked, so
+the picture shows what the server serves.
 
 Usage::
 
@@ -103,8 +104,23 @@ def atlas_grid(
     ix = np.rint((lon - lon0) / dlon).astype(int)
     arr = np.full((iy.max() + 1, ix.max() + 1), np.nan)
     arr[iy, ix] = kt
+    # An apron of about 3 km of empty pixels around the atlas: filled later
+    # from the coarser atlases, it covers the coarse pixels that straddle
+    # this atlas's edge once they are blanked, so no hairline of basemap
+    # shows along the seam.
+    k = max(1, int(round(3000.0 / float(meta["resolution_m"]))))
+    arr = np.pad(arr, k, constant_values=np.nan)
+    lat0 -= k * dlat
+    lon0 -= k * dlon
     rows = lat0 + dlat * np.arange(arr.shape[0])
     cols = lon0 + dlon * np.arange(arr.shape[1])
+    vb = meta.get("validity_bbox")
+    if vb:
+        # The runtime refuses the atlas outside its validity box (ATLNE in
+        # the North Sea); the picture must not show what is not served.
+        lat_ok = (rows >= vb[0]) & (rows <= vb[2])
+        lon_ok = (cols >= vb[1]) & (cols <= vb[3])
+        arr = np.where(lat_ok[:, None] & lon_ok[None, :], arr, np.nan)
     return meta, rows, cols, arr
 
 
@@ -148,24 +164,61 @@ def ocean_mask(rows: np.ndarray, cols: np.ndarray, ocean) -> np.ndarray:
     return burned[::-1].astype(bool)  # back to south-up
 
 
+def fill_from_coarser(
+    rows: np.ndarray,
+    cols: np.ndarray,
+    arr: np.ndarray,
+    coarser: list[tuple[np.ndarray, np.ndarray, np.ndarray]],
+) -> np.ndarray:
+    """A pixel without a cell takes the value of the coarsest-to-finest
+    atlas underneath it, so a regridded MARC lattice with a cell missing
+    every fourth position (FINIS keeps three quarters of its lattice) does
+    not show the basemap through a dither, and the mosaic has no seam."""
+    out = arr.copy()
+    lat_c, lon_c = np.meshgrid(rows, cols, indexing="ij")
+    for f_rows, f_cols, f_arr in reversed(coarser):  # coarsest first, finer overwrite
+        dlat = float(f_rows[1] - f_rows[0])
+        dlon = float(f_cols[1] - f_cols[0])
+        iy = np.rint((lat_c - f_rows[0]) / dlat).astype(int)
+        ix = np.rint((lon_c - f_cols[0]) / dlon).astype(int)
+        inside = (iy >= 0) & (iy < f_arr.shape[0]) & (ix >= 0) & (ix < f_arr.shape[1])
+        vals = np.full(out.shape, np.nan)
+        vals[inside] = f_arr[iy[inside], ix[inside]]
+        take = np.isnan(out) & np.isfinite(vals)
+        out[take] = vals[take]
+    return out
+
+
 def blank_under_finer(
     rows: np.ndarray,
     cols: np.ndarray,
     arr: np.ndarray,
     finer: list[tuple[np.ndarray, np.ndarray, np.ndarray]],
 ) -> np.ndarray:
-    """NaN where any finer atlas has a cell at this pixel's centre."""
+    """NaN wherever a finer atlas has one of its own cells inside the pixel.
+
+    The finer cells are scattered onto this grid: a coarse pixel goes as
+    soon as one fine cell centre falls in it, so the two never overlap; the
+    fine raster's apron, kept only over blanked coarse pixels, fills what
+    the removal uncovered.
+    """
     out = arr.copy()
-    lat_c, lon_c = np.meshgrid(rows, cols, indexing="ij")
-    for f_rows, f_cols, f_arr in finer:
-        dlat = float(f_rows[1] - f_rows[0])
-        dlon = float(f_cols[1] - f_cols[0])
-        iy = np.rint((lat_c - f_rows[0]) / dlat).astype(int)
-        ix = np.rint((lon_c - f_cols[0]) / dlon).astype(int)
-        inside = (iy >= 0) & (iy < f_arr.shape[0]) & (ix >= 0) & (ix < f_arr.shape[1])
-        hit = np.zeros_like(inside)
-        hit[inside] = np.isfinite(f_arr[iy[inside], ix[inside]])
-        out[hit] = np.nan
+    dlat = float(rows[1] - rows[0])
+    dlon = float(cols[1] - cols[0])
+    for f_rows, f_cols, f_own in finer:
+        fy, fx = np.nonzero(f_own)
+        if fy.size == 0:
+            continue
+        f_dlat = float(f_rows[1] - f_rows[0]) if f_rows.size > 1 else 0.0
+        f_dlon = float(f_cols[1] - f_cols[0]) if f_cols.size > 1 else 0.0
+        # The centre and the four corners of each fine cell: a coarse pixel
+        # touched by any part of a fine cell goes, so pitches of the same
+        # order (ATLNE 2 km over Copernicus 1.5 km) cannot overlap either.
+        for oy, ox in ((0.0, 0.0), (0.5, 0.5), (0.5, -0.5), (-0.5, 0.5), (-0.5, -0.5)):
+            iy = np.rint((f_rows[fy] + oy * f_dlat - rows[0]) / dlat).astype(int)
+            ix = np.rint((f_cols[fx] + ox * f_dlon - cols[0]) / dlon).astype(int)
+            inside = (iy >= 0) & (iy < out.shape[0]) & (ix >= 0) & (ix < out.shape[1])
+            out[iy[inside], ix[inside]] = np.nan
     return out
 
 
@@ -236,23 +289,70 @@ def main(argv: list[str] | None = None) -> int:
     grids = []
     for atlas_dir in args.atlas_dir:
         meta, rows, cols, arr = atlas_grid(atlas_dir, args.days, mask_mod)
-        arr = fill_pinholes(arr)
-        if ocean is not None:
-            arr = np.where(ocean_mask(rows, cols, ocean), arr, np.nan)
-        grids.append((meta, rows, cols, arr))
+        grids.append((meta, rows, cols, fill_pinholes(arr)))
         print(
             f"[{meta['atlas']}] {arr.shape[1]}x{arr.shape[0]} px, {int(np.isfinite(arr).sum())} cells, "
             f"max {np.nanmax(arr):.1f} kt ({time.perf_counter() - t0:.0f} s)",
             file=sys.stderr,
         )
-    grids.sort(key=lambda g: int(g[0]["resolution_m"]))  # finest first
+    # Cascade order, as the server picks: rank first, then resolution. ATLNE
+    # (rank 1) keeps its validity box over Copernicus NWS (rank 0, finer).
+    grids.sort(key=lambda g: (-int(g[0].get("rank", 0)), int(g[0]["resolution_m"])))
+    # Mosaic: a finer raster fills its holes from the coarser ones, then the
+    # coast is cut at the finer pitch, then the coarser rasters are blanked
+    # under every finer pixel, so exactly one raster speaks at each point.
+    filled = []
+    owned = []  # per raster: the atlas's own cells, at sea
+    borrowed = []  # per raster: pixels that came from a coarser atlas
+    for i, (meta, rows, cols, arr) in enumerate(grids):
+        own = np.isfinite(arr)
+        coarser = [(r, c, a) for _m, r, c, a in grids[i + 1 :]]
+        arr = fill_from_coarser(rows, cols, arr, coarser) if coarser else arr
+        if ocean is not None:
+            arr = np.where(ocean_mask(rows, cols, ocean), arr, np.nan)
+        filled.append((meta, rows, cols, arr))
+        owned.append(own & np.isfinite(arr))
+        borrowed.append(np.isfinite(arr) & ~own)
+    grids = filled
+    # Blank each raster under the own cells of the ones ahead in the cascade.
+    blanked = []
+    for i, (meta, rows, cols, arr) in enumerate(grids):
+        ahead = [(grids[j][1], grids[j][2], owned[j]) for j in range(i)]
+        blanked.append(blank_under_finer(rows, cols, arr, ahead) if ahead else arr)
+    # A borrowed pixel (apron, hole) is kept only where the coarser pixel
+    # under it was blanked: the two layers are then exact complements, no
+    # gap of basemap, no doubled transparency along the seams.
+    final = []
+    for i, (meta, rows, cols, arr) in enumerate(grids):
+        arr = blanked[i].copy()
+        if borrowed[i].any():
+            lat_c, lon_c = np.meshgrid(rows, cols, indexing="ij")
+            still_under = np.zeros(arr.shape, dtype=bool)
+            for _m, c_rows, c_cols, c_arr in [
+                (grids[j][0], grids[j][1], grids[j][2], blanked[j])
+                for j in range(i + 1, len(grids))
+            ]:
+                dlat = float(c_rows[1] - c_rows[0])
+                dlon = float(c_cols[1] - c_cols[0])
+                iy = np.rint((lat_c - c_rows[0]) / dlat).astype(int)
+                ix = np.rint((lon_c - c_cols[0]) / dlon).astype(int)
+                inside = (
+                    (iy >= 0)
+                    & (iy < c_arr.shape[0])
+                    & (ix >= 0)
+                    & (ix < c_arr.shape[1])
+                )
+                hit = np.zeros(arr.shape, dtype=bool)
+                hit[inside] = np.isfinite(c_arr[iy[inside], ix[inside]])
+                still_under |= hit
+            arr[borrowed[i] & still_under] = np.nan
+        final.append((meta, rows, cols, arr))
+    grids = final
     args.out_dir.mkdir(parents=True, exist_ok=True)
     for old in args.out_dir.glob("*.png"):
         old.unlink()
     manifest = []
-    for i, (meta, rows, cols, arr) in enumerate(grids):
-        finer = [(r, c, a) for _m, r, c, a in grids[:i]]
-        arr = blank_under_finer(rows, cols, arr, finer) if finer else arr
+    for meta, rows, cols, arr in grids:
         img, south, north = to_mercator_rows(rows, arr)
         dlon = float(cols[1] - cols[0])
         name = meta["atlas"].lower()
@@ -264,6 +364,7 @@ def main(argv: list[str] | None = None) -> int:
                 "atlas": meta["atlas"],
                 "label": meta.get("label") or meta["atlas"],
                 "resolution_m": int(meta["resolution_m"]),
+                "rank": int(meta.get("rank", 0)),
                 "file": f"raster/{name}.png",
                 "bounds": [
                     [south, float(cols[0] - dlon / 2)],
@@ -273,9 +374,7 @@ def main(argv: list[str] | None = None) -> int:
                 "cells": int(np.isfinite(arr).sum()),
             }
         )
-    manifest.sort(
-        key=lambda m: -m["resolution_m"]
-    )  # draw order: coarse first, fine on top
+    manifest.reverse()  # draw order: the last of the cascade first, its head on top
     (args.out_dir / "rasters.json").write_text(
         json.dumps(
             {
