@@ -847,7 +847,18 @@ def export_web(
         web_dir / "atlne_footprint.geojson"
     ]:
         stale.unlink(missing_ok=True)
-    status = _rounded(status)
+    # The covered water ships as rasters (build_tidal_world_raster.py); the
+    # page only draws the uncovered strong zones as polygons.
+    status = _rounded(
+        {
+            **status,
+            "features": [
+                f
+                for f in status["features"]
+                if f["properties"]["status"] not in ("covered", "calm")
+            ],
+        }
+    )
     points = [f for f in gaps["features"] if f["geometry"]["type"] == "Point"]
     (web_dir / "gazetteer.geojson").write_text(
         json.dumps({"type": "FeatureCollection", "features": points}, **compact)

@@ -297,6 +297,14 @@ Entrées du script :
   (le trait `threshold_kt: 0` que le builder de masques écrit ; l'emprise en
   tuiles de 0,5° rendait le canal de Bristol « calme » parce que MANGA y a
   quelques cellules) ;
+- `scripts/build_tidal_world_raster.py` : le courant maximal de chaque
+  cellule des atlas servis, en une image PNG 8 bits par atlas à sa maille
+  native (valeur `1 + 40 × kt`, lignes rééchantillonnées en Mercator, terre
+  retirée, atlas grossier effacé sous les cellules d'un atlas plus fin),
+  787 ko pour quatorze atlas. La page colore les pixels en continu de 0,5 à
+  5 kt et lit la valeur sous le clic. Les polygones par tranches, simplifiés à
+  500 m, faisaient des facettes à l'échelle d'une passe ; le raster est la
+  donnée telle quelle ;
 - `--shipped-from https://…hf.space` : la liste des atlas servis est lue sur
   le serveur (`/api/v1/marine/marc/coverage`), la même que la page lit au
   chargement pour badger « dans la cascade » dans le registre. Sans

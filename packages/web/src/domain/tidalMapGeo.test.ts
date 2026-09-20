@@ -12,8 +12,6 @@ import {
   nearestPass,
   pointInGeometry,
   precisionClass,
-  bandColor,
-  bandUpper,
   statusAt,
   type PassProperties,
   type ZoneStatus,
@@ -151,16 +149,5 @@ describe("isGlobalExtent", () => {
     expect(isGlobalExtent({ type: "Polygon", coordinates: [[[-180, -80], [180, -80], [180, 90], [-180, 90], [-180, -80]]] })).toBe(true);
     expect(isGlobalExtent({ type: "Polygon", coordinates: [[[-13, 46], [13, 46], [13, 63], [-13, 63], [-13, 46]]] })).toBe(false);
     expect(isGlobalExtent(null)).toBe(false);
-  });
-});
-
-describe("green bands", () => {
-  it("darkens with the tide and knows the upper bound of a band", () => {
-    expect(bandColor(0.5)).not.toBe(bandColor(5));
-    expect(bandColor(2)).toBe(bandColor(2.5));
-    expect(bandColor(null)).toBe(bandColor(0.5));
-    expect(bandUpper(0.5)).toBe(1);
-    expect(bandUpper(3)).toBe(5);
-    expect(bandUpper(5)).toBeNull();
   });
 });
