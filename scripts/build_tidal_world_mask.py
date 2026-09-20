@@ -53,7 +53,10 @@ from shapely.geometry import MultiPolygon, mapping
 from shapely.ops import unary_union
 
 MS_TO_KN = 1.0 / 0.514444
-THRESHOLDS_KN = (0.5, 1.5)
+# The bands of the map's green gradient: 0.5 kt is "worth a look", 1.5 kt
+# "plan around it", 5 kt and above the great races. Nested features, one per
+# threshold; the map builder turns them into disjoint bands.
+THRESHOLDS_KN = (0.5, 1.0, 1.5, 2.0, 3.0, 5.0)
 
 
 def _cell_columns(df: pl.DataFrame, comp: str) -> list[str]:

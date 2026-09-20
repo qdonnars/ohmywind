@@ -14,10 +14,6 @@ vi.mock("../utils/basemapLayer", () => ({
 const empty = { type: "FeatureCollection", features: [] };
 const square = (x: number, y: number) => ({ type: "Polygon", coordinates: [[[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1], [x, y]]] });
 const FILES: Record<string, unknown> = {
-  "mask_atlne.geojson": {
-    type: "FeatureCollection",
-    features: [{ type: "Feature", properties: { threshold_kt: 1.5 }, geometry: square(-5, 48) }],
-  },
   "gazetteer.geojson": {
     type: "FeatureCollection",
     features: [
@@ -31,7 +27,7 @@ const FILES: Record<string, unknown> = {
   "status.geojson": {
     type: "FeatureCollection",
     features: [
-      { type: "Feature", properties: { status: "covered", area_deg2: 1 }, geometry: square(-5, 48) },
+      { type: "Feature", properties: { status: "covered", min_kt: 2, area_deg2: 1 }, geometry: square(-5, 48) },
       { type: "Feature", properties: { status: "blocked", area_deg2: 1 }, geometry: square(-4, 58) },
     ],
   },
@@ -46,7 +42,6 @@ const FILES: Record<string, unknown> = {
       },
     ],
   },
-  "atlne_footprint.geojson": empty,
 };
 
 describe("TidalSourcesMap", () => {
@@ -88,8 +83,6 @@ describe("TidalSourcesMap", () => {
     expect(container.querySelector(".leaflet-container")).not.toBeNull();
     const fetched = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]));
     for (const name of Object.keys(FILES)) expect(fetched.some((u) => u.endsWith(name))).toBe(true);
-    // The worldwide mask is optional: asked for, tolerated when absent.
-    expect(fetched.some((u) => u.endsWith("mask_fes.geojson"))).toBe(true);
     expect(screen.getByText(/Courant de marée calculé depuis les atlas/)).toBeTruthy();
     expect(screen.getByText(/^Couvert :/)).toBeTruthy();
     expect(screen.getByText(/source ouverte identifiée$/)).toBeTruthy();

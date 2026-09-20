@@ -154,15 +154,39 @@ export type ZoneStatus = "calm" | "covered" | "target" | "blocked" | "unknown";
 /** Legend order; ``calm`` is covered water under 0.5 kt, drawn pale. */
 export const ZONE_STATUSES: readonly ZoneStatus[] = ["covered", "calm", "target", "blocked", "unknown"];
 
-/** The status of the strong-current area under a point, ``null`` outside them. */
+export interface ZoneProperties {
+  status: ZoneStatus;
+  /** Lower bound of the green band, in knots, on ``covered`` features only. */
+  min_kt?: number;
+}
+
+/** The thresholds of the green gradient, as the map builder contours them. */
+export const BAND_THRESHOLDS_KT: readonly number[] = [0.5, 1, 1.5, 2, 3, 5];
+
+/** The green of a covered band: the stronger the tide, the darker. */
+export function bandColor(minKt: number | null | undefined): string {
+  const ramp = ["#a8d9b5", "#7fc797", "#56b177", "#339c5c", "#1f7f46", "#0f5f31"];
+  if (minKt == null) return ramp[0];
+  let i = 0;
+  for (let k = 0; k < BAND_THRESHOLDS_KT.length; k++) if (minKt >= BAND_THRESHOLDS_KT[k]) i = k;
+  return ramp[i];
+}
+
+/** The upper bound of the band that starts at ``minKt``, ``null`` for the last one. */
+export function bandUpper(minKt: number): number | null {
+  const i = BAND_THRESHOLDS_KT.indexOf(minKt);
+  return i >= 0 && i + 1 < BAND_THRESHOLDS_KT.length ? BAND_THRESHOLDS_KT[i + 1] : null;
+}
+
+/** The zone under a point: its status and, for covered water, its band. */
 export function statusAt(
   lon: number,
   lat: number,
-  status: FeatureCollection<Geometry, { status: ZoneStatus }> | null,
-): ZoneStatus | null {
+  status: FeatureCollection<Geometry, ZoneProperties> | null,
+): ZoneProperties | null {
   if (!status) return null;
   const hit = status.features.find((f) => pointInGeometry(lon, lat, f.geometry));
-  return hit ? hit.properties.status : null;
+  return hit ? hit.properties : null;
 }
 
 export interface PassProperties {

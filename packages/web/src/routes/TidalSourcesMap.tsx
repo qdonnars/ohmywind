@@ -21,8 +21,9 @@ import { API_BASE } from "../api/config";
 import { formatGridSize } from "../domain/currentSource";
 import {
   ZONE_STATUSES,
+  bandColor,
+  bandUpper,
   classifyAnswer,
-  currentBand,
   esc,
   isGlobalExtent,
   nearestPass,
@@ -30,6 +31,7 @@ import {
   statusAt,
   type PassProperties,
   type PrecisionClass,
+  type ZoneProperties,
   type ZoneStatus,
 } from "../domain/tidalMapGeo";
 import { useT } from "../i18n";
@@ -40,9 +42,8 @@ const MARC_URL = `${API_BASE}/api/v1/marine/marc`;
 const COVERAGE_URL = `${API_BASE}/api/v1/marine/marc/coverage`;
 const CONTACT = "contact@ohmywind.fr";
 
-type MaskFC = FeatureCollection<Geometry, { threshold_kt: number; global?: boolean }>;
 type PassFC = FeatureCollection<Point, PassProperties>;
-type StatusFC = FeatureCollection<Geometry, { status: ZoneStatus }>;
+type StatusFC = FeatureCollection<Geometry, ZoneProperties>;
 interface SourceProperties {
   id: string;
   name: string;
@@ -88,16 +89,14 @@ function liveStatus(p: SourceProperties, served: Set<string> | null): string {
 }
 
 interface Layers {
-  masks: MaskFC;
   passes: PassFC;
   status: StatusFC;
   objective: FeatureCollection;
   sources: SourceFC;
-  footprint: FeatureCollection;
 }
 
 const STATUS_COLOR: Record<ZoneStatus, string> = {
-  calm: "#8fcfa6",
+  calm: "#cfe8d6",
   covered: "#2a9d5c",
   target: "#f28c28",
   blocked: "#7b3fd4",
@@ -128,33 +127,17 @@ async function loadJson<T>(name: string): Promise<T> {
   return (await resp.json()) as T;
 }
 
-/** The computed "where the current is" masks, finest first: the fine
-    atlases (MARC 250 to 700 m, BSH 90 to 926 m), the Copernicus regional
-    ones (1.5 to 4 km), ATLNE (2 km, in its validity box) and FES2014 (7 km,
-    the world). A missing file is simply skipped. */
-async function loadMasks(): Promise<MaskFC> {
-  const [fine, cmems, atlne, fes] = await Promise.all(
-    ["mask_fine.geojson", "mask_cmems.geojson", "mask_atlne.geojson", "mask_fes.geojson"].map((name) =>
-      loadJson<MaskFC>(name).catch(() => null),
-    ),
-  );
-  const worldwide = (fes?.features ?? []).map((f) => ({ ...f, properties: { ...f.properties, global: true } }));
-  return {
-    type: "FeatureCollection",
-    features: [...(fine?.features ?? []), ...(cmems?.features ?? []), ...(atlne?.features ?? []), ...worldwide],
-  };
-}
-
+/** The status layer carries everything the card needs about the tide: the
+    covered bands (0.5 to 5 kt), the calm water, the uncovered strong zones.
+    The masks themselves stay on the docs page; the page loads 3 MB less. */
 async function loadLayers(): Promise<Layers> {
-  const [masks, passes, status, objective, sources, footprint] = await Promise.all([
-    loadMasks(),
+  const [passes, status, objective, sources] = await Promise.all([
     loadJson<PassFC>("gazetteer.geojson"),
     loadJson<StatusFC>("status.geojson"),
     loadJson<FeatureCollection>("objective.geojson"),
     loadJson<SourceFC>("sources.geojson"),
-    loadJson<FeatureCollection>("atlne_footprint.geojson").catch(() => ({ type: "FeatureCollection", features: [] }) as FeatureCollection),
   ]);
-  return { masks, passes, status, objective, sources, footprint };
+  return { passes, status, objective, sources };
 }
 
 const passRadius = (p: PassProperties) => 3 + Math.min(7, (p.max_spring_kt ?? 1) * 0.6);
@@ -212,6 +195,20 @@ export function TidalSourcesMap() {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
   const statusText = (s: ZoneStatus | null) => t(`config.methodo.tidal.status.${s ?? "none"}`);
+  const bandText = (minKt: number) => {
+    const upper = bandUpper(minKt);
+    return upper == null
+      ? t("config.methodo.tidal.band.over", { kt: String(minKt) })
+      : t("config.methodo.tidal.band.between", { a: String(minKt), b: String(upper) });
+  };
+  // What the card says about the tide at a point, from the status layer:
+  // the band of covered water, calm water, a strong zone nothing covers.
+  const zoneText = (z: ZoneProperties | null) => {
+    if (!z) return statusText(null);
+    if (z.status === "covered" && z.min_kt != null) return t("config.methodo.tidal.status.coveredBand", { band: bandText(z.min_kt) });
+    return statusText(z.status);
+  };
+  const zoneColor = (z: ZoneProperties) => (z.status === "covered" ? bandColor(z.min_kt) : STATUS_COLOR[z.status]);
 
   // Popup text for a known pass; reads the dictionary at click time so a
   // language switch after mount still lands in the right words.
@@ -261,8 +258,6 @@ export function TidalSourcesMap() {
     } catch {
       answerHtml = `<em>${esc(t("config.methodo.tidal.popup.error"))}</em>`;
     }
-    const footprint = d?.footprint.features[0]?.geometry ?? null;
-    const band = currentBand(lon, lat, d?.masks ?? null, footprint);
     const zone = statusAt(lon, lat, d?.status ?? null);
     const near = nearestPass(lat, lon, d?.passes ?? null);
     const inObjective = d?.objective.features.some((f) => pointInGeometry(lon, lat, f.geometry)) ?? false;
@@ -279,8 +274,7 @@ export function TidalSourcesMap() {
       (precision ? badge(PRECISION_COLOR[precision], t(`config.methodo.tidal.precision.${precision}`)) : "") +
       `<dl class="methodo-map-popup-grid">` +
       row(t("config.methodo.tidal.popup.source"), answerHtml) +
-      row(t("config.methodo.tidal.popup.status"), zone ? badge(STATUS_COLOR[zone], statusText(zone)) : esc(statusText(null))) +
-      row(t("config.methodo.tidal.popup.current"), esc(t(`config.methodo.tidal.current.${band}`))) +
+      row(t("config.methodo.tidal.popup.status"), zone ? badge(zoneColor(zone), zoneText(zone)) : esc(statusText(null))) +
       row(
         t("config.methodo.tidal.popup.pass"),
         near
@@ -324,9 +318,10 @@ export function TidalSourcesMap() {
         });
         L.geoJSON(d.status, {
           style: (f) => {
-            const status = (f?.properties as { status: ZoneStatus } | undefined)?.status ?? "unknown";
-            const color = STATUS_COLOR[status];
-            return { color, weight: status === "calm" ? 0 : 0.6, fillColor: color, fillOpacity: status === "calm" ? 0.35 : 0.5, interactive: false };
+            const z = (f?.properties as ZoneProperties | undefined) ?? { status: "unknown" };
+            const color = zoneColor(z);
+            const soft = z.status === "calm" || z.status === "covered";
+            return { color, weight: soft ? 0 : 0.6, fillColor: color, fillOpacity: soft ? 0.6 : 0.5, interactive: false };
           },
         }).addTo(map);
         L.geoJSON(d.objective, { style: { color: OBJECTIVE_COLOR, weight: 1.5, dashArray: "8 6", fill: false, interactive: false } }).addTo(map);
@@ -384,7 +379,15 @@ export function TidalSourcesMap() {
       <div ref={containerRef} className="methodo-map-canvas" role="application" aria-busy={status === "loading"} />
       <div className="methodo-map-legend">
         <div className="methodo-map-group-title">{t("config.methodo.tidal.legend.title")}</div>
-        {ZONE_STATUSES.map((s) => (
+        <div className="methodo-map-item">
+          <span className="methodo-map-ramp" aria-hidden="true">
+            {[0.5, 1, 1.5, 2, 3, 5].map((k) => (
+              <span key={k} style={{ background: bandColor(k) }} />
+            ))}
+          </span>
+          <span>{t("config.methodo.tidal.legend.covered")}</span>
+        </div>
+        {ZONE_STATUSES.filter((s) => s !== "covered").map((s) => (
           <div className="methodo-map-item" key={s}>
             <span className="methodo-map-swatch" style={{ background: STATUS_COLOR[s] }} />
             <span>{t(`config.methodo.tidal.legend.${s}`)}</span>

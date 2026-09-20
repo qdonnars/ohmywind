@@ -299,6 +299,8 @@ def _served(props: dict) -> bool:
 # so a hole in the green reads as "nothing to plan around here", not as a
 # gap in the coverage (the shelf off Groix and Concarneau stays under 0.4 kt).
 ZONE_STATUSES = ("calm", "covered", "target", "blocked", "unknown")
+# Thresholds of the green gradient, the same the mask builder contours.
+BAND_THRESHOLDS_KT = (0.5, 1.0, 1.5, 2.0, 3.0, 5.0)
 
 
 def _source_unions(sources: dict, max_res_m: float, unknown_res_ok: bool):
@@ -449,25 +451,40 @@ def zone_status(coverage: dict, masks: dict, sources: dict, ocean=None) -> dict:
     open_src, closed_src = _source_unions(sources, COVER_MAX_M, unknown_res_ok=True)
     open_src = unary_union([open_src, *at_hand])
     rest = _polygonal(strong.difference(covered))
-    parts = {
-        "calm": _polygonal(covered.difference(notable)),
-        "covered": _polygonal(notable.intersection(covered)),
-    }
-    parts["target"] = _polygonal(rest.intersection(open_src))
+    # Covered water is a green gradient: one disjoint band per threshold of
+    # the masks (0.5 to 5 kt), the darker the stronger, so a pass in a fine
+    # atlas shows its structure. ``calm`` is the covered water under the
+    # first band.
+    parts: list[tuple[str, float | None, object]] = [
+        ("calm", None, _polygonal(covered.difference(notable)))
+    ]
+    upper = None
+    for thr in reversed(BAND_THRESHOLDS_KT):
+        above = layered_mask(masks, coverage, thr)
+        band = _polygonal(above.intersection(covered))
+        if upper is not None:
+            band = _polygonal(band.difference(upper))
+        parts.append(("covered", thr, band))
+        upper = above if upper is None else unary_union([upper, above])
+    parts.append(("target", None, _polygonal(rest.intersection(open_src))))
     rest = _polygonal(rest.difference(open_src))
-    parts["blocked"] = _polygonal(rest.intersection(closed_src))
-    parts["unknown"] = _polygonal(rest.difference(closed_src))
+    parts.append(("blocked", None, _polygonal(rest.intersection(closed_src))))
+    parts.append(("unknown", None, _polygonal(rest.difference(closed_src))))
+    order = {s: i for i, s in enumerate(ZONE_STATUSES)}
+    parts.sort(key=lambda p: (order[p[0]], p[1] or 0.0))
     feats = []
-    for status in ZONE_STATUSES:
-        geom = parts[status]
+    for status, min_kt, geom in parts:
         if ocean is not None and not geom.is_empty:
             geom = _polygonal(geom.intersection(ocean))
         if geom.is_empty:
             continue
+        props: dict = {"status": status, "area_deg2": round(geom.area, 2)}
+        if min_kt is not None:
+            props["min_kt"] = min_kt
         feats.append(
             {
                 "type": "Feature",
-                "properties": {"status": status, "area_deg2": round(geom.area, 2)},
+                "properties": props,
                 "geometry": mapping(geom.simplify(0.005)),
             }
         )
@@ -779,6 +796,33 @@ def served_atlases(api_base: str) -> frozenset[str]:
     return frozenset(str(a["name"]) for a in payload.get("atlases", []))
 
 
+def _rounded(fc: dict, decimals: int = 4) -> dict:
+    """The same collection with coordinates at ``decimals`` places (10 m at 4):
+    the bands ship with 15 digits otherwise, twice the bytes for nothing."""
+
+    def walk(x):
+        # shapely's ``mapping`` hands out nested tuples, json.dumps lists both.
+        if isinstance(x, (list, tuple)):
+            if x and isinstance(x[0], (int, float)):
+                return [round(float(v), decimals) for v in x]
+            return [walk(v) for v in x]
+        return x
+
+    return {
+        **fc,
+        "features": [
+            {
+                **f,
+                "geometry": {
+                    **f["geometry"],
+                    "coordinates": walk(f["geometry"]["coordinates"]),
+                },
+            }
+            for f in fc["features"]
+        ],
+    }
+
+
 def export_web(
     web_dir: Path,
     masks: dict,
@@ -790,21 +834,20 @@ def export_web(
 ) -> None:
     """The static files ``TidalSourcesMap`` fetches, one per layer, compact JSON.
 
-    The page reads the masks (for the current band in the click card), the
-    gazetteer with its status, the four-status polygons, the target area, the
-    registry and the ATLNE footprint; the built atlases are exported for the
-    card's benefit only. Everything else in ``data.js`` is for the docs page.
+    The page reads the gazetteer with its status, the status polygons (the
+    green bands, the calm water, the uncovered strong zones), the target area
+    and the registry; the built atlases are exported for the card's benefit
+    only. Everything else in ``data.js`` is for the docs page.
     """
     web_dir.mkdir(parents=True, exist_ok=True)
     compact = {"ensure_ascii": False, "separators": (",", ":")}
-    for name, fc in masks.items():
-        page_fc = {
-            **fc,
-            "features": [
-                f for f in fc["features"] if f["properties"].get("threshold_kt", 0) > 0
-            ],
-        }
-        (web_dir / f"{name}.geojson").write_text(json.dumps(page_fc, **compact))
+    # The page reads its bands from status.geojson; the masks stay on the
+    # docs page and are removed from the site if an older build left them.
+    for stale in list(web_dir.glob("mask_*.geojson")) + [
+        web_dir / "atlne_footprint.geojson"
+    ]:
+        stale.unlink(missing_ok=True)
+    status = _rounded(status)
     points = [f for f in gaps["features"] if f["geometry"]["type"] == "Point"]
     (web_dir / "gazetteer.geojson").write_text(
         json.dumps({"type": "FeatureCollection", "features": points}, **compact)
@@ -816,11 +859,6 @@ def export_web(
         json.dumps({"type": "FeatureCollection", "features": built}, **compact)
     )
     (web_dir / "sources.geojson").write_text(json.dumps(sources, **compact))
-    footprint = MAP_DIR / "atlne_footprint.geojson"
-    if footprint.exists():
-        (web_dir / "atlne_footprint.geojson").write_text(
-            json.dumps(json.loads(footprint.read_text()), **compact)
-        )
     for stale in (
         "gaps_mask.geojson",
         "coverage_spike.geojson",

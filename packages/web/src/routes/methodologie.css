@@ -284,6 +284,19 @@
   border: 1px solid rgba(15, 23, 42, 0.25);
   box-sizing: border-box;
 }
+.methodo-map-ramp {
+  display: inline-flex;
+  width: 42px;
+  height: 14px;
+  flex: 0 0 auto;
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.25);
+  box-sizing: border-box;
+}
+.methodo-map-ramp span {
+  flex: 1 1 0;
+}
 .methodo-map-swatch.is-round {
   border-radius: 50%;
 }
