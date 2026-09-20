@@ -60,6 +60,7 @@ atlas MARC déjà construits (réponse courte : les tuiles sont conformes, seul
 | `rmse_u_ms`, `rmse_v_ms`, `rmse_h_m` | float32 | non | résidu de l'analyse harmonique par cellule (diagnostic) |
 | `n_samples` | int32 | non | échantillons ayant servi à l'analyse (diagnostic) |
 | `depth_m` | float32 | non | profondeur de la cellule si la source la donne |
+| `max_speed_kn` | float32 | non | vitesse maximale reconstruite sur un cycle vive-eau / morte-eau (diagnostic, sert au filtre `--min-speed-kt` des builders) |
 
 Règles :
 

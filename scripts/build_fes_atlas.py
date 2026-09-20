@@ -50,14 +50,14 @@ import json
 import subprocess
 import sys
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
 import polars as pl
 import xarray as xr
 from openwind_data.currents.harmonic import _canonical
-from openwind_data.currents.harmonic_analysis import design_matrix
+from openwind_data.currents.harmonic_analysis import max_reconstructed_speed
 
 MS_TO_KN = 1.0 / 0.514444
 DEFAULT_CONSTITUENTS = (
@@ -95,35 +95,6 @@ def read_constituent(
     lon = ds["lon"].values if "lon" in ds else ds["longitude"].values
     ds.close()
     return lat.astype(float), lon.astype(float), amp, phase
-
-
-def max_speed(
-    u_amp: np.ndarray,
-    u_g: np.ndarray,
-    v_amp: np.ndarray,
-    v_g: np.ndarray,
-    x: np.ndarray,
-    chunk: int = 200_000,
-) -> np.ndarray:
-    """Maximum reconstructed speed (m/s) per cell over the times ``x`` was built for."""
-    n = u_amp.shape[1]
-    out = np.zeros(n, dtype=np.float32)
-    rad = np.pi / 180.0
-    for start in range(0, n, chunk):
-        sl = slice(start, min(start + chunk, n))
-        best = np.zeros(sl.stop - sl.start, dtype=np.float32)
-        cu = np.empty((x.shape[1], sl.stop - sl.start))
-        cv = np.empty_like(cu)
-        cu[0::2] = u_amp[:, sl] * np.cos(u_g[:, sl] * rad)
-        cu[1::2] = u_amp[:, sl] * np.sin(u_g[:, sl] * rad)
-        cv[0::2] = v_amp[:, sl] * np.cos(v_g[:, sl] * rad)
-        cv[1::2] = v_amp[:, sl] * np.sin(v_g[:, sl] * rad)
-        for t0 in range(0, x.shape[0], 120):
-            xt = x[t0 : t0 + 120]
-            speed = np.hypot(xt @ cu, xt @ cv)
-            best = np.maximum(best, speed.max(axis=0))
-        out[sl] = best
-    return out
 
 
 def build(
@@ -164,11 +135,9 @@ def build(
     lat_f, lon_f = LAT.ravel(), LON.ravel()
 
     idx = np.where(valid)[0]
-    times = [
-        datetime(2026, 3, 1, tzinfo=UTC) + timedelta(hours=h) for h in range(24 * 15)
-    ]
-    x = design_matrix(times, names)[0][:, 1:]
-    speed = max_speed(ua[:, idx], ug[:, idx], va[:, idx], vg[:, idx], x)
+    speed = max_reconstructed_speed(
+        ua[:, idx], ug[:, idx], va[:, idx], vg[:, idx], names
+    )
     keep = speed * MS_TO_KN >= min_speed_kt
     idx = idx[keep]
     print(

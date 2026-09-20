@@ -222,3 +222,17 @@ def test_ellipse_phase_and_inclination_are_consistent(u: tuple, v: tuple) -> Non
     assert np.hypot(uu, vv) == pytest.approx(ell.semi_major, abs=1e-6)
     direction = np.degrees(np.arctan2(vv, uu)) % 360.0
     assert (direction - ell.inclination_deg + 180.0) % 360.0 - 180.0 == pytest.approx(0.0, abs=1e-4)
+
+
+def test_max_reconstructed_speed_is_the_ellipse_peak_for_a_solar_constituent() -> None:
+    # S2 has no nodal correction, so the peak of a 0.3 / 0.4 m/s pair is 0.5 m/s
+    # exactly, reached at the hourly sample where both phases pass through zero.
+    from openwind_data.currents.harmonic_analysis import max_reconstructed_speed
+
+    u_amp = np.array([[0.3, 0.0]])
+    v_amp = np.array([[0.4, 1.0]])
+    zeros = np.zeros((1, 2))
+    speed = max_reconstructed_speed(u_amp, zeros, v_amp, zeros, ["S2"])
+    assert speed.shape == (2,)
+    assert speed[0] == pytest.approx(0.5, abs=1e-6)
+    assert speed[1] == pytest.approx(1.0, abs=1e-6)

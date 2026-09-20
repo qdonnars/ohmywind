@@ -44,7 +44,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 
 import numpy as np
 
@@ -526,3 +526,45 @@ def current_ellipse(u: tuple[float, float], v: tuple[float, float]) -> Ellipse:
     inclination = inc_raw - 180.0 * k
     phase = (np.rad2deg(-0.5 * (th_plus + th_minus)) + 180.0 * k) % 360.0
     return Ellipse(float(semi_major), float(semi_minor), float(inclination), float(phase))
+
+
+def max_reconstructed_speed(
+    u_amp: np.ndarray,
+    u_g: np.ndarray,
+    v_amp: np.ndarray,
+    v_g: np.ndarray,
+    names: Sequence[str],
+    *,
+    start: datetime | None = None,
+    span_hours: int = 24 * 15,
+    chunk: int = 200_000,
+) -> np.ndarray:
+    """Largest speed (same unit as the amplitudes) each cell reaches over a span.
+
+    ``u_amp``/``u_g``/``v_amp``/``v_g`` are ``(n_constituents, n_cells)`` in
+    the order of ``names``; the series is reconstructed hourly from ``start``
+    (default 2026-03-01 UTC, a spring tide of a mean nodal year) over
+    ``span_hours``, which at 15 days covers one spring-neap cycle. This is the
+    filter the atlas builders use to drop cells where the tide never matters.
+    """
+    t0 = start or datetime(2026, 3, 1, tzinfo=UTC)
+    times = [t0 + timedelta(hours=h) for h in range(span_hours)]
+    x = design_matrix(times, names)[0][:, 1:]
+    n = u_amp.shape[1]
+    out = np.zeros(n, dtype=np.float32)
+    rad = np.pi / 180.0
+    for lo in range(0, n, chunk):
+        sl = slice(lo, min(lo + chunk, n))
+        width = sl.stop - sl.start
+        best = np.zeros(width, dtype=np.float32)
+        cu = np.empty((x.shape[1], width))
+        cv = np.empty_like(cu)
+        cu[0::2] = u_amp[:, sl] * np.cos(u_g[:, sl] * rad)
+        cu[1::2] = u_amp[:, sl] * np.sin(u_g[:, sl] * rad)
+        cv[0::2] = v_amp[:, sl] * np.cos(v_g[:, sl] * rad)
+        cv[1::2] = v_amp[:, sl] * np.sin(v_g[:, sl] * rad)
+        for t in range(0, x.shape[0], 120):
+            xt = x[t : t + 120]
+            best = np.maximum(best, np.hypot(xt @ cu, xt @ cv).max(axis=0))
+        out[sl] = best
+    return out
