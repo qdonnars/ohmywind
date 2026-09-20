@@ -117,7 +117,57 @@ Lecture :
   92 % sur la composante est, 36 à 85 % sur la composante nord (le vent et
   la houle font le reste, ce qu'aucun atlas de marée ne prétend rendre).
 
+## 3b. Le domaine NWS entier contre MARC et BSH [vérifié, `scripts/compare_atlases.py`]
+
+Là où deux atlas répondent, le script tire des points au hasard, calcule
+l'ellipse M2 servie par chacun (donc exactement ce que la cascade servirait)
+et résume par paire : rapport des demi-grands axes (candidat / référence),
+écart d'inclinaison, écart de phase après levée de l'ambiguïté 180°/180°.
+Les points où la référence donne moins de 0,1 kt sont écartés.
+
+Manche (48,3° à 51,5° N, −6° à 2° E, 400 points) :
+
+| candidat | référence | points | M2 réf. (kt, médiane) | rapport d'amplitude (p10 / médiane / p90) | écart d'inclinaison (médiane / p90) | écart de phase (médiane / p90 abs.) |
+|---|---|---|---|---|---|---|
+| CMEMS_NWS | MANGA 700 m | 161 | 0,88 | 1,00 / 1,12 / 5,54 | 3° / 42° | −1° / 48° |
+| CMEMS_NWS | MANW 250 m | 99 | 1,47 | 0,89 / 1,08 / 1,51 | 2° / 12° | −2° / 16° |
+| CMEMS_NWS | MANE 250 m | 85 | 1,30 | 1,09 / 1,23 / 1,85 | 2° / 11° | −2° / 14° |
+| CMEMS_NWS | ATLNE 2 km | 33 | 0,83 | 0,95 / 1,07 / 1,31 | 13° / 29° | +6° / 20° |
+| CMEMS_NWS | FINIS 250 m | 22 | 1,71 | 0,87 / 0,95 / 1,34 | 5° / 24° | +1° / 11° |
+
+Bretagne sud et Gascogne (46° à 48,3° N, −6° à −1° E, 300 points) :
+
+| candidat | référence | points | M2 réf. (kt, médiane) | rapport d'amplitude | écart d'inclinaison | écart de phase |
+|---|---|---|---|---|---|---|
+| CMEMS_NWS | MANGA 700 m | 139 | 0,46 | 0,85 / 1,01 / 1,21 | 2° / 14° | +3° / 12° |
+| CMEMS_NWS | FINIS 250 m | 62 | 0,66 | 0,84 / 0,95 / 1,35 | 6° / 13° | +9° / 32° |
+| CMEMS_NWS | SUDBZH 250 m | 62 | 0,36 | 0,75 / 1,04 / 1,43 | 12° / 28° | +6° / 24° |
+| CMEMS_NWS | AQUI 250 m | 20 | 0,40 | 1,08 / 1,19 / 1,57 | 4° / 26° | +9° / 21° |
+
+Baie allemande (53,3° à 55,5° N, 6,5° à 9,2° E, 300 points ; le candidat
+servi y est l'atlas d'un an de la baie, même modèle) :
+
+| candidat | référence | points | M2 réf. (kt, médiane) | rapport d'amplitude | écart d'inclinaison | écart de phase |
+|---|---|---|---|---|---|---|
+| CMEMS_NWS_BIGHT | BSH_DB 926 m | 291 | 0,89 | 0,57 / 0,92 / 1,08 | 4° / 23° | +16° / 35° |
+| CMEMS_NWS_BIGHT | BSH_AUSALT 90 m | 8 | 2,04 | 0,48 / 0,63 / 1,82 | 10° / 25° | −22° / 48° |
+
+Lecture : dans la Manche et en Gascogne, Copernicus NWS et MARC racontent la
+même marée, à 10 % près en médiane d'amplitude et à 2° près en phase sur les
+atlas fins (MANW, MANE), avec des queues (p90 à +50 % ou 40° sur MANGA) là
+où la référence est faible ou près des côtes. Cela ne fait pas de NWS un
+remplaçant de MARC en France (rang 1 conservé), mais cela valide le
+prolongement de la même physique vers le nord, là où MARC n'a rien. En baie
+allemande, NWS est en retard de 16° (30 minutes) sur BSH et de 8 % en
+dessous, cohérent avec le radar (section 3) ; l'Elbe à 90 m (AUSALT) n'est
+pas comparable à 1,5 km.
+
 ## 4. Domaines complets [en cours le 2026-09-20]
+
+- **NWS** (−13° à 13° E, 46° à 63° N, `cmems_mod_nws_phy-cur_anfc_1.5km-2D_PT1H-i`) :
+  601 740 cellules de mer sur 1 065 160, toutes ajustées sur 8 760 heures,
+  18 constituants ; 547 983 cellules gardées au-dessus de 0,2 kt (91 %),
+  304 tuiles de 1°, 149 Mo, 229 s d'analyse. Rang 0, `cmems_nws_1500m`.
 
 Un an horaire (2025-09 à 2026-08) téléchargé pour NWS, IBI et MED, atlas
 construits par le même script avec le filtre 0,2 kt et des tuiles de 1° :

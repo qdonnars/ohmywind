@@ -80,6 +80,21 @@ def _bbox_feature(name: str, props: dict, lat_min, lon_min, lat_max, lon_max) ->
     }
 
 
+def _polygonal(geom):
+    """Keep the areal part of a shapely result (intersections may add lines)."""
+    from shapely.geometry import GeometryCollection
+    from shapely.ops import unary_union
+
+    if geom.is_empty:
+        return geom
+    if geom.geom_type == "GeometryCollection":
+        parts = [g for g in geom.geoms if g.geom_type in ("Polygon", "MultiPolygon")]
+        return unary_union(parts) if parts else GeometryCollection()
+    return (
+        geom if geom.geom_type in ("Polygon", "MultiPolygon") else GeometryCollection()
+    )
+
+
 def _tiles_union(
     atlas_dir: Path, clip_to: dict | None = None, tile_deg: float = 0.5
 ) -> dict | None:
@@ -93,6 +108,7 @@ def _tiles_union(
     import polars as pl
     from shapely.geometry import box, mapping
     from shapely.ops import unary_union
+    from shapely.validation import make_valid
 
     boxes = []
     for parquet in atlas_dir.glob("tile_lat=*/tile_lon=*/data.parquet"):
@@ -113,7 +129,23 @@ def _tiles_union(
         from shapely.geometry import shape
 
         union = union.intersection(shape(clip_to))
-    return mapping(union.simplify(0.001))
+    # A union of a few hundred boxes clipped and simplified can come out with
+    # a self-touching ring; shapely then answers an empty intersection for
+    # every later operation without a word, which hid a 300 deg2 atlas.
+    return mapping(_polygonal(make_valid(union.simplify(0.001))))
+
+
+def _validity_clip(meta: dict, bbox_geometry: dict) -> dict:
+    """The coverage box, cut down to ``validity_bbox`` when the metadata has one."""
+    vb = meta.get("validity_bbox")
+    if not vb:
+        return bbox_geometry
+    from shapely.geometry import box, mapping, shape
+
+    lat_min, lon_min, lat_max, lon_max = vb
+    return mapping(
+        shape(bbox_geometry).intersection(box(lon_min, lat_min, lon_max, lat_max))
+    )
 
 
 def _tile_deg(meta: dict) -> float:
@@ -124,7 +156,9 @@ def current_coverage(build_dir: Path) -> dict:
     feats: list[dict] = []
     for cov in sorted(build_dir.glob("marc/*/coverage.geojson")):
         meta = json.loads((cov.parent / "metadata.json").read_text())
-        bbox_geometry = json.loads(cov.read_text())["features"][0]["geometry"]
+        bbox_geometry = _validity_clip(
+            meta, json.loads(cov.read_text())["features"][0]["geometry"]
+        )
         # The runtime filters on the atlas bbox first, then on the containing
         # tile: a union of whole tiles alone overflows the bbox by up to 55 km
         # and would promise FINIS 250 m where MANGA 700 m is served (measured
@@ -172,7 +206,9 @@ def current_coverage(build_dir: Path) -> dict:
     for pattern in ("bsh/atlas/*/coverage.geojson", "cmems/atlas/*/coverage.geojson"):
         for cov in sorted(build_dir.glob(pattern)):
             meta = json.loads((cov.parent / "metadata.json").read_text())
-            bbox_geometry = json.loads(cov.read_text())["features"][0]["geometry"]
+            bbox_geometry = _validity_clip(
+                meta, json.loads(cov.read_text())["features"][0]["geometry"]
+            )
             geometry = (
                 _tiles_union(cov.parent, bbox_geometry, _tile_deg(meta))
                 or bbox_geometry
@@ -184,7 +220,8 @@ def current_coverage(build_dir: Path) -> dict:
                     "type": "Feature",
                     "properties": {
                         "layer": "built",
-                        "name": f"{meta['atlas']} {meta['resolution_m']} m (built, not shipped)",
+                        "shipped": False,
+                        "name": f"{meta.get('label') or meta['atlas']} ({meta['resolution_m']} m)",
                         "label": f"{short}_{zone}_{meta['resolution_m']}m",
                         "rank": meta["rank"],
                         "resolution_m": meta["resolution_m"],
@@ -243,21 +280,6 @@ GRID_KINDS = ("forecast_grid", "harmonic_constants")
 ZONE_STATUSES = ("covered", "target", "blocked", "unknown")
 
 
-def _polygonal(geom):
-    """Keep the areal part of a shapely result (intersections may add lines)."""
-    from shapely.geometry import GeometryCollection
-    from shapely.ops import unary_union
-
-    if geom.is_empty:
-        return geom
-    if geom.geom_type == "GeometryCollection":
-        parts = [g for g in geom.geoms if g.geom_type in ("Polygon", "MultiPolygon")]
-        return unary_union(parts) if parts else GeometryCollection()
-    return (
-        geom if geom.geom_type in ("Polygon", "MultiPolygon") else GeometryCollection()
-    )
-
-
 def _source_unions(sources: dict, max_res_m: float, unknown_res_ok: bool):
     """(open gridded sources at ``max_res_m`` or finer, closed or unclear sources).
 
@@ -294,10 +316,11 @@ def zone_status(coverage: dict, masks: dict, sources: dict) -> dict:
     """The 1.5 kt mask split into the four statuses, one feature per status."""
     from shapely.geometry import mapping, shape
     from shapely.ops import unary_union
+    from shapely.validation import make_valid
 
     strong = unary_union(
         [
-            shape(f["geometry"])
+            make_valid(shape(f["geometry"]))
             for fc in masks.values()
             for f in fc["features"]
             if f["properties"].get("threshold_kt", 0) >= 1.5
@@ -305,12 +328,14 @@ def zone_status(coverage: dict, masks: dict, sources: dict) -> dict:
     )
     covered = unary_union(
         [
-            shape(f["geometry"])
+            make_valid(shape(f["geometry"]))
             for f in coverage["features"]
             if f["properties"]["layer"] in COVERED_LAYERS
             and (f["properties"].get("resolution_m") or 10**9) <= COVER_MAX_M
         ]
     )
+    if not covered.is_valid or not strong.is_valid:
+        raise RuntimeError("invalid geometry after union, check the coverage layer")
     open_src, closed_src = _source_unions(sources, COVER_MAX_M, unknown_res_ok=True)
     rest = _polygonal(strong.difference(covered))
     parts = {"covered": _polygonal(strong.intersection(covered))}
