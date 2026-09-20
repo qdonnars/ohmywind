@@ -205,7 +205,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.methodo.tidal.status.blocked": "not covered, data closed or unclear",
   "config.methodo.tidal.status.unknown": "not covered, no known source",
   "config.methodo.tidal.status.none": "outside the computed strong-current zones",
-  "config.methodo.tidal.popup.pass": "Known pass within 25 km",
+  "config.methodo.tidal.popup.pass": "Nearest known pass",
   "config.methodo.tidal.popup.passValue": "{name}, {kt} kt published, {km} km away",
   "config.methodo.tidal.popup.candidates": "Candidate sources here",
   "config.methodo.tidal.popup.fallback": "Worldwide fallback (does not count as coverage)",

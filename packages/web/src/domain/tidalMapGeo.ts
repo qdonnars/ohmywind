@@ -178,12 +178,17 @@ export interface PassProperties {
   in_objective: boolean;
 }
 
+/** The engine's own radius for "this leg passes a known race"
+    (``tidal_gaps.tidal_gap_at(pass_radius_km)``), so the card and the
+    warning name the same pass for the same point. */
+export const PASS_RADIUS_KM = 15;
+
 /** The known pass nearest to a point within ``maxKm``, or ``null``. */
 export function nearestPass(
   lat: number,
   lon: number,
   passes: FeatureCollection<Point, PassProperties> | null,
-  maxKm = 25,
+  maxKm = PASS_RADIUS_KM,
 ): { feature: Feature<Point, PassProperties>; km: number } | null {
   if (!passes) return null;
   let best: { feature: Feature<Point, PassProperties>; km: number } | null = null;

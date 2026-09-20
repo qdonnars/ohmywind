@@ -215,7 +215,7 @@ export const config = {
   "config.methodo.tidal.status.blocked": "non couverte, données fermées ou à clarifier",
   "config.methodo.tidal.status.unknown": "non couverte, aucune source connue",
   "config.methodo.tidal.status.none": "hors des zones à fort courant calculées",
-  "config.methodo.tidal.popup.pass": "Passe connue à moins de 25 km",
+  "config.methodo.tidal.popup.pass": "Passe connue la plus proche",
   "config.methodo.tidal.popup.passValue": "{name}, {kt} kt publiés, à {km} km",
   "config.methodo.tidal.popup.candidates": "Sources candidates ici",
   "config.methodo.tidal.popup.fallback": "Repli mondial (ne compte pas comme couverture)",

@@ -207,7 +207,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.methodo.tidal.status.blocked": "non coperta, dati chiusi o da chiarire",
   "config.methodo.tidal.status.unknown": "non coperta, nessuna fonte nota",
   "config.methodo.tidal.status.none": "fuori dalle zone a forte corrente calcolate",
-  "config.methodo.tidal.popup.pass": "Passaggio noto entro 25 km",
+  "config.methodo.tidal.popup.pass": "Passaggio noto più vicino",
   "config.methodo.tidal.popup.passValue": "{name}, {kt} kn pubblicati, a {km} km",
   "config.methodo.tidal.popup.candidates": "Fonti candidate qui",
   "config.methodo.tidal.popup.fallback": "Ripiego mondiale (non conta come copertura)",
