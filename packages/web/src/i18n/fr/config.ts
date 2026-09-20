@@ -218,6 +218,7 @@ export const config = {
   "config.methodo.tidal.popup.pass": "Passe connue à moins de 25 km",
   "config.methodo.tidal.popup.passValue": "{name}, {kt} kt publiés, à {km} km",
   "config.methodo.tidal.popup.candidates": "Sources candidates ici",
+  "config.methodo.tidal.popup.fallback": "Repli mondial (ne compte pas comme couverture)",
   "config.methodo.tidal.popup.none": "aucune identifiée",
   "config.methodo.tidal.popup.objective": "Zone objectif",
   "config.methodo.tidal.popup.yes": "oui",

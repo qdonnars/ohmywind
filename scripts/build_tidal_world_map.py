@@ -392,11 +392,15 @@ def compute_gaps(
     fine_union = unary_union(
         [g for g, p in prod if (p.get("resolution_m") or 10**9) <= MEDIUM_M]
     )
+    # Same rule as the colours: a worldwide source (FES, TPXO) is the fallback
+    # tier, never a candidate to cover a pass.
     candidates = [
-        (shape(f["geometry"]), f["properties"])
+        (geom, f["properties"])
         for f in sources["features"]
         if f["properties"]["status"] == "ok"
         and f["properties"].get("kind") != "station_points"
+        for geom in [shape(f["geometry"])]
+        if geom.bounds[2] - geom.bounds[0] <= 180
     ]
     objective_geom = (
         unary_union([shape(f["geometry"]) for f in objective["features"]])

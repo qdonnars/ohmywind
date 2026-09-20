@@ -98,6 +98,24 @@ export function pointInGeometry(lon: number, lat: number, geometry: Geometry | n
   return false;
 }
 
+/**
+ * A source whose extent spans more than half the globe (FES, TPXO): the
+ * fallback tier of the cascade, never a candidate that could cover a zone.
+ */
+export function isGlobalExtent(geometry: Geometry | null | undefined): boolean {
+  if (!geometry || (geometry.type !== "Polygon" && geometry.type !== "MultiPolygon")) return false;
+  let min = Infinity;
+  let max = -Infinity;
+  const rings = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
+  for (const poly of rings) {
+    for (const [lon] of poly[0]) {
+      if (lon < min) min = lon;
+      if (lon > max) max = lon;
+    }
+  }
+  return max - min > 180;
+}
+
 export type CurrentBand = "over15" | "over05" | "under05" | "unknown";
 
 /**

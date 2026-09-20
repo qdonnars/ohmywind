@@ -210,6 +210,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.methodo.tidal.popup.pass": "Paso conocido a menos de 25 km",
   "config.methodo.tidal.popup.passValue": "{name}, {kt} kn publicados, a {km} km",
   "config.methodo.tidal.popup.candidates": "Fuentes candidatas aquí",
+  "config.methodo.tidal.popup.fallback": "Respaldo mundial (no cuenta como cobertura)",
   "config.methodo.tidal.popup.none": "ninguna identificada",
   "config.methodo.tidal.popup.objective": "Zona objetivo",
   "config.methodo.tidal.popup.yes": "sí",

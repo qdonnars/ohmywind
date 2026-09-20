@@ -7,6 +7,7 @@ import {
   classifyAnswer,
   currentBand,
   esc,
+  isGlobalExtent,
   kmBetween,
   nearestPass,
   pointInGeometry,
@@ -140,5 +141,13 @@ describe("statusAt", () => {
     expect(statusAt(2.5, 0.5, fc)).toBe("blocked");
     expect(statusAt(1.5, 0.5, fc)).toBeNull();
     expect(statusAt(0.5, 0.5, null)).toBeNull();
+  });
+});
+
+describe("isGlobalExtent", () => {
+  it("tells a worldwide fallback from a regional source", () => {
+    expect(isGlobalExtent({ type: "Polygon", coordinates: [[[-180, -80], [180, -80], [180, 90], [-180, 90], [-180, -80]]] })).toBe(true);
+    expect(isGlobalExtent({ type: "Polygon", coordinates: [[[-13, 46], [13, 46], [13, 63], [-13, 63], [-13, 46]]] })).toBe(false);
+    expect(isGlobalExtent(null)).toBe(false);
   });
 });

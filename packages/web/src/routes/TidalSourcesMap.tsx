@@ -24,6 +24,7 @@ import {
   classifyAnswer,
   currentBand,
   esc,
+  isGlobalExtent,
   nearestPass,
   pointInGeometry,
   statusAt,
@@ -80,11 +81,13 @@ const SOURCE_COLOR: Record<string, string> = {
   no_currents: "#8a8a84",
 };
 const SOURCE_ORDER = ["current", "ok", "clarify", "blocked", "no_currents"];
+/** The precision of the server's answer, in its own neutral ramp so it is
+    never read as one of the four zone statuses. */
 const PRECISION_COLOR: Record<PrecisionClass, string> = {
-  fine: STATUS_COLOR.covered,
-  medium: STATUS_COLOR.covered,
-  coarse: STATUS_COLOR.target,
-  global: STATUS_COLOR.unknown,
+  fine: "#1e40af",
+  medium: "#2563eb",
+  coarse: "#475569",
+  global: "#64748b",
 };
 
 async function loadJson<T>(name: string): Promise<T> {
@@ -208,11 +211,14 @@ export function TidalSourcesMap() {
     const zone = statusAt(lon, lat, d?.status ?? null);
     const near = nearestPass(lat, lon, d?.passes ?? null);
     const inObjective = d?.objective.features.some((f) => pointInGeometry(lon, lat, f.geometry)) ?? false;
-    const candidates = (d?.sources.features ?? [])
+    const here = (d?.sources.features ?? [])
       .filter((f) => f.properties.status === "ok" && f.properties.kind !== "station_points" && pointInGeometry(lon, lat, f.geometry))
-      .sort((a, b) => (a.properties.resolution_m ?? 1e9) - (b.properties.resolution_m ?? 1e9))
-      .slice(0, 3)
-      .map((f) => `${esc(f.properties.name)}${f.properties.resolution_m ? ` (${f.properties.resolution_m} m)` : ""}`);
+      .sort((a, b) => (a.properties.resolution_m ?? 1e9) - (b.properties.resolution_m ?? 1e9));
+    const label = (f: SourceFC["features"][number]) => `${esc(f.properties.name)}${f.properties.resolution_m ? ` (${f.properties.resolution_m} m)` : ""}`;
+    // Same rule as the four colours: a worldwide source is the fallback tier,
+    // it never counts as a candidate to cover the zone.
+    const candidates = here.filter((f) => !isGlobalExtent(f.geometry)).slice(0, 3).map(label);
+    const fallback = here.filter((f) => isGlobalExtent(f.geometry)).map(label);
     return (
       `<h3 class="methodo-map-popup-title">${esc(t("config.methodo.tidal.popup.title"))}</h3>` +
       (precision ? badge(PRECISION_COLOR[precision], t(`config.methodo.tidal.precision.${precision}`)) : "") +
@@ -227,6 +233,7 @@ export function TidalSourcesMap() {
           : null,
       ) +
       row(t("config.methodo.tidal.popup.candidates"), candidates.length ? candidates.join("<br>") : esc(t("config.methodo.tidal.popup.none"))) +
+      row(t("config.methodo.tidal.popup.fallback"), fallback.length ? fallback.join("<br>") : null) +
       row(t("config.methodo.tidal.popup.objective"), esc(t(inObjective ? "config.methodo.tidal.popup.yes" : "config.methodo.tidal.popup.no"))) +
       `</dl>`
     );
