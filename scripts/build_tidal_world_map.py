@@ -529,6 +529,91 @@ def effective_coverage(coverage: dict) -> dict:
     return {"type": "FeatureCollection", "features": feats}
 
 
+GAPS_FILES = (
+    REPO / "packages/data-adapters/src/openwind_data/currents/tidal_gaps.geojson",
+    REPO / "packages/web/src/domain/tidalGaps.json",
+)
+
+
+def server_gaps(coverage: dict, masks: dict, gaps: dict, include_built: bool) -> dict:
+    """The snapshot behind the ``currents.tidal_gap`` notice, server and web.
+
+    Worldwide, unlike the map's gap layer which stays inside the target area:
+    the 1.5 kt masks minus every source at MEDIUM_M or finer (what the engine
+    tags high confidence), plus the known passes without such a source. The
+    two copies must stay identical (``tidalGaps.test.ts`` reads the web one).
+
+    Only shipped sources count unless ``include_built``: an atlas built here
+    but not yet in the dataset must keep the warning alive where it will one
+    day answer, otherwise Cuxhaven loses its notice before BSH serves it.
+    """
+    from shapely.geometry import mapping, shape
+    from shapely.ops import unary_union
+    from shapely.validation import make_valid
+
+    strong = unary_union(
+        [
+            make_valid(shape(f["geometry"]))
+            for fc in masks.values()
+            for f in fc["features"]
+            if f["properties"].get("threshold_kt", 0) >= 1.5
+        ]
+    )
+    layers = COVERED_LAYERS if include_built else ("shom", "marc")
+    fine_feats = [
+        f
+        for f in coverage["features"]
+        if f["properties"]["layer"] in layers
+        and (f["properties"].get("resolution_m") or 10**9) <= MEDIUM_M
+    ]
+    fine = unary_union([make_valid(shape(f["geometry"])) for f in fine_feats])
+    fine_names = {f["properties"]["name"] for f in fine_feats}
+    left = _polygonal(strong.difference(fine)).simplify(0.01)
+    feats = [
+        {
+            "type": "Feature",
+            "properties": {"kind": "mask", "threshold_kt": 1.5},
+            "geometry": mapping(left),
+        }
+    ]
+    for f in gaps["features"]:
+        p = f["properties"]
+        if f["geometry"]["type"] != "Point":
+            continue
+        if (
+            p.get("coverage_class") in ("fine", "medium")
+            and p.get("best_source") in fine_names
+        ):
+            continue
+        feats.append(
+            {
+                "type": "Feature",
+                "properties": {
+                    "kind": "pass",
+                    "name": p["name"],
+                    "max_spring_kt": p.get("max_spring_kt"),
+                    "coverage_class": p.get("coverage_class"),
+                },
+                "geometry": f["geometry"],
+            }
+        )
+    sources = ", ".join(sorted(masks))
+    return {
+        "type": "FeatureCollection",
+        "name": "tidal_gaps",
+        "description": (
+            "Zones où le courant de marée est probablement fort et où aucune source de "
+            "courants à 1 km ou plus fin n'est servie. Polygone : courant tidal maximal "
+            f"> 1,5 kt reconstruit depuis les atlas ({sources}), moins la couverture fine "
+            "et moyenne, monde entier. Points : passes et raz connus sans source fine ni "
+            "moyenne (courant de vive-eau publié en nœuds). Généré par "
+            "scripts/build_tidal_world_map.py --write-gaps le "
+            f"{datetime.now(UTC).date().isoformat()} ; à régénérer quand un atlas est ajouté."
+        ),
+        "features": feats,
+    }
+
+
 def export_web(
     web_dir: Path,
     masks: dict,
@@ -582,6 +667,16 @@ def main(argv: list[str] | None = None) -> int:
         "--skip-coverage",
         action="store_true",
         help="keep the versioned coverage_current.geojson",
+    )
+    parser.add_argument(
+        "--write-gaps",
+        action="store_true",
+        help="rewrite the tidal_gaps snapshot served by the engine and bundled by the web app",
+    )
+    parser.add_argument(
+        "--gaps-include-built",
+        action="store_true",
+        help="count the atlases built under build/ as served (after their publication)",
     )
     parser.add_argument(
         "--web-dir",
@@ -680,6 +775,18 @@ def main(argv: list[str] | None = None) -> int:
     )
     if args.web_dir is not None:
         export_web(args.web_dir, masks, gaps, status, objective, coverage, sources)
+    if args.write_gaps:
+        snapshot = json.dumps(
+            server_gaps(coverage, masks, gaps, args.gaps_include_built),
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        for path in GAPS_FILES:
+            path.write_text(snapshot)
+        print(
+            f"tidal_gaps: {len(snapshot) / 1e3:.0f} kB, "
+            f"{sum(1 for f in json.loads(snapshot)['features'] if f['properties']['kind'] == 'pass')} passes"
+        )
     print(
         f"data.js: {out.stat().st_size / 1e3:.0f} kB, {len(sources['features'])} sources, "
         f"{len(gazetteer['features'])} gazetteer entries, {len(masks)} mask(s), {len(coverage['features'])} coverage features"
