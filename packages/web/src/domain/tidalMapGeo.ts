@@ -150,8 +150,9 @@ export function currentBand(
  * not served but an open source exists, not served and the known data is
  * closed or unclear, not served and nothing is known.
  */
-export type ZoneStatus = "covered" | "target" | "blocked" | "unknown";
-export const ZONE_STATUSES: readonly ZoneStatus[] = ["covered", "target", "blocked", "unknown"];
+export type ZoneStatus = "calm" | "covered" | "target" | "blocked" | "unknown";
+/** Legend order; ``calm`` is covered water under 0.5 kt, drawn pale. */
+export const ZONE_STATUSES: readonly ZoneStatus[] = ["covered", "calm", "target", "blocked", "unknown"];
 
 /** The status of the strong-current area under a point, ``null`` outside them. */
 export function statusAt(

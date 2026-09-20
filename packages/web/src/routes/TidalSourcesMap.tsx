@@ -66,6 +66,7 @@ interface Layers {
 }
 
 const STATUS_COLOR: Record<ZoneStatus, string> = {
+  calm: "#8fcfa6",
   covered: "#2a9d5c",
   target: "#f28c28",
   blocked: "#7b3fd4",
@@ -282,8 +283,9 @@ export function TidalSourcesMap() {
         setSources(sortedSources(d.sources));
         L.geoJSON(d.status, {
           style: (f) => {
-            const color = STATUS_COLOR[(f?.properties as { status: ZoneStatus } | undefined)?.status ?? "unknown"];
-            return { color, weight: 0.6, fillColor: color, fillOpacity: 0.5, interactive: false };
+            const status = (f?.properties as { status: ZoneStatus } | undefined)?.status ?? "unknown";
+            const color = STATUS_COLOR[status];
+            return { color, weight: status === "calm" ? 0 : 0.6, fillColor: color, fillOpacity: status === "calm" ? 0.35 : 0.5, interactive: false };
           },
         }).addTo(map);
         L.geoJSON(d.objective, { style: { color: OBJECTIVE_COLOR, weight: 1.5, dashArray: "8 6", fill: false, interactive: false } }).addTo(map);

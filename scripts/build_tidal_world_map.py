@@ -295,7 +295,10 @@ def _served(props: dict) -> bool:
     return layer == "built" and bool(props.get("shipped"))
 
 
-ZONE_STATUSES = ("covered", "target", "blocked", "unknown")
+# ``calm`` is covered water where the tide never reaches 0.5 kt: drawn pale,
+# so a hole in the green reads as "nothing to plan around here", not as a
+# gap in the coverage (the shelf off Groix and Concarneau stays under 0.4 kt).
+ZONE_STATUSES = ("calm", "covered", "target", "blocked", "unknown")
 
 
 def _source_unions(sources: dict, max_res_m: float, unknown_res_ok: bool):
@@ -434,7 +437,10 @@ def zone_status(coverage: dict, masks: dict, sources: dict, ocean=None) -> dict:
     open_src, closed_src = _source_unions(sources, COVER_MAX_M, unknown_res_ok=True)
     open_src = unary_union([open_src, *at_hand])
     rest = _polygonal(strong.difference(covered))
-    parts = {"covered": _polygonal(notable.intersection(covered))}
+    parts = {
+        "calm": _polygonal(covered.difference(notable)),
+        "covered": _polygonal(notable.intersection(covered)),
+    }
     parts["target"] = _polygonal(rest.intersection(open_src))
     rest = _polygonal(rest.difference(open_src))
     parts["blocked"] = _polygonal(rest.intersection(closed_src))
