@@ -219,9 +219,23 @@
 }
 .methodo-map-table {
   width: 100%;
+  min-width: 640px;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.8rem;
   line-height: 1.3;
+}
+.methodo-map-table th:nth-child(1) {
+  width: 3.6rem;
+}
+.methodo-map-table th:nth-child(2) {
+  width: 34%;
+}
+.methodo-map-table th:nth-child(3) {
+  width: 17%;
+}
+.methodo-map-table th:nth-child(4) {
+  width: 26%;
 }
 .methodo-map-table th,
 .methodo-map-table td {
@@ -242,9 +256,6 @@
 }
 .methodo-map-table label {
   cursor: pointer;
-}
-.methodo-map-licence {
-  max-width: 260px;
 }
 .methodo-map-licence a {
   display: block;

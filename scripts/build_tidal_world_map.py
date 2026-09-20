@@ -614,6 +614,31 @@ def server_gaps(coverage: dict, masks: dict, gaps: dict, include_built: bool) ->
     }
 
 
+def dissolved(fc: dict) -> dict:
+    """One outline for a target area drawn as several boxes.
+
+    The hand-written objective is a few overlapping rectangles; drawn as
+    they are, their shared edges cut dashed lines across the middle of the
+    continent. The union keeps the first feature's properties.
+    """
+    if len(fc["features"]) < 2:
+        return fc
+    from shapely.geometry import mapping, shape
+    from shapely.ops import unary_union
+
+    union = unary_union([shape(f["geometry"]) for f in fc["features"]])
+    return {
+        **fc,
+        "features": [
+            {
+                "type": "Feature",
+                "properties": fc["features"][0].get("properties", {}),
+                "geometry": mapping(union),
+            }
+        ],
+    }
+
+
 def export_web(
     web_dir: Path,
     masks: dict,
@@ -715,7 +740,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     objective_path = MAP_DIR / "objective.geojson"
     objective = (
-        json.loads(objective_path.read_text())
+        dissolved(json.loads(objective_path.read_text()))
         if objective_path.exists()
         else {"type": "FeatureCollection", "features": []}
     )
