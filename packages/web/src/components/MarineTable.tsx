@@ -510,6 +510,13 @@ export function MarineTable({
         </div>
       </div>
       {metric === "currents" && <PanelNote>{currentSourceNote(marine)}</PanelNote>}
+      {metric === "currents" && marine.tidal_gap && (
+        <PanelNote variant="warning">
+          {marine.tidal_gap.kind === "pass"
+            ? t("explore.marineTable.tidalGap.pass", { zone: marine.tidal_gap.zone })
+            : t("explore.marineTable.tidalGap.zone")}
+        </PanelNote>
+      )}
     </div>
   );
 }

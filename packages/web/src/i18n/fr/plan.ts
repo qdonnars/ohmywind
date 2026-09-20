@@ -122,6 +122,7 @@ export const plan = {
     "vent faible : vitesse mini {min_speed_kn} kn, passage très lent",
   "plan.notice.passage.model_fallback":
     "modèle {model} sans données sur {fallback_count}/{total} points (probable hors zone de couverture) ; fallback automatique sur {others}",
+  "plan.notice.currents.tidal_gap": "courants de marée probablement forts ({zones}) et non résolus par nos sources : les courants annoncés viennent d'un modèle global à 8 km qui ne les voit pas. Nous travaillons à élargir la couverture, mais les données ne sont pas toutes en libre accès.",
   "plan.notice.complexity.wind.3": "Vent soutenu : TWS {tws_range} kn sur {nm} nm",
   "plan.notice.complexity.wind.4": "Vent fort : TWS {tws_range} kn sur {nm} nm",
   "plan.notice.complexity.wind.5": "Vent très fort : TWS {tws_range} kn sur {nm} nm",

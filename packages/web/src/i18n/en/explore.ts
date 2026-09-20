@@ -95,6 +95,8 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.marineTable.aria.current": "Current {value} kn",
 
   // Caption under the currents table: the source and the one number that qualifies it
+  "explore.marineTable.tidalGap.pass": "Warning: the currents shown here are probably wrong. {zone} is a strong tidal-stream area and the calculation only has a global 8 km model that cannot see it. We are working to extend our coverage, but not all the data is open.",
+  "explore.marineTable.tidalGap.zone": "Warning: the currents shown here are probably wrong. The tidal stream exceeds 1.5 kt here and the calculation only has a global 8 km model that cannot see it. We are working to extend our coverage, but not all the data is open.",
   "explore.marineTable.currentSource.smoc":
     "Current on an 8 km grid: tide, circulation and waves folded together, too coarse for the passes.",
   "explore.marineTable.currentSource.marc": "Tidal stream only, {res} grid: wind ignored.",

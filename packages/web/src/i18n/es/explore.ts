@@ -94,6 +94,8 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.marineTable.aria.current": "Corriente {value} kn",
 
   // Nota bajo la tabla de corrientes: la fuente y la cifra que la matiza
+  "explore.marineTable.tidalGap.pass": "Atención: las corrientes indicadas aquí son probablemente falsas. {zone} es una zona de fuerte corriente de marea y el cálculo solo dispone de un modelo global a 8 km que no la ve. Trabajamos para ampliar la cobertura, pero no todos los datos son de libre acceso.",
+  "explore.marineTable.tidalGap.zone": "Atención: las corrientes indicadas aquí son probablemente falsas. La corriente de marea supera aquí 1,5 kn y el cálculo solo dispone de un modelo global a 8 km que no la ve. Trabajamos para ampliar la cobertura, pero no todos los datos son de libre acceso.",
   "explore.marineTable.currentSource.smoc":
     "Corriente en malla de 8 km: marea, circulación y olas mezcladas, demasiado gruesa para los pasos.",
   "explore.marineTable.currentSource.marc": "Solo corriente de marea, malla {res}: viento ignorado.",
