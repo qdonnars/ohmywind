@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { lazy, Suspense, type ComponentProps } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -14,6 +15,29 @@ import methodologieFr from "../content/methodologie.md?raw";
 import methodologieEn from "../content/methodologie.en.md?raw";
 import segmentationSvgUrl from "../content/segmentation.svg?url";
 import "./methodologie.css";
+
+// The interactive map is Leaflet plus the vector basemap: loaded only when
+// the article mounts it, so a reader who never scrolls to the currents
+// section never pays for it.
+const TidalSourcesMap = lazy(() => import("./TidalSourcesMap"));
+
+/**
+ * ``<div data-widget="tidal-map">`` in the markdown becomes the map. Any
+ * other div stays a div: rehype-raw hands us every raw HTML element, and
+ * this is the one hook the content needs.
+ */
+function MarkdownDiv({ node, ...props }: ComponentProps<"div"> & { node?: unknown }) {
+  void node; // the hast node react-markdown hands over; not a DOM attribute
+  const widget = (props as Record<string, unknown>)["data-widget"];
+  if (widget === "tidal-map") {
+    return (
+      <Suspense fallback={<div className="methodo-map-canvas" aria-busy="true" />}>
+        <TidalSourcesMap />
+      </Suspense>
+    );
+  }
+  return <div {...props} />;
+}
 
 // French original and English translation. German, Italian and Spanish
 // readers get the English text: four thousand technical words are a lot to
@@ -58,6 +82,7 @@ export function MethodologiePage() {
             rehypeRaw,
             rehypeSlug,
           ]}
+          components={{ div: MarkdownDiv }}
         >
           {md}
         </ReactMarkdown>
