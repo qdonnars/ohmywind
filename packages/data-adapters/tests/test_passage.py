@@ -1767,3 +1767,54 @@ class TestSweepSimulationBudget:
         assert spacing > timedelta(hours=1)
         for a, b in pairwise(reports):
             assert b.departure_time - a.departure_time == spacing
+
+
+class TestTidalGapNotice:
+    """The ``currents.tidal_gap`` notice: raised where the current is not from a fine source."""
+
+    async def test_cuxhaven_to_helgoland_names_the_elbe(self) -> None:
+        # The stub adapter carries a current with no source label, which the
+        # engine reads as "not from a fine source"; Cuxhaven roads sit within
+        # 15 km of the Elbe entry the gap dataset lists.
+        adapter = StubAdapter(tws_kn=12.0, twd_deg=180.0, current_kn=0.4, current_to_deg=90.0)
+        report = await estimate_passage(
+            [Point(53.87, 8.70), Point(54.18, 7.89)],
+            DEPARTURE,
+            "cruiser_30ft",
+            adapter=adapter,
+        )
+        gap = [n for n in report.notices if n.code == "currents.tidal_gap"]
+        assert len(gap) == 1
+        assert "Elbe" in gap[0].params["zones"] or "Cuxhaven" in gap[0].params["zones"]
+        assert gap[0].params["count"] >= 1
+        assert "modèle global à 8 km" in gap[0].message
+        assert any("courants de marée probablement forts" in w for w in report.warnings)
+
+    async def test_marseille_to_porquerolles_is_quiet(self) -> None:
+        adapter = StubAdapter(tws_kn=12.0, twd_deg=0.0, current_kn=0.3, current_to_deg=90.0)
+        report = await estimate_passage(
+            [Point(43.29, 5.37), Point(43.00, 6.20)],
+            DEPARTURE,
+            "cruiser_30ft",
+            adapter=adapter,
+        )
+        assert not [n for n in report.notices if n.code == "currents.tidal_gap"]
+
+    async def test_a_fine_source_silences_the_notice(self) -> None:
+        # Same Elbe passage, but the legs carry a high-confidence current
+        # (what a 90 m atlas will give): nothing to warn about.
+        from openwind_data.routing.passage import engine as engine_module
+
+        adapter = StubAdapter(tws_kn=12.0, twd_deg=180.0, current_kn=2.0, current_to_deg=300.0)
+        original = engine_module.confidence_for_point
+        engine_module.confidence_for_point = lambda lat, lon, source: "high"  # type: ignore[assignment]
+        try:
+            report = await estimate_passage(
+                [Point(53.87, 8.70), Point(54.18, 7.89)],
+                DEPARTURE,
+                "cruiser_30ft",
+                adapter=adapter,
+            )
+        finally:
+            engine_module.confidence_for_point = original
+        assert not [n for n in report.notices if n.code == "currents.tidal_gap"]
