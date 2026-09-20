@@ -159,3 +159,98 @@
 .prose-methodo h2, .prose-methodo h3 {
   scroll-margin-top: 80px;
 }
+
+/* The tidal-sources map (TidalSourcesMap): a figure in the article flow,
+   legend under the map so nothing covers it at phone width. */
+.methodo-map {
+  margin: 1.5rem 0 2rem;
+}
+.methodo-map-hint {
+  font-size: 0.9rem;
+  color: #475569;
+  margin: 0 0 0.5rem;
+}
+.methodo-map-canvas {
+  width: 100%;
+  height: min(70vh, 520px);
+  border-radius: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #dbe7f0;
+  cursor: crosshair;
+}
+.methodo-map-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem 1.25rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+.methodo-map-group-title {
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+}
+.methodo-map-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+  cursor: pointer;
+}
+.methodo-map-item input {
+  margin: 0;
+}
+.methodo-map-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(15, 23, 42, 0.25);
+  box-sizing: border-box;
+}
+.methodo-map-swatch.is-round {
+  border-radius: 50%;
+}
+.methodo-map-swatch.is-dashed {
+  background: transparent;
+  border: 2px dashed;
+}
+.methodo-map-note {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 0.75rem 0 0;
+}
+.methodo-map-popup .leaflet-popup-content {
+  font-size: 13px;
+  line-height: 1.4;
+  min-width: 220px;
+}
+.methodo-map-popup-title {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.methodo-map-popup-grid {
+  margin: 6px 0 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 10px;
+}
+.methodo-map-popup-grid dt {
+  color: #64748b;
+}
+.methodo-map-popup-grid dd {
+  margin: 0;
+}
+.methodo-map-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
