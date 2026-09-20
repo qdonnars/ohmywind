@@ -5,6 +5,7 @@ import type {
   MarineHourly,
 } from "../types";
 import { API_BASE } from "./config";
+import { tidalGapForSource } from "../domain/tidalGaps";
 import { noteIfRefused } from "./openMeteoQuota";
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { parisIsoToUtcMs } from "../domain/datetime";
@@ -534,9 +535,24 @@ export async function fetchMarine(lat: number, lon: number): Promise<MarineHourl
   }
   const baseData = toMarineHourly(raw);
   if (!baseData) return null;
-  const data = mergeMarcOverlay(baseData, overlay);
+  const data = await withTidalGap(lat, lon, mergeMarcOverlay(baseData, overlay));
   cache.set(key, { data, fetchedAt: Date.now() });
   return data;
+}
+
+/**
+ * Stamp the tidal gap on a spot whose currents come from the global model or
+ * a coarse atlas, so the currents panel can warn. Best-effort: a failure to
+ * load the gap file leaves the data untouched.
+ */
+async function withTidalGap(lat: number, lon: number, data: MarineHourly): Promise<MarineHourly> {
+  try {
+    const gap = await tidalGapForSource(lat, lon, data.current_source, data.marc_resolution_m);
+    if (!gap) return data;
+    return { ...data, tidal_gap: { zone: gap.zone, kind: gap.kind, max_spring_kt: gap.maxSpringKt } };
+  } catch {
+    return data;
+  }
 }
 
 /**

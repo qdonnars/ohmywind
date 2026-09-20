@@ -115,6 +115,7 @@ export const plan: Record<keyof typeof frPlan, string> = {
     "schwacher Wind: Mindestgeschwindigkeit {min_speed_kn} kn, sehr langsame Passage",
   "plan.notice.passage.model_fallback":
     "Modell {model} ohne Daten an {fallback_count}/{total} Punkten (vermutlich außerhalb der Abdeckung); automatischer Rückgriff auf {others}",
+  "plan.notice.currents.tidal_gap": "Wahrscheinlich starke Gezeitenströme ({zones}), die unsere Quellen nicht auflösen: Die angezeigten Strömungen stammen aus einem globalen 8-km-Modell, das sie nicht sieht. Wir arbeiten daran, unsere Abdeckung zu erweitern, aber nicht alle Daten sind frei zugänglich.",
   "plan.notice.complexity.wind.3": "Frischer Wind: TWS {tws_range} kn auf {nm} nm",
   "plan.notice.complexity.wind.4": "Starker Wind: TWS {tws_range} kn auf {nm} nm",
   "plan.notice.complexity.wind.5": "Sehr starker Wind: TWS {tws_range} kn auf {nm} nm",

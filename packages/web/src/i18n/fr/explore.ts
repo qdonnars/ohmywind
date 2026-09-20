@@ -96,6 +96,8 @@ export const explore = {
   "explore.marineTable.aria.current": "Courant {value} kn",
 
   // Légende sous le tableau des courants : la source et le chiffre qui la qualifie
+  "explore.marineTable.tidalGap.pass": "Attention : les courants annoncés ici sont probablement faux. {zone} est une zone de fort courant de marée et le calcul ne dispose que d'un modèle global à 8 km qui ne la voit pas. Nous travaillons à élargir la couverture, mais les données ne sont pas toutes en libre accès.",
+  "explore.marineTable.tidalGap.zone": "Attention : les courants annoncés ici sont probablement faux. Le courant de marée y dépasse 1,5 kt et le calcul ne dispose que d'un modèle global à 8 km qui ne le voit pas. Nous travaillons à élargir la couverture, mais les données ne sont pas toutes en libre accès.",
   "explore.marineTable.currentSource.smoc":
     "Courant maille 8 km : marée, circulation et vagues confondues, trop grossier pour les passes.",
   "explore.marineTable.currentSource.marc": "Courant de marée seul, maille {res} : vent ignoré.",

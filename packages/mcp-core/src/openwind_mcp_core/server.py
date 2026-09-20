@@ -447,8 +447,11 @@ uses unless overridden by tool parameters.
   atlas at 1 km or finer (MARC 250 m and 700 m); ``"medium"`` on atlases
   coarser than 1 km (MARC ATLNE 2 km) and on Open-Meteo SMOC (8 km global
   product); ``None`` when no current data is available.
-  A data-driven downgrade in choke points (zones where SHOM C2D peaks
-  exceed ~3 kt) will land with the C2D adapter.
+  A ``currents.tidal_gap`` notice is raised once per passage when a leg
+  whose current is not from a fine source crosses a zone where tidal
+  streams are probably strong (a known race, or more than 1.5 kt
+  reconstructed with no fine atlas): the ETA then carries a current that
+  is probably wrong, and the notice names the places. Relay it.
 
 - Minimum boat speed / SOG: 0.5 kn floor to avoid blow-up in extreme
   stalls or strongly opposing currents.
