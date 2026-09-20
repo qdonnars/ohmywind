@@ -1,16 +1,23 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-"""MARC PREVIMER atlas runtime loader and predictor.
+"""Harmonic atlas runtime loader and predictor.
 
-Reads tiled Parquet datasets produced by ``scripts/build_marc_atlas.py`` (one
-per atlas: ATLNE / MANGA / FINIS / MANW / MANE / SUDBZH / AQUI). Provides
-height and current predictions at arbitrary (lat, lon, t).
+Reads tiled Parquet datasets in the layout described by
+``docs/harmonic_atlas_format.md``: one directory per atlas holding
+``metadata.json``, ``coverage.geojson`` and 0.5 degree tiles. Built for the
+MARC PREVIMER atlases (ATLNE / MANGA / FINIS / MANW / MANE / SUDBZH / AQUI),
+the loader knows only the format: any builder writing it (BSH, CMEMS, FES)
+gets the same treatment. ``HarmonicAtlasRegistry`` is the name to use in new
+code; ``MarcAtlasRegistry`` stays as the historical alias.
 
-Cascade priority within MARC: rank 2 (250 m, narrow passes) > rank 1 (700 m,
-shelf) > rank 0 (2 km, open Atlantic). When a point lies in several emprises,
-we pick the finest. Outside any MARC emprise, callers fall back to Open-Meteo
-SMOC.
+Priority between atlases is decided by the metadata, never deduced here:
+the explicit ``rank`` first (3 estuary or pass, 2 coastal, 1 shelf, 0 basin),
+the finest ``resolution_m`` at equal rank. An atlas may also declare a
+``validity_bbox`` smaller than its emprise: outside it the atlas refuses to
+cover, which is how a model gets confined to the waters it was validated
+in (ATLNE reaches the North Sea, PREVIMER only validated it on the French
+coasts). Outside every atlas, callers fall back to Open-Meteo SMOC.
 
 Predictor convention: standard SHOM/Schureman (see ``harmonic.py``). Heights
 are around mean sea level (MSL = 0); add the cell's ``z0_hydro_m`` to convert
@@ -44,7 +51,13 @@ _M_PER_DEG = 111_000.0
 
 @dataclass(frozen=True, slots=True)
 class AtlasMeta:
-    """One MARC atlas as discovered on disk."""
+    """One atlas as discovered on disk.
+
+    ``source_short``, ``zone``, ``confidence`` and ``validity_bbox`` come from
+    a schema 3 ``metadata.json``; a schema 2 (MARC) file gets the defaults
+    that reproduce the historical behaviour, except that nothing is inferred
+    about validity: an atlas without ``validity_bbox`` covers its whole bbox.
+    """
 
     name: str
     rank: int
@@ -54,6 +67,21 @@ class AtlasMeta:
     constituents_h: tuple[str, ...]
     constituents_u: tuple[str, ...]
     constituents_v: tuple[str, ...]
+    source_short: str = "marc"
+    zone: str = ""
+    confidence: str = "high"
+    validity_bbox: tuple[float, float, float, float] | None = None
+
+    @property
+    def source_label(self) -> str:
+        """Provenance label carried on every point, e.g. ``marc_finis_250m``.
+
+        ``<source>_<zone>_<resolution>m``: the pattern the web legend and the
+        MCP read_me document. ``zone`` defaults to the atlas name in lower
+        case, which keeps every existing MARC label byte for byte.
+        """
+        zone = self.zone or self.name.lower()
+        return f"{self.source_short}_{zone}_{self.resolution_m}m"
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +113,11 @@ def _scan_atlas(parquet_dir: Path) -> AtlasMeta | None:
     else:
         # Fallback: scan tile names. Not robust against partial atlas builds.
         bbox = (-90.0, -180.0, 90.0, 180.0)
+    source = meta.get("source") or {}
+    validity = meta.get("validity_bbox")
+    validity_bbox = None
+    if isinstance(validity, list | tuple) and len(validity) == 4:
+        validity_bbox = tuple(float(v) for v in validity)
     return AtlasMeta(
         name=meta["atlas"],
         rank=meta["rank"],
@@ -94,6 +127,10 @@ def _scan_atlas(parquet_dir: Path) -> AtlasMeta | None:
         constituents_h=tuple(meta.get("constituents_h", meta.get("constituents", []))),
         constituents_u=tuple(meta.get("constituents_u", [])),
         constituents_v=tuple(meta.get("constituents_v", [])),
+        source_short=str(source.get("short") or "marc"),
+        zone=str(meta.get("zone") or meta["atlas"].lower()),
+        confidence=str(meta.get("confidence") or "high"),
+        validity_bbox=validity_bbox,
     )
 
 
@@ -226,6 +263,25 @@ def _merge_tiles_into_rectangles(tiles: Iterable[tuple[float, float]]) -> _Boxes
     return tuple(boxes)
 
 
+def _clip_boxes(boxes: _Boxes, clip: _Box | None) -> _Boxes:
+    """Intersect coverage rectangles with a validity box, dropping the rest.
+
+    Keeps the promise of :meth:`MarcAtlasRegistry.coverage_cells` exact once
+    ``covers`` refuses outside ``validity_bbox``: a client filtering on the
+    published rectangles must not be told to ask where the atlas will not
+    answer.
+    """
+    if clip is None:
+        return boxes
+    out: list[_Box] = []
+    for lat_min, lon_min, lat_max, lon_max in boxes:
+        c_lat_min, c_lon_min = max(lat_min, clip[0]), max(lon_min, clip[1])
+        c_lat_max, c_lon_max = min(lat_max, clip[2]), min(lon_max, clip[3])
+        if c_lat_min < c_lat_max and c_lon_min < c_lon_max:
+            out.append((c_lat_min, c_lon_min, c_lat_max, c_lon_max))
+    return tuple(out)
+
+
 @lru_cache(maxsize=32)
 def _atlas_coverage_cells(parquet_dir: str) -> _Boxes:
     """Rectangles covering the non-empty tiles of one atlas directory.
@@ -345,6 +401,9 @@ class MarcAtlasRegistry:
         precisely the case worth skipping (14 uncovered answers out of 14 in
         the live measurement).
 
+        Rectangles are clipped to the atlas's ``validity_bbox`` when it has
+        one, so the contract survives the validity rule.
+
         The contract, and it is exact rather than approximate: **a point
         outside every rectangle is a point :meth:`covers` refuses**;
         :attr:`AtlasMeta.bbox` stays the outer envelope. ``covers`` reads the
@@ -360,7 +419,10 @@ class MarcAtlasRegistry:
         directory: the walk reads one Parquet footer per tile and nothing
         else, but that is still thousands of file opens on a large atlas.
         """
-        return tuple((a.name, _atlas_coverage_cells(str(a.parquet_dir))) for a in self.atlases)
+        return tuple(
+            (a.name, _clip_boxes(_atlas_coverage_cells(str(a.parquet_dir)), a.validity_bbox))
+            for a in self.atlases
+        )
 
     # Tolerance for "the nearest cell is close enough to be considered valid".
     # Coverage polygons are bbox-only at build time, so the bbox can extend
@@ -447,17 +509,28 @@ class MarcAtlasRegistry:
                 best, best_d = (n_df, found[0]), found[1]
         return best
 
+    def atlas_named(self, name: str) -> AtlasMeta | None:
+        """The atlas whose ``name`` matches, for callers holding a ``CellPrediction``."""
+        return next((a for a in self.atlases if a.name == name), None)
+
     def covers(self, lat: float, lon: float) -> AtlasMeta | None:
         """Return the finest atlas with actual data near (lat, lon), or None.
 
-        Filters by bbox first, then verifies the nearest cell in the matching
-        tile is within distance threshold. This catches false bbox matches
-        (e.g. ATLNE bbox spuriously covering the Mediterranean).
+        Filters by bbox and, when the atlas declares one, by ``validity_bbox``;
+        then verifies the nearest cell in the matching tile is within the
+        distance threshold. This catches false bbox matches (e.g. ATLNE bbox
+        spuriously covering the Mediterranean) and confines a model to the
+        waters its producer validated it in.
 
         Reads the containing tile only, on purpose: see `_best_cell` for why
         the seam search must not reach the coverage decision.
         """
-        candidates = [a for a in self.atlases if _bbox_contains(a.bbox, lat, lon)]
+        candidates = [
+            a
+            for a in self.atlases
+            if _bbox_contains(a.bbox, lat, lon)
+            and (a.validity_bbox is None or _bbox_contains(a.validity_bbox, lat, lon))
+        ]
         if not candidates:
             return None
         candidates.sort(key=lambda a: (-a.rank, a.resolution_m))
@@ -585,3 +658,8 @@ def _cell_at_cached(registry: MarcAtlasRegistry, lat: float, lon: float) -> Cell
     the caller did not pass verbatim.
     """
     return registry._cell_at_uncached(lat, lon)
+
+
+# The name new code should use. The class keeps its historical name so that
+# the API, the MCP server and the tests keep importing it unchanged.
+HarmonicAtlasRegistry = MarcAtlasRegistry
