@@ -171,6 +171,7 @@ def current_coverage(build_dir: Path, shipped: frozenset[str] = frozenset()) -> 
                 "type": "Feature",
                 "properties": {
                     "layer": "marc",
+                    "atlas": meta["atlas"],
                     "name": f"MARC {meta['atlas']} {meta['resolution_m']} m",
                     "label": f"marc_{meta['atlas'].lower()}_{meta['resolution_m']}m",
                     "rank": meta["rank"],
@@ -220,6 +221,7 @@ def current_coverage(build_dir: Path, shipped: frozenset[str] = frozenset()) -> 
                     "type": "Feature",
                     "properties": {
                         "layer": "built",
+                        "atlas": meta["atlas"],
                         "shipped": meta["atlas"] in shipped,
                         "name": f"{meta.get('label') or meta['atlas']} ({meta['resolution_m']} m)",
                         "label": f"{short}_{zone}_{meta['resolution_m']}m",
@@ -328,24 +330,87 @@ def _source_unions(sources: dict, max_res_m: float, unknown_res_ok: bool):
     return unary_union(open_geoms), unary_union(closed_geoms)
 
 
-def zone_status(coverage: dict, masks: dict, sources: dict) -> dict:
+def layered_mask(masks: dict, coverage: dict, threshold_kt: float):
+    """Union of the masks at ``threshold_kt``, the finest atlas winning everywhere.
+
+    Each mask names the atlases it was computed from and their resolution;
+    a coarser mask only contributes outside the footprint of every finer
+    atlas. Without this, the 7 km FES pixels that straddle the Breton coast
+    draw rectangles of "tide" over Morlaix and Quimper on top of what the
+    250 m atlases already resolve.
+    """
+    from shapely.geometry import shape
+    from shapely.ops import unary_union
+    from shapely.validation import make_valid
+
+    footprints: dict[str, list] = {}
+    for f in coverage["features"]:
+        atlas = f["properties"].get("atlas")
+        if atlas:
+            footprints.setdefault(atlas, []).append(make_valid(shape(f["geometry"])))
+    ranked = []
+    for fc in masks.values():
+        for f in fc["features"]:
+            if f["properties"].get("threshold_kt", 0) < threshold_kt:
+                continue
+            atlases = [
+                a.strip()
+                for a in str(f["properties"].get("atlas") or "").split(",")
+                if a.strip()
+            ]
+            ranked.append(
+                (
+                    float(f["properties"].get("resolution_m") or 10**9),
+                    make_valid(shape(f["geometry"])),
+                    atlases,
+                )
+            )
+    ranked.sort(key=lambda r: r[0])
+    finer = None
+    parts = []
+    for _res, geom, atlases in ranked:
+        if finer is not None:
+            geom = _polygonal(geom.difference(finer))
+        if not geom.is_empty:
+            parts.append(geom)
+        own = [g for a in atlases for g in footprints.get(a, [])]
+        if own:
+            finer = (
+                unary_union([finer, *own]) if finer is not None else unary_union(own)
+            )
+    return (
+        unary_union(parts)
+        if parts
+        else _polygonal(shape({"type": "Polygon", "coordinates": []}))
+    )
+
+
+def load_ocean(path: Path | None):
+    """The Natural Earth 10 m ocean polygon (public domain), or ``None``.
+
+    The regular grids of the MARC atlases carry extrapolated values over
+    land near the coast, and a 7 km FES pixel straddles it: without a
+    coastline the green would cover the Crozon peninsula and rectangles of
+    "tide" would sit on Morlaix. The colours are clipped to the ocean; the
+    warning snapshot is not (a leg is at sea by construction).
+    """
+    if path is None or not path.exists():
+        return None
+    from shapely.geometry import shape
+    from shapely.ops import unary_union
+
+    fc = json.loads(path.read_text())
+    return unary_union([shape(f["geometry"]) for f in fc["features"]])
+
+
+def zone_status(coverage: dict, masks: dict, sources: dict, ocean=None) -> dict:
     """The 1.5 kt mask split into the four statuses, one feature per status."""
     from shapely.geometry import mapping, shape
     from shapely.ops import unary_union
     from shapely.validation import make_valid
 
-    def mask_union(threshold: float):
-        return unary_union(
-            [
-                make_valid(shape(f["geometry"]))
-                for fc in masks.values()
-                for f in fc["features"]
-                if f["properties"].get("threshold_kt", 0) >= threshold
-            ]
-        )
-
-    strong = mask_union(1.5)
-    notable = mask_union(0.5)
+    strong = layered_mask(masks, coverage, 1.5)
+    notable = layered_mask(masks, coverage, 0.5)
     fine_enough = [
         f
         for f in coverage["features"]
@@ -377,6 +442,8 @@ def zone_status(coverage: dict, masks: dict, sources: dict) -> dict:
     feats = []
     for status in ZONE_STATUSES:
         geom = parts[status]
+        if ocean is not None and not geom.is_empty:
+            geom = _polygonal(geom.intersection(ocean))
         if geom.is_empty:
             continue
         feats.append(
@@ -485,26 +552,22 @@ def compute_gaps(
             {"type": "Feature", "properties": props, "geometry": f["geometry"]}
         )
     gap_polys = []
-    for fc in masks.values():
-        for f in fc["features"]:
-            if f["properties"].get("threshold_kt", 0) < 1.5:
-                continue
-            left = shape(f["geometry"]).difference(fine_union)
-            if objective_geom is not None:
-                left = left.intersection(objective_geom)
-            if not left.is_empty:
-                gap_polys.append(
-                    {
-                        "type": "Feature",
-                        "properties": {
-                            "kind": "mask_gap",
-                            "threshold_kt": f["properties"]["threshold_kt"],
-                            "area_deg2": round(left.area, 2),
-                            "note": "Courant tidal maximal au-dessus de 1,5 kt sans source de production à 1 km ou plus fin.",
-                        },
-                        "geometry": left.__geo_interface__,
-                    }
-                )
+    left = _polygonal(layered_mask(masks, coverage, 1.5).difference(fine_union))
+    if objective_geom is not None:
+        left = _polygonal(left.intersection(objective_geom))
+    if not left.is_empty:
+        gap_polys.append(
+            {
+                "type": "Feature",
+                "properties": {
+                    "kind": "mask_gap",
+                    "threshold_kt": 1.5,
+                    "area_deg2": round(left.area, 2),
+                    "note": "Courant tidal maximal au-dessus de 1,5 kt sans source de production à 1 km ou plus fin.",
+                },
+                "geometry": left.__geo_interface__,
+            }
+        )
     return {"type": "FeatureCollection", "features": points + gap_polys}
 
 
@@ -602,14 +665,7 @@ def server_gaps(coverage: dict, masks: dict, gaps: dict) -> dict:
     from shapely.ops import unary_union
     from shapely.validation import make_valid
 
-    strong = unary_union(
-        [
-            make_valid(shape(f["geometry"]))
-            for fc in masks.values()
-            for f in fc["features"]
-            if f["properties"].get("threshold_kt", 0) >= 1.5
-        ]
-    )
+    strong = layered_mask(masks, coverage, 1.5)
     layers = ("shom", "marc")
     fine_feats = [
         f
@@ -750,6 +806,12 @@ def main(argv: list[str] | None = None) -> int:
         help="rewrite the tidal_gaps snapshot served by the engine and bundled by the web app",
     )
     parser.add_argument(
+        "--ocean",
+        type=Path,
+        default=REPO / "build" / "natural_earth" / "ne_10m_ocean.geojson",
+        help="Natural Earth 10 m ocean polygon used to clip the colours to the sea",
+    )
+    parser.add_argument(
         "--shipped",
         default="BSH_AUSALT,BSH_CUXBRU,BSH_DB,BSH_IDB",
         help="built atlases already published in the dataset, comma separated",
@@ -810,7 +872,12 @@ def main(argv: list[str] | None = None) -> int:
         f"gaps.geojson: {n_gap_points} gazetteer entries without fine coverage, {len(gaps['features']) - len(gazetteer['features'])} mask polygons"
     )
 
-    status = zone_status(coverage, masks, sources)
+    ocean = load_ocean(args.ocean)
+    if ocean is None:
+        print(
+            f"WARNING: no ocean polygon at {args.ocean}, colours not clipped to the sea"
+        )
+    status = zone_status(coverage, masks, sources, ocean)
     (MAP_DIR / "status.geojson").write_text(
         json.dumps(status, ensure_ascii=False, separators=(",", ":"))
     )

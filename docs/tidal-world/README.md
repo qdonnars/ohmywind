@@ -286,7 +286,14 @@ Entrées du script :
   construit par `scripts/build_fes_atlas.py` (compte AVISO créé le
   2026-09-20, archives de courants téléchargées, 16 constituants, 1/16°) ;
 - `gazetteer.geojson` : passes, raz et estuaires, avec le courant de
-  vive-eau typique et le statut « source ouverte ».
+  vive-eau typique et le statut « source ouverte » ;
+- `build/natural_earth/ne_10m_ocean.geojson` (Natural Earth 10 m, domaine
+  public, téléchargé depuis le miroir `nvkelso/natural-earth-vector`, non
+  versionné) : les quatre couleurs sont coupées à l'océan, parce que les
+  grilles régulières MARC portent des valeurs extrapolées sur la terre et
+  qu'un pixel FES de 7 km chevauche la côte. À chaque endroit, seul le
+  masque de l'atlas le plus fin compte (`layered_mask`) ; les plus grossiers
+  ne servent qu'en dehors de l'emprise des plus fins.
 
 Sorties : `coverage_current.geojson`, `gaps.geojson` (gazetteer enrichi du
 statut et de la meilleure source, polygones du masque sans source fine),
