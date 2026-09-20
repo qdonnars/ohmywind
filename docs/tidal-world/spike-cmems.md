@@ -162,12 +162,47 @@ allemande, NWS est en retard de 16° (30 minutes) sur BSH et de 8 % en
 dessous, cohérent avec le radar (section 3) ; l'Elbe à 90 m (AUSALT) n'est
 pas comparable à 1,5 km.
 
-## 4. Domaines complets [en cours le 2026-09-20]
+## 4. Domaines complets [vérifié, construits le 2026-09-20]
 
 - **NWS** (−13° à 13° E, 46° à 63° N, `cmems_mod_nws_phy-cur_anfc_1.5km-2D_PT1H-i`) :
   601 740 cellules de mer sur 1 065 160, toutes ajustées sur 8 760 heures,
   18 constituants ; 547 983 cellules gardées au-dessus de 0,2 kt (91 %),
   304 tuiles de 1°, 149 Mo, 229 s d'analyse. Rang 0, `cmems_nws_1500m`.
+- **IBI** (−19° à 5° E, 26° à 46° N, `cmems_mod_ibi_phy_anfc_0.027deg-2D_PT1H-m`,
+  DOI 10.48670/moi-00027 lu dans `copernicusmarine describe`) : 321 722
+  cellules de mer, 141 436 gardées au-dessus de 0,2 kt (44 % : le large du
+  golfe de Gascogne et l'Atlantique marocain tombent sous le seuil, comme
+  attendu), 243 tuiles, 45 Mo, 135 s. Sondes M2 (demi-grand axe) : Tarifa
+  1,35 kt (courant maximal reconstruit 3,1 kt sur le seuil), Gibraltar est
+  0,68 kt, embouchure de la Gironde 1,70 kt, Tage 0,20 kt, Bocayna
+  (Canaries) 0,21 kt, Vigo 0,17 kt, Agadir 0,04 kt, Casablanca sous le
+  seuil. Les domaines IBI et NWS se touchent à 46° N sans se recouvrir (les
+  boîtes de téléchargement ont été choisies ainsi) : la cascade passe de
+  l'un à l'autre sans arbitrage.
+
+  Contre MARC au sud de 46° N (43,4° à 46° N, −4,5° à −1,2° E, 300 points) :
+
+  | candidat | référence | points | M2 réf. (kt, médiane) | rapport d'amplitude | écart d'inclinaison | écart de phase |
+  |---|---|---|---|---|---|---|
+  | CMEMS_IBI | MANGA 700 m | 125 | 0,41 | 0,78 / 0,99 / 1,22 | 4° / 17° | −10° / 21° |
+  | CMEMS_IBI | AQUI 250 m | 175 | 0,29 | 0,63 / 1,06 / 1,54 | 13° / 62° | −11° / 54° |
+
+  Même lecture qu'en Manche : amplitude juste en médiane, phase en avance de
+  10° sur MARC, dispersion large près de la côte aquitaine où le courant est
+  faible (0,3 kt) et où AQUI à 250 m voit des détails que 3 km ne voient pas.
+- **MED** (−6,5° à 36,5° E, 30° à 46° N, `cmems_mod_med_phy-cur_anfc_4.2km-2D_PT1H-m`,
+  DOI 10.48670/mds-00359) : 150 595 cellules de mer, 10 231 gardées
+  au-dessus de 0,2 kt (6,8 %), 83 tuiles, 5,2 Mo, 83 s. C'est le résultat
+  attendu : la Méditerranée ne garde que ses détroits et ses golfes à marée.
+  Sondes M2 : Messine 1,79 kt (la maille de 4,2 km lisse un détroit de 3 km,
+  la valeur réelle dépasse 4 kt en vive-eau), Kerkennah (golfe de Gabès)
+  0,47 kt, Zembra 0,12 kt, Bonifacio 0,10 kt ; Venise, Marseille, l'Euripe et
+  Haïfa tombent sous le seuil et restent sur SMOC. À Gibraltar côté est,
+  IBI (3 km) prend le pas sur MED (4,2 km) par la résolution, à rang égal.
+
+Bilan des trois domaines : 700 000 cellules, 200 Mo de tuiles, 9 minutes
+d'analyse pour un an horaire, 112 Go d'archive téléchargée (à conserver ou
+non ; un mois par an suffit à surveiller une dérive, section 3).
 
 Un an horaire (2025-09 à 2026-08) téléchargé pour NWS, IBI et MED, atlas
 construits par le même script avec le filtre 0,2 kt et des tuiles de 1° :

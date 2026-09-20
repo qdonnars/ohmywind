@@ -290,7 +290,14 @@ Entrées du script :
 
 Sorties : `coverage_current.geojson`, `gaps.geojson` (gazetteer enrichi du
 statut et de la meilleure source, polygones du masque sans source fine),
-`status.geojson` (les quatre statuts), `data.js`.
+`status.geojson` (les quatre statuts), `data.js`. Avec `--write-gaps`, le
+script réécrit aussi le cliché derrière l'avertissement `currents.tidal_gap`
+(`openwind_data/currents/tidal_gaps.geojson` et sa copie
+`packages/web/src/domain/tidalGaps.json`, identiques) : monde entier, masques
+1,5 kt moins les sources **servies** à 1 km ou plus fin, plus les passes sans
+telle source ; les atlas construits mais pas publiés n'y comptent pas tant que
+`--gaps-include-built` n'est pas passé, sinon Cuxhaven perdrait son
+avertissement avant que BSH n'y réponde.
 
 **Masques « là où les courants comptent »** : reconstruction horaire sur
 15 jours de chaque cellule d'un atlas, maximum, rastérisation, fermeture
