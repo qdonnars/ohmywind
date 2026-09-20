@@ -124,7 +124,19 @@ const sortedSources = (fc: SourceFC): SourceProperties[] =>
   fc.features
     .map((f) => f.properties)
     .sort((a, b) => SOURCE_ORDER.indexOf(a.status) - SOURCE_ORDER.indexOf(b.status) || a.name.localeCompare(b.name));
-const POPUP = { maxWidth: 360, className: "methodo-map-popup" };
+/** Popup options sized from the map: on a phone the card must leave the
+    zoom control clear and stay shorter than the map, scrolling inside if
+    a long registry entry needs it. */
+const popupOptions = (map: L.Map): L.PopupOptions => {
+  const { x, y } = map.getSize();
+  return {
+    className: "methodo-map-popup",
+    maxWidth: Math.max(220, Math.min(360, x - 72)),
+    maxHeight: Math.max(200, Math.min(420, y - 48)),
+    autoPanPaddingTopLeft: L.point(56, 12),
+    autoPanPaddingBottomRight: L.point(12, 12),
+  };
+};
 
 type Translate = ReturnType<typeof useT>["t"];
 const badge = (color: string, text: string) => `<span class="methodo-map-badge" style="background:${color}">${esc(text)}</span>`;
@@ -233,7 +245,10 @@ export function TidalSourcesMap() {
           : null,
       ) +
       row(t("config.methodo.tidal.popup.candidates"), candidates.length ? candidates.join("<br>") : esc(t("config.methodo.tidal.popup.none"))) +
-      row(t("config.methodo.tidal.popup.fallback"), fallback.length ? fallback.join("<br>") : null) +
+      row(
+        t("config.methodo.tidal.popup.fallback"),
+        fallback.length ? `${fallback.join("<br>")}<br><small>${esc(t("config.methodo.tidal.popup.fallbackNote"))}</small>` : null,
+      ) +
       row(t("config.methodo.tidal.popup.objective"), esc(t(inObjective ? "config.methodo.tidal.popup.yes" : "config.methodo.tidal.popup.no"))) +
       `</dl>`
     );
@@ -245,7 +260,7 @@ export function TidalSourcesMap() {
     addBasemap(map, "light");
     mapRef.current = map;
     map.on("click", (e: L.LeafletMouseEvent) => {
-      const popup = L.popup(POPUP)
+      const popup = L.popup(popupOptions(map))
         .setLatLng(e.latlng)
         .setContent(`<em>${esc(t("config.methodo.tidal.popup.loading"))}</em>`)
         .openOn(map);
@@ -272,7 +287,7 @@ export function TidalSourcesMap() {
             const color = STATUS_COLOR[p.status] ?? STATUS_COLOR.unknown;
             return L.circleMarker(ll, { radius: passRadius(p), color: "#ffffff", weight: 1.5, fillColor: color, fillOpacity: 0.95 });
           },
-          onEachFeature: (f, l) => l.bindPopup(passPopup((f as Feature<Point, PassProperties>).properties), POPUP),
+          onEachFeature: (f, l) => l.bindPopup(passPopup((f as Feature<Point, PassProperties>).properties), popupOptions(map)),
         }).addTo(map);
         setStatus("ready");
       })
@@ -302,7 +317,7 @@ export function TidalSourcesMap() {
         const color = SOURCE_COLOR[f.properties.status] ?? "#999";
         const l = L.geoJSON(f as Feature, {
           style: { color, weight: 2, dashArray: f.properties.status === "ok" || f.properties.status === "current" ? undefined : "5 4", fillColor: color, fillOpacity: 0.08 },
-        }).bindPopup(sourcePopup(t, f.properties), POPUP);
+        }).bindPopup(sourcePopup(t, f.properties), popupOptions(map));
         l.addTo(map);
         sourceLayersRef.current.set(id, l);
       } else if (!shown[id] && layer) {
