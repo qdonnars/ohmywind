@@ -238,3 +238,14 @@ Lecture :
 - Aucun câblage dans `router.py`, aucun envoi vers Hugging Face.
 - Pas d'exploitation des mesures WSV ni des ADCP FINO (inscription BSH).
 - Pas de test contre les tables imprimées du BSH (payantes).
+
+## Publication du 2026-09-20
+
+Les quatre atlas de ce spike (`BSH_DB`, `BSH_IDB`, `BSH_AUSALT`, `BSH_CUXBRU`)
+sont dans le dataset que les Spaces lisent au build, avec `zone` et
+`confidence` ajoutés aux métadonnées (libellés `bsh_db_926m`, `bsh_idb_926m`,
+`bsh_ausalt_90m`, `bsh_cuxbru_90m`). Ils sont bâtis sur 3 à 5 jours de
+prévisions : M2, K1, M4 et M6 résolus, S2 et N2 inférés d'ATLNE au centre du
+domaine (section validation). Un atlas d'un mois d'archive les remplacera
+sans changer le format ; c'est le critère de « done » de l'étape 1 de la
+roadmap, et il demande d'activer `archive-bsh-currents.yml`.
