@@ -115,9 +115,14 @@ def _scan_atlas(parquet_dir: Path) -> AtlasMeta | None:
         bbox = (-90.0, -180.0, 90.0, 180.0)
     source = meta.get("source") or {}
     validity = meta.get("validity_bbox")
-    validity_bbox = None
+    validity_bbox: tuple[float, float, float, float] | None = None
     if isinstance(validity, list | tuple) and len(validity) == 4:
-        validity_bbox = tuple(float(v) for v in validity)
+        validity_bbox = (
+            float(validity[0]),
+            float(validity[1]),
+            float(validity[2]),
+            float(validity[3]),
+        )
     return AtlasMeta(
         name=meta["atlas"],
         rank=meta["rank"],
