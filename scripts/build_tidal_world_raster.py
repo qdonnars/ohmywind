@@ -29,9 +29,10 @@ the bounds. The page colours the pixels itself and reads the value under
 a click.
 
 Rules, the same as the masks: the maximum is reconstructed hourly over one
-spring/neap cycle from all the constituents of the cell; land pixels are
-removed with the Natural Earth 10 m ocean polygon (the regridded MARC
-atlases carry extrapolated values over land); where an atlas ahead in the
+spring/neap cycle from all the constituents of the cell; the regridded MARC
+atlases, which carry extrapolated values over land, are cut with the
+Natural Earth 10 m ocean polygon, a native model grid is its own land mask;
+where an atlas ahead in the
 cascade (rank, then resolution) has a cell, the one behind is blanked, so
 the picture shows what the server serves.
 
@@ -301,17 +302,28 @@ def main(argv: list[str] | None = None) -> int:
     # Mosaic: a finer raster fills its holes from the coarser ones, then the
     # coast is cut at the finer pitch, then the coarser rasters are blanked
     # under every finer pixel, so exactly one raster speaks at each point.
+    # The coastline only cuts the regridded atlases (MARC), whose regular
+    # lattice carries extrapolated values over land. A native model grid
+    # (BSH, Copernicus) is its own land mask, and the 1:10M Natural Earth
+    # shoreline is worse than it: it drew the Elbe narrower and further
+    # south than the 90 m model and removed 12 % of its sea cells, which
+    # read on the map as a channel shifted off the river.
+    masked = []
+    for meta, rows, cols, arr in grids:
+        regrid = (meta.get("grid") or {}).get("origin") == "regrid"
+        if ocean is not None and regrid:
+            arr = np.where(ocean_mask(rows, cols, ocean), arr, np.nan)
+        masked.append((meta, rows, cols, arr))
+    grids = masked
     filled = []
-    owned = []  # per raster: the atlas's own cells, at sea
+    owned = []  # per raster: the atlas's own cells
     borrowed = []  # per raster: pixels that came from a coarser atlas
     for i, (meta, rows, cols, arr) in enumerate(grids):
         own = np.isfinite(arr)
         coarser = [(r, c, a) for _m, r, c, a in grids[i + 1 :]]
         arr = fill_from_coarser(rows, cols, arr, coarser) if coarser else arr
-        if ocean is not None:
-            arr = np.where(ocean_mask(rows, cols, ocean), arr, np.nan)
         filled.append((meta, rows, cols, arr))
-        owned.append(own & np.isfinite(arr))
+        owned.append(own)
         borrowed.append(np.isfinite(arr) & ~own)
     grids = filled
     # Blank each raster under the own cells of the ones ahead in the cascade.
