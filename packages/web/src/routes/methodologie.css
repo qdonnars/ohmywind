@@ -243,6 +243,15 @@
   vertical-align: top;
   padding: 0.35rem 0.5rem;
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  overflow-wrap: anywhere;
+}
+/* A status pill in a narrow column: let it take two lines and keep its
+   corners soft rather than round, so the break reads as intended. */
+.methodo-map-table .methodo-map-badge {
+  white-space: normal;
+  border-radius: 8px;
+  line-height: 1.25;
+  padding: 2px 7px;
 }
 .methodo-map-table th {
   font-size: 0.7rem;
