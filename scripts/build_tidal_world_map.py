@@ -336,11 +336,16 @@ def _source_unions(sources: dict, max_res_m: float, unknown_res_ok: bool):
 def layered_mask(masks: dict, coverage: dict, threshold_kt: float):
     """Union of the masks at ``threshold_kt``, the finest atlas winning everywhere.
 
-    Each mask names the atlases it was computed from and their resolution;
-    a coarser mask only contributes outside the footprint of every finer
-    atlas. Without this, the 7 km FES pixels that straddle the Breton coast
-    draw rectangles of "tide" over Morlaix and Quimper on top of what the
-    250 m atlases already resolve.
+    Each mask file names the atlases it was computed from and their
+    resolution; a coarser mask only contributes outside the *extent* of every
+    finer atlas, the threshold 0 feature its builder writes (where the atlas
+    has cells, at the raster pitch). Without this, the 7 km FES pixels that
+    straddle the Breton coast draw rectangles of "tide" over Morlaix on top
+    of what the 250 m atlases already resolve. The extent, not the tile
+    footprint: MANGA holds a few cells in the 0.5 degree tile of the Bristol
+    Channel and, with tiles, silenced the Copernicus mask over the whole
+    tile, which then read as calm water. A mask file without an extent
+    feature falls back to the tile footprint of its atlases.
     """
     from shapely.geometry import shape
     from shapely.ops import unary_union
@@ -353,30 +358,37 @@ def layered_mask(masks: dict, coverage: dict, threshold_kt: float):
             footprints.setdefault(atlas, []).append(make_valid(shape(f["geometry"])))
     ranked = []
     for fc in masks.values():
-        for f in fc["features"]:
-            if f["properties"].get("threshold_kt", 0) < threshold_kt:
-                continue
-            atlases = [
-                a.strip()
-                for a in str(f["properties"].get("atlas") or "").split(",")
-                if a.strip()
-            ]
-            ranked.append(
-                (
-                    float(f["properties"].get("resolution_m") or 10**9),
-                    make_valid(shape(f["geometry"])),
-                    atlases,
-                )
+        feats = fc["features"]
+        wanted = [
+            f for f in feats if f["properties"].get("threshold_kt", 0) >= threshold_kt
+        ]
+        if not wanted:
+            continue
+        extent_feats = [f for f in feats if f["properties"].get("threshold_kt") == 0]
+        atlases = [
+            a.strip()
+            for a in str(wanted[0]["properties"].get("atlas") or "").split(",")
+            if a.strip()
+        ]
+        if extent_feats:
+            own = [make_valid(shape(f["geometry"])) for f in extent_feats]
+        else:
+            own = [g for a in atlases for g in footprints.get(a, [])]
+        ranked.append(
+            (
+                float(wanted[0]["properties"].get("resolution_m") or 10**9),
+                unary_union([make_valid(shape(f["geometry"])) for f in wanted]),
+                own,
             )
+        )
     ranked.sort(key=lambda r: r[0])
     finer = None
     parts = []
-    for _res, geom, atlases in ranked:
+    for _res, geom, own in ranked:
         if finer is not None:
             geom = _polygonal(geom.difference(finer))
         if not geom.is_empty:
             parts.append(geom)
-        own = [g for a in atlases for g in footprints.get(a, [])]
         if own:
             finer = (
                 unary_union([finer, *own]) if finer is not None else unary_union(own)
@@ -752,6 +764,21 @@ def dissolved(fc: dict) -> dict:
     }
 
 
+def served_atlases(api_base: str) -> frozenset[str]:
+    """The atlases a running server serves, from its coverage endpoint.
+
+    The same list the page reads at load time to badge the registry, so the
+    colours of the map and the badges of the table come from one place, the
+    server, and cannot drift from what it answers.
+    """
+    import urllib.request
+
+    url = api_base.rstrip("/") + "/api/v1/marine/marc/coverage"
+    with urllib.request.urlopen(url, timeout=60) as resp:
+        payload = json.load(resp)
+    return frozenset(str(a["name"]) for a in payload.get("atlases", []))
+
+
 def export_web(
     web_dir: Path,
     masks: dict,
@@ -771,7 +798,13 @@ def export_web(
     web_dir.mkdir(parents=True, exist_ok=True)
     compact = {"ensure_ascii": False, "separators": (",", ":")}
     for name, fc in masks.items():
-        (web_dir / f"{name}.geojson").write_text(json.dumps(fc, **compact))
+        page_fc = {
+            **fc,
+            "features": [
+                f for f in fc["features"] if f["properties"].get("threshold_kt", 0) > 0
+            ],
+        }
+        (web_dir / f"{name}.geojson").write_text(json.dumps(page_fc, **compact))
     points = [f for f in gaps["features"] if f["geometry"]["type"] == "Point"]
     (web_dir / "gazetteer.geojson").write_text(
         json.dumps({"type": "FeatureCollection", "features": points}, **compact)
@@ -823,6 +856,12 @@ def main(argv: list[str] | None = None) -> int:
         help="built atlases already published in the dataset, comma separated",
     )
     parser.add_argument(
+        "--shipped-from",
+        default=None,
+        metavar="API_BASE",
+        help="read the served atlases from <API_BASE>/api/v1/marine/marc/coverage instead of --shipped",
+    )
+    parser.add_argument(
         "--web-dir",
         type=Path,
         default=None,
@@ -844,7 +883,12 @@ def main(argv: list[str] | None = None) -> int:
     }
     coverage_path = MAP_DIR / "coverage_current.geojson"
     if not args.skip_coverage and args.build_dir.exists():
-        shipped = frozenset(x.strip() for x in args.shipped.split(",") if x.strip())
+        shipped = (
+            served_atlases(args.shipped_from)
+            if args.shipped_from
+            else frozenset(x.strip() for x in args.shipped.split(",") if x.strip())
+        )
+        print(f"served atlases: {len(shipped)}")
         coverage = current_coverage(args.build_dir, shipped)
         coverage_path.write_text(json.dumps(coverage, separators=(",", ":")))
         print(f"coverage_current.geojson: {len(coverage['features'])} features")

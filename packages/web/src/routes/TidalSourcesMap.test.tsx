@@ -42,7 +42,7 @@ const FILES: Record<string, unknown> = {
       {
         type: "Feature",
         geometry: square(4, 58),
-        properties: { id: "norkyst800", name: "NorKyst800 (MET Norway)", provider: "MET Norway", status: "ok", kind: "forecast_grid", resolution_m: 800, access: "THREDDS sans clé", licence: "CC BY 4.0", licence_url: "https://example.org/licence", licence_read_at: "2026-09-19" },
+        properties: { id: "norkyst800", name: "NorKyst800 (MET Norway)", provider: "MET Norway", status: "ok", kind: "forecast_grid", resolution_m: 800, access: "THREDDS sans clé", licence: "CC BY 4.0", licence_url: "https://example.org/licence", licence_read_at: "2026-09-19", atlases: ["NORKYST"] },
       },
     ],
   },
@@ -61,6 +61,11 @@ describe("TidalSourcesMap", () => {
         const url = String(input);
         const name = Object.keys(FILES).find((n) => url.endsWith(n));
         if (name) return new Response(JSON.stringify(FILES[name]), { status: 200 });
+        if (url.includes("/api/v1/marine/marc/coverage")) {
+          // The server says it serves a NorKyst atlas: the registry row must
+          // badge "in the cascade" whatever its static licence status.
+          return new Response(JSON.stringify({ atlases: [{ name: "NORKYST", source: "norkyst", bbox: [60, 4, 71, 31], cells: [] }] }), { status: 200 });
+        }
         if (url.includes("/api/v1/marine/marc")) {
           return new Response(JSON.stringify({ covered: true, current_source: "marc_finis_250m", atlas_resolution_m: 250 }), { status: 200 });
         }
@@ -95,6 +100,11 @@ describe("TidalSourcesMap", () => {
     const box = container.querySelector<HTMLInputElement>("#tidal-source-norkyst800");
     expect(box).not.toBeNull();
     expect(screen.getByText("NorKyst800 (MET Norway)")).toBeTruthy();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    const row = screen.getByText("NorKyst800 (MET Norway)").closest("tr")!;
+    expect(row.querySelector(".methodo-map-badge")?.textContent).toBe("dans la cascade");
     expect(container.querySelector(".methodo-map-propose a")?.getAttribute("href")).toMatch(/^mailto:contact@ohmywind\.fr\?subject=/);
     const before = container.querySelectorAll(".leaflet-overlay-pane path").length;
     await act(async () => {

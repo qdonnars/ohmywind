@@ -235,7 +235,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.methodo.tidal.source.access": "Zugang",
   "config.methodo.tidal.source.licence": "Lizenz",
   "config.methodo.tidal.source.readAt": "gelesen am {date}",
-  "config.methodo.tidal.sources.title": "Quellenregister: Name, Herausgeber, gelesene und datierte Lizenz",
+  "config.methodo.tidal.sources.title": "Quellenregister: Name, Herausgeber, gelesene und datierte Lizenz; „in der Kaskade“ kommt vom Server",
   "config.methodo.tidal.sources.show": "Anzeigen",
   "config.methodo.tidal.sources.name": "Quelle",
   "config.methodo.tidal.sources.provider": "Herausgeber",

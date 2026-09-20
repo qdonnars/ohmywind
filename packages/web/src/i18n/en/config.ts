@@ -230,7 +230,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.methodo.tidal.source.access": "Access",
   "config.methodo.tidal.source.licence": "Licence",
   "config.methodo.tidal.source.readAt": "read on {date}",
-  "config.methodo.tidal.sources.title": "Source registry: name, producer, licence read and dated",
+  "config.methodo.tidal.sources.title": "Source registry: name, producer, licence read and dated; 'in the cascade' comes from the server",
   "config.methodo.tidal.sources.show": "Show",
   "config.methodo.tidal.sources.name": "Source",
   "config.methodo.tidal.sources.provider": "Producer",

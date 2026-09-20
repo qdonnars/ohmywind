@@ -10,7 +10,7 @@
     "name": "BSH Strömungsvorhersagen, baie allemande 0,5 nm",
     "provider": "BSH (DE)",
     "zone": "Baie allemande, Frise",
-    "status": "ok",
+    "status": "current",
     "kind": "forecast_grid",
     "resolution_m": 926,
     "access": "keyless FTP",
@@ -24,7 +24,11 @@
     "step_min": 15,
     "constituents": "à analyser (séries) ; spike : M2, K1, M4, M6 résolus, reste inféré",
     "archive": "3 jours sur le FTP, archivage quotidien requis",
-    "notes": "Spike de cette PR. Surface 0-5 m, marée + météo. Zones db, idb, nfi, ofi."
+    "notes": "Spike de cette PR. Surface 0-5 m, marée + météo. Zones db, idb, nfi, ofi. Publié dans le dataset et servi depuis le 2026-09-20.",
+    "atlases": [
+     "BSH_DB",
+     "BSH_IDB"
+    ]
    },
    "geometry": {
     "type": "Polygon",
@@ -61,7 +65,7 @@
     "name": "BSH Strömungsvorhersagen, Elbe 90 m",
     "provider": "BSH (DE)",
     "zone": "Elbe, Cuxhaven à Hambourg",
-    "status": "ok",
+    "status": "current",
     "kind": "forecast_grid",
     "resolution_m": 90,
     "access": "keyless FTP",
@@ -74,7 +78,11 @@
     "vertical": "surface_0_5m_mean",
     "step_min": 15,
     "archive": "3 jours sur le FTP",
-    "notes": "Quatre tronçons AusAlt, CuxBru, BruPag, PagHam. Spike de cette PR."
+    "notes": "Quatre tronçons AusAlt, CuxBru, BruPag, PagHam. Spike de cette PR. Publié dans le dataset et servi depuis le 2026-09-20.",
+    "atlases": [
+     "BSH_AUSALT",
+     "BSH_CUXBRU"
+    ]
    },
    "geometry": {
     "type": "Polygon",
@@ -206,7 +214,7 @@
     "name": "Copernicus Marine NWS (NWSHELF_ANALYSISFORECAST_PHY_004_013)",
     "provider": "Mercator Ocean / Met Office",
     "zone": "Plateau NO européen",
-    "status": "ok",
+    "status": "current",
     "kind": "forecast_grid",
     "resolution_m": 1500,
     "access": "compte gratuit (toolbox copernicusmarine)",
@@ -221,7 +229,10 @@
     "constituents": "à analyser ; produit 'detided' fourni aussi",
     "archive": "analyses depuis 2019 (best estimate), 7 jours de prévision",
     "attribution": "Generated using E.U. Copernicus Marine Service Information; DOI 10.48670/moi-00054",
-    "notes": "Meilleure couverture UK / Irlande / mer du Nord / Manche en une source. Marée incluse. Pas d'identifiant local : non testé ici."
+    "notes": "Meilleure couverture UK / Irlande / mer du Nord / Manche en une source. Marée incluse. Pas d'identifiant local : non testé ici. Publié dans le dataset et servi depuis le 2026-09-20.",
+    "atlases": [
+     "CMEMS_NWS"
+    ]
    },
    "geometry": {
     "type": "Polygon",
@@ -258,7 +269,7 @@
     "name": "Copernicus Marine IBI (IBI_ANALYSISFORECAST_PHY_005_001)",
     "provider": "Mercator Ocean / Nologin",
     "zone": "Ibérie, Gascogne, Irlande",
-    "status": "ok",
+    "status": "current",
     "kind": "forecast_grid",
     "resolution_m": 2500,
     "access": "compte gratuit",
@@ -271,7 +282,10 @@
     "vertical": "surface + 3D (50 niveaux)",
     "step_min": 60,
     "archive": "2 ans + 10 jours de prévision",
-    "notes": "1/36°. Espagne, Portugal, Gibraltar (grossier), Maroc."
+    "notes": "1/36°. Espagne, Portugal, Gibraltar (grossier), Maroc. Publié dans le dataset et servi depuis le 2026-09-20.",
+    "atlases": [
+     "CMEMS_IBI"
+    ]
    },
    "geometry": {
     "type": "Polygon",
@@ -296,6 +310,59 @@
       [
        -19.0,
        26.0
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "cmems_med",
+    "name": "Copernicus Marine MED (MEDSEA_ANALYSISFORECAST_PHY_006_013)",
+    "provider": "Mercator Ocean / Nologin",
+    "zone": "Méditerranée, de Gibraltar au Levant",
+    "status": "current",
+    "kind": "forecast_grid",
+    "resolution_m": 4200,
+    "access": "compte gratuit",
+    "licence": "Licence Copernicus Marine",
+    "licence_url": "https://marine.copernicus.eu/user-corner/service-commitments-and-licence",
+    "licence_read_at": "2026-09-19",
+    "derivative_redistribution": "yes",
+    "effort": "M",
+    "roadmap_step": 3,
+    "vertical": "surface + 3D (50 niveaux)",
+    "step_min": 60,
+    "archive": "2 ans + 10 jours de prévision",
+    "notes": "Courants horaires cmems_mod_med_phy-cur_anfc_4.2km-2D_PT1H-m, DOI 10.48670/mds-00359. Un an analysé ; seules les cellules où la marée dépasse 0,2 kt sont gardées (Messine, golfe de Gabès, Gibraltar est). Publié dans le dataset et servi depuis le 2026-09-20.",
+    "atlases": [
+     "CMEMS_MED"
+    ]
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -6.5,
+       30.0
+      ],
+      [
+       36.5,
+       30.0
+      ],
+      [
+       36.5,
+       46.0
+      ],
+      [
+       -6.5,
+       46.0
+      ],
+      [
+       -6.5,
+       30.0
       ]
      ]
     ]
@@ -1083,7 +1150,16 @@
     "roadmap_step": 0,
     "vertical": "depth_averaged",
     "constituents": "17 (rang 0 et 1) à 38 (rang 2)",
-    "notes": "Cascade actuelle. ATLNE 2 km couvre la mer du Nord mais y est non validé (Elbe : 0,1 kt prédit contre 2 à 3 kt)."
+    "notes": "Cascade actuelle. ATLNE 2 km couvre la mer du Nord mais y est non validé (Elbe : 0,1 kt prédit contre 2 à 3 kt).",
+    "atlases": [
+     "FINIS",
+     "MANW",
+     "MANE",
+     "SUDBZH",
+     "AQUI",
+     "MANGA",
+     "ATLNE"
+    ]
    },
    "geometry": {
     "type": "Polygon",
@@ -1130,7 +1206,10 @@
     "derivative_redistribution": "yes (Licence Ouverte 2.0, si confirmée sur l'édition utilisée)",
     "effort": "S",
     "roadmap_step": 0,
-    "notes": "Cascade actuelle, utilisé à moins de 0,5 km d'un point. Découverte de cette exploration : le produit numérique est sous Licence Ouverte 2.0 sur data.gouv.fr, ce qui autoriserait un dataset public pour les artefacts C2D et un masque France depuis les vitesses maximales de vive-eau (coef 95). À confirmer sur la licence de l'édition effectivement téléchargée."
+    "notes": "Cascade actuelle, utilisé à moins de 0,5 km d'un point. Découverte de cette exploration : le produit numérique est sous Licence Ouverte 2.0 sur data.gouv.fr, ce qui autoriserait un dataset public pour les artefacts C2D et un masque France depuis les vitesses maximales de vive-eau (coef 95). À confirmer sur la licence de l'édition effectivement téléchargée.",
+    "atlases": [
+     "shom"
+    ]
    },
    "geometry": {
     "type": "Polygon",

@@ -37,6 +37,7 @@ import { addBasemap } from "../utils/basemapLayer";
 
 const DATA_BASE = `${import.meta.env.BASE_URL}methodologie/tidal/`;
 const MARC_URL = `${API_BASE}/api/v1/marine/marc`;
+const COVERAGE_URL = `${API_BASE}/api/v1/marine/marc/coverage`;
 const CONTACT = "contact@ohmywind.fr";
 
 type MaskFC = FeatureCollection<Geometry, { threshold_kt: number; global?: boolean }>;
@@ -53,8 +54,38 @@ interface SourceProperties {
   licence: string;
   licence_url: string;
   licence_read_at: string;
+  /** Atlas names (or the source short ``shom``) the server would list in
+      its coverage when it serves this source. */
+  atlases?: string[];
 }
 type SourceFC = FeatureCollection<Geometry, SourceProperties>;
+
+/** What the server serves right now: the names of its atlases and the
+    sources of its point sets, from the coverage endpoint. ``null`` when the
+    server could not be asked, then the registry's own status stands. */
+async function loadServed(): Promise<Set<string> | null> {
+  try {
+    const resp = await fetch(COVERAGE_URL);
+    if (!resp.ok) return null;
+    const payload = (await resp.json()) as { atlases?: { name: string; source?: string }[] };
+    const served = new Set<string>();
+    for (const a of payload.atlases ?? []) {
+      served.add(a.name);
+      if (a.source) served.add(a.source);
+    }
+    return served;
+  } catch {
+    return null;
+  }
+}
+
+/** The status to badge: ``current`` when the server lists one of the
+    source's atlases, otherwise the registry's licence status. */
+function liveStatus(p: SourceProperties, served: Set<string> | null): string {
+  if (served && p.atlases?.some((a) => served.has(a))) return "current";
+  if (served && p.status === "current" && p.atlases?.length) return "ok";
+  return p.status;
+}
 
 interface Layers {
   masks: MaskFC;
@@ -127,10 +158,13 @@ async function loadLayers(): Promise<Layers> {
 }
 
 const passRadius = (p: PassProperties) => 3 + Math.min(7, (p.max_spring_kt ?? 1) * 0.6);
-const sortedSources = (fc: SourceFC): SourceProperties[] =>
+const sortedSources = (fc: SourceFC, served: Set<string> | null = null): SourceProperties[] =>
   fc.features
     .map((f) => f.properties)
-    .sort((a, b) => SOURCE_ORDER.indexOf(a.status) - SOURCE_ORDER.indexOf(b.status) || a.name.localeCompare(b.name));
+    .sort(
+      (a, b) =>
+        SOURCE_ORDER.indexOf(liveStatus(a, served)) - SOURCE_ORDER.indexOf(liveStatus(b, served)) || a.name.localeCompare(b.name),
+    );
 /** Popup options sized from the map: on a phone the card must leave the
     zoom control clear and stay shorter than the map, scrolling inside if
     a long registry entry needs it. */
@@ -149,10 +183,11 @@ type Translate = ReturnType<typeof useT>["t"];
 const badge = (color: string, text: string) => `<span class="methodo-map-badge" style="background:${color}">${esc(text)}</span>`;
 const row = (k: string, v: string | null | undefined) => (v ? `<dt>${esc(k)}</dt><dd>${v}</dd>` : "");
 
-function sourcePopup(t: Translate, p: SourceProperties): string {
+function sourcePopup(t: Translate, p: SourceProperties, served: Set<string> | null): string {
+  const status = liveStatus(p, served);
   return (
     `<h3 class="methodo-map-popup-title">${esc(p.name)}</h3>` +
-    badge(SOURCE_COLOR[p.status] ?? "#999", t(`config.methodo.tidal.source.status.${p.status}` as Parameters<typeof t>[0])) +
+    badge(SOURCE_COLOR[status] ?? "#999", t(`config.methodo.tidal.source.status.${status}` as Parameters<typeof t>[0])) +
     `<dl class="methodo-map-popup-grid">` +
     row(t("config.methodo.tidal.sources.provider"), esc(p.provider)) +
     row(t("config.methodo.tidal.source.resolution"), p.resolution_m ? `${esc(p.resolution_m)} m` : null) +
@@ -173,6 +208,7 @@ export function TidalSourcesMap() {
   const sourceLayersRef = useRef<Map<string, L.Layer>>(new Map());
   const [shown, setShown] = useState<Record<string, boolean>>({});
   const [sources, setSources] = useState<SourceProperties[]>([]);
+  const [served, setServed] = useState<Set<string> | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
   const statusText = (s: ZoneStatus | null) => t(`config.methodo.tidal.status.${s ?? "none"}`);
@@ -281,6 +317,11 @@ export function TidalSourcesMap() {
         if (cancelled) return;
         dataRef.current = d;
         setSources(sortedSources(d.sources));
+        void loadServed().then((s) => {
+          if (cancelled) return;
+          setServed(s);
+          setSources(sortedSources(d.sources, s));
+        });
         L.geoJSON(d.status, {
           style: (f) => {
             const status = (f?.properties as { status: ZoneStatus } | undefined)?.status ?? "unknown";
@@ -325,7 +366,7 @@ export function TidalSourcesMap() {
         const color = SOURCE_COLOR[f.properties.status] ?? "#999";
         const l = L.geoJSON(f as Feature, {
           style: { color, weight: 2, dashArray: f.properties.status === "ok" || f.properties.status === "current" ? undefined : "5 4", fillColor: color, fillOpacity: 0.08 },
-        }).bindPopup(sourcePopup(t, f.properties), popupOptions(map));
+        }).bindPopup(sourcePopup(t, f.properties, served), popupOptions(map));
         l.addTo(map);
         sourceLayersRef.current.set(id, l);
       } else if (!shown[id] && layer) {
@@ -333,7 +374,7 @@ export function TidalSourcesMap() {
         sourceLayersRef.current.delete(id);
       }
     }
-  }, [shown, status, t]);
+  }, [shown, status, t, served]);
 
   const mailto = `mailto:${CONTACT}?subject=${encodeURIComponent(t("config.methodo.tidal.sources.proposeSubject"))}`;
 
@@ -393,8 +434,8 @@ export function TidalSourcesMap() {
                     </a>
                   </td>
                   <td>
-                    <span className="methodo-map-badge" style={{ background: SOURCE_COLOR[p.status] ?? "#999" }}>
-                      {t(`config.methodo.tidal.source.status.${p.status}` as Parameters<typeof t>[0])}
+                    <span className="methodo-map-badge" style={{ background: SOURCE_COLOR[liveStatus(p, served)] ?? "#999" }}>
+                      {t(`config.methodo.tidal.source.status.${liveStatus(p, served)}` as Parameters<typeof t>[0])}
                     </span>
                   </td>
                 </tr>

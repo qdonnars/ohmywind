@@ -232,7 +232,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.methodo.tidal.source.access": "Acceso",
   "config.methodo.tidal.source.licence": "Licencia",
   "config.methodo.tidal.source.readAt": "leída el {date}",
-  "config.methodo.tidal.sources.title": "Registro de fuentes: nombre, productor, licencia leída y fechada",
+  "config.methodo.tidal.sources.title": "Registro de fuentes: nombre, productor, licencia leída y fechada; « en la cascada » viene del servidor",
   "config.methodo.tidal.sources.show": "Mostrar",
   "config.methodo.tidal.sources.name": "Fuente",
   "config.methodo.tidal.sources.provider": "Productor",

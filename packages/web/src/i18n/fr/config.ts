@@ -240,7 +240,7 @@ export const config = {
   "config.methodo.tidal.source.access": "Accès",
   "config.methodo.tidal.source.licence": "Licence",
   "config.methodo.tidal.source.readAt": "lue le {date}",
-  "config.methodo.tidal.sources.title": "Registre des sources : nom, producteur, licence lue et datée",
+  "config.methodo.tidal.sources.title": "Registre des sources : nom, producteur, licence lue et datée ; « dans la cascade » vient du serveur",
   "config.methodo.tidal.sources.show": "Afficher",
   "config.methodo.tidal.sources.name": "Source",
   "config.methodo.tidal.sources.provider": "Producteur",
