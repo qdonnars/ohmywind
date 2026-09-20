@@ -39,7 +39,7 @@ FR_TEMPLATES: dict[str, str] = {
     ),
     "currents.tidal_gap": (
         "courants de marée probablement forts ({zones}) et non résolus par nos sources : "
-        "les courants annoncés viennent d'un modèle global à 8 km qui ne les voit pas. "
+        "les courants annoncés viennent d'une maille de 2 à 8 km qui ne les voit pas. "
         "Nous travaillons à élargir la couverture, mais les données ne sont pas toutes "
         "en libre accès."
     ),

@@ -1787,7 +1787,7 @@ class TestTidalGapNotice:
         assert len(gap) == 1
         assert "Elbe" in gap[0].params["zones"] or "Cuxhaven" in gap[0].params["zones"]
         assert gap[0].params["count"] >= 1
-        assert "modèle global à 8 km" in gap[0].message
+        assert "maille de 2 à 8 km" in gap[0].message
         assert any("courants de marée probablement forts" in w for w in report.warnings)
 
     async def test_marseille_to_porquerolles_is_quiet(self) -> None:

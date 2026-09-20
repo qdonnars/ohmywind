@@ -42,6 +42,13 @@ function currentSourceNote(marine: MarineHourly): string {
   }
 }
 
+/** The grid the currents on screen were sampled on: "8 km" for the global
+    model, the atlas cell otherwise. What the tidal-gap warning names. */
+function currentGridSize(marine: MarineHourly): string {
+  const src = describeCurrentSource(marine.current_source, marine.marc_resolution_m, marine.shom_nearest_km);
+  return src.kind === "marc" ? formatGridSize(src.resolutionM) : "8 km";
+}
+
 // One per displayed table row. ``waves`` exposes 3 (height/direction/period),
 // ``currents`` 2 (speed/direction), ``tides`` 1. Each row decides its own
 // display & colour rules; the timeline header is shared.
@@ -509,12 +516,12 @@ export function MarineTable({
           </table>
         </div>
       </div>
-      {metric === "currents" && <PanelNote>{currentSourceNote(marine)}</PanelNote>}
+      {metric === "currents" && !marine.tidal_gap && <PanelNote>{currentSourceNote(marine)}</PanelNote>}
       {metric === "currents" && marine.tidal_gap && (
         <PanelNote variant="warning">
           {marine.tidal_gap.kind === "pass"
-            ? t("explore.marineTable.tidalGap.pass", { zone: marine.tidal_gap.zone })
-            : t("explore.marineTable.tidalGap.zone")}
+            ? t("explore.marineTable.tidalGap.pass", { zone: marine.tidal_gap.zone, size: currentGridSize(marine) })
+            : t("explore.marineTable.tidalGap.zone", { size: currentGridSize(marine) })}
         </PanelNote>
       )}
     </div>

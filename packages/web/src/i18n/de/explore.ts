@@ -94,8 +94,8 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.marineTable.aria.current": "Strom {value} kn",
 
   // Hinweis unter der Stromtabelle: die Quelle und die eine Zahl, die sie einordnet
-  "explore.marineTable.tidalGap.pass": "Achtung: Die hier angezeigten Strömungen sind wahrscheinlich falsch. {zone} ist ein Gebiet mit starkem Gezeitenstrom, und die Berechnung verfügt nur über ein globales 8-km-Modell, das ihn nicht auflöst. Wir arbeiten daran, unsere Abdeckung zu erweitern, aber nicht alle Daten sind frei zugänglich.",
-  "explore.marineTable.tidalGap.zone": "Achtung: Die hier angezeigten Strömungen sind wahrscheinlich falsch. Der Gezeitenstrom übersteigt hier 1,5 kn, und die Berechnung verfügt nur über ein globales 8-km-Modell, das ihn nicht auflöst. Wir arbeiten daran, unsere Abdeckung zu erweitern, aber nicht alle Daten sind frei zugänglich.",
+  "explore.marineTable.tidalGap.pass": "Achtung: Die hier angezeigten Strömungen sind wahrscheinlich falsch. {zone} ist ein Gebiet mit starkem Gezeitenstrom, und die Berechnung verfügt hier nur über ein Gitter von {size}, das ihn nicht auflöst. Wir arbeiten daran, unsere Abdeckung zu erweitern, aber nicht alle Daten sind frei zugänglich.",
+  "explore.marineTable.tidalGap.zone": "Achtung: Die hier angezeigten Strömungen sind wahrscheinlich falsch. Der Gezeitenstrom übersteigt hier 1,5 kn, und die Berechnung verfügt nur über ein Gitter von {size}, das ihn nicht auflöst. Wir arbeiten daran, unsere Abdeckung zu erweitern, aber nicht alle Daten sind frei zugänglich.",
   "explore.marineTable.currentSource.smoc":
     "Strom auf 8-km-Gitter: Tide, Zirkulation und Wellen zusammengefasst, zu grob für die Passagen.",
   "explore.marineTable.currentSource.marc": "Nur Gezeitenstrom, Gitter {res}: Wind nicht berücksichtigt.",

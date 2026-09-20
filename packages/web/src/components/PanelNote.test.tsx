@@ -22,7 +22,7 @@ describe("PanelNote", () => {
     const p = container.querySelector("p")!;
     expect(p.className).toContain("text-[11px]");
     expect(p.className).toContain("text-center");
-    expect(p.style.color).toBe("var(--ow-warn)");
-    expect(p.style.background).toBe("var(--ow-warn-soft)");
+    expect(p.style.color).toBe("rgb(251, 191, 36)");
+    expect(p.style.background).toBe("rgb(13, 17, 23)");
   });
 });
