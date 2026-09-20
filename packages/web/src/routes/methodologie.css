@@ -284,12 +284,6 @@
   border: 1px solid rgba(15, 23, 42, 0.25);
   box-sizing: border-box;
 }
-/* The current rasters are the data at its native pitch: no smoothing, a
-   250 m pixel stays a square at any zoom. */
-.methodo-map-canvas .leaflet-tidal-rasters-pane img {
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
-}
 .methodo-map-ramp {
   display: inline-block;
   width: 42px;

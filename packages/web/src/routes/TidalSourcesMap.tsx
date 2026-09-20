@@ -380,7 +380,23 @@ export function TidalSourcesMap() {
           .then(({ grids, overlays }) => {
             if (cancelled) return;
             gridsRef.current = grids;
-            for (const o of overlays) L.imageOverlay(o.url, o.bounds, { opacity: 0.72, interactive: false, pane: "tidal-rasters" }).addTo(map);
+            const layers = overlays.map((o, i) => ({
+              layer: L.imageOverlay(o.url, o.bounds, { opacity: 0.72, interactive: false, pane: "tidal-rasters" }).addTo(map),
+              bounds: L.latLngBounds(o.bounds as L.LatLngTuple[]),
+              width: grids[i]?.width ?? 1,
+            }));
+            // A raster pixel wider than a screen pixel is drawn as a crisp
+            // square; narrower, it is smoothed: nearest-neighbour shrinking
+            // drops pixels and reads as grain.
+            const rendering = () => {
+              for (const { layer, bounds, width } of layers) {
+                const px = Math.abs(map.latLngToLayerPoint(bounds.getNorthEast()).x - map.latLngToLayerPoint(bounds.getSouthWest()).x) / width;
+                const img = layer.getElement();
+                if (img) img.style.imageRendering = px >= 1 ? "pixelated" : "auto";
+              }
+            };
+            rendering();
+            map.on("zoomend", rendering);
           })
           .catch(() => undefined);
         L.geoJSON(
