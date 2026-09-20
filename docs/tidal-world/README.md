@@ -88,7 +88,14 @@ résolution suffirait ici (90 m < 926 m < 2 000 m) mais ne répondrait pas au
 cas ATLNE : un atlas plus fin mais ancien, ou hors de sa zone validée, doit
 pouvoir perdre. Le format porte donc un `rank` explicite décidé par le
 builder (0 bassin, 1 plateau, 2 côtier, 3 estuaire/passe), et à rang égal la
-résolution départage.
+résolution départage. Décision du 2026-09-20, en préparant les atlas
+Copernicus : ATLNE passe du rang 0 au rang 1 (c'est un atlas de plateau
+validé par PREVIMER), et les atlas régionaux Copernicus (NWS 1,5 km, IBI
+3 km, MED 4,2 km) comme FES2014 (7 km) prennent le rang 0. Sans cela, NWS à
+1,5 km aurait battu ATLNE à 2 km sur toute la façade française par la seule
+résolution, alors qu'il n'y est pas validé et qu'il s'écarte de 10 à 40 %
+du radar en baie allemande (`spike-cmems.md`). `migrate_atlas_metadata.py`
+porte la décision.
 
 **Amendement 2, `validity_bbox`.** Un atlas peut déclarer une boîte de
 validité plus petite que son emprise. Hors de cette boîte, `covers` refuse

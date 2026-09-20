@@ -71,6 +71,10 @@ ATLAS_DECISIONS: dict[str, dict] = {
     "ATLNE": {
         "label": "Atlantique Nord-Est, 2 km",
         "confidence": "medium",
+        # Shelf class, not basin: it must keep winning over the Copernicus
+        # regional atlases (rank 0, 1.5 to 4 km) on the French coast, where
+        # PREVIMER validated it and they were not.
+        "rank": 1,
         "validity_bbox": [40.0, -20.03, 53.0, 3.0],
         "validity_note": (
             "Confined to the Bay of Biscay, the Channel and the Celtic Sea, where PREVIMER "
@@ -109,6 +113,7 @@ def upgraded(meta: dict) -> dict:
             "phase_convention": "greenwich_utc",
             "time_reference": "UTC",
             "direction_convention": "going_to",
+            "rank": decision.get("rank", meta["rank"]),
             "confidence": decision["confidence"],
             "validity_bbox": decision.get("validity_bbox"),
             "builder": {"script": "scripts/build_marc_atlas.py", "git_commit": None},
@@ -145,6 +150,8 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"{path.parent.name}: schema {before.get('schema_version')} -> 3, adds {added}"
         )
+        if before.get("rank") != after.get("rank"):
+            print(f"  rank: {before.get('rank')} -> {after.get('rank')}")
         if before.get("validity_bbox") != after.get("validity_bbox"):
             print(
                 f"  validity_bbox: {before.get('validity_bbox')} -> {after.get('validity_bbox')}"

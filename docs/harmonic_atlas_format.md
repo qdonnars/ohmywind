@@ -225,9 +225,14 @@ Propriétés communes à chaque feature : `atlas`, `rank`, `resolution_m`.
   point, essayer dans l'ordre `(-rank, resolution_m)` et garder le premier qui
   a une cellule dans la tuile contenante à moins de `max(5 km, 5 × résolution)`.
 - Conséquence pour un nouvel atlas : choisir son `rank` en regardant ceux
-  qu'il recouvre. BSH Elbe 90 m (rang 3) passe devant ATLNE 2 km (rang 0) ;
-  BSH baie allemande 926 m (rang 1) passe aussi devant ATLNE (rang 0) et
-  derrière un futur atlas côtier 250 m (rang 2).
+  qu'il recouvre. BSH Elbe 90 m (rang 3) passe devant ATLNE 2 km (rang 1,
+  plateau validé par PREVIMER) ; BSH baie allemande 926 m (rang 1) passe
+  devant ATLNE par la résolution et derrière un futur atlas côtier 250 m
+  (rang 2). Les atlas régionaux Copernicus (NWS 1,5 km, IBI 3 km, MED
+  4,2 km) et l'atlas mondial FES2014 (7 km) sont au rang 0 : un modèle
+  opérationnel non validé localement ne passe jamais devant un atlas validé,
+  et entre eux le plus fin gagne (NWS devant IBI dans la Manche, IBI devant
+  MED à Gibraltar, tous devant FES).
 - Le raccord aux frontières est brut : un point à 100 m de la limite d'un
   atlas de rang 3 bascule sur l'atlas de rang inférieur. Acceptable tant que
   les bords sont dans l'eau libre et que les deux atlas sont cohérents ; à
