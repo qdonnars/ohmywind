@@ -16,6 +16,7 @@ from datetime import UTC, datetime, timedelta
 
 from openwind_data.adapters.base import ForecastBundle, ForecastHorizonError, MarineDataAdapter
 from openwind_data.currents.narrow_pass import confidence_for_point
+from openwind_data.currents.tidal_gaps import tidal_gap_at
 from openwind_data.routing.archetypes import BoatPolar, get_polar, lookup_polar
 from openwind_data.routing.geometry import Point, Segment, normalize_twa
 from openwind_data.routing.notices import Notice, notice
@@ -129,6 +130,36 @@ def _segment_report(
         model_used=model,
         motor_used=motor_used,
     )
+
+
+# How many zone names the notice quotes before "…": the sentence is read
+# on a phone, and three names already say "this whole coast".
+_TIDAL_GAP_NAMES_MAX = 3
+
+
+def _tidal_gap_warning(segments: list[SegmentReport]) -> Notice | None:
+    """One notice when a leg without a fine current source crosses a tidal gap.
+
+    A leg "without a fine source" is one whose ``current_confidence`` is not
+    ``"high"``: the global 8 km model, a 2 km atlas outside its depth, or no
+    current at all. Where such a leg sits in a zone the exploration flagged
+    (a known race, or more than 1.5 kt reconstructed with no fine atlas),
+    the ETA carries a current that is probably wrong, and the sailor must
+    hear it once, with the places named.
+    """
+    zones: list[str] = []
+    for seg in segments:
+        if seg.current_confidence == "high":
+            continue
+        gap = tidal_gap_at((seg.start.lat + seg.end.lat) / 2, (seg.start.lon + seg.end.lon) / 2)
+        if gap is not None and gap.zone not in zones:
+            zones.append(gap.zone)
+    if not zones:
+        return None
+    named = ", ".join(zones[:_TIDAL_GAP_NAMES_MAX]) + (
+        "…" if len(zones) > _TIDAL_GAP_NAMES_MAX else ""
+    )
+    return notice("currents.tidal_gap", zones=named, count=len(zones))
 
 
 def _collect_warnings(
@@ -270,6 +301,9 @@ async def _estimate_with_model(
         min_boat_speed_kn=min_boat_speed,
         model=model,
     )
+    tidal_gap = _tidal_gap_warning(reports)
+    if tidal_gap is not None:
+        warnings.append(tidal_gap)
 
     departure = anchor if backward else anchor_utc
     arrival = anchor_utc if backward else anchor

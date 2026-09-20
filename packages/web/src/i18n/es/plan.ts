@@ -118,6 +118,7 @@ export const plan: Record<keyof typeof frPlan, string> = {
     "viento flojo: velocidad mínima {min_speed_kn} kn, travesía muy lenta",
   "plan.notice.passage.model_fallback":
     "modelo {model} sin datos en {fallback_count}/{total} puntos (probablemente fuera de cobertura); recurso automático a {others}",
+  "plan.notice.currents.tidal_gap": "Corrientes de marea probablemente fuertes ({zones}) y no resueltas por nuestras fuentes: las corrientes indicadas provienen de una malla de 2 a 8 km que no las ve. Trabajamos para ampliar la cobertura, pero no todos los datos son de libre acceso.",
   "plan.notice.complexity.wind.3": "Viento fresco: TWS {tws_range} kn en {nm} nm",
   "plan.notice.complexity.wind.4": "Viento fuerte: TWS {tws_range} kn en {nm} nm",
   "plan.notice.complexity.wind.5": "Viento muy fuerte: TWS {tws_range} kn en {nm} nm",

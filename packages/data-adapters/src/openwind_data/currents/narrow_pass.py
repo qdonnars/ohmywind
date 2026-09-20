@@ -23,9 +23,19 @@ source product's intrinsic resolution.
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 
 ConfidenceLevel = Literal["high", "medium", "low"]
+
+# Labels of atlases in the standard format end with their resolution:
+# ``marc_finis_250m``, ``bsh_cuxbru_90m``, ``marc_atlne_2000m``.
+_RESOLUTION_SUFFIX = re.compile(r"_(\d+)m$")
+# At or below this pitch an atlas resolves a race or an estuary mouth; above
+# it, it only says "there is tide here" and earns the same tag as a global
+# model. ATLNE (2 km) sits above it: the Elbe report showed why a 2 km cell
+# in an estuary must not read as a high-confidence value.
+_HIGH_CONFIDENCE_MAX_RESOLUTION_M = 1000
 
 
 def confidence_for_point(lat: float, lon: float, source: str | None) -> ConfidenceLevel | None:
@@ -35,8 +45,10 @@ def confidence_for_point(lat: float, lon: float, source: str | None) -> Confiden
     - SHOM Atlas C2D (``"shom_c2d_*"``) → ``"high"``: French navigation
       reference, hand-placed points on flow features, validated against
       in-situ measurements.
-    - MARC PREVIMER (``"marc_*"``) → ``"high"``: Ifremer harmonic atlas,
-      regular 250 m to 2 km grid depending on zone.
+    - An atlas label ending in its resolution (``"marc_finis_250m"``,
+      ``"bsh_cuxbru_90m"``) → ``"high"`` at 1 km or finer, ``"medium"``
+      above (``"marc_atlne_2000m"``): a 2 km cell resolves neither a pass
+      nor an estuary, and reads like a global model does.
     - Open-Meteo SMOC (``"openmeteo_smoc"``) → ``"medium"``: 8 km global
       Mercator product, fine for open water but blunt near the coast.
     - Anything else → ``"medium"`` (unknown source, stay conservative).
@@ -48,8 +60,9 @@ def confidence_for_point(lat: float, lon: float, source: str | None) -> Confiden
     del lat, lon  # reserved for the data-driven successor
     if source is None:
         return None
-    if source.startswith("shom_c2d_") or source.startswith("marc_"):
+    if source.startswith("shom_c2d_"):
         return "high"
-    if source == "openmeteo_smoc":
-        return "medium"
+    match = _RESOLUTION_SUFFIX.search(source)
+    if match is not None:
+        return "high" if int(match.group(1)) <= _HIGH_CONFIDENCE_MAX_RESOLUTION_M else "medium"
     return "medium"

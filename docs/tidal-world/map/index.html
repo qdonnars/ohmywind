@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Courants de marée dans le monde</title>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later
+     SPDX-FileCopyrightText: 2026 Quentin Donnars
+     Page autonome : Leaflet + tuiles EMODnet Bathymetry (sans clé), données dans data.js
+     (généré par scripts/build_tidal_world_map.py). Ouvrir le fichier directement
+     dans un navigateur suffit. Un clic n'importe où rejoue la cascade de sources
+     de l'application (SHOM à moins de 0,5 km, puis MARC par rang et résolution,
+     puis SMOC) sur les mêmes emprises que le runtime. -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<style>
+  :root { --bg: #f7f7f4; --fg: #1d1d1b; --muted: #6b6b66; --panel: #ffffff; --line: #d9d9d3;
+          --ok: #2a9d5c; --clarify: #e0a100; --blocked: #d43f3a; --current: #2f6fdd; --nocur: #8a8a84; --spike: #7b3fd4;
+          --fine: #08306b; --medium: #2b6cb0; --coarse: #9ecae1; --global: #dddddd; --objective: #1d1d1b; --sea: #dbe7f0; --land: #f2efe6; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #14141a; --fg: #ecece6; --muted: #a2a29a; --panel: #1e1e26; --line: #33333d; --fine: #5aa9ff; --medium: #3b82c4; --coarse: #7aa6c7; --global: #3a3a44; --objective: #ecece6; --sea: #1b2a3f; --land: #2a2f36; } }
+  :root[data-theme="dark"] { --bg: #14141a; --fg: #ecece6; --muted: #a2a29a; --panel: #1e1e26; --line: #33333d; --fine: #5aa9ff; --medium: #3b82c4; --coarse: #7aa6c7; --global: #3a3a44; --objective: #ecece6; --sea: #1b2a3f; --land: #2a2f36; }
+  html, body { margin: 0; height: 100%; background: var(--sea); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #map { position: absolute; inset: 0; background: var(--sea); cursor: crosshair; }
+  .leaflet-container { background: var(--sea); }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--panel); color: var(--fg); }
+  #panel { position: absolute; top: 12px; left: 12px; z-index: 1000; width: min(340px, calc(100vw - 24px));
+           background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; box-shadow: 0 4px 18px rgba(0,0,0,.12);
+           max-height: calc(100vh - 24px); overflow: auto; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+  fieldset { border: 0; padding: 0; margin: 0 0 8px; }
+  legend { font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 4px; }
+  label { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
+  .sw { width: 14px; height: 14px; border-radius: 3px; flex: 0 0 auto; border: 1px solid rgba(0,0,0,.25); }
+  .sw.pt { border-radius: 50%; }
+  .count { color: var(--muted); font-size: 12px; margin-left: auto; }
+  .leaflet-popup-content { font-size: 13px; line-height: 1.4; min-width: 240px; }
+  .leaflet-popup-content h3 { margin: 0 0 6px; font-size: 14px; }
+  .leaflet-popup-content dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; }
+  .leaflet-popup-content dt { color: var(--muted); }
+  .leaflet-popup-content dd { margin: 0; }
+  .leaflet-popup-content code { font-size: 12px; }
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 999px; color: #fff; font-size: 11px; font-weight: 600; }
+  .note { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  a { color: var(--current); }
+</style>
+</head>
+<body>
+<div id="map" role="application" aria-label="Carte des sources de courants de marée"></div>
+<div id="panel">
+  <h1>Courants de marée dans le monde</h1>
+  <div class="sub" id="generated">Cliquez n'importe où sur la mer : la fiche dit quelle source l'application utilise à cet endroit, et ce qui existe pour faire mieux.</div>
+  <fieldset><legend>1. Où il y a du courant</legend>
+    <label><span class="sw" style="background:#ffb84d"></span><input type="checkbox" data-layer="mask05" checked> Plus de 0,5 kt (calculé, Atlantique NE)</label>
+    <label><span class="sw" style="background:#e8590c"></span><input type="checkbox" data-layer="mask15" checked> Plus de 1,5 kt (calculé, Atlantique NE)</label>
+    <label><span class="sw pt" style="background:#111"></span><input type="checkbox" data-layer="gazetteer" checked> Passes et raz connus, taille selon le courant <span class="count" id="c-gazetteer"></span></label>
+  </fieldset>
+  <fieldset><legend>2. Ce que l'application utilise aujourd'hui</legend>
+    <label><span class="sw pt" style="background:var(--fine)"></span><input type="checkbox" data-layer="shom" checked> Points SHOM (fin, à moins de 0,5 km d'un point) <span class="count" id="c-shom"></span></label>
+    <label><span class="sw" style="background:var(--fine)"></span><input type="checkbox" data-layer="cov_fine" checked> Fin : 500 m ou mieux, résout une passe</label>
+    <label><span class="sw" style="background:var(--medium)"></span><input type="checkbox" data-layer="cov_medium" checked> Moyen : jusqu'à 1 km, résout un estuaire</label>
+    <label><span class="sw" style="background:var(--coarse)"></span><input type="checkbox" data-layer="cov_coarse" checked> Grossier : 2 km, dit seulement « il y a de la marée »</label>
+    <label><span class="sw" style="background:var(--global)"></span><input type="checkbox" data-layer="cov_global"> Mondial : 8 km, partout ailleurs</label>
+    <label><span class="sw" style="background:transparent;border:2px dashed var(--spike)"></span><input type="checkbox" data-layer="cov_spike" checked> Atlas construits, pas encore publiés (BSH, Copernicus) <span class="count" id="c-cov_spike"></span></label>
+  </fieldset>
+  <fieldset><legend>3. Ce qui manque dans la zone objectif</legend>
+    <label><span class="sw" style="background:transparent;border:2px dashed var(--objective)"></span><input type="checkbox" data-layer="objective" checked> Zone objectif (Europe) <span class="count" id="c-objective"></span></label>
+    <label><span class="sw" style="background:var(--blocked)"></span><input type="checkbox" data-layer="gap_mask" checked> Plus de 1,5 kt sans source fine ni moyenne <span class="count" id="c-gap_mask"></span></label>
+    <label><span class="sw pt" style="background:#fff;border:3px solid var(--blocked)"></span><input type="checkbox" data-layer="gap_points" checked> Passe connue sans source fine ni moyenne <span class="count" id="c-gap_points"></span></label>
+    <label><span class="sw pt" style="background:transparent;border:2px solid var(--muted)"></span><input type="checkbox" data-layer="gap_points_out"> Idem, hors zone objectif <span class="count" id="c-gap_points_out"></span></label>
+  </fieldset>
+  <details><summary style="cursor:pointer;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;font-weight:600">Registre des sources candidates</summary>
+    <label><span class="sw" style="background:var(--ok)"></span><input type="checkbox" data-layer="src_ok"> Licence compatible <span class="count" id="c-src_ok"></span></label>
+    <label><span class="sw" style="background:var(--clarify)"></span><input type="checkbox" data-layer="src_clarify"> À clarifier <span class="count" id="c-src_clarify"></span></label>
+    <label><span class="sw" style="background:var(--blocked)"></span><input type="checkbox" data-layer="src_blocked"> Bloquée <span class="count" id="c-src_blocked"></span></label>
+    <label><span class="sw" style="background:var(--nocur)"></span><input type="checkbox" data-layer="src_nocur"> Sans courants <span class="count" id="c-src_nocur"></span></label>
+  </details>
+  <div class="note">Le calcul « où il y a du courant » vient de MARC ATLNE (2 km) et ne dit rien d'une passe plus étroite que la maille : les passes connues complètent. La couverture est dessinée telle que la cascade la choisit, sans chevauchement, à la tuile près. En bordure d'emprise et en frange côtière (5 à 12 km), l'application peut servir l'atlas immédiatement plus grossier : la réponse au clic y est indicative (accord mesuré avec le moteur : 95 % en mer, 96 % sur les passes nommées).</div>
+</div>
+<script src="data.js"></script>
+<script>
+(function () {
+  const D = window.TIDAL_WORLD || {};
+  const map = L.map('map', { worldCopyJump: true }).setView([52, 4], 5);
+  // Fond EMODnet Bathymetry (sans clé, prévu pour cet usage) : les tuiles OSM
+  // refusent une page ouverte en local (403 « tile usage policy »).
+  L.tileLayer('https://tiles.emodnet-bathymetry.eu/2020/baselayer/web_mercator/{z}/{x}/{y}.png', {
+    maxZoom: 12, attribution: '&copy; <a href="https://emodnet.ec.europa.eu/en/bathymetry">EMODnet Bathymetry Consortium</a>'
+  }).addTo(map);
+
+  const STATUS = { ok: 'var(--ok)', clarify: 'var(--clarify)', blocked: 'var(--blocked)', no_currents: 'var(--nocur)', current: 'var(--current)' };
+  const STATUS_LABEL = { ok: 'licence compatible', clarify: 'à clarifier', blocked: 'bloquée', no_currents: 'sans courants', current: 'dans la cascade' };
+  const CLASS_LABEL = { fine: 'fin (500 m ou mieux)', medium: 'moyen (jusqu\'à 1 km)', coarse: 'grossier (2 km)', global: 'mondial (8 km)' };
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v.replace(/^var\(|\)$/g, '')).trim() || v;
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const row = (k, v) => v == null || v === '' ? '' : `<dt>${esc(k)}</dt><dd>${v}</dd>`;
+
+  // Point-in-polygon on GeoJSON, ray casting, holes honoured.
+  function inRing(x, y, ring) {
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+      if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+  }
+  const inPolygon = (x, y, coords) => inRing(x, y, coords[0]) && !coords.slice(1).some((h) => inRing(x, y, h));
+  function inGeometry(x, y, g) {
+    if (!g) return false;
+    if (g.type === 'Polygon') return inPolygon(x, y, g.coordinates);
+    if (g.type === 'MultiPolygon') return g.coordinates.some((c) => inPolygon(x, y, c));
+    return false;
+  }
+  const kmBetween = (lat1, lon1, lat2, lon2) => Math.hypot((lat2 - lat1) * 111, (lon2 - lon1) * 111 * Math.cos((lat1 + lat2) / 2 * Math.PI / 180));
+  // The SHOM registry scales longitudes with the cosine of the cloud's mean
+  // latitude, not of the local one; same ruler here so the 500 m threshold
+  // falls on the same points.
+  const shomCos = Math.cos(((D.shom && D.shom.mean_lat) || 48.0) * Math.PI / 180);
+  const kmShom = (lat1, lon1, lat2, lon2) => Math.hypot((lat2 - lat1) * 111, (lon2 - lon1) * 111 * shomCos);
+
+  const cov = (D.coverage && D.coverage.features) || [];
+  const shomZones = (D.shom && D.shom.zones) || [];
+  const shomPts = (D.shom && D.shom.points) || [];
+  const shomMaxKm = (D.classes && D.classes.shom_max_km) || 0.5;
+
+  // The cascade, replayed on the same emprises as the runtime:
+  // SHOM within 0.5 km of a point, then MARC by rank then resolution among the
+  // atlases whose non-empty tiles hold the point, then SMOC.
+  function cascadeAt(lat, lon) {
+    let best = null;
+    for (const p of shomPts) {
+      if (Math.abs(p[0] - lat) > 0.01 || Math.abs(p[1] - lon) > 0.02) continue;
+      const d = kmShom(lat, lon, p[0], p[1]);
+      if (d <= shomMaxKm && (!best || d < best.d)) best = { d, label: shomZones[p[2]] };
+    }
+    if (best) return { label: best.label, name: 'SHOM Atlas C2D', cls: 'fine', confidence: 'haute', detail: `point SHOM à ${Math.round(best.d * 1000)} m` };
+    const marc = cov.filter((f) => f.properties.layer === 'marc' && inGeometry(lon, lat, f.geometry))
+      .sort((a, b) => (b.properties.rank - a.properties.rank) || (a.properties.resolution_m - b.properties.resolution_m));
+    if (marc.length) { const p = marc[0].properties; return { label: p.label, name: p.name, cls: p.resolution_class, confidence: 'haute' }; }
+    return { label: 'openmeteo_smoc', name: 'Open-Meteo SMOC 8 km (modèle global)', cls: 'global', confidence: 'moyenne' };
+  }
+
+  const masks = Object.values(D.masks || {}).flatMap((fc) => fc.features || []);
+  const gaps = (D.gaps && D.gaps.features) || [];
+  const gazPts = gaps.filter((f) => f.geometry.type === 'Point');
+  const objective = (D.objective && D.objective.features) || [];
+  const src = (D.sources && D.sources.features) || [];
+
+  function clickPopup(lat, lon) {
+    const here = cascadeAt(lat, lon);
+    const spike = cov.filter((f) => f.properties.layer === 'built' && inGeometry(lon, lat, f.geometry))
+      .sort((a, b) => a.properties.resolution_m - b.properties.resolution_m)[0];
+    const m15 = masks.some((f) => f.properties.threshold_kt >= 1.5 && inGeometry(lon, lat, f.geometry));
+    const m05 = m15 || masks.some((f) => f.properties.threshold_kt < 1.5 && inGeometry(lon, lat, f.geometry));
+    const inAtlne = cov.some((f) => f.properties.label === 'marc_atlne_2000m' && inGeometry(lon, lat, f.geometry));
+    const current = m15 ? 'plus de 1,5 kt' : m05 ? 'entre 0,5 et 1,5 kt' : inAtlne ? 'moins de 0,5 kt' : 'hors du calcul (pas d\'atlas ATLNE ici)';
+    let near = null;
+    gazPts.forEach((f) => { const d = kmBetween(lat, lon, f.geometry.coordinates[1], f.geometry.coordinates[0]); if (d <= 25 && (!near || d < near.d)) near = { d, p: f.properties }; });
+    const cands = src.filter((f) => f.properties.status === 'ok' && f.properties.kind !== 'station_points' && inGeometry(lon, lat, f.geometry))
+      .sort((a, b) => (a.properties.resolution_m || 1e9) - (b.properties.resolution_m || 1e9)).slice(0, 3)
+      .map((f) => `${esc(f.properties.name)}${f.properties.resolution_m ? ' (' + f.properties.resolution_m + ' m)' : ''}`);
+    const inObj = objective.some((f) => inGeometry(lon, lat, f.geometry));
+    const color = here.cls === 'global' ? css('var(--blocked)') : here.cls === 'coarse' ? css('var(--clarify)') : css('var(--ok)');
+    return `<h3>Ici, l'application utilise</h3>
+      <span class="badge" style="background:${color}">${esc(CLASS_LABEL[here.cls] || here.cls)}</span>
+      <dl style="margin-top:6px">
+      ${row('Source', `${esc(here.name)}<br><code>${esc(here.label)}</code>${here.detail ? '<br><small>' + esc(here.detail) + '</small>' : ''}`)}
+      ${row('Confiance affichée', esc(here.confidence))}
+      ${row('Courant tidal max ici', esc(current))}
+      ${row('Avec le spike BSH', spike ? `<code>${esc(spike.properties.label)}</code> (${esc(CLASS_LABEL[spike.properties.resolution_class])})` : null)}
+      ${row('Passe connue à moins de 25 km', near ? `${esc(near.p.name)}, ${esc(near.p.max_spring_text)} kt, à ${near.d.toFixed(0)} km` : null)}
+      ${row('Sources candidates ici', cands.length ? cands.join('<br>') : 'aucune identifiée')}
+      ${row('Zone objectif', inObj ? 'oui' : 'non')}
+      ${row('Position', `${lat.toFixed(4)}, ${lon.toFixed(4)}`)}
+      </dl>`;
+  }
+  map.on('click', (e) => L.popup({ maxWidth: 380 }).setLatLng(e.latlng).setContent(clickPopup(e.latlng.lat, e.latlng.lng)).openOn(map));
+
+  function sourcePopup(p) {
+    const color = css(STATUS[p.status] || '#999');
+    return `<h3>${esc(p.name)}</h3>
+      <span class="badge" style="background:${color}">${esc(STATUS_LABEL[p.status] || p.status)}</span>
+      <dl style="margin-top:6px">
+      ${row('Fournisseur', esc(p.provider))}${row('Zone', esc(p.zone))}
+      ${row('Type', esc(p.kind))}${row('Résolution', p.resolution_m ? esc(p.resolution_m) + ' m' : null)}
+      ${row('Vertical', esc(p.vertical))}${row('Constituants', esc(p.constituents))}
+      ${row('Accès', esc(p.access))}${row('Archive', esc(p.archive))}
+      ${row('Licence', `<a href="${esc(p.licence_url)}" target="_blank" rel="noopener">${esc(p.licence)}</a> <small>(lue le ${esc(p.licence_read_at)})</small>`)}
+      ${row('Dérivés redistribuables', esc(p.derivative_redistribution))}
+      ${row('Attribution', esc(p.attribution))}
+      ${row('Effort', esc(p.effort))}${row('Étape roadmap', p.roadmap_step == null ? null : esc(p.roadmap_step))}
+      ${row('Notes', esc(p.notes))}
+      </dl>`;
+  }
+  function gazPopup(p) {
+    const covLine = p.best_source ? `${esc(p.best_source)} : ${esc(CLASS_LABEL[p.coverage_class] || '')}` : 'aucune, SMOC 8 km seulement';
+    const cands = (p.candidates || []).length ? p.candidates.map(esc).join('<br>') : 'aucune identifiée';
+    return `<h3>${esc(p.name)}</h3><dl>${row('Pays', esc(p.country))}${row('Courant de vive-eau publié', p.max_spring_text ? esc(p.max_spring_text) + ' kt' : null)}${row('Confiance', esc(p.confidence))}
+      ${row('Couverture actuelle', covLine)}${row('Sources candidates', cands)}${row('Zone objectif', p.in_objective ? 'oui' : 'non')}${row('Référence', p.source_url ? `<a href="${esc(p.source_url)}" target="_blank" rel="noopener">lien</a>` : null)}</dl>`;
+  }
+
+  const layers = {};
+  function add(key, layer, n) { layers[key] = layer; const c = document.getElementById('c-' + key); if (c) c.textContent = n ? '(' + n + ')' : ''; }
+  const canvas = L.canvas({ padding: 0.5 });
+
+  // 1. Where the current is.
+  masks.forEach((f) => {
+    const key = f.properties.threshold_kt >= 1.5 ? 'mask15' : 'mask05';
+    const color = key === 'mask15' ? '#e8590c' : '#ffb84d';
+    add(key, L.geoJSON(f, { style: { color, weight: 0.6, fillColor: color, fillOpacity: 0.35, interactive: false } }), 0);
+  });
+  const isGap = (f) => ['coarse', 'global'].includes(f.properties.coverage_class);
+  const covered = gazPts.filter((f) => !isGap(f));
+  const radius = (p) => 3 + Math.min(7, (p.max_spring_kt || 1) * 0.6);
+  add('gazetteer', L.geoJSON({ type: 'FeatureCollection', features: covered }, {
+    pointToLayer: (f, ll) => L.circleMarker(ll, { radius: radius(f.properties), color: '#111', weight: 1, fillColor: '#111', fillOpacity: 0.55 }),
+    onEachFeature: (f, l) => l.bindPopup(gazPopup(f.properties))
+  }), covered.length);
+
+  // 2. What the app uses today: effective classes, drawn without overlap, and the SHOM points.
+  const eff = (D.coverage_effective && D.coverage_effective.features) || [];
+  ['fine', 'medium', 'coarse'].forEach((k) => {
+    const feats = eff.filter((f) => f.properties.class === k);
+    const color = css('var(--' + k + ')');
+    add('cov_' + k, L.geoJSON({ type: 'FeatureCollection', features: feats }, { style: { color, weight: 0.8, fillColor: color, fillOpacity: k === 'coarse' ? 0.22 : 0.4, interactive: false } }), 0);
+  });
+  add('shom', L.geoJSON({ type: 'FeatureCollection', features: shomPts.map((p) => ({ type: 'Feature', properties: { z: p[2] }, geometry: { type: 'Point', coordinates: [p[1], p[0]] } })) }, {
+    pointToLayer: (f, ll) => L.circleMarker(ll, { renderer: canvas, radius: 2, color: css('var(--fine)'), weight: 0, fillColor: css('var(--fine)'), fillOpacity: 0.7, interactive: false })
+  }), shomPts.length);
+  const smoc = cov.filter((f) => f.properties.layer === 'smoc');
+  add('cov_global', L.geoJSON({ type: 'FeatureCollection', features: smoc }, { style: { color: '#bbb', weight: 0.5, fillColor: css('var(--global)'), fillOpacity: 0.25, interactive: false } }), 0);
+  const spike = cov.filter((f) => f.properties.layer === 'built');
+  add('cov_spike', L.geoJSON({ type: 'FeatureCollection', features: spike }, {
+    style: { color: css('var(--spike)'), weight: 2, dashArray: '5 4', fillColor: css('var(--spike)'), fillOpacity: 0.08, interactive: false }
+  }), spike.length);
+
+  // 3. What is missing, inside the objective.
+  add('objective', L.geoJSON({ type: 'FeatureCollection', features: objective }, {
+    style: { color: css('var(--objective)'), weight: 1.5, dashArray: '8 6', fill: false, interactive: false }
+  }), objective.length);
+  const gapMask = gaps.filter((f) => f.geometry.type !== 'Point');
+  add('gap_mask', L.geoJSON({ type: 'FeatureCollection', features: gapMask }, {
+    style: { color: css('var(--blocked)'), weight: 0.8, fillColor: css('var(--blocked)'), fillOpacity: 0.45, interactive: false }
+  }), gapMask.reduce((n, f) => n + (f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates.length : 1), 0));
+  const uncoveredIn = gazPts.filter((f) => isGap(f) && f.properties.in_objective);
+  const uncoveredOut = gazPts.filter((f) => isGap(f) && !f.properties.in_objective);
+  add('gap_points', L.geoJSON({ type: 'FeatureCollection', features: uncoveredIn }, {
+    pointToLayer: (f, ll) => L.circleMarker(ll, { radius: radius(f.properties) + 1, color: css('var(--blocked)'), weight: 3, fillColor: '#fff', fillOpacity: 0.9 }),
+    onEachFeature: (f, l) => l.bindPopup(gazPopup(f.properties))
+  }), uncoveredIn.length);
+  add('gap_points_out', L.geoJSON({ type: 'FeatureCollection', features: uncoveredOut }, {
+    pointToLayer: (f, ll) => L.circleMarker(ll, { radius: radius(f.properties), color: css('var(--muted)'), weight: 2, fillColor: 'transparent', fillOpacity: 0 }),
+    onEachFeature: (f, l) => l.bindPopup(gazPopup(f.properties))
+  }), uncoveredOut.length);
+
+  // Registry of candidate sources, folded by default.
+  const groups = { src_ok: 'ok', src_clarify: 'clarify', src_blocked: 'blocked', src_nocur: 'no_currents' };
+  Object.entries(groups).forEach(([key, status]) => {
+    const feats = src.filter((f) => f.properties.status === status);
+    const color = css(STATUS[status]);
+    add(key, L.geoJSON({ type: 'FeatureCollection', features: feats }, {
+      style: { color, weight: 1.5, dashArray: status === 'blocked' ? '4 4' : null, fillColor: color, fillOpacity: 0.06 },
+      onEachFeature: (f, l) => l.bindPopup(sourcePopup(f.properties), { maxWidth: 380 })
+    }), feats.length);
+  });
+
+  ['cov_global', 'src_nocur', 'src_blocked', 'src_clarify', 'src_ok', 'cov_coarse', 'cov_medium', 'cov_fine', 'shom', 'cov_spike', 'mask05', 'mask15', 'gap_mask', 'objective', 'gazetteer', 'gap_points_out', 'gap_points'].forEach((k) => {
+    const box = document.querySelector(`input[data-layer="${k}"]`);
+    if (layers[k] && box && box.checked) layers[k].addTo(map);
+  });
+  document.querySelectorAll('input[data-layer]').forEach((box) => box.addEventListener('change', () => {
+    const l = layers[box.dataset.layer]; if (!l) return; box.checked ? l.addTo(map) : map.removeLayer(l);
+  }));
+})();
+</script>
+</body>
+</html>

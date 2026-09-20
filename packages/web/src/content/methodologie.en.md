@@ -10,7 +10,7 @@ OhMyWind is an open source sailing passage planner, usable anywhere in the world
   - [Wind: multi-model cascade](#wind-multi-model-cascade)
   - [Waves and sea level](#waves-and-sea-level)
   - [Currents: the global SMOC product](#currents-the-global-smoc-product)
-  - [High-precision coastal currents: SHOM Atlas C2D and MARC PREVIMER](#high-precision-coastal-currents-shom-atlas-c2d-and-marc-previmer)
+  - [Tidal currents: sources, priority and coverage](#tidal-currents-sources-priority-and-coverage)
 - [How a passage is estimated](#how-a-passage-is-estimated)
   - [1. Choosing the reference boat](#1-choosing-the-reference-boat)
   - [2. Splitting the route](#2-splitting-the-route)
@@ -60,31 +60,36 @@ Academic reference: **Lellouche, J.-M. et al. (2018)**. *Recent updates to the C
 
 A limitation we accept: 8 km is enough offshore but stays too coarse for the narrow passes of the French Atlantic coast, where we switch to the MARC atlases described below.
 
-### High-precision coastal currents: SHOM Atlas C2D and MARC PREVIMER
+### Tidal currents: sources, priority and coverage
 
-For the critical passes of the Atlantic seaboard, OhMyWind does not settle for SMOC at 8 km. The current cascade stacks three sources, from the finest to the broadest:
+For the critical passes, OhMyWind does not settle for SMOC at 8 km. Tidal currents come from a **cascade of atlases**: each atlas is a precomputed set of harmonic constants described by its metadata (source, licence, resolution, priority rank, validity area), and the engine only knows that format. Adding a region of the world means adding an atlas, not code.
 
-**1. SHOM Atlas C2D (Service Hydrographique et Océanographique de la Marine, the French naval hydrographic office).** The digital edition of the tidal-stream atlases of the French coast (Channel and Atlantic). These are not measurements: per the product notice (2005 edition) they are outputs of tidal models computed between 1988 and 2002 (TELEMAC-2D for most areas, finite differences for the Pas de Calais and the Iroise), depth-averaged then adjusted against a few point measurements, and resampled onto a lattice coarser than the model. The pitch of that lattice is under a kilometre in a few insets (Golfe du Morbihan 0.55 km, Rade de Brest and Sein 0.6 km, the north Brittany insets) and 1.3 to 20 km elsewhere (Ouessant 1.3 km, Iroise and Hague 2.7 km, Pertuis 2.8 km, south Brittany 4.5 km, Channel 17 km, Bay of Biscay 20 km). Accuracy stated by SHOM: mean error under 15 % on maximum speeds at coefficient 95, phase error of 30 to 60 min depending on the area, not assessed for the Iroise, Ouessant and the Rade de Brest. 9 atlases (557 Pas de Calais, 558 Bretagne sud, 559 Vendée-Gironde, 560 Iroise / Brest, 561 Baie de Seine, 562 Golfe Normand-Breton, 563 Bretagne nord, 564 Manche, 565 Gascogne), about 13,000 points. Distributed by data.gouv.fr under Licence Ouverte v2.0 Etalab. At each point, two hourly series of 13 U/V values (east-west and north-south components) are stored, one for springs (coefficient 95), the other for neaps (coefficient 45), for hours from -6 h to +6 h relative to high water (or low water) at the reference port for the area (Port-Navalo, Brest, Saint-Malo and so on).
+**The sources in production.**
 
-**2. MARC PREVIMER (Modélisation et Analyse pour la Recherche Côtière, Ifremer + SHOM).** Continuous harmonic atlases on a regular grid, from the MARS 2D model on recent bathymetry. Resolutions: 250 m over Finistère and south Brittany, 700 m in the Channel and the Bay of Biscay, 2 km over the north-east Atlantic. 38 harmonic constituents per cell, Schureman/Cartwright predictor. Validated against the REFMAR tide gauge at Brest (2008, 8000+ hourly observations): RMSE 14 cm, r² 0.99 on height.
+**1. SHOM Atlas C2D (Service Hydrographique et Océanographique de la Marine, the French naval hydrographic office).** The digital edition of the tidal-stream atlases of the French coast (Channel and Atlantic). These are not measurements: according to the product notice (2005 edition), they are outputs of tide models computed between 1988 and 2002 (TELEMAC-2D for most areas, finite differences for the Dover Strait and the Iroise), depth-averaged, adjusted on a few point measurements, and resampled on a grid of points looser than the model. That grid is finer than a kilometre in a few insets (Golfe du Morbihan 0.55 km, Rade de Brest and Sein 0.6 km, north Brittany insets) and 1.3 to 20 km elsewhere (Ouessant 1.3 km, Iroise and Hague 2.7 km, Pertuis 2.8 km, south Brittany 4.5 km, Channel 17 km, Biscay 20 km). Accuracy stated by SHOM: mean error below 15 % on maximum speeds at coefficient 95, phase offset of 30 to 60 min depending on the area, not assessed for the Iroise, Ouessant and the Rade de Brest. 9 atlases, about 13,000 points. Distributed on data.gouv.fr under the Licence Ouverte 2.0. At each point, two hourly series of 13 U/V values, one for spring tides (coefficient 95), one for neap tides (coefficient 45), from -6 h to +6 h around high water at the area's reference port.
 
-**3. Open-Meteo SMOC: the global fallback** (already described above, 8 km).
+**2. MARC PREVIMER (Modélisation et Analyse pour la Recherche Côtière, Ifremer + SHOM).** Continuous harmonic atlases on a regular grid, from the MARS 2D model on recent bathymetry. Resolutions: 250 m over Finistère, south Brittany, the Channel and Aquitaine, 700 m over the Channel and Bay of Biscay shelf, 2 km over the North-East Atlantic (the ATLNE atlas). 17 to 38 harmonic constituents per cell, Schureman/Cartwright predictor. Validation against the REFMAR tide gauge at Brest (2008, 8,000 hourly observations): RMSE 14 cm, r² 0.99 on height.
 
-At every route point, OhMyWind applies the cascade:
+**3. Open-Meteo SMOC: the global fallback** (already described above, 8 km, tides from FES2014).
+
+**The priority rule.** At every route point, the engine picks as follows:
 
 ```
-if a SHOM C2D point lies within 500 m   →  SHOM (the fine insets, model mesh 50 to 150 m)
-else if point ∈ valid MARC footprint     →  MARC (250 m to 2 km, the whole shelf and the races)
-else                                     →  Open-Meteo SMOC (global fallback, 8 km)
+if a SHOM C2D point lies within 500 m                →  SHOM (the fine insets, 50 to 150 m mesh)
+else, among the atlases whose validity area           →  the atlas with the highest rank,
+      contains the point                                 then the finest (250 m, 700 m, 2 km)
+else                                                  →  Open-Meteo SMOC (global fallback, 8 km)
 ```
 
-Why 500 m rather than "SHOM wherever it has a point": until September 2026 the cascade took SHOM as soon as a C2D point lay within 5 km, on the belief that it was the measured reference. A bench over 750 shelf points, 16 passes and 1,500 random points (`docs/bench/currents_resolution_2026-09-12_1347.md`) showed that SHOM and MARC agree offshore whatever the distance (median gap 0.15 kt), that MARC recovers the peaks of the wide races and matches the HF-radar maxima in the Fromveur better (3.8 to 4 m/s measured; MARC 7.3 to 7.6 kt, SHOM 6.6 kt off its 1994 file), and that SHOM keeps an edge only where its model went down to 50 or 150 m, that is the insets with a sub-kilometre pitch. The 500 m gate selects exactly those: a point midway between two points 600 m apart is 300 m from one. Beyond that, preferring a 1998 sample taken 2 km away over a 250 m cell amounted, under the Hague, to pasting the 5 kt of the Alderney Race onto a sheltered cove.
+The rank is a decision written in the atlas metadata, not a deduction: 3 estuary or pass, 2 coastal, 1 shelf, 0 basin. At equal rank the finest resolution wins. The **validity area** confines an atlas to the waters its producer validated it in: ATLNE technically reaches the North Sea, but PREVIMER only validated it on the French coasts, and a comparison against three years of HF radar in the German Bight measured it 21 to 39 % under the observed currents, with 8 to 37° of phase lag. It is therefore confined to the Bay of Biscay, the Channel and the Celtic Sea; elsewhere the global fallback, whose tide comes from a globally validated model, is the honest answer.
 
-The consequence: atlas accuracy in the Goulet du Morbihan, the Rade de Brest, the Raz de Sein and the north Brittany insets; a continuous 250 m grid over the Fromveur, the Four, the Hague, Barfleur, the Pas de Calais and the whole shelf; a global, homogeneous fallback everywhere else. Under the currents table, a caption states the source actually used: distance to the SHOM point sampled, MARC grid size, or the 8 km grid of the fallback.
+Why 500 m for SHOM rather than "wherever it has a point": a bench over 750 shelf points, 16 passes and 1,500 random points (docs/bench/currents_resolution_2026-09-12_1347.md) showed that SHOM and MARC agree offshore whatever the distance (median gap 0.15 kt), that MARC recovers the peaks of the wide races and matches the Fromveur HF radars better, and that SHOM keeps the edge only where its model went down to 50 or 150 m, that is the sub-kilometre insets. The 500 m threshold selects exactly those.
 
-![Coverage of the high-precision current atlases: MARC PREVIMER (blue) covers the whole French Atlantic shelf and the Channel, SHOM Atlas C2D (red) shows the footprint of its files; only points within 500 m are used, that is the fine insets (Golfe du Morbihan, Rade de Brest, Sein, north Brittany). Outside those, we fall back on Open-Meteo SMOC at 8 km: that is the case for the Mediterranean and for the open Atlantic offshore.](/methodologie/coverage_map.png)
+**Precision and confidence.** The grid size of an atlas says what it can see: at 500 m or better, a pass; up to 1 km, an estuary; at 2 km, only "there is tide here"; at 8 km, the open sea. The confidence shown with each current value follows: high at 1 km or finer (SHOM, MARC 250 m and 700 m), medium beyond (ATLNE 2 km, SMOC). The `current_source` field exposed on each route leg gives the source actually used: `shom_c2d_558_morbihan`, `marc_finis_250m`, `openmeteo_smoc`. Under the currents table, a caption gives the detail: distance to the SHOM point sampled, grid size, or the 8 km cell of the fallback.
 
-The `current_source` field exposed on each route leg gives the source actually used: `shom_c2d_558_morbihan`, `marc_finis_250m`, `openmeteo_smoc`, and so on.
+**What is covered, what is missing.** The map below shows only the areas where the tidal current exceeds 1.5 kt (computed from the ATLNE atlas at 2 km and FES2014 at 7 km, completed by the known passes and races), in four colours: green when a tidal source at 5 km or finer covers them, orange when they are not covered but an open-licence source is identified, purple when data exists but is closed or unclear, red when no source is known. A pass counts as covered at 1 km or finer, because a 3 km grid does not see a strait 3 km wide: a purple or orange dot can therefore sit in the middle of a green area, the area is covered, the pass itself is not (Gibraltar, Corryvreckan, Pentland Firth). A click on the sea asks the server and shows the source it would pick at that point. The source registry, folded under the map, gives each source's producer and its licence read and dated, can draw its extent, and ends with an address to propose one: not all of them are open data, and that is what paces the extension of the coverage.
+
+<div data-widget="tidal-map"></div>
 
 ## How a passage is estimated
 

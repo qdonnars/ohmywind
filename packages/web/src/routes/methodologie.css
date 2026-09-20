@@ -159,3 +159,174 @@
 .prose-methodo h2, .prose-methodo h3 {
   scroll-margin-top: 80px;
 }
+
+/* The tidal-sources map (TidalSourcesMap): a figure in the article flow,
+   legend under the map so nothing covers it at phone width. */
+.methodo-map {
+  margin: 1.5rem 0 2rem;
+}
+.methodo-map-hint {
+  font-size: 0.9rem;
+  color: #475569;
+  margin: 0 0 0.5rem;
+}
+.methodo-map-canvas {
+  width: 100%;
+  height: min(70vh, 520px);
+  border-radius: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #dbe7f0;
+  cursor: crosshair;
+}
+.methodo-map-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.15rem 1.25rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+.methodo-map-group-title {
+  grid-column: 1 / -1;
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+}
+.methodo-map-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+}
+/* The source registry: folded under the legend, a row per source with a
+   box that draws its extent on the map, a last row to propose one. */
+.methodo-map-sources {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+}
+.methodo-map-sources > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #334155;
+}
+.methodo-map-table-wrap {
+  overflow-x: auto;
+  margin-top: 0.5rem;
+  -webkit-overflow-scrolling: touch;
+}
+.methodo-map-table {
+  width: 100%;
+  min-width: 640px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+.methodo-map-table th:nth-child(1) {
+  width: 3.6rem;
+}
+.methodo-map-table th:nth-child(2) {
+  width: 34%;
+}
+.methodo-map-table th:nth-child(3) {
+  width: 17%;
+}
+.methodo-map-table th:nth-child(4) {
+  width: 26%;
+}
+.methodo-map-table th,
+.methodo-map-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  overflow-wrap: anywhere;
+}
+/* A status pill in a narrow column: let it take two lines and keep its
+   corners soft rather than round, so the break reads as intended. */
+.methodo-map-table .methodo-map-badge {
+  white-space: normal;
+  border-radius: 8px;
+  line-height: 1.25;
+  padding: 2px 7px;
+}
+.methodo-map-table th {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  white-space: nowrap;
+}
+.methodo-map-table input {
+  margin: 0;
+}
+.methodo-map-table label {
+  cursor: pointer;
+}
+.methodo-map-licence a {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.methodo-map-propose td {
+  padding-top: 0.6rem;
+  font-weight: 600;
+}
+.methodo-map-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(15, 23, 42, 0.25);
+  box-sizing: border-box;
+}
+.methodo-map-swatch.is-round {
+  border-radius: 50%;
+}
+.methodo-map-swatch.is-dashed {
+  background: transparent;
+  border: 2px dashed;
+}
+.methodo-map-note {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 0.75rem 0 0;
+}
+.methodo-map-popup .leaflet-popup-content {
+  font-size: 13px;
+  line-height: 1.4;
+  min-width: 220px;
+}
+.methodo-map-popup-title {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.methodo-map-popup-grid {
+  margin: 6px 0 0;
+  display: grid;
+  /* The value track may shrink below its content, and long identifiers
+     (a Copernicus product id) break anywhere: nothing runs past the card. */
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 2px 10px;
+}
+.methodo-map-popup-grid dt {
+  color: #64748b;
+}
+.methodo-map-popup-grid dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.methodo-map-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}

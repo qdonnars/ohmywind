@@ -429,9 +429,12 @@ uses unless overridden by tool parameters.
 - Currents: SOG = STW + (current projected on bearing). Projection uses
   the oceanographic "going to" convention. Cascade source priority:
   MARC PREVIMER atlases (Ifremer, 250 m on critical Atlantic passes;
-  700 m on the Manche / Bay of Biscay shelf; 2 km on the wider North-East
-  Atlantic) when the waypoint falls inside a covered emprise; otherwise
-  Open-Meteo Marine (SMOC, 8 km global). Each leg surfaces a
+  700 m on the Manche / Bay of Biscay shelf; 2 km on the North-East
+  Atlantic, confined to the waters PREVIMER validated: Bay of Biscay,
+  Channel and Celtic Sea, never the North Sea) when the waypoint falls
+  inside a covered emprise; otherwise Open-Meteo Marine (SMOC, 8 km
+  global, tides from FES2014). Priority between atlases is explicit in
+  their metadata (rank, then resolution). Each leg surfaces a
   ``current_source`` field so the caller knows which product applied
   (e.g. ``marc_finis_250m``, ``marc_manga_700m``, ``openmeteo_smoc``).
   MARC delivers harmonic prediction (tidal + 2008-2009 mean residual)
@@ -440,11 +443,15 @@ uses unless overridden by tool parameters.
   atlas or paper chart for fine navigation in a narrow pass.
 
 - Current confidence (``current_confidence`` per leg): qualitative tag
-  derived from the data source. ``"high"`` on SHOM Atlas C2D and MARC
-  PREVIMER (regional harmonic atlases); ``"medium"`` on Open-Meteo SMOC
-  (8 km global product); ``None`` when no current data is available.
-  A data-driven downgrade in choke points (zones where SHOM C2D peaks
-  exceed ~3 kt) will land with the C2D adapter.
+  derived from the data source. ``"high"`` on SHOM Atlas C2D and on any
+  atlas at 1 km or finer (MARC 250 m and 700 m); ``"medium"`` on atlases
+  coarser than 1 km (MARC ATLNE 2 km) and on Open-Meteo SMOC (8 km global
+  product); ``None`` when no current data is available.
+  A ``currents.tidal_gap`` notice is raised once per passage when a leg
+  whose current is not from a fine source crosses a zone where tidal
+  streams are probably strong (a known race, or more than 1.5 kt
+  reconstructed with no fine atlas): the ETA then carries a current that
+  is probably wrong, and the notice names the places. Relay it.
 
 - Minimum boat speed / SOG: 0.5 kn floor to avoid blow-up in extreme
   stalls or strongly opposing currents.

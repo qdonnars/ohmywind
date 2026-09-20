@@ -114,6 +114,7 @@ export const plan: Record<keyof typeof frPlan, string> = {
     "light wind: minimum speed {min_speed_kn} kn, a very slow passage",
   "plan.notice.passage.model_fallback":
     "model {model} has no data at {fallback_count}/{total} points (probably outside its coverage); automatic fallback to {others}",
+  "plan.notice.currents.tidal_gap": "Tidal streams probably strong ({zones}) and not resolved by our sources: the currents shown come from a 2 to 8 km grid that cannot see them. We are working to extend our coverage, but not all the data is open.",
   "plan.notice.complexity.wind.3": "Fresh wind: TWS {tws_range} kn over {nm} nm",
   "plan.notice.complexity.wind.4": "Strong wind: TWS {tws_range} kn over {nm} nm",
   "plan.notice.complexity.wind.5": "Very strong wind: TWS {tws_range} kn over {nm} nm",

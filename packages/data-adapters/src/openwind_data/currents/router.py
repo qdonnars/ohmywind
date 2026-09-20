@@ -28,8 +28,10 @@ atlases). Tide heights come from MARC only when the waypoint falls
 inside a MARC emprise — SHOM C2D doesn't ship height series.
 
 Provenance is exposed on each ``SeaPoint`` via ``current_source``:
-``"shom_c2d_<atlas_id>_<zone>"`` inside SHOM, ``"marc_<atlas>_<res>m"``
-inside MARC-only zones, ``"openmeteo_smoc"`` outside both.
+``"shom_c2d_<atlas_id>_<zone>"`` inside SHOM, the atlas's own
+``source_label`` (``"marc_<atlas>_<res>m"`` for MARC, ``"<source>_<zone>_<res>m"``
+for any other atlas in the standard format) inside an atlas, and
+``"openmeteo_smoc"`` outside both.
 """
 
 from __future__ import annotations
@@ -45,10 +47,6 @@ from openwind_data.adapters.base import (
 )
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
-
-
-def _marc_source_label(atlas_name: str, resolution_m: int) -> str:
-    return f"marc_{atlas_name.lower()}_{resolution_m}m"
 
 
 @dataclass
@@ -121,7 +119,7 @@ class CompositeMarineAdapter:
             # No MARC data at this exact cell despite atlas coverage — fall back.
             return bundle
 
-        source_label = _marc_source_label(atlas.name, atlas.resolution_m)
+        source_label = atlas.source_label
         h_arr = h_series[0] if h_series is not None else None
         if c_series is not None:
             speeds_kn, dirs_to_deg, _ = c_series

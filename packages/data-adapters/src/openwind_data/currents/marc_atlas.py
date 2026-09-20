@@ -1,16 +1,23 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-"""MARC PREVIMER atlas runtime loader and predictor.
+"""Harmonic atlas runtime loader and predictor.
 
-Reads tiled Parquet datasets produced by ``scripts/build_marc_atlas.py`` (one
-per atlas: ATLNE / MANGA / FINIS / MANW / MANE / SUDBZH / AQUI). Provides
-height and current predictions at arbitrary (lat, lon, t).
+Reads tiled Parquet datasets in the layout described by
+``docs/harmonic_atlas_format.md``: one directory per atlas holding
+``metadata.json``, ``coverage.geojson`` and 0.5 degree tiles. Built for the
+MARC PREVIMER atlases (ATLNE / MANGA / FINIS / MANW / MANE / SUDBZH / AQUI),
+the loader knows only the format: any builder writing it (BSH, CMEMS, FES)
+gets the same treatment. ``HarmonicAtlasRegistry`` is the name to use in new
+code; ``MarcAtlasRegistry`` stays as the historical alias.
 
-Cascade priority within MARC: rank 2 (250 m, narrow passes) > rank 1 (700 m,
-shelf) > rank 0 (2 km, open Atlantic). When a point lies in several emprises,
-we pick the finest. Outside any MARC emprise, callers fall back to Open-Meteo
-SMOC.
+Priority between atlases is decided by the metadata, never deduced here:
+the explicit ``rank`` first (3 estuary or pass, 2 coastal, 1 shelf, 0 basin),
+the finest ``resolution_m`` at equal rank. An atlas may also declare a
+``validity_bbox`` smaller than its emprise: outside it the atlas refuses to
+cover, which is how a model gets confined to the waters it was validated
+in (ATLNE reaches the North Sea, PREVIMER only validated it on the French
+coasts). Outside every atlas, callers fall back to Open-Meteo SMOC.
 
 Predictor convention: standard SHOM/Schureman (see ``harmonic.py``). Heights
 are around mean sea level (MSL = 0); add the cell's ``z0_hydro_m`` to convert
@@ -32,6 +39,10 @@ import polars as pl
 
 from openwind_data.currents.harmonic import predict as schureman_predict
 
+# Tile pitch of the historical MARC layout. An atlas may declare its own in
+# ``metadata.json`` (``grid.tile_deg``): a global 7 km atlas cut in 0.5 degree
+# tiles would be a quarter of a million files, and ``coverage_cells`` opens
+# one footer per tile at start-up.
 _TILE_SIZE_DEG = 0.5
 # m/s to knots — conversion shared with the runtime adapters layer.
 _MS_TO_KN = 1.0 / 0.514444
@@ -44,7 +55,13 @@ _M_PER_DEG = 111_000.0
 
 @dataclass(frozen=True, slots=True)
 class AtlasMeta:
-    """One MARC atlas as discovered on disk."""
+    """One atlas as discovered on disk.
+
+    ``source_short``, ``zone``, ``confidence`` and ``validity_bbox`` come from
+    a schema 3 ``metadata.json``; a schema 2 (MARC) file gets the defaults
+    that reproduce the historical behaviour, except that nothing is inferred
+    about validity: an atlas without ``validity_bbox`` covers its whole bbox.
+    """
 
     name: str
     rank: int
@@ -54,6 +71,22 @@ class AtlasMeta:
     constituents_h: tuple[str, ...]
     constituents_u: tuple[str, ...]
     constituents_v: tuple[str, ...]
+    source_short: str = "marc"
+    zone: str = ""
+    confidence: str = "high"
+    validity_bbox: tuple[float, float, float, float] | None = None
+    tile_deg: float = _TILE_SIZE_DEG
+
+    @property
+    def source_label(self) -> str:
+        """Provenance label carried on every point, e.g. ``marc_finis_250m``.
+
+        ``<source>_<zone>_<resolution>m``: the pattern the web legend and the
+        MCP read_me document. ``zone`` defaults to the atlas name in lower
+        case, which keeps every existing MARC label byte for byte.
+        """
+        zone = self.zone or self.name.lower()
+        return f"{self.source_short}_{zone}_{self.resolution_m}m"
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +118,16 @@ def _scan_atlas(parquet_dir: Path) -> AtlasMeta | None:
     else:
         # Fallback: scan tile names. Not robust against partial atlas builds.
         bbox = (-90.0, -180.0, 90.0, 180.0)
+    source = meta.get("source") or {}
+    validity = meta.get("validity_bbox")
+    validity_bbox: tuple[float, float, float, float] | None = None
+    if isinstance(validity, list | tuple) and len(validity) == 4:
+        validity_bbox = (
+            float(validity[0]),
+            float(validity[1]),
+            float(validity[2]),
+            float(validity[3]),
+        )
     return AtlasMeta(
         name=meta["atlas"],
         rank=meta["rank"],
@@ -94,6 +137,11 @@ def _scan_atlas(parquet_dir: Path) -> AtlasMeta | None:
         constituents_h=tuple(meta.get("constituents_h", meta.get("constituents", []))),
         constituents_u=tuple(meta.get("constituents_u", [])),
         constituents_v=tuple(meta.get("constituents_v", [])),
+        source_short=str(source.get("short") or "marc"),
+        zone=str(meta.get("zone") or meta["atlas"].lower()),
+        confidence=str(meta.get("confidence") or "high"),
+        validity_bbox=validity_bbox,
+        tile_deg=float((meta.get("grid") or {}).get("tile_deg") or _TILE_SIZE_DEG),
     )
 
 
@@ -109,11 +157,13 @@ def _read_tile(parquet_path: str) -> pl.DataFrame | None:
     return pl.read_parquet(parquet_path)
 
 
-def _tile_origin_of(lat: float, lon: float) -> tuple[float, float]:
+def _tile_origin_of(
+    lat: float, lon: float, tile_deg: float = _TILE_SIZE_DEG
+) -> tuple[float, float]:
     """South-west corner of the tile a point falls in, in degrees."""
     return (
-        float(np.floor(lat / _TILE_SIZE_DEG) * _TILE_SIZE_DEG),
-        float(np.floor(lon / _TILE_SIZE_DEG) * _TILE_SIZE_DEG),
+        float(np.floor(lat / tile_deg) * tile_deg),
+        float(np.floor(lon / tile_deg) * tile_deg),
     )
 
 
@@ -123,7 +173,9 @@ def _tile_path_at(atlas: AtlasMeta, tile_lat: float, tile_lon: float) -> Path:
     )
 
 
-def _neighbour_tiles(lat: float, lon: float) -> list[tuple[float, float, float]]:
+def _neighbour_tiles(
+    lat: float, lon: float, tile_deg: float = _TILE_SIZE_DEG
+) -> list[tuple[float, float, float]]:
     """The eight tiles around the one holding ``(lat, lon)``, nearest first.
 
     Each entry is ``(tile_lat, tile_lon, floor_distance_m)`` where the floor is
@@ -138,12 +190,12 @@ def _neighbour_tiles(lat: float, lon: float) -> list[tuple[float, float, float]]
     Distances use the same flat-earth ruler as the cell-distance check, so a
     tile is never opened for a cell the threshold would then reject.
     """
-    tile_lat, tile_lon = _tile_origin_of(lat, lon)
+    tile_lat, tile_lon = _tile_origin_of(lat, lon, tile_deg)
     m_per_deg_lon = _M_PER_DEG * float(np.cos(np.deg2rad(lat)))
     to_south = (lat - tile_lat) * _M_PER_DEG
-    to_north = (tile_lat + _TILE_SIZE_DEG - lat) * _M_PER_DEG
+    to_north = (tile_lat + tile_deg - lat) * _M_PER_DEG
     to_west = (lon - tile_lon) * m_per_deg_lon
-    to_east = (tile_lon + _TILE_SIZE_DEG - lon) * m_per_deg_lon
+    to_east = (tile_lon + tile_deg - lon) * m_per_deg_lon
 
     out: list[tuple[float, float, float]] = []
     for di, d_lat_m in ((-1, to_south), (0, 0.0), (1, to_north)):
@@ -153,8 +205,8 @@ def _neighbour_tiles(lat: float, lon: float) -> list[tuple[float, float, float]]
             floor_m = float(np.hypot(d_lat_m if di else 0.0, d_lon_m if dj else 0.0))
             out.append(
                 (
-                    tile_lat + di * _TILE_SIZE_DEG,
-                    tile_lon + dj * _TILE_SIZE_DEG,
+                    tile_lat + di * tile_deg,
+                    tile_lon + dj * tile_deg,
                     floor_m,
                 )
             )
@@ -195,7 +247,9 @@ def _tile_has_rows(parquet_path: Path) -> bool:
         return False
 
 
-def _merge_tiles_into_rectangles(tiles: Iterable[tuple[float, float]]) -> _Boxes:
+def _merge_tiles_into_rectangles(
+    tiles: Iterable[tuple[float, float]], tile_deg: float = _TILE_SIZE_DEG
+) -> _Boxes:
     """Coalesce ``(tile_lat, tile_lon)`` origins into as few boxes as possible.
 
     Run-length along longitude inside each latitude row: a row of adjacent
@@ -217,17 +271,36 @@ def _merge_tiles_into_rectangles(tiles: Iterable[tuple[float, float]]) -> _Boxes
         lons = sorted(rows[tile_lat])
         run_start = run_end = lons[0]
         for lon in lons[1:]:
-            if abs(lon - run_end - _TILE_SIZE_DEG) < 1e-9:
+            if abs(lon - run_end - tile_deg) < 1e-9:
                 run_end = lon
                 continue
-            boxes.append((tile_lat, run_start, tile_lat + _TILE_SIZE_DEG, run_end + _TILE_SIZE_DEG))
+            boxes.append((tile_lat, run_start, tile_lat + tile_deg, run_end + tile_deg))
             run_start = run_end = lon
-        boxes.append((tile_lat, run_start, tile_lat + _TILE_SIZE_DEG, run_end + _TILE_SIZE_DEG))
+        boxes.append((tile_lat, run_start, tile_lat + tile_deg, run_end + tile_deg))
     return tuple(boxes)
 
 
+def _clip_boxes(boxes: _Boxes, clip: _Box | None) -> _Boxes:
+    """Intersect coverage rectangles with a validity box, dropping the rest.
+
+    Keeps the promise of :meth:`MarcAtlasRegistry.coverage_cells` exact once
+    ``covers`` refuses outside ``validity_bbox``: a client filtering on the
+    published rectangles must not be told to ask where the atlas will not
+    answer.
+    """
+    if clip is None:
+        return boxes
+    out: list[_Box] = []
+    for lat_min, lon_min, lat_max, lon_max in boxes:
+        c_lat_min, c_lon_min = max(lat_min, clip[0]), max(lon_min, clip[1])
+        c_lat_max, c_lon_max = min(lat_max, clip[2]), min(lon_max, clip[3])
+        if c_lat_min < c_lat_max and c_lon_min < c_lon_max:
+            out.append((c_lat_min, c_lon_min, c_lat_max, c_lon_max))
+    return tuple(out)
+
+
 @lru_cache(maxsize=32)
-def _atlas_coverage_cells(parquet_dir: str) -> _Boxes:
+def _atlas_coverage_cells(parquet_dir: str, tile_deg: float = _TILE_SIZE_DEG) -> _Boxes:
     """Rectangles covering the non-empty tiles of one atlas directory.
 
     Module-level cache rather than per-instance state on purpose: the
@@ -252,7 +325,7 @@ def _atlas_coverage_cells(parquet_dir: str) -> _Boxes:
             parquet = lon_dir / "data.parquet"
             if parquet.is_file() and _tile_has_rows(parquet):
                 tiles.append((tile_lat, tile_lon))
-    return _merge_tiles_into_rectangles(tiles)
+    return _merge_tiles_into_rectangles(tiles, tile_deg)
 
 
 def _nearest_cell_with_distance(
@@ -345,6 +418,9 @@ class MarcAtlasRegistry:
         precisely the case worth skipping (14 uncovered answers out of 14 in
         the live measurement).
 
+        Rectangles are clipped to the atlas's ``validity_bbox`` when it has
+        one, so the contract survives the validity rule.
+
         The contract, and it is exact rather than approximate: **a point
         outside every rectangle is a point :meth:`covers` refuses**;
         :attr:`AtlasMeta.bbox` stays the outer envelope. ``covers`` reads the
@@ -360,7 +436,13 @@ class MarcAtlasRegistry:
         directory: the walk reads one Parquet footer per tile and nothing
         else, but that is still thousands of file opens on a large atlas.
         """
-        return tuple((a.name, _atlas_coverage_cells(str(a.parquet_dir))) for a in self.atlases)
+        return tuple(
+            (
+                a.name,
+                _clip_boxes(_atlas_coverage_cells(str(a.parquet_dir), a.tile_deg), a.validity_bbox),
+            )
+            for a in self.atlases
+        )
 
     # Tolerance for "the nearest cell is close enough to be considered valid".
     # Coverage polygons are bbox-only at build time, so the bbox can extend
@@ -424,7 +506,7 @@ class MarcAtlasRegistry:
         opens exactly one tile.
         """
         threshold = self._cell_threshold_m(atlas)
-        tile_lat, tile_lon = _tile_origin_of(lat, lon)
+        tile_lat, tile_lon = _tile_origin_of(lat, lon, atlas.tile_deg)
         df = _read_tile(str(_tile_path_at(atlas, tile_lat, tile_lon)))
         if df is None or df.height == 0:
             return None
@@ -435,7 +517,7 @@ class MarcAtlasRegistry:
             best, best_d = (df, found[0]), found[1]
         if not neighbours:
             return best
-        for n_lat, n_lon, floor_m in _neighbour_tiles(lat, lon):
+        for n_lat, n_lon, floor_m in _neighbour_tiles(lat, lon, atlas.tile_deg):
             if floor_m >= best_d:
                 # Sorted by floor distance, so nothing further can win either.
                 break
@@ -447,17 +529,28 @@ class MarcAtlasRegistry:
                 best, best_d = (n_df, found[0]), found[1]
         return best
 
+    def atlas_named(self, name: str) -> AtlasMeta | None:
+        """The atlas whose ``name`` matches, for callers holding a ``CellPrediction``."""
+        return next((a for a in self.atlases if a.name == name), None)
+
     def covers(self, lat: float, lon: float) -> AtlasMeta | None:
         """Return the finest atlas with actual data near (lat, lon), or None.
 
-        Filters by bbox first, then verifies the nearest cell in the matching
-        tile is within distance threshold. This catches false bbox matches
-        (e.g. ATLNE bbox spuriously covering the Mediterranean).
+        Filters by bbox and, when the atlas declares one, by ``validity_bbox``;
+        then verifies the nearest cell in the matching tile is within the
+        distance threshold. This catches false bbox matches (e.g. ATLNE bbox
+        spuriously covering the Mediterranean) and confines a model to the
+        waters its producer validated it in.
 
         Reads the containing tile only, on purpose: see `_best_cell` for why
         the seam search must not reach the coverage decision.
         """
-        candidates = [a for a in self.atlases if _bbox_contains(a.bbox, lat, lon)]
+        candidates = [
+            a
+            for a in self.atlases
+            if _bbox_contains(a.bbox, lat, lon)
+            and (a.validity_bbox is None or _bbox_contains(a.validity_bbox, lat, lon))
+        ]
         if not candidates:
             return None
         candidates.sort(key=lambda a: (-a.rank, a.resolution_m))
@@ -585,3 +678,8 @@ def _cell_at_cached(registry: MarcAtlasRegistry, lat: float, lon: float) -> Cell
     the caller did not pass verbatim.
     """
     return registry._cell_at_uncached(lat, lon)
+
+
+# The name new code should use. The class keeps its historical name so that
+# the API, the MCP server and the tests keep importing it unchanged.
+HarmonicAtlasRegistry = MarcAtlasRegistry
