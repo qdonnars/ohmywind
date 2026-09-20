@@ -428,7 +428,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[holdout] {area}", file=sys.stderr)
         report["holdout"].append(holdout_check(area, sub, args.archive_dir, registry))
     atlases = {}
-    for sub in sorted(args.atlas_dir.glob("BSH_*")):
+    for sub in sorted(p.parent for p in args.atlas_dir.glob("*/metadata.json")):
         atlases[sub.name.lower()] = load_atlas(sub)[0]
     if args.hfr_dir.exists():
         print("[hfr]", file=sys.stderr)
@@ -480,7 +480,7 @@ def main(argv: list[str] | None = None) -> int:
                 else "n/a"
             )
 
-        bsh = next((k for k in e if k.startswith("bsh_")), None)
+        bsh = next((k for k in e if k.startswith(("bsh_", "cmems_"))), None)
         print(
             f"| {name} | {e['samples']} ({e['coverage_pct']:.0f} %) | {fmt('observed', 'M2')} | {fmt(bsh, 'M2') if bsh else 'n/a'} | {fmt('marc_atlne', 'M2')} | {fmt('observed', 'S2')} | {fmt(bsh, 'S2') if bsh else 'n/a'} | {fmt('marc_atlne', 'S2')} |"
         )

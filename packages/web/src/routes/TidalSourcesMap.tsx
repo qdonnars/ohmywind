@@ -121,9 +121,19 @@ async function loadJson<T>(name: string): Promise<T> {
   return (await resp.json()) as T;
 }
 
+/** The computed "where the current is" masks, finest first: ATLNE (2 km,
+    North-East Atlantic) over FES2014 (7 km, world) when the latter has been
+    built. A missing file is simply skipped. */
+async function loadMasks(): Promise<MaskFC> {
+  const parts = await Promise.all(
+    ["mask_atlne.geojson", "mask_fes.geojson"].map((name) => loadJson<MaskFC>(name).catch(() => null)),
+  );
+  return { type: "FeatureCollection", features: parts.flatMap((fc) => fc?.features ?? []) };
+}
+
 async function loadLayers(): Promise<Layers> {
   const [masks, passes, gapMask, objective, classes, spike, sources, shom, footprint] = await Promise.all([
-    loadJson<MaskFC>("mask_atlne.geojson"),
+    loadMasks(),
     loadJson<PassFC>("gazetteer.geojson"),
     loadJson<FeatureCollection>("gaps_mask.geojson"),
     loadJson<FeatureCollection>("objective.geojson"),
