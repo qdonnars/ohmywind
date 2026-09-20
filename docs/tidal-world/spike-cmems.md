@@ -214,12 +214,19 @@ Norvège : NorKyst800 (MET Norway, THREDDS sans clé, grille polaire
 stéréographique, lecteur à écrire). Islande : FES2014 à 7 km seulement
 (`build_fes_atlas.py`), passes non résolues, à afficher tel quel.
 
-## 5. Ce qui reste avant la production
+## 5. Publication du 2026-09-20
 
-1. Publier les atlas (`cmems/atlas/*`, `fes/atlas/FES_GLOBAL`, `bsh/atlas/*`)
-   dans le dataset HF (nom à donner par Quentin) et rejouer
-   `migrate_atlas_metadata.py --write --push` pour ATLNE (rang 1, boîte de
-   validité) : sans cela la carte promet plus que le serveur.
+Les trois atlas (`CMEMS_NWS`, `CMEMS_IBI`, `CMEMS_MED`, 200 Mo) sont dans le
+dataset que les Spaces lisent, au rang 0 : MARC et BSH gagnent partout où ils
+répondent, Copernicus prend le reste de la zone objectif, SMOC ne reste que
+hors des trois domaines (Norvège, Islande, Baltique, Levant profond). La carte
+les compte comme servis (`--shipped`).
+
+## 6. Ce qui reste avant la production
+
+1. FES2014 (`fes/atlas/FES_GLOBAL`, 345 Mo) reste à publier si l'on veut
+   un vrai atlas de marée comme dernier étage hors d'Europe ; BSH, Copernicus
+   et les métadonnées MARC (ATLNE rang 1, boîte de validité) sont en place.
 2. Décider si l'avertissement `currents.tidal_gap` s'éteint sur un atlas
    Copernicus (confiance `medium`, mais la marée y est résolue) ou seulement
    sur un atlas `high` : aujourd'hui il reste allumé au-dessus de 1 km.
