@@ -16,7 +16,11 @@ Saltstraumen est **de la terre** dans le modèle : à 800 m, un chenal de
 150 m n'existe pas, et l'atlas y servirait 0,2 à 0,3 kt à un kilomètre d'un
 courant de 20 kt. L'intégration au rang 1 est justifiée pour la côte
 ouverte et les grands détroits, à condition d'un garde-fou explicite sur
-les passes non résolues.
+les passes non résolues. **Un an d'archive** de la même boîte, téléchargé
+dans l'après-midi (3 Go en 55 minutes, section 5b), résout 18 constituants
+sans inférence et corrige le mois : Moskstraumen 3,3 kt, Vestfjorden 0,4 kt
+au lieu de 0,7 kt (le mois faisait passer de la météo pour de la marée) ;
+c'est l'atlas à publier, jamais le mois.
 
 Chaque affirmation est **[vérifié]** (commande, fichier ou URL reproductible
 le 2026-09-21) ou **[supposé]**.
@@ -202,6 +206,36 @@ Lecture :
   0,43 kt, p90 0,71 kt, p99 1,84 kt, maximum 3,74 kt ; 1 174 cellules à 1 kt
   ou plus, 220 à 2 kt ou plus, aucune à 4 kt.
 
+## 5b. Un an d'archive sur la même boîte [vérifié, `build/norkyst/download_1y.log`]
+
+Téléchargement du 2025-09-19 au 2026-09-19 (366 jours, 8 784 instants) avec
+les mêmes options : **366 fichiers, 3,0 Go, 55 minutes** (8 à 16 s par
+jour, aucun jour sauté, aucune relance, les 32 fichiers du mois réutilisés).
+Analyse en **37 s** : 18 constituants résolus (M2 S2 N2 K1 O1 M4 MS4 K2 P1
+Q1 MN4 M6 2N2 NU2 MU2 L2 2MS6 MK4), aucune inférence, `mean_is_weather`
+faux. Atlas `build/norkyst/atlas/NORKYST_LOFOTEN` : **23 052 cellules à
+0,2 kt ou plus (72,6 % des cellules régulières), 29 tuiles, 6,4 Mo** ; le
+mois est conservé dans `build/norkyst/atlas_32d/`.
+
+| Point | 32 jours | Un an |
+|---|---|---|
+| Moskstraumen, cellule à 133 m : M2 / S2 / K2 (kt) | 2,02 / 0,77 / 0,21 (K2 inféré) | 2,09 / 0,82 / 0,17 (résolu) |
+| Moskstraumen, maximum reconstruit à la cellule / à 1 km | 3,60 / 3,74 | 3,30 / 3,46 |
+| Vestfjorden, cellule à 583 m : M2 / maximum | 0,52 / 0,73 | 0,27 / 0,38 |
+| Saltstraumen, cellule servie / maximum à 3 km | 963 m, 0,26 / 0,40 (12 cellules) | 2 770 m, 0,27 / 0,32 (2 cellules) |
+| Distribution des maxima : médiane / p90 / p99 / max | 0,43 / 0,71 / 1,84 / 3,74 | 0,31 / 0,59 / 2,00 / 3,46 |
+| Cellules à 1 kt ou plus / 2 kt ou plus | 1 174 / 220 | 1 045 / 230 |
+
+Lecture : là où le signal est fort et bien résolu (Moskstraumen), le mois
+et l'année diffèrent de 8 % ; dans le fjord ouvert, le mois **surestime du
+double** (Vestfjorden 0,73 contre 0,38 kt) parce qu'en 32 jours l'énergie
+météorologique se glisse dans les bandes de marée, et la médiane du domaine
+baisse de 0,43 à 0,31 kt. Autour de Saltstraumen, l'année laisse deux
+cellules à plus de 0,2 kt dans un rayon de 3 km : la cellule servie recule à
+2,8 km et le garde-fou de la section 7 reste indispensable. Conséquence pour
+le coût : un an par boîte est le minimum, et l'estimation « 37 minutes par
+boîte » de la section 6 devient 55 minutes mesurées.
+
 ## 6. Coût d'un atlas complet [supposé, extrapolé des débits mesurés]
 
 Débit mesuré : 6 s et 8,3 Mo par jour pour 75 894 points (1,4 Mo/s en
@@ -209,7 +243,7 @@ float32, environ 1,2 Mo/s sur le fil en int16).
 
 | Étendue | Points de grille | Un jour | 32 jours | Un an | Temps (32 j / 1 an) |
 |---|---|---|---|---|---|
-| Boîte Lofoten (livrée) | 75 894 | 8,3 Mo | 265 Mo | 3,0 Go | 3 min / 37 min |
+| Boîte Lofoten (livrée, un an mesuré en 5b) | 75 894 | 8,3 Mo | 265 Mo | 3,0 Go | 3 min / 55 min mesurées |
 | Domaine NorKyst entier, surface | 3 153 556 (41,5 × la boîte) | 345 Mo | 11 Go | 126 Go | 2,2 h / 25 h |
 
 - Un an horaire est **disponible dès maintenant** dans l'agrégat v3
@@ -268,8 +302,9 @@ float32, environ 1,2 Mo/s sur le fil en int16).
    Bristol 0,5 kt, Escaut occidental 2,2 kt) et BSH DB 926 m au Scharhörn
    (1,9 kt, l'atlas Elbe à 90 m y répond avant lui).
 2. **32 jours.** K2 et P1 inférés de FES2014, qui est faible et peu fiable
-   dans l'archipel (section 5) ; `z0_*` reflète la météo d'un mois
-   (`mean_is_weather true`). Un an lève les deux points.
+   dans l'archipel (section 5) ; `z0_*` reflète la météo d'un mois et les
+   bandes de marée absorbent de l'énergie météorologique (Vestfjorden
+   surestimé du double). Un an lève les trois points (fait, section 5b).
 3. **Surface (0 m) et non moyenne verticale** : plus fort qu'un atlas
    `depth_averaged` (MARC) de 10 à 30 % dans les détroits [supposé] ; la
    légende doit le dire, comme pour BSH.
@@ -319,10 +354,13 @@ fois plus fin et côtier.
 
 - `scripts/build_norkyst_atlas.py` : téléchargement et construction (ruff
   propre).
-- `build/norkyst/norkyst_lofoten_2026MMJJ.nc` : 32 fichiers, 265 Mo.
-- `build/norkyst/atlas/NORKYST_LOFOTEN/` : 30 tuiles, `metadata.json`,
-  `coverage.geojson`, 7,2 Mo.
-- `build/norkyst/download.log`, `build/norkyst/build.log`,
+- `build/norkyst/norkyst_lofoten_AAAAMMJJ.nc` : 366 fichiers, 3,0 Go (du
+  2025-09-19 au 2026-09-19).
+- `build/norkyst/atlas/NORKYST_LOFOTEN/` : l'atlas d'un an, 29 tuiles,
+  `metadata.json`, `coverage.geojson`, 6,4 Mo ; `build/norkyst/atlas_32d/` :
+  le mois, 30 tuiles, 7,2 Mo.
+- `build/norkyst/download.log`, `build/norkyst/download_1y.log`,
+  `build/norkyst/build.log`,
   `build/norkyst/compare_fes.json`, `build/norkyst/grid_latlon.npz` (lat/lon
   2D de tout le domaine, 50 Mo), `build/norkyst/native_max_speed_ms.npy`
   (maximum brut par cellule native sur 32 jours).
