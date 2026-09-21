@@ -4,15 +4,18 @@
 import { describe, expect, it } from "vitest";
 import type { FeatureCollection, Geometry, Point } from "geojson";
 import {
+  cascadeAt,
   classifyAnswer,
   currentBand,
   esc,
   isGlobalExtent,
   kmBetween,
+  labelNamesAtlas,
   nearestPass,
   pointInGeometry,
   precisionClass,
   statusAt,
+  type CoverageAtlas,
   type PassProperties,
   type ZoneStatus,
 } from "./tidalMapGeo";
@@ -149,5 +152,32 @@ describe("isGlobalExtent", () => {
     expect(isGlobalExtent({ type: "Polygon", coordinates: [[[-180, -80], [180, -80], [180, 90], [-180, 90], [-180, -80]]] })).toBe(true);
     expect(isGlobalExtent({ type: "Polygon", coordinates: [[[-13, 46], [13, 46], [13, 63], [-13, 63], [-13, 46]]] })).toBe(false);
     expect(isGlobalExtent(null)).toBe(false);
+  });
+});
+
+describe("cascadeAt", () => {
+  const box = (lat0: number, lon0: number, lat1: number, lon1: number) => [lat0, lon0, lat1, lon1] as [number, number, number, number];
+  const atlases: CoverageAtlas[] = [
+    { name: "ATLNE", source: "marc", bbox: box(40, -20, 53, 3), cells: [box(48, -5, 48.5, -4.5)] },
+    { name: "FINIS", source: "marc", bbox: box(47.3, -5.6, 49, -3.6), cells: [box(48, -5, 48.5, -4.5)] },
+    { name: "MANGA", source: "marc", bbox: box(43, -6, 52, 4), cells: [box(48, -5, 48.5, -4.5)] },
+    { name: "CMEMS_NWS", source: "cmems", bbox: box(46, -13, 63, 12), cells: [box(48, -5, 49, -4)] },
+    { name: "SEIN", source: "shom", bbox: box(47.9, -5.2, 48.2, -4.6), cells: [box(47.9, -5.2, 48.2, -4.6)] },
+    { name: "FAR", source: "marc", bbox: box(50, 0, 51, 1), cells: [box(50, 0, 50.5, 0.5)] },
+  ];
+  const describe = (name: string) =>
+    ({ ATLNE: { rank: 1, resolution_m: 2000 }, FINIS: { rank: 2, resolution_m: 250 }, MANGA: { rank: 1, resolution_m: 700 }, CMEMS_NWS: { rank: 0, resolution_m: 1500 } })[name] ?? null;
+  it("lists the atlases holding the point in cascade order, SHOM first", () => {
+    const order = cascadeAt(48.1, -4.8, atlases, describe).map((a) => a.name);
+    expect(order).toEqual(["SEIN", "FINIS", "MANGA", "ATLNE", "CMEMS_NWS"]);
+  });
+  it("ignores an atlas whose box holds the point but no tile does", () => {
+    const order = cascadeAt(48.7, -4.7, atlases, describe).map((a) => a.name);
+    expect(order).toEqual(["CMEMS_NWS"]);
+  });
+  it("matches a server label to a coverage entry", () => {
+    expect(labelNamesAtlas("marc_finis_250m", atlases[1])).toBe(true);
+    expect(labelNamesAtlas("shom_c2d_560_sein", atlases[4])).toBe(true);
+    expect(labelNamesAtlas("cmems_nws_1500m", atlases[0])).toBe(false);
   });
 });

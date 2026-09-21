@@ -467,7 +467,8 @@ async def api_marc_coverage(request: Request) -> JSONResponse:
 
     Response::
 
-        {"atlases": [{"name": "FINIS", "source": "marc",
+        {"atlases": [{"name": "FINIS", "source": "marc", "label": "marc_finis_250m",
+                      "rank": 2, "resolution_m": 250, "confidence": "high",
                       "bbox": [lat_min, lon_min, lat_max, lon_max],
                       "cells": [[lat_min, lon_min, lat_max, lon_max], ...]}, ...]}
 
@@ -475,6 +476,13 @@ async def api_marc_coverage(request: Request) -> JSONResponse:
     overlay's own query parameters. Sorted by source then name so a client can
     diff two answers, and an empty list when the deployment ships without the
     dataset (the same state the overlay reports as ``covered: false``).
+
+    ``source`` is the atlas's own short name (``marc``, ``bsh``, ``cmems``,
+    ``shom``); ``label`` is the ``current_source`` the overlay answers with
+    when that atlas wins, and ``rank`` then ``resolution_m`` is the order the
+    cascade tries the atlases holding a point, so a client can tell which
+    ones covered a point and were passed over. SHOM zones carry no rank: they
+    win within 0.5 km of a surveyed point, before any atlas.
 
     **Filter on ``cells``, not on ``bbox``.** A point outside every ``cells``
     entry is a point the atlases refuse; ``bbox`` is only the outer envelope
@@ -503,7 +511,11 @@ async def api_marc_coverage(request: Request) -> JSONResponse:
     atlases: list[dict[str, Any]] = [
         {
             "name": atlas.name,
-            "source": "marc",
+            "source": atlas.source_short,
+            "label": atlas.source_label,
+            "rank": atlas.rank,
+            "resolution_m": atlas.resolution_m,
+            "confidence": atlas.confidence,
             "bbox": _widen_to_quantum(atlas.bbox),
             "cells": [_widen_to_quantum(cell) for cell in marc_cells.get(atlas.name, ())],
         }

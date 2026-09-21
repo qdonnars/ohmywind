@@ -211,3 +211,55 @@ export function nearestPass(
 export function esc(value: unknown): string {
   return String(value ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
 }
+
+/** One atlas (or SHOM zone) as the server's coverage endpoint lists it. */
+export interface CoverageAtlas {
+  name: string;
+  source?: string;
+  /** The ``current_source`` label the overlay answers with when this atlas wins. */
+  label?: string;
+  rank?: number;
+  resolution_m?: number;
+  confidence?: string;
+  /** ``[lat_min, lon_min, lat_max, lon_max]``. */
+  bbox: [number, number, number, number];
+  /** Tiles holding at least one cell, same layout as ``bbox``. */
+  cells: [number, number, number, number][];
+}
+
+const inBox = (lat: number, lon: number, b: [number, number, number, number]) =>
+  lat >= b[0] && lat <= b[2] && lon >= b[1] && lon <= b[3];
+
+/**
+ * The served atlases whose extent holds a point, in the order the cascade
+ * tries them: SHOM zones first (they win within 500 m of a surveyed point),
+ * then rank, then resolution. ``describe`` gives an atlas its rank and
+ * resolution (from the rasters manifest); an atlas it does not know goes
+ * last among its rank. The first entry is what the server should answer,
+ * the others are covering the point too and were passed over.
+ */
+export function cascadeAt(
+  lat: number,
+  lon: number,
+  atlases: CoverageAtlas[],
+  describe: (name: string) => { rank: number; resolution_m: number } | null,
+): CoverageAtlas[] {
+  const here = atlases.filter((a) => inBox(lat, lon, a.bbox) && a.cells.some((c) => inBox(lat, lon, c)));
+  const key = (a: CoverageAtlas) => {
+    if (a.source === "shom") return [-1, 0, 0] as const;
+    const d = a.rank != null && a.resolution_m != null ? { rank: a.rank, resolution_m: a.resolution_m } : describe(a.name);
+    return d ? ([0, -d.rank, d.resolution_m] as const) : ([0, 0, 1e9] as const);
+  };
+  return here.sort((a, b) => {
+    const ka = key(a);
+    const kb = key(b);
+    return ka[0] - kb[0] || ka[1] - kb[1] || ka[2] - kb[2] || a.name.localeCompare(b.name);
+  });
+}
+
+/** Whether a server label (``marc_finis_250m``, ``shom_c2d_558_morbihan``)
+    names this coverage entry. */
+export function labelNamesAtlas(label: string, atlas: CoverageAtlas): boolean {
+  if (atlas.label) return atlas.label === label;
+  return label.toUpperCase().includes(atlas.name.toUpperCase());
+}

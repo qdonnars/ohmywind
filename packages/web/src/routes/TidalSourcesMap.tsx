@@ -21,12 +21,15 @@ import { API_BASE } from "../api/config";
 import { formatGridSize } from "../domain/currentSource";
 import {
   ZONE_STATUSES,
+  cascadeAt,
   classifyAnswer,
+  labelNamesAtlas,
   esc,
   isGlobalExtent,
   nearestPass,
   pointInGeometry,
   statusAt,
+  type CoverageAtlas,
   type PassProperties,
   type PrecisionClass,
   type ZoneProperties,
@@ -63,17 +66,24 @@ type SourceFC = FeatureCollection<Geometry, SourceProperties>;
 /** What the server serves right now: the names of its atlases and the
     sources of its point sets, from the coverage endpoint. ``null`` when the
     server could not be asked, then the registry's own status stands. */
-async function loadServed(): Promise<Set<string> | null> {
+interface Served {
+  /** Atlas names and source shorts the server lists. */
+  names: Set<string>;
+  /** The atlases themselves, with their extents, for the card's cascade. */
+  atlases: CoverageAtlas[];
+}
+
+async function loadServed(): Promise<Served | null> {
   try {
     const resp = await fetch(COVERAGE_URL);
     if (!resp.ok) return null;
-    const payload = (await resp.json()) as { atlases?: { name: string; source?: string }[] };
-    const served = new Set<string>();
+    const payload = (await resp.json()) as { atlases?: CoverageAtlas[] };
+    const names = new Set<string>();
     for (const a of payload.atlases ?? []) {
-      served.add(a.name);
-      if (a.source) served.add(a.source);
+      names.add(a.name);
+      if (a.source) names.add(a.source);
     }
-    return served;
+    return { names, atlases: payload.atlases ?? [] };
   } catch {
     return null;
   }
@@ -247,6 +257,7 @@ export function TidalSourcesMap() {
   const [shown, setShown] = useState<Record<string, boolean>>({});
   const [sources, setSources] = useState<SourceProperties[]>([]);
   const [served, setServed] = useState<Set<string> | null>(null);
+  const servedRef = useRef<Served | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
   const statusText = (s: ZoneStatus | null) => t(`config.methodo.tidal.status.${s ?? "none"}`);
@@ -296,6 +307,7 @@ export function TidalSourcesMap() {
     const end = new Date(start.getTime() + 3600_000);
     let answerHtml: string;
     let precision: PrecisionClass | null = null;
+    let answerLabel = "openmeteo_smoc";
     try {
       const url =
         `${MARC_URL}?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}` +
@@ -311,11 +323,51 @@ export function TidalSourcesMap() {
             ? t("config.methodo.tidal.popup.atlas", { size: formatGridSize(answer.resolutionM ?? 0) })
             : t("config.methodo.tidal.popup.smoc");
       answerHtml = `${esc(what)}<br><code>${esc(answer.label)}</code>`;
+      answerLabel = answer.label;
     } catch {
       answerHtml = `<em>${esc(t("config.methodo.tidal.popup.error"))}</em>`;
     }
     const zone = statusAt(lon, lat, d?.status ?? null);
     const near = nearestPass(lat, lon, d?.passes ?? null);
+    // Every served atlas whose tiles hold the point, in cascade order; the
+    // one the server named is the choice, the rest were passed over for a
+    // lower rank or a coarser grid, and SMOC waits underneath all of them.
+    const byName = new Map(gridsRef.current.map((g) => [g.entry.atlas, g.entry]));
+    const describe = (name: string) => {
+      const e = byName.get(name);
+      return e ? { rank: e.rank ?? 0, resolution_m: e.resolution_m } : null;
+    };
+    const cascade = cascadeAt(lat, lon, servedRef.current?.atlases ?? [], describe);
+    const chosen = cascade.find((a) => labelNamesAtlas(answerLabel, a)) ?? null;
+    const rankOf = (a: CoverageAtlas) => a.rank ?? byName.get(a.name)?.rank ?? 0;
+    const resOf = (a: CoverageAtlas) => a.resolution_m ?? byName.get(a.name)?.resolution_m ?? null;
+    // Why the cascade passed an atlas over, relative to the one it chose.
+    const reason = (a: CoverageAtlas): string => {
+      if (a.source === "shom") return t("config.methodo.tidal.reason.noShomPoint");
+      if (!chosen) return t("config.methodo.tidal.reason.noCell");
+      if (chosen.source === "shom") return t("config.methodo.tidal.reason.afterShom");
+      if (rankOf(a) < rankOf(chosen)) return t("config.methodo.tidal.reason.lowerRank");
+      const ra = resOf(a);
+      const rc = resOf(chosen);
+      if (ra != null && rc != null && ra > rc) return t("config.methodo.tidal.reason.coarser");
+      return t("config.methodo.tidal.reason.tie");
+    };
+    const SOURCE_NAME: Record<string, string> = { marc: "MARC", bsh: "BSH", cmems: "Copernicus", shom: "SHOM" };
+    const shortName = (a: CoverageAtlas) => {
+      // An older server lists every harmonic atlas as "marc": the name's own
+      // prefix (BSH_DB, CMEMS_NWS) says better.
+      const prefixed = /^(BSH|CMEMS)_/i.exec(a.name);
+      const src = prefixed ? prefixed[1].toLowerCase() : (a.source ?? "");
+      const zone = a.name.replace(new RegExp(`^${src}_`, "i"), "").replace(/_/g, " ");
+      return `${SOURCE_NAME[src] ?? src} ${a.source === "shom" ? zone.toLowerCase() : zone}`;
+    };
+    const passedOver = cascade
+      .filter((a) => a !== chosen)
+      .map((a) => {
+        const res = a.source === "shom" ? null : resOf(a);
+        return esc([shortName(a), res == null ? null : formatGridSize(res), reason(a)].filter(Boolean).join(" · "));
+      });
+    if (answerLabel !== "openmeteo_smoc") passedOver.push(esc(`SMOC · 8 km · ${t("config.methodo.tidal.reason.fallback")}`));
     const inObjective = d?.objective.features.some((f) => pointInGeometry(lon, lat, f.geometry)) ?? false;
     const here = (d?.sources.features ?? [])
       .filter((f) => f.properties.status === "ok" && f.properties.kind !== "station_points" && pointInGeometry(lon, lat, f.geometry))
@@ -330,6 +382,7 @@ export function TidalSourcesMap() {
       (precision ? badge(PRECISION_COLOR[precision], t(`config.methodo.tidal.precision.${precision}`)) : "") +
       `<dl class="methodo-map-popup-grid">` +
       row(t("config.methodo.tidal.popup.source"), answerHtml) +
+      row(t("config.methodo.tidal.popup.passedOver"), passedOver.length ? passedOver.join("<br>") : null) +
       row(t("config.methodo.tidal.popup.status"), zoneBadge(lat, lon, zone)) +
       row(
         t("config.methodo.tidal.popup.pass"),
@@ -378,8 +431,9 @@ export function TidalSourcesMap() {
         setSources(sortedSources(d.sources));
         void loadServed().then((s) => {
           if (cancelled) return;
-          setServed(s);
-          setSources(sortedSources(d.sources, s));
+          servedRef.current = s;
+          setServed(s?.names ?? null);
+          setSources(sortedSources(d.sources, s?.names ?? null));
         });
         // The uncovered strong zones as polygons; the covered water comes
         // from the rasters, drawn underneath, coarse first and fine on top.

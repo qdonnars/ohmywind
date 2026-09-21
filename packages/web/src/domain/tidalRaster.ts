@@ -14,6 +14,8 @@ export interface RasterEntry {
   atlas: string;
   label: string;
   resolution_m: number;
+  /** Cascade rank of the atlas (3 estuary, 2 coastal, 1 shelf, 0 basin). */
+  rank?: number;
   file: string;
   /** ``[[south, west], [north, east]]`` in degrees. */
   bounds: [[number, number], [number, number]];
@@ -110,10 +112,12 @@ export class RasterGrid {
   }
 }
 
-/** The value under a point across grids, the finest atlas first. */
+/** The value under a point across grids, in cascade order (rank, then resolution). */
 export function maxCurrentAt(lat: number, lon: number, grids: RasterGrid[]): { kt: number; entry: RasterEntry } | null {
-  const byFinest = [...grids].sort((a, b) => a.entry.resolution_m - b.entry.resolution_m);
-  for (const g of byFinest) {
+  const byCascade = [...grids].sort(
+    (a, b) => (b.entry.rank ?? 0) - (a.entry.rank ?? 0) || a.entry.resolution_m - b.entry.resolution_m,
+  );
+  for (const g of byCascade) {
     const kt = g.valueAt(lat, lon);
     if (kt != null) return { kt, entry: g.entry };
   }
