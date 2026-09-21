@@ -422,7 +422,7 @@
    "type": "Feature",
    "properties": {
     "id": "norkyst800",
-    "name": "NorKyst800 (MET Norway / IMR)",
+    "name": "NorKyst v3 800 m (MET Norway)",
     "provider": "MET Norway",
     "zone": "Norvège",
     "status": "ok",
@@ -430,15 +430,15 @@
     "resolution_m": 800,
     "access": "keyless THREDDS/OPeNDAP",
     "licence": "CC BY 4.0 / NLOD",
-    "licence_url": "https://adc.met.no/dataset/90e1c0ba-9dc7-5ffe-9578-28b73967602d",
-    "licence_read_at": "2026-09-19",
+    "licence_url": "https://www.met.no/en/free-meteorological-data/Licensing-and-crediting",
+    "licence_read_at": "2026-09-21",
     "derivative_redistribution": "yes",
     "effort": "M",
-    "roadmap_step": 3,
-    "vertical": "3D (35 niveaux), surface disponible",
+    "roadmap_step": 4,
+    "vertical": "3D (15 niveaux z), surface disponible",
     "step_min": 60,
-    "archive": "2017 à aujourd'hui sur thredds.met.no",
-    "notes": "Grille polaire stéréo : regrid nécessaire. Saltstraumen (150 m) non résolu à 800 m."
+    "archive": "v3 depuis le 2024-01-01 sur thredds.met.no (agrégat horaire, sans clé) ; v2 2017-2025 arrêtée",
+    "notes": "Spike du 2026-09-21 (spike-norkyst.md) : 32 jours des Lofoten analysés, Moskstraumen 3,6 kt. Grille polaire stéréo rééchantillonnée hors ligne. Saltstraumen (150 m) absent de la grille de 800 m."
    },
    "geometry": {
     "type": "Polygon",
