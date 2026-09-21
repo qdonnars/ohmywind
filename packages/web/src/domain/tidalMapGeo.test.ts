@@ -49,6 +49,7 @@ describe("classifyAnswer", () => {
     // A label carries its resolution when the payload does not.
     expect(classifyAnswer({ covered: true, current_source: "bsh_cuxbru_90m" })).toMatchObject({ kind: "atlas", precision: "fine", resolutionM: 90 });
     expect(classifyAnswer({ covered: false })).toMatchObject({ kind: "smoc", label: "openmeteo_smoc", precision: "global" });
+    expect(classifyAnswer({ covered: false, land: true })).toMatchObject({ kind: "land" });
   });
 });
 

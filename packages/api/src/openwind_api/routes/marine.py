@@ -183,6 +183,11 @@ def overlay_for_point(
 
     Pure: no request, no response, no clock. The caller decides the transport.
     """
+    # On land the atlases still find a cell within 5 km (the regridded MARC
+    # lattices reach a few kilometres inland): answer nothing rather than a
+    # current for a field. Cached a day, land does not move.
+    if services.land.is_land(lat, lon):
+        return {"covered": False, "land": True}, 86400
     marc_loaded = bool(services.marc.atlases)
     shom_covers = services.shom.covers(lat, lon)
     cell = services.marc.cell_at(lat, lon) if marc_loaded else None
@@ -273,7 +278,9 @@ async def api_marc_overlay(request: Request) -> JSONResponse:
       ``step_minutes`` -- optional, default 60 (hourly series).
 
     Response shape (always 200 to avoid client-side 404 noise):
-      ``{"covered": false}`` when outside MARC coverage.
+      ``{"covered": false}`` when outside MARC coverage, and
+      ``{"covered": false, "land": true}`` more than about 2 km inland
+      (Natural Earth 10 m shoreline, one pixel of 1 km, sea grown by two).
       ``{"covered": true, "current_source": "marc_finis_250m",
          "atlas_resolution_m": 250, "z0_hydro_m": -3.85, "times": [...],
          "current_speed_kn": [...], "current_direction_to_deg": [...],

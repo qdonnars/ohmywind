@@ -33,7 +33,7 @@ export function precisionClass(resolutionM: number | null | undefined): Precisio
  * ``openmeteo_smoc``); ``covered: false`` and an absent label both mean SMOC.
  */
 export interface SourceAnswer {
-  kind: "shom" | "atlas" | "smoc";
+  kind: "shom" | "atlas" | "smoc" | "land";
   label: string;
   precision: PrecisionClass;
   resolutionM: number | null;
@@ -42,10 +42,14 @@ export interface SourceAnswer {
 
 export function classifyAnswer(overlay: {
   covered?: boolean;
+  land?: boolean;
   current_source?: string;
   atlas_resolution_m?: number | null;
   shom_nearest_km?: number | null;
 }): SourceAnswer {
+  if (overlay.land) {
+    return { kind: "land", label: "land", precision: "global", resolutionM: null, shomDistanceM: null };
+  }
   const label = overlay.covered && overlay.current_source ? overlay.current_source : "openmeteo_smoc";
   if (label.startsWith("shom_c2d_")) {
     const km = overlay.shom_nearest_km ?? null;

@@ -201,6 +201,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.methodo.tidal.reason.fallback": "letzter Rückfall",
   "config.methodo.tidal.reason.noCell": "keine Zelle hier",
   "config.methodo.tidal.popup.smoc": "Open-Meteo SMOC, globales Modell mit 8 km",
+  "config.methodo.tidal.popup.land": "Punkt an Land: kein Gezeitenstrom, nichts wird zurückgegeben",
   "config.methodo.tidal.popup.atlas": "Harmonischer Atlas, Gitter {size}",
   "config.methodo.tidal.popup.shom": "SHOM Atlas C2D, Messpunkt {distance} m entfernt",
   "config.methodo.tidal.popup.precision": "Genauigkeit",

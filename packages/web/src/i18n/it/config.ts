@@ -198,6 +198,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.methodo.tidal.reason.fallback": "ultimo ripiego",
   "config.methodo.tidal.reason.noCell": "nessuna cella qui",
   "config.methodo.tidal.popup.smoc": "Open-Meteo SMOC, modello globale a 8 km",
+  "config.methodo.tidal.popup.land": "Punto a terra: nessuna corrente di marea, nulla viene restituito",
   "config.methodo.tidal.popup.atlas": "Atlante armonico, maglia {size}",
   "config.methodo.tidal.popup.shom": "SHOM Atlas C2D, punto rilevato a {distance} m",
   "config.methodo.tidal.popup.precision": "Precisione",

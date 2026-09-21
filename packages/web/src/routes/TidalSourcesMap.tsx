@@ -315,6 +315,13 @@ export function TidalSourcesMap() {
       const resp = await fetch(url);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const answer = classifyAnswer((await resp.json()) as Parameters<typeof classifyAnswer>[0]);
+      if (answer.kind === "land") {
+        // Inland: the server refuses to answer, the card says so and stops.
+        return (
+          `<h3 class="methodo-map-popup-title">${esc(t("config.methodo.tidal.popup.title"))}</h3>` +
+          `<dl class="methodo-map-popup-grid">${row(t("config.methodo.tidal.popup.source"), esc(t("config.methodo.tidal.popup.land")))}</dl>`
+        );
+      }
       precision = answer.precision;
       const what =
         answer.kind === "shom"
