@@ -236,6 +236,54 @@ cellules à plus de 0,2 kt dans un rayon de 3 km : la cellule servie recule à
 le coût : un an par boîte est le minimum, et l'estimation « 37 minutes par
 boîte » de la section 6 devient 55 minutes mesurées.
 
+## 5c. Toute la côte, un an, huit atlas [vérifié, `build/norkyst/coast_download.log` et `coast_build.log`]
+
+Sept boîtes côtières en plus des Lofoten, téléchargées à la suite dans
+l'après-midi et la soirée du 2026-09-21 (une connexion, un jour à la fois,
+1 s de pause, 366 jours du 2025-09-19 au 2026-09-19, aucun jour sauté,
+aucune relance) : **35 Go en 8 h 45** (13h43 à 22h29 ; le Vestland a pris
+2 h 30 au lieu d'une heure, le serveur ayant ralenti en fin d'après-midi).
+Analyse des sept en **7 minutes 45** (40 s à 115 s par boîte). Maille
+régulière de 0,0072° en latitude et, en longitude, un pas choisi pour
+800 m à la latitude moyenne de la boîte (0,013° au Skagerrak, 0,022° au
+Finnmark). Helgeland porte une `validity_bbox` arrêtée à 66,9° N pour ne
+pas chevaucher les Lofoten ; les autres boîtes se touchent sans se
+recouvrir.
+
+| Atlas | Boîte | Cellules ≥ 0,2 kt | Tuiles | Mo | Médiane / p99 / max (kt) | Cellules ≥ 1 kt |
+|---|---|---|---|---|---|---|
+| NORKYST_SKAGERRAK | 57,5 à 60 N, 7 à 12 E | 8 101 (15 %) | 14 | 2,4 | 0,36 / 0,77 / 1,35 | 24 |
+| NORKYST_ROGALAND | 57,8 à 60 N, 4,5 à 7 E | 27 060 (78 %) | 19 | 7,2 | 0,32 / 0,68 / 1,22 | 11 |
+| NORKYST_VESTLAND | 60 à 62,5 N, 4 à 7,5 E | 22 899 (68 %) | 23 | 6,4 | 0,31 / 0,58 / 1,26 | 5 |
+| NORKYST_TRONDELAG | 62,5 à 65,5 N, 5 à 12 E | 99 020 (81 %) | 74 | 26,2 | 0,31 / 0,65 / 1,85 | 170 |
+| NORKYST_HELGELAND | 65,5 à 66,9 N, 10,5 à 15 E | 17 272 (60 %) | 20 | 4,7 | 0,23 / 0,46 / 0,90 | 0 |
+| NORKYST_LOFOTEN | 66,9 à 68,3 N, 11,5 à 15,5 E | 23 052 (73 %) | 29 | 6,4 | 0,31 / 2,00 / 3,46 | 1 045 |
+| NORKYST_TROMS | 68,3 à 70,5 N, 14 à 21 E | 32 995 (54 %) | 53 | 9,1 | 0,33 / 1,51 / 5,25 | 1 596 |
+| NORKYST_FINNMARK | 70 à 71,3 N, 21 à 31 E | 33 206 (73 %) | 54 | 9,2 | 0,65 / 1,54 / 4,54 | 2 572 |
+| **Total** | | **263 605** | 286 | **72** | | |
+
+Les huit ont 18 constituants résolus sans inférence. Le tableau raconte la
+côte : au sud de 65° N la marée dépasse rarement 1 kt (Skagerrak, Rogaland,
+Vestland, Trøndelag, la moitié des cellules sous 0,35 kt), Helgeland ne
+dépasse jamais 0,9 kt, et tout le courant fort est au nord : Lofoten, Troms
+(5,25 kt à Rystraumen, 69,556 N 18,747 E, contre 6 kt publiés [supposé]),
+Finnmark (4,54 kt au Magerøysundet devant le cap Nord, 70,96 N 25,47 E).
+
+Cellule servie par `MarcAtlasRegistry.cell_at` sur l'ensemble [vérifié] :
+Moskstraumen à 133 m (3,30 kt), Rystraumen à 316 m (3,48 kt à la cellule,
+5,25 kt à 3 km), Kvalsundet à 745 m (0,35 kt, 1,63 kt à 3 km), Drøbaksundet
+à 438 m (0,45 kt), Karmsundet à 474 m (0,47 kt, 1,21 kt à 3 km), Stad à
+129 m (0,44 kt), Hustadvika à 361 m (0,27 kt), Magerøysundet à 1,2 km
+(0,37 kt, 1,08 kt à 3 km), Saltstraumen à 2,8 km (0,27 kt, toujours aveugle),
+Sulafjord à 5 km (aucune cellule à 0,2 kt : le fjord n'a pas de marée
+notable dans le modèle) ; au large du Skagerrak (58,5 N, 9,5 E) aucune
+cellule, la cascade y descend sur Copernicus NWS puis SMOC, comme voulu.
+
+**Publiés dans le dataset `Qdonnars/openwind-tidal-atlas` le 2026-09-21 à
+22h45** (huit dossiers, 72 Mo, un commit chacun), Space dev redémarré en
+usine. Le registre `sources.geojson` passe NorKyst en `current` avec les
+huit atlas, `mask_norkyst.geojson` alimente la carte.
+
 ## 6. Coût d'un atlas complet [supposé, extrapolé des débits mesurés]
 
 Débit mesuré : 6 s et 8,3 Mo par jour pour 75 894 points (1,4 Mo/s en

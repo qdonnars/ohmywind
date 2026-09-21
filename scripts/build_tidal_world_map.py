@@ -528,7 +528,12 @@ def pass_status(best_res_m, open_fine: bool, closed: bool) -> str:
 
 
 def compute_gaps(
-    coverage: dict, masks: dict, gazetteer: dict, sources: dict, objective: dict
+    coverage: dict,
+    masks: dict,
+    gazetteer: dict,
+    sources: dict,
+    objective: dict,
+    unresolved: dict[str, dict] | None = None,
 ) -> dict:
     """Strong-current zones without a production source at 1 km or finer.
 
@@ -538,6 +543,11 @@ def compute_gaps(
     candidate sources of status ``ok`` whose extent contains it. For the
     1.5 kt mask: the polygons left once the fine and medium production
     coverage is subtracted.
+
+    ``unresolved`` (from :func:`unresolved_passes`) lists, per pass, the
+    atlases blind to it; a pass whose best served source is blind is not
+    covered on the map either, whatever its pitch says (Saltstraumen under
+    NorKyst 800 m stays a gap, in red when no other source is known).
     """
     from shapely.geometry import shape
     from shapely.ops import unary_union
@@ -585,8 +595,12 @@ def compute_gaps(
             if g.contains(pt):
                 res = p.get("resolution_m") or 10**9
                 if best is None or res < best[0]:
-                    best = (res, p["name"])
-        klass = resolution_class(best[0] if best else None)
+                    best = (res, p["name"], p.get("label"))
+        blind = (unresolved or {}).get(f["properties"]["name"], {}).get(
+            "unresolved_by"
+        ) or []
+        blind_best = bool(best and best[2] in blind)
+        klass = resolution_class(best[0] if best and not blind_best else None)
         cands = sorted(
             {
                 (p["name"], p.get("resolution_m"))
@@ -604,11 +618,13 @@ def compute_gaps(
                 objective_geom is not None and objective_geom.contains(pt)
             ),
             "status": pass_status(
-                best[0] if best else None,
+                best[0] if best and not blind_best else None,
                 open_fine_src.contains(pt),
                 closed_src.contains(pt),
             ),
         }
+        if blind:
+            props["unresolved_by"] = blind
         points.append(
             {"type": "Feature", "properties": props, "geometry": f["geometry"]}
         )
@@ -1123,7 +1139,17 @@ def main(argv: list[str] | None = None) -> int:
         if objective_path.exists()
         else {"type": "FeatureCollection", "features": []}
     )
-    gaps = compute_gaps(coverage, masks, gazetteer, sources, objective)
+    unresolved = (
+        unresolved_passes(args.build_dir, coverage, gazetteer)
+        if args.build_dir.exists()
+        else {}
+    )
+    for name, info in sorted(unresolved.items()):
+        print(
+            f"unresolved pass: {name}: "
+            + ", ".join(f"{k} ({v} kt)" for k, v in info["measured"].items())
+        )
+    gaps = compute_gaps(coverage, masks, gazetteer, sources, objective, unresolved)
     (MAP_DIR / "gaps.geojson").write_text(
         json.dumps(gaps, ensure_ascii=False, separators=(",", ":"))
     )
@@ -1185,16 +1211,6 @@ def main(argv: list[str] | None = None) -> int:
     if args.web_dir is not None:
         export_web(args.web_dir, masks, gaps, status, objective, coverage, sources)
     if args.write_gaps:
-        unresolved = (
-            unresolved_passes(args.build_dir, coverage, gazetteer)
-            if args.build_dir.exists()
-            else {}
-        )
-        for name, info in sorted(unresolved.items()):
-            print(
-                f"unresolved pass: {name}: "
-                + ", ".join(f"{k} ({v} kt)" for k, v in info["measured"].items())
-            )
         snapshot = json.dumps(
             server_gaps(coverage, masks, gaps, unresolved),
             ensure_ascii=False,

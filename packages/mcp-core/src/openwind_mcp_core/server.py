@@ -433,17 +433,22 @@ uses unless overridden by tool parameters.
   Atlantic, confined to the waters PREVIMER validated: Bay of Biscay,
   Channel and Celtic Sea, never the North Sea); BSH Stroemungsvorhersagen
   (German Bight 926 m, Elbe 90 m, CC BY 4.0, analysed from a few days of
-  forecasts, so S2 and N2 are inferred); Copernicus Marine regional
-  models analysed over one year of hourly currents (NWS 1.5 km from the
-  Channel to Shetland and Ireland, IBI 3 km for Iberia, Morocco and the
-  Canaries, MED 4.2 km for the Mediterranean straits, kept only where the
-  tide reaches 0.2 kt) when the waypoint falls inside a covered emprise;
-  otherwise Open-Meteo Marine (SMOC, 8 km global, tides from FES2014).
-  Priority between atlases is explicit in their metadata (rank, then
-  resolution): a validated atlas (MARC, BSH) beats a Copernicus one.
+  forecasts, so S2 and N2 are inferred); NorKyst v3 (MET Norway, 800 m,
+  CC BY 4.0, one year of hourly surface currents analysed, eight coastal
+  boxes from the Skagerrak to the North Cape, kept where the tide reaches
+  0.2 kt; the grid does not resolve channels narrower than its cell, so
+  Saltstraumen reads a fraction of its published current and is flagged);
+  Copernicus Marine regional models analysed over one year of hourly
+  currents (NWS 1.5 km from the Channel to Shetland and Ireland, IBI 3 km
+  for Iberia, Morocco and the Canaries, MED 4.2 km for the Mediterranean
+  straits, kept only where the tide reaches 0.2 kt) when the waypoint
+  falls inside a covered emprise; otherwise Open-Meteo Marine (SMOC, 8 km
+  global, tides from FES2014). Priority between atlases is explicit in
+  their metadata (rank, then resolution): a validated atlas (MARC, BSH)
+  beats a Copernicus one, NorKyst beats Copernicus on the Norwegian coast.
   Each leg surfaces a ``current_source`` field so the caller knows which
   product applied (e.g. ``marc_finis_250m``, ``bsh_db_926m``,
-  ``cmems_nws_1500m``, ``openmeteo_smoc``).
+  ``norkyst_troms_800m``, ``cmems_nws_1500m``, ``openmeteo_smoc``).
   MARC delivers harmonic prediction (tidal + 2008-2009 mean residual)
   and excludes short-term wind-driven surge, which Open-Meteo SMOC
   captures globally. Even the MARC atlases do not replace a SHOM tide
