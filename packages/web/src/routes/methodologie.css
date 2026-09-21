@@ -170,6 +170,14 @@
   color: #475569;
   margin: 0 0 0.5rem;
 }
+/* The article gives every image a top margin and centring; inside the map
+   those rules reach Leaflet's image overlays and push the rasters 16 px
+   south of where Leaflet puts them (the markers, being SVG, stay put). */
+.prose-methodo .methodo-map-canvas img {
+  margin: 0;
+  max-width: none;
+  display: block;
+}
 .methodo-map-canvas {
   width: 100%;
   height: min(70vh, 520px);
@@ -281,6 +289,15 @@
   height: 14px;
   border-radius: 3px;
   flex: 0 0 auto;
+  border: 1px solid rgba(15, 23, 42, 0.25);
+  box-sizing: border-box;
+}
+.methodo-map-ramp {
+  display: inline-block;
+  width: 42px;
+  height: 14px;
+  flex: 0 0 auto;
+  border-radius: 3px;
   border: 1px solid rgba(15, 23, 42, 0.25);
   box-sizing: border-box;
 }

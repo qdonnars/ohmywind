@@ -299,6 +299,8 @@ def _served(props: dict) -> bool:
 # so a hole in the green reads as "nothing to plan around here", not as a
 # gap in the coverage (the shelf off Groix and Concarneau stays under 0.4 kt).
 ZONE_STATUSES = ("calm", "covered", "target", "blocked", "unknown")
+# Thresholds of the green gradient, the same the mask builder contours.
+BAND_THRESHOLDS_KT = (0.5, 1.0, 1.5, 2.0, 3.0, 5.0)
 
 
 def _source_unions(sources: dict, max_res_m: float, unknown_res_ok: bool):
@@ -336,11 +338,16 @@ def _source_unions(sources: dict, max_res_m: float, unknown_res_ok: bool):
 def layered_mask(masks: dict, coverage: dict, threshold_kt: float):
     """Union of the masks at ``threshold_kt``, the finest atlas winning everywhere.
 
-    Each mask names the atlases it was computed from and their resolution;
-    a coarser mask only contributes outside the footprint of every finer
-    atlas. Without this, the 7 km FES pixels that straddle the Breton coast
-    draw rectangles of "tide" over Morlaix and Quimper on top of what the
-    250 m atlases already resolve.
+    Each mask file names the atlases it was computed from and their
+    resolution; a coarser mask only contributes outside the *extent* of every
+    finer atlas, the threshold 0 feature its builder writes (where the atlas
+    has cells, at the raster pitch). Without this, the 7 km FES pixels that
+    straddle the Breton coast draw rectangles of "tide" over Morlaix on top
+    of what the 250 m atlases already resolve. The extent, not the tile
+    footprint: MANGA holds a few cells in the 0.5 degree tile of the Bristol
+    Channel and, with tiles, silenced the Copernicus mask over the whole
+    tile, which then read as calm water. A mask file without an extent
+    feature falls back to the tile footprint of its atlases.
     """
     from shapely.geometry import shape
     from shapely.ops import unary_union
@@ -353,30 +360,37 @@ def layered_mask(masks: dict, coverage: dict, threshold_kt: float):
             footprints.setdefault(atlas, []).append(make_valid(shape(f["geometry"])))
     ranked = []
     for fc in masks.values():
-        for f in fc["features"]:
-            if f["properties"].get("threshold_kt", 0) < threshold_kt:
-                continue
-            atlases = [
-                a.strip()
-                for a in str(f["properties"].get("atlas") or "").split(",")
-                if a.strip()
-            ]
-            ranked.append(
-                (
-                    float(f["properties"].get("resolution_m") or 10**9),
-                    make_valid(shape(f["geometry"])),
-                    atlases,
-                )
+        feats = fc["features"]
+        wanted = [
+            f for f in feats if f["properties"].get("threshold_kt", 0) >= threshold_kt
+        ]
+        if not wanted:
+            continue
+        extent_feats = [f for f in feats if f["properties"].get("threshold_kt") == 0]
+        atlases = [
+            a.strip()
+            for a in str(wanted[0]["properties"].get("atlas") or "").split(",")
+            if a.strip()
+        ]
+        if extent_feats:
+            own = [make_valid(shape(f["geometry"])) for f in extent_feats]
+        else:
+            own = [g for a in atlases for g in footprints.get(a, [])]
+        ranked.append(
+            (
+                float(wanted[0]["properties"].get("resolution_m") or 10**9),
+                unary_union([make_valid(shape(f["geometry"])) for f in wanted]),
+                own,
             )
+        )
     ranked.sort(key=lambda r: r[0])
     finer = None
     parts = []
-    for _res, geom, atlases in ranked:
+    for _res, geom, own in ranked:
         if finer is not None:
             geom = _polygonal(geom.difference(finer))
         if not geom.is_empty:
             parts.append(geom)
-        own = [g for a in atlases for g in footprints.get(a, [])]
         if own:
             finer = (
                 unary_union([finer, *own]) if finer is not None else unary_union(own)
@@ -437,25 +451,40 @@ def zone_status(coverage: dict, masks: dict, sources: dict, ocean=None) -> dict:
     open_src, closed_src = _source_unions(sources, COVER_MAX_M, unknown_res_ok=True)
     open_src = unary_union([open_src, *at_hand])
     rest = _polygonal(strong.difference(covered))
-    parts = {
-        "calm": _polygonal(covered.difference(notable)),
-        "covered": _polygonal(notable.intersection(covered)),
-    }
-    parts["target"] = _polygonal(rest.intersection(open_src))
+    # Covered water is a green gradient: one disjoint band per threshold of
+    # the masks (0.5 to 5 kt), the darker the stronger, so a pass in a fine
+    # atlas shows its structure. ``calm`` is the covered water under the
+    # first band.
+    parts: list[tuple[str, float | None, object]] = [
+        ("calm", None, _polygonal(covered.difference(notable)))
+    ]
+    upper = None
+    for thr in reversed(BAND_THRESHOLDS_KT):
+        above = layered_mask(masks, coverage, thr)
+        band = _polygonal(above.intersection(covered))
+        if upper is not None:
+            band = _polygonal(band.difference(upper))
+        parts.append(("covered", thr, band))
+        upper = above if upper is None else unary_union([upper, above])
+    parts.append(("target", None, _polygonal(rest.intersection(open_src))))
     rest = _polygonal(rest.difference(open_src))
-    parts["blocked"] = _polygonal(rest.intersection(closed_src))
-    parts["unknown"] = _polygonal(rest.difference(closed_src))
+    parts.append(("blocked", None, _polygonal(rest.intersection(closed_src))))
+    parts.append(("unknown", None, _polygonal(rest.difference(closed_src))))
+    order = {s: i for i, s in enumerate(ZONE_STATUSES)}
+    parts.sort(key=lambda p: (order[p[0]], p[1] or 0.0))
     feats = []
-    for status in ZONE_STATUSES:
-        geom = parts[status]
+    for status, min_kt, geom in parts:
         if ocean is not None and not geom.is_empty:
             geom = _polygonal(geom.intersection(ocean))
         if geom.is_empty:
             continue
+        props: dict = {"status": status, "area_deg2": round(geom.area, 2)}
+        if min_kt is not None:
+            props["min_kt"] = min_kt
         feats.append(
             {
                 "type": "Feature",
-                "properties": {"status": status, "area_deg2": round(geom.area, 2)},
+                "properties": props,
                 "geometry": mapping(geom.simplify(0.005)),
             }
         )
@@ -752,6 +781,48 @@ def dissolved(fc: dict) -> dict:
     }
 
 
+def served_atlases(api_base: str) -> frozenset[str]:
+    """The atlases a running server serves, from its coverage endpoint.
+
+    The same list the page reads at load time to badge the registry, so the
+    colours of the map and the badges of the table come from one place, the
+    server, and cannot drift from what it answers.
+    """
+    import urllib.request
+
+    url = api_base.rstrip("/") + "/api/v1/marine/marc/coverage"
+    with urllib.request.urlopen(url, timeout=60) as resp:
+        payload = json.load(resp)
+    return frozenset(str(a["name"]) for a in payload.get("atlases", []))
+
+
+def _rounded(fc: dict, decimals: int = 4) -> dict:
+    """The same collection with coordinates at ``decimals`` places (10 m at 4):
+    the bands ship with 15 digits otherwise, twice the bytes for nothing."""
+
+    def walk(x):
+        # shapely's ``mapping`` hands out nested tuples, json.dumps lists both.
+        if isinstance(x, (list, tuple)):
+            if x and isinstance(x[0], (int, float)):
+                return [round(float(v), decimals) for v in x]
+            return [walk(v) for v in x]
+        return x
+
+    return {
+        **fc,
+        "features": [
+            {
+                **f,
+                "geometry": {
+                    **f["geometry"],
+                    "coordinates": walk(f["geometry"]["coordinates"]),
+                },
+            }
+            for f in fc["features"]
+        ],
+    }
+
+
 def export_web(
     web_dir: Path,
     masks: dict,
@@ -763,15 +834,31 @@ def export_web(
 ) -> None:
     """The static files ``TidalSourcesMap`` fetches, one per layer, compact JSON.
 
-    The page reads the masks (for the current band in the click card), the
-    gazetteer with its status, the four-status polygons, the target area, the
-    registry and the ATLNE footprint; the built atlases are exported for the
-    card's benefit only. Everything else in ``data.js`` is for the docs page.
+    The page reads the gazetteer with its status, the status polygons (the
+    green bands, the calm water, the uncovered strong zones), the target area
+    and the registry; the built atlases are exported for the card's benefit
+    only. Everything else in ``data.js`` is for the docs page.
     """
     web_dir.mkdir(parents=True, exist_ok=True)
     compact = {"ensure_ascii": False, "separators": (",", ":")}
-    for name, fc in masks.items():
-        (web_dir / f"{name}.geojson").write_text(json.dumps(fc, **compact))
+    # The page reads its bands from status.geojson; the masks stay on the
+    # docs page and are removed from the site if an older build left them.
+    for stale in list(web_dir.glob("mask_*.geojson")) + [
+        web_dir / "atlne_footprint.geojson"
+    ]:
+        stale.unlink(missing_ok=True)
+    # The covered water ships as rasters (build_tidal_world_raster.py); the
+    # page only draws the uncovered strong zones as polygons.
+    status = _rounded(
+        {
+            **status,
+            "features": [
+                f
+                for f in status["features"]
+                if f["properties"]["status"] not in ("covered", "calm")
+            ],
+        }
+    )
     points = [f for f in gaps["features"] if f["geometry"]["type"] == "Point"]
     (web_dir / "gazetteer.geojson").write_text(
         json.dumps({"type": "FeatureCollection", "features": points}, **compact)
@@ -783,11 +870,6 @@ def export_web(
         json.dumps({"type": "FeatureCollection", "features": built}, **compact)
     )
     (web_dir / "sources.geojson").write_text(json.dumps(sources, **compact))
-    footprint = MAP_DIR / "atlne_footprint.geojson"
-    if footprint.exists():
-        (web_dir / "atlne_footprint.geojson").write_text(
-            json.dumps(json.loads(footprint.read_text()), **compact)
-        )
     for stale in (
         "gaps_mask.geojson",
         "coverage_spike.geojson",
@@ -823,6 +905,12 @@ def main(argv: list[str] | None = None) -> int:
         help="built atlases already published in the dataset, comma separated",
     )
     parser.add_argument(
+        "--shipped-from",
+        default=None,
+        metavar="API_BASE",
+        help="read the served atlases from <API_BASE>/api/v1/marine/marc/coverage instead of --shipped",
+    )
+    parser.add_argument(
         "--web-dir",
         type=Path,
         default=None,
@@ -844,7 +932,12 @@ def main(argv: list[str] | None = None) -> int:
     }
     coverage_path = MAP_DIR / "coverage_current.geojson"
     if not args.skip_coverage and args.build_dir.exists():
-        shipped = frozenset(x.strip() for x in args.shipped.split(",") if x.strip())
+        shipped = (
+            served_atlases(args.shipped_from)
+            if args.shipped_from
+            else frozenset(x.strip() for x in args.shipped.split(",") if x.strip())
+        )
+        print(f"served atlases: {len(shipped)}")
         coverage = current_coverage(args.build_dir, shipped)
         coverage_path.write_text(json.dumps(coverage, separators=(",", ":")))
         print(f"coverage_current.geojson: {len(coverage['features'])} features")

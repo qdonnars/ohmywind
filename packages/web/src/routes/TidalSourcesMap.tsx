@@ -22,7 +22,6 @@ import { formatGridSize } from "../domain/currentSource";
 import {
   ZONE_STATUSES,
   classifyAnswer,
-  currentBand,
   esc,
   isGlobalExtent,
   nearestPass,
@@ -30,18 +29,20 @@ import {
   statusAt,
   type PassProperties,
   type PrecisionClass,
+  type ZoneProperties,
   type ZoneStatus,
 } from "../domain/tidalMapGeo";
+import { CALM_COLOR, RasterGrid, maxCurrentAt, rampColor, rampGradient, type RasterManifest } from "../domain/tidalRaster";
 import { useT } from "../i18n";
 import { addBasemap } from "../utils/basemapLayer";
 
 const DATA_BASE = `${import.meta.env.BASE_URL}methodologie/tidal/`;
 const MARC_URL = `${API_BASE}/api/v1/marine/marc`;
+const COVERAGE_URL = `${API_BASE}/api/v1/marine/marc/coverage`;
 const CONTACT = "contact@ohmywind.fr";
 
-type MaskFC = FeatureCollection<Geometry, { threshold_kt: number; global?: boolean }>;
 type PassFC = FeatureCollection<Point, PassProperties>;
-type StatusFC = FeatureCollection<Geometry, { status: ZoneStatus }>;
+type StatusFC = FeatureCollection<Geometry, ZoneProperties>;
 interface SourceProperties {
   id: string;
   name: string;
@@ -53,20 +54,48 @@ interface SourceProperties {
   licence: string;
   licence_url: string;
   licence_read_at: string;
+  /** Atlas names (or the source short ``shom``) the server would list in
+      its coverage when it serves this source. */
+  atlases?: string[];
 }
 type SourceFC = FeatureCollection<Geometry, SourceProperties>;
 
+/** What the server serves right now: the names of its atlases and the
+    sources of its point sets, from the coverage endpoint. ``null`` when the
+    server could not be asked, then the registry's own status stands. */
+async function loadServed(): Promise<Set<string> | null> {
+  try {
+    const resp = await fetch(COVERAGE_URL);
+    if (!resp.ok) return null;
+    const payload = (await resp.json()) as { atlases?: { name: string; source?: string }[] };
+    const served = new Set<string>();
+    for (const a of payload.atlases ?? []) {
+      served.add(a.name);
+      if (a.source) served.add(a.source);
+    }
+    return served;
+  } catch {
+    return null;
+  }
+}
+
+/** The status to badge: ``current`` when the server lists one of the
+    source's atlases, otherwise the registry's licence status. */
+function liveStatus(p: SourceProperties, served: Set<string> | null): string {
+  if (served && p.atlases?.some((a) => served.has(a))) return "current";
+  if (served && p.status === "current" && p.atlases?.length) return "ok";
+  return p.status;
+}
+
 interface Layers {
-  masks: MaskFC;
   passes: PassFC;
   status: StatusFC;
   objective: FeatureCollection;
   sources: SourceFC;
-  footprint: FeatureCollection;
 }
 
 const STATUS_COLOR: Record<ZoneStatus, string> = {
-  calm: "#8fcfa6",
+  calm: "#cfe8d6",
   covered: "#2a9d5c",
   target: "#f28c28",
   blocked: "#7b3fd4",
@@ -97,40 +126,82 @@ async function loadJson<T>(name: string): Promise<T> {
   return (await resp.json()) as T;
 }
 
-/** The computed "where the current is" masks, finest first: the fine
-    atlases (MARC 250 to 700 m, BSH 90 to 926 m), the Copernicus regional
-    ones (1.5 to 4 km), ATLNE (2 km, in its validity box) and FES2014 (7 km,
-    the world). A missing file is simply skipped. */
-async function loadMasks(): Promise<MaskFC> {
-  const [fine, cmems, atlne, fes] = await Promise.all(
-    ["mask_fine.geojson", "mask_cmems.geojson", "mask_atlne.geojson", "mask_fes.geojson"].map((name) =>
-      loadJson<MaskFC>(name).catch(() => null),
-    ),
-  );
-  const worldwide = (fes?.features ?? []).map((f) => ({ ...f, properties: { ...f.properties, global: true } }));
-  return {
-    type: "FeatureCollection",
-    features: [...(fine?.features ?? []), ...(cmems?.features ?? []), ...(atlne?.features ?? []), ...worldwide],
-  };
-}
-
+/** The status layer carries everything the card needs about the tide: the
+    covered bands (0.5 to 5 kt), the calm water, the uncovered strong zones.
+    The masks themselves stay on the docs page; the page loads 3 MB less. */
 async function loadLayers(): Promise<Layers> {
-  const [masks, passes, status, objective, sources, footprint] = await Promise.all([
-    loadMasks(),
+  const [passes, status, objective, sources] = await Promise.all([
     loadJson<PassFC>("gazetteer.geojson"),
     loadJson<StatusFC>("status.geojson"),
     loadJson<FeatureCollection>("objective.geojson"),
     loadJson<SourceFC>("sources.geojson"),
-    loadJson<FeatureCollection>("atlne_footprint.geojson").catch(() => ({ type: "FeatureCollection", features: [] }) as FeatureCollection),
   ]);
-  return { masks, passes, status, objective, sources, footprint };
+  return { passes, status, objective, sources };
+}
+
+/** The maximum-current rasters, decoded: each PNG is drawn through a canvas
+    into an image overlay (calm colour under 0.5 kt, the ramp above, nothing
+    where the atlas has no cell) and kept for the value under a click. Best
+    effort: a missing manifest or a browser without canvas leaves the map
+    without them. */
+async function loadRasters(): Promise<{ grids: RasterGrid[]; overlays: { url: string; bounds: L.LatLngBoundsExpression }[] }> {
+  const manifest = await loadJson<RasterManifest>("raster/rasters.json");
+  const grids: RasterGrid[] = [];
+  const overlays: { url: string; bounds: L.LatLngBoundsExpression }[] = [];
+  for (const entry of manifest.rasters) {
+    const img = new Image();
+    img.decoding = "async";
+    const loaded = new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error(entry.file));
+    });
+    img.src = `${DATA_BASE}${entry.file}`;
+    await loaded;
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) continue;
+    ctx.drawImage(img, 0, 0);
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const values = new Uint8Array(canvas.width * canvas.height);
+    const out = ctx.createImageData(canvas.width, canvas.height);
+    const cache = new Map<number, [number, number, number]>();
+    for (let i = 0; i < values.length; i++) {
+      const v = pixels.data[i * 4];
+      values[i] = v;
+      if (v === 0) continue;
+      let rgb = cache.get(v);
+      if (!rgb) {
+        const kt = (v - 1) / entry.scale;
+        rgb = kt >= 0.5 ? hexToRgb(rampColor(kt)) : hexToRgb(CALM_COLOR);
+        cache.set(v, rgb);
+      }
+      out.data[i * 4] = rgb[0];
+      out.data[i * 4 + 1] = rgb[1];
+      out.data[i * 4 + 2] = rgb[2];
+      out.data[i * 4 + 3] = 255;
+    }
+    ctx.putImageData(out, 0, 0);
+    grids.push(new RasterGrid(entry, canvas.width, canvas.height, values));
+    overlays.push({ url: canvas.toDataURL("image/png"), bounds: entry.bounds });
+  }
+  return { grids, overlays };
+}
+
+function hexToRgb(color: string): [number, number, number] {
+  const n = parseInt(color.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
 const passRadius = (p: PassProperties) => 3 + Math.min(7, (p.max_spring_kt ?? 1) * 0.6);
-const sortedSources = (fc: SourceFC): SourceProperties[] =>
+const sortedSources = (fc: SourceFC, served: Set<string> | null = null): SourceProperties[] =>
   fc.features
     .map((f) => f.properties)
-    .sort((a, b) => SOURCE_ORDER.indexOf(a.status) - SOURCE_ORDER.indexOf(b.status) || a.name.localeCompare(b.name));
+    .sort(
+      (a, b) =>
+        SOURCE_ORDER.indexOf(liveStatus(a, served)) - SOURCE_ORDER.indexOf(liveStatus(b, served)) || a.name.localeCompare(b.name),
+    );
 /** Popup options sized from the map: on a phone the card must leave the
     zoom control clear and stay shorter than the map, scrolling inside if
     a long registry entry needs it. */
@@ -149,10 +220,11 @@ type Translate = ReturnType<typeof useT>["t"];
 const badge = (color: string, text: string) => `<span class="methodo-map-badge" style="background:${color}">${esc(text)}</span>`;
 const row = (k: string, v: string | null | undefined) => (v ? `<dt>${esc(k)}</dt><dd>${v}</dd>` : "");
 
-function sourcePopup(t: Translate, p: SourceProperties): string {
+function sourcePopup(t: Translate, p: SourceProperties, served: Set<string> | null): string {
+  const status = liveStatus(p, served);
   return (
     `<h3 class="methodo-map-popup-title">${esc(p.name)}</h3>` +
-    badge(SOURCE_COLOR[p.status] ?? "#999", t(`config.methodo.tidal.source.status.${p.status}` as Parameters<typeof t>[0])) +
+    badge(SOURCE_COLOR[status] ?? "#999", t(`config.methodo.tidal.source.status.${status}` as Parameters<typeof t>[0])) +
     `<dl class="methodo-map-popup-grid">` +
     row(t("config.methodo.tidal.sources.provider"), esc(p.provider)) +
     row(t("config.methodo.tidal.source.resolution"), p.resolution_m ? `${esc(p.resolution_m)} m` : null) +
@@ -166,16 +238,33 @@ function sourcePopup(t: Translate, p: SourceProperties): string {
 }
 
 export function TidalSourcesMap() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const dataRef = useRef<Layers | null>(null);
+  const gridsRef = useRef<RasterGrid[]>([]);
   const sourceLayersRef = useRef<Map<string, L.Layer>>(new Map());
   const [shown, setShown] = useState<Record<string, boolean>>({});
   const [sources, setSources] = useState<SourceProperties[]>([]);
+  const [served, setServed] = useState<Set<string> | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
   const statusText = (s: ZoneStatus | null) => t(`config.methodo.tidal.status.${s ?? "none"}`);
+  const fmtKt = (kt: number) => kt.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  // What the card says about the tide at a point: the value of the finest
+  // served atlas under it, else the status of an uncovered strong zone.
+  const zoneBadge = (lat: number, lon: number, z: ZoneProperties | null): string => {
+    const hit = maxCurrentAt(lat, lon, gridsRef.current);
+    if (hit) {
+      const text =
+        hit.kt >= 0.5
+          ? t("config.methodo.tidal.status.coveredValue", { kt: fmtKt(hit.kt), atlas: hit.entry.label })
+          : t("config.methodo.tidal.status.calmValue", { kt: fmtKt(hit.kt), atlas: hit.entry.label });
+      return badge(hit.kt >= 0.5 ? rampColor(hit.kt) : "#7fb08f", text);
+    }
+    if (z && z.status !== "covered" && z.status !== "calm") return badge(STATUS_COLOR[z.status], statusText(z.status));
+    return esc(statusText(null));
+  };
 
   // Popup text for a known pass; reads the dictionary at click time so a
   // language switch after mount still lands in the right words.
@@ -225,8 +314,6 @@ export function TidalSourcesMap() {
     } catch {
       answerHtml = `<em>${esc(t("config.methodo.tidal.popup.error"))}</em>`;
     }
-    const footprint = d?.footprint.features[0]?.geometry ?? null;
-    const band = currentBand(lon, lat, d?.masks ?? null, footprint);
     const zone = statusAt(lon, lat, d?.status ?? null);
     const near = nearestPass(lat, lon, d?.passes ?? null);
     const inObjective = d?.objective.features.some((f) => pointInGeometry(lon, lat, f.geometry)) ?? false;
@@ -243,8 +330,7 @@ export function TidalSourcesMap() {
       (precision ? badge(PRECISION_COLOR[precision], t(`config.methodo.tidal.precision.${precision}`)) : "") +
       `<dl class="methodo-map-popup-grid">` +
       row(t("config.methodo.tidal.popup.source"), answerHtml) +
-      row(t("config.methodo.tidal.popup.status"), zone ? badge(STATUS_COLOR[zone], statusText(zone)) : esc(statusText(null))) +
-      row(t("config.methodo.tidal.popup.current"), esc(t(`config.methodo.tidal.current.${band}`))) +
+      row(t("config.methodo.tidal.popup.status"), zoneBadge(lat, lon, zone)) +
       row(
         t("config.methodo.tidal.popup.pass"),
         near
@@ -266,6 +352,15 @@ export function TidalSourcesMap() {
     const map = L.map(containerRef.current, { center: [51, 1], zoom: 4, worldCopyJump: true, scrollWheelZoom: false });
     addBasemap(map, "light");
     mapRef.current = map;
+    // The figure sits in a lazily rendered article: its box settles after
+    // the map is created (fonts, images, the phone's toolbar), and Leaflet
+    // caches the container size. Without this the vector basemap, which
+    // resizes itself, and the Leaflet layers (rasters, markers) drift apart
+    // by the size difference until a zoom recomputes everything, and the
+    // rasters read as shifted south. Same recipe as SpotMap.
+    const settle = window.setTimeout(() => map.invalidateSize({ animate: false }), 200);
+    const resizer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => map.invalidateSize({ animate: false }));
+    resizer?.observe(containerRef.current);
     map.on("click", (e: L.LeafletMouseEvent) => {
       const popup = L.popup(popupOptions(map))
         .setLatLng(e.latlng)
@@ -281,13 +376,48 @@ export function TidalSourcesMap() {
         if (cancelled) return;
         dataRef.current = d;
         setSources(sortedSources(d.sources));
-        L.geoJSON(d.status, {
-          style: (f) => {
-            const status = (f?.properties as { status: ZoneStatus } | undefined)?.status ?? "unknown";
-            const color = STATUS_COLOR[status];
-            return { color, weight: status === "calm" ? 0 : 0.6, fillColor: color, fillOpacity: status === "calm" ? 0.35 : 0.5, interactive: false };
+        void loadServed().then((s) => {
+          if (cancelled) return;
+          setServed(s);
+          setSources(sortedSources(d.sources, s));
+        });
+        // The uncovered strong zones as polygons; the covered water comes
+        // from the rasters, drawn underneath, coarse first and fine on top.
+        const rasterPane = map.createPane("tidal-rasters");
+        rasterPane.style.zIndex = "350";
+        void loadRasters()
+          .then(({ grids, overlays }) => {
+            if (cancelled) return;
+            gridsRef.current = grids;
+            const layers = overlays.map((o, i) => ({
+              layer: L.imageOverlay(o.url, o.bounds, { opacity: 0.72, interactive: false, pane: "tidal-rasters" }).addTo(map),
+              bounds: L.latLngBounds(o.bounds as L.LatLngTuple[]),
+              width: grids[i]?.width ?? 1,
+            }));
+            // A raster pixel wider than a screen pixel is drawn as a crisp
+            // square; narrower, it is smoothed: nearest-neighbour shrinking
+            // drops pixels and reads as grain.
+            const rendering = () => {
+              for (const { layer, bounds, width } of layers) {
+                const px = Math.abs(map.latLngToLayerPoint(bounds.getNorthEast()).x - map.latLngToLayerPoint(bounds.getSouthWest()).x) / width;
+                const img = layer.getElement();
+                if (img) img.style.imageRendering = px >= 1 ? "pixelated" : "auto";
+              }
+            };
+            rendering();
+            map.on("zoomend", rendering);
+          })
+          .catch(() => undefined);
+        L.geoJSON(
+          { type: "FeatureCollection", features: d.status.features.filter((f) => f.properties.status !== "covered" && f.properties.status !== "calm") } as StatusFC,
+          {
+            style: (f) => {
+              const z = (f?.properties as ZoneProperties | undefined) ?? { status: "unknown" };
+              const color = STATUS_COLOR[z.status];
+              return { color, weight: 0.6, fillColor: color, fillOpacity: 0.5, interactive: false };
+            },
           },
-        }).addTo(map);
+        ).addTo(map);
         L.geoJSON(d.objective, { style: { color: OBJECTIVE_COLOR, weight: 1.5, dashArray: "8 6", fill: false, interactive: false } }).addTo(map);
         L.geoJSON(d.passes, {
           pointToLayer: (f, ll) => {
@@ -304,6 +434,8 @@ export function TidalSourcesMap() {
       });
     return () => {
       cancelled = true;
+      window.clearTimeout(settle);
+      resizer?.disconnect();
       map.remove();
       mapRef.current = null;
       sourceLayersRef.current = new Map();
@@ -325,7 +457,7 @@ export function TidalSourcesMap() {
         const color = SOURCE_COLOR[f.properties.status] ?? "#999";
         const l = L.geoJSON(f as Feature, {
           style: { color, weight: 2, dashArray: f.properties.status === "ok" || f.properties.status === "current" ? undefined : "5 4", fillColor: color, fillOpacity: 0.08 },
-        }).bindPopup(sourcePopup(t, f.properties), popupOptions(map));
+        }).bindPopup(sourcePopup(t, f.properties, served), popupOptions(map));
         l.addTo(map);
         sourceLayersRef.current.set(id, l);
       } else if (!shown[id] && layer) {
@@ -333,7 +465,7 @@ export function TidalSourcesMap() {
         sourceLayersRef.current.delete(id);
       }
     }
-  }, [shown, status, t]);
+  }, [shown, status, t, served]);
 
   const mailto = `mailto:${CONTACT}?subject=${encodeURIComponent(t("config.methodo.tidal.sources.proposeSubject"))}`;
 
@@ -343,9 +475,13 @@ export function TidalSourcesMap() {
       <div ref={containerRef} className="methodo-map-canvas" role="application" aria-busy={status === "loading"} />
       <div className="methodo-map-legend">
         <div className="methodo-map-group-title">{t("config.methodo.tidal.legend.title")}</div>
-        {ZONE_STATUSES.map((s) => (
+        <div className="methodo-map-item">
+          <span className="methodo-map-ramp" aria-hidden="true" style={{ background: rampGradient() }} />
+          <span>{t("config.methodo.tidal.legend.covered")}</span>
+        </div>
+        {ZONE_STATUSES.filter((s) => s !== "covered").map((s) => (
           <div className="methodo-map-item" key={s}>
-            <span className="methodo-map-swatch" style={{ background: STATUS_COLOR[s] }} />
+            <span className="methodo-map-swatch" style={{ background: s === "calm" ? CALM_COLOR : STATUS_COLOR[s] }} />
             <span>{t(`config.methodo.tidal.legend.${s}`)}</span>
           </div>
         ))}
@@ -393,8 +529,8 @@ export function TidalSourcesMap() {
                     </a>
                   </td>
                   <td>
-                    <span className="methodo-map-badge" style={{ background: SOURCE_COLOR[p.status] ?? "#999" }}>
-                      {t(`config.methodo.tidal.source.status.${p.status}` as Parameters<typeof t>[0])}
+                    <span className="methodo-map-badge" style={{ background: SOURCE_COLOR[liveStatus(p, served)] ?? "#999" }}>
+                      {t(`config.methodo.tidal.source.status.${liveStatus(p, served)}` as Parameters<typeof t>[0])}
                     </span>
                   </td>
                 </tr>

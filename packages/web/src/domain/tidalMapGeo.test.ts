@@ -137,8 +137,8 @@ describe("statusAt", () => {
         { type: "Feature", properties: { status: "blocked" }, geometry: { type: "Polygon", coordinates: [[[2, 0], [3, 0], [3, 1], [2, 1], [2, 0]]] } },
       ],
     };
-    expect(statusAt(0.5, 0.5, fc)).toBe("covered");
-    expect(statusAt(2.5, 0.5, fc)).toBe("blocked");
+    expect(statusAt(0.5, 0.5, fc)?.status).toBe("covered");
+    expect(statusAt(2.5, 0.5, fc)?.status).toBe("blocked");
     expect(statusAt(1.5, 0.5, fc)).toBeNull();
     expect(statusAt(0.5, 0.5, null)).toBeNull();
   });

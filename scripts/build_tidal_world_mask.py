@@ -53,7 +53,10 @@ from shapely.geometry import MultiPolygon, mapping
 from shapely.ops import unary_union
 
 MS_TO_KN = 1.0 / 0.514444
-THRESHOLDS_KN = (0.5, 1.5)
+# The bands of the map's green gradient: 0.5 kt is "worth a look", 1.5 kt
+# "plan around it", 5 kt and above the great races. Nested features, one per
+# threshold; the map builder turns them into disjoint bands.
+THRESHOLDS_KN = (0.5, 1.0, 1.5, 2.0, 3.0, 5.0)
 
 
 def _cell_columns(df: pl.DataFrame, comp: str) -> list[str]:
@@ -126,8 +129,16 @@ def mask_of_atlas(
     days: int,
     min_area_deg2: float | None,
     simplify_deg: float | None,
+    extent: bool = True,
 ) -> tuple[dict, dict[float, MultiPolygon]]:
     """``(metadata, {threshold_kt: MultiPolygon})`` for one atlas.
+
+    With ``extent``, the dictionary also carries the key ``0.0``: the area
+    where the atlas has cells at all, at the raster pitch. The map builder
+    layers the masks with it, so a coarser atlas only speaks where a finer
+    one has no cell, not merely no tile: MANGA holds a few cells in the
+    0.5 degree tile of the Bristol Channel and once silenced the Copernicus
+    mask over the whole tile.
 
     The raster pitch, the speckle floor and the simplification default to
     the atlas resolution, so a 250 m atlas draws the goulet de Brest and a
@@ -194,8 +205,11 @@ def mask_of_atlas(
     if vb:
         clip = box(vb[1], vb[0], vb[3], vb[2])
     out: dict[float, MultiPolygon] = {}
-    for thr in THRESHOLDS_KN:
-        above = (north_up >= thr).astype(np.uint8)
+    has_cell = _closing(np.where(np.isfinite(raster), 1.0, 0.0))[::-1]
+    for thr in (0.0, *THRESHOLDS_KN) if extent else THRESHOLDS_KN:
+        above = (
+            (has_cell if thr == 0.0 else north_up) >= (1.0 if thr == 0.0 else thr)
+        ).astype(np.uint8)
         polys = [
             shape(geom)
             for geom, value in features.shapes(
@@ -245,6 +259,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--simplify-deg", type=float, default=None)
     parser.add_argument("--days", type=int, default=15)
     parser.add_argument(
+        "--no-extent",
+        action="store_true",
+        help="skip the threshold 0 feature (where the atlas has cells), useless for the coarsest atlas",
+    )
+    parser.add_argument(
         "--min-area-deg2",
         type=float,
         default=None,
@@ -254,7 +273,8 @@ def main(argv: list[str] | None = None) -> int:
 
     t0 = time.perf_counter()
     metas = []
-    per_thr: dict[float, list] = {thr: [] for thr in THRESHOLDS_KN}
+    thresholds = THRESHOLDS_KN if args.no_extent else (0.0, *THRESHOLDS_KN)
+    per_thr: dict[float, list] = {thr: [] for thr in thresholds}
     for atlas_dir in args.atlas_dir:
         meta, masks = mask_of_atlas(
             atlas_dir,
@@ -262,13 +282,14 @@ def main(argv: list[str] | None = None) -> int:
             days=args.days,
             min_area_deg2=args.min_area_deg2,
             simplify_deg=args.simplify_deg,
+            extent=not args.no_extent,
         )
         metas.append(meta)
         for thr, geom in masks.items():
             if not geom.is_empty:
                 per_thr[thr].append(geom)
     features_out = []
-    for thr in THRESHOLDS_KN:
+    for thr in thresholds:
         merged = unary_union(per_thr[thr]) if per_thr[thr] else MultiPolygon([])
         if merged.geom_type == "Polygon":
             merged = MultiPolygon([merged])
@@ -277,6 +298,7 @@ def main(argv: list[str] | None = None) -> int:
                 "type": "Feature",
                 "properties": {
                     "threshold_kt": thr,
+                    "kind": "extent" if thr == 0.0 else "mask",
                     "atlas": ", ".join(str(m.get("atlas")) for m in metas),
                     "resolution_m": min(
                         int(m.get("resolution_m") or 10**9) for m in metas

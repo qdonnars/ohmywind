@@ -154,15 +154,21 @@ export type ZoneStatus = "calm" | "covered" | "target" | "blocked" | "unknown";
 /** Legend order; ``calm`` is covered water under 0.5 kt, drawn pale. */
 export const ZONE_STATUSES: readonly ZoneStatus[] = ["covered", "calm", "target", "blocked", "unknown"];
 
-/** The status of the strong-current area under a point, ``null`` outside them. */
+export interface ZoneProperties {
+  status: ZoneStatus;
+  /** Lower bound of the green band, in knots, on ``covered`` features only. */
+  min_kt?: number;
+}
+
+/** The zone under a point: its status and, for covered water, its band. */
 export function statusAt(
   lon: number,
   lat: number,
-  status: FeatureCollection<Geometry, { status: ZoneStatus }> | null,
-): ZoneStatus | null {
+  status: FeatureCollection<Geometry, ZoneProperties> | null,
+): ZoneProperties | null {
   if (!status) return null;
   const hit = status.features.find((f) => pointInGeometry(lon, lat, f.geometry));
-  return hit ? hit.properties.status : null;
+  return hit ? hit.properties : null;
 }
 
 export interface PassProperties {

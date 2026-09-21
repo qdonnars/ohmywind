@@ -14,10 +14,6 @@ vi.mock("../utils/basemapLayer", () => ({
 const empty = { type: "FeatureCollection", features: [] };
 const square = (x: number, y: number) => ({ type: "Polygon", coordinates: [[[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1], [x, y]]] });
 const FILES: Record<string, unknown> = {
-  "mask_atlne.geojson": {
-    type: "FeatureCollection",
-    features: [{ type: "Feature", properties: { threshold_kt: 1.5 }, geometry: square(-5, 48) }],
-  },
   "gazetteer.geojson": {
     type: "FeatureCollection",
     features: [
@@ -31,7 +27,7 @@ const FILES: Record<string, unknown> = {
   "status.geojson": {
     type: "FeatureCollection",
     features: [
-      { type: "Feature", properties: { status: "covered", area_deg2: 1 }, geometry: square(-5, 48) },
+      { type: "Feature", properties: { status: "covered", min_kt: 2, area_deg2: 1 }, geometry: square(-5, 48) },
       { type: "Feature", properties: { status: "blocked", area_deg2: 1 }, geometry: square(-4, 58) },
     ],
   },
@@ -42,11 +38,10 @@ const FILES: Record<string, unknown> = {
       {
         type: "Feature",
         geometry: square(4, 58),
-        properties: { id: "norkyst800", name: "NorKyst800 (MET Norway)", provider: "MET Norway", status: "ok", kind: "forecast_grid", resolution_m: 800, access: "THREDDS sans clé", licence: "CC BY 4.0", licence_url: "https://example.org/licence", licence_read_at: "2026-09-19" },
+        properties: { id: "norkyst800", name: "NorKyst800 (MET Norway)", provider: "MET Norway", status: "ok", kind: "forecast_grid", resolution_m: 800, access: "THREDDS sans clé", licence: "CC BY 4.0", licence_url: "https://example.org/licence", licence_read_at: "2026-09-19", atlases: ["NORKYST"] },
       },
     ],
   },
-  "atlne_footprint.geojson": empty,
 };
 
 describe("TidalSourcesMap", () => {
@@ -61,6 +56,11 @@ describe("TidalSourcesMap", () => {
         const url = String(input);
         const name = Object.keys(FILES).find((n) => url.endsWith(n));
         if (name) return new Response(JSON.stringify(FILES[name]), { status: 200 });
+        if (url.includes("/api/v1/marine/marc/coverage")) {
+          // The server says it serves a NorKyst atlas: the registry row must
+          // badge "in the cascade" whatever its static licence status.
+          return new Response(JSON.stringify({ atlases: [{ name: "NORKYST", source: "norkyst", bbox: [60, 4, 71, 31], cells: [] }] }), { status: 200 });
+        }
         if (url.includes("/api/v1/marine/marc")) {
           return new Response(JSON.stringify({ covered: true, current_source: "marc_finis_250m", atlas_resolution_m: 250 }), { status: 200 });
         }
@@ -83,8 +83,6 @@ describe("TidalSourcesMap", () => {
     expect(container.querySelector(".leaflet-container")).not.toBeNull();
     const fetched = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]));
     for (const name of Object.keys(FILES)) expect(fetched.some((u) => u.endsWith(name))).toBe(true);
-    // The worldwide mask is optional: asked for, tolerated when absent.
-    expect(fetched.some((u) => u.endsWith("mask_fes.geojson"))).toBe(true);
     expect(screen.getByText(/Courant de marée calculé depuis les atlas/)).toBeTruthy();
     expect(screen.getByText(/^Couvert :/)).toBeTruthy();
     expect(screen.getByText(/source ouverte identifiée$/)).toBeTruthy();
@@ -95,6 +93,11 @@ describe("TidalSourcesMap", () => {
     const box = container.querySelector<HTMLInputElement>("#tidal-source-norkyst800");
     expect(box).not.toBeNull();
     expect(screen.getByText("NorKyst800 (MET Norway)")).toBeTruthy();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    const row = screen.getByText("NorKyst800 (MET Norway)").closest("tr")!;
+    expect(row.querySelector(".methodo-map-badge")?.textContent).toBe("dans la cascade");
     expect(container.querySelector(".methodo-map-propose a")?.getAttribute("href")).toMatch(/^mailto:contact@ohmywind\.fr\?subject=/);
     const before = container.querySelectorAll(".leaflet-overlay-pane path").length;
     await act(async () => {

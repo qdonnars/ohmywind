@@ -142,7 +142,7 @@
     return { label: 'openmeteo_smoc', name: 'Open-Meteo SMOC 8 km (modèle global)', cls: 'global', confidence: 'moyenne' };
   }
 
-  const masks = Object.values(D.masks || {}).flatMap((fc) => fc.features || []);
+  const masks = Object.values(D.masks || {}).flatMap((fc) => (fc.features || []).filter((f) => f.properties.threshold_kt > 0));
   const gaps = (D.gaps && D.gaps.features) || [];
   const gazPts = gaps.filter((f) => f.geometry.type === 'Point');
   const objective = (D.objective && D.objective.features) || [];
