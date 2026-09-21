@@ -338,19 +338,36 @@ export function TidalSourcesMap() {
       return e ? { rank: e.rank ?? 0, resolution_m: e.resolution_m } : null;
     };
     const cascade = cascadeAt(lat, lon, servedRef.current?.atlases ?? [], describe);
+    const chosen = cascade.find((a) => labelNamesAtlas(answerLabel, a)) ?? null;
+    const rankOf = (a: CoverageAtlas) => a.rank ?? byName.get(a.name)?.rank ?? 0;
+    const resOf = (a: CoverageAtlas) => a.resolution_m ?? byName.get(a.name)?.resolution_m ?? null;
+    // Why the cascade passed an atlas over, relative to the one it chose.
+    const reason = (a: CoverageAtlas): string => {
+      if (a.source === "shom") return t("config.methodo.tidal.reason.noShomPoint");
+      if (!chosen) return t("config.methodo.tidal.reason.noCell");
+      if (chosen.source === "shom") return t("config.methodo.tidal.reason.afterShom");
+      if (rankOf(a) < rankOf(chosen)) return t("config.methodo.tidal.reason.lowerRank");
+      const ra = resOf(a);
+      const rc = resOf(chosen);
+      if (ra != null && rc != null && ra > rc) return t("config.methodo.tidal.reason.coarser");
+      return t("config.methodo.tidal.reason.tie");
+    };
+    const SOURCE_NAME: Record<string, string> = { marc: "MARC", bsh: "BSH", cmems: "Copernicus", shom: "SHOM" };
+    const shortName = (a: CoverageAtlas) => {
+      // An older server lists every harmonic atlas as "marc": the name's own
+      // prefix (BSH_DB, CMEMS_NWS) says better.
+      const prefixed = /^(BSH|CMEMS)_/i.exec(a.name);
+      const src = prefixed ? prefixed[1].toLowerCase() : (a.source ?? "");
+      const zone = a.name.replace(new RegExp(`^${src}_`, "i"), "").replace(/_/g, " ");
+      return `${SOURCE_NAME[src] ?? src} ${a.source === "shom" ? zone.toLowerCase() : zone}`;
+    };
     const passedOver = cascade
-      .filter((a) => !labelNamesAtlas(answerLabel, a))
+      .filter((a) => a !== chosen)
       .map((a) => {
-        if (a.source === "shom") return esc(t("config.methodo.tidal.popup.shomZone", { zone: a.name.toLowerCase() }));
-        const e = byName.get(a.name);
-        const res = a.resolution_m ?? e?.resolution_m;
-        const rank = a.rank ?? e?.rank ?? 0;
-        if (res == null) return esc(a.label ?? a.name);
-        // The manifest's human label ends with its own pitch ("Finistère, 250 m"); the row says it once.
-        const human = (e?.label ?? a.label ?? a.name).replace(/,\s*[\d.,]+\s*(m|km)\b.*$/, "");
-        return esc(t("config.methodo.tidal.popup.ignoredAtlas", { label: human, size: formatGridSize(res), rank: String(rank) }));
+        const res = a.source === "shom" ? null : resOf(a);
+        return esc([shortName(a), res == null ? null : formatGridSize(res), reason(a)].filter(Boolean).join(" · "));
       });
-    if (answerLabel !== "openmeteo_smoc") passedOver.push(esc(t("config.methodo.tidal.popup.smoc")));
+    if (answerLabel !== "openmeteo_smoc") passedOver.push(esc(`SMOC · 8 km · ${t("config.methodo.tidal.reason.fallback")}`));
     const inObjective = d?.objective.features.some((f) => pointInGeometry(lon, lat, f.geometry)) ?? false;
     const here = (d?.sources.features ?? [])
       .filter((f) => f.properties.status === "ok" && f.properties.kind !== "station_points" && pointInGeometry(lon, lat, f.geometry))

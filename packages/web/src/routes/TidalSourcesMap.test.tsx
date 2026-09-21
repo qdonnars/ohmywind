@@ -139,7 +139,8 @@ describe("TidalSourcesMap", () => {
     expect(text).toContain("marc_finis_250m");
     // The atlas the cascade passed over at this point, with its grid and rank.
     expect(text).toContain("Aussi disponibles ici, écartées");
-    expect(text).toContain("marc_atlne_2000m, maille 2 km, rang 1");
-    expect(text).not.toContain("marc_finis_250m, maille");
+    expect(text).toContain("MARC ATLNE · 2 km · rang inférieur");
+    expect(text).toContain("SMOC · 8 km · dernier repli");
+    expect(text).not.toContain("MARC FINIS · 250 m");
   });
 });
