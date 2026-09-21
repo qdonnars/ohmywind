@@ -1441,16 +1441,16 @@
     "zone": "États-Unis",
     "status": "ok",
     "kind": "forecast_grid",
-    "resolution_m": 500,
+    "resolution_m": 700,
     "access": "keyless S3 / THREDDS",
     "licence": "Domaine public, NODD",
     "licence_url": "https://registry.opendata.aws/noaa-ofs/",
-    "licence_read_at": "2026-09-19",
+    "licence_read_at": "2026-09-21",
     "derivative_redistribution": "yes",
     "effort": "M",
-    "roadmap_step": 6,
-    "archive": "S3 archive depuis 2022 (noaa-nos-ofs-pds)",
-    "notes": "Modèle 3D (ROMS/FVCOM) horaire, marée incluse ; 40 m à 5 km selon système."
+    "roadmap_step": 5,
+    "archive": "S3 noaa-nos-ofs-pds (fichiers 2ds horaires de surface, sans clé)",
+    "notes": "Spike du 2026-09-21 (spike-noaa-ofs.md, section 10) : ROMS 700 m, 32 jours de la baie de Fundy analysés, Minas Passage 8,1 kt reconstruits. Passamaquoddy, Old Sow et Petit Passage sont fermés dans la grille."
    },
    "geometry": {
     "type": "Polygon",

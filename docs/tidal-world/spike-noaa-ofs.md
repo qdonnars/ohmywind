@@ -372,11 +372,11 @@ aux quarts de grille pour ROMS, `lonc` / `latc` complets pour FVCOM] :
 | **SSCOFS** | Salish Sea, Puget Sound, Columbia | FVCOM, 433 410 triangles, 10 sigma | 58 à 618 m entre centroïdes dans la boîte (médiane 86 m), arête équivalente médiane 163 m | `fields` 210 ; 03 / 09 / 15 / 21 | 2024-09 à aujourd'hui | **fait ici** ; passes de 3 à 9 kt ; rang 2 |
 | **SFBOFS** | baie de San Francisco, Golden Gate, delta | FVCOM, 102 264 triangles, 20 sigma | centroïdes 83 à 767 m, médiane 104 m | `fields` 57 ; 03 / 09 / 15 / 21 | 2024 à aujourd'hui | **le suivant** : Golden Gate 3 à 5 kt [supposé], même script (`--system sfbofs`), blocs à lire sur un gabarit |
 | **NGOFS2** | nord du golfe du Mexique, Texas à Floride | FVCOM, 569 405 triangles | centroïdes 60 m à 5,6 km, médiane 168 m | `2ds` 122 (`u_surface`, `v_surface` sur `nele`), `fields` 646 toutes les 3 h ; 03 / 09 / 15 / 21 | 2023-08 à aujourd'hui | marée diurne faible, moins de 1 kt hors passes [supposé] ; intérêt limité |
-| **CBOFS** | baie de Chesapeake | ROMS, 291 × 332 × 20 | 270 m à 1,5 km selon l'endroit (1,1 × 1,45 km au centre) | `fields` 62 ; 00 / 06 / 12 / 18 | 2022-01 à aujourd'hui (la plus longue) | 1 à 2 kt à l'embouchure et à Hampton Roads [supposé] ; c'était le repli du spike ; rang 1 |
+| **CBOFS** | baie de Chesapeake | ROMS, 291 × 332 × 20, blocs `[1, 10, 146, 166]` non compressés | 270 m à 1,5 km selon l'endroit (1,1 × 1,45 km au centre ; 926 m à l'embouchure, angle 20,7°) | `fields` 62 ; 00 / 06 / 12 / 18 | 2022-01 à aujourd'hui (la plus longue) | 1 à 2 kt à l'embouchure et à Hampton Roads [supposé] ; **chemin ROMS vérifié sur une heure** (section 10h, 0,13 Mo par heure par `Range` sur l'embouchure) ; rang 1 |
 | **DBOFS** | baie et fleuve Delaware | ROMS, 732 × 119 × 10 | 100 m à 1,6 km (102 × 398 m au centre) | `fields` 32 ; 00 / 06 / 12 / 18 | 2024 à aujourd'hui | 1 à 2 kt dans le chenal [supposé] ; rang 1 à 2 |
 | **TBOFS** | baie de Tampa | ROMS, 290 × 176 × 11 | 120 à 340 m | `fields` 20 ; 00 / 06 / 12 / 18 | 2024 à aujourd'hui | courants faibles sauf Egmont Channel [supposé] ; intérêt faible |
-| **GoMOFS** | golfe du Maine, baie de Fundy, Georges Bank | ROMS, 777 × 1 173 | 700 m uniforme (695 à 699 m aux trois points) | `2ds` 171 (`u_sur`, `v_sur`), `fields` 737 toutes les 3 h ; 00 / 06 / 12 / 18 | 2024 à aujourd'hui | **prioritaire après SFBOFS** : Fundy, Minas, Grand Manan, 3 à 8 kt [supposé], aucune autre source ouverte (WebTide bloqué) ; rang 1 à 700 m |
-| **CIOFS** | Cook Inlet, Alaska | ROMS, 1 044 × 724 × 30 | 78 à 852 m | `fields` 588 ; 00 / 06 / 12 / 18 | 2024 à aujourd'hui | marnage de 8 m, courants de 4 à 6 kt, mascaret de Turnagain [supposé] ; 588 Mo par heure, faisable seulement par lectures partielles |
+| **GoMOFS** | golfe du Maine, baie de Fundy, Georges Bank | ROMS, 777 × 1 173 × 30, `2ds` en un bloc non compressé par champ | **700 m uniforme** (699,9 à 700,3 m par `pm` / `pn` dans la boîte de Fundy), rotation uniforme de 32,0° | `2ds` 171 (`u_sur`, `v_sur`, `wetdry_mask_rho`), `fields` 737 toutes les 3 h ; 00 / 06 / 12 / 18 | 2024-07 à aujourd'hui | **fait, section 10** : Minas Passage 8 à 9 kt et Cape d'Or 6 kt [vérifié dans le modèle, 8 kt publiés à Minas Passage [supposé]], mais Passamaquoddy, Head Harbour, Lubec et Petit Passage fermés à 700 m ; rang 1 à 700 m (déduit de la maille), `medium` |
+| **CIOFS** | Cook Inlet, Alaska | ROMS, 1 044 × 724 × 30, blocs `[1, 10, 348, 241]` non compressés, `wetdry_mask_rho` | 37 à 616 m sur le domaine (médiane 175 × 205 m), 79 à 298 m autour d'Anchorage, angle de −75° à +47° | `fields` 588 ; 00 / 06 / 12 / 18 | 2024-06 à aujourd'hui | marnage de 8 m, courants de 4 à 6 kt, mascaret de Turnagain [supposé] ; **chemin ROMS vérifié sur une heure** (section 10h, 3,6 Mo par heure par `Range` sur Anchorage, 6,0 kt de surface vus, 12 841 cellules à sec) |
 | **WCOFS** | côte ouest, Californie à Colombie-Britannique | ROMS, 1 016 × 348 | 3,8 à 4,2 km | `2ds` 74, `fields` 354 toutes les 3 h ; un cycle 03 avec `n001` à `n024` | 2024 à aujourd'hui | bassin, marée faible au large ; rang 0 au mieux, FES2014 suffit |
 | **NYOFS** | port de New York | ancien nommage (`fields.nowcast.nc` de 5,8 Mo par cycle, cycles 05 / 11 / 17 / 23) | non lue | par cycle | 2024 à aujourd'hui | Hell Gate 4 à 5 kt [supposé] ; format à part, à regarder après SFBOFS et GoMOFS |
 | **SJROFS** | St. Johns River, Floride | ancien nommage (`fields.nowcast.nc` de 13 Mo par cycle) | non lue | par cycle | 2022-03 à aujourd'hui | fleuve, sans intérêt pour la voile |
@@ -390,14 +390,14 @@ Lecture : trois systèmes valent un atlas au rang 1 ou 2 après SSCOFS
 (SFBOFS, GoMOFS, CIOFS), deux au rang 1 pour la côte est (CBOFS, DBOFS),
 NYOFS pour Hell Gate si son format se lit ; le reste est sans marée
 (lacs), au large (WCOFS) ou fluvial. Le script gère les systèmes FVCOM
-(vitesses aux centroïdes, dimension `nele`, `siglay`) ; ROMS demande un
-second chemin de lecture (grille C, `u[eta_u, xi_u]` et `v[eta_v, xi_v]` à
-recentrer sur `rho` et à tourner par `angle`, couche de surface au dernier
-indice de `s_rho`) que ni ce script ni `build_norkyst_atlas.py` (variables
-déjà tournées) ne font ; `OFS_Grid_Datum/<sys>.romsgrid.nc` fournit
-`angle` [vérifié que les fichiers existent, contenu non lu]. Les fichiers
-`2ds` de GoMOFS et WCOFS (`u_sur`, `v_sur`) évitent au moins la question
-de la couche.
+(vitesses aux centroïdes, dimension `nele`, `siglay`) et, depuis la
+section 10, les systèmes ROMS (grille C, `u[eta_u, xi_u]` et
+`v[eta_v, xi_v]` recentrés sur `rho` et tournés par `angle`, couche de
+surface au dernier indice de `s_rho` dans les fichiers `fields`, ou `u_sur`
+/ `v_sur` dans les fichiers `2ds` de GoMOFS) ; `angle`, `mask_rho`, `pm` et
+`pn` sont dans chaque fichier horaire, `OFS_Grid_Datum/<sys>.romsgrid.nc`
+n'est pas nécessaire [vérifié sur GoMOFS, CBOFS et CIOFS]. WCOFS (`2ds`, un
+cycle 03 avec `n001` à `n024`) n'est pas câblé.
 
 ## 7. Limites
 
@@ -484,8 +484,8 @@ la Salish Sea :
 Ordre proposé pour l'étape 5 de la roadmap : SSCOFS entier (Salish Sea
 jusqu'à Vancouver, un an, `validity_bbox` hors Columbia et hors large),
 puis SFBOFS (même chemin FVCOM), puis GoMOFS par ses fichiers `2ds` (chemin
-ROMS de surface à écrire, la baie de Fundy n'a pas d'autre source ouverte),
-puis CIOFS. CIOPS d'ECCC reste utile pour la côte canadienne au nord de
+ROMS écrit et vérifié en section 10, la baie de Fundy n'a pas d'autre
+source ouverte), puis CIOFS. CIOPS d'ECCC reste utile pour la côte canadienne au nord de
 la Salish Sea.
 
 ## 9. Fichiers produits (non trackés, sauf le script et ce document)
@@ -493,7 +493,8 @@ la Salish Sea.
 - `scripts/build_ofs_atlas.py` : téléchargement par `Range` et
   construction (ruff propre), options `--system`, `--template-key`,
   `--layer`, `--reach-factor`, `--min-reach-m`, `--reference-harcon`,
-  `--confidence`.
+  `--confidence` ; chemins FVCOM et ROMS (section 10), `--help` documente
+  les deux.
 - `build/ofs/sscofs/raw/sscofs.t03z.20260910.fields.n001.nc` : le gabarit,
   210 Mo.
 - `build/ofs/sscofs/layout.json` : offsets de bloc, dtypes, taille du
@@ -508,3 +509,441 @@ la Salish Sea.
 - `build/ofs/sscofs/download.log`, `build.log`, `build_harcon.log`,
   `compare_fes.json`, `validation_noaa.json`,
   `validation_noaa_harcon.json`, `box_elements.npy`.
+- Section 10 (GoMOFS, chemin ROMS) :
+  `build/ofs/gomofs/raw/gomofs.t00z.20260919.2ds.n001.nc`, le gabarit de
+  171 Mo ; `build/ofs/gomofs/layout.json` (offsets, fenêtre de lignes,
+  variables, époque ; réécrit par le dernier téléchargement, celui de la
+  boîte du Maine) ; `build/ofs/gomofs/gomofs_fundy_AAAAMMJJ.nc`, 32
+  fichiers de 5,8 Mo (184 Mo, du 2026-08-19 au 2026-09-19, `u`, `v`,
+  `wet` sur `[time, cell]` avec `lonc`, `latc`, `element`, `eta`, `xi`,
+  `angle_deg`, `edge_m`, `depth_m`) ; `gomofs_maine_AAAAMMJJ.nc`, 32
+  fichiers de 2,4 Mo et `gomofs_stellwagen_AAAAMMJJ.nc`, 32 fichiers de
+  0,8 Mo (boîtes de contrôle) ; `build/ofs/gomofs/atlas/GOMOFS_FUNDY/`
+  (inférence FES, 24 tuiles, 7,9 Mo), `atlas_harcon/GOMOFS_FUNDY/`
+  (inférence EPT0003), `atlas_maine/GOMOFS_MAINE/` (6 tuiles, 2,8 Mo),
+  `atlas_stellwagen/GOMOFS_STELLWAGEN/` (4 tuiles, 1,0 Mo) ;
+  `download.log`, `download_maine.log`, `download_stellwagen.log`,
+  `build.log`, `build_harcon.log`, `build_maine.log`,
+  `build_stellwagen.log`, `validation_noaa_fundy.json`,
+  `validation_noaa_maine.json`, `validation_noaa_stellwagen.json`,
+  `compare_fes_fundy.json`, `compare_fes_maine.json`, `passes_fundy.json` ;
+  455 Mo au total, gabarit compris.
+
+## 10. Chemin ROMS : GoMOFS et la baie de Fundy
+
+Suite du 2026-09-21, même branche, même règle (rien de publié). Question :
+le second chemin de lecture annoncé en section 6 (grille C de ROMS, `u` et
+`v` décalés et tournés par `angle`) tient-il dans le même script, et
+GoMOFS (golfe du Maine, ROMS à 700 m) donne-t-il un atlas utilisable sur la
+baie de Fundy, où aucune autre source ouverte ne répond ? Bout à bout sur une
+boîte de 1,3° × 4° (44,4° à 45,7° N, −67,3° à −63,3° E : Passamaquoddy,
+Grand Manan, Minas Channel, Minas Passage et Minas Basin), 32 jours de
+nowcast, puis deux boîtes de contrôle, la côte du Maine (43,55° à 44,8° N,
+−70,3° à −68,6° E : Casco Bay, Portland, Penobscot Bay) et Stellwagen Bank
+(42,25° à 42,6° N, −70,6° à −70,0° E, eau libre), parce que la boîte de
+Fundy ne contient aucune station CO-OPS en eau dans le modèle.
+
+Réponse courte : oui pour le chemin, oui avec réserve pour Fundy. Les
+fichiers `2ds` de GoMOFS (171 Mo par heure, surface seule, un bloc HDF5 non
+compressé par champ) se lisent par `Range` à **4,07 Mo par heure** (les
+289 lignes de la boîte dans `u_sur`, `v_sur` et `wetdry_mask_rho`), soit
+**768 heures en 15,4 minutes, 3,1 Go sur le fil, 184 Mo sur disque, analyse
+en 3 s, atlas de 7,9 Mo** pour 29 854 cellules de 700 m. Le modèle donne
+**8,1 kt à Minas Passage** (9,3 kt à moins de 5 km, contre 8 kt publiés
+[supposé]), 6,1 kt à Cape d'Or, 2,7 kt dans le Grand Manan Channel. Mais à
+700 m, GoMOFS **ferme la baie de Passamaquoddy** : Old Sow, Western Passage,
+Head Harbour Passage, Cobscook et la Saint-Croix sont de la terre ou de
+l'eau morte, les cinq stations CO-OPS de la boîte (Eastport, Robbinston,
+Friar Roads, Kendall Head, Frost Ledge) sont à 3 à 13 km de la première
+maille en eau, et l'atlas n'y répond pas. La validation harmonique se fait
+donc sur la boîte du Maine : direction et phase justes dans les chenaux
+de Casco Bay (azimut M2 à 0° et 1° près à Eagle Island et Cow Island) mais
+amplitude 3 à 7 fois trop faible, parce que le modèle y ferme aussi les
+baies intérieures ; et sur une troisième boîte en eau libre, les six
+stations de Stellwagen Bank donnent **M2 à 0,88 à 1,21 fois la valeur
+publiée** à cinq stations (1,83 sur la crête du banc), azimut et phase à
+4° près à la station la mieux placée. Le même chemin lit sans
+modification les fichiers `fields` de CBOFS et CIOFS (vérifié sur une
+heure de chacun, à l'octet près contre une lecture locale).
+
+### 10a. Dépôt et fichiers [vérifié par listing S3 le 2026-09-21]
+
+- `gomofs/netcdf/2026/09/19/` contient **529 objets** : par cycle 00, 06,
+  12 et 18 UTC, `2ds.n001` à `n006` (6 nowcast) et `2ds.f001` à `f072`
+  (72 prévision), `fields.n003` et `n006` (nowcast toutes les 3 h
+  seulement) et `fields.f003` à `f072`, `regulargrid` au même rythme que
+  `fields`, `stations.nowcast.nc` (4,9 Mo) et `stations.forecast.nc`
+  (56,8 Mo). Tailles : **`2ds` 171 414 927 octets**, `fields` 737 Mo,
+  `regulargrid` 537 Mo. Les 32 jours du 2026-08-19 au 2026-09-19 ont chacun
+  leurs 24 fichiers `2ds` nowcast, tous de la même taille (768 fichiers,
+  aucune anomalie).
+- Un fichier `2ds` [vérifié par h5py sur `gomofs.t00z.20260919.2ds.n001.nc`,
+  171 Mo téléchargé en 7,8 s] : NetCDF-4, attribut `type` « ROMS/TOMS
+  quicksave file », ROMS 4.2 (paquet NOS `nosofs.v3.6.15`, dépôt
+  `NOAA-CO-OPS/2024-NOS-Code-Package_v3.6.0`), Conventions CF-1.4 et
+  SGRID-0.3, `grd_file gomofs.romsgrid.nc`. Treize champs 2D dépendant du
+  temps, chacun en **un seul bloc de 3,6 Mo, sans compression** :
+  `zeta`, `u_sur` `[1, 777, 1172]`, `v_sur` `[1, 776, 1173]`, `temp_sur`,
+  `salt_sur`, `Pair`, `Uwind`, `Vwind`, `Tair`, `wetdry_mask_rho` / `_u` /
+  `_v` / `_psi` ; `ocean_time` en un bloc de 4 096 octets, unités
+  « seconds since 2016-01-01 00:00:00 » (et non 2018 comme FVCOM ; le script
+  lit maintenant l'époque dans l'attribut `units`). La grille est dans le
+  fichier, en float64 contigu de 7,3 Mo chacun : `lon_rho`, `lat_rho`,
+  `angle`, `mask_rho`, `h`, `pm`, `pn`, plus les variantes `u`, `v`, `psi`.
+  `OFS_Grid_Datum/gomofs.romsgrid.nc` (219 Mo) existe mais n'est pas
+  nécessaire. `u_sur` porte `_FillValue 1e37` sur les faces masquées et
+  `location edge1`. 30 niveaux `s_rho`, `Vtransform 2`, `theta_s 5`,
+  `hc 50` ; la couche de surface a `s_rho −0,0167` et `Cs_r −5,8e−5`, soit
+  un centre à 0,5 m sous la surface par 75 m d'eau [vérifié par la formule
+  de Vtransform 2].
+- Convention des heures [vérifié] : `t00z n001` porte `ocean_time` =
+  2026-09-18 19:00 UTC, donc `n001` à `n006` couvrent `HH−5` à `HH` comme
+  pour SSCOFS ; un jour UTC de GoMOFS va de 19:00 la veille à 18:00.
+
+### 10b. Grille [vérifié sur le gabarit]
+
+- **777 × 1 173 points rho**, −73,04° à −61,25° E, 38,54° à 46,18° N,
+  80,8 % d'eau ; **pas uniforme de 700 m** (`1/pm` et `1/pn` entre 699,9 et
+  700,3 m dans la boîte, percentiles 5 à 95 tous à 700 m) ; **rotation
+  uniforme de 32,00°** (`angle` entre 31,99° et 32,01° sur tout le domaine).
+- La boîte de Fundy est le **coin nord-est de la grille** : lignes `eta`
+  488 à 776 (la dernière), colonnes `xi` 705 à 1 172 (la dernière), 82 222
+  points rho dont **30 739 en eau** (`mask_rho = 1`). Profondeur médiane
+  71 m, maximum 224 m.
+- Passamaquoddy [vérifié] : sur 1 352 points rho entre 44,85° et 45,1° N,
+  −67,15° et −66,85° E, **300 seulement sont en eau**. Le point rho le plus
+  proche d'Estes Head (Eastport) est à terre, la première maille en eau à
+  6,0 km ; Robbinston 13,0 km ; Friar Roads 4,4 km ; Kendall Head 3,2 km ;
+  Frost Ledge 4,6 km ; Old Sow 3,1 km ; Lubec Narrows 5,0 km. Petit Passage
+  (Digby Neck) est fermé aussi (première eau à 1,7 km). Head Harbour Passage
+  et Letete Passage ont une maille en eau à 150 à 175 m, mais isolée de la
+  baie fermée, donc sans courant (0,4 kt, section 10e).
+- Ce que le script fait [vérifié dans `read_template_roms`,
+  `fetch_hour_roms`, `_to_rho`, `_rotate`] :
+  1. gabarit : `lon_rho`, `lat_rho`, `angle`, `mask_rho`, `h`, `pm`, `pn`
+     lus par h5py ; cellules = points rho en eau dans la boîte ; fenêtre de
+     lignes `[eta0, eta1]` ; offsets de bloc de `ocean_time`, `u_sur`,
+     `v_sur`, `wetdry_mask_rho` par `get_chunk_info`. Pour un fichier
+     `fields` (CBOFS, CIOFS), la variable est `u[1, s_rho, eta, xi]` en blocs
+     `[1, k, ce, cx]` et la couche lue est la dernière (`s_rho − 1`, la
+     surface) ; `--layer n` compte depuis la surface, comme pour FVCOM ;
+  2. par heure : `ocean_time` sur 8 octets (contrôle de la taille par
+     `Content-Range` et de l'heure à la seconde, sinon fichier entier par
+     netCDF4, chemin jamais emprunté ici) ; puis, dans chaque bloc qui
+     rencontre la fenêtre de lignes, les lignes de la couche de surface,
+     contiguës sur toute la largeur du bloc (`cx`, y compris le rembourrage
+     des blocs de bord), coupées aux colonnes valides après lecture ;
+     `u_sur` lignes 488 à 776 (1 354 832 octets), `v_sur` lignes 487 à 775
+     (`v` est sur les faces entre lignes, il faut la ligne du dessous),
+     `wetdry_mask_rho` lignes 488 à 776 ; **4,07 Mo et 4 requêtes par
+     heure** ;
+  3. `1e37` → NaN ; `u` moyenné sur les deux faces `xi` de chaque cellule
+     rho et `v` sur ses deux faces `eta`, **en ignorant la face masquée**
+     (une cellule côtière prend la valeur de sa face ouverte plutôt que la
+     moitié ; les outils ROMS usuels moyennent avec zéro sur le mur, ce qui
+     sous-estime la cellule de bord de moitié [supposé que la valeur de la
+     face ouverte est le meilleur estimateur pour un atlas de passe]) ; les
+     bords de grille gardent leur face unique ;
+  4. rotation : `est = u cos a − v sin a`, `nord = u sin a + v cos a` avec
+     l'`angle` de chaque cellule (32° ici, mais −75° à +47° sur CIOFS, où
+     l'angle par cellule compte) ;
+  5. `mask_rho = 0` : jamais dans l'index ; `wetdry_mask_rho = 0` : NaN pour
+     l'heure ; en 32 jours **aucune cellule de la boîte n'a été à sec**
+     (`n_samples` minimum 768), les bancs de Minas Basin sont masqués en
+     dur dans `mask_rho` [supposé] ;
+  6. fichiers journaliers au format exact du chemin FVCOM (`u`, `v`, `wet`
+     sur `[time, cell]`, `lonc`, `latc`, `element` = indice plat
+     `eta × 1173 + xi`, `edge_m` = √(dx·dy) = 700 m, `depth_m`) plus
+     `eta`, `xi`, `angle_deg` et les attributs `native_grid`, `staggering`,
+     `vertical_detail`, `wet_dry_source` ; le build ne change pas, il lit
+     ces attributs pour `metadata.json`.
+- Contrôle [vérifié] : sur le gabarit lui-même, la lecture par `Range`
+  depuis le seau et la lecture locale netCDF4 du fichier entier donnent des
+  vitesses est et nord **identiques à l'octet près** (écart maximal 0,0)
+  sur les 30 739 cellules, même masque de NaN ; idem sur CBOFS (1 506
+  cellules de l'embouchure de la Chesapeake, blocs 2 × 2 avec rembourrage,
+  couche 19) et CIOFS (78 860 cellules de Cook Inlet, 9 blocs de surface
+  sur 27, masque à sec de 12 841 cellules retrouvé à l'identique).
+- Le chemin FVCOM est inchangé : SSCOFS reconstruit dans un répertoire de
+  travail donne 92 322 cellules, 9 tuiles et un `metadata.json` identique
+  (hors horodatage) à celui de la section 3 [vérifié].
+
+### 10c. Volumes et temps [vérifié, `build/ofs/gomofs/download.log`, `build.log`]
+
+- gabarit `gomofs.t00z.20260919.2ds.n001.nc` : **171 Mo en 7,8 s** ;
+- 32 jours du 2026-08-19 au 2026-09-19 (768 heures, du 2026-08-18 19:00 au
+  2026-09-19 18:00 UTC), **98 Mo fetchés par jour, 3 136 Mo au total, 927 s
+  de transfert (15,4 min), 29 s par jour** avec 0,2 s de pause entre les
+  heures, 96 requêtes par jour ; **0 fichier entier, 0 relance, 0 heure
+  manquante** ; 32 fichiers de 5,8 Mo, **184 Mo sur disque** (zlib 4) ;
+- analyse harmonique : **2,8 s** (30 739 cellules × 768 h × 2 composantes,
+  13 constituants résolus, 4 inférés) ;
+- atlas `GOMOFS_FUNDY` : **29 854 cellules à 0,2 kt ou plus, 24 tuiles de
+  0,5°, 7,87 Mo** (264 octets par cellule).
+
+Commandes (depuis la racine du dépôt) :
+
+```
+env -u VIRTUAL_ENV uv run --with xarray --with netCDF4 --with h5py --with httpx \
+  --with numpy --with polars --with pyarrow --with scipy --with-editable packages/data-adapters \
+  scripts/build_ofs_atlas.py --download --no-build --system gomofs --start 2026-08-19 --days 32 \
+  --bbox 44.4 -67.3 45.7 -63.3 --source-dir build/ofs/gomofs --zone fundy \
+  --template-key gomofs/netcdf/2026/09/19/gomofs.t00z.20260919.2ds.n001.nc
+
+env -u VIRTUAL_ENV uv run --with xarray --with netCDF4 --with h5py --with httpx \
+  --with numpy --with polars --with pyarrow --with scipy --with-editable packages/data-adapters \
+  scripts/build_ofs_atlas.py --system gomofs --source-dir build/ofs/gomofs --zone fundy \
+  --atlas-id GOMOFS_FUNDY --output-dir build/ofs/gomofs/atlas/GOMOFS_FUNDY \
+  --bbox 44.4 -67.3 45.7 -63.3 --resolution-m 700 --dlat-deg 0.0063 --dlon-deg 0.0089 \
+  --reference-atlas-dir build/fes/atlas --confidence medium --min-speed-kt 0.2
+
+env -u VIRTUAL_ENV uv run --with xarray --with netCDF4 --with h5py --with httpx \
+  --with numpy --with polars --with pyarrow --with scipy --with-editable packages/data-adapters \
+  scripts/build_ofs_atlas.py --system gomofs --source-dir build/ofs/gomofs --zone fundy \
+  --atlas-id GOMOFS_FUNDY --output-dir build/ofs/gomofs/atlas_harcon/GOMOFS_FUNDY \
+  --bbox 44.4 -67.3 45.7 -63.3 --resolution-m 700 --dlat-deg 0.0063 --dlon-deg 0.0089 \
+  --reference-harcon EPT0003:4 --confidence medium --min-speed-kt 0.2
+
+env -u VIRTUAL_ENV uv run --with xarray --with netCDF4 --with h5py --with httpx \
+  --with numpy --with polars --with pyarrow --with scipy --with-editable packages/data-adapters \
+  scripts/build_ofs_atlas.py --download --no-build --system gomofs --start 2026-08-19 --days 32 \
+  --bbox 43.55 -70.3 44.8 -68.6 --source-dir build/ofs/gomofs --zone maine \
+  --template-key gomofs/netcdf/2026/09/19/gomofs.t00z.20260919.2ds.n001.nc
+
+env -u VIRTUAL_ENV uv run --with xarray --with netCDF4 --with h5py --with httpx \
+  --with numpy --with polars --with pyarrow --with scipy --with-editable packages/data-adapters \
+  scripts/build_ofs_atlas.py --system gomofs --source-dir build/ofs/gomofs --zone maine \
+  --atlas-id GOMOFS_MAINE --output-dir build/ofs/gomofs/atlas_maine/GOMOFS_MAINE \
+  --bbox 43.55 -70.3 44.8 -68.6 --resolution-m 700 --dlat-deg 0.0063 --dlon-deg 0.0089 \
+  --reference-atlas-dir build/fes/atlas --confidence medium --min-speed-kt 0.2
+```
+
+### 10d. Rééchantillonnage, inférence, métadonnées [vérifié, `metadata.json`]
+
+- **Pas de sortie 700 m**, le pas natif : `--dlat-deg 0.0063` (701 m) et
+  `--dlon-deg 0.0089` (700 m à 45,05° N). Plus fin ne créerait que des
+  copies (le plus proche voisin d'une grille tournée de 32° ne contient
+  rien entre deux points rho), plus grossier perdrait des cellules
+  côtières. Une grille régulière de 207 × 450 = 93 150 cellules, **30 666 à
+  portée** d'un point rho (portée `0,75 × 700 = 525 m`, au-delà de la
+  demi-diagonale de 495 m : l'intérieur est couvert sans trou, le trait de
+  côte tombe à la maille près) pour 30 739 points rho en eau, distance
+  médiane 279 m, p90 393 m ; **29 854 au-dessus de 0,2 kt (97,4 %)**.
+  `resolution_m 700` et `effective_resolution_m 700` (médiane de `edge_m`).
+- **Inférence** : `FES_GLOBAL` répond au centre du domaine (cellule
+  44,9375° N, −65,6875° E, M2 1,70 kt) et donne K2/S2 0,289 et 5,1°, P1/K1
+  0,305 et 4,7°, NU2/N2 0,256 et 1,3°, MU2/M2 0,004 et 77,8°. La variante
+  `atlas_harcon/` (station **EPT0003 Estes Head bin 4, 23,7 m**, la seule
+  station harmonique du régime de Fundy même si le modèle n'y a pas d'eau)
+  donne 0,290 et 357,8°, 0,323 et 0,7°, 0,249 et 1,3°, 0,015 et 71,6° :
+  les deux références concordent à 1 % près sur K2 et NU2, à 6 % sur P1,
+  et les deux atlas ne diffèrent que de 2 cellules et de 0,6 % sur le
+  maximum (9,31 contre 9,37 kt). L'atlas retenu est celui de FES, tel que
+  spécifié ; MK4 reste absent.
+- `metadata.json` : `rank 1` (déduit de la maille, section 10g), `resolution_m 700`, `confidence "medium"`,
+  `source.short "gomofs"` (label runtime `gomofs_fundy_700m`), `label "NOAA
+  GOMOFS (ROMS), fundy"`, `source.product
+  "gomofs.tHHz.YYYYMMDD.2ds.nNNN.nc"`, `grid.regrid.native.type
+  "structured_curvilinear_c_grid"` avec `staggering` et `wet_dry_source
+  "wetdry_mask_rho"`, `vertical "surface"` et `vertical_detail "surface
+  layer of ROMS (u_sur; s_rho -0.0167, Cs_r -5.76e-05)"`, licence et
+  attribution identiques à SSCOFS (domaine public, textes lus le
+  2026-09-21, mention « modifié, non endossé ») avec la précision « C-grid
+  velocities averaged onto rho points and rotated to east / north » dans
+  la liste des modifications, `analysis.mean_is_weather false` (767 h),
+  `dry_cells_masked true`, `coverage.geojson` sur la boîte,
+  colonne `max_speed_kn`.
+- Distribution du courant de marée maximal [vérifié] : médiane 2,13 kt,
+  p90 2,92 kt, p99 4,76 kt, **maximum 9,31 kt** à 45,3506° N, −64,4850° E
+  (Minas Passage, côté Cape Split) ; 26 506 cellules à 1 kt ou plus,
+  17 272 à 2 kt, 2 544 à 3 kt, 619 à 4 kt, 240 à 5 kt, 91 à 6 kt, 59 à
+  7 kt. Courant moyen `z0` : médiane 0,18 kt, p90 0,49 kt, maximum 1,71 kt.
+  La baie de Fundy entière dépasse 2 kt sur 58 % de ses cellules : c'est
+  la marée la plus forte de toute la cascade.
+
+### 10e. Validation
+
+Stations CO-OPS [vérifié sur
+`mdapi/prod/webapi/stations.json?type=currentpredictions`, `harcon.json`
+par station et bin publié (`currbin`), `datagetter?product=currents_predictions&interval=MAX_SLACK`
+du 2026-03-01 au 2026-03-16 UTC, `build/ofs/gomofs/validation_noaa_fundy.json`
+et `validation_noaa_maine.json`] :
+
+**Boîte de Fundy** : deux stations harmoniques (EPT0003 Estes Head,
+Eastport, M2 2,01 kt à 23,7 m ; EPT0004 Robbinston, Saint-Croix, M2
+0,79 kt) et trois subordonnées (ACT0091 Friar Roads, 3,5 kt de jusant
+publié ; ACT0101 Western Passage off Kendall Head, 3,8 kt ; ACT0106 off
+Frost Ledge, 2,4 kt). **Aucune n'est servie** (`cell_at` répond `None`) :
+le point rho le plus proche est à terre pour les cinq, la première maille
+en eau est à 3,2 à 13,0 km et, sous 5 km (le seuil du registre,
+`max(5 km, 5 × 700 m)`), les mailles en eau de l'entrée de Passamaquoddy
+sont sous 0,2 kt et écartées par le filtre (maximum brut sur 32 jours de
+0,22 à 0,85 kt aux mailles les plus proches). Une passe à 9,3 kt dans la
+littérature est absente de l'atlas [vérifié] : c'est le cas
+`currents.pass_unresolved` par excellence, à inscrire dans
+`tidal_gaps.geojson` pour `gomofs_fundy_700m` (Old Sow / Western Passage,
+Head Harbour Passage, Lubec Narrows, Petit Passage).
+
+**Boîte du Maine** (atlas `atlas_maine/GOMOFS_MAINE`, même méthode, FES au
+centre) [vérifié, `validation_noaa_maine.json`] :
+
+| Station (bin, profondeur) | Première maille en eau ; cellule servie (distance) | M2 atlas / NOAA (kt) | Azimut atlas / NOAA | Phase atlas / NOAA | Max reconstruit / flot / jusant NOAA (kt) | Brut 32 j à la maille la plus proche (kt) |
+|---|---|---|---|---|---|---|
+| PEB0610 Fort Point Ledge, Penobscot Bay (21,6 m) | 293 m ; **aucune** (maille sous 0,2 kt, écartée) | / 0,89 | / 72° | / 359° | / 1,51 / 0,90 | 0,19 |
+| PEB0611 Hosmer Ledge, Castine (16,0 m) | 1 712 m ; 2 354 m | 0,16 / 1,12 (0,14) | 341° / 59° (78°) | 10° / 20° (−11°) | 0,21 / 1,38 / 1,28 | 0,28 |
+| CAB1401 Portland Harbor Entrance (11,6 m) | 112 m ; **aucune** (écartée) | / 0,63 | / 315° | / 18° | / 0,72 / 1,17 | 0,45 |
+| CAB1416 Eagle Island, Broad Sound (27,8 m) | 351 m ; 344 m | 0,19 / 0,86 (0,22) | **349° / 349° (0°)** | **11° / 9° (+2°)** | 0,30 / 1,47 / 0,73 | 0,64 |
+| CAB1402 Spring Point (11,1 m) | 2 344 m ; aucune | / 0,72 | / 322° | / 14° | / 1,07 / 0,77 | 0,46 |
+| CAB1404 Diamond Island Roads (10,2 m) | 2 391 m ; aucune | / 0,33 | / 356° | / 15° | / 0,41 / 0,70 | 0,46 |
+| CAB1410 Hussey Sound, Long et Peaks (21,3 m) | 281 m ; 3 545 m | 0,08 / 0,81 (0,10) | 28° / 315° (−74°) | 315° / 18° (−63°) | 0,20 / 1,10 / 0,76 | 0,46 |
+| CAB1412 Hussey Sound, Cow Island (17,3 m) | 2 125 m ; 4 098 m | 0,12 / 0,79 (0,15) | **17° / 16° (−1°)** | 339° / 19° (−40°) | 0,21 / 0,85 / 1,27 | 0,44 |
+| CAB1413 Cow Island NE (12,0 m) | 2 652 m ; 4 369 m (même cellule) | 0,12 / 0,51 (0,24) | 17° / 342° (−35°) | 339° / 4° (−25°) | 0,21 / 0,67 / 1,19 | 0,44 |
+| CAB1414 Lucksee Sound (12,2 m) | 169 m ; 297 m | 0,14 / 0,48 (0,29) | 15° / 50° (34°) | 341° / 47° (−66°) | 0,24 / 0,53 / 0,61 | 0,71 |
+| CAB1415 Stepping Stones (12,9 m) | 245 m ; 1 030 m | 0,12 / 0,38 (0,32) | 17° / 351° (−26°) | 339° / 3° (−24°) | 0,21 / 0,47 / 0,53 | 0,68 |
+| CAB1409 Chandler Cove (11,2 m) | 101 m ; 1 349 m (même cellule que Lucksee) | 0,14 / 0,54 (0,26) | 15° / 7° (−8°) | 341° / 3° (−22°) | 0,24 / 0,65 / 0,89 | 0,44 |
+
+Lecture : **la direction et la phase sont bonnes, l'amplitude est
+fausse d'un facteur 3 à 7 dans les chenaux.** Là où l'atlas a une cellule à
+moins de 400 m (Eagle Island, Lucksee Sound), l'azimut du grand axe M2
+tombe à 0° et 34° près et la phase à 2° près à Eagle Island : le décalage
+et la rotation de 32° sont justes (une rotation manquante donnerait 32°
+d'écart systématique). Mais M2 vaut 0,10 à 0,32 fois la valeur publiée et
+le maximum reconstruit 0,2 à 0,3 kt contre 0,5 à 1,5 kt publiés. Toutes
+ces stations sont dans des chenaux de 0,5 à 2 km entre les îles de Casco
+Bay ou à l'embouchure de la Penobscot : à 700 m le modèle ferme les baies
+intérieures (Portland Harbor, Back Cove, Penobscot River), il n'y a plus de
+prisme de marée à remplir et le courant de chenal disparaît ; le maximum
+brut sur 32 jours (0,44 à 0,71 kt) y dépasse d'ailleurs le maximum de marée
+reconstruit (0,2 à 0,3 kt), signe que la surface y est surtout portée par
+le vent [supposé]. Les stations sans cellule (Fort Point Ledge, Portland
+Harbor Entrance, Spring Point, Diamond Island Roads) ont leur maille à
+moins de 2,4 km mais sous 0,2 kt de marée, écartée par le filtre. En eau
+libre, l'atlas du Maine vaut 1,16 fois FES2014 sur M2 (400 points,
+`compare_fes_maine.json`, médiane, p10 0,71, p90 2,12 ; référence 0,17 kt)
+et l'atlas de Fundy 1,24 fois (p10 0,36, p90 1,51, référence 1,46 kt,
+inclinaison à 12° près, phase à +5°) [vérifié] : la marée du modèle est
+juste au large et en surface, plus forte que la moyenne verticale de FES
+comme attendu. Ce que cette boîte valide, c'est le chemin de lecture ;
+ce qu'elle mesure, c'est la limite du modèle dans les chenaux, la même
+qu'à Passamaquoddy.
+
+**Boîte de Stellwagen Bank** (42,25° à 42,6° N, −70,6° à −70,0° E, eau
+libre de 30 à 140 m au large de Boston ; 82 lignes, 1,16 Mo par heure, 896 Mo
+en 838 s ; atlas `atlas_stellwagen/GOMOFS_STELLWAGEN`, 3 802 cellules, 4
+tuiles, 1,0 Mo, FES au centre) [vérifié, `validation_noaa_stellwagen.json`] :
+
+| Station (bin, profondeur) | Cellule servie | M2 atlas / NOAA (kt) | Azimut atlas / NOAA | Phase atlas / NOAA | S2 / N2 / K1 atlas (NOAA) | Max reconstruit / flot / jusant NOAA (kt) | Brut 32 j |
+|---|---|---|---|---|---|---|---|
+| BOS1135, 17 nmi ESE d'Eastern Point (93,8 m) | 267 m | 0,35 / 0,29 (1,21) | 261° / 297° (36°) | 45° / 354° (+51°) | 0,03 (0,04) / 0,06 (0,06) / **0,16 (0,01)** | 0,56 / 0,31 / 0,39 | 1,14 |
+| BOS1133, 13,4 nmi SE (21,6 m) | 215 m | 0,38 / 0,43 (0,88) | 260° / 227° (−33°) | 3° / 40° (−37°) | 0,06 (0,08) / 0,14 (n. p.) / **0,22 (0,07)** | 0,77 / 0,47 / 0,61 | 1,24 |
+| BOS1134, Stellwagen Basin (74,6 m) | 159 m | 0,27 / 0,23 (1,17) | 254° / 284° (30°) | 17° / 356° (+21°) | 0,03 (0,01) / 0,08 (n. p.) / **0,20 (0,03)** | 0,64 / 0,29 / 0,27 | 1,17 |
+| BOS1134 bin 17 (10,6 m) | 159 m | 0,27 / 0,23 (1,17) | 74° / 32° (−41°) | 197° / 237° (−41°) | 0,03 (0,04) / 0,08 (n. p.) / 0,20 (0,04) | 0,64 / 0,29 / 0,36 | 1,17 |
+| BOS1130, Stellwagen Basin est (73,0 m) | 344 m | 0,27 / 0,23 (1,17) | 344° / 267° (−77°) | 292° / 4° (−72°) | 0,03 (0,02) / 0,05 (0,04) / **0,18 (0,02)** | 0,45 / 0,24 / 0,38 | 1,04 |
+| BOS1130 bin 17 (9,0 m) | 344 m | 0,27 / 0,25 (1,08) | 344° / 12° (28°) | 292° / 282° (+10°) | 0,03 (0,03) / 0,05 (0,08) / 0,18 (0,03) | 0,45 / 0,47 / 0,49 | 1,04 |
+| BOS1131, 16 nmi N de Race Point (27,5 m) | 362 m | 0,84 / 0,46 (1,83) | **272° / 268° (−4°)** | **9° / 5° (+4°)** | 0,12 (0,06) / 0,26 (0,07) / **0,24 (0,02)** | 1,20 / 0,46 / 0,65 | 1,80 |
+| BOS1132, 15 nmi NNE de Race Point (64,1 m) | 276 m | 0,55 / 0,56 (0,98) | 280° / 294° (13°) | 27° / 7° (+20°) | 0,06 (0,08) / 0,14 (0,12) / **0,17 (0,05)** | 0,82 / 0,49 / 0,90 | 1,83 |
+| BOS1132 bin 15 (8,1 m) | 276 m | **0,55 / 0,43 (1,28)** | **280° / 285° (4°)** | **27° / 30° (−3°)** | 0,06 (0,03) / 0,14 (0,05) / 0,17 (0,07) | 0,82 / 0,43 / 0,76 | 1,83 |
+
+Lecture : **en eau libre, le chemin ROMS restitue M2 en amplitude,
+direction et phase.** Les bins publiés sont les plus profonds (bin 1, à 22
+à 94 m) ; comparé au bin le moins profond disponible, l'accord est serré à
+BOS1132 (8 m : 1,28 en amplitude, 4° d'azimut, 3° de phase) et à BOS1130
+(9 m : 1,08, 28°, 10°). À BOS1131 le rapport de 1,83 est celui de la
+surface contre un bin à 27 m sur un fond de 32 m, dans la couche de fond
+[supposé]. Là où M2 fait 0,23 kt (BOS1130, BOS1134 profonds), l'azimut et
+la phase s'écartent de 30° à 77° : l'ellipse est presque ronde
+(`m2_minor` 0,02 à 0,04 kt publiés) et l'axe mal défini, comme à West
+Point en section 5. **K1 est 3 à 10 fois trop fort** partout (0,16 à 0,24 kt
+contre 0,01 à 0,07) : sur 32 jours d'été, la brise de mer diurne de la
+couche de surface (S1, 24,00 h) n'est pas séparable de K1 (23,93 h,
+Rayleigh 8 766 h, un an) et l'analyse la lui attribue [supposé pour la cause,
+vérifié pour les chiffres] ; le maximum reconstruit en est gonflé (0,45 à
+1,20 kt contre 0,24 à 0,90 publiés) et le maximum brut de surface (1,0 à
+1,8 kt) est surtout du vent. À Fundy, K1 vaut 0,13 kt pour 6,5 kt de M2 à
+Minas Passage et l'effet est négligeable ; sur un plateau à 0,3 kt de M2
+il compte, et c'est un argument de plus pour l'année d'archive (S1 et K1
+ne se séparent qu'à 365 jours par le critère de Rayleigh à 1,0, P1 et K1
+comme K2 et S2 à 183 jours) ou pour un `--min-speed-kt` plus haut au
+large.
+
+### 10f. Les passes de Fundy [vérifié pour l'atlas, [supposé] pour les valeurs publiées du gazetteer]
+
+| Point | Cellule servie (distance) | M2 atlas (kt), azimut, phase | S2 / N2 / K1 (kt) | Max reconstruit (kt), max à 3 km, à 5 km | Publié (gazetteer) |
+|---|---|---|---|---|---|
+| Minas Passage (45,35° N, −64,40° E) | 45,3506 / −64,3960 (323 m) | **6,50**, 91°, 216° | 1,01 / 1,30 / 0,13 | **8,08**, 9,07, 9,31 | 8 à mi-marée (RASC 2012, confiance moyenne) [supposé] |
+| Cape Split, Minas Channel (45,33, −64,50) | 45,3317 / −64,5028 (283 m) | 3,45, 30°, 22° | 0,51 / 0,66 / 0,07 | 4,83, 9,31, 9,31 | 5, « 5 à 8 au jusant » (incertain) [supposé] |
+| Old Sow / Western Passage (44,92, −66,99) | aucune (première cellule à 7,0 km) | | | | 9,3 (incertain) [supposé] |
+| Grand Manan Channel (44,75, −66,95) | 44,7521 / −66,9503 (229 m) | 2,35, 29°, 17° | 0,34 / 0,46 / 0,08 | 2,68, 2,87, 3,07 | pas dans le gazetteer |
+| Head Harbour Passage (44,95, −66,92) | 44,9537 / −66,9147 (585 m) | 0,32, 119°, 351° | 0,05 / 0,06 / 0,05 | 0,37, 0,55, 0,97 | pas dans le gazetteer ; 3 à 5 kt dans les instructions nautiques [supposé] |
+| Cape d'Or, Minas Channel (45,28, −64,75) | 45,2813 / −64,7520 (207 m) | 4,77, 75°, 26° | 0,72 / 0,94 / 0,09 | 6,09, 6,21, 6,21 | pas dans le gazetteer |
+| Minas Basin (45,30, −64,10) | 45,3002 / −64,1023 (177 m) | 2,23, 89°, 45° | 0,34 / 0,42 / 0,04 | 2,62, 3,00, 3,12 | pas dans le gazetteer |
+| Approches de Saint John (45,20, −66,05) | 45,1994 / −66,0514 (128 m) | 1,16, 74°, 5° | 0,18 / 0,25 / 0,07 | 1,52, 1,83, 2,03 | pas dans le gazetteer |
+| Chignecto Bay (45,55, −64,85) | 45,5522 / −64,8499 (240 m) | 1,69, 55°, 28° | 0,31 / 0,30 / 0,06 | 1,99, 2,24, 2,39 | pas dans le gazetteer |
+| Petit Passage, Digby Neck (44,39, −66,21) | aucune (première cellule à 1,7 km, 1,9 kt) | | | | pas dans le gazetteer |
+
+Lecture : Minas Passage, 5 km de large et 7 mailles, est résolue et le
+maximum reconstruit (8,1 kt à la cellule, 9,3 kt une maille plus à l'ouest)
+tombe sur la valeur publiée [supposé, valeur de littérature] ; le rapport
+S2/M2 de 0,155 et N2/M2 de 0,20 sont ceux d'une marée de Fundy dominée par
+M2 avec un fort N2 [supposé]. Cape Split est à la limite : la cellule
+servie donne 4,8 kt mais le maximum de l'atlas (9,3 kt) est à moins de
+3 km, dans la veine de Minas Passage. Les passes de moins de 1 km
+(Passamaquoddy, Petit Passage) n'existent pas dans le modèle.
+
+### 10g. Limites
+
+1. **700 m ferme les passes de moins de 1 km.** Ce n'est pas le cas de
+   SSCOFS (deux mailles dans Deception Pass) : ici la passe manque, comme
+   Saltstraumen dans NorKyst. Le garde-fou `currents.pass_unresolved`
+   (spike NorKyst, section 7) doit couvrir Old Sow / Western Passage, Head
+   Harbour Passage, Lubec Narrows et Petit Passage pour `gomofs_fundy_700m`
+   [supposé pour la liste, vérifié pour l'absence].
+2. **Rang 1 à 700 m** : par la convention du format
+   (`docs/harmonic_atlas_format.md`), 700 m relève du rang 1 (plateau, 500 m
+   à 2 km) et non du rang 2 (côtier, 100 à 500 m). Le premier build posait
+   le rang 2 ; le script déduit désormais le rang de `--resolution-m` quand
+   `--rank` n'est pas donné (3 sous 100 m, 2 jusqu'à 500 m, 1 jusqu'à 2 km,
+   0 au-delà) et l'atlas de Fundy a été reconstruit au rang 1 [vérifié dans
+   `metadata.json`]. Sans concurrent dans la zone (FES2014 au rang 0 est la
+   seule autre source, pas de MARC, BSH, NorKyst ni CMEMS ici), cela n'a pas
+   d'effet aujourd'hui ; un atlas ECCC (CIOPS East, 2 km) arriverait au
+   rang 1 lui aussi et perdrait par la résolution [supposé] ;
+   `confidence medium`.
+3. **Aucune station en eau dans la boîte** : la validation harmonique est
+   faite 150 à 350 km à l'ouest (Casco Bay, Stellwagen Bank), sur le même
+   modèle et le même chemin de lecture ; elle valide le décalage, la
+   rotation, l'analyse et l'amplitude en eau libre, pas l'amplitude de
+   Fundy, qui repose sur une valeur de littérature à Minas Passage
+   [supposé].
+4. **32 jours à l'équinoxe, et 32 jours d'été en surface** : mêmes
+   réserves qu'en section 7 (S2 et K1), plus la brise de mer absorbée par
+   K1 (section 10e, Stellwagen) ; l'inférence FES et l'inférence CO-OPS
+   concordent ici, ce qui n'était pas le cas dans Puget Sound où FES ne
+   répondait pas.
+5. **Surface** : couche `s_rho` supérieure à 0,5 m sous la surface par
+   75 m d'eau (Vtransform 2 concentre les couches en surface), plus près de
+   la surface encore que la couche sigma 0 de SSCOFS (1,6 %) ; les bins
+   CO-OPS publiés sont à 11 à 28 m. L'écart de couche est du même ordre
+   qu'en section 7 [supposé].
+6. **Un jour UTC de GoMOFS commence à 19:00 la veille** (cycles 00 / 06 /
+   12 / 18) et non à 22:00 (SSCOFS) : sans conséquence pour l'analyse, à
+   savoir pour lire `record_start`.
+7. **Moyenne sur les faces ouvertes** : le choix d'ignorer la face masquée
+   surestime peut-être la cellule côtière par rapport à une moyenne avec
+   zéro ; sur 7 mailles de large à Minas Passage, seules les deux cellules
+   de bord sont concernées.
+
+### 10h. CIOFS et CBOFS par le même chemin [vérifié sur une heure de chacun, `fields.n001` du 2026-09-19]
+
+| Système | Fichier `fields` nowcast | `u`, blocs | Surface | Boîte d'essai | Par heure par `Range` | Écart contre lecture locale |
+|---|---|---|---|---|---|---|
+| CBOFS | 62 082 147 octets, cycles 00 / 06 / 12 / 18, `n001` à `n006` | `[1, 20, 291, 331]` en `[1, 10, 146, 166]` non compressés, 8 blocs, pas de `wetdry_mask_rho` | `s_rho` 19 (−0,025), 4 blocs de surface | embouchure de la Chesapeake et Hampton Roads, 36,8° à 37,3° N, −76,4° à −75,9° E : 1 506 cellules, pas médian 926 m, angle 20,7° | **0,13 Mo**, 5 requêtes | 0,0 |
+| CIOFS | 587 516 625 octets, cycles 00 / 06 / 12 / 18, `n001` à `n006` | `[1, 30, 1044, 723]` en `[1, 10, 348, 241]` non compressés, 27 blocs, `wetdry_mask_rho` présent | `s_rho` 29 (−0,0167), 9 blocs de surface | Anchorage, Knik Arm et Turnagain Arm, 60,8° à 61,3° N, −151° à −149,5° E : 78 860 cellules, pas 79 / 148 / 298 m (p5 / médiane / p95), angle −75° à −11° | **3,6 Mo**, 19 requêtes | 0,0 ; 12 841 cellules à sec à cette heure, masque retrouvé à l'identique |
+
+CIOFS est donc lisible à 3,6 Mo par heure au lieu de 588 (un mois en
+moins de 3 Go sur le fil [supposé, extrapolé de l'heure mesurée]), avec un
+pas de 37 à 616 m sur le domaine (médiane 175 × 205 m) et un angle qui
+varie de −75° à +47° : c'est le cas où la rotation par cellule est
+indispensable. DBOFS et TBOFS ont la même structure `fields` [supposé, non
+lus ; ils sont dans `SYSTEMS` avec les cycles de la section 6]. WCOFS
+(`2ds` avec un cycle 03 et `n001` à `n024`) n'est pas câblé.

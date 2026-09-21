@@ -41,6 +41,24 @@ writes one NetCDF per day in ``--source-dir``. Each file is checked by its
 size and by the timestamp read at the template's offset; a file whose layout
 differs is downloaded whole and read locally.
 
+**ROMS systems** (``--system gomofs``, ``cbofs``, ``ciofs``, ``dbofs``, ``tbofs``)
+take a second download path. Their native grid is a curvilinear Arakawa C
+grid: ``u`` on u-points (``[eta_rho, xi_u]``), ``v`` on v-points
+(``[eta_v, xi_rho]``), both along the grid axes, which are rotated from east
+by ``angle`` (32.0 degrees on GoMOFS). GoMOFS publishes hourly surface-only
+``2ds`` files (``u_sur`` / ``v_sur``, one uncompressed chunk per field) with
+cycles 00 / 06 / 12 / 18; the other ROMS systems only publish 3D ``fields``
+files whose surface is the last ``s_rho`` index, chunked in uncompressed
+``[1, k, rows, cols]`` blocks. In both cases the surface rows of the box are
+contiguous inside each chunk and are fetched by ``Range``; the template file
+carries ``lon_rho`` / ``lat_rho``, ``angle``, ``mask_rho``, ``h``, ``pm`` and
+``pn``. ``u`` and ``v`` are averaged onto rho points over their open faces
+(masked faces ignored), rotated to east / north with ``angle``, masked cells
+are land and ``wetdry_mask_rho == 0`` hours (when the file has it) are holes.
+The daily files then have exactly the FVCOM layout (``u``, ``v``, ``wet`` on
+``[time, cell]`` with ``lonc``, ``latc``, ``edge_m`` = the local pitch) and the
+build step does not care which model produced them.
+
 The build step is the same as ``build_norkyst_atlas.py``: streaming
 :class:`GridAnalysis` on the native elements (Rayleigh selection on the total
 span, K2 / P1 inferred from a reference atlas at the domain centre when one
@@ -69,6 +87,12 @@ Usage::
         --source-dir build/ofs/sscofs --zone salish
     uv run scripts/build_ofs_atlas.py --system sscofs --source-dir build/ofs/sscofs \\
         --zone salish --atlas-id SSCOFS_SALISH --output-dir build/ofs/sscofs/atlas/SSCOFS_SALISH
+    uv run scripts/build_ofs_atlas.py --download --no-build --system gomofs \\
+        --start 2026-08-19 --days 32 --bbox 44.4 -67.3 45.7 -63.3 \\
+        --source-dir build/ofs/gomofs --zone fundy
+    uv run scripts/build_ofs_atlas.py --system gomofs --source-dir build/ofs/gomofs \\
+        --zone fundy --atlas-id GOMOFS_FUNDY --bbox 44.4 -67.3 45.7 -63.3 \\
+        --resolution-m 700 --dlat-deg 0.0063 --dlon-deg 0.0089
 """
 
 from __future__ import annotations
@@ -114,35 +138,105 @@ HARCON_URL = (
 OFS_EPOCH = datetime(2018, 1, 1, tzinfo=UTC)  # ``time`` units of the FVCOM files
 CYCLES = (3, 9, 15, 21)
 NOWCAST_HOURS = (1, 2, 3, 4, 5, 6)
+ROMS_FILL = 1e30  # ``_FillValue`` is 1e37 on masked u / v points
+ROMS_STAGGERING = (
+    "u on u-points and v on v-points averaged onto rho points over their open"
+    " faces (masked faces ignored), then rotated to east / north by ``angle``"
+)
 
-# Per system: the human name and what the download step needs to know about
-# the native grid. Only FVCOM systems (velocities on element centroids
-# ``lonc`` / ``latc``, dimension ``nele``, ``siglay`` layers) are wired.
+# Per system: the human name, the model (FVCOM: velocities on element
+# centroids ``lonc`` / ``latc``, dimension ``nele``, ``siglay`` layers; ROMS:
+# curvilinear C grid, ``u`` / ``v`` staggered and rotated by ``angle``), the
+# nowcast cycles of the day and the product whose files carry the surface
+# velocity (``fields`` is 3D, ``2ds`` is surface only). Cycles and products
+# read on the bucket listing of 2026-09-19 for sscofs, gomofs, cbofs and
+# ciofs, on the inventory of 2026-09-20 (spike section 6) for the others.
 SYSTEMS: dict[str, dict] = {
     "sscofs": {
         "name": "Salish Sea and Northwest Straits Operational Forecast System",
         "model": "FVCOM",
+        "cycles": CYCLES,
+        "product": "fields",
     },
     "ngofs2": {
         "name": "Northern Gulf of Mexico Operational Forecast System",
         "model": "FVCOM",
+        "cycles": CYCLES,
+        "product": "fields",
     },
     "sfbofs": {
         "name": "San Francisco Bay Operational Forecast System",
         "model": "FVCOM",
+        "cycles": CYCLES,
+        "product": "fields",
     },
-    "leofs": {"name": "Lake Erie Operational Forecast System", "model": "FVCOM"},
+    "leofs": {
+        "name": "Lake Erie Operational Forecast System",
+        "model": "FVCOM",
+        "cycles": (0, 6, 12, 18),
+        "product": "fields",
+    },
     "lmhofs": {
         "name": "Lake Michigan and Huron Operational Forecast System",
         "model": "FVCOM",
+        "cycles": (0, 6, 12, 18),
+        "product": "fields",
     },
-    "loofs": {"name": "Lake Ontario Operational Forecast System", "model": "FVCOM"},
-    "lsofs": {"name": "Lake Superior Operational Forecast System", "model": "FVCOM"},
+    "loofs": {
+        "name": "Lake Ontario Operational Forecast System",
+        "model": "FVCOM",
+        "cycles": (0, 6, 12, 18),
+        "product": "fields",
+    },
+    "lsofs": {
+        "name": "Lake Superior Operational Forecast System",
+        "model": "FVCOM",
+        "cycles": (0, 6, 12, 18),
+        "product": "fields",
+    },
     "necofs": {
         "name": "Northeast Coastal Ocean Forecast System",
         "model": "FVCOM",
+        "cycles": CYCLES,
+        "product": "fields",
+    },
+    "gomofs": {
+        "name": "Gulf of Maine Operational Forecast System",
+        "model": "ROMS",
+        "cycles": (0, 6, 12, 18),
+        "product": "2ds",
+    },
+    "cbofs": {
+        "name": "Chesapeake Bay Operational Forecast System",
+        "model": "ROMS",
+        "cycles": (0, 6, 12, 18),
+        "product": "fields",
+    },
+    "ciofs": {
+        "name": "Cook Inlet Operational Forecast System",
+        "model": "ROMS",
+        "cycles": (0, 6, 12, 18),
+        "product": "fields",
+    },
+    "dbofs": {
+        "name": "Delaware Bay Operational Forecast System",
+        "model": "ROMS",
+        "cycles": (0, 6, 12, 18),
+        "product": "fields",
+    },
+    "tbofs": {
+        "name": "Tampa Bay Operational Forecast System",
+        "model": "ROMS",
+        "cycles": (0, 6, 12, 18),
+        "product": "fields",
     },
 }
+
+
+def _parse_epoch(units: str) -> datetime:
+    """``seconds since 2016-01-01 00:00:00`` -> aware datetime."""
+    stamp = units.split("since", 1)[1].strip().replace("T", " ")
+    return datetime.fromisoformat(stamp).replace(tzinfo=UTC)
 
 
 def _times(ds: xr.Dataset) -> list[datetime]:
@@ -207,21 +301,25 @@ def harcon_constants(spec: str) -> tuple[dict, dict, str]:
 
 
 def object_key(system: str, cycle: datetime, hour: int) -> str:
+    product = SYSTEMS.get(system, {}).get("product", "fields")
     return (
         f"{system}/netcdf/{cycle:%Y/%m/%d}/"
-        f"{system}.t{cycle:%H}z.{cycle:%Y%m%d}.fields.n{hour:03d}.nc"
+        f"{system}.t{cycle:%H}z.{cycle:%Y%m%d}.{product}.n{hour:03d}.nc"
     )
 
 
-def nowcast_slots(day: datetime) -> list[tuple[datetime, int, datetime]]:
+def nowcast_slots(
+    day: datetime, cycles: tuple[int, ...] = CYCLES
+) -> list[tuple[datetime, int, datetime]]:
     """``(cycle, nowcast hour, valid time)`` for the 24 hours of ``day``.
 
     Cycle ``tHHz`` carries ``n001`` .. ``n006`` valid at ``HH-5`` .. ``HH``
-    UTC, so a UTC day is the four cycles 03, 09, 15 and 21 of that date and
-    runs from 22:00 the day before to 21:00.
+    UTC, so a UTC day is the four cycles of that date: 03, 09, 15 and 21
+    (SSCOFS, 22:00 the day before to 21:00) or 00, 06, 12 and 18 (GoMOFS,
+    19:00 the day before to 18:00).
     """
     slots = []
-    for c in CYCLES:
+    for c in cycles:
         cycle = day.replace(hour=c, minute=0, second=0, microsecond=0)
         for n in NOWCAST_HOURS:
             slots.append((cycle, n, cycle - timedelta(hours=6 - n)))
@@ -345,11 +443,13 @@ def read_template(path: Path, bbox: list[float], layer: int) -> dict:
         wet_chunk = f["wet_cells"].id.get_chunk_info(0)
         layout = {
             "file_size": path.stat().st_size,
+            "model": "FVCOM",
             "nele": int(nele),
             "layer": layer,
             "siglay_at_node0": float(siglay),
             "time": [time_chunk.byte_offset, 8],
             "time_dtype": f["time"].dtype.str,
+            "time_epoch": _parse_epoch(_text(f["time"].attrs["units"])).isoformat(),
             "wet_cells": [wet_chunk.byte_offset, wet_chunk.size],
             "wet_dtype": f["wet_cells"].dtype.str,
             "uv_dtype": f["u"].dtype.str,
@@ -396,11 +496,16 @@ def fetch_hour(
     the expected valid time. Otherwise the whole file is downloaded, read
     with netCDF4 and deleted.
     """
+    epoch = (
+        datetime.fromisoformat(layout["time_epoch"])
+        if "time_epoch" in layout
+        else OFS_EPOCH
+    )
     t_off, t_len = layout["time"]
     r = _get(client, url, (t_off, t_off + t_len))
     total = int(r.headers.get("Content-Range", "/0").rsplit("/", 1)[-1])
     t_val = float(np.frombuffer(r.content, dtype=layout["time_dtype"])[0])
-    t_read = OFS_EPOCH + timedelta(seconds=t_val)
+    t_read = epoch + timedelta(seconds=t_val)
     if total == layout["file_size"] and abs((t_read - expected).total_seconds()) < 1.0:
         nele = layout["nele"]
         u = _assemble(
@@ -432,10 +537,294 @@ def fetch_hour(
         v = np.asarray(nc["v"][0, layout["layer"], :], dtype=np.float32)
         wet = np.asarray(nc["wet_cells"][0, :], dtype=np.int32)
     tmp.unlink()
-    t_read = OFS_EPOCH + timedelta(seconds=t_val)
+    t_read = epoch + timedelta(seconds=t_val)
     if abs((t_read - expected).total_seconds()) >= 1.0:
         raise ValueError(f"{url}: time {t_read} differs from expected {expected}")
     return u[index], v[index], wet[index], "whole"
+
+
+# ---------------------------------------------------------------------------
+# Download, ROMS path (curvilinear C grid)
+# ---------------------------------------------------------------------------
+
+
+def _roms_surface_var(f, kind: str) -> tuple[str, int | None]:
+    """Name of the surface velocity variable and its layer index (None = 2D).
+
+    ``2ds`` files carry ``u_sur`` / ``v_sur`` ``[time, eta, xi]``; ``fields``
+    files carry ``u`` / ``v`` ``[time, s_rho, eta, xi]`` whose surface is the
+    last ``s_rho`` index.
+    """
+    if f"{kind}_sur" in f:
+        return f"{kind}_sur", None
+    return kind, int(f[kind].shape[1]) - 1
+
+
+def _roms_row_ranges(dset, layer: int | None, row0: int, row1: int) -> list[dict]:
+    """Byte ranges of rows ``row0 .. row1`` (inclusive) of one layer.
+
+    The chunks are ``[1, (k,) ce, cx]`` without compression: inside a chunk
+    the rows of one layer are contiguous, ``cx`` values wide even in the
+    padded chunks at the grid's edge. One range per chunk that meets the row
+    window, over the chunk's full width; the columns are cut after reading.
+    """
+    if layer is None:
+        _, ce, cx = dset.chunks
+        n_rows, n_cols = dset.shape[1], dset.shape[2]
+    else:
+        _, k, ce, cx = dset.chunks
+        n_rows, n_cols = dset.shape[2], dset.shape[3]
+    itemsize = dset.dtype.itemsize
+    ranges = []
+    for i in range(dset.id.get_num_chunks()):
+        ci = dset.id.get_chunk_info(i)
+        if layer is None:
+            _, r0, c0 = ci.chunk_offset
+            row_in_chunk = 0
+        else:
+            _, lay0, r0, c0 = ci.chunk_offset
+            if not (lay0 <= layer < lay0 + k):
+                continue
+            row_in_chunk = layer - lay0
+        a = max(r0, row0)
+        b = min(r0 + ce - 1, row1, n_rows - 1)
+        if a > b:
+            continue
+        ranges.append(
+            {
+                "offset": ci.byte_offset
+                + (row_in_chunk * ce + (a - r0)) * cx * itemsize,
+                "length": (b - a + 1) * cx * itemsize,
+                "row0": int(a),
+                "n_rows": int(b - a + 1),
+                "col0": int(c0),
+                "chunk_cols": int(cx),
+                "n_cols": int(min(cx, n_cols - c0)),
+            }
+        )
+    return sorted(ranges, key=lambda r: (r["row0"], r["col0"]))
+
+
+def _assemble_roms(
+    parts: list[bytes], ranges: list[dict], shape: tuple[int, int], dtype: str
+) -> np.ndarray:
+    """Full ``[eta, xi]`` array (NaN where not read) from the row ranges."""
+    out = np.full(shape, np.nan, dtype=np.float32)
+    for raw, r in zip(parts, ranges, strict=True):
+        block = np.frombuffer(raw, dtype=dtype).reshape(r["n_rows"], r["chunk_cols"])
+        out[
+            r["row0"] : r["row0"] + r["n_rows"], r["col0"] : r["col0"] + r["n_cols"]
+        ] = block[:, : r["n_cols"]]
+    out[np.abs(out) > ROMS_FILL] = np.nan
+    return out
+
+
+def _to_rho(u: np.ndarray, v: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """C-grid ``u[eta_rho, xi_u]`` and ``v[eta_v, xi_rho]`` onto rho points.
+
+    Mean of the two faces of each cell over the faces that carry a value
+    (NaN on a masked face is ignored); the outermost row or column keeps its
+    single face.
+    """
+
+    def pair_mean(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        fa, fb = np.isfinite(a), np.isfinite(b)
+        s = np.where(fa, a, 0.0) + np.where(fb, b, 0.0)
+        n = fa.astype(np.int8) + fb.astype(np.int8)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            return np.where(n > 0, s / np.maximum(n, 1), np.nan).astype(np.float32)
+
+    n_eta, n_xi = u.shape[0], v.shape[1]
+    ur = np.full((n_eta, n_xi), np.nan, dtype=np.float32)
+    ur[:, 1:-1] = pair_mean(u[:, :-1], u[:, 1:])
+    ur[:, 0], ur[:, -1] = u[:, 0], u[:, -1]
+    vr = np.full((n_eta, n_xi), np.nan, dtype=np.float32)
+    vr[1:-1, :] = pair_mean(v[:-1, :], v[1:, :])
+    vr[0, :], vr[-1, :] = v[0, :], v[-1, :]
+    return ur, vr
+
+
+def _rotate(
+    u: np.ndarray, v: np.ndarray, angle: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Grid-axis components to east / north (``angle`` = XI axis from east)."""
+    c, s = np.cos(angle), np.sin(angle)
+    return (u * c - v * s).astype(np.float32), (u * s + v * c).astype(np.float32)
+
+
+def read_template_roms(path: Path, bbox: list[float], layer: int) -> dict:
+    """Byte layout and box geometry from one whole ROMS file (h5py).
+
+    ``layer`` counts from the surface (0 = surface) like the FVCOM path; on
+    ``fields`` files that is ``s_rho`` index ``n - 1 - layer``, on ``2ds``
+    files only 0 exists.
+    """
+    import h5py
+
+    with h5py.File(path, "r") as f:
+        lon = f["lon_rho"][:].astype(float)
+        lat = f["lat_rho"][:].astype(float)
+        lon = np.where(lon > 180.0, lon - 360.0, lon)
+        angle = f["angle"][:].astype(float)
+        mask = f["mask_rho"][:].astype(float)
+        h = f["h"][:].astype(float)
+        dx = 1.0 / f["pm"][:].astype(float)
+        dy = 1.0 / f["pn"][:].astype(float)
+        lat_min, lon_min, lat_max, lon_max = bbox
+        inside = (
+            (lat >= lat_min) & (lat <= lat_max) & (lon >= lon_min) & (lon <= lon_max)
+        )
+        if not inside.any():
+            sys.exit(f"bbox {bbox} contains no rho point")
+        rows = np.where(inside.any(axis=1))[0]
+        cols = np.where(inside.any(axis=0))[0]
+        row0, row1 = int(rows.min()), int(rows.max())
+        col0, col1 = int(cols.min()), int(cols.max())
+        sea = inside & (mask > 0.5)
+        idx = np.where(sea.ravel())[0]
+        if idx.size == 0:
+            sys.exit(f"bbox {bbox} contains no sea rho point")
+        u_name, u_layer = _roms_surface_var(f, "u")
+        v_name, v_layer = _roms_surface_var(f, "v")
+        if u_layer is not None:
+            u_layer -= layer
+            v_layer -= layer
+        elif layer != 0:
+            sys.exit(f"{path.name}: surface-only file, --layer must be 0")
+        n_s = int(f["s_rho"].shape[0])
+        s_rho = float(f["s_rho"][n_s - 1 - layer])
+        cs_r = float(f["Cs_r"][n_s - 1 - layer]) if "Cs_r" in f else float("nan")
+        time_chunk = f["ocean_time"].id.get_chunk_info(0)
+        # ``v`` sits on the faces between rows, so row ``row0`` of rho needs
+        # ``v`` rows ``row0 - 1`` and ``row0``.
+        layout = {
+            "file_size": path.stat().st_size,
+            "model": "ROMS",
+            "shape_rho": [int(lat.shape[0]), int(lat.shape[1])],
+            "box_rows": [row0, row1],
+            "box_cols": [col0, col1],
+            "layer": layer,
+            "s_rho": s_rho,
+            "cs_r": cs_r,
+            "time": [time_chunk.byte_offset, 8],
+            "time_dtype": f["ocean_time"].dtype.str,
+            "time_epoch": _parse_epoch(
+                _text(f["ocean_time"].attrs["units"])
+            ).isoformat(),
+            "uv_dtype": f[u_name].dtype.str,
+            "u_var": u_name,
+            "v_var": v_name,
+            "u_layer": u_layer,
+            "v_layer": v_layer,
+            "u_shape": [int(s) for s in f[u_name].shape[-2:]],
+            "v_shape": [int(s) for s in f[v_name].shape[-2:]],
+            "u": _roms_row_ranges(f[u_name], u_layer, row0, row1),
+            "v": _roms_row_ranges(f[v_name], v_layer, max(row0 - 1, 0), row1),
+            "wet_var": "wetdry_mask_rho" if "wetdry_mask_rho" in f else None,
+            "wet_dtype": (
+                f["wetdry_mask_rho"].dtype.str if "wetdry_mask_rho" in f else None
+            ),
+            "wet": (
+                _roms_row_ranges(f["wetdry_mask_rho"], None, row0, row1)
+                if "wetdry_mask_rho" in f
+                else []
+            ),
+            "global_attrs": {
+                k: _text(f.attrs[k])[:200]
+                for k in ("title", "type", "history", "grd_file", "svn_rev")
+                if k in f.attrs
+            },
+        }
+    return {
+        "layout": layout,
+        "index": idx,
+        "lonc": lon.ravel()[idx],
+        "latc": lat.ravel()[idx],
+        "edge_m": np.sqrt(dx * dy).ravel()[idx],
+        "depth_m": h.ravel()[idx],
+        "angle": angle.ravel()[idx],
+        "eta": idx // lat.shape[1],
+        "xi": idx % lat.shape[1],
+    }
+
+
+def fetch_hour_roms(
+    client: httpx.Client,
+    url: str,
+    layout: dict,
+    expected: datetime,
+    index: np.ndarray,
+    angle: np.ndarray,
+    raw_dir: Path,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, str]:
+    """Surface east / north velocity and wet flag on the box rho points.
+
+    Same contract as :func:`fetch_hour`: byte ranges when the file has the
+    template's size and timestamp, whole file otherwise.
+    """
+    epoch = datetime.fromisoformat(layout["time_epoch"])
+    t_off, t_len = layout["time"]
+    r = _get(client, url, (t_off, t_off + t_len))
+    total = int(r.headers.get("Content-Range", "/0").rsplit("/", 1)[-1])
+    t_val = float(np.frombuffer(r.content, dtype=layout["time_dtype"])[0])
+    t_read = epoch + timedelta(seconds=t_val)
+    shape = tuple(layout["shape_rho"])
+    if total == layout["file_size"] and abs((t_read - expected).total_seconds()) < 1.0:
+        u = _assemble_roms(
+            [_get(client, url, (r["offset"], r["offset"] + r["length"])).content for r in layout["u"]],
+            layout["u"], tuple(layout["u_shape"]), layout["uv_dtype"],
+        )  # fmt: skip
+        v = _assemble_roms(
+            [_get(client, url, (r["offset"], r["offset"] + r["length"])).content for r in layout["v"]],
+            layout["v"], tuple(layout["v_shape"]), layout["uv_dtype"],
+        )  # fmt: skip
+        if layout["wet"]:
+            wet = _assemble_roms(
+                [_get(client, url, (r["offset"], r["offset"] + r["length"])).content for r in layout["wet"]],
+                layout["wet"], shape, layout["wet_dtype"],
+            )  # fmt: skip
+        else:
+            wet = np.ones(shape, dtype=np.float32)
+        mode = "ranges"
+    else:
+        print(
+            f"  {url.rsplit('/', 1)[-1]}: layout differs (size {total}, time {t_read:%Y-%m-%dT%H}),"
+            " whole file",
+            file=sys.stderr,
+        )
+        import netCDF4
+
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        tmp = raw_dir / (url.rsplit("/", 1)[-1] + ".whole")
+        download_whole(client, url, tmp)
+        with netCDF4.Dataset(tmp) as nc:
+            t_val = float(nc["ocean_time"][0])
+            nc.set_auto_mask(False)
+            if layout["u_layer"] is None:
+                u = np.asarray(nc[layout["u_var"]][0], dtype=np.float32)
+                v = np.asarray(nc[layout["v_var"]][0], dtype=np.float32)
+            else:
+                u = np.asarray(
+                    nc[layout["u_var"]][0, layout["u_layer"]], dtype=np.float32
+                )
+                v = np.asarray(
+                    nc[layout["v_var"]][0, layout["v_layer"]], dtype=np.float32
+                )
+            wet = (
+                np.asarray(nc[layout["wet_var"]][0], dtype=np.float32)
+                if layout["wet_var"]
+                else np.ones(shape, dtype=np.float32)
+            )
+        tmp.unlink()
+        u[np.abs(u) > ROMS_FILL] = np.nan
+        v[np.abs(v) > ROMS_FILL] = np.nan
+        t_read = epoch + timedelta(seconds=t_val)
+        if abs((t_read - expected).total_seconds()) >= 1.0:
+            raise ValueError(f"{url}: time {t_read} differs from expected {expected}")
+        mode = "whole"
+    ur, vr = _to_rho(u, v)
+    ue, vn = _rotate(ur.ravel()[index], vr.ravel()[index], angle)
+    return ue, vn, (wet.ravel()[index] > 0.5).astype(np.int32), mode
 
 
 def download(
@@ -450,13 +839,16 @@ def download(
     template_key: str | None,
 ) -> list[Path]:
     """One file per UTC day, surface layer, box elements only."""
+    info = SYSTEMS[system]
+    roms = info["model"] == "ROMS"
+    cycles = info["cycles"]
     raw_dir = source_dir / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
     client = httpx.Client(
         timeout=httpx.Timeout(60.0, connect=20.0), follow_redirects=True
     )
     key = template_key or object_key(
-        system, start.replace(hour=CYCLES[0]), NOWCAST_HOURS[0]
+        system, start.replace(hour=cycles[0]), NOWCAST_HOURS[0]
     )
     template = raw_dir / key.rsplit("/", 1)[-1]
     if not template.exists():
@@ -468,20 +860,32 @@ def download(
             f"{time.perf_counter() - t0:.0f} s",
             file=sys.stderr,
         )
-    tpl = read_template(template, bbox, layer)
+    tpl = (read_template_roms if roms else read_template)(template, bbox, layer)
     layout, index = tpl["layout"], tpl["index"]
     (source_dir / "layout.json").write_text(
         json.dumps(
             {"template": key, **layout, "box_elements": int(index.size)}, indent=2
         )
     )
-    per_hour = sum(n for _, n, _ in layout["u"]) * 2 + layout["wet_cells"][1] + 8
-    print(
-        f"[download] {index.size} elements in bbox {bbox} of {layout['nele']}, "
-        f"median edge {np.median(tpl['edge_m']):.0f} m, sigma layer {layer} "
-        f"({layout['siglay_at_node0']:.4f}), {per_hour / 1e6:.2f} MB per hour by ranges",
-        file=sys.stderr,
-    )
+    if roms:
+        per_hour = 8 + sum(r["length"] for k in ("u", "v", "wet") for r in layout[k])
+        print(
+            f"[download] {index.size} sea rho points in bbox {bbox} of "
+            f"{layout['shape_rho'][0]} x {layout['shape_rho'][1]}, rows "
+            f"{layout['box_rows']}, cols {layout['box_cols']}, pitch "
+            f"{np.median(tpl['edge_m']):.0f} m, angle {np.degrees(np.median(tpl['angle'])):.1f} deg, "
+            f"{layout['u_var']} layer {layout['u_layer']} (s_rho {layout['s_rho']:.4f}), "
+            f"{per_hour / 1e6:.2f} MB per hour by ranges",
+            file=sys.stderr,
+        )
+    else:
+        per_hour = sum(n for _, n, _ in layout["u"]) * 2 + layout["wet_cells"][1] + 8
+        print(
+            f"[download] {index.size} elements in bbox {bbox} of {layout['nele']}, "
+            f"median edge {np.median(tpl['edge_m']):.0f} m, sigma layer {layer} "
+            f"({layout['siglay_at_node0']:.4f}), {per_hour / 1e6:.2f} MB per hour by ranges",
+            file=sys.stderr,
+        )
     written: list[Path] = []
     for d in range(days):
         day = start + timedelta(days=d)
@@ -490,7 +894,7 @@ def download(
             written.append(out)
             continue
         t_day = time.perf_counter()
-        slots = nowcast_slots(day)
+        slots = nowcast_slots(day, cycles)
         u = np.full((len(slots), index.size), np.nan, dtype=np.float32)
         v = np.full_like(u, np.nan)
         wet = np.zeros((len(slots), index.size), dtype=np.int8)
@@ -500,9 +904,14 @@ def download(
         for i, (cycle, n, valid) in enumerate(slots):
             key = object_key(system, cycle, n)
             try:
-                ui, vi, wi, mode = fetch_hour(
-                    client, BUCKET_URL + key, layout, valid, index, raw_dir
-                )
+                if roms:
+                    ui, vi, wi, mode = fetch_hour_roms(
+                        client, BUCKET_URL + key, layout, valid, index, tpl["angle"], raw_dir
+                    )  # fmt: skip
+                else:
+                    ui, vi, wi, mode = fetch_hour(
+                        client, BUCKET_URL + key, layout, valid, index, raw_dir
+                    )
             except FileNotFoundError:
                 print(
                     f"  {key.rsplit('/', 1)[-1]}: missing, hour skipped",
@@ -519,43 +928,68 @@ def download(
         dry = wet == 0
         u[dry] = np.nan
         v[dry] = np.nan
+        coords = {
+            "time": np.array(
+                [np.datetime64(t.replace(tzinfo=None), "ns") for t in times]
+            ),
+            "lonc": ("cell", tpl["lonc"].astype(np.float64)),
+            "latc": ("cell", tpl["latc"].astype(np.float64)),
+            "element": ("cell", index.astype(np.int32)),
+            "edge_m": ("cell", tpl["edge_m"].astype(np.float32)),
+            "depth_m": ("cell", tpl["depth_m"].astype(np.float32)),
+        }
+        attrs = {
+            "source_system": system,
+            "source_bucket": BUCKET_URL,
+            "source_keys": json.dumps([object_key(system, c, n) for c, n, _ in slots]),
+            "fetch_modes": json.dumps(modes),
+            "layer": layer,
+            "bbox": json.dumps(bbox),
+            "model": json.dumps(layout["global_attrs"]),
+            "downloaded_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        }
+        if roms:
+            coords["eta"] = ("cell", tpl["eta"].astype(np.int32))
+            coords["xi"] = ("cell", tpl["xi"].astype(np.int32))
+            coords["angle_deg"] = (
+                "cell",
+                np.degrees(tpl["angle"]).astype(np.float32),
+            )
+            attrs.update(
+                {
+                    "native_grid": "structured_curvilinear_c_grid",
+                    "staggering": ROMS_STAGGERING,
+                    "vertical_detail": (
+                        (
+                            "surface"
+                            if layout["u_layer"] is None
+                            else f"s_rho index {layout['u_layer']}"
+                        )
+                        + f" layer of ROMS ({layout['u_var']}; s_rho"
+                        f" {layout['s_rho']:.4f}, Cs_r {layout['cs_r']:.2e})"
+                    ),
+                    "wet_dry_source": layout["wet_var"] or "mask_rho only (static)",
+                }
+            )
+        else:
+            attrs["siglay_at_node0"] = layout["siglay_at_node0"]
         ds = xr.Dataset(
             {
                 "u": (("time", "cell"), u),
                 "v": (("time", "cell"), v),
                 "wet": (("time", "cell"), wet),
             },
-            coords={
-                "time": np.array(
-                    [np.datetime64(t.replace(tzinfo=None), "ns") for t in times]
-                ),
-                "lonc": ("cell", tpl["lonc"].astype(np.float64)),
-                "latc": ("cell", tpl["latc"].astype(np.float64)),
-                "element": ("cell", index.astype(np.int32)),
-                "edge_m": ("cell", tpl["edge_m"].astype(np.float32)),
-                "depth_m": ("cell", tpl["depth_m"].astype(np.float32)),
-            },
-            attrs={
-                "source_system": system,
-                "source_bucket": BUCKET_URL,
-                "source_keys": json.dumps(
-                    [object_key(system, c, n) for c, n, _ in slots]
-                ),
-                "fetch_modes": json.dumps(modes),
-                "layer": layer,
-                "siglay_at_node0": layout["siglay_at_node0"],
-                "bbox": json.dumps(bbox),
-                "model": json.dumps(layout["global_attrs"]),
-                "downloaded_at": datetime.now(UTC).isoformat(timespec="seconds"),
-            },
+            coords=coords,
+            attrs=attrs,
         )
+        layer_name = "surface s_rho layer" if roms else "surface sigma layer"
         ds["u"].attrs = {
             "units": "m s-1",
-            "long_name": "eastward velocity, surface sigma layer",
+            "long_name": f"eastward velocity, {layer_name}",
         }
         ds["v"].attrs = {
             "units": "m s-1",
-            "long_name": "northward velocity, surface sigma layer",
+            "long_name": f"northward velocity, {layer_name}",
         }
         enc = {k: {"zlib": True, "complevel": 4} for k in ("u", "v", "wet")}
         tmp = out.with_suffix(".tmp.nc")
@@ -815,10 +1249,24 @@ def build(
         float(cols["lat"].max()),
         float(cols["lon"].max()),
     ]
-    info = SYSTEMS.get(system, {"name": system.upper(), "model": "unknown"})
+    info = SYSTEMS.get(
+        system,
+        {"name": system.upper(), "model": "unknown", "product": "fields"},
+    )
     model = json.loads(source_attrs.get("model", "{}"))
     layer = int(source_attrs.get("layer", 0))
     sig = float(source_attrs.get("siglay_at_node0", float("nan")))
+    native_grid = source_attrs.get("native_grid", "unstructured_triangles")
+    native_extra = {
+        k: source_attrs[k]
+        for k in ("staggering", "wet_dry_source")
+        if k in source_attrs
+    }
+    vertical_detail = source_attrs.get(
+        "vertical_detail",
+        f"sigma layer {layer} of {info['model']} (centre at {sig:.4f} of the local depth,"
+        " below the surface)",
+    )
     licence_evidence = (
         f"AWS Open Data registry page {REGISTRY_URL} (read {LICENCE_READ_AT}): "
         "'NOAA data disseminated through NODD are open to the public and can be "
@@ -849,13 +1297,14 @@ def build(
                 "reach_factor": reach_factor,
                 "min_reach_m": min_reach_m,
                 "native": {
-                    "type": "unstructured_triangles",
+                    "type": native_grid,
                     "model": info["model"],
                     "elements_in_bbox": int(n_native),
                     "edge_m_percentiles": {
                         str(p): round(float(np.percentile(edge1, p)))
                         for p in (5, 25, 50, 75, 95)
                     },
+                    **native_extra,
                 },
             },
         },
@@ -864,8 +1313,8 @@ def build(
             "name": f"NOAA NOS {system.upper()}, {info['name']} ({info['model']}), hourly nowcast",
             "provider": "NOAA National Ocean Service, CO-OPS (NOAA Open Data Dissemination)",
             "url": BUCKET_URL + f"{system}/netcdf/",
-            "product": f"{system}.tHHz.YYYYMMDD.fields.nNNN.nc",
-            "version": model.get("source", "unknown"),
+            "product": f"{system}.tHHz.YYYYMMDD.{info['product']}.nNNN.nc",
+            "version": model.get("source") or model.get("history") or "unknown",
             "licence": {
                 "name": "US Government work, public domain (NODD open data)",
                 "url": REGISTRY_URL,
@@ -876,7 +1325,12 @@ def build(
                 f"Derived from NOAA NOS {system.upper()} nowcast fields (NOAA Open "
                 "Data Dissemination, public domain). Harmonic constants derived by "
                 "OhMyWind (changes: harmonic analysis of the hourly surface series, "
-                "nearest-neighbour resampling onto a regular grid); this is not "
+                + (
+                    "C-grid velocities averaged onto rho points and rotated to east / north, "
+                    if native_grid.startswith("structured")
+                    else ""
+                )
+                + "nearest-neighbour resampling onto a regular grid); this is not "
                 "original, unaltered NOAA data and NOAA does not endorse it."
             ),
             "citation": REGISTRY_URL,
@@ -884,10 +1338,7 @@ def build(
         },
         "variables": ["u", "v"],
         "vertical": "surface",
-        "vertical_detail": (
-            f"sigma layer {layer} of {info['model']} (centre at {sig:.4f} of the local depth,"
-            " below the surface)"
-        ),
+        "vertical_detail": vertical_detail,
         "datum": None,
         "units": {"u": "m s-1", "v": "m s-1", "phase": "degrees"},
         "phase_convention": "greenwich_utc",
@@ -1001,9 +1452,31 @@ def _git_commit() -> str | None:
         return None
 
 
+def rank_for_resolution(resolution_m: int) -> int:
+    """The format's convention: 3 estuary (< 100 m), 2 coastal (to 500 m), 1 shelf (to 2 km), 0 basin."""
+    if resolution_m < 100:
+        return 3
+    if resolution_m <= 500:
+        return 2
+    if resolution_m <= 2000:
+        return 1
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--system", default="sscofs", choices=sorted(SYSTEMS))
+    parser.add_argument(
+        "--system",
+        default="sscofs",
+        choices=sorted(SYSTEMS),
+        help=(
+            "FVCOM systems (sscofs, sfbofs, ngofs2, lakes, necofs) read the surface"
+            " sigma layer of the fields files on the element centroids; ROMS"
+            " systems (gomofs by its 2ds files, cbofs, ciofs, dbofs, tbofs by their"
+            " fields files) read the surface s_rho layer on the C grid, average it"
+            " onto rho points and rotate it by angle"
+        ),
+    )
     parser.add_argument(
         "--source-dir", type=Path, default=None, help="default build/ofs/<system>"
     )
@@ -1014,11 +1487,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--rank",
         type=int,
-        default=2,
-        help="2 = coastal (100 to 500 m) in the format's convention",
+        default=None,
+        help=(
+            "cascade priority; by default the format's convention from --resolution-m:"
+            " 3 under 100 m, 2 up to 500 m (SSCOFS), 1 up to 2 km (GoMOFS, CBOFS), 0 beyond"
+        ),
     )
     parser.add_argument(
-        "--resolution-m", type=int, default=200, help="pitch of the output grid"
+        "--resolution-m",
+        type=int,
+        default=200,
+        help="pitch of the output grid (200 for SSCOFS, 700 for GoMOFS)",
     )
     parser.add_argument(
         "--confidence",
@@ -1059,9 +1538,14 @@ def main(argv: list[str] | None = None) -> int:
         default=[47.2, -123.2, 48.5, -122.2],
         help="download subset and extent of the regular output grid",
     )
-    parser.add_argument("--dlat-deg", type=float, default=0.0018, help="200 m")
     parser.add_argument(
-        "--dlon-deg", type=float, default=0.0027, help="200 m at 47.9 N"
+        "--dlat-deg", type=float, default=0.0018, help="200 m (0.0063 for 700 m)"
+    )
+    parser.add_argument(
+        "--dlon-deg",
+        type=float,
+        default=0.0027,
+        help="200 m at 47.9 N (0.0089 for 700 m at 45 N)",
     )
     parser.add_argument(
         "--reach-factor",
@@ -1089,7 +1573,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--days", type=int, default=32)
     parser.add_argument(
-        "--layer", type=int, default=0, help="sigma layer index (0 = surface)"
+        "--layer",
+        type=int,
+        default=0,
+        help="layer index from the surface (0 = surface; FVCOM sigma layer, ROMS s_rho counted from the top)",
     )
     parser.add_argument(
         "--pause-s", type=float, default=0.2, help="pause between hours"
@@ -1128,7 +1615,7 @@ def main(argv: list[str] | None = None) -> int:
         args.system,
         args.zone,
         args.label,
-        args.rank,
+        args.rank if args.rank is not None else rank_for_resolution(args.resolution_m),
         args.resolution_m,
         args.reference_atlas_dir if args.reference_atlas_dir.exists() else None,
         args.rayleigh,
