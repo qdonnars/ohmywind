@@ -59,7 +59,19 @@ describe("TidalSourcesMap", () => {
         if (url.includes("/api/v1/marine/marc/coverage")) {
           // The server says it serves a NorKyst atlas: the registry row must
           // badge "in the cascade" whatever its static licence status.
-          return new Response(JSON.stringify({ atlases: [{ name: "NORKYST", source: "norkyst", bbox: [60, 4, 71, 31], cells: [] }] }), { status: 200 });
+          // Two atlases hold the map centre; the overlay answers with the
+          // fine one, the coarse one must show as passed over.
+          const world: [number, number, number, number] = [-80, -180, 85, 180];
+          return new Response(
+            JSON.stringify({
+              atlases: [
+                { name: "NORKYST", source: "norkyst", bbox: [60, 4, 71, 31], cells: [] },
+                { name: "FINIS", source: "marc", label: "marc_finis_250m", rank: 2, resolution_m: 250, confidence: "high", bbox: world, cells: [world] },
+                { name: "ATLNE", source: "marc", label: "marc_atlne_2000m", rank: 1, resolution_m: 2000, confidence: "medium", bbox: world, cells: [world] },
+              ],
+            }),
+            { status: 200 },
+          );
         }
         if (url.includes("/api/v1/marine/marc")) {
           return new Response(JSON.stringify({ covered: true, current_source: "marc_finis_250m", atlas_resolution_m: 250 }), { status: 200 });
@@ -123,6 +135,11 @@ describe("TidalSourcesMap", () => {
     const fetched = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]));
     const overlay = fetched.find((u) => u.includes("/api/v1/marine/marc?"));
     expect(overlay).toMatch(/lat=-?\d+\.\d{4}&lon=-?\d+\.\d{4}&start=/);
-    expect(container.querySelector(".leaflet-popup-content")?.textContent).toContain("marc_finis_250m");
+    const text = container.querySelector(".leaflet-popup-content")?.textContent ?? "";
+    expect(text).toContain("marc_finis_250m");
+    // The atlas the cascade passed over at this point, with its grid and rank.
+    expect(text).toContain("Aussi disponibles ici, écartées");
+    expect(text).toContain("marc_atlne_2000m, maille 2 km, rang 1");
+    expect(text).not.toContain("marc_finis_250m, maille");
   });
 });

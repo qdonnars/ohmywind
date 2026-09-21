@@ -207,10 +207,15 @@ class TestCoverage:
     """
 
     class _StubMarcAtlas:
-        def __init__(self, name, bbox, cells=()):
+        def __init__(self, name, bbox, cells=(), rank=2, resolution_m=250, source_short="marc"):
             self.name = name
             self.bbox = bbox
             self.cells = tuple(cells)
+            self.rank = rank
+            self.resolution_m = resolution_m
+            self.source_short = source_short
+            self.confidence = "high" if resolution_m <= 1000 else "medium"
+            self.source_label = f"{source_short}_{name.lower()}_{resolution_m}m"
 
     class _StubMarcRegistry:
         def __init__(self, atlases):
