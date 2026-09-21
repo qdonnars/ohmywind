@@ -23,10 +23,14 @@ export interface TidalGap {
   distanceKm: number;
 }
 
-type GapProps = { kind: "mask"; threshold_kt: number } | { kind: "pass"; name: string; max_spring_kt: number | null };
+type GapProps =
+  | { kind: "mask"; threshold_kt: number }
+  | { kind: "pass"; name: string; max_spring_kt: number | null; unresolved_by?: string[] };
 
 /** A pass influences the flow around it; 15 km matches the server's rule. */
 export const PASS_RADIUS_KM = 15;
+/** The blind spot of a fine grid around a channel it does not resolve; the server's rule too. */
+export const UNRESOLVED_RADIUS_KM = 3;
 
 let loading: Promise<FeatureCollection<Geometry, GapProps>> | null = null;
 function load(): Promise<FeatureCollection<Geometry, GapProps>> {
@@ -83,12 +87,34 @@ export async function tidalGapAt(lat: number, lon: number): Promise<TidalGap | n
 }
 
 /**
+ * The nearest pass within `radiusKm` that the atlas behind `source` misses:
+ * the map builder measured its maximum there at under half the published
+ * spring current (an 800 m grid has no cell in a 150 m channel), so a fine
+ * pitch does not clear the warning. Pure lookup over a loaded collection.
+ */
+export function findUnresolvedPass(lat: number, lon: number, source: string, gaps: FeatureCollection<Geometry, GapProps>, radiusKm = UNRESOLVED_RADIUS_KM): TidalGap | null {
+  let best: TidalGap | null = null;
+  for (const f of gaps.features) {
+    if (f.properties.kind !== "pass" || !f.properties.unresolved_by?.includes(source)) continue;
+    const [plon, plat] = (f as Feature<Point>).geometry.coordinates;
+    const km = kmBetween(lat, lon, plat, plon);
+    if (km <= radiusKm && (!best || km < best.distanceKm)) {
+      best = { zone: f.properties.name, maxSpringKt: f.properties.max_spring_kt, kind: "pass", distanceKm: km };
+    }
+  }
+  return best;
+}
+
+/**
  * Whether the currents shown for a spot deserve the tidal-gap warning: they
- * come from the global model (or from nothing), and the spot sits in a gap.
+ * come from the global model (or from nothing) and the spot sits in a gap,
+ * or from a fine atlas beside a pass it is blind to.
  */
 export async function tidalGapForSource(lat: number, lon: number, source: string | null | undefined, resolutionM: number | null | undefined): Promise<TidalGap | null> {
   const kind = describeCurrentSource(source, resolutionM, null);
   if (kind.kind === "shom") return null;
-  if (kind.kind === "marc" && kind.resolutionM <= 1000) return null;
+  if (kind.kind === "marc" && kind.resolutionM <= 1000) {
+    return source ? findUnresolvedPass(lat, lon, source, await load()) : null;
+  }
   return tidalGapAt(lat, lon);
 }

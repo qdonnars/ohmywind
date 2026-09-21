@@ -8,6 +8,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from itertools import pairwise
 
+import numpy as np
 import pytest
 
 from openwind_data.adapters.base import (
@@ -31,6 +32,7 @@ from openwind_data.routing.passage import (
     resolve_sweep_interval,
     wave_derate,
 )
+from openwind_data.routing.passage.models import SegmentReport
 
 DEPARTURE = datetime(2026, 5, 1, 6, 0, tzinfo=UTC)
 MARSEILLE = Point(43.30, 5.35)
@@ -49,6 +51,7 @@ class StubAdapter:
         current_to_deg: float | None = None,
         gust_kn: float | None = None,
         wave_period_s: float | None = None,
+        current_source: str | None = None,
     ) -> None:
         self.tws_kn = tws_kn
         self.twd_deg = twd_deg
@@ -57,6 +60,7 @@ class StubAdapter:
         self.current_to_deg = current_to_deg
         self.gust_kn = gust_kn
         self.wave_period_s = wave_period_s
+        self.current_source = current_source
         self.calls: list[tuple[float, float, datetime, datetime]] = []
 
     async def fetch(
@@ -102,6 +106,7 @@ class StubAdapter:
                         swell_wave_height_m=None,
                         current_speed_kn=self.current_kn,
                         current_direction_to_deg=self.current_to_deg,
+                        current_source=self.current_source,
                     )
                 )
                 t = t + timedelta(hours=1)
@@ -1818,3 +1823,56 @@ class TestTidalGapNotice:
         finally:
             engine_module.confidence_for_point = original
         assert not [n for n in report.notices if n.code == "currents.tidal_gap"]
+
+    async def test_a_fine_atlas_blind_to_the_pass_gets_its_own_notice(self, monkeypatch) -> None:
+        # Bodø roads to Saltstraumen with NorKyst 800 m answering: the grid
+        # has no cell in the 150 m channel, the snapshot lists it as blind,
+        # and the passage hears "pass unresolved by the atlas", not "our
+        # sources are coarse".
+        from openwind_data.currents import tidal_gaps
+
+        passes = (
+            tidal_gaps._Pass(
+                "Saltstraumen", 67.2281, 14.6164, 8.0, frozenset({"norkyst_lofoten_800m"})
+            ),
+        )
+        monkeypatch.setattr(
+            tidal_gaps,
+            "_load",
+            lambda: tidal_gaps._Gaps(
+                rings=(),
+                passes=passes,
+                pass_lat=np.array([67.2281]),
+                pass_lon=np.array([14.6164]),
+            ),
+        )
+        adapter = StubAdapter(
+            tws_kn=12.0,
+            twd_deg=200.0,
+            current_kn=0.3,
+            current_to_deg=60.0,
+            current_source="norkyst_lofoten_800m",
+        )
+        report = await estimate_passage(
+            [Point(67.25, 14.50), Point(67.2281, 14.6164)],
+            DEPARTURE,
+            "cruiser_30ft",
+            adapter=adapter,
+            segment_length_nm=1.0,
+        )
+        blind = [n for n in report.notices if n.code == "currents.pass_unresolved"]
+        assert len(blind) == 1 and blind[0].params["zones"] == "Saltstraumen"
+        assert "passe non résolue" in blind[0].message
+        assert not [n for n in report.notices if n.code == "currents.tidal_gap"]
+
+        # Confidence is tagged at the leg's midpoint: medium inside the 3 km
+        # blind spot, high for the same atlas out in the roads.
+        def km_to_pass(s: SegmentReport) -> float:
+            mid_lat = (s.start.lat + s.end.lat) / 2
+            mid_lon = (s.start.lon + s.end.lon) / 2
+            return math.hypot((mid_lat - 67.2281) * 111, (mid_lon - 14.6164) * 111 * 0.39)
+
+        near = [s for s in report.segments if km_to_pass(s) < 2.5]
+        far = [s for s in report.segments if km_to_pass(s) > 3.5]
+        assert near and all(s.current_confidence == "medium" for s in near)
+        assert far and all(s.current_confidence == "high" for s in far)

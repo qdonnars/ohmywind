@@ -453,13 +453,18 @@ uses unless overridden by tool parameters.
   derived from the data source. ``"high"`` on SHOM Atlas C2D and on any
   atlas at 1 km or finer (MARC 250 m and 700 m, BSH 90 m and 926 m);
   ``"medium"`` on atlases coarser than 1 km (MARC ATLNE 2 km, Copernicus
-  1.5 to 4.2 km) and on Open-Meteo SMOC (8 km global product); ``None``
-  when no current data is available.
+  1.5 to 4.2 km), on Open-Meteo SMOC (8 km global product), and on a fine
+  atlas within 3 km of a known pass it does not resolve (its reconstructed
+  maximum there is under half the published spring current: an 800 m grid
+  has no cell in a 150 m channel); ``None`` when no current data is
+  available.
   A ``currents.tidal_gap`` notice is raised once per passage when a leg
   whose current is not from a fine source crosses a zone where tidal
   streams are probably strong (a known race, or more than 1.5 kt
-  reconstructed with no fine atlas): the ETA then carries a current that
-  is probably wrong, and the notice names the places. Relay it.
+  reconstructed with no fine atlas); a ``currents.pass_unresolved`` notice
+  when the leg's own atlas is the one blind to the pass. Either way the
+  ETA carries a current that is probably wrong, and the notice names the
+  places. Relay it.
 
 - Minimum boat speed / SOG: 0.5 kn floor to avoid blow-up in extreme
   stalls or strongly opposing currents.

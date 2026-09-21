@@ -43,6 +43,15 @@ describe("describeCurrentSource", () => {
     });
   });
 
+  it("reads any atlas of the standard format from its pitch suffix", () => {
+    // BSH, Copernicus and NorKyst answer with the same label shape as MARC;
+    // a 90 m atlas described as the global model got the tidal-gap warning
+    // at Cuxhaven with "a 90 m grid that cannot see it".
+    expect(describeCurrentSource("bsh_ausalt_90m", 90, null)).toEqual({ kind: "marc", resolutionM: 90 });
+    expect(describeCurrentSource("cmems_nws_1500m", null, null)).toEqual({ kind: "marc", resolutionM: 1500 });
+    expect(describeCurrentSource("norkyst_lofoten_800m", undefined, undefined)).toEqual({ kind: "marc", resolutionM: 800 });
+  });
+
   it("lands an unknown label on the most cautious wording", () => {
     expect(describeCurrentSource("openmeteo_smoc", null, null)).toEqual({ kind: "smoc" });
     expect(describeCurrentSource("marc_mystery", null, null)).toEqual({ kind: "smoc" });

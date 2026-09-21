@@ -115,6 +115,7 @@ export const plan: Record<keyof typeof frPlan, string> = {
   "plan.notice.passage.model_fallback":
     "model {model} has no data at {fallback_count}/{total} points (probably outside its coverage); automatic fallback to {others}",
   "plan.notice.currents.tidal_gap": "Tidal streams probably strong ({zones}) and not resolved by our sources: the currents shown come from a 2 to 8 km grid that cannot see them. We are working to extend our coverage, but not all the data is open.",
+  "plan.notice.currents.pass_unresolved": "Pass not resolved by the current atlas ({zones}): its grid reads at most a fraction of the published spring current there, so the currents shown are underestimated. Check the local tidal stream tables or atlas.",
   "plan.notice.complexity.wind.3": "Fresh wind: TWS {tws_range} kn over {nm} nm",
   "plan.notice.complexity.wind.4": "Strong wind: TWS {tws_range} kn over {nm} nm",
   "plan.notice.complexity.wind.5": "Very strong wind: TWS {tws_range} kn over {nm} nm",

@@ -321,6 +321,26 @@ telle source ; les atlas construits mais pas publiés n'y comptent pas tant que
 `--gaps-include-built` n'est pas passé, sinon Cuxhaven perdrait son
 avertissement avant que BSH n'y réponde.
 
+Chaque passe du cliché porte aussi `unresolved_by` : les libellés des atlas
+à 1 km ou plus fin (construits ou servis, tous ceux dont l'emprise contient
+la passe ; les plus grossiers sont déjà `medium` par leur maille) dont le
+courant maximal reconstruit à 3 km de la passe reste **sous la moitié du
+courant de vive-eau publié** par le gazetteer, ou qui n'y ont aucune cellule.
+C'est la mesure qui remplace toute liste de largeurs de passes : NorKyst
+800 m lit 0,3 kt à Saltstraumen (8 kt publiés, le chenal de 150 m est de la
+terre dans la grille), MARC MANGA 700 m lit 0,04 kt au raz de Lundy et
+0,5 kt aux Shoots de la Severn et dans le canal de Bristol, à la lisière de
+son domaine où Copernicus NWS voit 4 à 5 kt. Au runtime, `confidence_for_point`
+rétrograde une source fine à `medium` à moins de 3 km d'une passe qui la
+liste, et le moteur lève `currents.pass_unresolved` (et non
+`currents.tidal_gap`, dont la phrase parle d'une maille de 2 à 8 km) pour
+les étapes concernées. Le rayon de 3 km, le même que la zone aveugle du
+runtime, absorbe un point de gazetteer posé à côté de l'axe du chenal : à
+1,5 km du point du chenal du Four, FINIS 250 m ne lit que 1,8 kt contre
+« ~5 » publiés, à 3 km il lit 3,7 kt et n'est pas listé. Une passe résolue
+par l'atlas servi n'est jamais listée pour lui (Raz de Sein, Fromveur, Elbe
+à 90 m).
+
 **Masques « là où les courants comptent »** : reconstruction horaire sur
 15 jours de chaque cellule d'un atlas, maximum, rastérisation, fermeture
 morphologique, vectorisation. Le masque ATLNE est juste là où ATLNE l'est

@@ -250,10 +250,23 @@ float32, environ 1,2 Mo/s sur le fil en int16).
    l'endpoint de couverture et la fiche de la carte. Le rejeu depuis le
    cache de prévisions du web (`CacheBackedAdapter`) n'a pas de registre
    d'atlas sous la main, donc la confiance doit rester déductible du
-   libellé seul ou voyager avec les points. Avant de servir NorKyst, il
-   faut soit un libellé qui porte la confiance, soit un seuil de résolution
-   par source, soit la liste de passes non résolues ci-dessus ; sans cela,
-   `currents.tidal_gap` s'éteint à Saltstraumen.
+   libellé seul ou voyager avec les points. **Réponse retenue, livrée sur la
+   même branche** : la liste des passes non résolues, mesurée. Le
+   constructeur de la carte (`build_tidal_world_map.py --write-gaps`)
+   compare, pour chaque passe du gazetteer et chaque atlas à 1 km ou plus
+   fin qui la couvre, le courant maximal reconstruit à 3 km de la passe au
+   courant de vive-eau publié ; sous la moitié, l'atlas est inscrit dans
+   `unresolved_by` de la passe (`tidal_gaps.geojson`, monde entier, embarqué
+   côté serveur et côté web). Au runtime, `confidence_for_point` rétrograde
+   une source fine à `medium` à moins de 3 km d'une passe qui la liste, et
+   le moteur lève l'avertissement `currents.pass_unresolved` (« passe non
+   résolue par l'atlas de courants ») au lieu de `currents.tidal_gap`. Sur
+   les Lofoten : Saltstraumen liste `norkyst_lofoten_800m` (0,4 kt à 3 km
+   contre 8 kt publiés), Moskstraumen n'est listé pour personne (3,7 kt
+   contre 6). Le même filet attrape déjà MARC MANGA en lisière de son
+   domaine (raz de Lundy 0,15 kt, Shoots de la Severn 0,5 kt, canal de
+   Bristol 0,5 kt, Escaut occidental 2,2 kt) et BSH DB 926 m au Scharhörn
+   (1,9 kt, l'atlas Elbe à 90 m y répond avant lui).
 2. **32 jours.** K2 et P1 inférés de FES2014, qui est faible et peu fiable
    dans l'archipel (section 5) ; `z0_*` reflète la météo d'un mois
    (`mean_is_weather true`). Un an lève les deux points.
@@ -279,18 +292,20 @@ float32, environ 1,2 Mo/s sur le fil en int16).
 Oui, sous trois conditions :
 
 - **rang 1, 800 m, `confidence "medium"`** posée par le builder (fait,
-  option `--confidence`) **et honorée par le moteur** (à faire : aujourd'hui
-  la confiance d'une étape vient du suffixe de résolution du libellé,
-  section 7, point 1) ; à revoir quand une validation contre les tables de
-  courant norvégiennes (Kartverket) aura été faite [supposé qu'elles
-  existent en libre accès] ;
+  option `--confidence`) ; le moteur, lui, garde `high` à 800 m sauf à moins
+  de 3 km d'une passe que la mesure du constructeur de la carte déclare non
+  résolue par cet atlas (fait, section 7, point 1) ; à revoir quand une
+  validation contre les tables de courant norvégiennes (Kartverket) aura
+  été faite [supposé qu'elles existent en libre accès] ;
 - **un an d'archive** par boîte (3 Go et 40 minutes par boîte de 1,4° × 4°),
   en boîtes côtières du Skagerrak au cap Nord, avec `validity_bbox` par
   atlas pour ne pas marcher sur BSH ni sur la Baltique ;
-- **un garde-fou sur les passes** : les points à moins de 2 à 3 km d'une
-  passe connue non résolue (Saltstraumen en tête) gardent
-  `currents.tidal_gap` et une mention explicite « passe non résolue à
-  800 m », quel que soit l'atlas qui répond.
+- **un garde-fou sur les passes** (fait) : les étapes à moins de 3 km d'une
+  passe connue que l'atlas servi ne résout pas (Saltstraumen en tête)
+  passent en confiance `medium` et reçoivent `currents.pass_unresolved`,
+  « passe non résolue par l'atlas de courants », quel que soit l'atlas qui
+  répond ; la liste vient de la mesure, pas d'une largeur de passe saisie à
+  la main, et se recalcule à chaque `--write-gaps`.
 
 Vis-à-vis de Copernicus NWS, NorKyst est complémentaire, pas concurrent :
 NWS s'arrête à 63° N, NorKyst couvre toute la côte jusqu'à Vardø et
