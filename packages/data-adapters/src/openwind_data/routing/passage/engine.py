@@ -16,7 +16,7 @@ from datetime import UTC, datetime, timedelta
 
 from openwind_data.adapters.base import ForecastBundle, ForecastHorizonError, MarineDataAdapter
 from openwind_data.currents.narrow_pass import confidence_for_point
-from openwind_data.currents.tidal_gaps import tidal_gap_at
+from openwind_data.currents.tidal_gaps import tidal_gap_at, unresolved_pass_at
 from openwind_data.routing.archetypes import BoatPolar, get_polar, lookup_polar
 from openwind_data.routing.geometry import Point, Segment, normalize_twa
 from openwind_data.routing.notices import Notice, notice
@@ -137,29 +137,48 @@ def _segment_report(
 _TIDAL_GAP_NAMES_MAX = 3
 
 
-def _tidal_gap_warning(segments: list[SegmentReport]) -> Notice | None:
-    """One notice when a leg without a fine current source crosses a tidal gap.
+def _named(zones: list[str]) -> str:
+    return ", ".join(zones[:_TIDAL_GAP_NAMES_MAX]) + (
+        "…" if len(zones) > _TIDAL_GAP_NAMES_MAX else ""
+    )
+
+
+def _tidal_gap_warnings(segments: list[SegmentReport]) -> list[Notice]:
+    """The notices for legs whose current source is blind to a strong tide.
 
     A leg "without a fine source" is one whose ``current_confidence`` is not
-    ``"high"``: the global 8 km model, a 2 km atlas outside its depth, or no
-    current at all. Where such a leg sits in a zone the exploration flagged
-    (a known race, or more than 1.5 kt reconstructed with no fine atlas),
-    the ETA carries a current that is probably wrong, and the sailor must
-    hear it once, with the places named.
+    ``"high"``: the global 8 km model, a 2 km atlas outside its depth, no
+    current at all, or a fine atlas beside a pass it does not resolve (the
+    map builder measured its maximum there at under half the published
+    spring current). The last case gets its own notice,
+    ``currents.pass_unresolved``, since the remedy differs: not "our sources
+    are coarse" but "this atlas has no cell in the channel". The others fall
+    to ``currents.tidal_gap`` where the leg sits in a zone the exploration
+    flagged (a known race, or more than 1.5 kt reconstructed with no fine
+    atlas). Either way the ETA carries a current that is probably wrong, and
+    the sailor must hear it once, with the places named.
     """
     zones: list[str] = []
+    blind: list[str] = []
     for seg in segments:
         if seg.current_confidence == "high":
             continue
-        gap = tidal_gap_at((seg.start.lat + seg.end.lat) / 2, (seg.start.lon + seg.end.lon) / 2)
+        lat = (seg.start.lat + seg.end.lat) / 2
+        lon = (seg.start.lon + seg.end.lon) / 2
+        missed = unresolved_pass_at(lat, lon, seg.current_source)
+        if missed is not None:
+            if missed.zone not in blind:
+                blind.append(missed.zone)
+            continue
+        gap = tidal_gap_at(lat, lon)
         if gap is not None and gap.zone not in zones:
             zones.append(gap.zone)
-    if not zones:
-        return None
-    named = ", ".join(zones[:_TIDAL_GAP_NAMES_MAX]) + (
-        "…" if len(zones) > _TIDAL_GAP_NAMES_MAX else ""
-    )
-    return notice("currents.tidal_gap", zones=named, count=len(zones))
+    out: list[Notice] = []
+    if zones:
+        out.append(notice("currents.tidal_gap", zones=_named(zones), count=len(zones)))
+    if blind:
+        out.append(notice("currents.pass_unresolved", zones=_named(blind), count=len(blind)))
+    return out
 
 
 def _collect_warnings(
@@ -301,9 +320,7 @@ async def _estimate_with_model(
         min_boat_speed_kn=min_boat_speed,
         model=model,
     )
-    tidal_gap = _tidal_gap_warning(reports)
-    if tidal_gap is not None:
-        warnings.append(tidal_gap)
+    warnings.extend(_tidal_gap_warnings(reports))
 
     departure = anchor if backward else anchor_utc
     arrival = anchor_utc if backward else anchor

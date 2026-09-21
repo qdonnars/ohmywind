@@ -119,6 +119,7 @@ export const plan: Record<keyof typeof frPlan, string> = {
   "plan.notice.passage.model_fallback":
     "modello {model} senza dati su {fallback_count}/{total} punti (probabilmente fuori copertura); ripiego automatico su {others}",
   "plan.notice.currents.tidal_gap": "Correnti di marea probabilmente forti ({zones}) e non risolte dalle nostre fonti: le correnti indicate provengono da una maglia di 2-8 km che non le vede. Stiamo lavorando per estendere la copertura, ma non tutti i dati sono in libero accesso.",
+  "plan.notice.currents.pass_unresolved": "Passaggio non risolto dall'atlante delle correnti ({zones}): la sua maglia vi legge al massimo una frazione della corrente sizigiale pubblicata, le correnti indicate sono sottostimate. Consultate le tavole o l'atlante delle correnti locali.",
   "plan.notice.complexity.wind.3": "Vento teso: TWS {tws_range} kn su {nm} nm",
   "plan.notice.complexity.wind.4": "Vento forte: TWS {tws_range} kn su {nm} nm",
   "plan.notice.complexity.wind.5": "Vento molto forte: TWS {tws_range} kn su {nm} nm",

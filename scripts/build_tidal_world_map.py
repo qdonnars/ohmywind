@@ -22,8 +22,12 @@ refuse ``fetch`` of local files, so every layer is bundled into one script,
 - the current coverage, computed here from the build artefacts when present:
   MARC atlases (``build/marc/*/coverage.geojson``), SHOM C2D zones
   (``build/shom_c2d/shom_c2d_points.parquet``), and the spike atlases
-  (``build/bsh/atlas/*/coverage.geojson``); written to
-  ``coverage_current.geojson`` so the page works from a clean checkout too.
+  (``build/{bsh,cmems,norkyst}/atlas/*/coverage.geojson`` and
+  ``build/ofs/*/atlas/*/coverage.geojson``); written to
+  ``coverage_current.geojson`` so the page works from a clean checkout too;
+- with ``--write-gaps``, the snapshot behind the ``currents.tidal_gap``
+  notice, where each pass also lists the atlases blind to it (reconstructed
+  maximum within 3 km under half the published spring current).
 
 Usage::
 
@@ -152,6 +156,28 @@ def _tile_deg(meta: dict) -> float:
     return float((meta.get("grid") or {}).get("tile_deg") or 0.5)
 
 
+# Atlases built by the spike scripts, under ``build/<source>/atlas/<ATLAS>``.
+BUILT_ATLAS_PATTERNS = (
+    "bsh/atlas/*/coverage.geojson",
+    "cmems/atlas/*/coverage.geojson",
+    "norkyst/atlas/*/coverage.geojson",
+    "ofs/*/atlas/*/coverage.geojson",
+)
+
+
+def atlas_dir_of(build_dir: Path, props: dict) -> Path | None:
+    """The tile directory behind a coverage feature of layer ``marc`` or ``built``."""
+    if props.get("layer") == "marc":
+        d = build_dir / "marc" / props["atlas"]
+        return d if d.is_dir() else None
+    if props.get("layer") == "built":
+        for pattern in BUILT_ATLAS_PATTERNS:
+            for cov in build_dir.glob(pattern):
+                if cov.parent.name == props["atlas"]:
+                    return cov.parent
+    return None
+
+
 def current_coverage(build_dir: Path, shipped: frozenset[str] = frozenset()) -> dict:
     feats: list[dict] = []
     for cov in sorted(build_dir.glob("marc/*/coverage.geojson")):
@@ -204,7 +230,7 @@ def current_coverage(build_dir: Path, shipped: frozenset[str] = frozenset()) -> 
     # Atlases built in this repo but not shipped to the dataset yet: BSH
     # (spike) and Copernicus Marine (regional). Drawn from their tiles, clipped
     # to the validity box when the metadata declares one, like MARC above.
-    for pattern in ("bsh/atlas/*/coverage.geojson", "cmems/atlas/*/coverage.geojson"):
+    for pattern in BUILT_ATLAS_PATTERNS:
         for cov in sorted(build_dir.glob(pattern)):
             meta = json.loads((cov.parent / "metadata.json").read_text())
             bbox_geometry = _validity_clip(
@@ -677,13 +703,145 @@ def effective_coverage(coverage: dict) -> dict:
     return {"type": "FeatureCollection", "features": feats}
 
 
+# A pass is unresolved by an atlas when the maximum current the atlas
+# reconstructs within UNRESOLVED_RADIUS_KM of it stays under UNRESOLVED_RATIO
+# times the spring current the gazetteer publishes. The radius is the
+# runtime's blind spot (``tidal_gaps.DEFAULT_UNRESOLVED_RADIUS_KM``) and
+# absorbs a gazetteer point set beside the channel axis: FINIS 250 m reads
+# 1.8 kt within 1.5 km of the Chenal du Four point but 3.7 kt within 3 km,
+# where the channel runs. NorKyst 800 m at Saltstraumen (published 8 kt)
+# stays under 2 kt at 3 km: the channel is land in the grid.
+UNRESOLVED_RADIUS_KM = 3.0
+UNRESOLVED_RATIO = 0.5
+_KM_PER_DEG = 111.0
+
+
+def _mask_module():
+    """``max_speed_of_tile`` from the mask builder, one source of truth."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "tidal_mask", Path(__file__).resolve().parent / "build_tidal_world_mask.py"
+    )
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def atlas_max_near(
+    atlas_dir: Path,
+    lat: float,
+    lon: float,
+    radius_km: float,
+    mask_mod,
+    times,
+    x_cache: dict,
+) -> float | None:
+    """Max reconstructed tidal current (kt) of ``atlas_dir`` within ``radius_km`` of a point.
+
+    ``None`` when the atlas has no cell that close: the runtime would still
+    answer from a cell up to 5 km away, which is the blind case.
+    """
+    import numpy as np
+    import polars as pl
+
+    meta = json.loads((atlas_dir / "metadata.json").read_text())
+    tile_deg = _tile_deg(meta)
+    dlat = radius_km / _KM_PER_DEG
+    dlon = radius_km / (_KM_PER_DEG * max(np.cos(np.deg2rad(lat)), 0.05))
+    frames = []
+    for tlat in np.arange(
+        np.floor((lat - dlat) / tile_deg) * tile_deg, lat + dlat, tile_deg
+    ):
+        for tlon in np.arange(
+            np.floor((lon - dlon) / tile_deg) * tile_deg, lon + dlon, tile_deg
+        ):
+            path = (
+                atlas_dir
+                / f"tile_lat={tlat:.1f}"
+                / f"tile_lon={tlon:.1f}"
+                / "data.parquet"
+            )
+            if path.exists():
+                frames.append(pl.read_parquet(path))
+    if not frames:
+        return None
+    df = pl.concat(frames, how="diagonal_relaxed")
+    km = np.hypot(
+        (df["lat"].to_numpy() - lat) * _KM_PER_DEG,
+        (df["lon"].to_numpy() - lon) * _KM_PER_DEG * np.cos(np.deg2rad(lat)),
+    )
+    df = df.filter(pl.Series(km <= radius_km))
+    if df.height == 0:
+        return None
+    speeds = mask_mod.max_speed_of_tile(df, x_cache, times)
+    if not np.isfinite(speeds).any():
+        return None
+    return float(np.nanmax(speeds) / 0.514444)
+
+
+def unresolved_passes(
+    build_dir: Path, coverage: dict, gazetteer: dict
+) -> dict[str, dict]:
+    """Per gazetteer pass with a published current: the fine atlases blind to it.
+
+    ``{name: {"unresolved_by": [labels], "measured": {label: kt}}}``, only
+    for the passes at least one atlas misses. Every atlas at MEDIUM_M or
+    finer whose coverage contains the pass is measured, served or not, so
+    the snapshot is right the day the atlas ships; a coarser atlas is
+    already tagged medium by its pitch and has nothing to lose here, and
+    listing it would drag passes MARC resolves into the snapshot for the
+    legs that carry no source at all.
+    """
+    from datetime import timedelta
+
+    from shapely.geometry import shape
+
+    mask_mod = _mask_module()
+    start = datetime(2026, 3, 1, tzinfo=UTC)
+    times = [start + timedelta(hours=h) for h in range(24 * 15)]
+    x_cache: dict = {}
+    atlases = []
+    for f in coverage["features"]:
+        if (f["properties"].get("resolution_m") or 10**9) > MEDIUM_M:
+            continue
+        d = atlas_dir_of(build_dir, f["properties"])
+        if d is not None:
+            atlases.append((shape(f["geometry"]), f["properties"]["label"], d))
+    out: dict[str, dict] = {}
+    for f in gazetteer["features"]:
+        p = f["properties"]
+        published = p.get("max_spring_kt")
+        if not published or f["geometry"]["type"] != "Point":
+            continue
+        lon, lat = f["geometry"]["coordinates"]
+        pt = shape(f["geometry"])
+        measured: dict[str, float | None] = {}
+        blind: list[str] = []
+        for geom, label, d in atlases:
+            if not geom.contains(pt):
+                continue
+            kt = atlas_max_near(
+                d, lat, lon, UNRESOLVED_RADIUS_KM, mask_mod, times, x_cache
+            )
+            measured[label] = None if kt is None else round(kt, 2)
+            if kt is None or kt < UNRESOLVED_RATIO * float(published):
+                blind.append(label)
+        if blind:
+            out[p["name"]] = {"unresolved_by": sorted(blind), "measured": measured}
+    return out
+
+
 GAPS_FILES = (
     REPO / "packages/data-adapters/src/openwind_data/currents/tidal_gaps.geojson",
     REPO / "packages/web/src/domain/tidalGaps.json",
 )
 
 
-def server_gaps(coverage: dict, masks: dict, gaps: dict) -> dict:
+def server_gaps(
+    coverage: dict, masks: dict, gaps: dict, unresolved: dict[str, dict] | None = None
+) -> dict:
     """The snapshot behind the ``currents.tidal_gap`` notice, server and web.
 
     Worldwide, unlike the map's gap layer which stays inside the target area:
@@ -695,6 +853,11 @@ def server_gaps(coverage: dict, masks: dict, gaps: dict) -> dict:
     published: the engine only raises the notice where the served source is
     not fine, so listing Cuxhaven costs nothing while BSH answers there and
     keeps the warning for a deployment that lacks the atlas.
+
+    ``unresolved`` (from :func:`unresolved_passes`) adds ``unresolved_by`` to
+    a pass, the labels of the fine atlases blind to it; such a pass stays in
+    the snapshot even under a fine MARC source, since the engine downgrades
+    that source there and must find the pass.
     """
     from shapely.geometry import mapping, shape
     from shapely.ops import unary_union
@@ -722,22 +885,23 @@ def server_gaps(coverage: dict, masks: dict, gaps: dict) -> dict:
         p = f["properties"]
         if f["geometry"]["type"] != "Point":
             continue
+        blind = (unresolved or {}).get(p["name"], {}).get("unresolved_by") or []
         if (
             p.get("coverage_class") in ("fine", "medium")
             and p.get("best_source") in fine_names
+            and not blind
         ):
             continue
+        props = {
+            "kind": "pass",
+            "name": p["name"],
+            "max_spring_kt": p.get("max_spring_kt"),
+            "coverage_class": p.get("coverage_class"),
+        }
+        if blind:
+            props["unresolved_by"] = blind
         feats.append(
-            {
-                "type": "Feature",
-                "properties": {
-                    "kind": "pass",
-                    "name": p["name"],
-                    "max_spring_kt": p.get("max_spring_kt"),
-                    "coverage_class": p.get("coverage_class"),
-                },
-                "geometry": f["geometry"],
-            }
+            {"type": "Feature", "properties": props, "geometry": f["geometry"]}
         )
     sources = ", ".join(sorted(masks))
     return {
@@ -748,7 +912,9 @@ def server_gaps(coverage: dict, masks: dict, gaps: dict) -> dict:
             "courants à 1 km ou plus fin n'est servie. Polygone : courant tidal maximal "
             f"> 1,5 kt reconstruit depuis les atlas ({sources}), moins la couverture fine "
             "et moyenne, monde entier. Points : passes et raz connus sans source fine ni "
-            "moyenne (courant de vive-eau publié en nœuds). Généré par "
+            "moyenne (courant de vive-eau publié en nœuds) ; unresolved_by liste les "
+            "atlas à 1 km ou plus fin dont le maximum reconstruit à 3 km reste sous la "
+            "moitié du courant publié. Généré par "
             "scripts/build_tidal_world_map.py --write-gaps le "
             f"{datetime.now(UTC).date().isoformat()} ; à régénérer quand un atlas est ajouté."
         ),
@@ -1019,8 +1185,18 @@ def main(argv: list[str] | None = None) -> int:
     if args.web_dir is not None:
         export_web(args.web_dir, masks, gaps, status, objective, coverage, sources)
     if args.write_gaps:
+        unresolved = (
+            unresolved_passes(args.build_dir, coverage, gazetteer)
+            if args.build_dir.exists()
+            else {}
+        )
+        for name, info in sorted(unresolved.items()):
+            print(
+                f"unresolved pass: {name}: "
+                + ", ".join(f"{k} ({v} kt)" for k, v in info["measured"].items())
+            )
         snapshot = json.dumps(
-            server_gaps(coverage, masks, gaps),
+            server_gaps(coverage, masks, gaps, unresolved),
             ensure_ascii=False,
             separators=(",", ":"),
         )

@@ -15,6 +15,14 @@ come from a fine source, and raises one ``currents.tidal_gap`` notice per
 passage naming the zones hit. The data is a snapshot: adding an atlas means
 regenerating the file, which the map builder does in one command.
 
+A pass may also carry ``unresolved_by``: the source labels of the atlases
+that cover it but miss its current, measured by the builder as a
+reconstructed maximum below half the published spring current within
+3 km (an 800 m grid has no cell in a 150 m channel: NorKyst reads 0.3 kt
+a kilometre from Saltstraumen). :func:`unresolved_pass_at` is how the
+confidence tag learns that a fine grid is blind there, so the notice above
+still fires.
+
 numpy only, loaded once, no runtime dependency on the atlases.
 """
 
@@ -30,6 +38,10 @@ import numpy as np
 # A pass influences the flow around it; at 15 km a leg midpoint sampled on
 # a 10 nm segment still lands in the race it crosses.
 DEFAULT_PASS_RADIUS_KM = 15.0
+# The blind spot of a grid around a channel it does not resolve: the spike
+# on NorKyst measured 1.8 kt at 2.9 km from Saltstraumen in the approach and
+# 0.3 kt closer in, so within 3 km the atlas value must not read as fine.
+DEFAULT_UNRESOLVED_RADIUS_KM = 3.0
 _KM_PER_DEG = 111.0
 
 
@@ -49,6 +61,7 @@ class _Pass:
     lat: float
     lon: float
     max_spring_kt: float | None
+    unresolved_by: frozenset[str] = frozenset()  # source labels blind to this pass
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,7 +97,13 @@ def _load() -> _Gaps:
             lon, lat = feat["geometry"]["coordinates"]
             kt = props.get("max_spring_kt")
             passes.append(
-                _Pass(str(props["name"]), float(lat), float(lon), None if kt is None else float(kt))
+                _Pass(
+                    str(props["name"]),
+                    float(lat),
+                    float(lon),
+                    None if kt is None else float(kt),
+                    frozenset(str(x) for x in props.get("unresolved_by") or ()),
+                )
             )
     return _Gaps(
         rings=tuple(rings),
@@ -110,6 +129,13 @@ def _in_polygon(lon: float, lat: float, outer: np.ndarray, holes: tuple[np.ndarr
     return _in_ring(lon, lat, outer) and not any(_in_ring(lon, lat, h) for h in holes)
 
 
+def _pass_distances_km(gaps: _Gaps, lat: float, lon: float) -> np.ndarray:
+    return np.hypot(
+        (gaps.pass_lat - lat) * _KM_PER_DEG,
+        (gaps.pass_lon - lon) * _KM_PER_DEG * np.cos(np.deg2rad(lat)),
+    )
+
+
 def tidal_gap_at(
     lat: float, lon: float, *, pass_radius_km: float = DEFAULT_PASS_RADIUS_KM
 ) -> TidalGap | None:
@@ -121,10 +147,7 @@ def tidal_gap_at(
     """
     gaps = _load()
     if gaps.passes:
-        d = np.hypot(
-            (gaps.pass_lat - lat) * _KM_PER_DEG,
-            (gaps.pass_lon - lon) * _KM_PER_DEG * np.cos(np.deg2rad(lat)),
-        )
+        d = _pass_distances_km(gaps, lat, lon)
         i = int(np.argmin(d))
         if d[i] <= pass_radius_km:
             p = gaps.passes[i]
@@ -132,4 +155,32 @@ def tidal_gap_at(
     for outer, holes in gaps.rings:
         if _in_polygon(lon, lat, outer, holes):
             return TidalGap("zone > 1,5 kt", None, "mask", 0.0)
+    return None
+
+
+def unresolved_pass_at(
+    lat: float,
+    lon: float,
+    source: str | None,
+    *,
+    radius_km: float = DEFAULT_UNRESOLVED_RADIUS_KM,
+) -> TidalGap | None:
+    """The nearest pass within ``radius_km`` that the atlas behind ``source`` misses.
+
+    ``source`` is the ``current_source`` label of the leg. ``None`` when no
+    pass is near, or when the near ones are resolved by that source: a 90 m
+    atlas in the Elbe is not blind, an 800 m one at Saltstraumen is.
+    """
+    if not source:
+        return None
+    gaps = _load()
+    if not gaps.passes:
+        return None
+    d = _pass_distances_km(gaps, lat, lon)
+    for i in np.argsort(d):
+        if d[i] > radius_km:
+            break
+        p = gaps.passes[int(i)]
+        if source in p.unresolved_by:
+            return TidalGap(p.name, p.max_spring_kt, "pass", float(d[i]))
     return None
