@@ -27,7 +27,7 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from openwind_data.currents.tidal_gaps import unresolved_pass_at
+from openwind_data.currents.tidal_gaps import unresolved_pass_along, unresolved_pass_at
 
 ConfidenceLevel = Literal["high", "medium", "low"]
 
@@ -70,3 +70,16 @@ def confidence_for_point(lat: float, lon: float, source: str | None) -> Confiden
     if unresolved_pass_at(lat, lon, source) is not None:
         return "medium"
     return "high"
+
+
+def confidence_for_leg(
+    lat1: float, lon1: float, lat2: float, lon2: float, source: str | None
+) -> ConfidenceLevel | None:
+    """The tag for a whole leg: :func:`confidence_for_point` at its midpoint,
+    dropped to ``"medium"`` when any point of the leg passes within the blind
+    spot of a pass the source misses (the midpoint of a 10 nm leg sits 9 km
+    from the channel it crosses)."""
+    level = confidence_for_point((lat1 + lat2) / 2, (lon1 + lon2) / 2, source)
+    if level == "high" and unresolved_pass_along(lat1, lon1, lat2, lon2, source) is not None:
+        return "medium"
+    return level

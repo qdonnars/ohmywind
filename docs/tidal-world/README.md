@@ -330,9 +330,11 @@ C'est la mesure qui remplace toute liste de largeurs de passes : NorKyst
 800 m lit 0,3 kt à Saltstraumen (8 kt publiés, le chenal de 150 m est de la
 terre dans la grille), MARC MANGA 700 m lit 0,04 kt au raz de Lundy et
 0,5 kt aux Shoots de la Severn et dans le canal de Bristol, à la lisière de
-son domaine où Copernicus NWS voit 4 à 5 kt. Au runtime, `confidence_for_point`
-rétrograde une source fine à `medium` à moins de 3 km d'une passe qui la
-liste, et le moteur lève `currents.pass_unresolved` (et non
+son domaine où Copernicus NWS voit 4 à 5 kt. Au runtime, `confidence_for_leg`
+rétrograde une source fine à `medium` sur toute étape dont un point passe à
+moins de 3 km d'une passe qui la liste (le milieu d'une étape de 10 nm est à
+9 km du chenal qu'elle traverse, la distance se mesure au point le plus
+proche de l'étape), et le moteur lève `currents.pass_unresolved` (et non
 `currents.tidal_gap`, dont la phrase parle d'une maille de 2 à 8 km) pour
 les étapes concernées. Le rayon de 3 km, le même que la zone aveugle du
 runtime, absorbe un point de gazetteer posé à côté de l'axe du chenal : à

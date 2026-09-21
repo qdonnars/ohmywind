@@ -158,6 +158,32 @@ def tidal_gap_at(
     return None
 
 
+def _leg_distances_km(
+    gaps: _Gaps, lat1: float, lon1: float, lat2: float, lon2: float
+) -> np.ndarray:
+    """Distance from each pass to the leg (a segment), flat earth around the leg."""
+    k = _KM_PER_DEG * np.cos(np.deg2rad((lat1 + lat2) / 2))
+    ax, ay = lon1 * k, lat1 * _KM_PER_DEG
+    bx, by = lon2 * k, lat2 * _KM_PER_DEG
+    px, py = gaps.pass_lon * k, gaps.pass_lat * _KM_PER_DEG
+    dx, dy = bx - ax, by - ay
+    length2 = dx * dx + dy * dy
+    if length2 == 0.0:
+        return np.hypot(px - ax, py - ay)
+    t = np.clip(((px - ax) * dx + (py - ay) * dy) / length2, 0.0, 1.0)
+    return np.hypot(px - (ax + t * dx), py - (ay + t * dy))
+
+
+def _blind_pass(gaps: _Gaps, d: np.ndarray, source: str, radius_km: float) -> TidalGap | None:
+    for i in np.argsort(d):
+        if d[i] > radius_km:
+            break
+        p = gaps.passes[int(i)]
+        if source in p.unresolved_by:
+            return TidalGap(p.name, p.max_spring_kt, "pass", float(d[i]))
+    return None
+
+
 def unresolved_pass_at(
     lat: float,
     lon: float,
@@ -176,11 +202,28 @@ def unresolved_pass_at(
     gaps = _load()
     if not gaps.passes:
         return None
-    d = _pass_distances_km(gaps, lat, lon)
-    for i in np.argsort(d):
-        if d[i] > radius_km:
-            break
-        p = gaps.passes[int(i)]
-        if source in p.unresolved_by:
-            return TidalGap(p.name, p.max_spring_kt, "pass", float(d[i]))
-    return None
+    return _blind_pass(gaps, _pass_distances_km(gaps, lat, lon), source, radius_km)
+
+
+def unresolved_pass_along(
+    lat1: float,
+    lon1: float,
+    lat2: float,
+    lon2: float,
+    source: str | None,
+    *,
+    radius_km: float = DEFAULT_UNRESOLVED_RADIUS_KM,
+) -> TidalGap | None:
+    """Like :func:`unresolved_pass_at`, for a whole leg from ``(lat1, lon1)`` to ``(lat2, lon2)``.
+
+    The engine samples a leg at its midpoint, 5 nm from either end on the
+    default segment; a leg that crosses a blind channel still crosses it
+    even when its midpoint sits 9 km away, so the blind spot is measured
+    from the closest point of the leg.
+    """
+    if not source:
+        return None
+    gaps = _load()
+    if not gaps.passes:
+        return None
+    return _blind_pass(gaps, _leg_distances_km(gaps, lat1, lon1, lat2, lon2), source, radius_km)
