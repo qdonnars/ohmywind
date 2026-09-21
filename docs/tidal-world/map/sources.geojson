@@ -1393,16 +1393,16 @@
     "zone": "États-Unis",
     "status": "ok",
     "kind": "forecast_grid",
-    "resolution_m": 500,
+    "resolution_m": 200,
     "access": "keyless S3 / THREDDS",
     "licence": "Domaine public, NODD",
     "licence_url": "https://registry.opendata.aws/noaa-ofs/",
-    "licence_read_at": "2026-09-19",
+    "licence_read_at": "2026-09-21",
     "derivative_redistribution": "yes",
     "effort": "M",
-    "roadmap_step": 6,
-    "archive": "S3 archive depuis 2022 (noaa-nos-ofs-pds)",
-    "notes": "Modèle 3D (ROMS/FVCOM) horaire, marée incluse ; 40 m à 5 km selon système."
+    "roadmap_step": 5,
+    "archive": "S3 noaa-nos-ofs-pds depuis 2024-09 (nowcast horaire, sans clé)",
+    "notes": "Spike du 2026-09-21 (spike-noaa-ofs.md) : FVCOM 163 m médian, 32 jours de la boîte Admiralty Inlet, Deception Pass et Tacoma Narrows analysés, M2 à 0,77 à 1,22 fois les huit stations CO-OPS. Deception Pass et Agate Passage font deux éléments de large."
    },
    "geometry": {
     "type": "Polygon",
