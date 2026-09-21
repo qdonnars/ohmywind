@@ -352,6 +352,15 @@ export function TidalSourcesMap() {
     const map = L.map(containerRef.current, { center: [51, 1], zoom: 4, worldCopyJump: true, scrollWheelZoom: false });
     addBasemap(map, "light");
     mapRef.current = map;
+    // The figure sits in a lazily rendered article: its box settles after
+    // the map is created (fonts, images, the phone's toolbar), and Leaflet
+    // caches the container size. Without this the vector basemap, which
+    // resizes itself, and the Leaflet layers (rasters, markers) drift apart
+    // by the size difference until a zoom recomputes everything, and the
+    // rasters read as shifted south. Same recipe as SpotMap.
+    const settle = window.setTimeout(() => map.invalidateSize({ animate: false }), 200);
+    const resizer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => map.invalidateSize({ animate: false }));
+    resizer?.observe(containerRef.current);
     map.on("click", (e: L.LeafletMouseEvent) => {
       const popup = L.popup(popupOptions(map))
         .setLatLng(e.latlng)
@@ -425,6 +434,8 @@ export function TidalSourcesMap() {
       });
     return () => {
       cancelled = true;
+      window.clearTimeout(settle);
+      resizer?.disconnect();
       map.remove();
       mapRef.current = null;
       sourceLayersRef.current = new Map();
