@@ -1,1 +1,1 @@
-{"atlases":[{"name":"FINIS","source":"marc","label":"marc_finis_250m","rank":2,"resolution_m":250,"confidence":"high","bbox":[47.5,-5.5,49.0,-4.5],"cells":[[48.0,-5.0,48.5,-4.5]]}]}
+{"atlases":[{"name":"FINIS","source":"marc","label":"marc_finis_250m","rank":2,"resolution_m":250,"confidence":"high","built_at":null,"record_end":null,"bbox":[47.5,-5.5,49.0,-4.5],"cells":[[48.0,-5.0,48.5,-4.5]]}]}

@@ -162,8 +162,43 @@
 
 /* The tidal-sources map (TidalSourcesMap): a figure in the article flow,
    legend under the map so nothing covers it at phone width. */
+/* The map and its registry break out of the reading column: the table has
+   eight columns and the point of the layout is to tick a source and see its
+   extent at once. Centred on the viewport without a transform (a transform
+   would become the containing block of the full-screen stage). */
 .methodo-map {
-  margin: 1.5rem 0 2rem;
+  --methodo-map-width: min(1440px, calc(100vw - 32px));
+  width: var(--methodo-map-width);
+  margin: 1.5rem 0 2rem calc(50% - var(--methodo-map-width) / 2);
+}
+@media (min-width: 1100px) {
+  .methodo-map {
+    display: grid;
+    grid-template-columns: minmax(0, 11fr) minmax(0, 13fr);
+    gap: 0 1.5rem;
+    align-items: start;
+  }
+  /* The map stays in view while the registry scrolls beside it. */
+  .methodo-map-main {
+    position: sticky;
+    top: 72px;
+  }
+  .methodo-map-sources {
+    margin-top: 0;
+  }
+  .methodo-map-sources .methodo-map-table-wrap {
+    max-height: calc(100vh - 140px);
+    overflow: auto;
+  }
+  .methodo-map-sources thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #f8fafc;
+  }
+  .methodo-map-note {
+    grid-column: 1 / -1;
+  }
 }
 .methodo-map-hint {
   font-size: 0.9rem;
@@ -285,43 +320,94 @@ html.methodo-map-locked body {
 }
 .methodo-map-table {
   width: 100%;
-  min-width: 920px;
+  min-width: 660px;
   table-layout: fixed;
   border-collapse: collapse;
-  font-size: 0.8rem;
-  line-height: 1.3;
+  font-size: 0.72rem;
+  line-height: 1.25;
 }
 .methodo-map-table th:nth-child(1) {
-  width: 3.6rem;
+  width: 1.8rem;
 }
 .methodo-map-table th:nth-child(2) {
-  width: 22%;
+  width: 26%;
 }
 .methodo-map-table th:nth-child(3) {
-  width: 12%;
+  width: 11%;
 }
 .methodo-map-table th:nth-child(4) {
-  width: 15%;
+  width: 11%;
 }
 .methodo-map-table th:nth-child(5) {
   width: 11%;
 }
-.methodo-map-access p {
-  margin: 0 0 0.3rem;
+.methodo-map-table th:nth-child(6) {
+  width: 11%;
 }
-.methodo-map-access p:last-child {
-  margin-bottom: 0;
+.methodo-map-table th:nth-child(7) {
+  width: 10%;
 }
-.methodo-map-access strong {
+.methodo-map-table tr.is-shown td {
+  background: rgba(42, 157, 92, 0.08);
+}
+.methodo-map-table label {
+  cursor: pointer;
+  font-weight: 600;
+}
+.methodo-map-sub {
+  color: #64748b;
+}
+.methodo-map-how summary {
+  cursor: pointer;
+  color: #0f766e;
+  font-size: 0.68rem;
+}
+.methodo-map-how p {
+  margin: 0.25rem 0 0;
+}
+.methodo-map-how strong {
   display: block;
   font-weight: 600;
   color: #334155;
+}
+.methodo-map-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 0.68rem;
+  line-height: 1.3;
+  background: #e2e8f0;
+  color: #1e293b;
+}
+.methodo-map-chip.is-auto,
+.methodo-map-chip.is-fresh,
+.methodo-map-chip.is-live {
+  background: #d1fae5;
+  color: #065f46;
+}
+.methodo-map-chip.is-auto_secret {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+.methodo-map-chip.is-manual,
+.methodo-map-chip.is-late,
+.methodo-map-chip.is-undated {
+  background: #fef3c7;
+  color: #92400e;
+}
+.methodo-map-chip.is-none {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.methodo-map-freshness-note {
+  font-size: 0.72rem;
+  margin: 0.5rem 0 0;
 }
 .methodo-map-table th,
 .methodo-map-table td {
   text-align: left;
   vertical-align: top;
-  padding: 0.35rem 0.5rem;
+  padding: 0.25rem 0.4rem;
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
   overflow-wrap: anywhere;
 }
@@ -334,7 +420,7 @@ html.methodo-map-locked body {
   padding: 2px 7px;
 }
 .methodo-map-table th {
-  font-size: 0.7rem;
+  font-size: 0.62rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: #64748b;
@@ -422,4 +508,38 @@ html.methodo-map-locked body {
   color: #fff;
   font-size: 11px;
   font-weight: 600;
+}
+
+/* The article's table, cell and details styles are meant for the prose;
+   inside the registry they would inflate the type and box every "How". */
+.prose-methodo .methodo-map-table {
+  margin: 0;
+  font-size: 0.72rem;
+}
+.prose-methodo .methodo-map-table th,
+.prose-methodo .methodo-map-table td {
+  padding: 0.25rem 0.4rem;
+  border: 0;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+.prose-methodo .methodo-map-table th {
+  white-space: normal;
+  font-size: 0.6rem;
+  line-height: 1.2;
+  background: #f8fafc;
+}
+.prose-methodo .methodo-map-how {
+  margin: 0.15rem 0 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: none;
+}
+.prose-methodo .methodo-map-how[open] {
+  padding: 0;
+}
+.prose-methodo .methodo-map-how summary {
+  margin: 0;
+  font-weight: 500;
+  font-size: 0.66rem;
 }

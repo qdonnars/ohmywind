@@ -45,6 +45,29 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 MAP_DIR = REPO / "docs" / "tidal-world" / "map"
 STATUSES = {"current", "ok", "clarify", "blocked", "no_currents"}
+# The registry table's structured columns (web: TidalSourcesMap, sourceHealth).
+ENUMS = {
+    "access_kind": {
+        "keyless",
+        "free_account",
+        "api_key",
+        "sftp_account",
+        "on_request",
+        "paid",
+        "none",
+    },
+    "automation": {"auto", "auto_secret", "manual", "none"},
+    "update_cadence": {
+        "live",
+        "daily",
+        "weekly",
+        "monthly",
+        "yearly",
+        "decade",
+        "frozen",
+        "none",
+    },
+}
 REQUIRED = (
     "id", "name", "provider", "zone", "status", "kind", "access", "licence", "licence_url",
     "licence_read_at", "derivative_redistribution", "effort",
@@ -58,6 +81,9 @@ def validate_sources(fc: dict) -> None:
         missing = [k for k in REQUIRED if k not in p]
         if missing:
             sys.exit(f"sources.geojson: {p.get('id')} lacks {missing}")
+        for key, allowed in ENUMS.items():
+            if p.get(key) is not None and p[key] not in allowed:
+                sys.exit(f"sources.geojson: {p['id']} has {key} {p[key]!r}")
         if p["status"] not in STATUSES:
             sys.exit(f"sources.geojson: {p['id']} has status {p['status']!r}")
         if p["id"] in ids:
