@@ -234,7 +234,7 @@ code, seulement du dataset.
 ## 6. Carte interactive
 
 Deux rendus de la même donnée, générés par `scripts/build_tidal_world_map.py` :
-la page méthodologie du site (`packages/web`, composant `TidalSourcesMap`,
+la sous-page « Courants de marée » de la méthodologie du site (`/methodologie/courants`, `packages/web`, composant `TidalSourcesMap`, avec un mode plein écran et, dans le registre, une colonne « accès et mise à jour » lue dans les champs `acquisition` et `update_plan` de `sources.geojson`,
 couches statiques écrites sous `public/methodologie/tidal/` par l'option
 `--web-dir`) et la page autonome `docs/tidal-world/map/index.html` (Leaflet,
 `data.js`, toutes les couches de travail).

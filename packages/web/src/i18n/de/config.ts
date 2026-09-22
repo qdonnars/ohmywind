@@ -177,8 +177,13 @@ export const config: Record<keyof typeof frConfig, string> = {
 
   "config.docs.methodology": "Methodik",
 
+  "config.docs.tidalCurrents": "Gezeitenströme",
+
   // The tidal-sources map on /methodologie (TidalSourcesMap).
   "config.methodo.tidal.hint": "Klicken Sie auf das Meer: die Karte zeigt die Quelle, die die App an dieser Stelle nutzt, so wie der Server sie auswählt.",
+  "config.methodo.tidal.fullscreen.enter": "Karte im Vollbild anzeigen",
+  "config.methodo.tidal.fullscreen.exit": "Vollbild verlassen",
+  "config.methodo.tidal.fullscreen.ramp": "0,5 bis 5 kn und mehr",
   "config.methodo.tidal.legend.title": "Aus den Atlanten berechneter Gezeitenstrom (ab 0,5 kn)",
   "config.methodo.tidal.legend.covered": "Abgedeckt: maximaler Gezeitenstrom, hell bei 0,5 kn bis dunkel ab 5 kn",
   "config.methodo.tidal.legend.calm": "Abgedeckt, schwacher Gezeitenstrom (unter 0,5 kn)",
@@ -247,6 +252,9 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.methodo.tidal.sources.provider": "Herausgeber",
   "config.methodo.tidal.sources.licence": "Lizenz",
   "config.methodo.tidal.sources.status": "Status",
+  "config.methodo.tidal.sources.access": "Zugang und Aktualisierung",
+  "config.methodo.tidal.sources.accessHow": "Zugang",
+  "config.methodo.tidal.sources.updateHow": "Aktualisierung",
   "config.methodo.tidal.sources.propose": "Kennen Sie eine offene Quelle, die hier fehlt? Schreiben Sie uns",
   "config.methodo.tidal.sources.proposeSubject": "Vorschlag einer Quelle für Gezeitenströme",
   "config.docs.privacy": "Datenschutz",

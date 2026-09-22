@@ -15,7 +15,7 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Feature, FeatureCollection, Geometry, Point } from "geojson";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { API_BASE } from "../api/config";
 import { formatGridSize } from "../domain/currentSource";
@@ -38,6 +38,7 @@ import {
 import { CALM_COLOR, RasterGrid, maxCurrentAt, rampColor, rampGradient, type RasterManifest } from "../domain/tidalRaster";
 import { useT } from "../i18n";
 import { addBasemap } from "../utils/basemapLayer";
+import { useBackDismiss } from "../hooks/useBackDismiss";
 
 const DATA_BASE = `${import.meta.env.BASE_URL}methodologie/tidal/`;
 const MARC_URL = `${API_BASE}/api/v1/marine/marc`;
@@ -57,6 +58,10 @@ interface SourceProperties {
   licence: string;
   licence_url: string;
   licence_read_at: string;
+  /** How we download or query it, technically. */
+  acquisition?: string;
+  /** How we plan to keep our copy current. */
+  update_plan?: string;
   /** Atlas names (or the source short ``shom``) the server would list in
       its coverage when it serves this source. */
   atlases?: string[];
@@ -528,12 +533,77 @@ export function TidalSourcesMap() {
     }
   }, [shown, status, t, served]);
 
+  // Full screen: the stage is pinned over the page by CSS everywhere (the
+  // iPhone has no element full-screen API), and the browser's own full
+  // screen is asked for on top where it exists, to hide its toolbars. Escape,
+  // the button and the Android back gesture all close it.
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  const closeFullscreen = useCallback(() => setFullscreen(false), []);
+  useBackDismiss(fullscreen, closeFullscreen);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map) {
+      if (fullscreen) map.scrollWheelZoom.enable();
+      else map.scrollWheelZoom.disable();
+    }
+    if (!fullscreen) {
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+      return;
+    }
+    const stage = stageRef.current;
+    if (stage?.requestFullscreen && !document.fullscreenElement) {
+      void stage.requestFullscreen({ navigationUI: "hide" }).catch(() => undefined);
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
+    // Leaving the browser's full screen by its own gesture closes ours too.
+    const onChange = () => {
+      if (!document.fullscreenElement) setFullscreen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("fullscreenchange", onChange);
+    document.documentElement.classList.add("methodo-map-locked");
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("fullscreenchange", onChange);
+      document.documentElement.classList.remove("methodo-map-locked");
+    };
+  }, [fullscreen]);
+
   const mailto = `mailto:${CONTACT}?subject=${encodeURIComponent(t("config.methodo.tidal.sources.proposeSubject"))}`;
 
   return (
     <figure className="methodo-map">
       <p className="methodo-map-hint">{t("config.methodo.tidal.hint")}</p>
-      <div ref={containerRef} className="methodo-map-canvas" role="application" aria-busy={status === "loading"} />
+      <div ref={stageRef} className={`methodo-map-stage${fullscreen ? " is-fullscreen" : ""}`}>
+        <div ref={containerRef} className="methodo-map-canvas" role="application" aria-busy={status === "loading"} />
+        <button
+          type="button"
+          className="methodo-map-fullscreen"
+          aria-pressed={fullscreen}
+          aria-label={t(fullscreen ? "config.methodo.tidal.fullscreen.exit" : "config.methodo.tidal.fullscreen.enter")}
+          title={t(fullscreen ? "config.methodo.tidal.fullscreen.exit" : "config.methodo.tidal.fullscreen.enter")}
+          onClick={() => setFullscreen((v) => !v)}
+        >
+          {fullscreen ? (
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+            </svg>
+          )}
+        </button>
+        {fullscreen && (
+          <div className="methodo-map-fs-legend" aria-hidden="true">
+            <span className="methodo-map-ramp" style={{ background: rampGradient() }} />
+            <span>{t("config.methodo.tidal.fullscreen.ramp")}</span>
+          </div>
+        )}
+      </div>
       <div className="methodo-map-legend">
         <div className="methodo-map-group-title">{t("config.methodo.tidal.legend.title")}</div>
         <div className="methodo-map-item">
@@ -566,6 +636,7 @@ export function TidalSourcesMap() {
                 <th scope="col">{t("config.methodo.tidal.sources.provider")}</th>
                 <th scope="col">{t("config.methodo.tidal.sources.licence")}</th>
                 <th scope="col">{t("config.methodo.tidal.sources.status")}</th>
+                <th scope="col">{t("config.methodo.tidal.sources.access")}</th>
               </tr>
             </thead>
             <tbody>
@@ -594,10 +665,22 @@ export function TidalSourcesMap() {
                       {t(`config.methodo.tidal.source.status.${liveStatus(p, served)}` as Parameters<typeof t>[0])}
                     </span>
                   </td>
+                  <td className="methodo-map-access">
+                    {p.acquisition && (
+                      <p>
+                        <strong>{t("config.methodo.tidal.sources.accessHow")}</strong> {p.acquisition}
+                      </p>
+                    )}
+                    {p.update_plan && (
+                      <p>
+                        <strong>{t("config.methodo.tidal.sources.updateHow")}</strong> {p.update_plan}
+                      </p>
+                    )}
+                  </td>
                 </tr>
               ))}
               <tr className="methodo-map-propose">
-                <td colSpan={5}>
+                <td colSpan={6}>
                   <a href={mailto}>{t("config.methodo.tidal.sources.propose")}</a>
                 </td>
               </tr>

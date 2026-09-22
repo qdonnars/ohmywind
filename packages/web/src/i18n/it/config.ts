@@ -174,8 +174,13 @@ export const config: Record<keyof typeof frConfig, string> = {
 
   "config.docs.methodology": "Metodologia",
 
+  "config.docs.tidalCurrents": "Correnti di marea",
+
   // The tidal-sources map on /methodologie (TidalSourcesMap).
   "config.methodo.tidal.hint": "Cliccate sul mare: la scheda indica la fonte che l'app usa in quel punto, come la sceglie il server.",
+  "config.methodo.tidal.fullscreen.enter": "Mostra la mappa a schermo intero",
+  "config.methodo.tidal.fullscreen.exit": "Esci dallo schermo intero",
+  "config.methodo.tidal.fullscreen.ramp": "da 0,5 a 5 kn e oltre",
   "config.methodo.tidal.legend.title": "Corrente di marea calcolata dagli atlanti (da 0,5 kn)",
   "config.methodo.tidal.legend.covered": "Coperto: corrente di marea massima, chiaro a 0,5 kn e scuro da 5 kn in su",
   "config.methodo.tidal.legend.calm": "Coperto, corrente di marea debole (meno di 0,5 kn)",
@@ -244,6 +249,9 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.methodo.tidal.sources.provider": "Produttore",
   "config.methodo.tidal.sources.licence": "Licenza",
   "config.methodo.tidal.sources.status": "Stato",
+  "config.methodo.tidal.sources.access": "Accesso e aggiornamento",
+  "config.methodo.tidal.sources.accessHow": "Accesso",
+  "config.methodo.tidal.sources.updateHow": "Aggiornamento",
   "config.methodo.tidal.sources.propose": "Conoscete una fonte aperta che manca qui? Scriveteci",
   "config.methodo.tidal.sources.proposeSubject": "Proposta di fonte di correnti di marea",
   "config.docs.privacy": "Privacy",

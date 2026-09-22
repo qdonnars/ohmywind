@@ -172,8 +172,13 @@ export const config: Record<keyof typeof frConfig, string> = {
 
   "config.docs.methodology": "Methodology",
 
+  "config.docs.tidalCurrents": "Tidal currents",
+
   // The tidal-sources map on /methodologie (TidalSourcesMap).
   "config.methodo.tidal.hint": "Click on the sea: the card shows the source the app uses at that point, as the server picks it.",
+  "config.methodo.tidal.fullscreen.enter": "Show the map full screen",
+  "config.methodo.tidal.fullscreen.exit": "Exit full screen",
+  "config.methodo.tidal.fullscreen.ramp": "0.5 to 5 kt and above",
   "config.methodo.tidal.legend.title": "Tidal current computed from the atlases (0.5 kt and above)",
   "config.methodo.tidal.legend.covered": "Covered: maximum tidal current, light at 0.5 kt to dark at 5 kt and above",
   "config.methodo.tidal.legend.calm": "Covered, weak tidal current (under 0.5 kt)",
@@ -242,6 +247,9 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.methodo.tidal.sources.provider": "Producer",
   "config.methodo.tidal.sources.licence": "Licence",
   "config.methodo.tidal.sources.status": "Status",
+  "config.methodo.tidal.sources.access": "Access and updates",
+  "config.methodo.tidal.sources.accessHow": "Access",
+  "config.methodo.tidal.sources.updateHow": "Updates",
   "config.methodo.tidal.sources.propose": "Do you know an open source missing here? Write to us",
   "config.methodo.tidal.sources.proposeSubject": "Tidal current source proposal",
   "config.docs.privacy": "Privacy",

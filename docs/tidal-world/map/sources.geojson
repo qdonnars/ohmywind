@@ -28,7 +28,9 @@
     "atlases": [
      "BSH_DB",
      "BSH_IDB"
-    ]
+    ],
+    "acquisition": "FTP public du BSH sans clé : fichiers NetCDF de prévision horaire à 3 jours, téléchargés puis analysés en constantes harmoniques (scripts/build_bsh_atlas.py).",
+    "update_plan": "Archivage quotidien des prévisions (workflow prêt, pas encore activé) jusqu'à 29 jours puis un an, puis reconstruction annuelle de l'atlas."
    },
    "geometry": {
     "type": "Polygon",
@@ -82,7 +84,9 @@
     "atlases": [
      "BSH_AUSALT",
      "BSH_CUXBRU"
-    ]
+    ],
+    "acquisition": "Même FTP du BSH, grille Elbe à 90 m, même chaîne d'analyse (scripts/build_bsh_atlas.py).",
+    "update_plan": "Même archivage quotidien que la baie allemande, puis reconstruction annuelle."
    },
    "geometry": {
     "type": "Polygon",
@@ -130,7 +134,9 @@
     "effort": "S",
     "roadmap_step": 3,
     "vertical": "surface_0_5m_mean",
-    "notes": "Trop grossier pour les passes ; utile en bouche-trou mer du Nord centrale, mieux que SMOC 8 km."
+    "notes": "Trop grossier pour les passes ; utile en bouche-trou mer du Nord centrale, mieux que SMOC 8 km.",
+    "acquisition": "Même FTP du BSH, grille à 3 nm.",
+    "update_plan": "Non intégré : plus grossier que Copernicus NWS, qui couvre déjà la zone."
    },
    "geometry": {
     "type": "Polygon",
@@ -177,7 +183,9 @@
     "derivative_redistribution": "yes",
     "effort": "S",
     "roadmap_step": 4,
-    "notes": "Marée quasi nulle en Baltique : les courants sont météo, un atlas harmonique n'a pas de sens ici sauf Belts/Sund."
+    "notes": "Marée quasi nulle en Baltique : les courants sont météo, un atlas harmonique n'a pas de sens ici sauf Belts/Sund.",
+    "acquisition": "Même FTP du BSH.",
+    "update_plan": "Non intégré : la marée est négligeable en Baltique."
    },
    "geometry": {
     "type": "Polygon",
@@ -232,7 +240,9 @@
     "notes": "Meilleure couverture UK / Irlande / mer du Nord / Manche en une source. Marée incluse. Pas d'identifiant local : non testé ici. Publié dans le dataset et servi depuis le 2026-09-20.",
     "atlases": [
      "CMEMS_NWS"
-    ]
+    ],
+    "acquisition": "Compte Copernicus Marine gratuit, outil copernicusmarine (service arco-time-series) : un an de courants horaires de surface lu par fenêtres de 96 h et analysé à la volée, sans garder l'archive (scripts/build_cmems_atlas.py).",
+    "update_plan": "Reconstruction annuelle sur les douze derniers mois, automatisable avec l'identifiant Copernicus en secret."
    },
    "geometry": {
     "type": "Polygon",
@@ -285,7 +295,9 @@
     "notes": "1/36°. Espagne, Portugal, Gibraltar (grossier), Maroc. Publié dans le dataset et servi depuis le 2026-09-20.",
     "atlases": [
      "CMEMS_IBI"
-    ]
+    ],
+    "acquisition": "Même chaîne que NWS, produit IBI à 3 km.",
+    "update_plan": "Reconstruction annuelle, comme NWS."
    },
    "geometry": {
     "type": "Polygon",
@@ -338,7 +350,9 @@
     "notes": "Courants horaires cmems_mod_med_phy-cur_anfc_4.2km-2D_PT1H-m, DOI 10.48670/mds-00359. Un an analysé ; seules les cellules où la marée dépasse 0,2 kt sont gardées (Messine, golfe de Gabès, Gibraltar est). Publié dans le dataset et servi depuis le 2026-09-20.",
     "atlases": [
      "CMEMS_MED"
-    ]
+    ],
+    "acquisition": "Même chaîne que NWS, produit MED à 4,2 km, cellules gardées là où la marée dépasse 0,2 kt.",
+    "update_plan": "Reconstruction annuelle, comme NWS."
    },
    "geometry": {
     "type": "Polygon",
@@ -388,7 +402,9 @@
     "vertical": "surface",
     "step_min": 60,
     "constituents": "utide/vtide dérivés de FES2014",
-    "notes": "Fallback actuel via Open-Meteo Marine. Une analyse d'un mois de utide/vtide donnerait FES2014 à 8 km sans compte AVISO."
+    "notes": "Fallback actuel via Open-Meteo Marine. Une analyse d'un mois de utide/vtide donnerait FES2014 à 8 km sans compte AVISO.",
+    "acquisition": "Lu en direct à chaque requête par l'API Open-Meteo Marine, sans clé.",
+    "update_plan": "Rien à mettre à jour : c'est une prévision lue en temps réel."
    },
    "geometry": {
     "type": "Polygon",
@@ -448,7 +464,9 @@
      "NORKYST_LOFOTEN",
      "NORKYST_TROMS",
      "NORKYST_FINNMARK"
-    ]
+    ],
+    "acquisition": "THREDDS de MET Norway sans clé : sous-ensemble OPeNDAP par boîte côtière et par jour de l'agrégat horaire NorKyst v3, puis analyse harmonique et rééchantillonnage à 800 m (scripts/build_norkyst_atlas.py).",
+    "update_plan": "Reconstruction annuelle des huit boîtes sur les douze derniers mois (35 Go, environ 9 h), automatisable ; surveiller les changements de version du modèle (la v2 a été arrêtée en 2025)."
    },
    "geometry": {
     "type": "Polygon",
@@ -497,7 +515,9 @@
     "roadmap_step": 3,
     "vertical": "3D (40 niveaux)",
     "archive": "2012 à aujourd'hui",
-    "notes": "Pas horaire à confirmer sur l'ERDDAP. Nested 200 m Galway et Bantry."
+    "notes": "Pas horaire à confirmer sur l'ERDDAP. Nested 200 m Galway et Bantry.",
+    "acquisition": "ERDDAP du Marine Institute sans clé, requêtes griddap par boîte.",
+    "update_plan": "Non intégré à ce jour ; archive horaire disponible, même chaîne que Copernicus si retenu."
    },
    "geometry": {
     "type": "Polygon",
@@ -546,7 +566,9 @@
     "roadmap_step": 2,
     "vertical": "depth_averaged",
     "constituents": "34 (u, v)",
-    "notes": "Remplaçant naturel de SMOC en fallback tidal mondial. Redistribution en masse de l'ORIGINAL soumise à autorisation ; nos Parquet sont des dérivés."
+    "notes": "Remplaçant naturel de SMOC en fallback tidal mondial. Redistribution en masse de l'ORIGINAL soumise à autorisation ; nos Parquet sont des dérivés.",
+    "acquisition": "Compte AVISO+ gratuit, archives NetCDF de constantes harmoniques par SFTP, converties au format standard (scripts/build_fes_atlas.py) ; atlas mondial construit, pas publié.",
+    "update_plan": "Produit figé, pas de mise à jour ; sa publication comme repli mondial reste à décider."
    },
    "geometry": {
     "type": "Polygon",
@@ -593,7 +615,9 @@
     "derivative_redistribution": "no",
     "effort": "M",
     "roadmap_step": null,
-    "notes": "Deviendra libre à la sortie de la version suivante (clause explicite de l'annexe A)."
+    "notes": "Deviendra libre à la sortie de la version suivante (clause explicite de l'annexe A).",
+    "acquisition": "Sur demande, réservé aux équipes scientifiques.",
+    "update_plan": "Non intégrable en l'état."
    },
    "geometry": {
     "type": "Polygon",
@@ -639,7 +663,9 @@
     "licence_read_at": "2026-09-19",
     "derivative_redistribution": "no",
     "effort": "M",
-    "roadmap_step": null
+    "roadmap_step": null,
+    "acquisition": "Inscription auprès de l'université d'État de l'Oregon, licence non commerciale.",
+    "update_plan": "Non intégrable (licence)."
    },
    "geometry": {
     "type": "Polygon",
@@ -686,7 +712,9 @@
     "derivative_redistribution": "yes",
     "effort": "S",
     "roadmap_step": null,
-    "notes": "Hauteurs seulement, 17 constituants."
+    "notes": "Hauteurs seulement, 17 constituants.",
+    "acquisition": "SEANOE, sans clé.",
+    "update_plan": "Sans objet : hauteurs seulement, pas de courants."
    },
    "geometry": {
     "type": "Polygon",
@@ -734,7 +762,9 @@
     "effort": "M",
     "roadmap_step": 4,
     "archive": "48 h (STAC), archivage requis",
-    "notes": "Résolution du domaine idw non confirmée. Skagerrak / Kattegat / Belts."
+    "notes": "Résolution du domaine idw non confirmée. Skagerrak / Kattegat / Belts.",
+    "acquisition": "Clé API gratuite (STAC/EDR) ou miroir S3 sans signature, 48 h de profondeur.",
+    "update_plan": "Archivage quotidien requis puis analyse annuelle ; en attente d'une clé."
    },
    "geometry": {
     "type": "Polygon",
@@ -781,7 +811,9 @@
     "derivative_redistribution": "yes",
     "effort": "M",
     "roadmap_step": null,
-    "notes": "Licence OK, champs de courant en open data non confirmés."
+    "notes": "Licence OK, champs de courant en open data non confirmés.",
+    "acquisition": "Open data sans clé, licence à clarifier.",
+    "update_plan": "Non prévu : marée négligeable dans la zone couverte."
    },
    "geometry": {
     "type": "Polygon",
@@ -828,7 +860,9 @@
     "derivative_redistribution": "no",
     "effort": "M",
     "roadmap_step": null,
-    "notes": "THREDDS ouvert mais republier un Parquet dérivé est interdit. Bloque Gibraltar fin."
+    "notes": "THREDDS ouvert mais republier un Parquet dérivé est interdit. Bloque Gibraltar fin.",
+    "acquisition": "THREDDS sans clé, conditions d'usage restrictives.",
+    "update_plan": "Non intégrable tant que la licence ne permet pas la redistribution d'un dérivé."
    },
    "geometry": {
     "type": "Polygon",
@@ -874,7 +908,9 @@
     "licence_read_at": "2026-09-19",
     "derivative_redistribution": "no",
     "effort": "L",
-    "roadmap_step": null
+    "roadmap_step": null,
+    "acquisition": "Abonnement payant.",
+    "update_plan": "Non intégrable."
    },
    "geometry": {
     "type": "Polygon",
@@ -920,7 +956,9 @@
     "licence_read_at": "2026-09-19",
     "derivative_redistribution": "no",
     "effort": "M",
-    "roadmap_step": null
+    "roadmap_step": null,
+    "acquisition": "Accord de licence signé requis.",
+    "update_plan": "Non intégrable."
    },
    "geometry": {
     "type": "Polygon",
@@ -968,7 +1006,9 @@
     "effort": "L",
     "roadmap_step": 5,
     "archive": "réanalyse 1993-2019, horaire",
-    "notes": "Maillage non structuré, très gros volume. Pentland Firth, Hébrides, Corryvreckan partiellement résolus."
+    "notes": "Maillage non structuré, très gros volume. Pentland Firth, Hébrides, Corryvreckan partiellement résolus.",
+    "acquisition": "Compte JASMIN (CEDA), réanalyse horaire 1993-2019, volume lourd.",
+    "update_plan": "Produit figé : une seule construction si l'accès et la licence sont clarifiés."
    },
    "geometry": {
     "type": "Polygon",
@@ -1015,7 +1055,9 @@
     "derivative_redistribution": "unclear",
     "effort": "M",
     "roadmap_step": 5,
-    "notes": "Stations de mesure ouvertes ; sorties modèle DCSM-FM via Matroos (3 semaines). Licence non opposable : à clarifier avec RWS."
+    "notes": "Stations de mesure ouvertes ; sorties modèle DCSM-FM via Matroos (3 semaines). Licence non opposable : à clarifier avec RWS.",
+    "acquisition": "Waterinfo sans clé pour les stations, Matroos avec un mot de passe gratuit.",
+    "update_plan": "Points de contrôle, pas d'atlas prévu."
    },
    "geometry": {
     "type": "Polygon",
@@ -1064,7 +1106,9 @@
     "roadmap_step": 1,
     "vertical": "surface 0,3-2,5 m",
     "archive": "2019-01 à 2022-10, pas 20 min",
-    "notes": "Observations, pas un modèle : sert de référence indépendante (spike). Pourrait devenir un atlas M2/S2 de surface à 2 km."
+    "notes": "Observations, pas un modèle : sert de référence indépendante (spike). Pourrait devenir un atlas M2/S2 de surface à 2 km.",
+    "acquisition": "ERDDAP du Hereon sans clé.",
+    "update_plan": "Référence de validation figée (2019-2022), pas de mise à jour."
    },
    "geometry": {
     "type": "Polygon",
@@ -1111,7 +1155,9 @@
     "derivative_redistribution": "yes",
     "effort": "S",
     "roadmap_step": 1,
-    "notes": "Hauteurs seulement, 30 jours glissants. Contrôle de phase."
+    "notes": "Hauteurs seulement, 30 jours glissants. Contrôle de phase.",
+    "acquisition": "API REST de la WSV sans clé.",
+    "update_plan": "Référence de validation, lue à la demande."
    },
    "geometry": {
     "type": "Polygon",
@@ -1169,7 +1215,9 @@
      "AQUI",
      "MANGA",
      "ATLNE"
-    ]
+    ],
+    "acquisition": "FTP Ifremer avec compte : constantes harmoniques converties au format standard (scripts/build_marc_atlas.py).",
+    "update_plan": "Produit figé depuis 2013, pas de mise à jour."
    },
    "geometry": {
     "type": "Polygon",
@@ -1219,7 +1267,9 @@
     "notes": "Cascade actuelle, utilisé à moins de 0,5 km d'un point. Découverte de cette exploration : le produit numérique est sous Licence Ouverte 2.0 sur data.gouv.fr, ce qui autoriserait un dataset public pour les artefacts C2D et un masque France depuis les vitesses maximales de vive-eau (coef 95). À confirmer sur la licence de l'édition effectivement téléchargée.",
     "atlases": [
      "shom"
-    ]
+    ],
+    "acquisition": "Archive SHOM sur data.gouv.fr (Licence Ouverte) : séries horaires de vives-eaux et de mortes-eaux par point, converties en table (scripts/build_shom_c2d.py).",
+    "update_plan": "Édition figée, pas de mise à jour prévue."
    },
    "geometry": {
     "type": "Polygon",
@@ -1268,7 +1318,9 @@
     "roadmap_step": 6,
     "constituents": "37",
     "vertical": "par bin de profondeur",
-    "notes": "Points seulement ; un atlas grillé vient des OFS."
+    "notes": "Points seulement ; un atlas grillé vient des OFS.",
+    "acquisition": "API REST de la NOAA sans clé (mdapi, constantes harmoniques par station et par profondeur).",
+    "update_plan": "Points de contrôle des atlas américains, relus à chaque construction."
    },
    "geometry": {
     "type": "Polygon",
@@ -1316,7 +1368,9 @@
     "effort": "M",
     "roadmap_step": 6,
     "archive": "S3 archive depuis 2022 (noaa-nos-ofs-pds)",
-    "notes": "Modèle 3D (ROMS/FVCOM) horaire, marée incluse ; 40 m à 5 km selon système."
+    "notes": "Modèle 3D (ROMS/FVCOM) horaire, marée incluse ; 40 m à 5 km selon système.",
+    "acquisition": "Seau S3 public NOAA sans clé (noaa-nos-ofs-pds) : la couche de surface est lue par requêtes HTTP partielles dans les fichiers horaires non compressés, puis analysée (scripts/build_ofs_atlas.py).",
+    "update_plan": "Non publié. Si publié : reconstruction annuelle sur les douze derniers mois d'archive, automatisable."
    },
    "geometry": {
     "type": "Polygon",
@@ -1364,7 +1418,9 @@
     "effort": "M",
     "roadmap_step": 6,
     "archive": "S3 archive depuis 2022 (noaa-nos-ofs-pds)",
-    "notes": "Modèle 3D (ROMS/FVCOM) horaire, marée incluse ; 40 m à 5 km selon système."
+    "notes": "Modèle 3D (ROMS/FVCOM) horaire, marée incluse ; 40 m à 5 km selon système.",
+    "acquisition": "Seau S3 public NOAA sans clé (noaa-nos-ofs-pds) : la couche de surface est lue par requêtes HTTP partielles dans les fichiers horaires non compressés, puis analysée (scripts/build_ofs_atlas.py).",
+    "update_plan": "Non publié. Si publié : reconstruction annuelle sur les douze derniers mois d'archive, automatisable."
    },
    "geometry": {
     "type": "Polygon",
@@ -1412,7 +1468,9 @@
     "effort": "M",
     "roadmap_step": 5,
     "archive": "S3 noaa-nos-ofs-pds depuis 2024-09 (nowcast horaire, sans clé)",
-    "notes": "Spike du 2026-09-21 (spike-noaa-ofs.md) : FVCOM 163 m médian, 32 jours de la boîte Admiralty Inlet, Deception Pass et Tacoma Narrows analysés, M2 à 0,77 à 1,22 fois les huit stations CO-OPS. Deception Pass et Agate Passage font deux éléments de large."
+    "notes": "Spike du 2026-09-21 (spike-noaa-ofs.md) : FVCOM 163 m médian, 32 jours de la boîte Admiralty Inlet, Deception Pass et Tacoma Narrows analysés, M2 à 0,77 à 1,22 fois les huit stations CO-OPS. Deception Pass et Agate Passage font deux éléments de large.",
+    "acquisition": "Seau S3 public NOAA sans clé (noaa-nos-ofs-pds) : la couche de surface est lue par requêtes HTTP partielles dans les fichiers horaires non compressés, puis analysée (scripts/build_ofs_atlas.py). Spike validé sur 32 jours contre huit stations CO-OPS.",
+    "update_plan": "Non publié. Si publié : un an d'archive (45 Go sur le fil, 4 h 30), puis reconstruction annuelle automatisable."
    },
    "geometry": {
     "type": "Polygon",
@@ -1460,7 +1518,9 @@
     "effort": "M",
     "roadmap_step": 5,
     "archive": "S3 noaa-nos-ofs-pds (fichiers 2ds horaires de surface, sans clé)",
-    "notes": "Spike du 2026-09-21 (spike-noaa-ofs.md, section 10) : ROMS 700 m, 32 jours de la baie de Fundy analysés, Minas Passage 8,1 kt reconstruits. Passamaquoddy, Old Sow et Petit Passage sont fermés dans la grille."
+    "notes": "Spike du 2026-09-21 (spike-noaa-ofs.md, section 10) : ROMS 700 m, 32 jours de la baie de Fundy analysés, Minas Passage 8,1 kt reconstruits. Passamaquoddy, Old Sow et Petit Passage sont fermés dans la grille.",
+    "acquisition": "Seau S3 public NOAA sans clé (noaa-nos-ofs-pds) : la couche de surface est lue par requêtes HTTP partielles dans les fichiers horaires non compressés, puis analysée (scripts/build_ofs_atlas.py). Spike sur 32 jours en baie de Fundy.",
+    "update_plan": "Non publié. Si publié : reconstruction annuelle sur les douze derniers mois d'archive, automatisable."
    },
    "geometry": {
     "type": "Polygon",
@@ -1508,7 +1568,9 @@
     "effort": "M",
     "roadmap_step": 6,
     "archive": "S3 archive depuis 2022 (noaa-nos-ofs-pds)",
-    "notes": "Modèle 3D (ROMS/FVCOM) horaire, marée incluse ; 40 m à 5 km selon système."
+    "notes": "Modèle 3D (ROMS/FVCOM) horaire, marée incluse ; 40 m à 5 km selon système.",
+    "acquisition": "Seau S3 public NOAA sans clé (noaa-nos-ofs-pds) : la couche de surface est lue par requêtes HTTP partielles dans les fichiers horaires non compressés, puis analysée (scripts/build_ofs_atlas.py).",
+    "update_plan": "Non publié. Si publié : reconstruction annuelle sur les douze derniers mois d'archive, automatisable."
    },
    "geometry": {
     "type": "Polygon",
@@ -1556,7 +1618,9 @@
     "effort": "M",
     "roadmap_step": 6,
     "archive": "S3 archive depuis 2022 (noaa-nos-ofs-pds)",
-    "notes": "Modèle 3D (ROMS/FVCOM) horaire, marée incluse ; 40 m à 5 km selon système."
+    "notes": "Modèle 3D (ROMS/FVCOM) horaire, marée incluse ; 40 m à 5 km selon système.",
+    "acquisition": "Seau S3 public NOAA sans clé (noaa-nos-ofs-pds) : la couche de surface est lue par requêtes HTTP partielles dans les fichiers horaires non compressés, puis analysée (scripts/build_ofs_atlas.py).",
+    "update_plan": "Non publié. Si publié : reconstruction annuelle sur les douze derniers mois d'archive, automatisable."
    },
    "geometry": {
     "type": "Polygon",
@@ -1604,7 +1668,9 @@
     "effort": "M",
     "roadmap_step": 6,
     "archive": "S3 archive depuis 2022 (noaa-nos-ofs-pds)",
-    "notes": "Modèle 3D (ROMS/FVCOM) horaire, marée incluse ; 40 m à 5 km selon système."
+    "notes": "Modèle 3D (ROMS/FVCOM) horaire, marée incluse ; 40 m à 5 km selon système.",
+    "acquisition": "Seau S3 public NOAA sans clé (noaa-nos-ofs-pds) : la couche de surface est lue par requêtes HTTP partielles dans les fichiers horaires non compressés, puis analysée (scripts/build_ofs_atlas.py).",
+    "update_plan": "Non publié. Si publié : reconstruction annuelle sur les douze derniers mois d'archive, automatisable."
    },
    "geometry": {
     "type": "Polygon",
@@ -1653,7 +1719,9 @@
     "roadmap_step": 6,
     "archive": "30 jours sur le Datamart",
     "vertical": "surface 0,5 m + 3D",
-    "step_min": 60
+    "step_min": 60,
+    "acquisition": "Datamart d'Environnement Canada en HTTPS sans clé, 30 jours glissants.",
+    "update_plan": "Archivage quotidien requis avant toute analyse, puis reconstruction annuelle."
    },
    "geometry": {
     "type": "Polygon",
@@ -1703,7 +1771,9 @@
     "archive": "30 jours sur le Datamart",
     "vertical": "surface 0,5 m + 3D",
     "step_min": 60,
-    "notes": "Salish Sea à 500 m : Seymour Narrows non résolu, Active Pass partiellement."
+    "notes": "Salish Sea à 500 m : Seymour Narrows non résolu, Active Pass partiellement.",
+    "acquisition": "Datamart d'Environnement Canada en HTTPS sans clé, 30 jours glissants.",
+    "update_plan": "Archivage quotidien requis avant toute analyse, puis reconstruction annuelle."
    },
    "geometry": {
     "type": "Polygon",
@@ -1750,7 +1820,9 @@
     "derivative_redistribution": "no",
     "effort": "M",
     "roadmap_step": null,
-    "notes": "Le lien 'terms' de WebTide est en 404. Demander une autorisation écrite est la seule voie."
+    "notes": "Le lien 'terms' de WebTide est en 404. Demander une autorisation écrite est la seule voie.",
+    "acquisition": "Téléchargement libre, sans compte, mais licence restrictive.",
+    "update_plan": "Non intégrable."
    },
    "geometry": {
     "type": "Polygon",
@@ -1799,7 +1871,9 @@
     "roadmap_step": 7,
     "vertical": "depth_averaged",
     "constituents": "11 (u, v, h)",
-    "notes": "Seul atlas régional ouvert de constituants de COURANT trouvé hors Europe. Share-alike : le Parquet dérivé serait CC BY-SA."
+    "notes": "Seul atlas régional ouvert de constituants de COURANT trouvé hors Europe. Share-alike : le Parquet dérivé serait CC BY-SA.",
+    "acquisition": "Portail DAP du CSIRO sans clé, licence CC BY-SA à arbitrer.",
+    "update_plan": "Produit de constantes : une construction, pas de mise à jour."
    },
    "geometry": {
     "type": "Polygon",
@@ -1846,7 +1920,9 @@
     "derivative_redistribution": "yes",
     "effort": "L",
     "roadmap_step": 7,
-    "archive": "2014 à 2024 (GBR1)"
+    "archive": "2014 à 2024 (GBR1)",
+    "acquisition": "THREDDS sans clé, archive 2014-2024.",
+    "update_plan": "Une construction sur un an d'archive, mise à jour annuelle si l'archive continue."
    },
    "geometry": {
     "type": "Polygon",
@@ -1892,7 +1968,9 @@
     "licence_read_at": "2026-09-19",
     "derivative_redistribution": "yes",
     "effort": "L",
-    "roadmap_step": 8
+    "roadmap_step": 8,
+    "acquisition": "Clé API gratuite (data.go.kr).",
+    "update_plan": "Non prévu à court terme."
    },
    "geometry": {
     "type": "Polygon",
@@ -1938,7 +2016,9 @@
     "licence_read_at": "2026-09-19",
     "derivative_redistribution": "no",
     "effort": "L",
-    "roadmap_step": null
+    "roadmap_step": null,
+    "acquisition": "Séries libres après recherche en ligne.",
+    "update_plan": "Non intégrable en grille."
    },
    "geometry": {
     "type": "Polygon",
@@ -1984,7 +2064,9 @@
     "licence_read_at": "2026-09-19",
     "derivative_redistribution": "unclear",
     "effort": "L",
-    "roadmap_step": null
+    "roadmap_step": null,
+    "acquisition": "Aucun téléchargement ouvert trouvé.",
+    "update_plan": "Non intégrable."
    },
    "geometry": {
     "type": "Polygon",
@@ -2030,7 +2112,9 @@
     "licence_read_at": "2026-09-19",
     "derivative_redistribution": "no",
     "effort": "L",
-    "roadmap_step": null
+    "roadmap_step": null,
+    "acquisition": "Publication imprimée.",
+    "update_plan": "Non intégrable."
    },
    "geometry": {
     "type": "Polygon",
@@ -2078,7 +2162,9 @@
     "effort": "S",
     "roadmap_step": 1,
     "constituents": "13 pas horaires HW Helgoland -6 h à +6 h, vive-eau et morte-eau",
-    "notes": "Sortie de modèle (BSHcmod V4), pas des mesures ; référence de validation de phase et de rapport vive-eau/morte-eau. Station 4 (53,98 N 8,44 E) : 2,2 kt à HW-3 h en vive-eau."
+    "notes": "Sortie de modèle (BSHcmod V4), pas des mesures ; référence de validation de phase et de rapport vive-eau/morte-eau. Station 4 (53,98 N 8,44 E) : 2,2 kt à HW-3 h en vive-eau.",
+    "acquisition": "WMS GetFeatureInfo du BSH sans clé.",
+    "update_plan": "Référence de validation, lue à la demande."
    },
    "geometry": {
     "type": "Polygon",
@@ -2127,7 +2213,9 @@
     "roadmap_step": 1,
     "archive": "LZ_3c Altenbrucher Bogen 2014 à 2025, D1 à D4 depuis 1998, pas 5 min",
     "vertical": "capteur 2,5 m au-dessus du fond (stations LZ)",
-    "notes": "Référence de validation mesurée pour l'Elbe : vitesses et directions (référence de nord non documentée, probablement magnétique). Non exploité dans le spike, à faire."
+    "notes": "Référence de validation mesurée pour l'Elbe : vitesses et directions (référence de nord non documentée, probablement magnétique). Non exploité dans le spike, à faire.",
+    "acquisition": "Service OGC SOS 2.0 de la WSV sans clé, réponses JSON.",
+    "update_plan": "Référence de validation, lue à la demande."
    },
    "geometry": {
     "type": "Polygon",
@@ -2175,7 +2263,9 @@
     "effort": "S",
     "roadmap_step": 2,
     "constituents": "40, hauteurs",
-    "notes": "Contrôle de phase des hauteurs (Cuxhaven M2 134,9 cm / 343,6°, Helgoland 106,0 cm / 311,1°). Attention aux séries GESLA horodatées en heure locale (+29° sur M2)."
+    "notes": "Contrôle de phase des hauteurs (Cuxhaven M2 134,9 cm / 343,6°, Helgoland 106,0 cm / 311,1°). Attention aux séries GESLA horodatées en heure locale (+29° sur M2).",
+    "acquisition": "PANGAEA, sans clé.",
+    "update_plan": "Référence de hauteurs, figée."
    },
    "geometry": {
     "type": "Polygon",

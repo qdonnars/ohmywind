@@ -38,7 +38,7 @@ const FILES: Record<string, unknown> = {
       {
         type: "Feature",
         geometry: square(4, 58),
-        properties: { id: "norkyst800", name: "NorKyst800 (MET Norway)", provider: "MET Norway", status: "ok", kind: "forecast_grid", resolution_m: 800, access: "THREDDS sans clé", licence: "CC BY 4.0", licence_url: "https://example.org/licence", licence_read_at: "2026-09-19", atlases: ["NORKYST"] },
+        properties: { id: "norkyst800", name: "NorKyst800 (MET Norway)", provider: "MET Norway", status: "ok", kind: "forecast_grid", resolution_m: 800, access: "THREDDS sans clé", licence: "CC BY 4.0", licence_url: "https://example.org/licence", licence_read_at: "2026-09-19", atlases: ["NORKYST"], acquisition: "OPeNDAP par boîte côtière", update_plan: "Reconstruction annuelle" },
       },
     ],
   },
@@ -142,5 +142,29 @@ describe("TidalSourcesMap", () => {
     expect(text).toContain("MARC ATLNE · 2 km · rang inférieur");
     expect(text).toContain("SMOC · 8 km · dernier repli");
     expect(text).not.toContain("MARC FINIS · 250 m");
+  });
+  it("says how each source is fetched and kept current, and opens the map full screen", async () => {
+    const { default: TidalSourcesMap } = await import("./TidalSourcesMap");
+    const { container } = render(<TidalSourcesMap />);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    const row = screen.getByText("NorKyst800 (MET Norway)").closest("tr")!;
+    expect(row.textContent).toContain("OPeNDAP par boîte côtière");
+    expect(row.textContent).toContain("Reconstruction annuelle");
+    expect(screen.getByText("Accès et mise à jour")).toBeTruthy();
+
+    const stage = container.querySelector(".methodo-map-stage")!;
+    const button = screen.getByRole("button", { name: "Afficher la carte en plein écran" });
+    await act(async () => {
+      button.click();
+    });
+    expect(stage.classList.contains("is-fullscreen")).toBe(true);
+    expect(document.documentElement.classList.contains("methodo-map-locked")).toBe(true);
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+    expect(stage.classList.contains("is-fullscreen")).toBe(false);
+    expect(document.documentElement.classList.contains("methodo-map-locked")).toBe(false);
   });
 });
