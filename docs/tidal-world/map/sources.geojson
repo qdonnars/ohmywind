@@ -33,7 +33,8 @@
     "update_plan": "Archivage quotidien des prévisions (workflow prêt, pas encore activé) jusqu'à 29 jours puis un an, puis reconstruction annuelle de l'atlas.",
     "access_kind": "keyless",
     "automation": "auto",
-    "update_cadence": "daily"
+    "update_cadence": "daily",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -92,7 +93,8 @@
     "update_plan": "Même archivage quotidien que la baie allemande, puis reconstruction annuelle.",
     "access_kind": "keyless",
     "automation": "auto",
-    "update_cadence": "daily"
+    "update_cadence": "daily",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -146,7 +148,8 @@
     "access_kind": "keyless",
     "automation": "auto",
     "update_cadence": "none",
-    "hide_in_table": true
+    "hide_in_table": true,
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -199,7 +202,8 @@
     "access_kind": "keyless",
     "automation": "auto",
     "update_cadence": "none",
-    "hide_in_table": true
+    "hide_in_table": true,
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -259,7 +263,8 @@
     "update_plan": "Reconstruction annuelle sur les douze derniers mois, automatisable avec l'identifiant Copernicus en secret.",
     "access_kind": "free_account",
     "automation": "auto_secret",
-    "update_cadence": "yearly"
+    "update_cadence": "yearly",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -317,7 +322,8 @@
     "update_plan": "Reconstruction annuelle, comme NWS.",
     "access_kind": "free_account",
     "automation": "auto_secret",
-    "update_cadence": "yearly"
+    "update_cadence": "yearly",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -375,7 +381,8 @@
     "update_plan": "Reconstruction annuelle, comme NWS.",
     "access_kind": "free_account",
     "automation": "auto_secret",
-    "update_cadence": "yearly"
+    "update_cadence": "yearly",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -430,7 +437,8 @@
     "update_plan": "Rien à mettre à jour : c'est une prévision lue en temps réel.",
     "access_kind": "keyless",
     "automation": "auto",
-    "update_cadence": "live"
+    "update_cadence": "live",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -495,7 +503,8 @@
     "update_plan": "Reconstruction annuelle des huit boîtes sur les douze derniers mois (35 Go, environ 9 h), automatisable ; surveiller les changements de version du modèle (la v2 a été arrêtée en 2025).",
     "access_kind": "keyless",
     "automation": "auto",
-    "update_cadence": "yearly"
+    "update_cadence": "yearly",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -549,7 +558,8 @@
     "update_plan": "Non intégré à ce jour ; archive horaire disponible, même chaîne que Copernicus si retenu.",
     "access_kind": "keyless",
     "automation": "auto",
-    "update_cadence": "none"
+    "update_cadence": "none",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -603,7 +613,8 @@
     "update_plan": "Produit figé, pas de mise à jour ; sa publication comme repli mondial reste à décider.",
     "access_kind": "sftp_account",
     "automation": "manual",
-    "update_cadence": "frozen"
+    "update_cadence": "frozen",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -656,7 +667,8 @@
     "access_kind": "on_request",
     "automation": "none",
     "update_cadence": "none",
-    "hide_in_table": true
+    "hide_in_table": true,
+    "licence_class": "non_commercial"
    },
    "geometry": {
     "type": "Polygon",
@@ -708,7 +720,8 @@
     "access_kind": "on_request",
     "automation": "none",
     "update_cadence": "none",
-    "hide_in_table": true
+    "hide_in_table": true,
+    "licence_class": "non_commercial"
    },
    "geometry": {
     "type": "Polygon",
@@ -761,7 +774,8 @@
     "access_kind": "keyless",
     "automation": "none",
     "update_cadence": "none",
-    "hide_in_table": true
+    "hide_in_table": true,
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -814,7 +828,8 @@
     "update_plan": "Archivage quotidien requis puis analyse annuelle ; en attente d'une clé.",
     "access_kind": "api_key",
     "automation": "auto_secret",
-    "update_cadence": "daily"
+    "update_cadence": "daily",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -867,7 +882,8 @@
     "access_kind": "keyless",
     "automation": "auto",
     "update_cadence": "none",
-    "hide_in_table": true
+    "hide_in_table": true,
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -919,7 +935,8 @@
     "update_plan": "Non intégrable tant que la licence ne permet pas la redistribution d'un dérivé.",
     "access_kind": "keyless",
     "automation": "none",
-    "update_cadence": "none"
+    "update_cadence": "none",
+    "licence_class": "other"
    },
    "geometry": {
     "type": "Polygon",
@@ -970,7 +987,8 @@
     "update_plan": "Non intégrable.",
     "access_kind": "paid",
     "automation": "none",
-    "update_cadence": "none"
+    "update_cadence": "none",
+    "licence_class": "paid"
    },
    "geometry": {
     "type": "Polygon",
@@ -1021,7 +1039,8 @@
     "update_plan": "Non intégrable.",
     "access_kind": "on_request",
     "automation": "none",
-    "update_cadence": "none"
+    "update_cadence": "none",
+    "licence_class": "paid"
    },
    "geometry": {
     "type": "Polygon",
@@ -1074,7 +1093,8 @@
     "update_plan": "Produit figé : une seule construction si l'accès et la licence sont clarifiés.",
     "access_kind": "on_request",
     "automation": "manual",
-    "update_cadence": "frozen"
+    "update_cadence": "frozen",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -1127,7 +1147,8 @@
     "access_kind": "free_account",
     "automation": "auto_secret",
     "update_cadence": "none",
-    "hide_in_table": true
+    "hide_in_table": true,
+    "licence_class": "other"
    },
    "geometry": {
     "type": "Polygon",
@@ -1182,7 +1203,8 @@
     "access_kind": "keyless",
     "automation": "auto",
     "update_cadence": "frozen",
-    "hide_in_table": true
+    "hide_in_table": true,
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -1235,7 +1257,8 @@
     "access_kind": "keyless",
     "automation": "auto",
     "update_cadence": "live",
-    "hide_in_table": true
+    "hide_in_table": true,
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -1298,7 +1321,8 @@
     "update_plan": "Produit figé depuis 2013, pas de mise à jour.",
     "access_kind": "free_account",
     "automation": "manual",
-    "update_cadence": "frozen"
+    "update_cadence": "frozen",
+    "licence_class": "other"
    },
    "geometry": {
     "type": "Polygon",
@@ -1353,7 +1377,8 @@
     "update_plan": "Édition figée, pas de mise à jour prévue.",
     "access_kind": "keyless",
     "automation": "manual",
-    "update_cadence": "frozen"
+    "update_cadence": "frozen",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -1408,7 +1433,8 @@
     "access_kind": "keyless",
     "automation": "auto",
     "update_cadence": "yearly",
-    "hide_in_table": true
+    "hide_in_table": true,
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -1461,7 +1487,8 @@
     "update_plan": "Non publié. Si publié : reconstruction annuelle sur les douze derniers mois d'archive, automatisable.",
     "access_kind": "keyless",
     "automation": "auto",
-    "update_cadence": "yearly"
+    "update_cadence": "yearly",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -1514,7 +1541,8 @@
     "update_plan": "Non publié. Si publié : reconstruction annuelle sur les douze derniers mois d'archive, automatisable.",
     "access_kind": "keyless",
     "automation": "auto",
-    "update_cadence": "yearly"
+    "update_cadence": "yearly",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -1567,7 +1595,8 @@
     "update_plan": "Non publié. Si publié : un an d'archive (45 Go sur le fil, 4 h 30), puis reconstruction annuelle automatisable.",
     "access_kind": "keyless",
     "automation": "auto",
-    "update_cadence": "yearly"
+    "update_cadence": "yearly",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -1620,7 +1649,8 @@
     "update_plan": "Non publié. Si publié : reconstruction annuelle sur les douze derniers mois d'archive, automatisable.",
     "access_kind": "keyless",
     "automation": "auto",
-    "update_cadence": "yearly"
+    "update_cadence": "yearly",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -1673,7 +1703,8 @@
     "update_plan": "Non publié. Si publié : reconstruction annuelle sur les douze derniers mois d'archive, automatisable.",
     "access_kind": "keyless",
     "automation": "auto",
-    "update_cadence": "yearly"
+    "update_cadence": "yearly",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -1726,7 +1757,8 @@
     "update_plan": "Non publié. Si publié : reconstruction annuelle sur les douze derniers mois d'archive, automatisable.",
     "access_kind": "keyless",
     "automation": "auto",
-    "update_cadence": "yearly"
+    "update_cadence": "yearly",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -1779,7 +1811,8 @@
     "update_plan": "Non publié. Si publié : reconstruction annuelle sur les douze derniers mois d'archive, automatisable.",
     "access_kind": "keyless",
     "automation": "auto",
-    "update_cadence": "yearly"
+    "update_cadence": "yearly",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -1833,7 +1866,8 @@
     "update_plan": "Archivage quotidien requis avant toute analyse, puis reconstruction annuelle.",
     "access_kind": "keyless",
     "automation": "auto",
-    "update_cadence": "daily"
+    "update_cadence": "daily",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -1888,7 +1922,8 @@
     "update_plan": "Archivage quotidien requis avant toute analyse, puis reconstruction annuelle.",
     "access_kind": "keyless",
     "automation": "auto",
-    "update_cadence": "daily"
+    "update_cadence": "daily",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -1940,7 +1975,8 @@
     "update_plan": "Non intégrable.",
     "access_kind": "keyless",
     "automation": "none",
-    "update_cadence": "none"
+    "update_cadence": "none",
+    "licence_class": "other"
    },
    "geometry": {
     "type": "Polygon",
@@ -1994,7 +2030,8 @@
     "update_plan": "Produit de constantes : une construction, pas de mise à jour.",
     "access_kind": "keyless",
     "automation": "manual",
-    "update_cadence": "frozen"
+    "update_cadence": "frozen",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -2046,7 +2083,8 @@
     "update_plan": "Une construction sur un an d'archive, mise à jour annuelle si l'archive continue.",
     "access_kind": "keyless",
     "automation": "auto",
-    "update_cadence": "yearly"
+    "update_cadence": "yearly",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -2097,7 +2135,8 @@
     "update_plan": "Non prévu à court terme.",
     "access_kind": "api_key",
     "automation": "auto_secret",
-    "update_cadence": "none"
+    "update_cadence": "none",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -2148,7 +2187,8 @@
     "update_plan": "Non intégrable en grille.",
     "access_kind": "keyless",
     "automation": "manual",
-    "update_cadence": "none"
+    "update_cadence": "none",
+    "licence_class": "non_commercial"
    },
    "geometry": {
     "type": "Polygon",
@@ -2199,7 +2239,8 @@
     "update_plan": "Non intégrable.",
     "access_kind": "none",
     "automation": "none",
-    "update_cadence": "none"
+    "update_cadence": "none",
+    "licence_class": "other"
    },
    "geometry": {
     "type": "Polygon",
@@ -2250,7 +2291,8 @@
     "update_plan": "Non intégrable.",
     "access_kind": "paid",
     "automation": "none",
-    "update_cadence": "none"
+    "update_cadence": "none",
+    "licence_class": "other"
    },
    "geometry": {
     "type": "Polygon",
@@ -2304,7 +2346,8 @@
     "access_kind": "keyless",
     "automation": "auto",
     "update_cadence": "live",
-    "hide_in_table": true
+    "hide_in_table": true,
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -2359,7 +2402,8 @@
     "access_kind": "keyless",
     "automation": "auto",
     "update_cadence": "live",
-    "hide_in_table": true
+    "hide_in_table": true,
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -2413,7 +2457,8 @@
     "access_kind": "keyless",
     "automation": "manual",
     "update_cadence": "frozen",
-    "hide_in_table": true
+    "hide_in_table": true,
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -2472,7 +2517,8 @@
     "update_plan": "Reconstruction annuelle sur les douze derniers mois (environ 18 Go sur le fil, 10 minutes), automatisable avec l'identifiant Copernicus en secret.",
     "access_kind": "free_account",
     "automation": "auto_secret",
-    "update_cadence": "yearly"
+    "update_cadence": "yearly",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -2619,7 +2665,8 @@
     "update_plan": "Archivage quotidien requis pendant au moins 29 jours, idéalement un an, avant toute analyse.",
     "access_kind": "keyless",
     "automation": "auto",
-    "update_cadence": "daily"
+    "update_cadence": "daily",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -2674,7 +2721,8 @@
     "update_plan": "Bloqué par l'absence de licence publiée : demander à la SAMS une licence CC BY ou OGL, puis un an d'archive et une reconstruction annuelle.",
     "access_kind": "keyless",
     "automation": "auto",
-    "update_cadence": "yearly"
+    "update_cadence": "yearly",
+    "licence_class": "other"
    },
    "geometry": {
     "type": "Polygon",
@@ -2746,7 +2794,8 @@
     "access_kind": "free_account",
     "automation": "auto_secret",
     "update_cadence": "none",
-    "hide_in_table": true
+    "hide_in_table": true,
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -2802,7 +2851,8 @@
     "access_kind": "free_account",
     "automation": "auto_secret",
     "update_cadence": "none",
-    "hide_in_table": true
+    "hide_in_table": true,
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -2857,7 +2907,8 @@
     "update_plan": "Licence CC BY-SA à arbitrer, puis un an d'archive et une reconstruction annuelle si retenu.",
     "access_kind": "keyless",
     "automation": "auto",
-    "update_cadence": "yearly"
+    "update_cadence": "yearly",
+    "licence_class": "open"
    },
    "geometry": {
     "type": "Polygon",
@@ -2911,7 +2962,8 @@
     "update_plan": "Non intégrable en l'état.",
     "access_kind": "none",
     "automation": "none",
-    "update_cadence": "none"
+    "update_cadence": "none",
+    "licence_class": "other"
    },
    "geometry": {
     "type": "Polygon",
