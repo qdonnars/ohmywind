@@ -38,7 +38,12 @@ const FILES: Record<string, unknown> = {
       {
         type: "Feature",
         geometry: square(4, 58),
-        properties: { id: "norkyst800", name: "NorKyst800 (MET Norway)", provider: "MET Norway", status: "ok", kind: "forecast_grid", resolution_m: 800, access: "THREDDS sans clé", licence: "CC BY 4.0", licence_url: "https://example.org/licence", licence_read_at: "2026-09-19", atlases: ["NORKYST"], acquisition: "OPeNDAP par boîte côtière", update_plan: "Reconstruction annuelle" },
+        properties: { id: "ticon3", name: "TICON-3 (référence)", provider: "x", status: "ok", kind: "station_points", licence: "CC BY", licence_url: "https://example.org", licence_read_at: "2026-09-22", hide_in_table: true },
+      },
+      {
+        type: "Feature",
+        geometry: square(4, 58),
+        properties: { id: "norkyst800", name: "NorKyst800 (MET Norway)", provider: "MET Norway", status: "ok", kind: "forecast_grid", resolution_m: 800, access: "THREDDS sans clé", licence: "CC BY 4.0", licence_url: "https://example.org/licence", licence_read_at: "2026-09-19", atlases: ["NORKYST"], acquisition: "OPeNDAP par boîte côtière", update_plan: "Reconstruction annuelle", access_kind: "keyless", automation: "auto", update_cadence: "yearly" },
       },
     ],
   },
@@ -152,7 +157,13 @@ describe("TidalSourcesMap", () => {
     const row = screen.getByText("NorKyst800 (MET Norway)").closest("tr")!;
     expect(row.textContent).toContain("OPeNDAP par boîte côtière");
     expect(row.textContent).toContain("Reconstruction annuelle");
-    expect(screen.getByText("Accès et mise à jour")).toBeTruthy();
+    // Structured columns: how it is reached, whether a job can fetch it
+    // alone, how often it is refreshed.
+    expect(screen.queryByText("TICON-3 (référence)")).toBeNull();
+    expect(row.textContent).toContain("sans clé");
+    expect(row.textContent).toContain("chaque année");
+    expect(screen.getByText("Automatisable")).toBeTruthy();
+    expect(screen.getByText("État des données")).toBeTruthy();
 
     const stage = container.querySelector(".methodo-map-stage")!;
     const button = screen.getByRole("button", { name: "Afficher la carte en plein écran" });

@@ -240,6 +240,8 @@ class TestCoverage:
             self.source_short = source_short
             self.confidence = "high" if resolution_m <= 1000 else "medium"
             self.source_label = f"{source_short}_{name.lower()}_{resolution_m}m"
+            self.built_at = None
+            self.record_end = None
 
     class _StubMarcRegistry:
         def __init__(self, atlases):

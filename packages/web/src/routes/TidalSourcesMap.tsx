@@ -39,6 +39,7 @@ import { CALM_COLOR, RasterGrid, maxCurrentAt, rampColor, rampGradient, type Ras
 import { useT } from "../i18n";
 import { addBasemap } from "../utils/basemapLayer";
 import { useBackDismiss } from "../hooks/useBackDismiss";
+import { sourceFreshness, type UpdateCadence } from "../domain/sourceHealth";
 
 const DATA_BASE = `${import.meta.env.BASE_URL}methodologie/tidal/`;
 const MARC_URL = `${API_BASE}/api/v1/marine/marc`;
@@ -62,6 +63,15 @@ interface SourceProperties {
   acquisition?: string;
   /** How we plan to keep our copy current. */
   update_plan?: string;
+  /** keyless, free_account, api_key, sftp_account, on_request, paid, none. */
+  access_kind?: string;
+  /** auto, auto_secret, manual, none: can a scheduled job fetch it alone. */
+  automation?: string;
+  /** How often our copy is meant to be refreshed. */
+  update_cadence?: UpdateCadence;
+  /** Kept in the registry file (it feeds the map) but not listed in the table:
+      validation references, redundant or non-tidal products. */
+  hide_in_table?: boolean;
   /** Atlas names (or the source short ``shom``) the server would list in
       its coverage when it serves this source. */
   atlases?: string[];
@@ -262,6 +272,13 @@ export function TidalSourcesMap() {
   const [shown, setShown] = useState<Record<string, boolean>>({});
   const [sources, setSources] = useState<SourceProperties[]>([]);
   const [served, setServed] = useState<Set<string> | null>(null);
+  const [servedAtlases, setServedAtlases] = useState<CoverageAtlas[]>([]);
+  // Beside the map on a wide screen, the registry starts open: ticking a row
+  // and seeing its extent is the point of the layout. Below the map on a
+  // phone it starts folded, as before.
+  const [registryOpen, setRegistryOpen] = useState(
+    () => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(min-width: 1100px)").matches,
+  );
   const servedRef = useRef<Served | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
@@ -445,6 +462,7 @@ export function TidalSourcesMap() {
           if (cancelled) return;
           servedRef.current = s;
           setServed(s?.names ?? null);
+          setServedAtlases(s?.atlases ?? []);
           setSources(sortedSources(d.sources, s?.names ?? null));
         });
         // The uncovered strong zones as polygons; the covered water comes
@@ -526,6 +544,17 @@ export function TidalSourcesMap() {
         }).bindPopup(sourcePopup(t, f.properties, served), popupOptions(map));
         l.addTo(map);
         sourceLayersRef.current.set(id, l);
+        // Show where the ticked source is: frame its extent (a worldwide
+        // source keeps the current view), and bring the map back on screen
+        // when the table sits below it, as on a phone.
+        const bounds = l.getBounds();
+        if (bounds.isValid() && bounds.getEast() - bounds.getWest() < 180) {
+          map.fitBounds(bounds, { padding: [24, 24], maxZoom: 8 });
+        }
+        const box = containerRef.current?.getBoundingClientRect();
+        if (box && (box.bottom < 0 || box.top > window.innerHeight - 80)) {
+          containerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
       } else if (!shown[id] && layer) {
         map.removeLayer(layer);
         sourceLayersRef.current.delete(id);
@@ -576,6 +605,7 @@ export function TidalSourcesMap() {
 
   return (
     <figure className="methodo-map">
+      <div className="methodo-map-main">
       <p className="methodo-map-hint">{t("config.methodo.tidal.hint")}</p>
       <div ref={stageRef} className={`methodo-map-stage${fullscreen ? " is-fullscreen" : ""}`}>
         <div ref={containerRef} className="methodo-map-canvas" role="application" aria-busy={status === "loading"} />
@@ -625,68 +655,101 @@ export function TidalSourcesMap() {
           <span>{t("config.methodo.tidal.legend.objective")}</span>
         </div>
       </div>
-      <details className="methodo-map-sources">
+      </div>
+      <details className="methodo-map-sources" open={registryOpen} onToggle={(e) => setRegistryOpen((e.target as HTMLDetailsElement).open)}>
         <summary>{t("config.methodo.tidal.sources.title")}</summary>
         <div className="methodo-map-table-wrap">
           <table className="methodo-map-table">
             <thead>
               <tr>
-                <th scope="col">{t("config.methodo.tidal.sources.show")}</th>
+                <th scope="col" aria-label={t("config.methodo.tidal.sources.show")} />
                 <th scope="col">{t("config.methodo.tidal.sources.name")}</th>
-                <th scope="col">{t("config.methodo.tidal.sources.provider")}</th>
                 <th scope="col">{t("config.methodo.tidal.sources.licence")}</th>
                 <th scope="col">{t("config.methodo.tidal.sources.status")}</th>
-                <th scope="col">{t("config.methodo.tidal.sources.access")}</th>
+                <th scope="col">{t("config.methodo.tidal.sources.accessKind")}</th>
+                <th scope="col">{t("config.methodo.tidal.sources.automation")}</th>
+                <th scope="col">{t("config.methodo.tidal.sources.cadence")}</th>
+                <th scope="col">{t("config.methodo.tidal.sources.freshness")}</th>
               </tr>
             </thead>
             <tbody>
-              {sources.map((p) => (
-                <tr key={p.id}>
-                  <td>
-                    <input
-                      type="checkbox"
-                      id={`tidal-source-${p.id}`}
-                      aria-label={p.name}
-                      checked={Boolean(shown[p.id])}
-                      onChange={() => setShown((v) => ({ ...v, [p.id]: !v[p.id] }))}
-                    />
-                  </td>
-                  <td>
-                    <label htmlFor={`tidal-source-${p.id}`}>{p.name}</label>
-                  </td>
-                  <td>{p.provider}</td>
-                  <td className="methodo-map-licence" title={p.licence}>
-                    <a href={p.licence_url} target="_blank" rel="noopener">
-                      {p.licence}
-                    </a>
-                  </td>
-                  <td>
-                    <span className="methodo-map-badge" style={{ background: SOURCE_COLOR[liveStatus(p, served)] ?? "#999" }}>
-                      {t(`config.methodo.tidal.source.status.${liveStatus(p, served)}` as Parameters<typeof t>[0])}
-                    </span>
-                  </td>
-                  <td className="methodo-map-access">
-                    {p.acquisition && (
-                      <p>
-                        <strong>{t("config.methodo.tidal.sources.accessHow")}</strong> {p.acquisition}
-                      </p>
-                    )}
-                    {p.update_plan && (
-                      <p>
-                        <strong>{t("config.methodo.tidal.sources.updateHow")}</strong> {p.update_plan}
-                      </p>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {sources
+                .filter((p) => !p.hide_in_table)
+                .map((p) => {
+                  const live = liveStatus(p, served);
+                  const atlasesHere = servedAtlases.filter((a) => p.atlases?.includes(a.name) || (a.source !== undefined && p.atlases?.includes(a.source)));
+                  const fresh = sourceFreshness(p.update_cadence, live === "current" ? atlasesHere : []);
+                  return (
+                    <tr key={p.id} className={shown[p.id] ? "is-shown" : undefined}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          id={`tidal-source-${p.id}`}
+                          aria-label={p.name}
+                          checked={Boolean(shown[p.id])}
+                          onChange={() => setShown((v) => ({ ...v, [p.id]: !v[p.id] }))}
+                        />
+                      </td>
+                      <td>
+                        <label htmlFor={`tidal-source-${p.id}`}>{p.name}</label>
+                        <div className="methodo-map-sub">{p.provider}</div>
+                        {(p.acquisition || p.update_plan) && (
+                          <details className="methodo-map-how">
+                            <summary>{t("config.methodo.tidal.sources.how")}</summary>
+                            {p.acquisition && (
+                              <p>
+                                <strong>{t("config.methodo.tidal.sources.accessHow")}</strong> {p.acquisition}
+                              </p>
+                            )}
+                            {p.update_plan && (
+                              <p>
+                                <strong>{t("config.methodo.tidal.sources.updateHow")}</strong> {p.update_plan}
+                              </p>
+                            )}
+                          </details>
+                        )}
+                      </td>
+                      <td className="methodo-map-licence" title={p.licence}>
+                        <a href={p.licence_url} target="_blank" rel="noopener">
+                          {p.licence}
+                        </a>
+                      </td>
+                      <td>
+                        <span className="methodo-map-badge" style={{ background: SOURCE_COLOR[live] ?? "#999" }}>
+                          {t(`config.methodo.tidal.source.status.${live}` as Parameters<typeof t>[0])}
+                        </span>
+                      </td>
+                      <td>{p.access_kind ? t(`config.methodo.tidal.access.${p.access_kind}` as Parameters<typeof t>[0]) : null}</td>
+                      <td>
+                        {p.automation && (
+                          <span className={`methodo-map-chip is-${p.automation}`}>
+                            {t(`config.methodo.tidal.automation.${p.automation}` as Parameters<typeof t>[0])}
+                          </span>
+                        )}
+                      </td>
+                      <td>{p.update_cadence ? t(`config.methodo.tidal.cadence.${p.update_cadence}` as Parameters<typeof t>[0]) : null}</td>
+                      <td>
+                        {fresh.state === "unserved" ? (
+                          <span className="methodo-map-sub">—</span>
+                        ) : (
+                          <span className={`methodo-map-chip is-${fresh.state}`} title={fresh.asOf ? fresh.asOf.slice(0, 10) : undefined}>
+                            {t(`config.methodo.tidal.freshness.${fresh.state}` as Parameters<typeof t>[0])}
+                            {fresh.asOf ? ` · ${fresh.asOf.slice(0, 10)}` : ""}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               <tr className="methodo-map-propose">
-                <td colSpan={6}>
+                <td colSpan={8}>
                   <a href={mailto}>{t("config.methodo.tidal.sources.propose")}</a>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
+        <p className="methodo-map-sub methodo-map-freshness-note">{t("config.methodo.tidal.freshness.note")}</p>
       </details>
       <figcaption className="methodo-map-note">
         {status === "error" ? t("config.methodo.tidal.popup.error") : t("config.methodo.tidal.note")}

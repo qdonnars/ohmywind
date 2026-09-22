@@ -76,6 +76,12 @@ class AtlasMeta:
     confidence: str = "high"
     validity_bbox: tuple[float, float, float, float] | None = None
     tile_deg: float = _TILE_SIZE_DEG
+    # When the atlas was built and the last instant its analysis covered,
+    # ISO 8601 strings from ``metadata.json`` (``build_at``,
+    # ``analysis.record_end``); ``None`` for a product that does not carry
+    # them (the MARC and SHOM editions are frozen, not rebuilt).
+    built_at: str | None = None
+    record_end: str | None = None
 
     @property
     def source_label(self) -> str:
@@ -142,7 +148,13 @@ def _scan_atlas(parquet_dir: Path) -> AtlasMeta | None:
         confidence=str(meta.get("confidence") or "high"),
         validity_bbox=validity_bbox,
         tile_deg=float((meta.get("grid") or {}).get("tile_deg") or _TILE_SIZE_DEG),
+        built_at=_iso_or_none(meta.get("build_at")),
+        record_end=_iso_or_none((meta.get("analysis") or {}).get("record_end")),
     )
+
+
+def _iso_or_none(value: object) -> str | None:
+    return value if isinstance(value, str) and value else None
 
 
 def _bbox_contains(bbox: tuple[float, float, float, float], lat: float, lon: float) -> bool:

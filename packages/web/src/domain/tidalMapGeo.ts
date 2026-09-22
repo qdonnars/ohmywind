@@ -225,6 +225,10 @@ export interface CoverageAtlas {
   rank?: number;
   resolution_m?: number;
   confidence?: string;
+  /** When the atlas was built, ISO; absent on frozen editions. */
+  built_at?: string | null;
+  /** Last instant its harmonic analysis covered, ISO. */
+  record_end?: string | null;
   /** ``[lat_min, lon_min, lat_max, lon_max]``. */
   bbox: [number, number, number, number];
   /** Tiles holding at least one cell, same layout as ``bbox``. */

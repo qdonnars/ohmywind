@@ -476,6 +476,8 @@ async def api_marc_coverage(request: Request) -> JSONResponse:
 
         {"atlases": [{"name": "FINIS", "source": "marc", "label": "marc_finis_250m",
                       "rank": 2, "resolution_m": 250, "confidence": "high",
+                      "built_at": "2026-09-21T20:38:52+00:00" | null,
+                      "record_end": "2026-09-19T23:00:00+00:00" | null,
                       "bbox": [lat_min, lon_min, lat_max, lon_max],
                       "cells": [[lat_min, lon_min, lat_max, lon_max], ...]}, ...]}
 
@@ -523,6 +525,8 @@ async def api_marc_coverage(request: Request) -> JSONResponse:
             "rank": atlas.rank,
             "resolution_m": atlas.resolution_m,
             "confidence": atlas.confidence,
+            "built_at": atlas.built_at,
+            "record_end": atlas.record_end,
             "bbox": _widen_to_quantum(atlas.bbox),
             "cells": [_widen_to_quantum(cell) for cell in marc_cells.get(atlas.name, ())],
         }
