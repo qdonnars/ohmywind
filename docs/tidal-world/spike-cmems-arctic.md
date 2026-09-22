@@ -25,6 +25,8 @@ d'ouvert.
 Chaque affirmation est **[vérifié]** (commande, fichier ou URL reproductible
 le 2026-09-22) ou **[supposé]**.
 
+**Mise à jour du 2026-09-22 au soir** [vérifié] : l'atlas `CMEMS_ARC_ICELAND` est publié dans le dataset `Qdonnars/openwind-tidal-atlas` et servi par le Space dev (Látraröst, 65,49 N 24,55 W, répond `cmems_iceland_3000m`). Carte régénérée : à l'intérieur de la zone objectif, la surface à plus de 1,5 kt sans source passe de 0,42 degré carré (toute en Islande) à zéro ; ne restent que des passes, listées en section 0.
+
 ## 0. Trous de la zone objectif et sources vérifiées
 
 Lecture de `map/status.geojson`, `map/gaps.geojson` et du registre, coupés à
