@@ -110,3 +110,32 @@ def test_snapshot_lists_the_blind_atlases_by_label() -> None:
     for p in by_name.values():
         for label in p.unresolved_by:
             assert label.endswith("m") and label.rsplit("_", 1)[-1][:-1].isdigit(), (p.name, label)
+
+
+def test_unresolved_pass_along_a_leg_measures_the_closest_point(monkeypatch) -> None:
+    _with_passes(
+        monkeypatch,
+        (
+            tidal_gaps._Pass(
+                "Saltstraumen", 67.2281, 14.6164, 8.0, frozenset({"norkyst_lofoten_800m"})
+            ),
+        ),
+    )
+    # A leg passing 1 km north of the channel, midpoint 12 km east of it.
+    hit = tidal_gaps.unresolved_pass_along(67.237, 14.40, 67.237, 15.10, "norkyst_lofoten_800m")
+    assert hit is not None and hit.distance_km < 1.5
+    assert tidal_gaps.unresolved_pass_at(67.237, 14.75, "norkyst_lofoten_800m") is None
+    # The same leg shifted 5 km north never comes close.
+    assert (
+        tidal_gaps.unresolved_pass_along(67.275, 14.40, 67.275, 15.10, "norkyst_lofoten_800m")
+        is None
+    )
+    # A leg ending short of the pass is measured from its end, not its extension.
+    assert (
+        tidal_gaps.unresolved_pass_along(67.2281, 14.0, 67.2281, 14.50, "norkyst_lofoten_800m")
+        is None
+    )
+    assert (
+        tidal_gaps.unresolved_pass_along(67.2281, 14.0, 67.2281, 14.58, "norkyst_lofoten_800m")
+        is not None
+    )

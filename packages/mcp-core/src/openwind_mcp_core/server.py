@@ -454,10 +454,10 @@ uses unless overridden by tool parameters.
   atlas at 1 km or finer (MARC 250 m and 700 m, BSH 90 m and 926 m);
   ``"medium"`` on atlases coarser than 1 km (MARC ATLNE 2 km, Copernicus
   1.5 to 4.2 km), on Open-Meteo SMOC (8 km global product), and on a fine
-  atlas within 3 km of a known pass it does not resolve (its reconstructed
-  maximum there is under half the published spring current: an 800 m grid
-  has no cell in a 150 m channel); ``None`` when no current data is
-  available.
+  atlas for a leg passing within 3 km of a known pass it does not resolve
+  (its reconstructed maximum there is under half the published spring
+  current: an 800 m grid has no cell in a 150 m channel); ``None`` when no
+  current data is available.
   A ``currents.tidal_gap`` notice is raised once per passage when a leg
   whose current is not from a fine source crosses a zone where tidal
   streams are probably strong (a known race, or more than 1.5 kt

@@ -1811,8 +1811,8 @@ class TestTidalGapNotice:
         from openwind_data.routing.passage import engine as engine_module
 
         adapter = StubAdapter(tws_kn=12.0, twd_deg=180.0, current_kn=2.0, current_to_deg=300.0)
-        original = engine_module.confidence_for_point
-        engine_module.confidence_for_point = lambda lat, lon, source: "high"  # type: ignore[assignment]
+        original = engine_module.confidence_for_leg
+        engine_module.confidence_for_leg = lambda *a: "high"  # type: ignore[assignment]
         try:
             report = await estimate_passage(
                 [Point(53.87, 8.70), Point(54.18, 7.89)],
@@ -1821,7 +1821,7 @@ class TestTidalGapNotice:
                 adapter=adapter,
             )
         finally:
-            engine_module.confidence_for_point = original
+            engine_module.confidence_for_leg = original
         assert not [n for n in report.notices if n.code == "currents.tidal_gap"]
 
     async def test_a_fine_atlas_blind_to_the_pass_gets_its_own_notice(self, monkeypatch) -> None:
@@ -1876,3 +1876,41 @@ class TestTidalGapNotice:
         far = [s for s in report.segments if km_to_pass(s) > 3.5]
         assert near and all(s.current_confidence == "medium" for s in near)
         assert far and all(s.current_confidence == "high" for s in far)
+
+    async def test_a_long_leg_through_the_blind_pass_is_caught_too(self, monkeypatch) -> None:
+        # Default 10 nm legs: the midpoint of the leg that crosses Saltstraumen
+        # sits 9 km away, outside the 3 km blind spot, yet the leg crosses the
+        # channel; the blind spot is measured from the closest point of the leg.
+        from openwind_data.currents import tidal_gaps
+
+        passes = (
+            tidal_gaps._Pass(
+                "Saltstraumen", 67.2281, 14.6164, 8.0, frozenset({"norkyst_lofoten_800m"})
+            ),
+        )
+        monkeypatch.setattr(
+            tidal_gaps,
+            "_load",
+            lambda: tidal_gaps._Gaps(
+                rings=(), passes=passes, pass_lat=np.array([67.2281]), pass_lon=np.array([14.6164])
+            ),
+        )
+        adapter = StubAdapter(
+            tws_kn=12.0,
+            twd_deg=200.0,
+            current_kn=0.3,
+            current_to_deg=60.0,
+            current_source="norkyst_lofoten_800m",
+        )
+        # One leg from 8 nm west of the pass to 8 nm east of it, through it.
+        report = await estimate_passage(
+            [Point(67.2281, 14.28), Point(67.2281, 14.95)],
+            DEPARTURE,
+            "cruiser_30ft",
+            adapter=adapter,
+            segment_length_nm=20.0,
+        )
+        assert len(report.segments) == 1
+        assert report.segments[0].current_confidence == "medium"
+        blind = [n for n in report.notices if n.code == "currents.pass_unresolved"]
+        assert len(blind) == 1 and blind[0].params["zones"] == "Saltstraumen"

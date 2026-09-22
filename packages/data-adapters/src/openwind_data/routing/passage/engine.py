@@ -15,8 +15,8 @@ import math
 from datetime import UTC, datetime, timedelta
 
 from openwind_data.adapters.base import ForecastBundle, ForecastHorizonError, MarineDataAdapter
-from openwind_data.currents.narrow_pass import confidence_for_point
-from openwind_data.currents.tidal_gaps import tidal_gap_at, unresolved_pass_at
+from openwind_data.currents.narrow_pass import confidence_for_leg
+from openwind_data.currents.tidal_gaps import tidal_gap_at, unresolved_pass_along
 from openwind_data.routing.archetypes import BoatPolar, get_polar, lookup_polar
 from openwind_data.routing.geometry import Point, Segment, normalize_twa
 from openwind_data.routing.notices import Notice, notice
@@ -88,7 +88,7 @@ def _segment_report(
     cur_kn = sea_pt.current_speed_kn if sea_pt else None
     cur_to = sea_pt.current_direction_to_deg if sea_pt else None
     cur_src = sea_pt.current_source if sea_pt else None
-    cur_conf = confidence_for_point(mid_point.lat, mid_point.lon, cur_src)
+    cur_conf = confidence_for_leg(seg.start.lat, seg.start.lon, seg.end.lat, seg.end.lon, cur_src)
 
     derate = 1.0
     if use_wave_correction and hs_m is not None:
@@ -165,7 +165,9 @@ def _tidal_gap_warnings(segments: list[SegmentReport]) -> list[Notice]:
             continue
         lat = (seg.start.lat + seg.end.lat) / 2
         lon = (seg.start.lon + seg.end.lon) / 2
-        missed = unresolved_pass_at(lat, lon, seg.current_source)
+        missed = unresolved_pass_along(
+            seg.start.lat, seg.start.lon, seg.end.lat, seg.end.lon, seg.current_source
+        )
         if missed is not None:
             if missed.zone not in blind:
                 blind.append(missed.zone)
