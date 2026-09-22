@@ -181,9 +181,13 @@ export const config = {
   // Pages de documentation : seul l'habillage est traduit, le markdown aura
   // ses propres fichiers par langue.
   "config.docs.methodology": "Méthodologie",
+  "config.docs.tidalCurrents": "Courants de marée",
 
   // La carte des sources de courants de marée de /methodologie (TidalSourcesMap).
   "config.methodo.tidal.hint": "Cliquez sur la mer : la fiche indique la source que l'application utilise à cet endroit, telle que le serveur la choisit.",
+  "config.methodo.tidal.fullscreen.enter": "Afficher la carte en plein écran",
+  "config.methodo.tidal.fullscreen.exit": "Quitter le plein écran",
+  "config.methodo.tidal.fullscreen.ramp": "0,5 à 5 kt et plus",
   "config.methodo.tidal.legend.title": "Courant de marée calculé depuis les atlas (0,5 kt et plus)",
   "config.methodo.tidal.legend.covered": "Couvert : courant de marée maximal, du clair à 0,5 kt au foncé à 5 kt et plus",
   "config.methodo.tidal.legend.calm": "Couvert, courant de marée faible (moins de 0,5 kt)",
@@ -252,6 +256,9 @@ export const config = {
   "config.methodo.tidal.sources.provider": "Producteur",
   "config.methodo.tidal.sources.licence": "Licence",
   "config.methodo.tidal.sources.status": "Statut",
+  "config.methodo.tidal.sources.access": "Accès et mise à jour",
+  "config.methodo.tidal.sources.accessHow": "Accès",
+  "config.methodo.tidal.sources.updateHow": "Mise à jour",
   "config.methodo.tidal.sources.propose": "Vous connaissez une source ouverte qui manque ici ? Écrivez-nous",
   "config.methodo.tidal.sources.proposeSubject": "Proposition de source de courants de marée",
   "config.docs.privacy": "Confidentialité",

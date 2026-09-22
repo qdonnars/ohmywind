@@ -13,6 +13,8 @@ import "katex/dist/katex.min.css";
 import { useT, type Lang } from "../i18n";
 import methodologieFr from "../content/methodologie.md?raw";
 import methodologieEn from "../content/methodologie.en.md?raw";
+import courantsFr from "../content/methodologie-courants.md?raw";
+import courantsEn from "../content/methodologie-courants.en.md?raw";
 import segmentationSvgUrl from "../content/segmentation.svg?url";
 import "./methodologie.css";
 
@@ -52,21 +54,26 @@ const CONTENT: Record<Lang, string> = {
   es: methodologieEn,
 };
 
-export function MethodologiePage() {
-  const { t, lang } = useT();
-  // Resolve the relative ./segmentation.svg reference inside the markdown to
-  // the URL Vite produces. Polar SVGs live under /polars/ in public/, the
-  // markdown can reference them directly.
-  const md = CONTENT[lang].replace("./segmentation.svg", segmentationSvgUrl);
+// The tidal-currents page: the cascade, the coverage map and the atlas
+// predictor, split off the main text once it had grown to a third of it.
+// Same renderer, same stylesheet, same chunk.
+const COURANTS: Record<Lang, string> = {
+  fr: courantsFr,
+  en: courantsEn,
+  de: courantsEn,
+  it: courantsEn,
+  es: courantsEn,
+};
 
+function DocPage({ md, back, label }: { md: string; back: { href: string; text: string }; label: string }) {
   return (
     <div className="methodo-root min-h-screen">
       <header className="methodo-header sticky top-0 z-10 border-b backdrop-blur">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
-          <a href="/" className="text-sm font-medium opacity-80 hover:opacity-100 transition">
-            ← OhMyWind
+          <a href={back.href} className="text-sm font-medium opacity-80 hover:opacity-100 transition">
+            ← {back.text}
           </a>
-          <span className="text-xs opacity-60">{t("config.docs.methodology")}</span>
+          <span className="text-xs opacity-60">{label}</span>
         </div>
       </header>
 
@@ -88,5 +95,25 @@ export function MethodologiePage() {
         </ReactMarkdown>
       </article>
     </div>
+  );
+}
+
+export function MethodologiePage() {
+  const { t, lang } = useT();
+  // Resolve the relative ./segmentation.svg reference inside the markdown to
+  // the URL Vite produces. Polar SVGs live under /polars/ in public/, the
+  // markdown can reference them directly.
+  const md = CONTENT[lang].replace("./segmentation.svg", segmentationSvgUrl);
+  return <DocPage md={md} back={{ href: "/", text: "OhMyWind" }} label={t("config.docs.methodology")} />;
+}
+
+export function MethodologieCourantsPage() {
+  const { t, lang } = useT();
+  return (
+    <DocPage
+      md={COURANTS[lang]}
+      back={{ href: "/methodologie", text: t("config.docs.methodology") }}
+      label={t("config.docs.tidalCurrents")}
+    />
   );
 }
