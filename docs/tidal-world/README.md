@@ -18,6 +18,7 @@ Documents liés :
 
 - [`../harmonic_atlas_format.md`](../harmonic_atlas_format.md) : spec du format standard (schéma 3).
 - [`spike-bsh.md`](spike-bsh.md) : spike bout en bout sur la source BSH (Allemagne).
+- [`spike-cmems-arctic.md`](spike-cmems-arctic.md) : trous de la zone objectif au 2026-09-22 et spike Copernicus Arctique avec marée (Islande, 3 km).
 - [`map/index.html`](map/index.html) : carte interactive (ouvrir le fichier dans un navigateur).
 - `.github/workflows/archive-bsh-currents.yml` : archivage quotidien, désactivé par défaut.
 
@@ -125,6 +126,7 @@ attribution, redistribution d'un dérivé (nos Parquet), statut.
 | **CMEMS IBI 005_001** [vérifié] | 19 W à 5 E, 26 à 56 N | 1/36° (≈ 2,5 km), 50 niveaux | PG horaire (surface), 2 ans + 10 jours | à analyser | S et 3D | NetCDF | compte gratuit | idem | idem | idem | oui | OK |
 | **CMEMS SMOC 001_024** [vérifié] | monde | 1/12° (8 km) | PG horaire ; `utide/vtide` = FES2014 sur grille 1/12° | FES2014 | S | NetCDF | compte gratuit ; via Open-Meteo sans clé | | idem | idem | oui | **dans la cascade** (fallback) |
 | **NorKyst v3 800 m** [vérifié, spike du 2026-09-21] | 4,6 W à 37,6 E, 54,3 à 75,7 N | 800 m, 15 niveaux z, grille polaire stéréo, `u_eastward` / `v_northward` déjà tournés | PG horaire, agrégat `fou-hi/norkystv3_800m_m00_be` depuis le 2024-01-01 (la v2 2017-2025 est arrêtée) | analysé (Lofoten, 32 j) | S et 3D | NetCDF OPeNDAP `thredds.met.no` | sans clé | 1 an surface, bande côtière ≈ 20 à 30 Go | CC BY 4.0 (attribut `license` du jeu) / NLOD, page de licence MET | MET Norway | oui | OK |
+| **Copernicus Arctique avec marée, ARCTIC_ANALYSISFORECAST_PHY_TIDE_002_015** [vérifié, spike du 2026-09-22] | latitude ≥ 41,6 à 57 N selon la longitude : Islande, Féroé, Norvège, Barents, Groenland | 3 km (2,86 km en Islande), grille polaire stéréo, `vxo` / `vyo` le long des axes | PG, 15 min, marée forcée aux frontières, 2018 à aujourd'hui | analysé (Islande, un an, 18 constituants) | S | ARCO zarr, toolbox `copernicusmarine` | compte gratuit | un an sur l'Islande : 2,6 Go horaires, 7 min | Licence Copernicus Marine (relue le 2026-09-22) | « Generated using E.U. Copernicus Marine Service Information; DOI » | oui | **OK, atlas islandais construit** ; à ne pas confondre avec le produit Arctique 002_001, détidé |
 | **Marine Institute NE Atlantic ROMS** [vérifié, fiche geonetwork] | 18 W à 1 W, 48 à 58 N | 1,9 km, 40 niveaux ; 200 à 250 m Galway et Bantry | PG, depuis 2012 (pas de temps à confirmer) | à analyser | 3D | NetCDF ERDDAP | sans clé | non mesuré | CC BY 4.0, `data.marine.ie/geonetwork/…/ie.marine.data:dataset.3778` | Marine Institute | oui | OK |
 | **DMI Open Data, DKSS** [vérifié via registre AWS ; page « terms » DMI en 404] | mer du Nord, Skagerrak, Kattegat, Baltique | non confirmée | PG, 4 runs/jour, 5 jours ; rétention 48 h | à analyser | S et 3D (52 niveaux) | GRIB (STAC), JSON (EDR) | clé API gratuite ; miroir S3 sans signature | non mesuré | CC BY 4.0, `registry.opendata.aws/dmi-opendata/` | DMI | oui | OK |
 | **SMHI** [vérifié licence, données non confirmées] | Baltique, Kattegat | | PG | | | | sans clé | | CC BY 4.0 SE, `smhi.se/data/om-smhis-data/villkor-for-anvandning` | SMHI | oui | à clarifier (champs de courant ?) |
@@ -273,7 +275,7 @@ zone et la passe connue la plus proche.
 
 Entrées du script :
 
-- `sources.geojson` : **le registre de référence** (44 sources, une fiche
+- `sources.geojson` : **le registre de référence** (52 sources au 2026-09-22, une fiche
   par source avec licence, URL, date de lecture, accès, effort, étape) ;
 - `coverage_current.geojson` : SHOM C2D (boîtes des 40 cartouches), MARC
   (7 emprises, tuiles réelles coupées à la boîte de validité), atlas
@@ -473,18 +475,27 @@ Priorité = usage réel × force du courant × disponibilité open data × 1/eff
 | **3** | **UK, Irlande, mer du Nord, Manche : CMEMS NWS 1,5 km** (compte Copernicus créé le 2026-09-20, `scripts/build_cmems_atlas.py`). **Publié dans le dataset le 2026-09-20 au soir**, avec IBI et MED. | deuxième bassin d'usage probable ; Solent, Portland, Douvres, Pentland, Irlande à 1,5 km ; couvre aussi les Pays-Bas et le Danemark | M (un an d'archive horaire = 37 Go pour le domaine entier, 3 Go par mois ; un an de baie allemande analysé et validé contre le radar, voir `spike-cmems.md`) | atlas NWS rang 0 (un atlas MARC ou BSH gagne toujours dessus) ; masque Europe recalculé dessus | Cowes → Cherbourg ; Ramsgate → Dunkerque ; Dun Laoghaire → Holyhead |
 | **3b** | **Ibérie, Maroc, Canaries : CMEMS IBI 3 km ; Méditerranée jusqu'à Israël : CMEMS MED 4,2 km** (même compte) | ferme la zone objectif au sud et à l'est ; la Méditerranée ne garde que les cellules où la marée dépasse 0,2 kt (Gibraltar, Messine à la maille près, Venise) | M (même chaîne, 47 + 28 Go d'archive) | atlas IBI et MED rang 0 ; Gibraltar répond `cmems_ibi_*` | Tarifa → Ceuta ; Marseille → Porquerolles (doit rester sur SMOC ou vide, marée négligeable) |
 | **4** | **Norvège : NorKyst v3 800 m** (`scripts/build_norkyst_atlas.py`, spike du 2026-09-21 dans `spike-norkyst.md`). **Publié dans le dataset le 2026-09-21 au soir** : huit atlas d'un an du Skagerrak au cap Nord (35 Go téléchargés en 8 h 45, 264 000 cellules, 72 Mo, 18 constituants sans inférence, rang 1, `medium`) ; Moskstraumen 3,3 kt, Rystraumen 5,3 kt, Saltstraumen absent de la grille et inscrit comme passe non résolue ; **Danemark : DMI DKSS** (clé gratuite à créer) | courants forts localisés (Lofoten), source sans clé, CC BY 4.0 ; Copernicus NWS s'arrête à 63 N | M (fait : un an par boîte côtière = 3 à 10 Go et 45 min à 2 h 30, 35 Go au total) | atlas 800 m rang 1 en boîtes côtières avec `validity_bbox` (l'emprise descend à 54,3 N sur BSH et la Baltique), `confidence medium` écrite par le builder **et lue par le moteur** (aujourd'hui déduite du suffixe du libellé) ; Saltstraumen documenté comme non résolu (gazetteer) et `currents.tidal_gap` maintenu à 2 à 3 km des passes non résolues | Bodø → Lofoten ; Skagen → Göteborg |
+| **4b** | **Islande : Copernicus Arctique avec marée, 3 km** (`scripts/build_cmems_arctic_atlas.py`, spike du 2026-09-22 dans `spike-cmems-arctic.md`). **Construit en local, non publié** : `CMEMS_ARC_ICELAND`, un an (2025-09-20 au 2026-09-19) en 7 minutes et 2,6 Go, 16 652 cellules, 9,3 Mo, 18 constituants sans inférence, rang 0, `medium` ; Látraröst 3,0 kt reconstruits, hauteur M2 à Reykjavik à −10 % et −1,2° de TICON-4, courant M2 à 1,07 fois FES2014 (médiane) | les deux seules zones rouges de la zone objectif (Westfjords autour de Látrabjarg, cap oriental) ; aucune autre source ouverte plus fine que FES en Islande | S (fait) | atlas publié dans le dataset ; zones islandaises en vert sur la carte ; Breiðafjörður intérieur (terre à 3 km) inscrit au gazetteer comme passe non résolue | Reykjavik → Ísafjörður (par Látrabjarg) |
 | **5** | **Amérique du Nord : NOAA OFS + ECCC CIOPS** (`scripts/build_ofs_atlas.py`, spike du 2026-09-21 dans `spike-noaa-ofs.md` : SSCOFS Salish Sea, FVCOM 163 m médian lu par requêtes HTTP Range dans des NetCDF non compressés, 32 jours en 24 minutes, atlas 200 m de 15 Mo, M2 à 0,77 à 1,22 fois les huit stations CO-OPS de la boîte, maxima à 0,84 à 0,97 aux Narrows, Bush Point et Rosario ; FES ne répond pas dans Puget Sound, l'inférence K2/P1 se fait depuis une station CO-OPS) | domaine public, S3 sans clé, archive depuis septembre 2024 pour SSCOFS ; Salish Sea 200 m ; baie de Fundy 700 m par GoMOFS (chemin ROMS écrit et prouvé : 32 jours en 15 minutes, Minas Passage à 8,1 kt reconstruits contre 8 publiés, mais Old Sow et les passes de Passamaquoddy sont fermées à 700 m) | M par système (un an de SSCOFS = 4 h 30 et 45 Go sur le fil ; chemins FVCOM et ROMS écrits, CBOFS et CIOFS lus sur une heure) | atlas par système, rang 2, `confidence medium` ; harcon NOAA en points de contrôle ; Deception Pass et Agate Passage (deux éléments de large) à inscrire comme passes non résolues avec un seuil adapté | Seattle → Victoria (Salish) ; Annapolis → Norfolk (Chesapeake) |
 | **6** | Australie : AusTEN (CC BY-SA, à arbitrer) et eReefs | seul atlas de constituants de courant ouvert hors Europe | M | décision licence prise ; atlas rang 1 | Sydney → Newcastle ; Banks Strait |
-| **7** | Corée (KHOA), Écosse fine (SSW-RS), Pays-Bas (RWS) | licences OK mais accès ou volume lourds | L | | |
+| **7** | Corée (KHOA), Écosse fine, Pays-Bas (RWS), Irlande fine | Écosse : **SAMS WeStCOMS v3 et NORSCOMS** (FVCOM, 100 m dans Corryvreckan, Kyle Rhea, Pentland ; horaire 2024-2026 sur thredds.sams.ac.uk, sans clé) est techniquement la meilleure source des sounds mais **ne publie aucune licence** (vérifié le 2026-09-22) : demander à SAMS une CC BY ou OGL ; SSW-RS (OGL) exige une inscription JASMIN (401). Irlande : Marine Institute CONN2D 200 m en CC BY 4.0, mais fenêtre glissante de 8 jours, donc archivage à monter | L (Écosse : S une fois la licence obtenue, le chemin FVCOM de `build_ofs_atlas.py` existe) | licence SAMS écrite ; atlas WeStCOMS rang 2 sur Corryvreckan et le Sound of Jura | Crinan → Tobermory (par le Sound of Luing) |
 
 Trous sans source ouverte, à afficher tels quels dans la carte (couche
-« Trous ») : détroit de Messine, Euripe, Gibraltar fin (Puertos bloqué,
-CMEMS IBI à 2,5 km seulement), Solent/Portland/Bristol/Tamise/Menai/
-Strangford plus fins que 1,5 km (UKHO seul), île de Man et Anglo-Normandes
-côté UK, Nouvelle-Zélande, Japon, Chili, Afrique du Sud, Chine. Partiels :
-Pentland Firth et Corryvreckan (NWS 1,5 km, SSW-RS lourd), Saltstraumen
-(NorKyst 800 m), Wadden néerlandais (BSH couvre la Frise orientale, pas
-Texel ni Vlie).
+« Trous ») : détroit de Messine (CMCC SANIFS injoignable et sans licence le
+2026-09-22), Euripe, Gibraltar fin (Puertos bloqué, CMEMS IBI à 2,5 km
+seulement), Solent/Portland/Bristol/Tamise/Menai/Strangford plus fins que
+1,5 km (UKHO seul), île de Man et Anglo-Normandes côté UK, estuaires
+portugais et marocains (rien d'ouvert trouvé), Breiðafjörður intérieur (terre
+dans la grille Arctique à 3 km), Nouvelle-Zélande, Japon, Chili, Afrique du
+Sud, Chine. Partiels : Pentland Firth et Corryvreckan (NWS 1,5 km ; SAMS
+WeStCOMS et NORSCOMS à 100 m sans licence, SSW-RS sur inscription),
+Saltstraumen (NorKyst 800 m), Wadden néerlandais (BSH couvre la Frise
+orientale, pas Texel ni Vlie), rías galiciennes (MeteoGalicia en CC BY-SA,
+même arbitrage qu'AusTEN), Féroé (NWS 1,5 km ; le modèle 0,5 nm de Havstovan
+n'est publié qu'en rapport). Le Bosphore et les Dardanelles ont désormais une
+source ouverte à 500 m (Copernicus mer Noire, emboîtement Marmara), mais leur
+courant n'est pas tidal : c'est une future couche de prévision, pas un atlas.
+Détail et dates de lecture dans `spike-cmems-arctic.md`, section 0.
 
 ## 10. Archivage des séries (bonus)
 
