@@ -90,7 +90,10 @@ interface Served {
 
 async function loadServed(): Promise<Served | null> {
   try {
-    const resp = await fetch(COVERAGE_URL);
+    // Revalidated on every visit: the server sends a day of browser cache,
+    // and the registry's data status must not show yesterday's atlases. A
+    // few kilobytes.
+    const resp = await fetch(COVERAGE_URL, { cache: "no-cache" });
     if (!resp.ok) return null;
     const payload = (await resp.json()) as { atlases?: CoverageAtlas[] };
     const names = new Set<string>();
@@ -664,7 +667,7 @@ export function TidalSourcesMap() {
               <tr>
                 <th scope="col" aria-label={t("config.methodo.tidal.sources.show")} />
                 <th scope="col">{t("config.methodo.tidal.sources.name")}</th>
-                <th scope="col">{t("config.methodo.tidal.sources.licence")}</th>
+                <th scope="col">{t("config.methodo.tidal.sources.grid")}</th>
                 <th scope="col">{t("config.methodo.tidal.sources.status")}</th>
                 <th scope="col">{t("config.methodo.tidal.sources.accessKind")}</th>
                 <th scope="col">{t("config.methodo.tidal.sources.automation")}</th>
@@ -709,17 +712,20 @@ export function TidalSourcesMap() {
                           </details>
                         )}
                       </td>
-                      <td className="methodo-map-licence" title={p.licence}>
-                        <a href={p.licence_url} target="_blank" rel="noopener">
-                          {p.licence}
-                        </a>
-                      </td>
+                      <td>{p.resolution_m ? formatGridSize(p.resolution_m) : <span className="methodo-map-sub">—</span>}</td>
                       <td>
                         <span className="methodo-map-badge" style={{ background: SOURCE_COLOR[live] ?? "#999" }}>
                           {t(`config.methodo.tidal.source.status.${live}` as Parameters<typeof t>[0])}
                         </span>
                       </td>
-                      <td>{p.access_kind ? t(`config.methodo.tidal.access.${p.access_kind}` as Parameters<typeof t>[0]) : null}</td>
+                      <td>
+                        {p.access_kind ? t(`config.methodo.tidal.access.${p.access_kind}` as Parameters<typeof t>[0]) : null}
+                        <div className="methodo-map-licence" title={p.licence}>
+                          <a href={p.licence_url} target="_blank" rel="noopener">
+                            {p.licence}
+                          </a>
+                        </div>
+                      </td>
                       <td>
                         {p.automation && (
                           <span className={`methodo-map-chip is-${p.automation}`}>

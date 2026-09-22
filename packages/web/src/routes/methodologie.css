@@ -330,22 +330,28 @@ html.methodo-map-locked body {
   width: 1.8rem;
 }
 .methodo-map-table th:nth-child(2) {
-  width: 26%;
+  width: 27%;
 }
 .methodo-map-table th:nth-child(3) {
-  width: 11%;
+  width: 8%;
 }
 .methodo-map-table th:nth-child(4) {
   width: 11%;
 }
 .methodo-map-table th:nth-child(5) {
-  width: 11%;
+  width: 16%;
 }
 .methodo-map-table th:nth-child(6) {
   width: 11%;
 }
 .methodo-map-table th:nth-child(7) {
   width: 10%;
+}
+.methodo-map-licence {
+  margin-top: 0.15rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .methodo-map-table tr.is-shown td {
   background: rgba(42, 157, 92, 0.08);
