@@ -21,6 +21,7 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
+from openwind_data.currents.land_mask import LandMask as _LandMask
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry as _MarcAtlasRegistry
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry as _ShomC2dRegistry
 
@@ -35,6 +36,7 @@ from openwind_api.routes import marine as marine_routes
 SERVICES = SimpleNamespace(
     marc=_MarcAtlasRegistry.from_directory(""),
     shom=_ShomC2dRegistry.from_directory(""),
+    land=_LandMask.empty(),
 )
 
 START = datetime(2026, 5, 1, 6, 0, tzinfo=UTC)
@@ -67,6 +69,28 @@ def _params(**extra) -> dict[str, str]:
 
 def _payload(resp) -> dict:
     return json.loads(bytes(resp.body))
+
+
+class TestLand:
+    async def test_inland_point_is_refused_before_any_atlas(self, monkeypatch) -> None:
+        """A field 5 km from the Elorn used to get a 700 m atlas and 0.3 kt:
+        the land mask answers first, whatever the registries hold."""
+        import numpy as np
+        from openwind_data.currents.land_mask import pack
+
+        # One cell of 1 degree around Brest, marked land.
+        bits = pack(np.ones((1, 1), dtype=bool), lat0=48.0, lon0=-5.0, pitch_deg=1.0, source="test")
+        mask = _LandMask(
+            bits=bits["bits"], n_lat=1, n_lon=1, lat0=48.0, lon0=-5.0, pitch_deg=1.0, source="test"
+        )
+        monkeypatch.setattr(SERVICES, "land", mask)
+        resp = await marine_routes.api_marc_overlay(_FakeRequest(_params()))
+        assert resp.status_code == 200
+        assert _payload(resp) == {"covered": False, "land": True}
+        assert resp.headers["cache-control"] == "public, max-age=86400"
+        # Outside the bitmap the mask says nothing and the usual path runs.
+        resp = await marine_routes.api_marc_overlay(_FakeRequest(_params(lat="43.3", lon="5.4")))
+        assert "land" not in _payload(resp)
 
 
 class TestUncoveredPath:

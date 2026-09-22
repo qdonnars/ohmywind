@@ -361,6 +361,26 @@ depuis la vitesse maximale au coefficient 95 de chaque maille, à 250 m en
 Iroise, sans analyse harmonique, et remplace avantageusement le masque
 ATLNE sur la façade.
 
+## 6b. Masque de terre côté API
+
+Les grilles régulières MARC portent des valeurs extrapolées quelques
+kilomètres à l'intérieur des terres, et le registry accepte une cellule à
+5 km du point demandé : un clic sur Guipavas, à 5 km de l'Elorn, recevait
+un atlas à 700 m et 0,3 kt. Depuis le 2026-09-21, `scripts/build_land_mask.py`
+rasterise le trait de côte Natural Earth 10 m (domaine public) sur la zone
+objectif à 1 km, toute case touchant l'océan est mer, la mer est dilatée de
+deux cases (un port, une embouchure, un trait un peu décalé restent en mer),
+et le reste est terre : `land_mask.npz`, 100 ko, à déposer à la racine du
+dataset à côté des fichiers SHOM. `openwind_data.currents.land_mask.LandMask`
+le lit en numpy pur ; `/api/v1/marine/marc` (et le lot) répondent
+`{"covered": false, "land": true}` plus de 2 km à l'intérieur des terres,
+sans lire aucun atlas ; hors du masque ou sans fichier, rien ne change. Les
+tronçons d'un passage ne sont pas filtrés : ils sont en mer par
+construction, et un point d'escale dans un port doit garder son courant.
+Vérifié : Guipavas, Rennes, Nantes, Bordeaux, Paris à terre ; rade de Brest,
+Moulin Blanc, Vieux-Port de Marseille, La Rochelle, Cuxhaven, Brunsbüttel en
+mer.
+
 ## 7. Spike BSH, en bref
 
 Détails, méthode, chiffres et limites dans [`spike-bsh.md`](spike-bsh.md).

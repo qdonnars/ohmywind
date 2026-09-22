@@ -48,6 +48,9 @@ interface RawHourly {
 
 export interface MarcOverlay {
   covered: boolean;
+  // More than about 2 km inland: the server answers nothing rather than an
+  // atlas cell found within its 5 km search radius.
+  land?: boolean;
   current_source?: string;
   // Only when SHOM primes: how far the sampled C2D point is (km).
   shom_nearest_km?: number;

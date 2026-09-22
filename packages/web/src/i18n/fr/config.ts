@@ -206,6 +206,7 @@ export const config = {
   "config.methodo.tidal.reason.fallback": "dernier repli",
   "config.methodo.tidal.reason.noCell": "pas de cellule ici",
   "config.methodo.tidal.popup.smoc": "Open-Meteo SMOC, modèle global à 8 km",
+  "config.methodo.tidal.popup.land": "Point à terre : aucun courant de marée, rien n'est renvoyé",
   "config.methodo.tidal.popup.atlas": "Atlas harmonique, maille {size}",
   "config.methodo.tidal.popup.shom": "SHOM Atlas C2D, point relevé à {distance} m",
   "config.methodo.tidal.popup.precision": "Précision",
