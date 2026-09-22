@@ -425,7 +425,7 @@
     "name": "NorKyst v3 800 m (MET Norway)",
     "provider": "MET Norway",
     "zone": "Norvège",
-    "status": "ok",
+    "status": "current",
     "kind": "forecast_grid",
     "resolution_m": 800,
     "access": "keyless THREDDS/OPeNDAP",
@@ -438,7 +438,17 @@
     "vertical": "3D (15 niveaux z), surface disponible",
     "step_min": 60,
     "archive": "v3 depuis le 2024-01-01 sur thredds.met.no (agrégat horaire, sans clé) ; v2 2017-2025 arrêtée",
-    "notes": "Spike du 2026-09-21 (spike-norkyst.md) : 32 jours des Lofoten analysés, Moskstraumen 3,6 kt. Grille polaire stéréo rééchantillonnée hors ligne. Saltstraumen (150 m) absent de la grille de 800 m."
+    "notes": "Publié le 2026-09-21 : huit atlas d'un an (2025-09-19 au 2026-09-19), 264 000 cellules, 72 Mo, rang 1, confiance medium. Grille polaire stéréo rééchantillonnée à 800 m. Saltstraumen (150 m) absent de la grille, inscrit comme passe non résolue.",
+    "atlases": [
+     "NORKYST_SKAGERRAK",
+     "NORKYST_ROGALAND",
+     "NORKYST_VESTLAND",
+     "NORKYST_TRONDELAG",
+     "NORKYST_HELGELAND",
+     "NORKYST_LOFOTEN",
+     "NORKYST_TROMS",
+     "NORKYST_FINNMARK"
+    ]
    },
    "geometry": {
     "type": "Polygon",
