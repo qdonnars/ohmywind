@@ -67,6 +67,8 @@ interface SourceProperties {
   access_kind?: string;
   /** auto, auto_secret, manual, none: can a scheduled job fetch it alone. */
   automation?: string;
+  /** open, non_commercial, paid, other: the licence in one word. */
+  licence_class?: string;
   /** How often our copy is meant to be refreshed. */
   update_cadence?: UpdateCadence;
   /** Kept in the registry file (it feeds the map) but not listed in the table:
@@ -720,9 +722,15 @@ export function TidalSourcesMap() {
                       </td>
                       <td>
                         {p.access_kind ? t(`config.methodo.tidal.access.${p.access_kind}` as Parameters<typeof t>[0]) : null}
-                        <div className="methodo-map-licence" title={p.licence}>
-                          <a href={p.licence_url} target="_blank" rel="noopener">
-                            {p.licence}
+                        <div className="methodo-map-licence">
+                          <a
+                            href={p.licence_url}
+                            target="_blank"
+                            rel="noopener"
+                            title={p.licence}
+                            className={p.licence_class ? `methodo-map-chip is-licence-${p.licence_class}` : undefined}
+                          >
+                            {p.licence_class ? t(`config.methodo.tidal.licenceClass.${p.licence_class}` as Parameters<typeof t>[0]) : p.licence}
                           </a>
                         </div>
                       </td>

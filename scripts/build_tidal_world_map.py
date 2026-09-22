@@ -67,6 +67,7 @@ ENUMS = {
         "frozen",
         "none",
     },
+    "licence_class": {"open", "non_commercial", "paid", "other"},
 }
 REQUIRED = (
     "id", "name", "provider", "zone", "status", "kind", "access", "licence", "licence_url",

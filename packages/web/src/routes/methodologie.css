@@ -330,13 +330,13 @@ html.methodo-map-locked body {
   width: 1.8rem;
 }
 .methodo-map-table th:nth-child(2) {
-  width: 27%;
+  width: 24%;
 }
 .methodo-map-table th:nth-child(3) {
   width: 8%;
 }
 .methodo-map-table th:nth-child(4) {
-  width: 11%;
+  width: 14%;
 }
 .methodo-map-table th:nth-child(5) {
   width: 16%;
@@ -548,4 +548,26 @@ html.methodo-map-locked body {
   margin: 0;
   font-weight: 500;
   font-size: 0.66rem;
+}
+
+/* The licence as a family, the full text in the link's title. */
+.methodo-map-licence .methodo-map-chip {
+  display: inline-block;
+  text-decoration: none;
+}
+.methodo-map-chip.is-licence-open {
+  background: #d1fae5;
+  color: #065f46;
+}
+.methodo-map-chip.is-licence-non_commercial {
+  background: #fef3c7;
+  color: #92400e;
+}
+.methodo-map-chip.is-licence-paid {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.methodo-map-chip.is-licence-other {
+  background: #ede9fe;
+  color: #5b21b6;
 }
