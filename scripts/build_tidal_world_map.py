@@ -22,7 +22,7 @@ refuse ``fetch`` of local files, so every layer is bundled into one script,
 - the current coverage, computed here from the build artefacts when present:
   MARC atlases (``build/marc/*/coverage.geojson``), SHOM C2D zones
   (``build/shom_c2d/shom_c2d_points.parquet``), and the spike atlases
-  (``build/{bsh,cmems,norkyst}/atlas/*/coverage.geojson`` and
+  (``build/{bsh,cmems,cmems_arc,norkyst}/atlas/*/coverage.geojson`` and
   ``build/ofs/*/atlas/*/coverage.geojson``); written to
   ``coverage_current.geojson`` so the page works from a clean checkout too;
 - with ``--write-gaps``, the snapshot behind the ``currents.tidal_gap``
@@ -160,6 +160,7 @@ def _tile_deg(meta: dict) -> float:
 BUILT_ATLAS_PATTERNS = (
     "bsh/atlas/*/coverage.geojson",
     "cmems/atlas/*/coverage.geojson",
+    "cmems_arc/atlas/*/coverage.geojson",
     "norkyst/atlas/*/coverage.geojson",
     "ofs/*/atlas/*/coverage.geojson",
 )
