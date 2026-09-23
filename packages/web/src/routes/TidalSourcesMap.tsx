@@ -136,8 +136,9 @@ const STATUS_COLOR: Record<ZoneStatus, string> = {
   unknown: "#d43f3a",
 };
 const OBJECTIVE_COLOR = "#1f2937";
-/** Covered water where the tide is not significant. */
-const NEGLIGIBLE_COLOR = "#3b82c4";
+/** Covered water where the tide is not significant: the ramp at 0 kt. */
+const NEGLIGIBLE_COLOR = CALM_COLOR;
+const RASTER_OPACITY = 0.72;
 /** A registry status drawn in the colour of the zone status it would produce. */
 const SOURCE_COLOR: Record<string, string> = {
   current: STATUS_COLOR.covered,
@@ -212,7 +213,7 @@ async function loadRasters(): Promise<{ grids: RasterGrid[]; overlays: { url: st
       let rgb = cache.get(v);
       if (!rgb) {
         const kt = (v - 1) / entry.scale;
-        rgb = kt >= 0.5 ? hexToRgb(rampColor(kt)) : hexToRgb(CALM_COLOR);
+        rgb = hexToRgb(rampColor(kt));
         cache.set(v, rgb);
       }
       out.data[i * 4] = rgb[0];
@@ -491,7 +492,7 @@ export function TidalSourcesMap() {
             if (cancelled) return;
             gridsRef.current = grids;
             const layers = overlays.map((o, i) => ({
-              layer: L.imageOverlay(o.url, o.bounds, { opacity: 0.72, interactive: false, pane: "tidal-rasters" }).addTo(map),
+              layer: L.imageOverlay(o.url, o.bounds, { opacity: RASTER_OPACITY, interactive: false, pane: "tidal-rasters" }).addTo(map),
               bounds: L.latLngBounds(o.bounds as L.LatLngTuple[]),
               width: grids[i]?.width ?? 1,
             }));
@@ -520,7 +521,10 @@ export function TidalSourcesMap() {
           },
         ).addTo(map);
         L.geoJSON(d.negligible, {
-          style: { color: NEGLIGIBLE_COLOR, weight: 0, fillColor: NEGLIGIBLE_COLOR, fillOpacity: 0.42, interactive: false },
+          // The ramp's own "0 kt" colour, at the rasters' opacity: the water a
+          // model covers without tide continues the gradient instead of
+          // standing out as a separate class.
+          style: { color: NEGLIGIBLE_COLOR, weight: 0, fillColor: NEGLIGIBLE_COLOR, fillOpacity: RASTER_OPACITY, interactive: false },
         }).addTo(map);
         L.geoJSON(d.objective, { style: { color: OBJECTIVE_COLOR, weight: 1.5, dashArray: "8 6", fill: false, interactive: false } }).addTo(map);
         L.geoJSON(d.passes, {
@@ -660,9 +664,9 @@ export function TidalSourcesMap() {
           <span className="methodo-map-ramp" aria-hidden="true" style={{ background: rampGradient() }} />
           <span>{t("config.methodo.tidal.legend.covered")}</span>
         </div>
-        {ZONE_STATUSES.filter((s) => s !== "covered").map((s) => (
+        {ZONE_STATUSES.filter((s) => s !== "covered" && s !== "calm").map((s) => (
           <div className="methodo-map-item" key={s}>
-            <span className="methodo-map-swatch" style={{ background: s === "calm" ? CALM_COLOR : STATUS_COLOR[s] }} />
+            <span className="methodo-map-swatch" style={{ background: STATUS_COLOR[s] }} />
             <span>{t(`config.methodo.tidal.legend.${s}`)}</span>
           </div>
         ))}
@@ -671,7 +675,7 @@ export function TidalSourcesMap() {
           <span>{t("config.methodo.tidal.legend.passes")}</span>
         </div>
         <div className="methodo-map-item">
-          <span className="methodo-map-swatch" style={{ background: NEGLIGIBLE_COLOR, opacity: 0.55 }} />
+          <span className="methodo-map-swatch" style={{ background: NEGLIGIBLE_COLOR, opacity: RASTER_OPACITY }} />
           <span>{t("config.methodo.tidal.legend.negligible")}</span>
         </div>
         <div className="methodo-map-item">
