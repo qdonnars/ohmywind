@@ -5,9 +5,13 @@ import { describe, expect, it } from "vitest";
 import { CALM_COLOR, RAMP_STOPS, RasterGrid, decodePixel, maxCurrentAt, rampColor, rampGradient, type RasterEntry } from "./tidalRaster";
 
 describe("ramp", () => {
-  it("is calm under 0.5 kt, darkens up to 5 kt and clamps above", () => {
-    expect(rampColor(0.2)).toBe(CALM_COLOR);
-    expect(rampColor(0.5)).toBe(RAMP_STOPS[0][1]);
+  it("runs from the palest green at 0 kt to the darkest at 5 kt, without a step", () => {
+    expect(rampColor(0)).toBe(CALM_COLOR);
+    expect(rampColor(-1)).toBe(CALM_COLOR);
+    expect(rampColor(0.5)).toBe(RAMP_STOPS[1][1]);
+    // Between 0 and 0.5 kt the colour moves: no flat calm band any more.
+    expect(rampColor(0.2)).not.toBe(rampColor(0));
+    expect(rampColor(0.2)).not.toBe(rampColor(0.5));
     expect(rampColor(5)).toBe(RAMP_STOPS[RAMP_STOPS.length - 1][1]);
     expect(rampColor(9)).toBe(rampColor(5));
     // Between two stops the colour is between the two, component by component.

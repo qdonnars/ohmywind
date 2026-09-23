@@ -29,8 +29,11 @@ export interface RasterManifest {
   rasters: RasterEntry[];
 }
 
-/** Colour stops of the green ramp: light at 0.5 kt, dark at 5 kt and above. */
+/** Colour stops of the green ramp: palest at 0 kt, dark at 5 kt and above.
+    Continuous from zero: a cut at 0.5 kt drew a visible edge in open water
+    where the tide only crosses a threshold. */
 export const RAMP_STOPS: readonly [number, string][] = [
+  [0, "#e8f4ec"],
   [0.5, "#b5dfc1"],
   [1, "#86ca9c"],
   [1.5, "#5cb47b"],
@@ -38,8 +41,9 @@ export const RAMP_STOPS: readonly [number, string][] = [
   [3, "#238247"],
   [5, "#0f5f31"],
 ];
-/** Covered water under the first stop: the tide is not worth a look here. */
-export const CALM_COLOR = "#d9ecdf";
+/** The colour of no tide at all: the first stop, also used for the water a
+    model covers without a tide worth planning around. */
+export const CALM_COLOR = RAMP_STOPS[0][1];
 
 function hex(color: string): [number, number, number] {
   const n = parseInt(color.slice(1), 16);
@@ -47,7 +51,7 @@ function hex(color: string): [number, number, number] {
 }
 
 /** The ramp colour of a maximum current, continuous between the stops,
-    clamped at the last one; the calm colour under the first. */
+    clamped at both ends. */
 export function rampRgb(kt: number): [number, number, number] {
   if (!(kt >= RAMP_STOPS[0][0])) return hex(CALM_COLOR);
   for (let i = 1; i < RAMP_STOPS.length; i++) {
