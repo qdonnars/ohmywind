@@ -323,6 +323,8 @@ telle source ; les atlas construits mais pas publiés n'y comptent pas tant que
 `--gaps-include-built` n'est pas passé, sinon Cuxhaven perdrait son
 avertissement avant que BSH n'y réponde.
 
+**Marée négligeable (2026-09-23).** Autour de la Suède, aucun atlas ne répondait : Copernicus NWS couvre le Kattegat et l'Øresund jusqu'à 13° E mais la marée y reste sous 0,2 kt, seuil sous lequel le builder écarte les cellules, et la Baltique n'avait aucune source. La carte montrait donc un vide qui se lisait comme un manque de données. Un mois du produit Copernicus Baltique (`cmems_mod_bal_phy_anfc_PT1H-i`, 1 nm, marée incluse : Copernicus en publie une version détidée à part) a été analysé avec `--min-speed-kt 0` pour la carte seulement, dans `build/cmems_bal/atlas_maponly/`, hors des motifs d'atlas construits : médiane 0,22 kt au Kattegat, 0,13 kt dans les Belts et l'Øresund, 0,07 kt en Baltique, 0,09 kt en Botnie, jamais plus de 0,85 kt hors de l'estuaire de l'Elbe. FES2014, qui y annonce 1,5 à 2 kt, se trompe à 7 km. Le mask builder écrit `map/negligible_bal.geojson`, et `negligible_tide()` en tire la couche « marée négligeable » (étendue des cellules, moins les zones à 0,5 kt, moins la couverture servie, coupée à l'océan), exportée en `negligible.geojson` et dessinée en gris. L'atlas n'est **pas servi** : il remplacerait le courant global SMOC, qui porte les vrais courants de vent de l'Øresund, par une marée quasi nulle.
+
 Chaque passe du cliché porte aussi `unresolved_by` : les libellés des atlas
 à 1 km ou plus fin (construits ou servis, tous ceux dont l'emprise contient
 la passe ; les plus grossiers sont déjà `medium` par leur maille) dont le

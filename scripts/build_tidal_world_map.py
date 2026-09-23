@@ -1033,6 +1033,69 @@ def _rounded(fc: dict, decimals: int = 4) -> dict:
     }
 
 
+NEGLIGIBLE_KT = 0.5
+
+
+def negligible_tide(coverage: dict, ocean=None) -> dict:
+    """Water a model measures with a negligible tide, and no served atlas covers.
+
+    Read from ``negligible_<name>.geojson`` (written by the mask builder from an
+    atlas analysed for the map only, never served: serving it would replace
+    the global model's currents, which carry the wind-driven flow of the
+    Øresund, with a near-zero tide). The extent of its cells minus where it
+    reaches ``NEGLIGIBLE_KT``, minus the served coverage, clipped to the sea.
+    Without it the Baltic read as a hole in the data rather than a sea
+    without tide.
+    """
+    from shapely.geometry import mapping, shape
+    from shapely.ops import unary_union
+    from shapely.validation import make_valid
+
+    served = unary_union(
+        [
+            make_valid(shape(f["geometry"]))
+            for f in coverage["features"]
+            if f["properties"]["layer"] in ("marc", "built")
+            and _served(f["properties"])
+        ]
+    )
+    feats = []
+    for path in sorted(MAP_DIR.glob("negligible_*.geojson")):
+        fc = json.loads(path.read_text())
+        extent = [
+            f for f in fc["features"] if f["properties"].get("threshold_kt") == 0.0
+        ]
+        strong = [
+            f
+            for f in fc["features"]
+            if f["properties"].get("threshold_kt") == NEGLIGIBLE_KT
+        ]
+        if not extent:
+            continue
+        geom = make_valid(shape(extent[0]["geometry"]))
+        if strong:
+            geom = geom.difference(make_valid(shape(strong[0]["geometry"])))
+        geom = geom.difference(served)
+        if ocean is not None:
+            geom = geom.intersection(ocean)
+        geom = _polygonal(geom).simplify(0.01)
+        if geom.is_empty:
+            continue
+        feats.append(
+            {
+                "type": "Feature",
+                "properties": {
+                    "kind": "negligible",
+                    "below_kt": NEGLIGIBLE_KT,
+                    "atlas": extent[0]["properties"].get("atlas"),
+                    "area_deg2": round(geom.area, 2),
+                },
+                "geometry": mapping(geom),
+            }
+        )
+    return {"type": "FeatureCollection", "features": feats}
+
+
 def export_web(
     web_dir: Path,
     masks: dict,
@@ -1041,6 +1104,7 @@ def export_web(
     objective: dict,
     coverage: dict,
     sources: dict,
+    negligible: dict | None = None,
 ) -> None:
     """The static files ``TidalSourcesMap`` fetches, one per layer, compact JSON.
 
@@ -1080,6 +1144,12 @@ def export_web(
         json.dumps({"type": "FeatureCollection", "features": built}, **compact)
     )
     (web_dir / "sources.geojson").write_text(json.dumps(sources, **compact))
+    (web_dir / "negligible.geojson").write_text(
+        json.dumps(
+            _rounded(negligible or {"type": "FeatureCollection", "features": []}),
+            **compact,
+        )
+    )
     for stale in (
         "gaps_mask.geojson",
         "coverage_spike.geojson",
@@ -1236,8 +1306,18 @@ def main(argv: list[str] | None = None) -> int:
         + json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
         + ";\n"
     )
+    negligible = negligible_tide(coverage, ocean)
+    print(
+        "negligible tide: "
+        + ", ".join(
+            f"{f['properties']['atlas']} {f['properties']['area_deg2']} deg2"
+            for f in negligible["features"]
+        )
+    )
     if args.web_dir is not None:
-        export_web(args.web_dir, masks, gaps, status, objective, coverage, sources)
+        export_web(
+            args.web_dir, masks, gaps, status, objective, coverage, sources, negligible
+        )
     if args.write_gaps:
         snapshot = json.dumps(
             server_gaps(coverage, masks, gaps, unresolved),

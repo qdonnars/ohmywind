@@ -2788,13 +2788,12 @@
     "vertical": "3D (56 niveaux), surface 15 min",
     "step_min": 60,
     "archive": "horaire depuis le 2022-12-02 (cmems_mod_bal_phy_anfc_PT1H-i)",
-    "notes": "NEMO 1 mille nautique. Des variantes journalières « detided » existent, les champs horaires portent donc la marée [supposé, non analysé]. Aucun gain : Kattegat, Belts et Øresund sont déjà dans NWS à 1,5 km (jusqu'à 13 E), et la marée y est faible ; à l'est la Baltique n'a pas de marée utile. Pas d'atlas recommandé.",
-    "acquisition": "Compte Copernicus Marine gratuit, même chaîne que NWS.",
-    "update_plan": "Non intégré : maille plus grossière que NWS, qui couvre déjà le Kattegat.",
+    "notes": "Mesuré le 2026-09-23 sur 32 jours : médiane 0,22 kt au Kattegat, 0,13 kt dans les Belts et l'Øresund, 0,07 kt en Baltique, 0,09 kt en Botnie ; au plus 0,85 kt hors estuaire de l'Elbe. FES2014 (7 km) y annonce à tort 1,5 à 2 kt. Alimente la couche « marée négligeable » de la carte.",
+    "acquisition": "Compte Copernicus Marine gratuit, outil copernicusmarine : courants horaires de surface (cmems_mod_bal_phy_anfc_PT1H-i, marée incluse), 32 jours analysés en constantes harmoniques par scripts/build_cmems_atlas.py (3,6 Go, 2 minutes de téléchargement).",
+    "update_plan": "Mesure pour la carte uniquement, jamais servie : la marée y reste sous 0,5 kt (médiane 0,07 kt en Baltique), et servir la marée seule remplacerait le courant global, qui porte les courants de vent de l'Øresund. Pas de mise à jour prévue.",
     "access_kind": "free_account",
     "automation": "auto_secret",
     "update_cadence": "none",
-    "hide_in_table": true,
     "licence_class": "open"
    },
    "geometry": {
