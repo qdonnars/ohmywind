@@ -122,6 +122,10 @@ interface Layers {
   status: StatusFC;
   objective: FeatureCollection;
   sources: SourceFC;
+  /** Water a tidal model covers and finds without a tide worth planning
+      around (under 0.2 kt, the Baltic under 0.5 kt): drawn in its own colour
+      so it does not read as missing data. */
+  negligible: FeatureCollection;
 }
 
 const STATUS_COLOR: Record<ZoneStatus, string> = {
@@ -132,6 +136,8 @@ const STATUS_COLOR: Record<ZoneStatus, string> = {
   unknown: "#d43f3a",
 };
 const OBJECTIVE_COLOR = "#1f2937";
+/** Covered water where the tide is not significant. */
+const NEGLIGIBLE_COLOR = "#3b82c4";
 /** A registry status drawn in the colour of the zone status it would produce. */
 const SOURCE_COLOR: Record<string, string> = {
   current: STATUS_COLOR.covered,
@@ -160,13 +166,15 @@ async function loadJson<T>(name: string): Promise<T> {
     covered bands (0.5 to 5 kt), the calm water, the uncovered strong zones.
     The masks themselves stay on the docs page; the page loads 3 MB less. */
 async function loadLayers(): Promise<Layers> {
-  const [passes, status, objective, sources] = await Promise.all([
+  const [passes, status, objective, sources, negligible] = await Promise.all([
     loadJson<PassFC>("gazetteer.geojson"),
     loadJson<StatusFC>("status.geojson"),
     loadJson<FeatureCollection>("objective.geojson"),
     loadJson<SourceFC>("sources.geojson"),
+    // Optional: an older deploy without the file keeps working.
+    loadJson<FeatureCollection>("negligible.geojson").catch(() => ({ type: "FeatureCollection", features: [] }) as FeatureCollection),
   ]);
-  return { passes, status, objective, sources };
+  return { passes, status, objective, sources, negligible };
 }
 
 /** The maximum-current rasters, decoded: each PNG is drawn through a canvas
@@ -301,6 +309,10 @@ export function TidalSourcesMap() {
       return badge(hit.kt >= 0.5 ? rampColor(hit.kt) : "#7fb08f", text);
     }
     if (z && z.status !== "covered" && z.status !== "calm") return badge(STATUS_COLOR[z.status], statusText(z.status));
+    const d = dataRef.current;
+    if (d && d.negligible.features.some((f) => pointInGeometry(lon, lat, f.geometry))) {
+      return esc(t("config.methodo.tidal.status.negligible"));
+    }
     return esc(statusText(null));
   };
 
@@ -507,6 +519,9 @@ export function TidalSourcesMap() {
             },
           },
         ).addTo(map);
+        L.geoJSON(d.negligible, {
+          style: { color: NEGLIGIBLE_COLOR, weight: 0, fillColor: NEGLIGIBLE_COLOR, fillOpacity: 0.42, interactive: false },
+        }).addTo(map);
         L.geoJSON(d.objective, { style: { color: OBJECTIVE_COLOR, weight: 1.5, dashArray: "8 6", fill: false, interactive: false } }).addTo(map);
         L.geoJSON(d.passes, {
           pointToLayer: (f, ll) => {
@@ -654,6 +669,10 @@ export function TidalSourcesMap() {
         <div className="methodo-map-item">
           <span className="methodo-map-swatch is-round" style={{ background: STATUS_COLOR.covered, borderColor: "#fff" }} />
           <span>{t("config.methodo.tidal.legend.passes")}</span>
+        </div>
+        <div className="methodo-map-item">
+          <span className="methodo-map-swatch" style={{ background: NEGLIGIBLE_COLOR, opacity: 0.55 }} />
+          <span>{t("config.methodo.tidal.legend.negligible")}</span>
         </div>
         <div className="methodo-map-item">
           <span className="methodo-map-swatch is-dashed" style={{ borderColor: OBJECTIVE_COLOR }} />
