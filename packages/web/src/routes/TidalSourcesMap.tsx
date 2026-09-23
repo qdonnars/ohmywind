@@ -122,8 +122,9 @@ interface Layers {
   status: StatusFC;
   objective: FeatureCollection;
   sources: SourceFC;
-  /** Water a model measures with a tide under 0.5 kt that no atlas serves
-      (the Baltic): drawn hatched so it does not read as missing data. */
+  /** Water a tidal model covers and finds without a tide worth planning
+      around (under 0.2 kt, the Baltic under 0.5 kt): drawn in its own colour
+      so it does not read as missing data. */
   negligible: FeatureCollection;
 }
 
@@ -135,8 +136,8 @@ const STATUS_COLOR: Record<ZoneStatus, string> = {
   unknown: "#d43f3a",
 };
 const OBJECTIVE_COLOR = "#1f2937";
-/** Sea without a tide worth planning around, measured but not served. */
-const NEGLIGIBLE_COLOR = "#94a3b8";
+/** Covered water where the tide is not significant. */
+const NEGLIGIBLE_COLOR = "#3b82c4";
 /** A registry status drawn in the colour of the zone status it would produce. */
 const SOURCE_COLOR: Record<string, string> = {
   current: STATUS_COLOR.covered,
@@ -519,7 +520,7 @@ export function TidalSourcesMap() {
           },
         ).addTo(map);
         L.geoJSON(d.negligible, {
-          style: { color: NEGLIGIBLE_COLOR, weight: 0, fillColor: NEGLIGIBLE_COLOR, fillOpacity: 0.28, interactive: false },
+          style: { color: NEGLIGIBLE_COLOR, weight: 0, fillColor: NEGLIGIBLE_COLOR, fillOpacity: 0.42, interactive: false },
         }).addTo(map);
         L.geoJSON(d.objective, { style: { color: OBJECTIVE_COLOR, weight: 1.5, dashArray: "8 6", fill: false, interactive: false } }).addTo(map);
         L.geoJSON(d.passes, {
