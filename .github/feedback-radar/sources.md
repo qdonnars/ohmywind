@@ -21,7 +21,7 @@ Les moteurs de recherche indexent mal les forums : cette liste compte plus que l
 
 ## 2. Recherches de découverte (nouveaux fils)
 
-Lancées via WebSearch à chaque passage ; tout résultat nouveau et pertinent est traité,
+Lancées via WebSearch à chaque passage (lun, mer, ven, sam, dim) ; tout résultat nouveau et pertinent est traité,
 puis proposé en fin de run pour ajout à la section 1.
 
 - `"OhMyWind"`
@@ -34,7 +34,7 @@ puis proposé en fin de run pour ajout à la section 1.
 
 ## 3. Revue de presse (mentions web)
 
-Requêtes lancées chaque semaine pour repérer articles, blogs, vidéos, annuaires d'apps.
+Requêtes lancées à chaque passage (lun, mer, ven, sam, dim) pour repérer articles, blogs, vidéos, annuaires d'apps.
 Toute mention nouvelle est consignée dans l'issue épinglée « 📰 Revue de presse OhMyWind ».
 
 - `OhMyWind`
