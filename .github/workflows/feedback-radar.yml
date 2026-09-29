@@ -88,7 +88,7 @@ jobs:
       # recherche par mots-clés rate les doublons, il faut une lecture
       # sémantique de l'ensemble). Les PR mergées servent à repérer ce qui est
       # déjà livré (critique de presse périmée, demande déjà satisfaite).
-      - name: Préparer le contexte (issues, PR, Reddit)
+      - name: Préparer le contexte (issues, PR, Reddit, HN)
         continue-on-error: true
         run: |
           mkdir -p /tmp/radar
@@ -105,6 +105,9 @@ jobs:
           curl -sSf -A "ohmywind-feedback-radar/1.0 (+https://ohmywind.fr)" \
             "https://www.reddit.com/search.json?q=ohmywind&sort=new&limit=50&t=month" \
             -o /tmp/radar/reddit.json || echo '{"error":"reddit inaccessible depuis le runner"}' > /tmp/radar/reddit.json
+          # Hacker News : API Algolia officielle, sans clé.
+          curl -sSf "https://hn.algolia.com/api/v1/search_by_date?query=ohmywind&hitsPerPage=50" \
+            -o /tmp/radar/hn.json || echo '{"error":"hn inaccessible"}' > /tmp/radar/hn.json
           ls -la /tmp/radar
 
       - uses: anthropics/claude-code-action@v1
@@ -143,7 +146,8 @@ jobs:
                  `/tmp/radar/prs.json` (100 dernières PR mergées) : c'est ta
                  base de dédoublonnage et de « déjà livré ». Si l'un manque,
                  replie-toi sur `gh issue list --search`.
-               - `/tmp/radar/reddit.json` (recherche Reddit du mois, ou erreur).
+               - `/tmp/radar/reddit.json` (recherche Reddit du mois, ou erreur)
+                 et `/tmp/radar/hn.json` (Hacker News, ou erreur).
             2. Collecte :
                - WebFetch sur chaque fil suivi (pour Reddit, essaie l'URL
                  old.reddit.com si www échoue) ;

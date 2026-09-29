@@ -19,6 +19,8 @@ Les moteurs de recherche indexent mal les forums : cette liste compte plus que l
 | Boatnews (commentaires) | en | https://www.boatnews.com/story/52477/ohmywind-the-open-source-project-that-aims-to-rethink-how-we-prepare-for-a-sailing-trip | |
 | Boote (commentaires) | de | https://www.boote-magazin.de/ausruestung/technik/ohmywind-wetterrouting-open-source/ | |
 | Yacht (commentaires) | en | https://www.yacht.de/en/sailing-knowledge/navigation/navigation-ohmywind-free-weather-planner-with-ai-integration/ | |
+| La Taberna del Puerto (Meteo) | es | https://foro.latabernadelpuerto.com/showthread.php?t=214216 | Fil ouvert sur l'article barcosnews.es ; contenu illisible par WebFetch (robots.txt en erreur) |
+| BarcosNews (commentaires) | es | https://www.barcosnews.es/noticias/52477/ohmywind-el-proyecto-de-codigo-abierto-que-pretende-replantear-la-preparacion-de-una-travesia | Reprise ES de Bateaux.com |
 | Google Alerts RSS | — | <!-- https://www.google.com/alerts/feeds/... --> | Vraie recherche Google |
 
 ### Accès connus (constatés au passage à blanc du 29/09/2026)
@@ -32,6 +34,9 @@ Pour éviter à l'agent de gaspiller des tours sur des impasses :
 - **Play Store** : les avis ne sont pas dans le HTML. Pour les récupérer, il faut l'API Play Developer (compte de service), à ajouter plus tard comme step déterministe.
 - **Glama** : la page Discussions est interdite par robots.txt.
 - **Moteur de recherche** : il n'indexe quasiment aucun fil de forum mentionnant OhMyWind. Les résultats sont dominés par nos propres PR GitHub, à ignorer.
+- **La Taberna del Puerto** (forum ES) : WebFetch échoue sur robots.txt. Seules voies : lecture humaine, ou flux RSS du forum s'il en expose un.
+- **Hacker News** : pas de WebSearch utile. Le workflow interroge l'API Algolia et écrit le résultat dans `/tmp/radar/hn.json`.
+- **Bluesky** : le handle `@ohmywind.bsky.social` n'est PAS à nous (compte tiers sans lien avec le projet). Ignorer ; pages rendues en JavaScript de toute façon.
 - **Google Alerts** : créer une alerte « OhMyWind » en flux RSS et coller l'URL du flux ci-dessous. C'est la vraie recherche Google, en toute légalité.
 
 ## 2. Recherches de découverte (nouveaux fils)
@@ -67,7 +72,7 @@ Mentions déjà connues au 29/09/2026 (état initial de la revue de presse, sans
 
 | Article | Date | Reprises (même texte = une seule mention) |
 |---|---|---|
-| Bateaux.com #52477 « OhMyWind, le projet open source qui veut repenser la préparation d'une navigation » | 30/08/2026 | boatnews.com (EN), boote.com (DE), barchenews.it (IT), + ES probable |
+| Bateaux.com #52477 « OhMyWind, le projet open source qui veut repenser la préparation d'une navigation » | 30/08/2026 | boatnews.com (EN), boote.com (DE), barchenews.it (IT), barcosnews.es (ES) ; relayé en fil sur La Taberna del Puerto |
 | YACHT / BOOTE, Hauke Schmidt, « Kostenloser Wetterplaner mit KI-Anschluss » | 01-02/09/2026 | boote-magazin.de (DE), yacht.de/en (EN) |
 | Glama : fiche serveur MCP + connecteur `fr.ohmywind/sailing-planner` | — | annuaire, pas un article |
 
