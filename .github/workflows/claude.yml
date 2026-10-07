@@ -11,6 +11,16 @@ name: Claude Code
 # Le triage des issues entrantes vit dans claude-triage.yml (permissions
 # amputées), l'implémentation dans claude-fix.yml (armée par label).
 #
+# Passage de relais avec claude-fix.yml : la PR de fix porte une section
+# « Notes agent » (diagnostic, hypothèses, demandes non traitées). L'agent la
+# lit avant d'itérer et la tient à jour après chaque push, pour que chaque run
+# reparte de l'état réel au lieu de redécouvrir le problème.
+#
+# Un @claude posté sur l'ISSUE alors qu'une PR fix/issue-NN est ouverte n'est
+# pas traité ici : sinon l'action crée une nouvelle branche claude/issue-NN-*
+# depuis dev et refait tout le travail sans voir la PR (constaté sur #445 →
+# branche claude/issue-445-20261007-0813 en doublon de #447). On redirige.
+#
 # Gate sur github.actor : l'action vérifie déjà le write access du
 # déclencheur, mais le gate explicite ne coûte rien et documente l'intention.
 
@@ -32,7 +42,7 @@ jobs:
         (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude'))
       )
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions:
       contents: write
       pull-requests: write
@@ -40,33 +50,65 @@ jobs:
       id-token: write
       actions: read # lire les résultats CI sur les PRs
     steps:
+      # Avant tout checkout : un @claude sur une issue qui a déjà sa PR de
+      # fix ouverte doit itérer sur la PR, pas repartir de zéro.
+      - name: Rediriger vers la PR de fix existante
+        id: guard
+        if: github.event_name == 'issue_comment' && !github.event.issue.pull_request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "fix/issue-$ISSUE" \
+            --state open --json number --jq '.[0].number // empty')
+          if [ -n "$pr" ]; then
+            gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body \
+              "↪️ Une PR de fix est déjà ouverte pour cette issue : #$pr. Recopie ton « @claude <feedback> » en commentaire de la PR pour itérer sur sa branche (sinon l'agent repartirait de zéro sur une nouvelle branche)."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
       # persist-credentials: false — sinon le GITHUB_TOKEN par défaut reste
       # dans la config git et les pushes de l'agent partent avec lui : aucun
       # workflow ne se déclenche dessus (constaté au run 31742540466 : commit
       # poussé sur la PR sans aucun check CI). Le seul credential restant est
       # celui de l'app Claude, dont les pushes déclenchent bien ci.yml.
       - uses: actions/checkout@v7
+        if: steps.guard.outputs.skip != 'true'
         with:
           fetch-depth: 1
           persist-credentials: false
 
+      # Même raison que dans claude-fix.yml : sans hooksPath, les commits de
+      # l'agent partent sans Signed-off-by et le contrôle DCO les signale
+      # (constaté sur #393).
+      - name: Activer les hooks du dépôt (signature DCO)
+        if: steps.guard.outputs.skip != 'true'
+        run: git config core.hooksPath .githooks
+
       # Pas d'input github_token : l'action s'authentifie comme la Claude
       # GitHub App (cf. checkout ci-dessus).
+      # GH_TOKEN : donne à l'agent un gh authentifié pour lire la PR, son
+      # diff et la CI, et réécrire la section « Notes agent » (gh pr edit).
+      # Borné par le bloc permissions du job.
       - uses: anthropics/claude-code-action@v1
         id: claude
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           base_branch: dev
           claude_args: |
-            --max-turns 50
-            --allowedTools "Bash(cd:*),Bash(ls:*),Bash(npm:*),Bash(uv:*),Bash(uvx:*)"
-            --append-system-prompt "Tu tournes dans un runner GitHub Actions : ignore la consigne worktree de CLAUDE.md et travaille directement dans le checkout. Toute branche part de dev et toute PR cible dev, jamais main. La promotion dev vers main est toujours manuelle. Commandes Bash simples uniquement, sans pipe ni enchaînement : elles seraient refusées par l'allowlist."
+            --model opus
+            --max-turns 100
+            --allowedTools "Bash(cd:*),Bash(ls:*),Bash(npm:*),Bash(uv:*),Bash(uvx:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr edit:*),Bash(gh pr checks:*),Bash(gh issue view:*),Bash(gh run view:*)"
+            --append-system-prompt "Tu tournes dans un runner GitHub Actions : ignore la consigne worktree de CLAUDE.md et travaille directement dans le checkout. Toute branche part de dev et toute PR cible dev, jamais main. La promotion dev vers main est toujours manuelle. Commandes Bash simples uniquement, sans pipe ni enchaînement : elles seraient refusées par l'allowlist. Sur une PR, commence par lire la section « Notes agent » de son corps (gh pr view) : elle contient le diagnostic, les hypothèses et les demandes non traitées des runs précédents ; pars de là au lieu de tout redécouvrir, et lis l'issue liée avec gh issue view --comments si le feedback y fait référence. Traite TOUTES les demandes du feedback, sans en écarter une au nom d'un fix minimal ; si une demande est vraiment hors périmètre, dis-le explicitement. Après ton push, mets à jour la section « Notes agent » (gh pr edit --body-file, en réécrivant le corps complet depuis un fichier /tmp) : ajuste diagnostic, fichiers, hypothèses, demandes non traitées et vérification, et ajoute une ligne datée sous « Itérations » résumant ce run. Garde la section concise."
 
       # Trace complète de la conversation, archivée uniquement en cas d'échec
       # pour diagnostiquer les max-turns sans exposer le transcript en
       # permanence (repo public : les artifacts sont téléchargeables).
       - name: Archiver la trace d'exécution
-        if: failure()
+        if: failure() && steps.guard.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: claude-trace-${{ github.run_id }}
