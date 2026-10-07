@@ -1,6 +1,6 @@
 # Boat archetypes — V1 polars and assumptions
 
-OhMyWind ships 7 archetypes covering the bulk of French cruising fleets, from
+OhMyWind ships 8 archetypes covering the bulk of French cruising fleets, from
 small trailerable cruisers to bluewater 50-footers and a racer-cruiser.
 The LLM client is expected to map a user's commercial boat name (e.g. *"Sun
 Odyssey 32"*) onto the closest archetype using the fields exposed by
@@ -17,6 +17,7 @@ Odyssey 32"*) onto the closest archetype using the fields exposed by
 | `cruiser_50ft`    | 50 ft  | monohull  | cruising       | fast              | Sun Odyssey 519, Bavaria C50, Hanse 508                |
 | `catamaran_40ft`  | 40 ft  | catamaran | cruising       | fast-reach        | Lagoon 40, Bali 4.1, Fountaine Pajot Lucia 40          |
 | `racer_cruiser`   | 40 ft  | monohull  | racer-cruiser  | very-fast         | J/122, Pogo 12.50, Solaris 40, Grand Soleil 43         |
+| `voile_aviron_16ft` | 16 ft | monohull  | cruising       | slow              | Vivier Aven, Ilur, Pirmil, CLC Skerry (open sail-and-oar dinghy, pure sail polar, estimated) |
 
 ## Polar grid
 

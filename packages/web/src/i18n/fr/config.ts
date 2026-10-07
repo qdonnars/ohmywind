@@ -69,6 +69,7 @@ export const config = {
   "config.boat.archetype.cruiser50ft": "Croiseur 50 pieds",
   "config.boat.archetype.racerCruiser": "Racer-cruiser",
   "config.boat.archetype.catamaran40ft": "Catamaran 40 pieds",
+  "config.boat.archetype.voileAviron16ft": "Voile-aviron (~5 m)",
 
   // Tuile « Essentiel ».
   "config.boat.essentials.title": "Essentiel",

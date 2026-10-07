@@ -23,6 +23,7 @@ EXPECTED_ARCHETYPES = {
     "cruiser_50ft",
     "catamaran_40ft",
     "racer_cruiser",
+    "voile_aviron_16ft",
 }
 
 
