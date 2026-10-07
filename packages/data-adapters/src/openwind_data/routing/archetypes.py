@@ -3,8 +3,8 @@
 
 """Boat archetype registry — loads ORC-style polars from `polars/*.json`.
 
-V1 ships 7 archetypes (5 monohull cruisers from 20 to 50 ft, 1 catamaran, 1
-racer-cruiser). The LLM is expected to map a user's commercial boat name
+V1 ships 8 archetypes (5 monohull cruisers from 20 to 50 ft, 1 catamaran, 1
+racer-cruiser, 1 light sail-and-oar open dinghy). The LLM is expected to map a user's commercial boat name
 (e.g. "Sun Odyssey 32") to the closest archetype using `examples`, `length_ft`,
 `type`, and `performance_class`. No server-side mapping table.
 
@@ -76,6 +76,7 @@ _ARCHETYPE_NAMES = (
     "cruiser_50ft",
     "catamaran_40ft",
     "racer_cruiser",
+    "voile_aviron_16ft",
 )
 
 

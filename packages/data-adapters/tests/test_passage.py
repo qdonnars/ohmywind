@@ -709,7 +709,7 @@ class TestEstimatePassageWindows:
             adapter=adapter,
             segment_length_nm=20.0,
         )
-        assert len(reports) == 7
+        assert len(reports) == 8
 
     async def test_returns_correct_window_count_interval(self) -> None:
         # 6h sweep at 2h → 4 windows (06:00, 08:00, 10:00, 12:00)
@@ -836,7 +836,7 @@ class TestEstimatePassageWindows:
             model="auto",
         )
         # All 7 windows must be covered by the fallback model — none dropped.
-        assert len(reports) == 7
+        assert len(reports) == 8
         # And every report uses the same fallback model (icon_eu, next in
         # the auto chain after AROME).
         assert all(r.model == "icon_eu" for r in reports)

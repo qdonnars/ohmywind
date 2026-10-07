@@ -402,8 +402,9 @@ uses unless overridden by tool parameters.
 
 ## Polar speed model
 
-- 7 ORC-style archetypes (cruiser_20ft / cruiser_25ft / cruiser_30ft /
-  cruiser_40ft / cruiser_50ft / racer_cruiser / catamaran_40ft).
+- 8 archetypes (cruiser_20ft / cruiser_25ft / cruiser_30ft / cruiser_40ft /
+  cruiser_50ft / racer_cruiser / catamaran_40ft / voile_aviron_16ft). ORC-style
+  polars, except voile_aviron_16ft (small open sail-and-oar dinghy, estimated).
 - Lookup is bilinear interpolation in (TWS, TWA), clamped at grid edges.
 - TWA symmetric on [0, 180] only (no port/starboard distinction).
 

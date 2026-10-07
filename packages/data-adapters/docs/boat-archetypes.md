@@ -1,7 +1,8 @@
 # Boat archetypes — V1 polars and assumptions
 
-OhMyWind ships 7 archetypes covering the bulk of French cruising fleets, from
-small trailerable cruisers to bluewater 50-footers and a racer-cruiser.
+OhMyWind ships 8 archetypes covering the bulk of French cruising fleets, from
+small open sail-and-oar dinghies and trailerable cruisers to bluewater
+50-footers and a racer-cruiser.
 The LLM client is expected to map a user's commercial boat name (e.g. *"Sun
 Odyssey 32"*) onto the closest archetype using the fields exposed by
 `list_archetypes()` — there is no server-side mapping table.
@@ -17,6 +18,13 @@ Odyssey 32"*) onto the closest archetype using the fields exposed by
 | `cruiser_50ft`    | 50 ft  | monohull  | cruising       | fast              | Sun Odyssey 519, Bavaria C50, Hanse 508                |
 | `catamaran_40ft`  | 40 ft  | catamaran | cruising       | fast-reach        | Lagoon 40, Bali 4.1, Fountaine Pajot Lucia 40          |
 | `racer_cruiser`   | 40 ft  | monohull  | racer-cruiser  | very-fast         | J/122, Pogo 12.50, Solaris 40, Grand Soleil 43         |
+| `voile_aviron_16ft` | 16 ft | monohull | cruising       | slow              | Vivier Aven / Ilur / Pirmil, CLC Skerry                |
+
+`voile_aviron_16ft` is a family of small open sail-and-oar boats (4.5–6 m,
+~350–400 kg loaded, ~10 m² of sail, centreboard, hull speed ≈ 5 kn,
+`min_upwind_twa_deg` 52). Pure sail polar, **estimated** (no ORC measurement),
+no motor or oar mode. Reefed from ~16 kn; the 20–25 kn rows are outside the
+intended usage range and only kept to avoid breaking the grid clamp.
 
 ## Polar grid
 

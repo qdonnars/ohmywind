@@ -68,6 +68,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.boat.archetype.cruiser50ft": "Crucero de 50 pies",
   "config.boat.archetype.racerCruiser": "Crucero-regata",
   "config.boat.archetype.catamaran40ft": "Catamarán de 40 pies",
+  "config.boat.archetype.voileAviron16ft": "Bote de vela y remo (~16 pies)",
 
   "config.boat.essentials.title": "Esencial",
   "config.boat.essentials.myBoat": "Mi barco",

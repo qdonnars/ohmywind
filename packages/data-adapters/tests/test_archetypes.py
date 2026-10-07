@@ -23,6 +23,7 @@ EXPECTED_ARCHETYPES = {
     "cruiser_50ft",
     "catamaran_40ft",
     "racer_cruiser",
+    "voile_aviron_16ft",
 }
 
 
@@ -37,6 +38,20 @@ class TestRegistry:
         assert p.length_ft == 40
         assert p.type == "monohull"
         assert len(p.examples) >= 3
+
+    def test_voile_aviron_is_pure_sail(self) -> None:
+        p = get_polar("voile_aviron_16ft")
+        assert p.length_ft == 16
+        assert p.min_upwind_twa_deg == 52.0
+        assert p.motor_threshold_kn is None
+        assert p.motor_speed_kn is None
+        # Displacement hull: capped near hull speed (~5 kn) even surfing.
+        assert max(max(row) for row in p.boat_speed_kn) <= 5.5
+        # Monotone in TWS up to the reefing range (≤ 14 kn) at every angle.
+        rows = [r for tws, r in zip(p.tws_kn, p.boat_speed_kn, strict=True) if tws <= 14]
+        for j in range(len(p.twa_deg)):
+            col = [r[j] for r in rows]
+            assert col == sorted(col)
 
     def test_unknown_archetype_raises(self) -> None:
         with pytest.raises(KeyError):

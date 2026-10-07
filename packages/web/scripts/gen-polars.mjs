@@ -44,6 +44,7 @@ const ARCHETYPE_HUMAN = {
   cruiser_50ft: "Croiseur 50 pieds",
   racer_cruiser: "Racer-cruiser",
   catamaran_40ft: "Catamaran 40 pieds",
+  voile_aviron_16ft: "Voile-aviron (~5 m)",
 };
 
 const PERF_HUMAN = {
