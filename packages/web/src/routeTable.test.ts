@@ -11,6 +11,7 @@ describe("matchRoute", () => {
     expect(matchRoute("/comparer")).toBe("compare");
     expect(matchRoute("/config")).toBe("config");
     expect(matchRoute("/methodologie")).toBe("methodologie");
+    expect(matchRoute("/methodologie/courants")).toBe("methodologie-courants");
     expect(matchRoute("/confidentialite")).toBe("confidentialite");
     expect(matchRoute("/presse")).toBe("press");
   });

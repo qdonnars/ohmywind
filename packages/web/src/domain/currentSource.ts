@@ -7,9 +7,9 @@
  * The cascade behind ``/api/v1/marine/marc`` is SHOM Atlas C2D when one of
  * its points lies within 500 m, MARC PREVIMER inside its grids, Open-Meteo
  * SMOC otherwise. Each answers a different question and ignores different
- * things: SHOM and MARC are tidal streams only (no wind, no general
- * circulation), SMOC folds tide, circulation and Stokes drift together on an
- * 8 km grid. The caption under the currents table says which, with the one
+ * things: SHOM and the atlases (MARC, BSH, Copernicus, any label ending in
+ * its pitch) are tidal streams only (no wind, no general circulation), SMOC
+ * folds tide, circulation and Stokes drift together on an 8 km grid. The caption under the currents table says which, with the one
  * number that qualifies the value: the distance to the SHOM point sampled,
  * or the size of the MARC cell.
  *
@@ -33,10 +33,13 @@ export function describeCurrentSource(
   if (source.startsWith("shom_c2d_")) {
     return { kind: "shom", nearestKm: shomNearestKm ?? null };
   }
-  if (source.startsWith("marc_")) {
-    // ``marc_<atlas>_<res>m``: the suffix is the fallback when the overlay
-    // did not carry ``atlas_resolution_m`` separately.
-    const fromLabel = /_(\d+)m$/.exec(source);
+  // Every atlas in the standard format ends its label with its pitch:
+  // ``marc_finis_250m``, ``bsh_ausalt_90m``, ``cmems_nws_1500m``,
+  // ``norkyst_lofoten_800m``. The suffix is the fallback when the overlay
+  // did not carry ``atlas_resolution_m`` separately; the legacy ``marc_``
+  // prefix alone still counts when the overlay carried the resolution.
+  const fromLabel = /_(\d+)m$/.exec(source);
+  if (fromLabel || source.startsWith("marc_")) {
     const res = marcResolutionM ?? (fromLabel ? Number(fromLabel[1]) : null);
     if (res != null && res > 0) return { kind: "marc", resolutionM: res };
   }

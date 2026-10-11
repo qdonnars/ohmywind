@@ -63,6 +63,18 @@ export interface MarineHourly {
   // Not populated when SHOM is the source — SHOM C2D resolution varies per
   // cartouche and isn't surfaced at this level.
   marc_resolution_m?: number;
+  // The tidal gap the spot sits in, when its currents come from the global
+  // model or a coarse atlas: the small print under the currents table then
+  // warns that the values are probably wrong. Absent everywhere else.
+  tidal_gap?: { zone: string; kind: "pass" | "mask"; max_spring_kt: number | null };
+  // Set where we know that we do not know (domain/unknownCurrent): a
+  // documented zone such as the Rance basin, or a pass the source cannot
+  // see. The listed fields are blanked and the currents table says why.
+  current_unknown?: {
+    zone: string;
+    reason: "managed" | "unresolved" | "non_tidal" | "model_edge";
+    fields: ("current" | "tide")[];
+  };
   // National tidal coefficient at the start of the displayed window
   // (Brest-anchored, integer in [20, 120]). Surfaced whenever the SHOM
   // registry is loaded on the server side. Null otherwise.

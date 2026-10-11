@@ -8,7 +8,7 @@ OhMyWind est un planificateur de navigation à la voile open source, utilisable 
   - [Vent : cascade multi-modèles](#vent--cascade-multi-modèles)
   - [Vagues et niveau de la mer](#vagues-et-niveau-de-la-mer)
   - [Courants : produit SMOC global](#courants--produit-smoc-global)
-  - [Courants côtiers haute précision : SHOM Atlas C2D et MARC PREVIMER](#courants-côtiers-haute-précision--shom-atlas-c2d-et-marc-previmer)
+  - [Courants de marée](#courants-de-marée) (page dédiée)
 - [Comment on estime un passage](#comment-on-estime-un-passage)
   - [1. Choix du voilier-type](#1-choix-du-voilier-type)
   - [2. Découpage de la route](#2-découpage-de-la-route)
@@ -16,7 +16,6 @@ OhMyWind est un planificateur de navigation à la voile open source, utilisable 
   - [4. Polaire, angle au vent et tactique au près](#4-polaire-angle-au-vent-et-tactique-au-près)
   - [5. Vitesse à l'eau (STW)](#5-vitesse-à-leau-stw--efficacité-et-réduction-par-les-vagues)
   - [6. Vitesse au sol (SOG), courant et durée](#6-vitesse-au-sol-sog-courant-et-durée)
-- [Comment on déduit le courant en un point MARC](#comment-on-déduit-le-courant-en-un-point-marc)
 - [Comment on note la complexité](#comment-on-note-la-complexité)
 - [Les conventions du domaine](#les-conventions-du-domaine)
 - [Ce qu'OhMyWind ne fait pas](#ce-quohmywind-ne-fait-pas)
@@ -56,33 +55,11 @@ Les courants proviennent du **produit SMOC** (Surface Merged Ocean Currents, cou
 
 Référence académique : **Lellouche, J.-M. et al. (2018)**. *Recent updates to the Copernicus Marine Service global ocean monitoring and forecasting real-time 1/12° high-resolution system*. Ocean Science, 14, 1093 à 1126. [doi.org/10.5194/os-14-1093-2018](https://doi.org/10.5194/os-14-1093-2018)
 
-Limite assumée : 8 km est suffisant au large mais reste trop grossier pour les passes étroites de l'Atlantique français, où l'on bascule sur les atlas MARC ci-dessous.
+Limite assumée : 8 km est suffisant au large mais reste trop grossier pour les passes étroites de l'Atlantique français, où l'on bascule sur les atlas de marée décrits dans la page [Courants de marée](/methodologie/courants).
 
-### Courants côtiers haute précision : SHOM Atlas C2D et MARC PREVIMER
+### Courants de marée
 
-Pour les passes critiques de la façade Atlantique, OhMyWind ne se contente pas du SMOC à 8 km. La cascade de courants empile trois sources, du plus fin au plus large :
-
-**1. SHOM Atlas C2D (Service Hydrographique et Océanographique de la Marine).** L'édition numérique des atlas de courants de marée des côtes de France (Manche et Atlantique). Ce ne sont pas des mesures : d'après la notice du produit (édition 2005), ce sont des sorties de modèles de marée calculés entre 1988 et 2002 (TELEMAC-2D pour la plupart des zones, différences finies pour le Pas de Calais et l'Iroise), moyennées sur la colonne d'eau puis ajustées sur quelques mesures ponctuelles, et rééchantillonnées sur une grille de points plus lâche que le modèle. Le pas de cette grille est inférieur au kilomètre dans quelques cartouches (Golfe du Morbihan 0,55 km, Rade de Brest et Sein 0,6 km, cartouches de Bretagne nord) et de 1,3 à 20 km ailleurs (Ouessant 1,3 km, Iroise et Hague 2,7 km, Pertuis 2,8 km, Bretagne sud 4,5 km, Manche 17 km, Gascogne 20 km). Précision annoncée par le SHOM : écart moyen inférieur à 15 % sur les vitesses maximales à coefficient 95, déphasage de 30 à 60 min selon les zones, non évaluée pour l'Iroise, Ouessant et la Rade de Brest. 9 atlas (557 Pas de Calais, 558 Bretagne sud, 559 Vendée-Gironde, 560 Iroise / Brest, 561 Baie de Seine, 562 Golfe Normand-Breton, 563 Bretagne nord, 564 Manche, 565 Gascogne), environ 13 000 points. Distribué par data.gouv.fr sous Licence Ouverte v2.0 Etalab. À chaque point, deux séries horaires de 13 valeurs U/V (composantes est-ouest et nord-sud) sont stockées, l'une pour les vives-eaux (coefficient 95), l'autre pour les mortes-eaux (coefficient 45), heures de -6 h à +6 h relatives à la pleine mer (ou basse mer) du port de référence de la zone (Port-Navalo, Brest, Saint-Malo…).
-
-**2. MARC PREVIMER (Modélisation et Analyse pour la Recherche Côtière, Ifremer + SHOM).** Atlas harmoniques continus à grille régulière, issus du modèle MARS 2D sur une bathymétrie récente. Résolutions : 250 m sur le Finistère et la Bretagne sud, 700 m en Manche et Golfe de Gascogne, 2 km sur l'Atlantique nord-est. 38 constituants harmoniques par cellule, prédicteur Schureman/Cartwright. Validation contre le marégraphe REFMAR de Brest (2008, 8000+ observations horaires) : RMSE 14 cm, r² 0.99 sur la hauteur.
-
-**3. Open-Meteo SMOC : fallback global** (déjà décrit ci-dessus, 8 km).
-
-À chaque point de route, OhMyWind applique la cascade :
-
-```
-si un point SHOM C2D est à 500 m ou moins   →  SHOM (les cartouches fines, maille du modèle 50 à 150 m)
-sinon si point ∈ emprise MARC valide          →  MARC (250 m à 2 km, tout le plateau et les raz)
-sinon                                          →  Open-Meteo SMOC (repli global, 8 km)
-```
-
-Pourquoi 500 m et pas « SHOM partout où il a un point » : jusqu'en septembre 2026 la cascade prenait SHOM dès qu'un point C2D était à moins de 5 km, sur l'idée que c'était la référence mesurée. Un bench sur 750 points du plateau, 16 passes et 1 500 points tirés au hasard (`docs/bench/currents_resolution_2026-09-12_1347.md`) a montré que SHOM et MARC s'accordent au large quelle que soit la distance (écart médian 0,15 kt), que MARC retrouve les pics des raz larges et colle mieux aux radars HF du Fromveur (3,8 à 4 m/s mesurés ; MARC 7,3 à 7,6 kt, SHOM 6,6 kt sur son fichier de 1994), et que SHOM ne garde l'avantage que là où son modèle descendait à 50 ou 150 m, c'est-à-dire les cartouches à pas sub-kilométrique. Le seuil de 500 m sélectionne exactement celles-là : un point à mi-chemin de deux points espacés de 600 m en est à 300 m. Au-delà, préférer un échantillon de 1998 pris à 2 km à une cellule de 250 m revenait, sous la Hague, à coller les 5 kt du Raz Blanchard sur une anse abritée.
-
-Conséquence : précision d'atlas dans le Goulet du Morbihan, la Rade de Brest, le Raz de Sein, les cartouches de Bretagne nord ; grille continue à 250 m sur le Fromveur, le Four, la Hague, Barfleur, le Pas de Calais et tout le plateau ; repli global et homogène ailleurs. Sous le tableau des courants, une légende indique la source réellement utilisée : distance au point SHOM retenu, maille de la grille MARC, ou maille de 8 km du repli.
-
-![Couverture des atlas de courants haute précision : MARC PREVIMER (bleu) couvre tout le plateau atlantique français et la Manche, SHOM Atlas C2D (rouge) montre l'emprise de ses fichiers ; seuls les points à 500 m ou moins servent, soit les cartouches fines (Golfe du Morbihan, Rade de Brest, Sein, Bretagne nord). En dehors, on retombe sur Open-Meteo SMOC à 8 km : c'est le cas de la Méditerranée et de l'open Atlantique au large.](/methodologie/coverage_map.png)
-
-Le champ `current_source` exposé sur chaque tronçon de route indique la source effectivement utilisée : `shom_c2d_558_morbihan`, `marc_finis_250m`, `openmeteo_smoc`, etc.
+Près des côtes, le SMOC à 8 km ne suffit pas : OhMyWind sert les courants de marée depuis une cascade d'atlas harmoniques (SHOM, MARC, BSH, Copernicus), choisie point par point. Les sources, la règle de priorité, la précision de chacune, la carte de couverture et le calcul du courant en un point sont décrits dans une page dédiée : **[Courants de marée](/methodologie/courants)**.
 
 ## Comment on estime un passage
 
@@ -231,32 +208,6 @@ $$
 $$
 
 et la durée totale du passage est la somme des durées des sous-segments.
-
-## Comment on déduit le courant en un point MARC
-
-À l'intérieur d'une emprise MARC, les amplitudes et phases harmoniques des composantes **U** (est-ouest) et **V** (nord-sud) du courant sont stockées par cellule (250 m à 2 km selon l'atlas), une valeur par constituant astronomique. Pour évaluer le courant à un instant $t$ et une position donnée, OhMyWind exécute le prédicteur Schureman/Cartwright séparément sur U et V :
-
-$$
-U(t) = U_0 + \sum_{i=1}^{N} H_i^U \cdot f_i(t) \cdot \cos\bigl(\sigma_i \cdot (t - t_0) + V_{0,i}(t_0) + u_i(t) - G_i^U\bigr)
-$$
-
-et symétriquement pour $V(t)$, avec :
-
-- $H_i^{U/V}$ et $G_i^{U/V}$ : amplitude (m/s) et phase Greenwich (degrés) du constituant $i$ pour la composante considérée, lues dans la cellule MARC ;
-- $\sigma_i$ : pulsation du constituant $i$ (degrés par heure, par exemple $\sigma_{M_2} = 28{,}9841$ °/h) ;
-- $V_{0,i}(t_0)$ : argument astronomique d'équilibre au début du jour de prédiction, calculé à partir des longitudes astronomiques de Cartwright (1985) ;
-- $f_i(t),\ u_i(t)$ : corrections nodales (variation lente sur 18,6 ans liées aux mouvements de la lune) ;
-- $U_0,\ V_0$ : résiduel moyen non-tidal 2008-2009 inclus dans l'atlas (capture la circulation moyenne, mais pas la variabilité météo court-terme).
-
-OhMyWind reconstruit ainsi $U$ et $V$ pour chaque sondage, puis en déduit la **vitesse** et la **direction** du courant total :
-
-$$
-V_{\text{courant}} = \sqrt{U^2 + V^2}, \qquad \theta_{\text{courant}} = \operatorname{atan2}(U,\ V)
-$$
-
-Convention océanographique : $\theta_{\text{courant}}$ donne la direction "vers où" porte le courant, en degrés vrais (0° = Nord, 90° = Est). C'est cette valeur qui est ensuite projetée sur le cap du segment dans le calcul de SOG (étape 6).
-
-Atlas utilisés : 38 constituants pour MARC PREVIMER (sous-ensemble du jeu standard de 60 constituants, dominé par M2, S2, N2, K2, K1, O1, P1 : la marée semi-diurne explique l'essentiel du signal en Atlantique français). Pour Brest, plus de 90 % de la variance du courant horizontal est portée par la composante tidale, ce qui justifie la précision native obtenue (RMSE 14 cm sur la hauteur, ratios comparables sur le courant).
 
 ## Comment on note la complexité
 

@@ -5,6 +5,8 @@ import type {
   MarineHourly,
 } from "../types";
 import { API_BASE } from "./config";
+import { tidalGapForSource } from "../domain/tidalGaps";
+import { fromOverlay, unknownCurrentAt, unknownZoneAt, withhold } from "../domain/unknownCurrent";
 import { noteIfRefused } from "./openMeteoQuota";
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { parisIsoToUtcMs } from "../domain/datetime";
@@ -47,6 +49,9 @@ interface RawHourly {
 
 export interface MarcOverlay {
   covered: boolean;
+  // More than about 2 km inland: the server answers nothing rather than an
+  // atlas cell found within its 5 km search radius.
+  land?: boolean;
   current_source?: string;
   // Only when SHOM primes: how far the sampled C2D point is (km).
   shom_nearest_km?: number;
@@ -56,6 +61,9 @@ export interface MarcOverlay {
   tide_height_m?: (number | null)[];
   current_speed_kn?: (number | null)[];
   current_direction_to_deg?: (number | null)[];
+  // Set when the server withholds the current at this point: a documented
+  // zone, or dead water of a coastal atlas (``reason: "model_edge"``, no zone).
+  unknown?: { zone?: string | null; reason?: string; fields?: string[] };
   // National tidal coefficient at the start of the requested window
   // (Brest-anchored, integer in [20, 120]). Surfaced by the server when
   // the SHOM registry has Brest constants loaded; null otherwise.
@@ -534,9 +542,44 @@ export async function fetchMarine(lat: number, lon: number): Promise<MarineHourl
   }
   const baseData = toMarineHourly(raw);
   if (!baseData) return null;
-  const data = mergeMarcOverlay(baseData, overlay);
+  const merged = mergeMarcOverlay(baseData, overlay);
+  const data = await withTidalGap(
+    lat,
+    lon,
+    overlay?.unknown ? withhold(merged, fromOverlay(overlay.unknown)) : await withUnknown(lat, lon, merged),
+  );
   cache.set(key, { data, fetchedAt: Date.now() });
   return data;
+}
+
+/**
+ * Blank what we know we do not know (domain/unknownCurrent): a documented
+ * zone, or a pass the spot's source cannot see. Best-effort like the gap: a
+ * failure to load the pass list leaves the data untouched.
+ */
+async function withUnknown(lat: number, lon: number, data: MarineHourly): Promise<MarineHourly> {
+  try {
+    const unknown = await unknownCurrentAt(lat, lon, data);
+    return unknown ? withhold(data, unknown) : data;
+  } catch {
+    return data;
+  }
+}
+
+/**
+ * Stamp the tidal gap on a spot whose currents come from the global model or
+ * a coarse atlas, so the currents panel can warn. Best-effort: a failure to
+ * load the gap file leaves the data untouched.
+ */
+async function withTidalGap(lat: number, lon: number, data: MarineHourly): Promise<MarineHourly> {
+  if (data.current_unknown) return data;
+  try {
+    const gap = await tidalGapForSource(lat, lon, data.current_source, data.marc_resolution_m);
+    if (!gap) return data;
+    return { ...data, tidal_gap: { zone: gap.zone, kind: gap.kind, max_spring_kt: gap.maxSpringKt } };
+  } catch {
+    return data;
+  }
 }
 
 /**
@@ -619,7 +662,12 @@ export async function fetchMarineCorridor(
     const i = missing[k];
     const baseData = toMarineHourly(byMissingIndex[k]);
     if (!baseData) continue;
-    const data = mergeMarcOverlay(baseData, overlays[k]);
+    // Documented zones only: the pass rule needs the 360 kB gap file, and
+    // the passage engine applies it again on the server for every leg.
+    const merged = mergeMarcOverlay(baseData, overlays[k]);
+    const told = overlays[k]?.unknown;
+    const zone = told ? fromOverlay(told) : unknownZoneAt(coords[i].lat, coords[i].lon);
+    const data = zone ? withhold(merged, zone) : merged;
     const key = marineCacheKey(coords[i].lat, coords[i].lon);
     cache.set(key, { data, fetchedAt });
     for (const idx of indicesByKey.get(key) ?? [i]) out[idx] = data;
@@ -634,6 +682,8 @@ export function clearMarineCache(): void {
 
 export function isCurrentsRelevant(marine: MarineHourly | null): boolean {
   if (!marine) return false;
+  // Withheld currents still get their tab: it is where the spot says why.
+  if (marine.current_unknown) return true;
   return marine.current_speed_kn.some(
     (v): v is number => v != null && v >= CURRENT_RELEVANCE_THRESHOLD_KN
   );

@@ -18,6 +18,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from openwind_data.currents.narrow_pass import source_confidence
+from openwind_data.currents.tidal_gaps import tidal_gap_at, unknown_pass_along
+from openwind_data.currents.unknown_zones import unknown_zone_at
 from openwind_data.routing.geometry import validate_point
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -183,9 +186,36 @@ def overlay_for_point(
 
     Pure: no request, no response, no clock. The caller decides the transport.
     """
+    # On land the atlases still find a cell within 5 km (the regridded MARC
+    # lattices reach a few kilometres inland): answer nothing rather than a
+    # current for a field. Cached a day, land does not move.
+    if services.land.is_land(lat, lon):
+        return {"covered": False, "land": True}, 86400
+    # A documented zone where no source describes the real stream (the Rance
+    # above its tidal power plant): say so, so the client withholds its own
+    # SMOC baseline too instead of falling back to it.
+    zone = unknown_zone_at(lat, lon)
+    if zone is not None:
+        return {
+            "covered": False,
+            "unknown": {"zone": zone.name, "reason": zone.reason, "fields": sorted(zone.fields)},
+        }, 86400
     marc_loaded = bool(services.marc.atlases)
     shom_covers = services.shom.covers(lat, lon)
     cell = services.marc.cell_at(lat, lon) if marc_loaded else None
+    # The atlases that hold the point but pass on it, and why: a 0.08 kt tide
+    # in ATLNE off Brittany, the Gibraltar box. What the map shows when it
+    # says who answers here; absent when nothing declined.
+    declined = _declined(services, lat, lon) if marc_loaded else []
+    # Dead water in a coastal atlas (the Seine above Tancarville): the atlas
+    # covers but holds no living current near the point. Unknown, like a
+    # documented zone, so the client does not fall back to its SMOC baseline.
+    if cell is not None and cell.current_dead and not shom_covers:
+        fields = ["current", "tide"] if cell.height_dead else ["current"]
+        return {
+            "covered": False,
+            "unknown": {"zone": None, "reason": "model_edge", "fields": fields},
+        }, 86400
     # If neither MARC nor SHOM has anything at this point, return uncovered
     # so the client keeps its Open-Meteo SMOC baseline.
     if cell is None and not shom_covers:
@@ -193,6 +223,8 @@ def overlay_for_point(
             # Cached briefly: attaching the dataset must not take a day to
             # become visible.
             return {"covered": False, "reason": "no atlas dataset loaded on this Space"}, 300
+        if declined:
+            return {"covered": False, "declined": declined}, 86400
         return {"covered": False}, 86400
 
     times = window.times
@@ -216,16 +248,15 @@ def overlay_for_point(
         shom_nearest_km = services.shom.nearest_km(lat, lon)
     elif marc_c_result is not None:
         c_speeds_dirs_source = marc_c_result
-        atlas_resolution_m = next(
-            (a.resolution_m for a in services.marc.atlases if cell and a.name == cell.atlas_name),
-            None,
-        )
+        atlas_meta = services.marc.atlas_named(cell.atlas_name) if cell else None
+        atlas_resolution_m = atlas_meta.resolution_m if atlas_meta else None
     else:
         c_speeds_dirs_source = None
         atlas_resolution_m = None
 
     payload: dict[str, Any] = {
         "covered": True,
+        **({"declined": declined} if declined else {}),
         "atlas_resolution_m": atlas_resolution_m,
         "z0_hydro_m": cell.z0_hydro_m if cell else None,
         "times": [t.isoformat() for t in times],
@@ -241,19 +272,40 @@ def overlay_for_point(
         speeds, dirs, source = c_speeds_dirs_source
         payload["current_speed_kn"] = [round(float(v), 4) for v in speeds]
         payload["current_direction_to_deg"] = [round(float(v), 2) for v in dirs]
-        # SHOM source already comes as "shom_c2d_<atlas>_<zone>"; MARC needs
-        # to be reformatted into the canonical "marc_<atlas>_<res>m" pattern.
+        # SHOM source already comes as "shom_c2d_<atlas>_<zone>"; an atlas
+        # answers with its own label from the metadata ("marc_<atlas>_<res>m").
+        atlas_meta = services.marc.atlas_named(cell.atlas_name) if cell else None
         if source.lower().startswith("shom_c2d_"):
             payload["current_source"] = source.lower()
             if shom_nearest_km is not None:
                 payload["shom_nearest_km"] = round(shom_nearest_km, 2)
-        elif cell and atlas_resolution_m:
-            payload["current_source"] = f"marc_{cell.atlas_name.lower()}_{atlas_resolution_m}m"
+        elif atlas_meta is not None:
+            payload["current_source"] = atlas_meta.source_label
         else:
             payload["current_source"] = source.lower()
-    elif h_result is not None and cell and atlas_resolution_m:
-        payload["current_source"] = f"marc_{cell.atlas_name.lower()}_{atlas_resolution_m}m"
+    elif h_result is not None and cell:
+        atlas_meta = services.marc.atlas_named(cell.atlas_name)
+        if atlas_meta is not None:
+            payload["current_source"] = atlas_meta.source_label
     return payload, 86400
+
+
+def _declined(services: Services, lat: float, lon: float) -> list[dict[str, Any]]:
+    """``MarcAtlasRegistry.declined_at`` as JSON: atlas, label, grid, reason."""
+    out = []
+    for d in services.marc.declined_at(lat, lon):
+        item: dict[str, Any] = {
+            "atlas": d.atlas.name,
+            "label": d.atlas.source_label,
+            "resolution_m": d.atlas.resolution_m,
+            "reason": d.reason,
+        }
+        if d.max_tide_kt is not None:
+            item["max_tide_kt"] = round(d.max_tide_kt, 2)
+        if d.box is not None:
+            item["box"] = d.box
+        out.append(item)
+    return out
 
 
 async def api_marc_overlay(request: Request) -> JSONResponse:
@@ -272,7 +324,20 @@ async def api_marc_overlay(request: Request) -> JSONResponse:
       ``step_minutes`` -- optional, default 60 (hourly series).
 
     Response shape (always 200 to avoid client-side 404 noise):
-      ``{"covered": false}`` when outside MARC coverage.
+      ``{"covered": false}`` when outside MARC coverage, and
+      ``{"covered": false, "land": true}`` more than about 2 km inland
+      (Natural Earth 10 m shoreline, one pixel of 1 km, sea grown by two).
+      ``{"covered": false, "unknown": {"zone": "Rance, ...", "reason":
+      "managed", "fields": ["current", "tide"]}}`` in a documented zone
+      where no source describes the real stream: the client withholds the
+      listed fields rather than keep its Open-Meteo baseline. Same shape
+      with ``"zone": null, "reason": "model_edge"`` on dead water of a
+      coastal atlas (a river beyond the model).
+      Either shape may carry ``"declined": [{"atlas", "label",
+      "resolution_m", "reason", "max_tide_kt"?, "box"?}]``: the atlases that
+      hold the point and pass on it (``weak_tide``: a coarse atlas under
+      0.2 kt, where the general current of the global model matters more;
+      ``excluded``: a box the serving policy cuts out; ``no_cell``).
       ``{"covered": true, "current_source": "marc_finis_250m",
          "atlas_resolution_m": 250, "z0_hydro_m": -3.85, "times": [...],
          "current_speed_kn": [...], "current_direction_to_deg": [...],
@@ -309,6 +374,127 @@ async def api_marc_overlay(request: Request) -> JSONResponse:
     payload, max_age = overlay_for_point(
         services, lat, lon, window, _TideCoefficient(services, window.start)
     )
+    return JSONResponse(payload, headers={"Cache-Control": f"public, max-age={max_age}"})
+
+
+def explain_point(services: Services, lat: float, lon: float) -> tuple[dict[str, Any], int]:
+    """What the app does with the current at (lat, lon), and why, from the cascade itself.
+
+    The map's card is an audit tool: it must show what a passage would use
+    here, never a story rebuilt in the browser. Every field comes from the
+    functions the cascade and the engine run (``unknown_zone_at``,
+    ``ShomC2dRegistry.covers``, ``MarcAtlasRegistry.explain``,
+    ``unknown_pass_along``, ``tidal_gap_at``), in the order they run.
+
+    ``answer.kind`` is ``land``, ``unknown`` (a documented zone, or
+    ``model_edge``: dead water of a coastal atlas), ``shom``, ``atlas`` or
+    ``global`` (the general current of the global model). ``atlases`` lists
+    every atlas whose emprise holds the point, in cascade order, with its
+    decision (``unknown_zone`` for the one a documented zone overrides). ``plan`` says what a passage leg here gets on top: a pass
+    within 3 km its source cannot see (the leg reads "unknown"), a strong
+    tidal zone within 15 km its source is too coarse for (a warning).
+    """
+    base: dict[str, Any] = {"lat": lat, "lon": lon}
+    if services.land.is_land(lat, lon):
+        return {**base, "answer": {"kind": "land"}, "atlases": [], "plan": {}}, 86400
+    marc_loaded = bool(services.marc.atlases)
+    verdicts = services.marc.explain(lat, lon) if marc_loaded else []
+    atlases = []
+    for v in verdicts:
+        item: dict[str, Any] = {
+            "atlas": v.atlas.name,
+            "label": v.atlas.source_label,
+            "rank": v.atlas.rank,
+            "resolution_m": v.atlas.resolution_m,
+            "decision": v.decision,
+        }
+        if v.max_tide_kt is not None:
+            item["max_tide_kt"] = round(v.max_tide_kt, 2)
+        if v.box is not None:
+            item["box"] = v.box
+        atlases.append(item)
+    shom_covers = services.shom.covers(lat, lon)
+    shom_km = services.shom.nearest_km(lat, lon)
+    shom: dict[str, Any] = {
+        "covers": shom_covers,
+        "nearest_km": None if shom_km is None else round(shom_km, 2),
+        "max_km": 0.5,
+    }
+    used = next((a for a in atlases if a["decision"] in ("used", "dead_water")), None)
+    zone = unknown_zone_at(lat, lon)
+    answer: dict[str, Any]
+    source: str | None
+    if zone is not None and "current" in zone.fields:
+        # The zone wins over every source: the atlas that would have answered
+        # says so, rather than reading "used" under an "unknown" answer.
+        for item in atlases:
+            if item["decision"] in ("used", "dead_water"):
+                item["decision"] = "unknown_zone"
+        answer = {
+            "kind": "unknown",
+            "zone": zone.name,
+            "reason": zone.reason,
+            "fields": sorted(zone.fields),
+        }
+        source = None
+    elif shom_covers:
+        result = services.shom.predict_current_series(lat, lon, [datetime.now(UTC)])
+        source = result[2].lower() if result is not None else "shom_c2d"
+        answer = {"kind": "shom", "source": source, "confidence": source_confidence(source)}
+    elif used is not None and used["decision"] == "dead_water":
+        answer = {"kind": "unknown", "zone": None, "reason": "model_edge", "fields": ["current"]}
+        source = None
+    elif used is not None:
+        source = used["label"]
+        answer = {
+            "kind": "atlas",
+            "source": source,
+            "atlas": used["atlas"],
+            "resolution_m": used["resolution_m"],
+            "confidence": source_confidence(source),
+            "max_tide_kt": used.get("max_tide_kt"),
+        }
+    else:
+        source = "openmeteo_smoc"
+        answer = {"kind": "global", "source": source, "confidence": "medium"}
+    plan: dict[str, Any] = {}
+    if answer["kind"] in ("shom", "atlas", "global"):
+        fine = source_confidence(source) == "high"
+        blind = unknown_pass_along(lat, lon, lat, lon, source, fine=fine)
+        if blind is not None:
+            plan["blind_pass"] = {
+                "name": blind.zone,
+                "km": round(blind.distance_km, 1),
+                "max_spring_kt": blind.max_spring_kt,
+            }
+        elif not fine:
+            gap = tidal_gap_at(lat, lon)
+            if gap is not None:
+                plan["tidal_gap"] = {
+                    "zone": gap.zone,
+                    "kind": gap.kind,
+                    "km": round(gap.distance_km, 1),
+                }
+    max_age = 86400 if marc_loaded else 300
+    return {**base, "answer": answer, "atlases": atlases, "shom": shom, "plan": plan}, max_age
+
+
+async def api_marc_explain(request: Request) -> JSONResponse:
+    """``GET /api/v1/marine/marc/explain?lat=&lon=``: what the app does here, and why.
+
+    See :func:`explain_point`. Always 200 for a valid point, like the
+    overlay; cached a day, since nothing in it depends on the clock.
+    """
+    try:
+        lat = float(request.query_params["lat"])
+        lon = float(request.query_params["lon"])
+    except (KeyError, ValueError, TypeError) as exc:
+        return error(f"missing or invalid query params (lat, lon): {exc}", "invalid_query_params")
+    try:
+        validate_point(lat, lon)
+    except ValueError as exc:
+        return error(str(exc), "waypoint_out_of_range")
+    payload, max_age = explain_point(_services(request), lat, lon)
     return JSONResponse(payload, headers={"Cache-Control": f"public, max-age={max_age}"})
 
 
@@ -466,7 +652,10 @@ async def api_marc_coverage(request: Request) -> JSONResponse:
 
     Response::
 
-        {"atlases": [{"name": "FINIS", "source": "marc",
+        {"atlases": [{"name": "FINIS", "source": "marc", "label": "marc_finis_250m",
+                      "rank": 2, "resolution_m": 250, "confidence": "high",
+                      "built_at": "2026-09-21T20:38:52+00:00" | null,
+                      "record_end": "2026-09-19T23:00:00+00:00" | null,
                       "bbox": [lat_min, lon_min, lat_max, lon_max],
                       "cells": [[lat_min, lon_min, lat_max, lon_max], ...]}, ...]}
 
@@ -474,6 +663,13 @@ async def api_marc_coverage(request: Request) -> JSONResponse:
     overlay's own query parameters. Sorted by source then name so a client can
     diff two answers, and an empty list when the deployment ships without the
     dataset (the same state the overlay reports as ``covered: false``).
+
+    ``source`` is the atlas's own short name (``marc``, ``bsh``, ``cmems``,
+    ``shom``); ``label`` is the ``current_source`` the overlay answers with
+    when that atlas wins, and ``rank`` then ``resolution_m`` is the order the
+    cascade tries the atlases holding a point, so a client can tell which
+    ones covered a point and were passed over. SHOM zones carry no rank: they
+    win within 0.5 km of a surveyed point, before any atlas.
 
     **Filter on ``cells``, not on ``bbox``.** A point outside every ``cells``
     entry is a point the atlases refuse; ``bbox`` is only the outer envelope
@@ -502,7 +698,13 @@ async def api_marc_coverage(request: Request) -> JSONResponse:
     atlases: list[dict[str, Any]] = [
         {
             "name": atlas.name,
-            "source": "marc",
+            "source": atlas.source_short,
+            "label": atlas.source_label,
+            "rank": atlas.rank,
+            "resolution_m": atlas.resolution_m,
+            "confidence": atlas.confidence,
+            "built_at": atlas.built_at,
+            "record_end": atlas.record_end,
             "bbox": _widen_to_quantum(atlas.bbox),
             "cells": [_widen_to_quantum(cell) for cell in marc_cells.get(atlas.name, ())],
         }

@@ -27,9 +27,16 @@ Wave fields are always passed through from Open-Meteo (no SHOM/MARC wave
 atlases). Tide heights come from MARC only when the waypoint falls
 inside a MARC emprise — SHOM C2D doesn't ship height series.
 
+Ahead of all three, a **documented unknown zone** (``unknown_zones``: the
+Rance above its tidal power plant) withholds what it lists: currents and,
+when the zone says so, tide heights come back ``None`` with the source
+``"unknown"``, whatever an atlas or SMOC holds there.
+
 Provenance is exposed on each ``SeaPoint`` via ``current_source``:
-``"shom_c2d_<atlas_id>_<zone>"`` inside SHOM, ``"marc_<atlas>_<res>m"``
-inside MARC-only zones, ``"openmeteo_smoc"`` outside both.
+``"shom_c2d_<atlas_id>_<zone>"`` inside SHOM, the atlas's own
+``source_label`` (``"marc_<atlas>_<res>m"`` for MARC, ``"<source>_<zone>_<res>m"``
+for any other atlas in the standard format) inside an atlas,
+``"openmeteo_smoc"`` outside both, and ``"unknown"`` in a documented zone.
 """
 
 from __future__ import annotations
@@ -45,10 +52,11 @@ from openwind_data.adapters.base import (
 )
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
-
-
-def _marc_source_label(atlas_name: str, resolution_m: int) -> str:
-    return f"marc_{atlas_name.lower()}_{resolution_m}m"
+from openwind_data.currents.unknown_zones import (
+    UNKNOWN_CURRENT_SOURCE,
+    UnknownZone,
+    unknown_zone_at,
+)
 
 
 @dataclass
@@ -103,6 +111,9 @@ class CompositeMarineAdapter:
         models: list[str] | None = None,
     ) -> ForecastBundle:
         bundle = await self.upstream.fetch(lat, lon, start, end, models=models)
+        zone = unknown_zone_at(lat, lon)
+        if zone is not None:
+            return _withhold(bundle, zone)
         # Try SHOM first (highest priority). When it covers, override the
         # currents only — wave and tide fields stay on Open-Meteo / MARC.
         if self.shom is not None and self.shom.covers(lat, lon):
@@ -117,11 +128,16 @@ class CompositeMarineAdapter:
             return bundle
         h_series = self.marc.predict_height_series(lat, lon, times)
         c_series = self.marc.predict_current_series(lat, lon, times)
-        if h_series is None and c_series is None:
+        # Dead water in a coastal atlas (the Seine above Tancarville): withheld,
+        # not replaced by a zero nor by the global model under the atlas's name.
+        cell = self.marc.cell_at(lat, lon)
+        current_dead = cell is not None and cell.current_dead
+        height_dead = cell is not None and cell.height_dead
+        if h_series is None and c_series is None and not (current_dead or height_dead):
             # No MARC data at this exact cell despite atlas coverage — fall back.
             return bundle
 
-        source_label = _marc_source_label(atlas.name, atlas.resolution_m)
+        source_label = UNKNOWN_CURRENT_SOURCE if current_dead else atlas.source_label
         h_arr = h_series[0] if h_series is not None else None
         if c_series is not None:
             speeds_kn, dirs_to_deg, _ = c_series
@@ -135,6 +151,10 @@ class CompositeMarineAdapter:
             new_dir = (
                 float(dirs_to_deg[i]) if dirs_to_deg is not None else p.current_direction_to_deg
             )
+            if current_dead:
+                new_speed = new_dir = None
+            if height_dead:
+                new_tide = None
             new_points.append(
                 SeaPoint(
                     time=p.time,
@@ -202,6 +222,40 @@ class CompositeMarineAdapter:
             sea=SeaSeries(points=tuple(new_points)),
             requested_at=bundle.requested_at,
         )
+
+
+def _withhold(bundle: ForecastBundle, zone: UnknownZone) -> ForecastBundle:
+    """The bundle with what ``zone`` lists blanked: currents, tide heights or both.
+
+    Waves pass through: a zone documents a stream nobody describes, not a
+    sea state. Wind is never touched.
+    """
+    no_current = "current" in zone.fields
+    no_tide = "tide" in zone.fields
+    new_points = tuple(
+        SeaPoint(
+            time=p.time,
+            wave_height_m=p.wave_height_m,
+            wave_period_s=p.wave_period_s,
+            wave_direction_deg=p.wave_direction_deg,
+            wind_wave_height_m=p.wind_wave_height_m,
+            swell_wave_height_m=p.swell_wave_height_m,
+            current_speed_kn=None if no_current else p.current_speed_kn,
+            current_direction_to_deg=None if no_current else p.current_direction_to_deg,
+            tide_height_m=None if no_tide else p.tide_height_m,
+            current_source=UNKNOWN_CURRENT_SOURCE if no_current else p.current_source,
+        )
+        for p in bundle.sea.points
+    )
+    return ForecastBundle(
+        lat=bundle.lat,
+        lon=bundle.lon,
+        start=bundle.start,
+        end=bundle.end,
+        wind_by_model=bundle.wind_by_model,
+        sea=SeaSeries(points=new_points),
+        requested_at=bundle.requested_at,
+    )
 
 
 def compose_marine_adapter(

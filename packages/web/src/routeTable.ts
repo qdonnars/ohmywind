@@ -18,6 +18,7 @@ export type RouteName =
   | "compare"
   | "config"
   | "methodologie"
+  | "methodologie-courants"
   | "confidentialite"
   | "press"
   | "not-found";
@@ -32,6 +33,7 @@ const ROUTES = new Map<string, RouteName>([
   ["/comparer", "compare"],
   ["/config", "config"],
   ["/methodologie", "methodologie"],
+  ["/methodologie/courants", "methodologie-courants"],
   ["/confidentialite", "confidentialite"],
   ["/presse", "press"],
 ]);

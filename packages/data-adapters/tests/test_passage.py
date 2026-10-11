@@ -8,6 +8,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from itertools import pairwise
 
+import numpy as np
 import pytest
 
 from openwind_data.adapters.base import (
@@ -31,6 +32,7 @@ from openwind_data.routing.passage import (
     resolve_sweep_interval,
     wave_derate,
 )
+from openwind_data.routing.passage.models import SegmentReport
 
 DEPARTURE = datetime(2026, 5, 1, 6, 0, tzinfo=UTC)
 MARSEILLE = Point(43.30, 5.35)
@@ -49,6 +51,7 @@ class StubAdapter:
         current_to_deg: float | None = None,
         gust_kn: float | None = None,
         wave_period_s: float | None = None,
+        current_source: str | None = None,
     ) -> None:
         self.tws_kn = tws_kn
         self.twd_deg = twd_deg
@@ -57,6 +60,7 @@ class StubAdapter:
         self.current_to_deg = current_to_deg
         self.gust_kn = gust_kn
         self.wave_period_s = wave_period_s
+        self.current_source = current_source
         self.calls: list[tuple[float, float, datetime, datetime]] = []
 
     async def fetch(
@@ -102,6 +106,7 @@ class StubAdapter:
                         swell_wave_height_m=None,
                         current_speed_kn=self.current_kn,
                         current_direction_to_deg=self.current_to_deg,
+                        current_source=self.current_source,
                     )
                 )
                 t = t + timedelta(hours=1)
@@ -1767,3 +1772,227 @@ class TestSweepSimulationBudget:
         assert spacing > timedelta(hours=1)
         for a, b in pairwise(reports):
             assert b.departure_time - a.departure_time == spacing
+
+
+class TestTidalGapNotice:
+    """The ``currents.tidal_gap`` notice: raised where the current is not from a fine source."""
+
+    async def test_cuxhaven_to_helgoland_names_the_elbe(self) -> None:
+        # The stub adapter carries a current with no source label, which the
+        # engine reads as "not from a fine source"; Cuxhaven roads sit within
+        # 15 km of the Elbe entry the gap dataset lists.
+        adapter = StubAdapter(tws_kn=12.0, twd_deg=180.0, current_kn=0.4, current_to_deg=90.0)
+        report = await estimate_passage(
+            [Point(53.87, 8.70), Point(54.18, 7.89)],
+            DEPARTURE,
+            "cruiser_30ft",
+            adapter=adapter,
+        )
+        gap = [n for n in report.notices if n.code == "currents.tidal_gap"]
+        assert len(gap) == 1
+        assert "Elbe" in gap[0].params["zones"] or "Cuxhaven" in gap[0].params["zones"]
+        assert gap[0].params["count"] >= 1
+        assert "maille de 2 à 8 km" in gap[0].message
+        assert any("courants de marée probablement forts" in w for w in report.warnings)
+
+    async def test_marseille_to_porquerolles_is_quiet(self) -> None:
+        adapter = StubAdapter(tws_kn=12.0, twd_deg=0.0, current_kn=0.3, current_to_deg=90.0)
+        report = await estimate_passage(
+            [Point(43.29, 5.37), Point(43.00, 6.20)],
+            DEPARTURE,
+            "cruiser_30ft",
+            adapter=adapter,
+        )
+        assert not [n for n in report.notices if n.code == "currents.tidal_gap"]
+
+    async def test_a_fine_source_silences_the_notice(self) -> None:
+        # Same Elbe passage, but the legs carry a high-confidence current
+        # (what a 90 m atlas will give): nothing to warn about.
+        from openwind_data.routing.passage import engine as engine_module
+
+        adapter = StubAdapter(tws_kn=12.0, twd_deg=180.0, current_kn=2.0, current_to_deg=300.0)
+        original = engine_module.confidence_for_leg
+        engine_module.confidence_for_leg = lambda *a: "high"  # type: ignore[assignment]
+        try:
+            report = await estimate_passage(
+                [Point(53.87, 8.70), Point(54.18, 7.89)],
+                DEPARTURE,
+                "cruiser_30ft",
+                adapter=adapter,
+            )
+        finally:
+            engine_module.confidence_for_leg = original
+        assert not [n for n in report.notices if n.code == "currents.tidal_gap"]
+
+    async def test_a_fine_atlas_blind_to_the_pass_withholds_the_current(self, monkeypatch) -> None:
+        # Bodø roads to Saltstraumen with NorKyst 800 m answering: the grid
+        # has no cell in the 150 m channel and the snapshot lists it as blind.
+        # Inside the 3 km blind spot the leg carries no current at all, runs
+        # at boat speed, and the passage hears "current unknown", named.
+        from openwind_data.currents import tidal_gaps
+
+        passes = (
+            tidal_gaps._Pass(
+                "Saltstraumen", 67.2281, 14.6164, 8.0, frozenset({"norkyst_lofoten_800m"})
+            ),
+        )
+        monkeypatch.setattr(
+            tidal_gaps,
+            "_load",
+            lambda: tidal_gaps._Gaps(
+                rings=(),
+                passes=passes,
+                pass_lat=np.array([67.2281]),
+                pass_lon=np.array([14.6164]),
+            ),
+        )
+        adapter = StubAdapter(
+            tws_kn=12.0,
+            twd_deg=200.0,
+            current_kn=0.3,
+            current_to_deg=60.0,
+            current_source="norkyst_lofoten_800m",
+        )
+        report = await estimate_passage(
+            [Point(67.25, 14.50), Point(67.2281, 14.6164)],
+            DEPARTURE,
+            "cruiser_30ft",
+            adapter=adapter,
+            segment_length_nm=1.0,
+        )
+        unknown = [n for n in report.notices if n.code == "currents.unknown"]
+        assert len(unknown) == 1 and unknown[0].params["zones"] == "Saltstraumen"
+        assert "courant inconnu" in unknown[0].message
+        assert not [n for n in report.notices if n.code == "currents.tidal_gap"]
+
+        def km_to_pass(s: SegmentReport) -> float:
+            # Closest end of the leg: the rule measures from the whole leg.
+            return min(
+                math.hypot((p.lat - 67.2281) * 111, (p.lon - 14.6164) * 111 * 0.39)
+                for p in (s.start, s.end)
+            )
+
+        near = [s for s in report.segments if km_to_pass(s) < 2.5]
+        far = [s for s in report.segments if km_to_pass(s) > 3.5]
+        assert near and far
+        for s in near:
+            assert s.current_source == "unknown"
+            assert s.current_speed_kn is None and s.current_direction_to_deg is None
+            assert s.current_confidence is None and s.sog_kn is None
+        for s in far:
+            assert s.current_source == "norkyst_lofoten_800m"
+            assert s.current_speed_kn == 0.3 and s.current_confidence == "high"
+
+    async def test_a_long_leg_through_the_blind_pass_is_caught_too(self, monkeypatch) -> None:
+        # Default 10 nm legs: the midpoint of the leg that crosses Saltstraumen
+        # sits 9 km away, outside the 3 km blind spot, yet the leg crosses the
+        # channel; the blind spot is measured from the closest point of the leg.
+        from openwind_data.currents import tidal_gaps
+
+        passes = (
+            tidal_gaps._Pass(
+                "Saltstraumen", 67.2281, 14.6164, 8.0, frozenset({"norkyst_lofoten_800m"})
+            ),
+        )
+        monkeypatch.setattr(
+            tidal_gaps,
+            "_load",
+            lambda: tidal_gaps._Gaps(
+                rings=(), passes=passes, pass_lat=np.array([67.2281]), pass_lon=np.array([14.6164])
+            ),
+        )
+        adapter = StubAdapter(
+            tws_kn=12.0,
+            twd_deg=200.0,
+            current_kn=0.3,
+            current_to_deg=60.0,
+            current_source="norkyst_lofoten_800m",
+        )
+        # One leg from 8 nm west of the pass to 8 nm east of it, through it.
+        report = await estimate_passage(
+            [Point(67.2281, 14.28), Point(67.2281, 14.95)],
+            DEPARTURE,
+            "cruiser_30ft",
+            adapter=adapter,
+            segment_length_nm=20.0,
+        )
+        assert len(report.segments) == 1
+        assert report.segments[0].current_source == "unknown"
+        assert report.segments[0].current_speed_kn is None
+        unknown = [n for n in report.notices if n.code == "currents.unknown"]
+        assert len(unknown) == 1 and unknown[0].params["zones"] == "Saltstraumen"
+
+    async def test_a_coarse_source_beside_a_listed_pass_withholds_the_current(self) -> None:
+        # Messina with the 4.2 km Mediterranean atlas: the pass is on file
+        # because no fine source serves it, so any coarse value there is a
+        # cell's average of the race. Withheld within 3 km, kept beyond.
+        adapter = StubAdapter(
+            tws_kn=12.0,
+            twd_deg=0.0,
+            current_kn=0.8,
+            current_to_deg=180.0,
+            current_source="cmems_med_4200m",
+        )
+        report = await estimate_passage(
+            [Point(38.40, 15.70), Point(38.2458, 15.6325)],
+            DEPARTURE,
+            "cruiser_30ft",
+            adapter=adapter,
+            segment_length_nm=1.0,
+        )
+        assert report.segments[0].current_source == "cmems_med_4200m"
+        assert report.segments[-1].current_source == "unknown"
+        unknown = [n for n in report.notices if n.code == "currents.unknown"]
+        assert len(unknown) == 1 and "Messina" in unknown[0].params["zones"]
+        # The approach legs sit within 15 km of the same pass: named once,
+        # as unknown, not again as "probably too weak".
+        assert not [n for n in report.notices if n.code == "currents.tidal_gap"]
+
+    async def test_the_rance_basin_has_no_current(self) -> None:
+        # Saint-Malo roads to Saint-Suliac, above the tidal power plant: the
+        # stub answers 1 kt everywhere with a fine label, as MARC would. In
+        # the basin the plant sets the stream, so the leg runs at boat speed
+        # and the notice names the Rance; out at sea the value stays.
+        adapter = StubAdapter(
+            tws_kn=12.0,
+            twd_deg=270.0,
+            current_kn=1.0,
+            current_to_deg=0.0,
+            current_source="marc_manw_250m",
+        )
+        report = await estimate_passage(
+            [Point(48.66, -2.05), Point(48.6181, -2.0233), Point(48.567, -1.975)],
+            DEPARTURE,
+            "cruiser_30ft",
+            adapter=adapter,
+            segment_length_nm=1.0,
+        )
+        first, last = report.segments[0], report.segments[-1]
+        assert first.current_source == "marc_manw_250m" and first.current_speed_kn == 1.0
+        assert last.current_source == "unknown" and last.current_speed_kn is None
+        assert last.sog_kn is None
+        assert last.duration_h == pytest.approx(last.distance_nm / last.boat_speed_kn)
+        unknown = [n for n in report.notices if n.code == "currents.unknown"]
+        assert len(unknown) == 1 and "Rance" in unknown[0].params["zones"]
+
+
+class TestDeadWaterNotice:
+    async def test_a_leg_the_cascade_withheld_is_named_as_dead_water(self) -> None:
+        # A river beyond the tidal model, outside every documented zone: the
+        # cascade hands the engine an "unknown" source with no current (dead
+        # water of a coastal atlas). No zone or pass explains it, so the
+        # notice is the dead-water one.
+        adapter = StubAdapter(tws_kn=12.0, twd_deg=270.0, hs_m=0.3, current_source="unknown")
+        report = await estimate_passage(
+            [Point(47.44, -2.40), Point(47.30, -2.10)],
+            DEPARTURE,
+            "cruiser_30ft",
+            adapter=adapter,
+        )
+        assert all(
+            s.current_source == "unknown" and s.current_speed_kn is None for s in report.segments
+        )
+        assert all(s.current_confidence is None for s in report.segments)
+        dead = [n for n in report.notices if n.code == "currents.unknown_water"]
+        assert len(dead) == 1 and dead[0].params["count"] == len(report.segments)
+        assert not [n for n in report.notices if n.code == "currents.unknown"]

@@ -94,8 +94,8 @@ function TrackRow({
         onClick={onSelect}
         disabled={!usable}
         aria-pressed={selected}
-        aria-label={`${name} · ${t("panel.tracks.row.select")}`}
-        title={t("panel.tracks.row.select")}
+        aria-label={`${name} · ${t("panel.tracks.row.select", { n: index + 1 })}`}
+        title={t("panel.tracks.row.select", { n: index + 1 })}
         onFocus={() => onPoint(true)}
         onBlur={() => onPoint(false)}
         className="flex-1 min-w-0 text-left flex flex-col gap-1 pl-4 pr-2 pt-2.5 pb-2.5 disabled:cursor-default"

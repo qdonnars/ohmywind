@@ -26,6 +26,7 @@ const KIND_BY_CODE: Record<string, AlertKind> = {
   "passage.light_wind": "wind",
   "passage.long_route": "other",
   "passage.model_fallback": "other",
+  "currents.tidal_gap": "current",
 };
 
 function kindOfNotice(n: Notice): AlertKind {

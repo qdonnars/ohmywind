@@ -1,16 +1,23 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-"""MARC PREVIMER atlas runtime loader and predictor.
+"""Harmonic atlas runtime loader and predictor.
 
-Reads tiled Parquet datasets produced by ``scripts/build_marc_atlas.py`` (one
-per atlas: ATLNE / MANGA / FINIS / MANW / MANE / SUDBZH / AQUI). Provides
-height and current predictions at arbitrary (lat, lon, t).
+Reads tiled Parquet datasets in the layout described by
+``docs/harmonic_atlas_format.md``: one directory per atlas holding
+``metadata.json``, ``coverage.geojson`` and 0.5 degree tiles. Built for the
+MARC PREVIMER atlases (ATLNE / MANGA / FINIS / MANW / MANE / SUDBZH / AQUI),
+the loader knows only the format: any builder writing it (BSH, CMEMS, FES)
+gets the same treatment. ``HarmonicAtlasRegistry`` is the name to use in new
+code; ``MarcAtlasRegistry`` stays as the historical alias.
 
-Cascade priority within MARC: rank 2 (250 m, narrow passes) > rank 1 (700 m,
-shelf) > rank 0 (2 km, open Atlantic). When a point lies in several emprises,
-we pick the finest. Outside any MARC emprise, callers fall back to Open-Meteo
-SMOC.
+Priority between atlases is decided by the metadata, never deduced here:
+the explicit ``rank`` first (3 estuary or pass, 2 coastal, 1 shelf, 0 basin),
+the finest ``resolution_m`` at equal rank. An atlas may also declare a
+``validity_bbox`` smaller than its emprise: outside it the atlas refuses to
+cover, which is how a model gets confined to the waters it was validated
+in (ATLNE reaches the North Sea, PREVIMER only validated it on the French
+coasts). Outside every atlas, callers fall back to Open-Meteo SMOC.
 
 Predictor convention: standard SHOM/Schureman (see ``harmonic.py``). Heights
 are around mean sea level (MSL = 0); add the cell's ``z0_hydro_m`` to convert
@@ -23,7 +30,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
 
@@ -31,7 +38,21 @@ import numpy as np
 import polars as pl
 
 from openwind_data.currents.harmonic import predict as schureman_predict
+from openwind_data.currents.serving_policy import (
+    BOX_NAMES,
+    COASTAL_MIN_RANK,
+    DEAD_CURRENT_M2_MS,
+    DEAD_HEIGHT_M2_M,
+    EXCLUDED_BOXES,
+    OPEN_SEA_MAX_RANK,
+    WEAK_TIDE_KT,
+    WITHHELD_ATLASES,
+)
 
+# Tile pitch of the historical MARC layout. An atlas may declare its own in
+# ``metadata.json`` (``grid.tile_deg``): a global 7 km atlas cut in 0.5 degree
+# tiles would be a quarter of a million files, and ``coverage_cells`` opens
+# one footer per tile at start-up.
 _TILE_SIZE_DEG = 0.5
 # m/s to knots — conversion shared with the runtime adapters layer.
 _MS_TO_KN = 1.0 / 0.514444
@@ -44,7 +65,13 @@ _M_PER_DEG = 111_000.0
 
 @dataclass(frozen=True, slots=True)
 class AtlasMeta:
-    """One MARC atlas as discovered on disk."""
+    """One atlas as discovered on disk.
+
+    ``source_short``, ``zone``, ``confidence`` and ``validity_bbox`` come from
+    a schema 3 ``metadata.json``; a schema 2 (MARC) file gets the defaults
+    that reproduce the historical behaviour, except that nothing is inferred
+    about validity: an atlas without ``validity_bbox`` covers its whole bbox.
+    """
 
     name: str
     rank: int
@@ -54,6 +81,35 @@ class AtlasMeta:
     constituents_h: tuple[str, ...]
     constituents_u: tuple[str, ...]
     constituents_v: tuple[str, ...]
+    source_short: str = "marc"
+    zone: str = ""
+    confidence: str = "high"
+    validity_bbox: tuple[float, float, float, float] | None = None
+    tile_deg: float = _TILE_SIZE_DEG
+    # When the atlas was built and the last instant its analysis covered,
+    # ISO 8601 strings from ``metadata.json`` (``build_at``,
+    # ``analysis.record_end``); ``None`` for a product that does not carry
+    # them (the MARC and SHOM editions are frozen, not rebuilt).
+    built_at: str | None = None
+    record_end: str | None = None
+    # Boxes inside its validity where the atlas must not answer anyway
+    # (``serving_policy.EXCLUDED_BOXES``: Gibraltar for the Copernicus tide).
+    excluded_bboxes: tuple[tuple[float, float, float, float], ...] = ()
+    # The tide under which the builder dropped cells (``analysis.min_speed_kt``,
+    # 0.2 kt for the Copernicus atlases): a point in such an atlas without a
+    # cell is, most of the time, water whose tide stayed under it.
+    min_speed_kt: float | None = None
+
+    @property
+    def source_label(self) -> str:
+        """Provenance label carried on every point, e.g. ``marc_finis_250m``.
+
+        ``<source>_<zone>_<resolution>m``: the pattern the web legend and the
+        MCP read_me document. ``zone`` defaults to the atlas name in lower
+        case, which keeps every existing MARC label byte for byte.
+        """
+        zone = self.zone or self.name.lower()
+        return f"{self.source_short}_{zone}_{self.resolution_m}m"
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +123,12 @@ class CellPrediction:
     h_constants: dict[str, tuple[float, float]]
     u_constants: dict[str, tuple[float, float]]
     v_constants: dict[str, tuple[float, float]]
+    # Dead water in a coastal atlas (rank 2 and up): no living current cell
+    # near the point, or a height cell the model cut off from the tide (the
+    # Seine above Tancarville, a basin behind a barrage). The cascade withholds
+    # what is dead instead of serving a zero with a high-confidence label.
+    current_dead: bool = False
+    height_dead: bool = False
 
 
 def _scan_atlas(parquet_dir: Path) -> AtlasMeta | None:
@@ -85,6 +147,16 @@ def _scan_atlas(parquet_dir: Path) -> AtlasMeta | None:
     else:
         # Fallback: scan tile names. Not robust against partial atlas builds.
         bbox = (-90.0, -180.0, 90.0, 180.0)
+    source = meta.get("source") or {}
+    validity = meta.get("validity_bbox")
+    validity_bbox: tuple[float, float, float, float] | None = None
+    if isinstance(validity, list | tuple) and len(validity) == 4:
+        validity_bbox = (
+            float(validity[0]),
+            float(validity[1]),
+            float(validity[2]),
+            float(validity[3]),
+        )
     return AtlasMeta(
         name=meta["atlas"],
         rank=meta["rank"],
@@ -94,7 +166,24 @@ def _scan_atlas(parquet_dir: Path) -> AtlasMeta | None:
         constituents_h=tuple(meta.get("constituents_h", meta.get("constituents", []))),
         constituents_u=tuple(meta.get("constituents_u", [])),
         constituents_v=tuple(meta.get("constituents_v", [])),
+        source_short=str(source.get("short") or "marc"),
+        zone=str(meta.get("zone") or meta["atlas"].lower()),
+        confidence=str(meta.get("confidence") or "high"),
+        validity_bbox=validity_bbox,
+        tile_deg=float((meta.get("grid") or {}).get("tile_deg") or _TILE_SIZE_DEG),
+        built_at=_iso_or_none(meta.get("build_at")),
+        record_end=_iso_or_none((meta.get("analysis") or {}).get("record_end")),
+        excluded_bboxes=EXCLUDED_BOXES.get(meta["atlas"], ()),
+        min_speed_kt=_float_or_none((meta.get("analysis") or {}).get("min_speed_kt")),
     )
+
+
+def _float_or_none(value: object) -> float | None:
+    return float(value) if isinstance(value, int | float) and not isinstance(value, bool) else None
+
+
+def _iso_or_none(value: object) -> str | None:
+    return value if isinstance(value, str) and value else None
 
 
 def _bbox_contains(bbox: tuple[float, float, float, float], lat: float, lon: float) -> bool:
@@ -109,11 +198,80 @@ def _read_tile(parquet_path: str) -> pl.DataFrame | None:
     return pl.read_parquet(parquet_path)
 
 
-def _tile_origin_of(lat: float, lon: float) -> tuple[float, float]:
+# The window the weak-tide rule measures a cell's spring current over: 15
+# days hourly from a fixed start, so the answer never depends on the date of
+# the request. The same window as the map rasters
+# (``scripts/build_tidal_world_raster.py``), so a cell the map draws is a
+# cell the server serves: 2026-03-01 to 03-16, the equinoctial spring tides
+# of the 3 March full moon.
+_WEAK_TIDE_WINDOW = [datetime(2026, 3, 1, tzinfo=UTC) + timedelta(hours=h) for h in range(15 * 24)]
+
+
+@lru_cache(maxsize=65536)
+def _max_tide_kt(
+    u: tuple[tuple[str, tuple[float, float]], ...],
+    v: tuple[tuple[str, tuple[float, float]], ...],
+) -> float:
+    """Spring tidal current of one cell, in knots: the maximum over the window."""
+    u_ms = schureman_predict(_WEAK_TIDE_WINDOW, dict(u))
+    v_ms = schureman_predict(_WEAK_TIDE_WINDOW, dict(v))
+    return float(np.max(np.hypot(u_ms, v_ms)) * _MS_TO_KN)
+
+
+def _m2_amp(found: tuple[pl.DataFrame, int], col: str) -> float:
+    df, idx = found
+    if col not in df.columns:
+        return float("nan")
+    return float(df[col].to_numpy()[idx])
+
+
+def _alive(found: tuple[pl.DataFrame, int] | None) -> bool:
+    """Whether a current cell carries a living M2 current (u and v read on its row)."""
+    if found is None:
+        return False
+    u, v = _m2_amp(found, "M2_u_amp"), _m2_amp(found, "M2_v_amp")
+    return bool(np.isfinite(u) and np.isfinite(v) and np.hypot(u, v) >= DEAD_CURRENT_M2_MS)
+
+
+@dataclass(frozen=True, slots=True)
+class AtlasVerdict:
+    """One atlas holding a point, and what the cascade does with it there.
+
+    ``decision``: ``used``, ``dead_water`` (used, but no living current near
+    the point: the current is withheld), ``lower_priority``, ``weak_tide``,
+    ``excluded`` (``box`` names it), ``no_cell``, ``outside_validity``.
+    ``max_tide_kt`` is the spring current of the cell when it was measured.
+    """
+
+    atlas: AtlasMeta
+    decision: str
+    max_tide_kt: float | None = None
+    box: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class Declined:
+    """An atlas that holds the point but does not answer there, and why.
+
+    ``reason`` is ``weak_tide`` (an open-sea atlas whose spring current stays
+    under ``WEAK_TIDE_KT``: the general current answers), ``excluded`` (a box
+    the serving policy cuts out, named in ``box``), or ``no_cell`` (no cell
+    within the distance threshold).
+    """
+
+    atlas: AtlasMeta
+    reason: str
+    max_tide_kt: float | None = None
+    box: str | None = None
+
+
+def _tile_origin_of(
+    lat: float, lon: float, tile_deg: float = _TILE_SIZE_DEG
+) -> tuple[float, float]:
     """South-west corner of the tile a point falls in, in degrees."""
     return (
-        float(np.floor(lat / _TILE_SIZE_DEG) * _TILE_SIZE_DEG),
-        float(np.floor(lon / _TILE_SIZE_DEG) * _TILE_SIZE_DEG),
+        float(np.floor(lat / tile_deg) * tile_deg),
+        float(np.floor(lon / tile_deg) * tile_deg),
     )
 
 
@@ -123,7 +281,9 @@ def _tile_path_at(atlas: AtlasMeta, tile_lat: float, tile_lon: float) -> Path:
     )
 
 
-def _neighbour_tiles(lat: float, lon: float) -> list[tuple[float, float, float]]:
+def _neighbour_tiles(
+    lat: float, lon: float, tile_deg: float = _TILE_SIZE_DEG
+) -> list[tuple[float, float, float]]:
     """The eight tiles around the one holding ``(lat, lon)``, nearest first.
 
     Each entry is ``(tile_lat, tile_lon, floor_distance_m)`` where the floor is
@@ -138,12 +298,12 @@ def _neighbour_tiles(lat: float, lon: float) -> list[tuple[float, float, float]]
     Distances use the same flat-earth ruler as the cell-distance check, so a
     tile is never opened for a cell the threshold would then reject.
     """
-    tile_lat, tile_lon = _tile_origin_of(lat, lon)
+    tile_lat, tile_lon = _tile_origin_of(lat, lon, tile_deg)
     m_per_deg_lon = _M_PER_DEG * float(np.cos(np.deg2rad(lat)))
     to_south = (lat - tile_lat) * _M_PER_DEG
-    to_north = (tile_lat + _TILE_SIZE_DEG - lat) * _M_PER_DEG
+    to_north = (tile_lat + tile_deg - lat) * _M_PER_DEG
     to_west = (lon - tile_lon) * m_per_deg_lon
-    to_east = (tile_lon + _TILE_SIZE_DEG - lon) * m_per_deg_lon
+    to_east = (tile_lon + tile_deg - lon) * m_per_deg_lon
 
     out: list[tuple[float, float, float]] = []
     for di, d_lat_m in ((-1, to_south), (0, 0.0), (1, to_north)):
@@ -153,8 +313,8 @@ def _neighbour_tiles(lat: float, lon: float) -> list[tuple[float, float, float]]
             floor_m = float(np.hypot(d_lat_m if di else 0.0, d_lon_m if dj else 0.0))
             out.append(
                 (
-                    tile_lat + di * _TILE_SIZE_DEG,
-                    tile_lon + dj * _TILE_SIZE_DEG,
+                    tile_lat + di * tile_deg,
+                    tile_lon + dj * tile_deg,
                     floor_m,
                 )
             )
@@ -195,7 +355,9 @@ def _tile_has_rows(parquet_path: Path) -> bool:
         return False
 
 
-def _merge_tiles_into_rectangles(tiles: Iterable[tuple[float, float]]) -> _Boxes:
+def _merge_tiles_into_rectangles(
+    tiles: Iterable[tuple[float, float]], tile_deg: float = _TILE_SIZE_DEG
+) -> _Boxes:
     """Coalesce ``(tile_lat, tile_lon)`` origins into as few boxes as possible.
 
     Run-length along longitude inside each latitude row: a row of adjacent
@@ -217,17 +379,36 @@ def _merge_tiles_into_rectangles(tiles: Iterable[tuple[float, float]]) -> _Boxes
         lons = sorted(rows[tile_lat])
         run_start = run_end = lons[0]
         for lon in lons[1:]:
-            if abs(lon - run_end - _TILE_SIZE_DEG) < 1e-9:
+            if abs(lon - run_end - tile_deg) < 1e-9:
                 run_end = lon
                 continue
-            boxes.append((tile_lat, run_start, tile_lat + _TILE_SIZE_DEG, run_end + _TILE_SIZE_DEG))
+            boxes.append((tile_lat, run_start, tile_lat + tile_deg, run_end + tile_deg))
             run_start = run_end = lon
-        boxes.append((tile_lat, run_start, tile_lat + _TILE_SIZE_DEG, run_end + _TILE_SIZE_DEG))
+        boxes.append((tile_lat, run_start, tile_lat + tile_deg, run_end + tile_deg))
     return tuple(boxes)
 
 
+def _clip_boxes(boxes: _Boxes, clip: _Box | None) -> _Boxes:
+    """Intersect coverage rectangles with a validity box, dropping the rest.
+
+    Keeps the promise of :meth:`MarcAtlasRegistry.coverage_cells` exact once
+    ``covers`` refuses outside ``validity_bbox``: a client filtering on the
+    published rectangles must not be told to ask where the atlas will not
+    answer.
+    """
+    if clip is None:
+        return boxes
+    out: list[_Box] = []
+    for lat_min, lon_min, lat_max, lon_max in boxes:
+        c_lat_min, c_lon_min = max(lat_min, clip[0]), max(lon_min, clip[1])
+        c_lat_max, c_lon_max = min(lat_max, clip[2]), min(lon_max, clip[3])
+        if c_lat_min < c_lat_max and c_lon_min < c_lon_max:
+            out.append((c_lat_min, c_lon_min, c_lat_max, c_lon_max))
+    return tuple(out)
+
+
 @lru_cache(maxsize=32)
-def _atlas_coverage_cells(parquet_dir: str) -> _Boxes:
+def _atlas_coverage_cells(parquet_dir: str, tile_deg: float = _TILE_SIZE_DEG) -> _Boxes:
     """Rectangles covering the non-empty tiles of one atlas directory.
 
     Module-level cache rather than per-instance state on purpose: the
@@ -252,7 +433,7 @@ def _atlas_coverage_cells(parquet_dir: str) -> _Boxes:
             parquet = lon_dir / "data.parquet"
             if parquet.is_file() and _tile_has_rows(parquet):
                 tiles.append((tile_lat, tile_lon))
-    return _merge_tiles_into_rectangles(tiles)
+    return _merge_tiles_into_rectangles(tiles, tile_deg)
 
 
 def _nearest_cell_with_distance(
@@ -321,7 +502,15 @@ class MarcAtlasRegistry:
     atlases: tuple[AtlasMeta, ...]
 
     @classmethod
-    def from_directory(cls, root: Path | str) -> MarcAtlasRegistry:
+    def from_directory(
+        cls, root: Path | str, *, withheld: frozenset[str] = WITHHELD_ATLASES
+    ) -> MarcAtlasRegistry:
+        """Every atlas under ``root``, except those ``withheld`` by name.
+
+        The default is the serving policy (``serving_policy``): an atlas
+        published in the dataset is not served for that alone. Tools that
+        study the atlases rather than serve them pass ``frozenset()``.
+        """
         root = Path(root)
         if not root.exists():
             return cls(atlases=())
@@ -330,7 +519,7 @@ class MarcAtlasRegistry:
             if not sub.is_dir():
                 continue
             atlas = _scan_atlas(sub)
-            if atlas is not None:
+            if atlas is not None and atlas.name not in withheld:
                 found.append(atlas)
         return cls(atlases=tuple(found))
 
@@ -344,6 +533,9 @@ class MarcAtlasRegistry:
         client filtering on ``bbox`` alone skips nothing in the Med, which is
         precisely the case worth skipping (14 uncovered answers out of 14 in
         the live measurement).
+
+        Rectangles are clipped to the atlas's ``validity_bbox`` when it has
+        one, so the contract survives the validity rule.
 
         The contract, and it is exact rather than approximate: **a point
         outside every rectangle is a point :meth:`covers` refuses**;
@@ -360,7 +552,13 @@ class MarcAtlasRegistry:
         directory: the walk reads one Parquet footer per tile and nothing
         else, but that is still thousands of file opens on a large atlas.
         """
-        return tuple((a.name, _atlas_coverage_cells(str(a.parquet_dir))) for a in self.atlases)
+        return tuple(
+            (
+                a.name,
+                _clip_boxes(_atlas_coverage_cells(str(a.parquet_dir), a.tile_deg), a.validity_bbox),
+            )
+            for a in self.atlases
+        )
 
     # Tolerance for "the nearest cell is close enough to be considered valid".
     # Coverage polygons are bbox-only at build time, so the bbox can extend
@@ -369,7 +567,18 @@ class MarcAtlasRegistry:
     _MAX_CELL_DISTANCE_M = 5000.0  # 5 km, generous
 
     def _cell_threshold_m(self, atlas: AtlasMeta) -> float:
-        """How far a cell may sit from the query and still answer for it."""
+        """How far a cell may sit from the query and still answer for it.
+
+        An atlas built without its weak cells (``min_speed_kt`` in its
+        metadata: the Copernicus atlases dropped every cell under 0.2 kt) has
+        holes that mean "weak tide here", not gaps to bridge: within one cell
+        or nothing. With the generous 5 km to 5 cells, a point in the deep Bay
+        of Biscay borrowed a cell 7 to 15 km away on the slope (0.3 to
+        0.7 kt) while the map, drawn at the native pitch, showed no atlas
+        there (2026-10-11 acceptance run).
+        """
+        if atlas.min_speed_kt is not None:
+            return float(atlas.resolution_m)
         return max(self._MAX_CELL_DISTANCE_M, 5.0 * atlas.resolution_m)
 
     def _best_cell(
@@ -424,7 +633,7 @@ class MarcAtlasRegistry:
         opens exactly one tile.
         """
         threshold = self._cell_threshold_m(atlas)
-        tile_lat, tile_lon = _tile_origin_of(lat, lon)
+        tile_lat, tile_lon = _tile_origin_of(lat, lon, atlas.tile_deg)
         df = _read_tile(str(_tile_path_at(atlas, tile_lat, tile_lon)))
         if df is None or df.height == 0:
             return None
@@ -435,7 +644,7 @@ class MarcAtlasRegistry:
             best, best_d = (df, found[0]), found[1]
         if not neighbours:
             return best
-        for n_lat, n_lon, floor_m in _neighbour_tiles(lat, lon):
+        for n_lat, n_lon, floor_m in _neighbour_tiles(lat, lon, atlas.tile_deg):
             if floor_m >= best_d:
                 # Sorted by floor distance, so nothing further can win either.
                 break
@@ -447,25 +656,123 @@ class MarcAtlasRegistry:
                 best, best_d = (n_df, found[0]), found[1]
         return best
 
+    def atlas_named(self, name: str) -> AtlasMeta | None:
+        """The atlas whose ``name`` matches, for callers holding a ``CellPrediction``."""
+        return next((a for a in self.atlases if a.name == name), None)
+
     def covers(self, lat: float, lon: float) -> AtlasMeta | None:
         """Return the finest atlas with actual data near (lat, lon), or None.
 
-        Filters by bbox first, then verifies the nearest cell in the matching
-        tile is within distance threshold. This catches false bbox matches
-        (e.g. ATLNE bbox spuriously covering the Mediterranean).
+        Filters by bbox and, when the atlas declares one, by ``validity_bbox``,
+        and drops the boxes the serving policy cuts out of it; then verifies
+        the nearest cell in the matching tile is within the distance
+        threshold. This catches false bbox matches (e.g. ATLNE bbox spuriously
+        covering the Mediterranean) and confines a model to the waters its
+        producer validated it in. Last, an open-sea atlas (rank 0 or 1) must
+        reach ``WEAK_TIDE_KT`` of spring current at its cell: below, the
+        general current of the global model matters more (``serving_policy``).
 
         Reads the containing tile only, on purpose: see `_best_cell` for why
         the seam search must not reach the coverage decision.
         """
-        candidates = [a for a in self.atlases if _bbox_contains(a.bbox, lat, lon)]
-        if not candidates:
-            return None
-        candidates.sort(key=lambda a: (-a.rank, a.resolution_m))
-        for atlas in candidates:
-            # Use the unfiltered metric-nearest as the coverage signal; the
-            # variable-specific lookup happens at predict time.
-            if self._best_cell(atlas, lat, lon, required_col=None) is not None:
+        for atlas in self._candidates(lat, lon):
+            if self._decline(atlas, lat, lon) is None:
                 return atlas
+        return None
+
+    def declined_at(self, lat: float, lon: float) -> list[Declined]:
+        """The atlases that hold (lat, lon) in their validity but pass on it, in cascade order.
+
+        What the cascade would say if asked why it fell back: the overlay
+        sends it with an uncovered answer, so the map can name the atlas and
+        the reason (a 0.08 kt tide in ATLNE off Brittany, the Gibraltar box)
+        rather than leave the global model unexplained. Stops at the atlas
+        that answers, if one does.
+        """
+        out: list[Declined] = []
+        for atlas in self._candidates(lat, lon, keep_excluded=True):
+            declined = self._decline(atlas, lat, lon)
+            if declined is None:
+                break
+            out.append(declined)
+        return out
+
+    def explain(self, lat: float, lon: float) -> list[AtlasVerdict]:
+        """Every atlas whose emprise holds (lat, lon), in cascade order, with its decision.
+
+        The audit behind the map's card: which atlas answers (``used``, or
+        ``dead_water`` when it covers but holds no living current there), and
+        why each other one does not (``lower_priority``, ``weak_tide``,
+        ``excluded``, ``no_cell``, ``outside_validity``). Built from the very
+        functions ``covers`` and ``cell_at`` use, so the card cannot tell a
+        story the cascade does not follow.
+        """
+        held = [a for a in self.atlases if _bbox_contains(a.bbox, lat, lon)]
+        held.sort(key=lambda a: (-a.rank, a.resolution_m))
+        out: list[AtlasVerdict] = []
+        chosen: AtlasMeta | None = None
+        for atlas in held:
+            if atlas.validity_bbox is not None and not _bbox_contains(
+                atlas.validity_bbox, lat, lon
+            ):
+                out.append(AtlasVerdict(atlas, "outside_validity"))
+                continue
+            declined = self._decline(atlas, lat, lon)
+            if declined is not None:
+                out.append(AtlasVerdict(atlas, declined.reason, declined.max_tide_kt, declined.box))
+                continue
+            if chosen is not None:
+                out.append(AtlasVerdict(atlas, "lower_priority"))
+                continue
+            chosen = atlas
+            cell = self.cell_at(lat, lon)
+            if cell is not None and cell.current_dead:
+                out.append(AtlasVerdict(atlas, "dead_water"))
+                continue
+            kt = None
+            if cell is not None and cell.u_constants and cell.v_constants:
+                kt = _max_tide_kt(
+                    tuple(sorted(cell.u_constants.items())), tuple(sorted(cell.v_constants.items()))
+                )
+            out.append(AtlasVerdict(atlas, "used", kt))
+        return out
+
+    def _candidates(
+        self, lat: float, lon: float, *, keep_excluded: bool = False
+    ) -> list[AtlasMeta]:
+        candidates = [
+            a
+            for a in self.atlases
+            if _bbox_contains(a.bbox, lat, lon)
+            and (a.validity_bbox is None or _bbox_contains(a.validity_bbox, lat, lon))
+            and (keep_excluded or not any(_bbox_contains(b, lat, lon) for b in a.excluded_bboxes))
+        ]
+        candidates.sort(key=lambda a: (-a.rank, a.resolution_m))
+        return candidates
+
+    def _decline(self, atlas: AtlasMeta, lat: float, lon: float) -> Declined | None:
+        """Why ``atlas`` does not answer at (lat, lon), or ``None`` when it does."""
+        box = next((b for b in atlas.excluded_bboxes if _bbox_contains(b, lat, lon)), None)
+        if box is not None:
+            return Declined(atlas, "excluded", box=BOX_NAMES.get(box))
+        # Use the unfiltered metric-nearest as the coverage signal; the
+        # variable-specific lookup happens at predict time.
+        if self._best_cell(atlas, lat, lon, required_col=None) is None:
+            if atlas.min_speed_kt is not None:
+                # The builder dropped the weak cells: same rule, applied earlier.
+                return Declined(atlas, "weak_tide")
+            return Declined(atlas, "no_cell")
+        if atlas.rank <= OPEN_SEA_MAX_RANK:
+            found = self._best_cell(atlas, lat, lon, required_col="M2_u_amp")
+            if found is not None:
+                df, idx = found
+                u = tuple(sorted(_extract_constants(df, idx, "u").items()))
+                v = tuple(sorted(_extract_constants(df, idx, "v").items()))
+                # An atlas without current constants (heights only) has no
+                # tidal current to weigh against the general one.
+                kt = _max_tide_kt(u, v) if u and v else None
+                if kt is not None and kt < WEAK_TIDE_KT:
+                    return Declined(atlas, "weak_tide", max_tide_kt=kt)
         return None
 
     def cell_at(self, lat: float, lon: float) -> CellPrediction | None:
@@ -484,6 +791,47 @@ class MarcAtlasRegistry:
         """
         return _cell_at_cached(self, lat, lon)
 
+    def _nearest_live_current(
+        self, atlas: AtlasMeta, lat: float, lon: float, radius_m: float
+    ) -> tuple[pl.DataFrame, int] | None:
+        """Nearest cell within ``radius_m`` whose M2 current is alive, across tile seams.
+
+        A coastal MARC lattice holds zero-current cells on its land fringe
+        (regridded heights, no flow) and in water the model cut off from the
+        tide. The nearest finite U face can be one of them while a living sea
+        cell sits one or two cells away; this finds the living one, and finds
+        nothing in a river beyond the model.
+        """
+        best: tuple[pl.DataFrame, int] | None = None
+        best_d = radius_m
+        tile_lat, tile_lon = _tile_origin_of(lat, lon, atlas.tile_deg)
+        tiles = [(tile_lat, tile_lon, 0.0), *_neighbour_tiles(lat, lon, atlas.tile_deg)]
+        for t_lat, t_lon, floor_m in tiles:
+            if floor_m >= best_d:
+                break
+            df = _read_tile(str(_tile_path_at(atlas, t_lat, t_lon)))
+            if (
+                df is None
+                or df.height == 0
+                or "M2_u_amp" not in df.columns
+                or "M2_v_amp" not in df.columns
+            ):
+                continue
+            u = df["M2_u_amp"].to_numpy()
+            v = df["M2_v_amp"].to_numpy()
+            alive = np.isfinite(u) & np.isfinite(v) & (np.hypot(u, v) >= DEAD_CURRENT_M2_MS)
+            if not alive.any():
+                continue
+            lats = df["lat"].to_numpy()
+            lons = df["lon"].to_numpy()
+            cos_lat = np.cos(np.deg2rad(lat))
+            d = np.hypot((lats - lat) * _M_PER_DEG, (lons - lon) * _M_PER_DEG * cos_lat)
+            d = np.where(alive, d, np.inf)
+            idx = int(np.argmin(d))
+            if d[idx] < best_d:
+                best, best_d = (df, idx), float(d[idx])
+        return best
+
     def _cell_at_uncached(self, lat: float, lon: float) -> CellPrediction | None:
         atlas = self.covers(lat, lon)
         if atlas is None:
@@ -498,6 +846,18 @@ class MarcAtlasRegistry:
         anchor = h_found if h_found is not None else (u_found or v_found)
         if anchor is None:
             return None
+        current_dead = height_dead = False
+        if atlas.rank >= COASTAL_MIN_RANK and atlas.constituents_u:
+            # Coastal atlas: a dead nearest cell is either land fringe, with a
+            # living sea cell a cell or two away, or water the model cut off
+            # from the tide. Look three cells around; past that, say dead.
+            if not _alive(u_found) or not _alive(v_found):
+                live = self._nearest_live_current(atlas, lat, lon, 3.0 * atlas.resolution_m)
+                u_found = v_found = live
+                current_dead = live is None
+            if h_found is not None and _m2_amp(h_found, "M2_h_amp") < DEAD_HEIGHT_M2_M:
+                h_found = None
+                height_dead = True
         anchor_df, anchor_idx = anchor
         cell_lat = float(anchor_df["lat"].to_numpy()[anchor_idx])
         cell_lon = float(anchor_df["lon"].to_numpy()[anchor_idx])
@@ -516,6 +876,8 @@ class MarcAtlasRegistry:
             h_constants=_extract_constants(h_found[0], h_found[1], "h") if h_found else {},
             u_constants=_extract_constants(u_found[0], u_found[1], "u") if u_found else {},
             v_constants=_extract_constants(v_found[0], v_found[1], "v") if v_found else {},
+            current_dead=current_dead,
+            height_dead=height_dead,
         )
 
     def predict_height(self, lat: float, lon: float, t: datetime) -> tuple[float, str] | None:
@@ -585,3 +947,8 @@ def _cell_at_cached(registry: MarcAtlasRegistry, lat: float, lon: float) -> Cell
     the caller did not pass verbatim.
     """
     return registry._cell_at_uncached(lat, lon)
+
+
+# The name new code should use. The class keeps its historical name so that
+# the API, the MCP server and the tests keep importing it unchanged.
+HarmonicAtlasRegistry = MarcAtlasRegistry

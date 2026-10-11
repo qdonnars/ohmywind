@@ -21,6 +21,7 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
+from openwind_data.currents.land_mask import LandMask as _LandMask
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry as _MarcAtlasRegistry
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry as _ShomC2dRegistry
 
@@ -35,6 +36,7 @@ from openwind_api.routes import marine as marine_routes
 SERVICES = SimpleNamespace(
     marc=_MarcAtlasRegistry.from_directory(""),
     shom=_ShomC2dRegistry.from_directory(""),
+    land=_LandMask.empty(),
 )
 
 START = datetime(2026, 5, 1, 6, 0, tzinfo=UTC)
@@ -67,6 +69,213 @@ def _params(**extra) -> dict[str, str]:
 
 def _payload(resp) -> dict:
     return json.loads(bytes(resp.body))
+
+
+class TestLand:
+    async def test_inland_point_is_refused_before_any_atlas(self, monkeypatch) -> None:
+        """A field 5 km from the Elorn used to get a 700 m atlas and 0.3 kt:
+        the land mask answers first, whatever the registries hold."""
+        import numpy as np
+        from openwind_data.currents.land_mask import pack
+
+        # One cell of 1 degree around Brest, marked land.
+        bits = pack(np.ones((1, 1), dtype=bool), lat0=48.0, lon0=-5.0, pitch_deg=1.0, source="test")
+        mask = _LandMask(
+            bits=bits["bits"], n_lat=1, n_lon=1, lat0=48.0, lon0=-5.0, pitch_deg=1.0, source="test"
+        )
+        monkeypatch.setattr(SERVICES, "land", mask)
+        resp = await marine_routes.api_marc_overlay(_FakeRequest(_params()))
+        assert resp.status_code == 200
+        assert _payload(resp) == {"covered": False, "land": True}
+        assert resp.headers["cache-control"] == "public, max-age=86400"
+        # Outside the bitmap the mask says nothing and the usual path runs.
+        resp = await marine_routes.api_marc_overlay(_FakeRequest(_params(lat="43.3", lon="5.4")))
+        assert "land" not in _payload(resp)
+
+
+class TestUnknownZone:
+    async def test_the_rance_basin_answers_unknown_whatever_the_atlases_hold(self) -> None:
+        """Above the Rance tidal power plant MARC holds a dead basin (MANW) or
+        a free tide (MANGA); neither is the stream EDF's orders set. The
+        overlay says "unknown" so the client drops its SMOC baseline too."""
+        resp = await marine_routes.api_marc_overlay(
+            _FakeRequest(_params(lat="48.567", lon="-1.975"))
+        )
+        assert resp.status_code == 200
+        body = _payload(resp)
+        assert body["covered"] is False
+        assert "Rance" in body["unknown"]["zone"]
+        assert body["unknown"]["reason"] == "managed"
+        assert body["unknown"]["fields"] == ["current", "tide"]
+        # Dinard roads, seaward of the plant: the usual path.
+        resp = await marine_routes.api_marc_overlay(_FakeRequest(_params(lat="48.64", lon="-2.06")))
+        assert "unknown" not in _payload(resp)
+
+
+class TestDeclined:
+    async def test_a_weak_coarse_atlas_says_why_the_global_model_answers(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """ATLNE off Brittany holds a 0.08 kt tide: the 2 km atlas passes, the
+        global model answers with the general current, and the overlay names
+        the atlas and its tide so the map can say so."""
+        import polars as pl
+        from openwind_data.currents.marc_atlas import MarcAtlasRegistry
+
+        atlas = tmp_path / "ATLNE"
+        tile = atlas / "tile_lat=47.0" / "tile_lon=-12.0"
+        tile.mkdir(parents=True)
+        (atlas / "metadata.json").write_text(
+            json.dumps({"atlas": "ATLNE", "rank": 1, "resolution_m": 2000, "schema_version": 3})
+        )
+        ring = [[-13.0, 46.0], [-11.0, 46.0], [-11.0, 48.0], [-13.0, 48.0], [-13.0, 46.0]]
+        (atlas / "coverage.geojson").write_text(
+            json.dumps({"features": [{"geometry": {"type": "Polygon", "coordinates": [ring]}}]})
+        )
+        pl.DataFrame(
+            {
+                "lat": [47.0],
+                "lon": [-12.0],
+                "M2_h_amp": [1.2],
+                "M2_h_g": [100.0],
+                "M2_u_amp": [0.03],
+                "M2_u_g": [100.0],
+                "M2_v_amp": [0.01],
+                "M2_v_g": [190.0],
+            }
+        ).write_parquet(tile / "data.parquet")
+        monkeypatch.setattr(SERVICES, "marc", MarcAtlasRegistry.from_directory(tmp_path))
+        resp = await marine_routes.api_marc_overlay(_FakeRequest(_params(lat="47.0", lon="-12.0")))
+        body = _payload(resp)
+        assert body["covered"] is False
+        [declined] = body["declined"]
+        assert declined["atlas"] == "ATLNE" and declined["label"] == "marc_atlne_2000m"
+        assert declined["reason"] == "weak_tide" and declined["max_tide_kt"] < 0.2
+
+
+class TestDeadWater:
+    async def test_dead_water_of_a_coastal_atlas_answers_unknown(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """A river beyond the model, as Rouen in MARC MANE, placed outside every
+        documented zone: zero current, zero range. The overlay says
+        unknown, it does not serve a zero and does not leave the client to
+        its SMOC baseline."""
+        import polars as pl
+        from openwind_data.currents.marc_atlas import MarcAtlasRegistry
+
+        atlas = tmp_path / "MANE"
+        tile = atlas / "tile_lat=47.0" / "tile_lon=-2.5"
+        tile.mkdir(parents=True)
+        (atlas / "metadata.json").write_text(
+            json.dumps(
+                {
+                    "atlas": "MANE",
+                    "rank": 2,
+                    "resolution_m": 250,
+                    "constituents_u": ["M2"],
+                    "constituents_v": ["M2"],
+                    "schema_version": 3,
+                }
+            )
+        )
+        ring = [[-2.5, 47.0], [-2.0, 47.0], [-2.0, 47.5], [-2.5, 47.5], [-2.5, 47.0]]
+        (atlas / "coverage.geojson").write_text(
+            json.dumps({"features": [{"geometry": {"type": "Polygon", "coordinates": [ring]}}]})
+        )
+        pl.DataFrame(
+            {
+                "lat": [47.30, 47.44],
+                "lon": [-2.30, -2.40],
+                "M2_h_amp": [2.5, 0.0],
+                "M2_h_g": [100.0, 0.0],
+                "M2_u_amp": [0.6, 0.0],
+                "M2_u_g": [100.0, 0.0],
+                "M2_v_amp": [0.2, 0.0],
+                "M2_v_g": [190.0, 0.0],
+            }
+        ).write_parquet(tile / "data.parquet")
+        monkeypatch.setattr(SERVICES, "marc", MarcAtlasRegistry.from_directory(tmp_path))
+        body = _payload(
+            await marine_routes.api_marc_overlay(_FakeRequest(_params(lat="47.44", lon="-2.40")))
+        )
+        assert body == {
+            "covered": False,
+            "unknown": {"zone": None, "reason": "model_edge", "fields": ["current", "tide"]},
+        }
+        alive = _payload(
+            await marine_routes.api_marc_overlay(_FakeRequest(_params(lat="47.30", lon="-2.30")))
+        )
+        assert alive["covered"] is True and alive["current_source"] == "marc_mane_250m"
+
+
+class TestExplain:
+    """``/api/v1/marine/marc/explain``: the card's audit, from the cascade itself."""
+
+    def _get(self, lat: str, lon: str):
+        return marine_routes.api_marc_explain(_FakeRequest({"lat": lat, "lon": lon}))
+
+    async def test_open_water_without_atlases_is_the_global_model(self) -> None:
+        body = _payload(await self._get("46.0", "-12.0"))
+        assert body["answer"] == {
+            "kind": "global",
+            "source": "openmeteo_smoc",
+            "confidence": "medium",
+        }
+        assert body["atlases"] == [] and body["plan"] == {}
+
+    async def test_the_rance_is_unknown_with_its_zone(self) -> None:
+        body = _payload(await self._get("48.567", "-1.975"))
+        assert body["answer"]["kind"] == "unknown" and "Rance" in body["answer"]["zone"]
+        assert body["answer"]["reason"] == "managed"
+        assert all(a["decision"] not in ("used", "dead_water") for a in body["atlases"])
+
+    async def test_a_coarse_source_beside_a_listed_pass_reads_unknown_on_a_plan(self) -> None:
+        # Messina, global model answering: a leg here gets "unknown".
+        body = _payload(await self._get("38.2458", "15.6325"))
+        assert body["answer"]["kind"] == "global"
+        assert "Messina" in body["plan"]["blind_pass"]["name"]
+
+    async def test_a_weak_coarse_atlas_is_listed_with_its_decision(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        import polars as pl
+        from openwind_data.currents.marc_atlas import MarcAtlasRegistry
+
+        atlas = tmp_path / "ATLNE"
+        tile = atlas / "tile_lat=47.0" / "tile_lon=-12.0"
+        tile.mkdir(parents=True)
+        (atlas / "metadata.json").write_text(
+            json.dumps({"atlas": "ATLNE", "rank": 1, "resolution_m": 2000, "schema_version": 3})
+        )
+        ring = [[-13.0, 46.0], [-11.0, 46.0], [-11.0, 48.0], [-13.0, 48.0], [-13.0, 46.0]]
+        (atlas / "coverage.geojson").write_text(
+            json.dumps({"features": [{"geometry": {"type": "Polygon", "coordinates": [ring]}}]})
+        )
+        pl.DataFrame(
+            {
+                "lat": [47.0],
+                "lon": [-12.0],
+                "M2_h_amp": [1.2],
+                "M2_h_g": [100.0],
+                "M2_u_amp": [0.03],
+                "M2_u_g": [100.0],
+                "M2_v_amp": [0.01],
+                "M2_v_g": [190.0],
+            }
+        ).write_parquet(tile / "data.parquet")
+        monkeypatch.setattr(SERVICES, "marc", MarcAtlasRegistry.from_directory(tmp_path))
+        resp = await self._get("47.0", "-12.0")
+        body = _payload(resp)
+        assert body["answer"]["kind"] == "global"
+        [atlne] = body["atlases"]
+        assert (atlne["atlas"], atlne["decision"]) == ("ATLNE", "weak_tide")
+        assert atlne["max_tide_kt"] < 0.2
+        assert resp.headers["cache-control"] == "public, max-age=86400"
+
+    async def test_a_bad_point_is_refused(self) -> None:
+        resp = await self._get("95", "0")
+        assert resp.status_code == 422  # waypoint_out_of_range, as the overlay
 
 
 class TestUncoveredPath:
@@ -207,10 +416,17 @@ class TestCoverage:
     """
 
     class _StubMarcAtlas:
-        def __init__(self, name, bbox, cells=()):
+        def __init__(self, name, bbox, cells=(), rank=2, resolution_m=250, source_short="marc"):
             self.name = name
             self.bbox = bbox
             self.cells = tuple(cells)
+            self.rank = rank
+            self.resolution_m = resolution_m
+            self.source_short = source_short
+            self.confidence = "high" if resolution_m <= 1000 else "medium"
+            self.source_label = f"{source_short}_{name.lower()}_{resolution_m}m"
+            self.built_at = None
+            self.record_end = None
 
     class _StubMarcRegistry:
         def __init__(self, atlases):
