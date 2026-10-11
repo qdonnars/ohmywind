@@ -71,44 +71,9 @@ When you ask "how long does it take to get from Marseille to Porquerolles in a 4
 
 We start by matching the boat to a standard **archetype**. Each archetype carries a theoretical **ORC** (Offshore Racing Congress, the international rating body) polar, that is, the boat's speed for every combination of **TWS** (True Wind Speed) and **TWA** (True Wind Angle, the angle between the true wind and the boat's heading). OhMyWind does not map a production model to an archetype server-side: the match is made from the text descriptions published for each archetype.
 
-The polars used can be viewed below (click to open). Each diagram is drawn as a half circle (right-hand side): boat speed is the distance from the centre (in knots), the wind angle TWA is read around the circumference (0° = head to wind at the top, 90° = beam reach on the right, 180° = dead run at the bottom). One curve per TWS value, from light blue (light wind) to magenta (strong wind).
+The polar of each reference boat can be viewed in the app, on the [Configuration](/config) page (the gear at the top of the screen), **Boat** tab: the **Resulting polar** tile draws the one for the boat chosen under "My boat", with the performance coefficient applied. The diagram is drawn as a half circle (right-hand side): boat speed is the distance from the centre (in knots), the wind angle TWA is read around the circumference (0° = head to wind at the top, 90° = beam reach on the right, 180° = dead run at the bottom). One curve per TWS value, with the one picked above the diagram highlighted.
 
-> **Reading note.** The polars do not run all the way down to TWA = 0°. By convention, ORC tables only define speed from the boat's minimum upwind angle (typically 40° to 45°). In the "forbidden" zone closer to the wind than that angle, OhMyWind does not read a zero from the polar (which would cancel the planning speed): it switches to the tacking calculation by VMG projection described in [step 4 below](#4-polar-wind-angle-and-upwind-tactics). That is why the curves appear open at the top.
-
-<details>
-<summary>Polar: 20 ft cruiser (Beneteau First 210, Catalina 22, Jeanneau Tonic 23, Jeanneau Sun 2000)</summary>
-<img src="/polars/cruiser_20ft.svg" alt="Speed polar of the 20 ft cruiser" />
-</details>
-
-<details>
-<summary>Polar: 25 ft cruiser (Beneteau First 25, Catalina 25, Jeanneau Sun Odyssey 24, Beneteau Oceanis 251)</summary>
-<img src="/polars/cruiser_25ft.svg" alt="Speed polar of the 25 ft cruiser" />
-</details>
-
-<details>
-<summary>Polar: 30 ft cruiser (Sun Odyssey 32, Bavaria 31, Beneteau Oceanis 31)</summary>
-<img src="/polars/cruiser_30ft.svg" alt="Speed polar of the 30 ft cruiser" />
-</details>
-
-<details>
-<summary>Polar: 40 ft cruiser (Sun Odyssey 410, Bavaria 41 Cruiser, Hanse 418)</summary>
-<img src="/polars/cruiser_40ft.svg" alt="Speed polar of the 40 ft cruiser" />
-</details>
-
-<details>
-<summary>Polar: 50 ft cruiser (Sun Odyssey 519, Bavaria C50, Hanse 508)</summary>
-<img src="/polars/cruiser_50ft.svg" alt="Speed polar of the 50 ft cruiser" />
-</details>
-
-<details>
-<summary>Polar: racer-cruiser (J/122, Pogo 12.50, Solaris 40, Grand Soleil 43)</summary>
-<img src="/polars/racer_cruiser.svg" alt="Speed polar of the racer-cruiser" />
-</details>
-
-<details>
-<summary>Polar: 40 ft catamaran (Lagoon 40, Bali 4.1, Fountaine Pajot Lucia 40)</summary>
-<img src="/polars/catamaran_40ft.svg" alt="Speed polar of the 40 ft catamaran" />
-</details>
+> **Reading note.** The polars do not run all the way down to TWA = 0°. By convention, ORC tables only define speed from the boat's minimum upwind angle (typically 40° to 45°). In the "forbidden" zone closer to the wind than that angle, OhMyWind does not read a zero from the polar (which would cancel the planning speed): it switches to the tacking calculation by VMG projection described in [step 4 below](#4-polar-wind-angle-and-upwind-tactics). That is why the curves stop short of the top of the diagram, at the edge of a shaded sector.
 
 The source files (JSON) are in the repository under [`packages/data-adapters/src/openwind_data/routing/polars/`](https://github.com/qdonnars/ohmywind/tree/main/packages/data-adapters/src/openwind_data/routing/polars). Each file holds the raw TWS x TWA table, the performance class and the example boats.
 
