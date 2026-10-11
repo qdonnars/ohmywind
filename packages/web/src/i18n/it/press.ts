@@ -10,6 +10,9 @@ export const press: Record<keyof typeof frPress, string> = {
   "press.intro":
     "Cosa ha scritto la stampa nautica su OhMyWind. Ogni scheda rimanda all'edizione in inglese quando esiste; le altre edizioni sono indicate sotto.",
 
+  "press.release.label": "Comunicato stampa",
+  "press.release.read": "Leggi il comunicato",
+
   "press.article.read": "Leggi l'articolo su {site}",
   "press.article.editions": "Altre edizioni",
 

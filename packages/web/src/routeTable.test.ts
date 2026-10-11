@@ -15,6 +15,7 @@ describe("matchRoute", () => {
     expect(matchRoute("/confidentialite")).toBe("confidentialite");
     expect(matchRoute("/presse")).toBe("press");
     expect(matchRoute("/nouveautes")).toBe("whats-new");
+    expect(matchRoute("/presse/communique")).toBe("press-release");
   });
 
   it("answers not-found for an unknown path", () => {

@@ -37,6 +37,10 @@ const loadConfidentialite = () =>
 // CHANGELOG : meme traitement que les pages de documentation, a la demande et
 // hors precache.
 const loadWhatsNew = () => import("./routes/WhatsNewPage").then((m) => ({ default: m.WhatsNewPage }));
+// Le communique de presse tire lui aussi react-markdown, pour une page que
+// seuls les journalistes ouvriront : meme traitement, a la demande.
+const loadPressRelease = () =>
+  import("./routes/PressReleasePage").then((m) => ({ default: m.PressReleasePage }));
 
 // Les deux pages imposent un fond "papier blanc" quel que soit le theme.
 // L'attente reprend ce fond pour eviter un clignotement sombre puis clair
@@ -62,6 +66,19 @@ function AppPageFallback() {
   return (
     <div className="min-h-screen" style={{ background: "var(--ow-bg-0)", color: "var(--ow-fg-2)" }}>
       <p className="max-w-3xl mx-auto px-6 py-10 text-sm">{t("common.loading")}</p>
+    </div>
+  );
+}
+
+// Le communique suit le theme de l'application, comme /presse : son attente
+// aussi, sur les classes de press.css, deja chargee avec la page presse.
+function PressFallback() {
+  const { t } = useT();
+  return (
+    <div className="press-root min-h-screen">
+      <p className="max-w-3xl mx-auto px-6 py-10 text-sm" style={{ color: "var(--ow-fg-2)" }}>
+        {t("common.loading")}
+      </p>
     </div>
   );
 }
@@ -95,6 +112,8 @@ export function Routes() {
       return <ConfigPage key={key} />;
     case "press":
       return <PressPage key={key} />;
+    case "press-release":
+      return <LazyPageBoundary key={key} load={loadPressRelease} fallback={<PressFallback />} />;
     case "methodologie":
       return <LazyPageBoundary key={key} load={loadMethodologie} fallback={<DocFallback />} />;
     case "methodologie-courants":
