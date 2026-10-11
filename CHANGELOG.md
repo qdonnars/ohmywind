@@ -4,7 +4,7 @@ Toutes les versions d'OhMyWind, de la plus récente à la plus ancienne. Le site
 
 Chaque version est aussi publiée sur la page [Releases](https://github.com/qdonnars/ohmywind/releases) du dépôt, et l'application affiche ce journal sur sa page « Quoi de neuf ». La marche à suivre pour publier une version est dans [docs/releases.md](docs/releases.md). English version: [CHANGELOG.en.md](CHANGELOG.en.md).
 
-## 1.9.0 · Prochaine version · Voile-aviron et page Quoi de neuf
+## 1.9.0 · 2026-10-12 · Voile-aviron et page Quoi de neuf
 
 ### Nouveautés
 
@@ -16,6 +16,8 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 - Un plan au-delà des sept jours de prévisions, ou une comparaison restaurée dans le passé, est calculé par le serveur au lieu d'échouer, et GFS reste toujours disponible en dernier recours (#462).
 - Les spots s'attrapent plus facilement au doigt, les pastilles d'Explorer sont lisibles en thème clair, « Ajouter un spot » se voit sur Comparer et la bande des pas tient dans la largeur de l'écran (#463).
 - La méthodologie renvoie à l'onglet Bateau pour les polaires et distingue l'application web, l'API et le serveur MCP (#460).
+- Les tableaux horaires d'Explorer se calent sur la colonne des modèles : plus de colonne ni d'étiquette de jour à moitié cachée après un défilement, et le trait entre deux jours garde la même couleur sur toutes les lignes ; le choix du bateau dans le plan affiche des noms lisibles (#465).
+- Sur Comparer, la recherche de lieu mesure ses distances depuis vos spots ; un départ d'hier s'affiche « Hier » et non « Aujourd'hui » ; une arrivée le lendemain affiche son jour (#467).
 
 ### Coulisses
 
