@@ -123,7 +123,7 @@ export const plan = {
   "plan.notice.passage.model_fallback":
     "modèle {model} sans données sur {fallback_count}/{total} points (probable hors zone de couverture) ; fallback automatique sur {others}",
   "plan.notice.currents.tidal_gap": "courants de marée probablement forts ({zones}) et non résolus par nos sources : les courants annoncés viennent d'une maille de 2 à 8 km qui ne les voit pas. Nous travaillons à élargir la couverture, mais les données ne sont pas toutes en libre accès.",
-  "plan.notice.currents.pass_unresolved": "passe non résolue par l'atlas de courants ({zones}) : sa maille y lit au plus une fraction du courant de vive-eau publié, les courants annoncés y sont sous-estimés. Consultez les tables ou l'atlas de courants local.",
+  "plan.notice.currents.unknown": "courant inconnu ({zones}) : aucune de nos sources n'y décrit le courant réel, l'heure d'arrivée y est calculée sans courant. Consultez les instructions nautiques ou les tables locales.",
   "plan.notice.complexity.wind.3": "Vent soutenu : TWS {tws_range} kn sur {nm} nm",
   "plan.notice.complexity.wind.4": "Vent fort : TWS {tws_range} kn sur {nm} nm",
   "plan.notice.complexity.wind.5": "Vent très fort : TWS {tws_range} kn sur {nm} nm",

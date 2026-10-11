@@ -37,16 +37,15 @@ class SegmentReport:
     current_direction_to_deg: float | None = None
     sog_kn: float | None = None  # over-ground speed; None when no current data
     # Provenance of current/tide data: ``"openmeteo_smoc"`` for the global
-    # 8 km Mercator product, ``"marc_<atlas>_<res>m"`` (e.g.
-    # ``"marc_finis_250m"``) when MARC PREVIMER atlas data overrides Open-Meteo
-    # in covered zones. ``None`` when no current data is available.
+    # 8 km Mercator product, the atlas's own label (``"marc_finis_250m"``,
+    # ``"shom_c2d_558_morbihan"``, ``"cmems_nws_1500m"``) where an atlas
+    # overrides Open-Meteo, ``"unknown"`` where the current was withheld
+    # (documented zone, or a pass the source cannot see: see
+    # ``currents.unknown_zones``), ``None`` when no current data is available.
     current_source: str | None = None
-    # Qualitative confidence in the current/tide value: ``"high"`` (MARC 250 m
-    # to 2 km, in coverage), ``"medium"`` (Open-Meteo SMOC 8 km global), or
-    # ``"low"`` (waypoint falls inside a known narrow tidal pass where every
-    # open product under-resolves the choke — Goulet de Brest, Raz de Sein,
-    # Fromveur, Goulet du Morbihan, Téignouse, Raz Blanchard, Raz de Barfleur,
-    # Chenal du Four). ``None`` when no current data is available.
+    # Qualitative confidence in the current value: ``"high"`` (SHOM C2D, any
+    # atlas at 1 km or finer), ``"medium"`` (coarser atlases, Open-Meteo SMOC
+    # 8 km). ``None`` when no current is given, withheld included.
     current_confidence: str | None = None
     gust_kn: float | None = None
     wave_period_s: float | None = None

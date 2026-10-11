@@ -15,8 +15,9 @@ import math
 from datetime import UTC, datetime, timedelta
 
 from openwind_data.adapters.base import ForecastBundle, ForecastHorizonError, MarineDataAdapter
-from openwind_data.currents.narrow_pass import confidence_for_leg
-from openwind_data.currents.tidal_gaps import tidal_gap_at, unresolved_pass_along
+from openwind_data.currents.narrow_pass import confidence_for_leg, source_confidence
+from openwind_data.currents.tidal_gaps import tidal_gap_at, unknown_pass_along
+from openwind_data.currents.unknown_zones import UNKNOWN_CURRENT_SOURCE, unknown_zone_along
 from openwind_data.routing.archetypes import BoatPolar, get_polar, lookup_polar
 from openwind_data.routing.geometry import Point, Segment, normalize_twa
 from openwind_data.routing.notices import Notice, notice
@@ -89,6 +90,10 @@ def _segment_report(
     cur_to = sea_pt.current_direction_to_deg if sea_pt else None
     cur_src = sea_pt.current_source if sea_pt else None
     cur_conf = confidence_for_leg(seg.start.lat, seg.start.lon, seg.end.lat, seg.end.lon, cur_src)
+    if _unknown_current_zone(seg.start, seg.end, cur_src) is not None:
+        # Withheld, not zeroed by mistake: the leg runs at boat speed, the
+        # report says "unknown", and the notice names the place.
+        cur_kn, cur_to, cur_src, cur_conf = None, None, UNKNOWN_CURRENT_SOURCE, None
 
     derate = 1.0
     if use_wave_correction and hs_m is not None:
@@ -132,6 +137,29 @@ def _segment_report(
     )
 
 
+def _unknown_current_zone(start: Point, end: Point, source: str | None) -> str | None:
+    """The place that makes this leg's current unknown, or ``None``.
+
+    Two cases, one answer. A documented zone the leg touches
+    (``unknown_zones.geojson``: the Rance above its tidal power plant), or
+    a known pass within 3 km of the leg that the leg's source cannot see (a
+    fine atlas the builder measured blind there, or any coarse source, since
+    the passes on file are those no fine source serves). Either way the
+    value on file is not the current a boat meets, and an ETA built on it
+    is wrong with a confidence tag on top. Better to say so and leave it out.
+    """
+    lat1, lon1, lat2, lon2 = start.lat, start.lon, end.lat, end.lon
+    zone = unknown_zone_along(lat1, lon1, lat2, lon2)
+    if zone is not None and "current" in zone.fields:
+        return zone.name
+    if source == UNKNOWN_CURRENT_SOURCE:
+        source = None
+    blind = unknown_pass_along(
+        lat1, lon1, lat2, lon2, source, fine=source_confidence(source) == "high"
+    )
+    return blind.zone if blind is not None else None
+
+
 # How many zone names the notice quotes before "…": the sentence is read
 # on a phone, and three names already say "this whole coast".
 _TIDAL_GAP_NAMES_MAX = 3
@@ -144,42 +172,41 @@ def _named(zones: list[str]) -> str:
 
 
 def _tidal_gap_warnings(segments: list[SegmentReport]) -> list[Notice]:
-    """The notices for legs whose current source is blind to a strong tide.
+    """The notices for legs whose current is unknown, or from a source blind to a strong tide.
 
-    A leg "without a fine source" is one whose ``current_confidence`` is not
-    ``"high"``: the global 8 km model, a 2 km atlas outside its depth, no
-    current at all, or a fine atlas beside a pass it does not resolve (the
-    map builder measured its maximum there at under half the published
-    spring current). The last case gets its own notice,
-    ``currents.pass_unresolved``, since the remedy differs: not "our sources
-    are coarse" but "this atlas has no cell in the channel". The others fall
-    to ``currents.tidal_gap`` where the leg sits in a zone the exploration
-    flagged (a known race, or more than 1.5 kt reconstructed with no fine
-    atlas). Either way the ETA carries a current that is probably wrong, and
-    the sailor must hear it once, with the places named.
+    A leg whose current was withheld (``current_source == "unknown"``, see
+    :func:`_unknown_current_zone`) raises ``currents.unknown``: the ETA runs
+    without current there, and the sailor must hear where. Any other leg
+    "without a fine source" (``current_confidence`` not ``"high"``: the
+    global 8 km model, a 2 km atlas, no current at all) falls to
+    ``currents.tidal_gap`` where it sits in a zone the exploration flagged
+    (a known race within 15 km, or more than 1.5 kt reconstructed with no
+    fine atlas): the value is kept, but it is probably too weak. Either way
+    the places are named once per passage.
     """
-    zones: list[str] = []
-    blind: list[str] = []
+    # Unknown first, over the whole route: the approach legs of a pass come
+    # before the leg that crosses it, and a place already named "unknown"
+    # must not be named again as "probably too weak".
+    unknown: list[str] = []
     for seg in segments:
-        if seg.current_confidence == "high":
+        if seg.current_source == UNKNOWN_CURRENT_SOURCE:
+            name = _unknown_current_zone(seg.start, seg.end, None)
+            if name is not None and name not in unknown:
+                unknown.append(name)
+    zones: list[str] = []
+    for seg in segments:
+        if seg.current_source == UNKNOWN_CURRENT_SOURCE or seg.current_confidence == "high":
             continue
         lat = (seg.start.lat + seg.end.lat) / 2
         lon = (seg.start.lon + seg.end.lon) / 2
-        missed = unresolved_pass_along(
-            seg.start.lat, seg.start.lon, seg.end.lat, seg.end.lon, seg.current_source
-        )
-        if missed is not None:
-            if missed.zone not in blind:
-                blind.append(missed.zone)
-            continue
         gap = tidal_gap_at(lat, lon)
-        if gap is not None and gap.zone not in zones:
+        if gap is not None and gap.zone not in zones and gap.zone not in unknown:
             zones.append(gap.zone)
     out: list[Notice] = []
+    if unknown:
+        out.append(notice("currents.unknown", zones=_named(unknown), count=len(unknown)))
     if zones:
         out.append(notice("currents.tidal_gap", zones=_named(zones), count=len(zones)))
-    if blind:
-        out.append(notice("currents.pass_unresolved", zones=_named(blind), count=len(blind)))
     return out
 
 

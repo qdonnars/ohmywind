@@ -56,7 +56,7 @@ function inPolygon(x: number, y: number, coords: number[][][]): boolean {
   return inRing(x, y, coords[0]) && !coords.slice(1).some((h) => inRing(x, y, h));
 }
 
-function inGeometry(lon: number, lat: number, g: Geometry): boolean {
+export function inGeometry(lon: number, lat: number, g: Geometry): boolean {
   if (g.type === "Polygon") return inPolygon(lon, lat, (g as Polygon).coordinates);
   if (g.type === "MultiPolygon") return (g as MultiPolygon).coordinates.some((c) => inPolygon(lon, lat, c));
   return false;
@@ -117,4 +117,22 @@ export async function tidalGapForSource(lat: number, lon: number, source: string
     return source ? findUnresolvedPass(lat, lon, source, await load()) : null;
   }
   return tidalGapAt(lat, lon);
+}
+
+/**
+ * The pass within 3 km that the source behind a spot's currents cannot see,
+ * the server's ``unknown_pass_along`` rule: a fine atlas only where the map
+ * builder measured it blind, any coarser source (the 8 km global model, a
+ * 2 km atlas) at every listed pass, since the list holds the passes no fine
+ * source serves. There the honest answer is "unknown", not a number.
+ */
+export async function blindPassAt(lat: number, lon: number, source: string | null | undefined, resolutionM: number | null | undefined): Promise<TidalGap | null> {
+  const kind = describeCurrentSource(source, resolutionM, null);
+  if (kind.kind === "shom") return null;
+  const gaps = await load();
+  if (kind.kind === "marc" && kind.resolutionM <= 1000) {
+    return source ? findUnresolvedPass(lat, lon, source, gaps) : null;
+  }
+  const hit = findTidalGap(lat, lon, gaps, UNRESOLVED_RADIUS_KM);
+  return hit?.kind === "pass" ? hit : null;
 }

@@ -40,6 +40,8 @@ Why 500 m for SHOM rather than "wherever it has a point": a bench over 750 shelf
 
 <div data-widget="tidal-map"></div>
 
+**Where we know that we do not know.** A wrong figure with a confidence tag is worse than no figure. Two cases therefore withhold the current instead of showing it. First, a list of documented zones where none of our sources describes the real stream: the first is the Rance above its tidal power plant, whose level and streams follow EDF's operating orders, not the tide (one atlas reads dead water there, another a free tide, and neither is true). Each zone carries its reason and its source, and corrects no value: it withholds it. Second, within 3 km of a known pass the source cannot see: a fine grid the map measured missing the published current, or any coarse grid where no fine source serves. In both cases the leg is computed without current, the card reads "unknown", and a notice names the place. A zone to add (lock, dam, river-dominated estuary, narrow channel) can be proposed as an issue on the repository, with the source that justifies it.
+
 ## How the current is derived at an atlas point
 
 Every atlas of the cascade, except SHOM which publishes hourly series, shares the same format: the harmonic amplitudes and phases of the **U** (east-west) and **V** (north-south) components of the current are stored per cell (90 m to 4.2 km depending on the atlas), one value per astronomical constituent. To evaluate the current at a time $t$ and a given position, OhMyWind runs the Schureman/Cartwright predictor separately on U and V:

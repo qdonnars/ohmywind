@@ -84,6 +84,7 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.legDetail.currentFoul": "{speed} kn foul",
   "panel.legDetail.currentAcross": "{speed} kn across",
   "panel.legDetail.currentPlain": "{speed} kn",
+  "panel.legDetail.currentUnknown": "unknown",
   "panel.legDetail.buildUpPolar": "{value} polar",
   "panel.legDetail.buildUpSea": "{value} sea",
   "panel.legDetail.buildUpCurrent": "{value} current",

@@ -96,6 +96,9 @@ export const explore: Record<keyof typeof frExplore, string> = {
   // Hinweis unter der Stromtabelle: die Quelle und die eine Zahl, die sie einordnet
   "explore.marineTable.tidalGap.pass": "Achtung: Die hier angezeigten Strömungen sind wahrscheinlich falsch. {zone} ist ein Gebiet mit starkem Gezeitenstrom, und die Berechnung verfügt hier nur über ein Gitter von {size}, das ihn nicht auflöst. Wir arbeiten daran, unsere Abdeckung zu erweitern, aber nicht alle Daten sind frei zugänglich.",
   "explore.marineTable.tidalGap.zone": "Achtung: Die hier angezeigten Strömungen sind wahrscheinlich falsch. Der Gezeitenstrom übersteigt hier 1,5 kn, und die Berechnung verfügt nur über ein Gitter von {size}, das ihn nicht auflöst. Wir arbeiten daran, unsere Abdeckung zu erweitern, aber nicht alle Daten sind frei zugänglich.",
+  "explore.marineTable.unknown.managed": "Strömung hier unbekannt ({zone}): Ein Bauwerk regelt hier Strömung und Wasserstand, nicht die Gezeiten, und keine unserer Quellen beschreibt es. Statt einer falschen Zahl zeigen wir nichts an. Wenden Sie sich an den Betreiber des Bauwerks und ziehen Sie das Seehandbuch zu Rate.",
+  "explore.marineTable.unknown.unresolved": "Strömung hier unbekannt: {zone} ist eine Engstelle mit starker Strömung, die das Gitter unserer Quellen nicht erfasst. Statt einer falschen Zahl zeigen wir nichts an. Ziehen Sie örtliche Strömungstafeln oder das Seehandbuch zu Rate.",
+  "explore.marineTable.unknown.non_tidal": "Strömung hier unbekannt ({zone}): Die Strömung hängt hier von etwas anderem als den Gezeiten ab (Abfluss, Wind), das keine unserer Quellen beschreibt. Statt einer falschen Zahl zeigen wir nichts an. Ziehen Sie das Seehandbuch zu Rate.",
   "explore.marineTable.currentSource.smoc":
     "Strom auf 8-km-Gitter: Tide, Zirkulation und Wellen zusammengefasst, zu grob für die Passagen.",
   "explore.marineTable.currentSource.marc": "Nur Gezeitenstrom, Gitter {res}: Wind nicht berücksichtigt.",

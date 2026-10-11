@@ -96,6 +96,9 @@ export const explore: Record<keyof typeof frExplore, string> = {
   // Nota bajo la tabla de corrientes: la fuente y la cifra que la matiza
   "explore.marineTable.tidalGap.pass": "Atención: las corrientes indicadas aquí son probablemente falsas. {zone} es una zona de fuerte corriente de marea y el cálculo solo dispone aquí de una malla de {size}, que no la ve. Trabajamos para ampliar la cobertura, pero no todos los datos son de libre acceso.",
   "explore.marineTable.tidalGap.zone": "Atención: las corrientes indicadas aquí son probablemente falsas. La corriente de marea supera aquí 1,5 kn y el cálculo solo dispone de una malla de {size}, que no la ve. Trabajamos para ampliar la cobertura, pero no todos los datos son de libre acceso.",
+  "explore.marineTable.unknown.managed": "Corriente desconocida aquí ({zone}): una obra regula las corrientes y el nivel, no la marea, y ninguna de nuestras fuentes la describe. En lugar de una cifra falsa, no mostramos nada. Consulte al operador de la obra y el derrotero.",
+  "explore.marineTable.unknown.unresolved": "Corriente desconocida aquí: {zone} es un paso de fuerte corriente que la malla de nuestras fuentes no ve. En lugar de una cifra falsa, no mostramos nada. Consulte las tablas de corrientes locales o el derrotero.",
+  "explore.marineTable.unknown.non_tidal": "Corriente desconocida aquí ({zone}): la corriente depende de algo distinto de la marea (caudal, viento), que ninguna de nuestras fuentes describe. En lugar de una cifra falsa, no mostramos nada. Consulte el derrotero.",
   "explore.marineTable.currentSource.smoc":
     "Corriente en malla de 8 km: marea, circulación y olas mezcladas, demasiado gruesa para los pasos.",
   "explore.marineTable.currentSource.marc": "Solo corriente de marea, malla {res}: viento ignorado.",

@@ -42,6 +42,13 @@ function currentSourceNote(marine: MarineHourly): string {
   }
 }
 
+/** Why the currents of a spot are withheld, one sentence per reason. */
+const UNKNOWN_NOTE = {
+  managed: "explore.marineTable.unknown.managed",
+  unresolved: "explore.marineTable.unknown.unresolved",
+  non_tidal: "explore.marineTable.unknown.non_tidal",
+} as const;
+
 /** The grid the currents on screen were sampled on: "8 km" for the global
     model, the atlas cell otherwise. What the tidal-gap warning names. */
 function currentGridSize(marine: MarineHourly): string {
@@ -516,8 +523,13 @@ export function MarineTable({
           </table>
         </div>
       </div>
-      {metric === "currents" && !marine.tidal_gap && <PanelNote>{currentSourceNote(marine)}</PanelNote>}
-      {metric === "currents" && marine.tidal_gap && (
+      {metric === "currents" && marine.current_unknown && (
+        <PanelNote variant="warning">
+          {t(UNKNOWN_NOTE[marine.current_unknown.reason], { zone: marine.current_unknown.zone })}
+        </PanelNote>
+      )}
+      {metric === "currents" && !marine.current_unknown && !marine.tidal_gap && <PanelNote>{currentSourceNote(marine)}</PanelNote>}
+      {metric === "currents" && !marine.current_unknown && marine.tidal_gap && (
         <PanelNote variant="warning">
           {marine.tidal_gap.kind === "pass"
             ? t("explore.marineTable.tidalGap.pass", { zone: marine.tidal_gap.zone, size: currentGridSize(marine) })

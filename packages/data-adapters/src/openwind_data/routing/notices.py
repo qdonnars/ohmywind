@@ -43,10 +43,10 @@ FR_TEMPLATES: dict[str, str] = {
         "Nous travaillons à élargir la couverture, mais les données ne sont pas toutes "
         "en libre accès."
     ),
-    "currents.pass_unresolved": (
-        "passe non résolue par l'atlas de courants ({zones}) : sa maille y lit au plus "
-        "une fraction du courant de vive-eau publié, les courants annoncés y sont "
-        "sous-estimés. Consultez les tables ou l'atlas de courants local."
+    "currents.unknown": (
+        "courant inconnu ({zones}) : aucune de nos sources n'y décrit le courant réel, "
+        "l'heure d'arrivée y est calculée sans courant. Consultez les instructions "
+        "nautiques ou les tables locales."
     ),
     "complexity.wind.3": "Vent soutenu : TWS {tws_range} kn sur {nm} nm",
     "complexity.wind.4": "Vent fort : TWS {tws_range} kn sur {nm} nm",

@@ -179,7 +179,11 @@ export function LegDetailCard({
     "panel.legDetail.currentPlain";
   let currentText: string | null = null;
   let currentMuted = false;
-  if (view.current_speed_kn != null) {
+  if (view.current_speed_kn == null && view.current_unknown) {
+    // Withheld by the server, not missing: say so, the notice says where.
+    currentText = t("panel.legDetail.currentUnknown");
+    currentMuted = true;
+  } else if (view.current_speed_kn != null) {
     if (!hasCurrent) {
       currentText = `< ${num1(CURRENT_RELEVANCE_THRESHOLD_KN)} kn`;
       currentMuted = true;
