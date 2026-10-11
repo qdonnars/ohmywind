@@ -32,6 +32,7 @@ import {
   type CoverageAtlas,
   type PassProperties,
   type PrecisionClass,
+  type SourceAnswer,
   type ZoneProperties,
   type ZoneStatus,
 } from "../domain/tidalMapGeo";
@@ -40,6 +41,7 @@ import { useT } from "../i18n";
 import { addBasemap } from "../utils/basemapLayer";
 import { useBackDismiss } from "../hooks/useBackDismiss";
 import { sourceFreshness, type UpdateCadence } from "../domain/sourceHealth";
+import unknownZones from "../domain/unknownZones.json";
 
 const DATA_BASE = `${import.meta.env.BASE_URL}methodologie/tidal/`;
 const MARC_URL = `${API_BASE}/api/v1/marine/marc`;
@@ -138,6 +140,9 @@ const STATUS_COLOR: Record<ZoneStatus, string> = {
 const OBJECTIVE_COLOR = "#1f2937";
 /** Covered water where the tide is not significant. */
 const NEGLIGIBLE_COLOR = "#3b82c4";
+// Documented zones where the current is withheld (domain/unknownCurrent):
+// greyed over the rasters, since the app shows no value there.
+const UNKNOWN_ZONE_COLOR = "#6b7280";
 /** A registry status drawn in the colour of the zone status it would produce. */
 const SOURCE_COLOR: Record<string, string> = {
   current: STATUS_COLOR.covered,
@@ -347,6 +352,7 @@ export function TidalSourcesMap() {
     let answerHtml: string;
     let precision: PrecisionClass | null = null;
     let answerLabel = "openmeteo_smoc";
+    let unknownAnswer: SourceAnswer["unknown"] | null = null;
     try {
       const url =
         `${MARC_URL}?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}` +
@@ -360,6 +366,10 @@ export function TidalSourcesMap() {
           `<h3 class="methodo-map-popup-title">${esc(t("config.methodo.tidal.popup.title"))}</h3>` +
           `<dl class="methodo-map-popup-grid">${row(t("config.methodo.tidal.popup.source"), esc(t("config.methodo.tidal.popup.land")))}</dl>`
         );
+      }
+      if (answer.kind === "unknown" && answer.unknown) {
+        unknownAnswer = answer.unknown;
+        answerLabel = answer.label;
       }
       precision = answer.precision;
       const what =
@@ -413,6 +423,21 @@ export function TidalSourcesMap() {
         const res = a.source === "shom" ? null : resOf(a);
         return esc([shortName(a), res == null ? null : formatGridSize(res), reason(a)].filter(Boolean).join(" · "));
       });
+    if (unknownAnswer) {
+      // Every source that holds the point, SMOC included, is set aside: the
+      // zone withholds the current whatever they say.
+      const setAside = [...cascade.map((a) => shortName(a)), "SMOC · 8 km"].map((n) =>
+        esc(`${n} · ${t("config.methodo.tidal.reason.unknownZone")}`),
+      );
+      return (
+        `<h3 class="methodo-map-popup-title">${esc(t("config.methodo.tidal.popup.unknownTitle"))}</h3>` +
+        badge(UNKNOWN_ZONE_COLOR, t("config.methodo.tidal.status.unknownZone")) +
+        `<dl class="methodo-map-popup-grid">` +
+        row(t("config.methodo.tidal.popup.why"), esc(t(`explore.marineTable.unknown.${unknownAnswer.reason}`, { zone: unknownAnswer.zone }))) +
+        row(t("config.methodo.tidal.popup.passedOver"), setAside.join("<br>")) +
+        `</dl>`
+      );
+    }
     if (answerLabel !== "openmeteo_smoc") passedOver.push(esc(`SMOC · 8 km · ${t("config.methodo.tidal.reason.fallback")}`));
     const inObjective = d?.objective.features.some((f) => pointInGeometry(lon, lat, f.geometry)) ?? false;
     const here = (d?.sources.features ?? [])
@@ -521,6 +546,9 @@ export function TidalSourcesMap() {
         ).addTo(map);
         L.geoJSON(d.negligible, {
           style: { color: NEGLIGIBLE_COLOR, weight: 0, fillColor: NEGLIGIBLE_COLOR, fillOpacity: 0.42, interactive: false },
+        }).addTo(map);
+        L.geoJSON(unknownZones as unknown as FeatureCollection, {
+          style: { color: "#374151", weight: 1.2, dashArray: "4 3", fillColor: UNKNOWN_ZONE_COLOR, fillOpacity: 0.6, interactive: false },
         }).addTo(map);
         L.geoJSON(d.objective, { style: { color: OBJECTIVE_COLOR, weight: 1.5, dashArray: "8 6", fill: false, interactive: false } }).addTo(map);
         L.geoJSON(d.passes, {
@@ -673,6 +701,10 @@ export function TidalSourcesMap() {
         <div className="methodo-map-item">
           <span className="methodo-map-swatch" style={{ background: NEGLIGIBLE_COLOR, opacity: 0.55 }} />
           <span>{t("config.methodo.tidal.legend.negligible")}</span>
+        </div>
+        <div className="methodo-map-item">
+          <span className="methodo-map-swatch" style={{ background: UNKNOWN_ZONE_COLOR, opacity: 0.6 }} />
+          <span>{t("config.methodo.tidal.legend.unknownZone")}</span>
         </div>
         <div className="methodo-map-item">
           <span className="methodo-map-swatch is-dashed" style={{ borderColor: OBJECTIVE_COLOR }} />

@@ -37,7 +37,7 @@ Chaque entité du GeoJSON porte :
 
 | Zone | Raison | Retiré | Justification |
 |---|---|---|---|
-| Rance, en amont de l'usine marémotrice | `managed` | courant, hauteur | Le bassin est exploité par les vannes et turbines d'EDF. MARC MANW 250 m y lit une eau morte (M2 nulle de 48,539 à 48,615 N), MARC MANGA 700 m une marée libre. Vérifié sur l'API dev le 2026-10-11 : `covered: true`, hauteur et courant à 0 vers La Richardais, marée de ±2 m à 0,1 kt plus en amont. |
+| Rance, en amont de l'usine marémotrice | `managed` | courant, hauteur | Contour tracé d'après les cellules mortes de MANW, dilatées de 300 à 500 m, puis le fleuve jusqu'à l'écluse du Châtelier. Le bassin est exploité par les vannes et turbines d'EDF. MARC MANW 250 m y lit une eau morte (M2 nulle de 48,539 à 48,615 N), MARC MANGA 700 m une marée libre. Vérifié sur l'API dev le 2026-10-11 : `covered: true`, hauteur et courant à 0 vers La Richardais, marée de ±2 m à 0,1 kt plus en amont. |
 
 ## Candidats, à documenter avant d'entrer
 

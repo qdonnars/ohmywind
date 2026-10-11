@@ -182,3 +182,19 @@ describe("cascadeAt", () => {
     expect(labelNamesAtlas("cmems_nws_1500m", atlases[0])).toBe(false);
   });
 });
+
+describe("the unknown answer", () => {
+  it("reads a documented zone as withheld, not as the global model", () => {
+    const answer = classifyAnswer({
+      covered: false,
+      unknown: { zone: "Rance, en amont de l'usine marémotrice", reason: "managed" },
+    });
+    expect(answer.kind).toBe("unknown");
+    expect(answer.label).not.toBe("openmeteo_smoc");
+    expect(answer.unknown).toEqual({ zone: "Rance, en amont de l'usine marémotrice", reason: "managed" });
+    // A reason this build does not know still lands on a sentence it has.
+    expect(classifyAnswer({ covered: false, unknown: { zone: "x", reason: "later" } }).unknown?.reason).toBe("managed");
+    // Plain uncovered water is still the global model.
+    expect(classifyAnswer({ covered: false }).kind).toBe("smoc");
+  });
+});
