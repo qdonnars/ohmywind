@@ -28,6 +28,7 @@ import {
   isGlobalExtent,
   nearestPass,
   pointInGeometry,
+  precisionClass,
   statusAt,
   type CoverageAtlas,
   type PassProperties,
@@ -39,6 +40,7 @@ import {
 import {
   CALM_COLOR,
   RasterGrid,
+  isDeadCoastal,
   isWeakCoarse,
   maxCurrentAt,
   rampColor,
@@ -54,6 +56,7 @@ import unknownZones from "../domain/unknownZones.json";
 
 const DATA_BASE = `${import.meta.env.BASE_URL}methodologie/tidal/`;
 const MARC_URL = `${API_BASE}/api/v1/marine/marc`;
+const EXPLAIN_URL = `${API_BASE}/api/v1/marine/marc/explain`;
 const COVERAGE_URL = `${API_BASE}/api/v1/marine/marc/coverage`;
 const CONTACT = "contact@ohmywind.fr";
 
@@ -199,6 +202,41 @@ async function loadLayers(): Promise<Layers> {
     global model, and a finer or lower-ranked atlas that does answer there
     must show through. Best effort: a missing manifest or a browser without
     canvas leaves the map without them. */
+/** ``/api/v1/marine/marc/explain``: the server's audit of one point. */
+type ExplainAtlas = {
+  atlas: string;
+  label: string;
+  rank: number;
+  resolution_m: number;
+  decision: "used" | "dead_water" | "lower_priority" | "weak_tide" | "excluded" | "no_cell" | "outside_validity";
+  max_tide_kt?: number;
+  box?: string;
+};
+type Explain = {
+  answer: {
+    kind: "land" | "unknown" | "shom" | "atlas" | "global";
+    source?: string;
+    zone?: string | null;
+    reason?: string;
+    resolution_m?: number;
+    max_tide_kt?: number | null;
+  };
+  atlases: ExplainAtlas[];
+  shom?: { covers: boolean; nearest_km: number | null; max_km: number };
+  plan: {
+    blind_pass?: { name: string; km: number; max_spring_kt: number | null };
+    tidal_gap?: { zone: string; kind: string; km: number };
+  };
+};
+
+const ATLAS_SOURCE_NAME: Record<string, string> = { marc: "MARC", bsh: "BSH", cmems: "Copernicus", norkyst: "NorKyst" };
+/** "MARC ATLNE", "Copernicus NWS", "BSH DB": the producer from the label, the zone from the name. */
+function atlasDisplayName(name: string, label: string): string {
+  const src = label.split("_")[0];
+  const zone = name.replace(new RegExp(`^${src}_`, "i"), "").replace(/_/g, " ");
+  return `${ATLAS_SOURCE_NAME[src] ?? src.toUpperCase()} ${zone}`;
+}
+
 /** One atlas the server says holds the point and passes on it. */
 type DeclinedAtlas = {
   atlas: string;
@@ -242,6 +280,8 @@ async function loadRasters(): Promise<{ grids: RasterGrid[]; overlays: RasterOve
       values[i] = v;
       if (v === 0) continue;
       const kt = (v - 1) / entry.scale;
+      // Dead water of a coastal atlas: withheld by the server, drawn as nothing.
+      if (isDeadCoastal(entry, kt)) continue;
       if (isWeakCoarse(entry, kt)) {
         weak.data[i * 4] = weakRgb[0];
         weak.data[i * 4 + 1] = weakRgb[1];
@@ -388,10 +428,9 @@ export function TidalSourcesMap() {
     );
   }
 
-  // The card for a click: the server's own answer for the point, framed
-  // by what the static layers know about it.
-  async function clickPopup(lat: number, lon: number): Promise<string> {
-    const d = dataRef.current;
+  // The card from the overlay alone, for a server without the explain
+  // route: its answer for the point, the cascade rebuilt in the browser.
+  async function legacyClickPopup(lat: number, lon: number): Promise<string> {
     const start = new Date();
     start.setUTCMinutes(0, 0, 0);
     const end = new Date(start.getTime() + 3600_000);
@@ -433,8 +472,6 @@ export function TidalSourcesMap() {
     } catch {
       answerHtml = `<em>${esc(t("config.methodo.tidal.popup.error"))}</em>`;
     }
-    const zone = statusAt(lon, lat, d?.status ?? null);
-    const near = nearestPass(lat, lon, d?.passes ?? null);
     // Every served atlas whose tiles hold the point, in cascade order; the
     // one the server named is the choice, the rest were passed over for a
     // lower rank or a coarser grid, and SMOC waits underneath all of them.
@@ -513,6 +550,25 @@ export function TidalSourcesMap() {
           .map((d) => esc(`${shortName({ name: d.atlas, source: d.label.split("_")[0] } as CoverageAtlas)} · ${formatGridSize(d.resolution_m)} · ${declinedText(d)}`))
           .join("<br>")
       : esc(t("config.methodo.tidal.reason.noAtlas"));
+    return (
+      `<h3 class="methodo-map-popup-title">${esc(t("config.methodo.tidal.popup.title"))}</h3>` +
+      (precision ? badge(PRECISION_COLOR[precision], t(`config.methodo.tidal.precision.${precision}`)) : "") +
+      `<dl class="methodo-map-popup-grid">` +
+      row(t("config.methodo.tidal.popup.source"), answerHtml) +
+      row(t("config.methodo.tidal.popup.why"), answerLabel === "openmeteo_smoc" ? generalWhy : null) +
+      row(t("config.methodo.tidal.popup.passedOver"), passedOver.length ? passedOver.join("<br>") : null) +
+      staticRows(lat, lon, answerLabel === "openmeteo_smoc") +
+      `</dl>`
+    );
+  }
+
+  // What the static layers know about a point: the zone's status, the
+  // nearest known pass, the candidate sources of the registry, the target
+  // area. The map's own knowledge, shown under the server's answer.
+  function staticRows(lat: number, lon: number, globalAnswers: boolean): string {
+    const d = dataRef.current;
+    const zone = statusAt(lon, lat, d?.status ?? null);
+    const near = nearestPass(lat, lon, d?.passes ?? null);
     const inObjective = d?.objective.features.some((f) => pointInGeometry(lon, lat, f.geometry)) ?? false;
     const here = (d?.sources.features ?? [])
       .filter((f) => f.properties.status === "ok" && f.properties.kind !== "station_points" && pointInGeometry(lon, lat, f.geometry))
@@ -523,13 +579,7 @@ export function TidalSourcesMap() {
     const candidates = here.filter((f) => !isGlobalExtent(f.geometry)).slice(0, 3).map(label);
     const fallback = here.filter((f) => isGlobalExtent(f.geometry)).map(label);
     return (
-      `<h3 class="methodo-map-popup-title">${esc(t("config.methodo.tidal.popup.title"))}</h3>` +
-      (precision ? badge(PRECISION_COLOR[precision], t(`config.methodo.tidal.precision.${precision}`)) : "") +
-      `<dl class="methodo-map-popup-grid">` +
-      row(t("config.methodo.tidal.popup.source"), answerHtml) +
-      row(t("config.methodo.tidal.popup.why"), answerLabel === "openmeteo_smoc" ? generalWhy : null) +
-      row(t("config.methodo.tidal.popup.passedOver"), passedOver.length ? passedOver.join("<br>") : null) +
-      row(t("config.methodo.tidal.popup.status"), zoneBadge(lat, lon, zone, answerLabel === "openmeteo_smoc")) +
+      row(t("config.methodo.tidal.popup.status"), zoneBadge(lat, lon, zone, globalAnswers)) +
       row(
         t("config.methodo.tidal.popup.pass"),
         near
@@ -541,7 +591,104 @@ export function TidalSourcesMap() {
         t("config.methodo.tidal.popup.fallback"),
         fallback.length ? `${fallback.join("<br>")}<br><small>${esc(t("config.methodo.tidal.popup.fallbackNote"))}</small>` : null,
       ) +
-      row(t("config.methodo.tidal.popup.objective"), esc(t(inObjective ? "config.methodo.tidal.popup.yes" : "config.methodo.tidal.popup.no"))) +
+      row(t("config.methodo.tidal.popup.objective"), esc(t(inObjective ? "config.methodo.tidal.popup.yes" : "config.methodo.tidal.popup.no")))
+    );
+  }
+
+  // The card for a click, from the server's own audit of the point
+  // (``/api/v1/marine/marc/explain``): what a passage uses here and why, in
+  // the cascade's words. Falls back to the overlay-based card when the
+  // server does not know the route yet (a web deploy ahead of the Space).
+  async function clickPopup(lat: number, lon: number): Promise<string> {
+    let e: Explain;
+    try {
+      const resp = await fetch(`${EXPLAIN_URL}?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      e = (await resp.json()) as Explain;
+      if (!e?.answer?.kind) throw new Error("no answer");
+    } catch {
+      return legacyClickPopup(lat, lon);
+    }
+    const a = e.answer;
+    if (a.kind === "land") {
+      return (
+        `<h3 class="methodo-map-popup-title">${esc(t("config.methodo.tidal.popup.title"))}</h3>` +
+        `<dl class="methodo-map-popup-grid">${row(t("config.methodo.tidal.popup.source"), esc(t("config.methodo.tidal.popup.land")))}</dl>`
+      );
+    }
+    const used = e.atlases.find((x) => x.decision === "used" || x.decision === "dead_water") ?? null;
+    const decisionText = (x: ExplainAtlas): string => {
+      if (a.kind === "unknown" && a.reason !== "model_edge") return t("config.methodo.tidal.reason.unknownZone");
+      switch (x.decision) {
+        case "lower_priority":
+          return used && x.rank < used.rank ? t("config.methodo.tidal.reason.lowerRank") : t("config.methodo.tidal.reason.coarser");
+        case "weak_tide":
+          return x.max_tide_kt != null
+            ? t("config.methodo.tidal.reason.weakTide", { kt: fmtKt(x.max_tide_kt) })
+            : t("config.methodo.tidal.reason.weakTideBuild");
+        case "excluded":
+          return t("config.methodo.tidal.reason.excludedBox", {
+            box: x.box === "gibraltar" ? t("config.methodo.tidal.box.gibraltar") : (x.box ?? "?"),
+          });
+        case "outside_validity":
+          return t("config.methodo.tidal.reason.outsideValidity");
+        case "dead_water":
+          return t("config.methodo.tidal.reason.deadWater");
+        default:
+          return t("config.methodo.tidal.reason.noCell");
+      }
+    };
+    const line = (x: ExplainAtlas) => esc(`${atlasDisplayName(x.atlas, x.label)} · ${formatGridSize(x.resolution_m)} · ${decisionText(x)}`);
+    const others = e.atlases.filter((x) => a.kind === "unknown" || x !== used).map(line);
+    if (e.shom && !e.shom.covers && e.shom.nearest_km != null && e.shom.nearest_km < 20) {
+      others.unshift(esc(`SHOM · ${t("config.methodo.tidal.reason.noShomPoint")}`));
+    }
+    if (a.kind === "shom" || a.kind === "atlas") {
+      others.push(esc(`SMOC · 8 km · ${t("config.methodo.tidal.reason.fallback")}`));
+    } else if (a.kind === "unknown") {
+      others.push(esc(`SMOC · 8 km · ${t("config.methodo.tidal.reason.unknownZone")}`));
+    }
+    let title = t("config.methodo.tidal.popup.title");
+    let tag = "";
+    let sourceHtml: string | null = null;
+    let why: string | null = null;
+    if (a.kind === "unknown") {
+      title = t("config.methodo.tidal.popup.unknownTitle");
+      tag = badge(UNKNOWN_ZONE_COLOR, t("config.methodo.tidal.status.unknownZone"));
+      const reason = (["managed", "unresolved", "non_tidal", "model_edge"] as const).find((r) => r === a.reason) ?? "managed";
+      why = esc(t(`explore.marineTable.unknown.${reason}`, { zone: a.zone ?? "" }));
+    } else if (a.kind === "shom") {
+      tag = badge(PRECISION_COLOR.fine, t("config.methodo.tidal.precision.fine"));
+      const m = e.shom?.nearest_km != null ? Math.round((e.shom.nearest_km * 1000) / 10) * 10 : null;
+      sourceHtml = `${esc(t("config.methodo.tidal.popup.shom", { distance: String(m ?? "?") }))}<br><code>${esc(a.source ?? "")}</code>`;
+    } else if (a.kind === "atlas") {
+      const precision = precisionClass(a.resolution_m ?? null);
+      tag = badge(PRECISION_COLOR[precision], t(`config.methodo.tidal.precision.${precision}`));
+      sourceHtml =
+        `${esc(t("config.methodo.tidal.popup.atlas", { size: formatGridSize(a.resolution_m ?? 0) }))}<br><code>${esc(a.source ?? "")}</code>` +
+        (a.max_tide_kt != null ? `<br>${esc(t("config.methodo.tidal.popup.springTide", { kt: fmtKt(a.max_tide_kt) }))}` : "");
+    } else {
+      tag = badge(PRECISION_COLOR.global, t("config.methodo.tidal.precision.global"));
+      sourceHtml = `${esc(t("config.methodo.tidal.popup.smoc"))}<br><code>${esc(a.source ?? "openmeteo_smoc")}</code>`;
+      const declined = e.atlases.map(line);
+      why = declined.length ? declined.join("<br>") : esc(t("config.methodo.tidal.reason.noAtlas"));
+    }
+    const plan = e.plan?.blind_pass
+      ? esc(t("config.methodo.tidal.plan.blindPass", { name: e.plan.blind_pass.name, km: fmtKt(e.plan.blind_pass.km) }))
+      : e.plan?.tidal_gap
+        ? e.plan.tidal_gap.zone && e.plan.tidal_gap.kind === "pass"
+          ? esc(t("config.methodo.tidal.plan.tidalGap", { zone: e.plan.tidal_gap.zone, km: fmtKt(e.plan.tidal_gap.km) }))
+          : esc(t("config.methodo.tidal.plan.tidalGapZone"))
+        : null;
+    return (
+      `<h3 class="methodo-map-popup-title">${esc(title)}</h3>` +
+      tag +
+      `<dl class="methodo-map-popup-grid">` +
+      row(t("config.methodo.tidal.popup.source"), sourceHtml) +
+      row(t("config.methodo.tidal.popup.why"), why) +
+      row(t("config.methodo.tidal.popup.passedOver"), a.kind === "global" ? null : others.length ? others.join("<br>") : null) +
+      row(t("config.methodo.tidal.popup.plan"), plan) +
+      staticRows(lat, lon, a.kind === "global") +
       `</dl>`
     );
   }
