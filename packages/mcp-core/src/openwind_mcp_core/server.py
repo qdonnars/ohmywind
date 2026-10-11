@@ -429,22 +429,61 @@ uses unless overridden by tool parameters.
 - Currents: SOG = STW + (current projected on bearing). Projection uses
   the oceanographic "going to" convention. Cascade source priority:
   MARC PREVIMER atlases (Ifremer, 250 m on critical Atlantic passes;
-  700 m on the Manche / Bay of Biscay shelf; 2 km on the wider North-East
-  Atlantic) when the waypoint falls inside a covered emprise; otherwise
-  Open-Meteo Marine (SMOC, 8 km global). Each leg surfaces a
-  ``current_source`` field so the caller knows which product applied
-  (e.g. ``marc_finis_250m``, ``marc_manga_700m``, ``openmeteo_smoc``).
+  700 m on the Manche / Bay of Biscay shelf; 2 km on the North-East
+  Atlantic, confined to the waters PREVIMER validated: Bay of Biscay,
+  Channel and Celtic Sea, never the North Sea); BSH Stroemungsvorhersagen
+  (German Bight 926 m, Elbe 90 m, CC BY 4.0, analysed from a few days of
+  forecasts, so S2 and N2 are inferred); Copernicus Marine regional
+  models analysed over one year of hourly currents (NWS 1.5 km from the
+  Channel to Shetland and Ireland, IBI 3 km for Iberia, Morocco and the
+  Canaries, MED 4.2 km for the Mediterranean straits, confined to the
+  Mediterranean, kept only where the tide reaches 0.2 kt, and never in
+  the Strait of Gibraltar, where the
+  tide alone would erase the Atlantic inflow) when the waypoint falls
+  inside a covered emprise; otherwise Open-Meteo Marine (SMOC, 8 km
+  global, tide plus general circulation, tides from FES2014). Norway and
+  Iceland answer from SMOC: atlases exist for both, but they are out of
+  the French-coast scope and the Norwegian one erased the coastal current.
+  Priority between atlases is explicit in their metadata (rank, then
+  resolution): a validated atlas (MARC, BSH) beats a Copernicus one. An
+  open-sea atlas (rank 0 basin or 1 shelf: ATLNE, MANGA, BSH 926 m,
+  Copernicus) answers only where its spring tidal current reaches 0.2 kt:
+  below, the general current matters more than the tide, and the global
+  model, which holds it, answers. Coastal and pass atlases keep every cell.
+  Each leg surfaces a ``current_source`` field so the caller knows which
+  product applied (e.g. ``marc_finis_250m``, ``bsh_db_926m``,
+  ``cmems_nws_1500m``, ``openmeteo_smoc``, ``unknown``).
   MARC delivers harmonic prediction (tidal + 2008-2009 mean residual)
   and excludes short-term wind-driven surge, which Open-Meteo SMOC
   captures globally. Even the MARC atlases do not replace a SHOM tide
   atlas or paper chart for fine navigation in a narrow pass.
 
 - Current confidence (``current_confidence`` per leg): qualitative tag
-  derived from the data source. ``"high"`` on SHOM Atlas C2D and MARC
-  PREVIMER (regional harmonic atlases); ``"medium"`` on Open-Meteo SMOC
-  (8 km global product); ``None`` when no current data is available.
-  A data-driven downgrade in choke points (zones where SHOM C2D peaks
-  exceed ~3 kt) will land with the C2D adapter.
+  derived from the data source. ``"high"`` on SHOM Atlas C2D and on any
+  atlas at 1 km or finer (MARC 250 m and 700 m, BSH 90 m and 926 m);
+  ``"medium"`` on atlases coarser than 1 km (MARC ATLNE 2 km, Copernicus
+  1.5 to 4.2 km) and on Open-Meteo SMOC (8 km global product); ``None``
+  when no current is given.
+
+- Unknown current (``current_source: "unknown"``, speed and direction
+  ``None``): we say we do not know rather than quote a number nobody
+  should trust. Two cases. A documented zone where no source describes the
+  real stream (the Rance above its tidal power plant, whose basin follows
+  EDF's operating orders, not the tide); and a leg passing within 3 km of a
+  known pass its source cannot see (a fine atlas measured blind there, or
+  any coarse source at a pass no fine source serves). The leg's ETA is
+  computed without current, and a ``currents.unknown`` notice names the
+  places once per passage. Relay it: the sailor must use local tables or
+  sailing directions there. A third case has no name: dead water in a
+  coastal atlas (a river beyond the tidal model, such as the Seine above
+  Tancarville, a basin, a lock), where the atlas holds a zero current; it
+  is withheld the same way and raises ``currents.unknown_water`` with the
+  number of legs.
+  A ``currents.tidal_gap`` notice is raised when a leg whose current is
+  not from a fine source crosses a zone where tidal streams are probably
+  strong (a known race within 15 km, or more than 1.5 kt reconstructed
+  with no fine atlas): the value is kept but probably too weak, and the
+  notice names the places. Relay it.
 
 - Minimum boat speed / SOG: 0.5 kn floor to avoid blow-up in extreme
   stalls or strongly opposing currents.

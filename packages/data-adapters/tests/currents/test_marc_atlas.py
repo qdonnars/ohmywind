@@ -603,3 +603,523 @@ def test_cell_at_is_memoised_for_a_repeated_point(tmp_path: Path) -> None:
     _write_cells(atlas_dir, 48.0, -5.0, [(48.26, -4.76)])
     again = registry.cell_at(48.25, -4.75)
     assert again is first
+
+
+def _write_single_cell_atlas(
+    root: Path,
+    name: str,
+    metadata: dict,
+    lat: float,
+    lon: float,
+    *,
+    u_amp: float = 0.8,
+    v_amp: float = 0.3,
+) -> None:
+    """One-cell atlas at (lat, lon) with M2 constants (m/s) and the given metadata."""
+    atlas_dir = root / name
+    atlas_dir.mkdir()
+    (atlas_dir / "metadata.json").write_text(json.dumps(metadata))
+    (atlas_dir / "coverage.geojson").write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {"atlas": name},
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [
+                                [
+                                    [lon - 1, lat - 1],
+                                    [lon + 1, lat - 1],
+                                    [lon + 1, lat + 1],
+                                    [lon - 1, lat + 1],
+                                    [lon - 1, lat - 1],
+                                ]
+                            ],
+                        },
+                    }
+                ],
+            }
+        )
+    )
+    tile_lat = (lat // 0.5) * 0.5
+    tile_lon = (lon // 0.5) * 0.5
+    tile_dir = atlas_dir / f"tile_lat={tile_lat:.1f}" / f"tile_lon={tile_lon:.1f}"
+    tile_dir.mkdir(parents=True)
+    pl.DataFrame(
+        {
+            "lat": [lat],
+            "lon": [lon],
+            "M2_u_amp": [u_amp],
+            "M2_u_g": [100.0],
+            "M2_v_amp": [v_amp],
+            "M2_v_g": [190.0],
+        }
+    ).write_parquet(tile_dir / "data.parquet")
+
+
+def test_schema3_metadata_drives_label_and_validity(tmp_path: Path) -> None:
+    """A schema 3 atlas answers with its own label and refuses outside its validity box.
+
+    Two cells 0.4 degrees apart, both inside the bbox, only one inside
+    ``validity_bbox``: the other one must fall through to ``None`` even
+    though a cell sits right there.
+    """
+    _write_single_cell_atlas(
+        tmp_path,
+        "BSH_CUXBRU",
+        {
+            "atlas": "BSH_CUXBRU",
+            "zone": "cuxbru",
+            "rank": 3,
+            "resolution_m": 90,
+            "source": {"short": "bsh"},
+            "confidence": "high",
+            "validity_bbox": [53.8, 8.6, 53.95, 9.0],
+            "schema_version": 3,
+        },
+        53.88,
+        8.70,
+    )
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    atlas = registry.covers(53.88, 8.70)
+    assert atlas is not None
+    assert atlas.source_label == "bsh_cuxbru_90m"
+    assert atlas.validity_bbox == (53.8, 8.6, 53.95, 9.0)
+    assert registry.atlas_named("BSH_CUXBRU") is atlas
+    # Inside the bbox of the atlas (1 degree square) but outside validity.
+    assert registry.covers(54.3, 8.70) is None
+    assert registry.covers(53.88, 9.4) is None
+
+
+def test_schema2_metadata_keeps_historical_label(fixture_atlas: Path) -> None:
+    """The MARC fixture carries no source or zone: label and validity default."""
+    atlas = MarcAtlasRegistry.from_directory(fixture_atlas).covers(48.35, -4.80)
+    assert atlas is not None
+    assert atlas.source_label == "marc_finis_250m"
+    assert atlas.validity_bbox is None
+    assert atlas.confidence == "high"
+
+
+def test_validity_bbox_confines_a_coarse_atlas_but_not_a_fine_one(tmp_path: Path) -> None:
+    """ATLNE-style: coarse atlas valid only west of 3 E, fine atlas everywhere.
+
+    East of the line the coarse atlas must not answer, and with no fine
+    atlas there the registry returns ``None`` (the caller falls back to
+    SMOC); west of it the coarse atlas still answers.
+    """
+    _write_single_cell_atlas(
+        tmp_path,
+        "ATLNE",
+        {
+            "atlas": "ATLNE",
+            "rank": 0,
+            "resolution_m": 2000,
+            "validity_bbox": [40.0, -20.0, 53.0, 3.0],
+            "schema_version": 3,
+        },
+        53.87,
+        8.70,
+    )
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    assert registry.covers(53.87, 8.70) is None  # Cuxhaven: east of the line
+    # Same registry, a west-of-the-line atlas of the same kind still covers.
+    _write_single_cell_atlas(
+        tmp_path,
+        "ATLNE_W",
+        {
+            "atlas": "ATLNE_W",
+            "rank": 0,
+            "resolution_m": 2000,
+            "validity_bbox": [40.0, -20.0, 53.0, 3.0],
+            "schema_version": 3,
+        },
+        47.0,
+        -5.0,
+    )
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    atlas = registry.covers(47.0, -5.0)
+    assert atlas is not None and atlas.source_label == "marc_atlne_w_2000m"
+
+
+def test_coverage_cells_are_clipped_to_the_validity_bbox(tmp_path: Path) -> None:
+    """Published rectangles never extend where ``covers`` would refuse."""
+    _write_single_cell_atlas(
+        tmp_path,
+        "ATLNE",
+        {
+            "atlas": "ATLNE",
+            "rank": 0,
+            "resolution_m": 2000,
+            "validity_bbox": [40.0, -20.0, 53.0, 3.0],
+            "schema_version": 3,
+        },
+        53.87,
+        8.70,
+    )
+    _write_single_cell_atlas(
+        tmp_path,
+        "ATLNE_W",
+        {
+            "atlas": "ATLNE_W",
+            "rank": 0,
+            "resolution_m": 2000,
+            "validity_bbox": [40.0, -20.0, 53.0, 3.0],
+            "schema_version": 3,
+        },
+        52.9,
+        2.9,
+    )
+    cells = dict(MarcAtlasRegistry.from_directory(tmp_path).coverage_cells())
+    assert cells["ATLNE"] == ()  # the only tile lies east of 3 E
+    # The western tile (52.5 to 53.0 N, 2.5 to 3.0 E) touches the box edge and is kept whole.
+    assert cells["ATLNE_W"] == ((52.5, 2.5, 53.0, 3.0),)
+
+
+def test_atlas_can_declare_its_own_tile_pitch(tmp_path: Path) -> None:
+    """A global atlas cut in 2 degree tiles is found, predicted and published.
+
+    ``grid.tile_deg`` in the metadata drives the tile lookup, the seam
+    search and the coverage rectangles; the 0.5 degree default stays what
+    every MARC atlas uses.
+    """
+    atlas_dir = tmp_path / "FES_GLOBAL"
+    atlas_dir.mkdir()
+    (atlas_dir / "metadata.json").write_text(
+        json.dumps(
+            {
+                "atlas": "FES_GLOBAL",
+                "zone": "global",
+                "rank": 0,
+                "resolution_m": 7000,
+                "source": {"short": "fes"},
+                "grid": {"type": "regular_ll", "tile_deg": 2.0},
+                "schema_version": 3,
+            }
+        )
+    )
+    (atlas_dir / "coverage.geojson").write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {"atlas": "FES_GLOBAL"},
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[[0, 50], [12, 50], [12, 56], [0, 56], [0, 50]]],
+                        },
+                    }
+                ],
+            }
+        )
+    )
+    tile_dir = atlas_dir / "tile_lat=52.0" / "tile_lon=8.0"
+    tile_dir.mkdir(parents=True)
+    pl.DataFrame(
+        {
+            "lat": [53.1],
+            "lon": [9.3],
+            "M2_u_amp": [0.4],
+            "M2_u_g": [100.0],
+            "M2_v_amp": [0.1],
+            "M2_v_g": [190.0],
+        }
+    ).write_parquet(tile_dir / "data.parquet")
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    atlas = registry.covers(53.12, 9.31)
+    assert atlas is not None and atlas.tile_deg == 2.0
+    assert atlas.source_label == "fes_global_7000m"
+    # 7 km pitch: the threshold is 5 x 7 km = 35 km, so a point 20 km away
+    # in the same 2 degree tile is still answered by that cell.
+    assert registry.covers(53.28, 9.30) is atlas
+    assert registry.predict_current(53.12, 9.31, datetime(2026, 9, 20, tzinfo=UTC)) is not None
+    assert dict(registry.coverage_cells())["FES_GLOBAL"] == ((52.0, 8.0, 54.0, 10.0),)
+
+
+def test_the_serving_policy_withholds_a_published_atlas(tmp_path: Path) -> None:
+    """NorKyst is in the dataset but out of the cascade: the registry skips it
+    unless a study tool asks for everything."""
+    _write_single_cell_atlas(
+        tmp_path,
+        "NORKYST_LOFOTEN",
+        {
+            "atlas": "NORKYST_LOFOTEN",
+            "zone": "lofoten",
+            "rank": 1,
+            "resolution_m": 800,
+            "source": {"short": "norkyst"},
+            "schema_version": 3,
+        },
+        67.80,
+        12.83,
+    )
+    assert MarcAtlasRegistry.from_directory(tmp_path).atlases == ()
+    assert MarcAtlasRegistry.from_directory(tmp_path).covers(67.80, 12.83) is None
+    every = MarcAtlasRegistry.from_directory(tmp_path, withheld=frozenset())
+    assert [a.name for a in every.atlases] == ["NORKYST_LOFOTEN"]
+
+
+def test_gibraltar_is_cut_out_of_the_copernicus_tide(tmp_path: Path) -> None:
+    """The IBI atlas holds the tide alone and erases the Atlantic inflow in
+    the strait: it must not answer there, and still answers outside it."""
+    from openwind_data.currents.serving_policy import GIBRALTAR
+
+    meta = {
+        "atlas": "CMEMS_IBI",
+        "zone": "ibi",
+        "rank": 0,
+        "resolution_m": 3000,
+        "source": {"short": "cmems"},
+        "schema_version": 3,
+    }
+    _write_single_cell_atlas(tmp_path, "CMEMS_IBI", meta, 35.95, -5.60)
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    assert registry.atlas_named("CMEMS_IBI").excluded_bboxes == (GIBRALTAR,)
+    assert registry.covers(35.95, -5.60) is None
+    assert registry.cell_at(35.95, -5.60) is None
+    # Cadiz roads, same atlas, outside the box.
+    other = tmp_path / "other"
+    other.mkdir()
+    _write_single_cell_atlas(other, "CMEMS_IBI", meta, 36.50, -6.40)
+    atlas = MarcAtlasRegistry.from_directory(other).covers(36.50, -6.40)
+    assert atlas is not None and atlas.source_label == "cmems_ibi_3000m"
+
+
+def _meta(name: str, rank: int, resolution_m: int) -> dict:
+    return {
+        "atlas": name,
+        "zone": name.lower(),
+        "rank": rank,
+        "resolution_m": resolution_m,
+        "schema_version": 3,
+    }
+
+
+def test_a_coarse_atlas_passes_where_its_tide_is_weak(tmp_path: Path) -> None:
+    """ATLNE off Brittany holds a 0.08 kt tide: under 0.2 kt the general
+    current of the global model matters more, so the 2 km atlas passes, says
+    why, and a stronger coarse atlas below it in the cascade answers."""
+    _write_single_cell_atlas(
+        tmp_path, "ATLNE", _meta("ATLNE", 1, 2000), 47.5, -9.0, u_amp=0.03, v_amp=0.01
+    )
+    _write_single_cell_atlas(tmp_path, "CMEMS_NWS", _meta("CMEMS_NWS", 0, 1500), 47.5, -9.0)
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    atlas = registry.covers(47.5, -9.0)
+    assert atlas is not None and atlas.name == "CMEMS_NWS"
+    declined = registry.declined_at(47.5, -9.0)
+    assert [d.atlas.name for d in declined] == ["ATLNE"]
+    assert declined[0].reason == "weak_tide"
+    assert declined[0].max_tide_kt is not None and declined[0].max_tide_kt < 0.2
+
+
+def test_alone_and_weak_a_coarse_atlas_leaves_the_point_to_the_global_model(tmp_path: Path) -> None:
+    _write_single_cell_atlas(
+        tmp_path, "ATLNE", _meta("ATLNE", 1, 2000), 47.0, -12.0, u_amp=0.03, v_amp=0.01
+    )
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    assert registry.covers(47.0, -12.0) is None
+    assert registry.cell_at(47.0, -12.0) is None
+    assert [d.reason for d in registry.declined_at(47.0, -12.0)] == ["weak_tide"]
+
+
+def test_a_fine_atlas_answers_even_where_its_tide_is_weak(tmp_path: Path) -> None:
+    """A 250 m atlas in a sheltered bay: the weak tide is the information, and
+    the 8 km global model does not see the bay at all."""
+    _write_single_cell_atlas(
+        tmp_path, "FINIS", _meta("FINIS", 2, 250), 48.35, -4.50, u_amp=0.03, v_amp=0.01
+    )
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    atlas = registry.covers(48.35, -4.50)
+    assert atlas is not None and atlas.name == "FINIS"
+    assert registry.declined_at(48.35, -4.50) == []
+
+
+def test_the_gibraltar_box_is_named_when_declined(tmp_path: Path) -> None:
+    _write_single_cell_atlas(tmp_path, "CMEMS_IBI", _meta("CMEMS_IBI", 0, 3000), 35.95, -5.60)
+    declined = MarcAtlasRegistry.from_directory(tmp_path).declined_at(35.95, -5.60)
+    assert [(d.reason, d.box) for d in declined] == [("excluded", "gibraltar")]
+
+
+def test_an_atlas_built_without_its_weak_cells_says_weak_tide_where_it_has_none(
+    tmp_path: Path,
+) -> None:
+    """Copernicus NWS dropped its cells under 0.2 kt at build: off Brittany it
+    has none, and that is the weak-tide rule applied earlier, not a hole."""
+    meta = {**_meta("CMEMS_NWS", 0, 1500), "analysis": {"min_speed_kt": 0.2}}
+    _write_single_cell_atlas(tmp_path, "CMEMS_NWS", meta, 47.5, -9.0)
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    assert registry.atlas_named("CMEMS_NWS").min_speed_kt == 0.2
+    # Inside the 1-degree bbox, 60 km from the only cell.
+    [declined] = registry.declined_at(47.0, -9.5)
+    assert (declined.reason, declined.max_tide_kt) == ("weak_tide", None)
+
+
+def test_a_shelf_atlas_passes_too_whatever_its_grid(tmp_path: Path) -> None:
+    """MANGA is 700 m but a shelf atlas (rank 1): in the deep Bay of Biscay
+    its 0.06 kt tide is no more worth than ATLNE's, the general current
+    answers."""
+    _write_single_cell_atlas(
+        tmp_path, "MANGA", _meta("MANGA", 1, 700), 45.5, -4.0, u_amp=0.02, v_amp=0.01
+    )
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    assert registry.covers(45.5, -4.0) is None
+    assert [d.reason for d in registry.declined_at(45.5, -4.0)] == ["weak_tide"]
+
+
+def _write_rows(root: Path, name: str, meta: dict, rows: list[dict]) -> None:
+    """A coastal atlas whose cells all sit in one 0.5 degree tile."""
+    atlas_dir = root / name
+    atlas_dir.mkdir()
+    (atlas_dir / "metadata.json").write_text(json.dumps(meta))
+    lats = [r["lat"] for r in rows]
+    lons = [r["lon"] for r in rows]
+    ring = [
+        [min(lons) - 0.1, min(lats) - 0.1],
+        [max(lons) + 0.1, min(lats) - 0.1],
+        [max(lons) + 0.1, max(lats) + 0.1],
+        [min(lons) - 0.1, max(lats) + 0.1],
+        [min(lons) - 0.1, min(lats) - 0.1],
+    ]
+    (atlas_dir / "coverage.geojson").write_text(
+        json.dumps({"features": [{"geometry": {"type": "Polygon", "coordinates": [ring]}}]})
+    )
+    tile_dir = (
+        atlas_dir
+        / f"tile_lat={(lats[0] // 0.5) * 0.5:.1f}"
+        / f"tile_lon={(lons[0] // 0.5) * 0.5:.1f}"
+    )
+    tile_dir.mkdir(parents=True)
+    pl.DataFrame(
+        {
+            "lat": lats,
+            "lon": lons,
+            "M2_h_amp": [r["h"] for r in rows],
+            "M2_h_g": [100.0] * len(rows),
+            "M2_u_amp": [r["u"] for r in rows],
+            "M2_u_g": [100.0] * len(rows),
+            "M2_v_amp": [r["v"] for r in rows],
+            "M2_v_g": [190.0] * len(rows),
+        }
+    ).write_parquet(tile_dir / "data.parquet")
+
+
+_COASTAL = {
+    "atlas": "MANE",
+    "rank": 2,
+    "resolution_m": 250,
+    "constituents_u": ["M2"],
+    "constituents_v": ["M2"],
+    "schema_version": 3,
+}
+
+
+def test_a_dead_fringe_cell_gives_way_to_the_living_sea_cell_next_to_it(tmp_path: Path) -> None:
+    """The nearest U face is a zero-flow land-fringe cell; a living sea cell
+    sits 220 m away. The current comes from the living one, nothing is dead."""
+    _write_rows(
+        tmp_path,
+        "MANE",
+        _COASTAL,
+        [
+            {"lat": 49.300, "lon": 0.300, "h": 2.5, "u": 0.6, "v": 0.2},
+            {"lat": 49.302, "lon": 0.300, "h": 2.5, "u": 0.0, "v": 0.0},
+        ],
+    )
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    cell = registry.cell_at(49.3021, 0.300)
+    assert cell is not None and not cell.current_dead and not cell.height_dead
+    assert cell.u_constants["M2"][0] == 0.6
+
+
+def test_a_river_beyond_the_model_is_dead_water(tmp_path: Path) -> None:
+    """Rouen in MARC MANE: zero current, zero range, and no living cell within
+    three cells. Dead current and dead height, not a zero."""
+    _write_rows(
+        tmp_path,
+        "MANE",
+        _COASTAL,
+        [
+            {"lat": 49.300, "lon": 0.300, "h": 2.5, "u": 0.6, "v": 0.2},
+            {"lat": 49.440, "lon": 0.400, "h": 0.0, "u": 0.0, "v": 0.0},
+        ],
+    )
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    cell = registry.cell_at(49.440, 0.400)
+    assert cell is not None and cell.current_dead and cell.height_dead
+    assert (
+        registry.predict_current_series(49.440, 0.400, [datetime(2026, 1, 1, tzinfo=UTC)]) is None
+    )
+
+
+def test_explain_tells_the_decision_of_every_atlas_holding_the_point(tmp_path: Path) -> None:
+    """Off Brittany: ATLNE passes on a weak tide, NWS answers. Same answer as
+    covers(), with the reason of the one that passed."""
+    _write_single_cell_atlas(
+        tmp_path, "ATLNE", _meta("ATLNE", 1, 2000), 47.5, -9.0, u_amp=0.03, v_amp=0.01
+    )
+    _write_single_cell_atlas(tmp_path, "CMEMS_NWS", _meta("CMEMS_NWS", 0, 1500), 47.5, -9.0)
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    verdicts = registry.explain(47.5, -9.0)
+    assert [(v.atlas.name, v.decision) for v in verdicts] == [
+        ("ATLNE", "weak_tide"),
+        ("CMEMS_NWS", "used"),
+    ]
+    assert verdicts[0].max_tide_kt < 0.2 and verdicts[1].max_tide_kt > 0.2
+    assert registry.covers(47.5, -9.0).name == "CMEMS_NWS"
+
+
+def test_explain_says_dead_water_and_outside_validity(tmp_path: Path) -> None:
+    _write_rows(
+        tmp_path,
+        "MANE",
+        _COASTAL,
+        [
+            {"lat": 47.300, "lon": -2.300, "h": 2.5, "u": 0.6, "v": 0.2},
+            {"lat": 47.440, "lon": -2.400, "h": 0.0, "u": 0.0, "v": 0.0},
+        ],
+    )
+    meta = {**_meta("ATLNE", 1, 2000), "validity_bbox": [40.0, -20.0, 47.0, 3.0]}
+    _write_single_cell_atlas(tmp_path, "ATLNE", meta, 47.44, -2.40)
+    verdicts = MarcAtlasRegistry.from_directory(tmp_path).explain(47.44, -2.40)
+    assert [(v.atlas.name, v.decision) for v in verdicts] == [
+        ("MANE", "dead_water"),
+        ("ATLNE", "outside_validity"),
+    ]
+
+
+def test_the_mediterranean_atlas_stays_in_the_mediterranean(tmp_path: Path) -> None:
+    """Its model's domain reaches the Bay of Biscay; measured there at 1.7 to
+    3.1 times the observed M2, it must not answer outside its own sea."""
+    meta = {**_meta("CMEMS_MED", 0, 4200), "source": {"short": "cmems"}}
+    for name, (lat, lon) in {
+        "biscay": (43.6, -2.3),
+        "cadiz": (36.6, -7.0),
+        "lion": (43.0, 4.0),
+    }.items():
+        root = tmp_path / name
+        root.mkdir()
+        _write_single_cell_atlas(root, "CMEMS_MED", meta, lat, lon)
+        registry = MarcAtlasRegistry.from_directory(root)
+        if name == "lion":
+            assert registry.covers(lat, lon) is not None
+        else:
+            assert registry.covers(lat, lon) is None
+            assert [(d.reason, d.box) for d in registry.declined_at(lat, lon)] == [
+                ("excluded", "atlantic")
+            ]
+
+
+def test_an_atlas_built_without_weak_cells_reaches_one_cell_only(tmp_path: Path) -> None:
+    """Its holes mean "weak tide here": a point 3 km from the only cell of a
+    1.5 km atlas is not covered (the map draws nothing there either), a
+    point 1 km away is."""
+    meta = {**_meta("CMEMS_NWS", 0, 1500), "analysis": {"min_speed_kt": 0.2}}
+    _write_single_cell_atlas(tmp_path, "CMEMS_NWS", meta, 47.5, -9.0)
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    assert registry.covers(47.509, -9.0) is not None  # 1 km north
+    assert registry.covers(47.527, -9.0) is None  # 3 km north
+    assert [d.reason for d in registry.declined_at(47.527, -9.0)] == ["weak_tide"]

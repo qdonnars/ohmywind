@@ -29,6 +29,8 @@ import { useRouter } from "./router";
 // de payloads lazy de la boundary.
 const loadMethodologie = () =>
   import("./routes/MethodologiePage").then((m) => ({ default: m.MethodologiePage }));
+const loadMethodologieCourants = () =>
+  import("./routes/MethodologiePage").then((m) => ({ default: m.MethodologieCourantsPage }));
 const loadConfidentialite = () =>
   import("./routes/ConfidentialitePage").then((m) => ({ default: m.ConfidentialitePage }));
 
@@ -80,6 +82,8 @@ export function Routes() {
       return <PressPage key={key} />;
     case "methodologie":
       return <LazyPageBoundary key={key} load={loadMethodologie} fallback={<DocFallback />} />;
+    case "methodologie-courants":
+      return <LazyPageBoundary key={key} load={loadMethodologieCourants} fallback={<DocFallback />} />;
     case "confidentialite":
       return <LazyPageBoundary key={key} load={loadConfidentialite} fallback={<DocFallback />} />;
     case "not-found":

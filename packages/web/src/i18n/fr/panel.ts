@@ -85,6 +85,7 @@ export const panel = {
   "panel.legDetail.currentFoul": "{speed} kn contraire",
   "panel.legDetail.currentAcross": "{speed} kn de travers",
   "panel.legDetail.currentPlain": "{speed} kn",
+  "panel.legDetail.currentUnknown": "inconnu",
   "panel.legDetail.buildUpPolar": "{value} polaire",
   "panel.legDetail.buildUpSea": "{value} mer",
   "panel.legDetail.buildUpCurrent": "{value} courant",

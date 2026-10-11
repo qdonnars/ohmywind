@@ -333,7 +333,13 @@ DEFAULT_LIMITED_PATHS = ("/api/v1/passage", "/api/v1/passage-by-eta")
 # number of points: it exists to replace up to 21 GETs with one request, and
 # charging it 21 tokens would hand back with the limiter what the round trips
 # gave. Its ceiling is the point count, enforced where the body is read.
-DEFAULT_MARC_LIMITED_PATHS = ("/api/v1/marine/marc", "/api/v1/marine/marc/batch")
+# The explain route (the map's audit card, one call per click) shares the
+# bucket too: it reconstructs a spring tide per atlas holding the point.
+DEFAULT_MARC_LIMITED_PATHS = (
+    "/api/v1/marine/marc",
+    "/api/v1/marine/marc/batch",
+    "/api/v1/marine/marc/explain",
+)
 
 # 30 requests per 60s, not per 300s. The bucket key is an IP, so everyone
 # behind one NAT shares it: a marina wifi, an office, a mobile carrier on

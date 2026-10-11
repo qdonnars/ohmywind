@@ -58,6 +58,10 @@ export interface AggregatedLeg {
   current_direction_to_deg: number | null;
   // Sign of current_delta_kn translated to a sailor-friendly label.
   current_relative: "portant" | "contraire" | "travers" | null;
+  // True when the server withheld the current on at least one segment
+  // (``current_source: "unknown"``: a documented zone or a pass its source
+  // cannot see). The card then says "unknown" instead of leaving a gap.
+  current_unknown: boolean;
 
   // True when more than half of the leg's distance was covered with the
   // engine on (per-segment motor_used aggregated by distance share). Used to
@@ -351,6 +355,7 @@ export function aggregateSegments(
     current_speed_kn,
     current_direction_to_deg,
     current_relative,
+    current_unknown: segs.some((s) => s.current_source === "unknown"),
     motor_used,
     segment_range: range,
   };
