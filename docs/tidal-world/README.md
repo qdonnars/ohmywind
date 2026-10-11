@@ -19,6 +19,7 @@ Documents liés :
 - [`../harmonic_atlas_format.md`](../harmonic_atlas_format.md) : spec du format standard (schéma 3).
 - [`spike-bsh.md`](spike-bsh.md) : spike bout en bout sur la source BSH (Allemagne).
 - [`spike-cmems-arctic.md`](spike-cmems-arctic.md) : trous de la zone objectif au 2026-09-22 et spike Copernicus Arctique avec marée (Islande, 3 km).
+- [`bench-observations.md`](bench-observations.md) : la cascade servie, SMOC et l'hybride contre les radars HF (Iroise, baie allemande, Pays basque, Gibraltar) et des courantomètres du golfe de Gascogne (2026-10-11).
 - [`map/index.html`](map/index.html) : carte interactive (ouvrir le fichier dans un navigateur).
 - `.github/workflows/archive-bsh-currents.yml` : archivage quotidien, désactivé par défaut.
 
