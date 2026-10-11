@@ -69,6 +69,19 @@ function measureColumns(el: HTMLElement, count: number): ColumnLefts | null {
   return lefts[lefts.length - 1] > 0 ? lefts : null;
 }
 
+/**
+ * Snap the hour columns to the edge of the sticky first column, not to the
+ * scroller's own edge hidden under it. Every cell snaps to `start`
+ * (index.css), and without this padding a snap landed the column under the
+ * model labels, leaving its neighbour half shown: « .6 kn » under « AROME
+ * HD », the day badge read « N 12 » for « LUN 12 », after a swipe from one
+ * day to the next. The first hour column starts where the sticky one ends,
+ * so its left edge is the padding; the compare table does the same.
+ */
+function padForStickyColumn(el: HTMLElement, lefts: ColumnLefts | null): void {
+  el.style.scrollPaddingLeft = lefts ? `${lefts[0]}px` : "";
+}
+
 export interface TimelineScroll {
   /** Attach to the scrolling container. */
   scrollRef: React.RefObject<HTMLDivElement | null>;
@@ -138,6 +151,7 @@ export function useTimelineScroll(
     if (!el || masterTimeline.length === 0) return;
     const lefts = measureColumns(el, masterTimeline.length);
     columnLeftsRef.current = lefts;
+    padForStickyColumn(el, lefts);
     const hasAnchor = leftmostHourRef.current != null;
     const anchor = leftmostHourRef.current ?? nowHour;
     const idx = masterTimeline.findIndex((t) => t.startsWith(anchor.slice(0, 13)));
@@ -163,6 +177,7 @@ export function useTimelineScroll(
     if (typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(() => {
       columnLeftsRef.current = measureColumns(el, masterTimeline.length);
+      padForStickyColumn(el, columnLeftsRef.current);
       updateVisibleDay();
     });
     ro.observe(table);
