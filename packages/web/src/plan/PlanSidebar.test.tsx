@@ -15,6 +15,7 @@ import userEvent from "@testing-library/user-event";
 import { PlanSidebar } from "./PlanSidebar";
 import { ReturnBanner } from "./ReturnBanner";
 import { DepartureSlider } from "./sidebar/DepartureSlider";
+import { StatBand } from "./PlanStates";
 import { PlanProvider } from "./session/PlanProvider";
 import type { PlanContextValue } from "./session/planContext";
 import { createInitialState, type PlanState } from "./session/reducer";
@@ -22,7 +23,7 @@ import type { InitialSession } from "./session/initial";
 import type { PlanActions } from "./session/usePlanSession";
 import type { PassageReport, ComplexityScore, PassageWindow, Archetype } from "./types";
 import { resetPolarConfigSnapshot } from "../config/usePolarConfig";
-import { fmtClock, toNaiveLocal, toTzAware } from "../domain/datetime";
+import { capitalise, fmtClock, fmtDay, toNaiveLocal, toTzAware } from "../domain/datetime";
 import { presetLatest } from "./compare/slots";
 import type { ReactNode } from "react";
 
@@ -487,6 +488,33 @@ describe("open leg", () => {
     expect(screen.getByText(`${fmtClock("2026-09-10T08:00:00+02:00")} → ${fmtClock("2026-09-10T18:00:00+02:00")}`)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Détail" })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Pas / })).toBeNull();
+  });
+});
+
+// ── The arrival's day, in the totals ─────────────────────────────────────────
+// The expected day goes through the same formatter rather than being written
+// out: the instants carry their offset, the runner's timezone stays free.
+
+describe("arrival day", () => {
+  const overnight = (): PassageReport => ({
+    ...passage(),
+    arrival_time: "2026-09-11T08:07:00+02:00",
+    duration_h: 24.1,
+  });
+  const nextDay = capitalise(fmtDay("2026-09-11T08:07:00+02:00"));
+
+  it("names the day of an arrival that is not the departure's, in both totals", () => {
+    mount({ passage: overnight(), complexity: complexity() });
+    expect(screen.getByText(nextDay)).toBeTruthy();
+    cleanup();
+    render(<StatBand passage={overnight()} />);
+    expect(screen.getByText(nextDay)).toBeTruthy();
+    expect(screen.getByText(fmtClock("2026-09-11T08:07:00+02:00"))).toBeTruthy();
+  });
+
+  it("gives the hour alone when the passage ends on its departure day", () => {
+    render(<StatBand passage={passage()} />);
+    expect(screen.queryByText(capitalise(fmtDay("2026-09-10T18:00:00+02:00")))).toBeNull();
   });
 });
 
