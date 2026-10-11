@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { InfoPanel } from "./InfoPanel";
+import { useWhatsNewDot } from "../config/whatsNewSeen";
 import { useBackDismiss } from "../hooks/useBackDismiss";
 import { useT } from "../i18n";
 
@@ -17,7 +18,7 @@ function InfoIcon() {
   );
 }
 
-function InfoModal({ onClose }: { onClose: () => void }) {
+function InfoModal({ onClose, whatsNewUnseen }: { onClose: () => void; whatsNewUnseen: boolean }) {
   const { t } = useT();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -63,7 +64,7 @@ function InfoModal({ onClose }: { onClose: () => void }) {
         >
           ✕
         </button>
-        <InfoPanel />
+        <InfoPanel whatsNewUnseen={whatsNewUnseen} />
       </div>
     </div>,
     document.body,
@@ -77,18 +78,36 @@ export function InfoButton() {
   // Android's back button closes the modal instead of leaving the app, the
   // same as the ✕ and Escape (issue #300).
   useBackDismiss(open, close);
+  // A release this browser has not looked at yet: a dot on the button and on
+  // the "Quoi de neuf" entry at the top of the panel, until the page is opened.
+  const whatsNewDot = useWhatsNewDot();
   return (
     <>
       <button
         onClick={() => setOpen(true)}
-        aria-label={t("explore.infoPanel.title")}
+        aria-label={whatsNewDot ? `${t("explore.infoPanel.title")}, ${t("common.nav.whatsNew.unseen")}` : t("explore.infoPanel.title")}
         title={t("explore.infoButton.title")}
-        className="shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg transition-colors"
+        className="relative shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg transition-colors"
         style={{ color: "var(--ow-fg-1)", background: "transparent" }}
       >
         <InfoIcon />
+        {whatsNewDot && (
+          <span
+            aria-hidden="true"
+            data-testid="whats-new-dot"
+            className="absolute rounded-full"
+            style={{
+              top: 5,
+              right: 5,
+              width: 10,
+              height: 10,
+              background: "var(--ow-accent)",
+              border: "2px solid var(--ow-bg-1)",
+            }}
+          />
+        )}
       </button>
-      {open && <InfoModal onClose={close} />}
+      {open && <InfoModal onClose={close} whatsNewUnseen={whatsNewDot} />}
     </>
   );
 }

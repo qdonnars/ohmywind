@@ -49,7 +49,17 @@ function MoreLink({ href, children }: { href: string; children: ReactNode }) {
   );
 }
 
-export function InfoPanel() {
+// "Quoi de neuf": a four-point sparkle, the usual mark for something new.
+const SparkleIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 3c.6 4.6 2.4 6.4 7 7-4.6.6-6.4 2.4-7 7-.6-4.6-2.4-6.4-7-7 4.6-.6 6.4-2.4 7-7Z" />
+    <path d="M19 15.5c.2 1.4.8 2 2.2 2.2-1.4.2-2 .8-2.2 2.2-.2-1.4-.8-2-2.2-2.2 1.4-.2 2-.8 2.2-2.2Z" />
+  </svg>
+);
+
+/** `whatsNewUnseen`: the app runs a release this browser has not read about
+    yet, so the "Quoi de neuf" entry carries the same dot as the button. */
+export function InfoPanel({ whatsNewUnseen = false }: { whatsNewUnseen?: boolean }) {
   const { t } = useT();
   return (
     <div
@@ -62,6 +72,46 @@ export function InfoPanel() {
       >
         {t("explore.infoPanel.title")}
       </h2>
+
+      {/* The version the app runs and the way to what changed in it, under
+          the title: the panel is "about the app", and the release log is the
+          part of it that moves. Opening the page is what clears the dot. */}
+      <a
+        href="/nouveautes"
+        className="mb-4 flex items-center gap-[11px] rounded-xl transition-colors hover:bg-surface-2"
+        style={{ padding: "10px 11px", border: "1px solid var(--ow-line)" }}
+      >
+        <span
+          aria-hidden="true"
+          className="shrink-0 rounded-lg flex items-center justify-center"
+          style={{ width: 30, height: 30, background: "var(--ow-bg-3)", color: "var(--ow-fg-1)" }}
+        >
+          <span style={{ width: 16, height: 16 }}>{SparkleIcon}</span>
+        </span>
+        <span className="flex-1 min-w-0 flex flex-col">
+          <span className="text-[13.5px] font-semibold leading-tight" style={{ color: "var(--ow-fg-0)" }}>
+            {t("common.nav.whatsNew.title")}
+          </span>
+          <span className="text-[11px] leading-tight mt-px" style={{ color: "var(--ow-fg-2)" }}>
+            {t("common.version", { version: APP_VERSION })}
+          </span>
+        </span>
+        {whatsNewUnseen && (
+          <>
+            <span
+              aria-hidden="true"
+              className="shrink-0 rounded-full"
+              style={{ width: 8, height: 8, background: "var(--ow-accent)" }}
+            />
+            <span className="sr-only">{t("common.nav.whatsNew.unseen")}</span>
+          </>
+        )}
+        <span aria-hidden="true" className="shrink-0" style={{ color: "var(--ow-fg-2)" }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 6 15 12 9 18" />
+          </svg>
+        </span>
+      </a>
 
       {/* Usage disclaimer. Used to be a sticky band at the bottom of the plan
           panel; it now lives here, first thing in the panel, so the plan view
@@ -177,14 +227,6 @@ export function InfoPanel() {
           is exactly this panel. Removing this block without putting the
           corner notice back on the map would breach the ODbL. */}
       <footer className="mt-6">
-        {/* The version the app runs, and the way to what changed in it. */}
-        <p className="text-xs leading-relaxed mb-2" style={{ color: "var(--ow-fg-2)" }}>
-          {t("common.version", { version: APP_VERSION })}
-          {" · "}
-          <a href="/nouveautes" className="underline hover:opacity-80" style={{ color: "var(--ow-accent)" }}>
-            {t("common.nav.whatsNew.title")}
-          </a>
-        </p>
         <p className="text-xs leading-relaxed" style={{ color: "var(--ow-fg-2)" }}>
           {rich(t("explore.infoPanel.credits.basemap"), {
             osm: ext("https://www.openstreetmap.org/copyright"),

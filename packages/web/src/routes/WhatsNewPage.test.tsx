@@ -32,7 +32,7 @@ describe("WhatsNewPage", () => {
     expect(link.getAttribute("target")).toBe("_blank");
   });
 
-  it("clears the menu dot by recording the version as seen", () => {
+  it("clears the dot on the \"i\" by recording the version as seen", () => {
     render(<WhatsNewPage />);
     expect(localStorage.getItem(LOCAL_STORAGE_KEYS.whatsNewSeen)).toBe(APP_VERSION);
   });
