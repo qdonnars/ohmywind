@@ -490,6 +490,8 @@ export function TidalSourcesMap() {
         ? d.max_tide_kt != null
           ? t("config.methodo.tidal.reason.weakTide", { kt: fmtKt(d.max_tide_kt) })
           : t("config.methodo.tidal.reason.weakTideBuild")
+        : d.reason === "excluded" && d.box === "atlantic"
+          ? t("config.methodo.tidal.reason.outsideValidity")
         : d.reason === "excluded"
           ? t("config.methodo.tidal.reason.excludedBox", {
               box: d.box === "gibraltar" ? t("config.methodo.tidal.box.gibraltar") : (d.box ?? "?"),
@@ -627,6 +629,9 @@ export function TidalSourcesMap() {
             ? t("config.methodo.tidal.reason.weakTide", { kt: fmtKt(x.max_tide_kt) })
             : t("config.methodo.tidal.reason.weakTideBuild");
         case "excluded":
+          // The Atlantic boxes keep the Mediterranean atlas in its own sea:
+          // outside the waters it was built for, not a strait to cut out.
+          if (x.box === "atlantic") return t("config.methodo.tidal.reason.outsideValidity");
           return t("config.methodo.tidal.reason.excludedBox", {
             box: x.box === "gibraltar" ? t("config.methodo.tidal.box.gibraltar") : (x.box ?? "?"),
           });
