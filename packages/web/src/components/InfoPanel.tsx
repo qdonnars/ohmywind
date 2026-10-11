@@ -3,6 +3,7 @@
 
 import type { ReactNode } from "react";
 import { rich, useT, type Key } from "../i18n";
+import { APP_VERSION } from "../utils/version";
 
 /** Every credit link opens in a new tab, hence the same three attributes on
     each: the panel is read mid-planning and must not take the map away. */
@@ -176,6 +177,14 @@ export function InfoPanel() {
           is exactly this panel. Removing this block without putting the
           corner notice back on the map would breach the ODbL. */}
       <footer className="mt-6">
+        {/* The version the app runs, and the way to what changed in it. */}
+        <p className="text-xs leading-relaxed mb-2" style={{ color: "var(--ow-fg-2)" }}>
+          {t("common.version", { version: APP_VERSION })}
+          {" · "}
+          <a href="/nouveautes" className="underline hover:opacity-80" style={{ color: "var(--ow-accent)" }}>
+            {t("common.nav.whatsNew.title")}
+          </a>
+        </p>
         <p className="text-xs leading-relaxed" style={{ color: "var(--ow-fg-2)" }}>
           {rich(t("explore.infoPanel.credits.basemap"), {
             osm: ext("https://www.openstreetmap.org/copyright"),

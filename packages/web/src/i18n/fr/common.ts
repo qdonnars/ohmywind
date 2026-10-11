@@ -23,6 +23,16 @@ export const common = {
   "common.nav.compare.title": "Comparer mes spots",
   "common.nav.compare.desc": "Mes favoris côte à côte",
 
+  // Quoi de neuf : l'entrée du menu, la page /nouveautes et la version
+  "common.version": "Version {version}",
+  "common.nav.whatsNew.title": "Quoi de neuf",
+  "common.nav.whatsNew.unseen": "Nouvelle version",
+  "common.whatsNew.intro":
+    "Ce qui a changé dans OhMyWind, de la version la plus récente à la plus ancienne. Le site et le serveur MCP partagent un même numéro de version, l'application Android garde le sien.",
+  "common.whatsNew.current": "Version actuelle",
+  "common.whatsNew.upcoming": "En préparation",
+  "common.whatsNew.allReleases": "Toutes les versions sur GitHub",
+
   // Quota gratuit d'Open-Meteo épuisé : quel compteur, pour qui, et quand il
   // revient. Le fragment {window} est une locution prépositionnelle dans les
   // cinq langues, d'où une seule phrase par côté au lieu de trois.

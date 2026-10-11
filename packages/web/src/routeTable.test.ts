@@ -14,6 +14,7 @@ describe("matchRoute", () => {
     expect(matchRoute("/methodologie/courants")).toBe("methodologie-courants");
     expect(matchRoute("/confidentialite")).toBe("confidentialite");
     expect(matchRoute("/presse")).toBe("press");
+    expect(matchRoute("/nouveautes")).toBe("whats-new");
   });
 
   it("answers not-found for an unknown path", () => {

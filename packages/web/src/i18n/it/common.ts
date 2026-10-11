@@ -23,6 +23,15 @@ export const common: Record<keyof typeof frCommon, string> = {
   "common.nav.compare.title": "Confrontare i miei spot",
   "common.nav.compare.desc": "I miei preferiti fianco a fianco",
 
+  "common.version": "Versione {version}",
+  "common.nav.whatsNew.title": "Novità",
+  "common.nav.whatsNew.unseen": "Nuova versione",
+  "common.whatsNew.intro":
+    "Cosa è cambiato in OhMyWind, dalla versione più recente alla più vecchia. Il sito e il server MCP condividono lo stesso numero di versione, l'app Android ha il suo. Le note di versione sono in inglese.",
+  "common.whatsNew.current": "Versione attuale",
+  "common.whatsNew.upcoming": "In preparazione",
+  "common.whatsNew.allReleases": "Tutte le versioni su GitHub",
+
   "common.quota.connection":
     "Il servizio meteo gratuito (Open-Meteo) ha raggiunto il limite di richieste {window} per la sua connessione. {reset}",
   "common.quota.server":
