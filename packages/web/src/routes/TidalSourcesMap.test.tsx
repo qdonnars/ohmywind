@@ -100,11 +100,12 @@ describe("TidalSourcesMap", () => {
     expect(container.querySelector(".leaflet-container")).not.toBeNull();
     const fetched = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]));
     for (const name of Object.keys(FILES)) expect(fetched.some((u) => u.endsWith(name))).toBe(true);
-    expect(screen.getByText(/Courant de marée calculé depuis les atlas/)).toBeTruthy();
-    expect(screen.getByText(/^Couvert :/)).toBeTruthy();
+    expect(screen.getByText(/Ce que l'application utilise ici/)).toBeTruthy();
+    expect(screen.getByText(/^Courant de marée seul \(atlas\)/)).toBeTruthy();
+    expect(screen.getByText(/^Courants généraux Copernicus/)).toBeTruthy();
     expect(screen.getByText(/source ouverte identifiée$/)).toBeTruthy();
     expect(screen.getByText(/fermées ou à clarifier$/)).toBeTruthy();
-    expect(screen.getByText(/Plus de 1,5 kt non couvert, aucune source connue$/)).toBeTruthy();
+    expect(screen.getByText(/ne résout : aucune source connue$/)).toBeTruthy();
     expect(container.querySelector(".methodo-map-canvas")?.getAttribute("aria-busy")).toBe("false");
     // The registry: one row per source, its box draws the extent, a mailto row last.
     const box = container.querySelector<HTMLInputElement>("#tidal-source-norkyst800");

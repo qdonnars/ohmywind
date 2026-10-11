@@ -118,7 +118,11 @@ function hideMaritimeBoundaries(glMap: MaplibreMap): void {
   }
 }
 
-export function addBasemap(map: L.Map, theme: BasemapTheme): Basemap {
+export function addBasemap(
+  map: L.Map,
+  theme: BasemapTheme,
+  options: { seaColor?: string } = {},
+): Basemap {
   let current = theme;
 
   if (!hasWebGL2()) {
@@ -155,6 +159,12 @@ export function addBasemap(map: L.Map, theme: BasemapTheme): Basemap {
     glMap.on("style.load", () => {
       if (!glMap) return;
       hideMaritimeBoundaries(glMap);
+      // A map that gives the sea a meaning (the tidal map: "general currents"
+      // wherever no tidal atlas answers) paints it in that colour.
+      if (options.seaColor) {
+        if (glMap.getLayer("water")) glMap.setPaintProperty("water", "fill-color", options.seaColor);
+        return;
+      }
       if (current !== "dark") return;
       if (glMap.getLayer("water")) glMap.setPaintProperty("water", "fill-color", DARK_SEA);
       if (glMap.getLayer("waterway")) glMap.setPaintProperty("waterway", "line-color", DARK_SEA);

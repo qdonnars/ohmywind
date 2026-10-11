@@ -152,6 +152,9 @@ const STATUS_COLOR: Record<ZoneStatus, string> = {
 const OBJECTIVE_COLOR = "#1f2937";
 /** Covered water where the tide is not significant. */
 const NEGLIGIBLE_COLOR = "#3b82c4";
+// The sea of the basemap: Copernicus's general currents, wherever no tidal
+// atlas answers (no atlas there, or a tide under 0.2 kt).
+const GENERAL_SEA_COLOR = "#a9c6e3";
 // Documented zones where the current is withheld (domain/unknownCurrent):
 // greyed over the rasters, since the app shows no value there.
 const UNKNOWN_ZONE_COLOR = "#6b7280";
@@ -196,12 +199,11 @@ async function loadLayers(): Promise<Layers> {
 
 /** The maximum-current rasters, decoded: each PNG is drawn through a canvas
     into an image overlay (calm colour under 0.5 kt, the ramp above, nothing
-    where the atlas has no cell) and kept for the value under a click. A
-    coarse atlas's cells under 0.2 kt go to a second overlay in the "general
-    currents" blue, drawn under every raster: the server passes them on to the
-    global model, and a finer or lower-ranked atlas that does answer there
-    must show through. Best effort: a missing manifest or a browser without
-    canvas leaves the map without them. */
+    where the atlas has no cell, nor where the server does not use it: an
+    open-sea atlas under 0.2 kt, dead water of a coastal one) and kept for
+    the value under a click. Where nothing is drawn the sea shows through,
+    in the general-currents colour. Best effort: a missing manifest or a
+    browser without canvas leaves the map without them. */
 /** ``/api/v1/marine/marc/explain``: the server's audit of one point. */
 type ExplainAtlas = {
   atlas: string;
@@ -247,13 +249,12 @@ type DeclinedAtlas = {
   box?: string;
 };
 
-type RasterOverlay = { url: string; bounds: L.LatLngBoundsExpression; width: number; weak: boolean };
+type RasterOverlay = { url: string; bounds: L.LatLngBoundsExpression; width: number };
 
 async function loadRasters(): Promise<{ grids: RasterGrid[]; overlays: RasterOverlay[] }> {
   const manifest = await loadJson<RasterManifest>("raster/rasters.json");
   const grids: RasterGrid[] = [];
   const overlays: RasterOverlay[] = [];
-  const weakRgb = hexToRgb(NEGLIGIBLE_COLOR);
   for (const entry of manifest.rasters) {
     const img = new Image();
     img.decoding = "async";
@@ -272,8 +273,6 @@ async function loadRasters(): Promise<{ grids: RasterGrid[]; overlays: RasterOve
     const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const values = new Uint8Array(canvas.width * canvas.height);
     const out = ctx.createImageData(canvas.width, canvas.height);
-    const weak = ctx.createImageData(canvas.width, canvas.height);
-    let weakCount = 0;
     const cache = new Map<number, [number, number, number]>();
     for (let i = 0; i < values.length; i++) {
       const v = pixels.data[i * 4];
@@ -282,14 +281,9 @@ async function loadRasters(): Promise<{ grids: RasterGrid[]; overlays: RasterOve
       const kt = (v - 1) / entry.scale;
       // Dead water of a coastal atlas: withheld by the server, drawn as nothing.
       if (isDeadCoastal(entry, kt)) continue;
-      if (isWeakCoarse(entry, kt)) {
-        weak.data[i * 4] = weakRgb[0];
-        weak.data[i * 4 + 1] = weakRgb[1];
-        weak.data[i * 4 + 2] = weakRgb[2];
-        weak.data[i * 4 + 3] = 255;
-        weakCount++;
-        continue;
-      }
+      // A tide too weak to answer: the general current does, and the sea
+      // under the rasters is already its colour.
+      if (isWeakCoarse(entry, kt)) continue;
       let rgb = cache.get(v);
       if (!rgb) {
         rgb = kt >= 0.5 ? hexToRgb(rampColor(kt)) : hexToRgb(CALM_COLOR);
@@ -301,12 +295,8 @@ async function loadRasters(): Promise<{ grids: RasterGrid[]; overlays: RasterOve
       out.data[i * 4 + 3] = 255;
     }
     grids.push(new RasterGrid(entry, canvas.width, canvas.height, values));
-    if (weakCount > 0) {
-      ctx.putImageData(weak, 0, 0);
-      overlays.push({ url: canvas.toDataURL("image/png"), bounds: entry.bounds, width: canvas.width, weak: true });
-    }
     ctx.putImageData(out, 0, 0);
-    overlays.push({ url: canvas.toDataURL("image/png"), bounds: entry.bounds, width: canvas.width, weak: false });
+    overlays.push({ url: canvas.toDataURL("image/png"), bounds: entry.bounds, width: canvas.width });
   }
   return { grids, overlays };
 }
@@ -701,7 +691,9 @@ export function TidalSourcesMap() {
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const map = L.map(containerRef.current, { center: [51, 1], zoom: 4, worldCopyJump: true, scrollWheelZoom: false });
-    addBasemap(map, "light");
+    // The sea itself is the "general currents" colour: everywhere no tidal
+    // atlas answers, the app uses Copernicus's general current.
+    addBasemap(map, "light", { seaColor: GENERAL_SEA_COLOR });
     mapRef.current = map;
     // The figure sits in a lazily rendered article: its box settles after
     // the map is created (fonts, images, the phone's toolbar), and Leaflet
@@ -738,20 +730,12 @@ export function TidalSourcesMap() {
         // from the rasters, drawn underneath, coarse first and fine on top.
         const rasterPane = map.createPane("tidal-rasters");
         rasterPane.style.zIndex = "350";
-        // Under every raster: where a coarse atlas finds under 0.2 kt and
-        // nothing else answers, the general currents of the global model.
-        const weakPane = map.createPane("tidal-weak");
-        weakPane.style.zIndex = "340";
         void loadRasters()
           .then(({ grids, overlays }) => {
             if (cancelled) return;
             gridsRef.current = grids;
             const layers = overlays.map((o) => ({
-              layer: L.imageOverlay(o.url, o.bounds, {
-                opacity: o.weak ? 0.42 : 0.72,
-                interactive: false,
-                pane: o.weak ? "tidal-weak" : "tidal-rasters",
-              }).addTo(map),
+              layer: L.imageOverlay(o.url, o.bounds, { opacity: 0.85, interactive: false, pane: "tidal-rasters" }).addTo(map),
               bounds: L.latLngBounds(o.bounds as L.LatLngTuple[]),
               width: o.width,
             }));
@@ -779,9 +763,6 @@ export function TidalSourcesMap() {
             },
           },
         ).addTo(map);
-        L.geoJSON(d.negligible, {
-          style: { color: NEGLIGIBLE_COLOR, weight: 0, fillColor: NEGLIGIBLE_COLOR, fillOpacity: 0.42, interactive: false },
-        }).addTo(map);
         L.geoJSON(unknownZones as unknown as FeatureCollection, {
           style: { color: "#374151", weight: 1.2, dashArray: "4 3", fillColor: UNKNOWN_ZONE_COLOR, fillOpacity: 0.6, interactive: false },
         }).addTo(map);
@@ -934,7 +915,7 @@ export function TidalSourcesMap() {
           <span>{t("config.methodo.tidal.legend.passes")}</span>
         </div>
         <div className="methodo-map-item">
-          <span className="methodo-map-swatch" style={{ background: NEGLIGIBLE_COLOR, opacity: 0.55 }} />
+          <span className="methodo-map-swatch" style={{ background: GENERAL_SEA_COLOR }} />
           <span>{t("config.methodo.tidal.legend.negligible")}</span>
         </div>
         <div className="methodo-map-item">
