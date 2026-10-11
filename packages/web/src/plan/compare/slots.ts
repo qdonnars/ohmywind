@@ -31,7 +31,7 @@ export const WINDOW_PRESETS_H = [24, 48, 72, 168] as const;
 
 /** The window a comparison opens on: the two days after the plan's departure,
     « je veux partir dans les deux jours ». */
-export const DEFAULT_WINDOW_H = 48;
+const DEFAULT_WINDOW_H = 48;
 
 /** Steps offered as chips. Twelve hours told nothing a day did not. */
 export const STEP_CHOICES_H = [1, 3, 6] as const;

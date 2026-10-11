@@ -8,7 +8,7 @@ import type { Lang } from "../i18n";
  * lives. Bateaux.com publishes each piece on five sister sites, one per
  * language, so an article is a set of editions rather than one URL.
  */
-export interface PressEdition {
+interface PressEdition {
   lang: Lang;
   url: string;
   /** The host the reader lands on, shown in the link so the jump from

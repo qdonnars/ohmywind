@@ -139,10 +139,6 @@ export const explore = {
   "explore.spotDialogs.nameLabel": "Nom du spot",
   "explore.spotDialogs.create": "Créer",
 
-  // Spots rapides
-  "explore.quickSpots.remove": "Supprimer",
-  "explore.quickSpots.save": "+ Sauvegarder {name}",
-
   // Bouton de localisation
   "explore.locate.label": "Centrer sur ma position",
   "explore.locate.dismiss": "Fermer ce message",

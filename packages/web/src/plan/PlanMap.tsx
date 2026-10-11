@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
+import { useEffect, useRef, useImperativeHandle, type Ref } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useTheme } from "../design/useTheme";
@@ -112,6 +112,10 @@ interface PlanMapProps {
   /** The first and last waypoints cannot be removed: a variant keeps the
       plan's ends. */
   lockedEnds?: boolean;
+  /** Imperative handle, for the page to re-frame the camera on the route.
+      A plain prop since React 19: `forwardRef` is no longer needed to
+      receive one. */
+  ref?: Ref<PlanMapHandle>;
 }
 
 function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon {
@@ -132,9 +136,8 @@ function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon 
   });
 }
 
-export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
-  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, focusedSegmentIdx = null, initialCenter, userPosition, onViewChange, initialZoom, showSeamarks = false, depths, overlays, hideBaseRoute = false, lockedEnds = false }: PlanMapProps,
-  ref
+export function PlanMap(
+  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, focusedSegmentIdx = null, initialCenter, userPosition, onViewChange, initialZoom, showSeamarks = false, depths, overlays, hideBaseRoute = false, lockedEnds = false, ref }: PlanMapProps,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -900,4 +903,4 @@ export const PlanMap = forwardRef<PlanMapHandle, PlanMapProps>(function PlanMap(
   }, [focusedSegmentIdx, segments, resolvedTheme]);
 
   return <div ref={containerRef} className="w-full h-full" />;
-});
+}

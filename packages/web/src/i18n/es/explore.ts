@@ -137,10 +137,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.spotDialogs.nameLabel": "Nombre del spot",
   "explore.spotDialogs.create": "Crear",
 
-  // Quick spots
-  "explore.quickSpots.remove": "Eliminar",
-  "explore.quickSpots.save": "+ Guardar {name}",
-
   // Locate button
   "explore.locate.label": "Centrar en mi posición",
   "explore.locate.dismiss": "Cerrar este mensaje",

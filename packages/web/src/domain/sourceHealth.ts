@@ -19,7 +19,7 @@ import type { CoverageAtlas } from "./tidalMapGeo";
 
 export type UpdateCadence = "live" | "daily" | "weekly" | "monthly" | "yearly" | "decade" | "frozen" | "none";
 
-export type Freshness =
+type Freshness =
   /** Read from the provider on every request (Open-Meteo SMOC). */
   | "live"
   /** Served, and refreshed within its cadence. */
@@ -37,7 +37,7 @@ const DAY_MS = 86_400_000;
 
 /** How old our copy may get before the refresh counts as missed: the
     cadence plus a margin for a run that lands a little late. */
-export const MAX_AGE_DAYS: Record<Exclude<UpdateCadence, "live" | "frozen" | "none">, number> = {
+const MAX_AGE_DAYS: Record<Exclude<UpdateCadence, "live" | "frozen" | "none">, number> = {
   daily: 2,
   weekly: 10,
   monthly: 40,

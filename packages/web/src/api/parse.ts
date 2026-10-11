@@ -123,7 +123,7 @@ function parseNotices(v: unknown, path: string): Notice[] {
   });
 }
 
-export function parsePassageReport(v: unknown, path = "passage"): PassageReport {
+function parsePassageReport(v: unknown, path = "passage"): PassageReport {
   const p = requireRecord(v, path);
   requireString(p.archetype, `${path}.archetype`);
   requireString(p.departure_time, `${path}.departure_time`);
@@ -140,7 +140,7 @@ export function parsePassageReport(v: unknown, path = "passage"): PassageReport 
   return p as unknown as PassageReport;
 }
 
-export function parseComplexityScore(v: unknown, path = "complexity"): ComplexityScore {
+function parseComplexityScore(v: unknown, path = "complexity"): ComplexityScore {
   const c = requireRecord(v, path);
   requireNumber(c.level, `${path}.level`);
   requireString(c.label, `${path}.label`);
