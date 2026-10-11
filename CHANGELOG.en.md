@@ -4,7 +4,7 @@ Every OhMyWind release, newest first. The ohmywind.fr site and the MCP server sh
 
 This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the reference. Each release is also published on the repository's [Releases](https://github.com/qdonnars/ohmywind/releases) page, and the app shows this log on its "What's new" page.
 
-## 1.9.0 · Next release · Sail and oar dinghies, and a What's new page
+## 1.9.0 · 2026-10-12 · Sail and oar dinghies, and a What's new page
 
 ### New
 
@@ -16,6 +16,8 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 - A plan beyond the seven days of forecast, or a comparison restored in the past, is computed by the server instead of failing, and GFS is always kept as the last resort (#462).
 - Spots are easier to tap, the Explore pills are readable in the light theme, "Add a spot" is visible on Compare and the step strip fits the screen width (#463).
 - The methodology points to the Boat tab for polars and tells the web app, the API and the MCP server apart (#460).
+- The Explore hourly tables line up with the model column: no half-hidden column or day label after scrolling, and the line between two days keeps the same colour on every row; the boat picker in the plan shows readable names (#465).
+- On Compare, the place search measures its distances from your spots; a departure yesterday reads "Yesterday", not "Today"; an arrival on the next day shows its day (#467).
 
 ### Behind the scenes
 
