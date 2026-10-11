@@ -80,6 +80,8 @@ function measureColumns(el: HTMLElement, count: number): ColumnLefts | null {
  */
 function padForStickyColumn(el: HTMLElement, lefts: ColumnLefts | null): void {
   el.style.scrollPaddingLeft = lefts ? `${lefts[0]}px` : "";
+  // Also where the sticky day labels of the header start (TimelineHeader).
+  el.style.setProperty("--ow-sticky-col", lefts ? `${lefts[0]}px` : "");
 }
 
 export interface TimelineScroll {
