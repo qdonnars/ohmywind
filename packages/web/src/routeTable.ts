@@ -21,6 +21,7 @@ export type RouteName =
   | "methodologie-courants"
   | "confidentialite"
   | "press"
+  | "whats-new"
   | "not-found";
 
 // A Map rather than an object literal: a path is untrusted input, and an
@@ -36,6 +37,7 @@ const ROUTES = new Map<string, RouteName>([
   ["/methodologie/courants", "methodologie-courants"],
   ["/confidentialite", "confidentialite"],
   ["/presse", "press"],
+  ["/nouveautes", "whats-new"],
 ]);
 
 /** `path` is expected already normalised (see `navigation.normalisePath`). */

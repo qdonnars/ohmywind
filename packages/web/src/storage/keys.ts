@@ -66,6 +66,9 @@ export const LOCAL_STORAGE_KEYS = {
   compareHint: "ow_compare_hint_v1",
   /** Comparison page settings: step, hour window, sea band, unticked spots. */
   compare: "ow_compare_v1",
+  /** Last app version (x.y.z) whose "Quoi de neuf" this browser has seen.
+      Behind the dot on the menu entry, see `config/whatsNewSeen.ts`. */
+  whatsNewSeen: "ow_whats_new_seen_v1",
 } as const;
 
 /** Keys written to `window.sessionStorage`, i.e. dropped when the tab closes. */

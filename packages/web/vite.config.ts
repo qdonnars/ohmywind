@@ -1,13 +1,25 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// La version du produit (site et serveur MCP) vit dans package.json, et nulle
+// part ailleurs cote web : elle est injectee au build sous __APP_VERSION__
+// (voir src/utils/version.ts). Un test verifie qu'elle est celle de la
+// derniere section publiee de CHANGELOG.md. Marche a suivre : docs/releases.md.
+const { version } = JSON.parse(
+  readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
+) as { version: string }
+
 export default defineConfig({
   base: '/',
+  define: {
+    __APP_VERSION__: JSON.stringify(version),
+  },
   build: {
     rollupOptions: {
       output: {
@@ -81,6 +93,9 @@ export default defineConfig({
           'polars/**',
           '**/MethodologiePage-*',
           '**/ConfidentialitePage-*',
+          // Le journal des versions (/nouveautes) suit la meme regle : une
+          // page de lecture chargee a la demande, qui partage lib-*.js.
+          '**/WhatsNewPage-*',
           '**/lib-*.js',
           '**/segmentation-*.svg',
         ],

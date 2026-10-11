@@ -35,6 +35,7 @@ describe("storage key registry", () => {
       onboarding: "ohmywind:onboarding-v1",
       compareHint: "ow_compare_hint_v1",
       compare: "ow_compare_v1",
+      whatsNewSeen: "ow_whats_new_seen_v1",
     });
     expect(SESSION_STORAGE_KEYS).toEqual({
       configReturnPath: "ow_config_return_to",

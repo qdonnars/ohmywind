@@ -11,7 +11,7 @@
 
 [![CI](https://github.com/qdonnars/ohmywind/actions/workflows/ci.yml/badge.svg)](https://github.com/qdonnars/ohmywind/actions/workflows/ci.yml)
 
-[**ohmywind.fr**](https://ohmywind.fr) · [MCP endpoint](https://mcp.ohmywind.fr/mcp) · [AGPL-3.0](LICENSE) + [trademark](TRADEMARK.md)
+[**ohmywind.fr**](https://ohmywind.fr) · [MCP endpoint](https://mcp.ohmywind.fr/mcp) · [Changelog](CHANGELOG.en.md) · [AGPL-3.0](LICENSE) + [trademark](TRADEMARK.md)
 
 > [!WARNING]
 > **Decision-support tool, not a navigation instrument.** OhMyWind does not

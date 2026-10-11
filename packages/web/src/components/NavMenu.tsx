@@ -11,8 +11,10 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
+import { useWhatsNewDot } from "../config/whatsNewSeen";
 import { useBackDismiss } from "../hooks/useBackDismiss";
 import { useT, type Key } from "../i18n";
+import { APP_VERSION } from "../utils/version";
 
 /**
  * Where the reader is in the app. The three destinations the menu offers,
@@ -77,6 +79,14 @@ const HereIcon = (
     <circle cx="12" cy="12" r="7" />
     <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
     <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+// "Quoi de neuf": a four-point sparkle, the usual mark for something new.
+const SparkleIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 3c.6 4.6 2.4 6.4 7 7-4.6.6-6.4 2.4-7 7-.6-4.6-2.4-6.4-7-7 4.6-.6 6.4-2.4 7-7Z" />
+    <path d="M19 15.5c.2 1.4.8 2 2.2 2.2-1.4.2-2 .8-2.2 2.2-.2-1.4-.8-2-2.2-2.2 1.4-.2 2-.8 2.2-2.2Z" />
   </svg>
 );
 
@@ -153,7 +163,8 @@ interface NavMenuProps {
 /**
  * The app's navigation: one control at rest, the burger with the current
  * destination as a badge, and on opening the three destinations with their
- * name and their reason to exist.
+ * name and their reason to exist, then the release log ("Quoi de neuf") with
+ * the version the app runs.
  *
  * The panel is portaled to `<body>`: the header blurs its backdrop, which
  * makes it both a stacking context and the containing block of any fixed
@@ -168,6 +179,9 @@ export function NavMenu({ current, mapQuery = "", variant, className = "", trigg
   const ownRef = useRef<HTMLButtonElement>(null);
   const buttonRef = triggerRef ?? ownRef;
   const panelRef = useRef<HTMLDivElement>(null);
+  // A release this browser has not looked at yet: a dot on the trigger and
+  // on the "Quoi de neuf" entry, until the page is opened.
+  const whatsNewDot = useWhatsNewDot();
 
   const close = useCallback(() => setOpen(false), []);
   // Android's back button closes the menu instead of leaving the app, the
@@ -251,6 +265,23 @@ export function NavMenu({ current, mapQuery = "", variant, className = "", trigg
         >
           <span style={{ width: badgeGlyph, height: badgeGlyph }}>{active.icon}</span>
         </span>
+        {/* The new-release dot, opposite the badge. Only at rest: open, the
+            entry inside the panel carries it. */}
+        {whatsNewDot && !open && (
+          <span
+            aria-hidden="true"
+            data-testid="whats-new-dot"
+            className="absolute rounded-full"
+            style={{
+              top: 1,
+              right: 1,
+              width: 10,
+              height: 10,
+              background: "var(--ow-accent)",
+              border: "2px solid var(--ow-bg-1)",
+            }}
+          />
+        )}
       </button>
 
       {open &&
@@ -347,6 +378,46 @@ export function NavMenu({ current, mapQuery = "", variant, className = "", trigg
                       </li>
                     );
                   })}
+                </ul>
+                {/* Below a rule, apart from the three places to work in: the
+                    release log is somewhere to read, not a destination. The
+                    page has no menu of its own, so this entry is never the
+                    current one and the router always takes the click. */}
+                <div aria-hidden="true" className="h-px mx-[11px] my-1" style={{ background: "var(--ow-line)" }} />
+                <ul className="flex flex-col">
+                  <li>
+                    <a
+                      href="/nouveautes"
+                      className="flex items-center gap-[11px] rounded-lg transition-colors hover:bg-surface-2"
+                      style={{ padding: "10px 11px" }}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="shrink-0 rounded-lg flex items-center justify-center"
+                        style={{ width: 30, height: 30, background: "var(--ow-bg-3)", color: "var(--ow-fg-1)" }}
+                      >
+                        <span style={{ width: 16, height: 16 }}>{SparkleIcon}</span>
+                      </span>
+                      <span className="flex-1 min-w-0 flex flex-col">
+                        <span className="text-[13.5px] font-semibold leading-tight" style={{ color: "var(--ow-fg-0)" }}>
+                          {t("common.nav.whatsNew.title")}
+                        </span>
+                        <span className="text-[11px] leading-tight mt-px" style={{ color: "var(--ow-fg-2)" }}>
+                          {t("common.version", { version: APP_VERSION })}
+                        </span>
+                      </span>
+                      {whatsNewDot && (
+                        <>
+                          <span
+                            aria-hidden="true"
+                            className="shrink-0 rounded-full"
+                            style={{ width: 8, height: 8, background: "var(--ow-accent)" }}
+                          />
+                          <span className="sr-only">{t("common.nav.whatsNew.unseen")}</span>
+                        </>
+                      )}
+                    </a>
+                  </li>
                 </ul>
               </nav>
             </div>
