@@ -184,15 +184,18 @@ def _tidal_gap_warnings(segments: list[SegmentReport]) -> list[Notice]:
     fine atlas): the value is kept, but it is probably too weak. Either way
     the places are named once per passage.
     """
-    zones: list[str] = []
+    # Unknown first, over the whole route: the approach legs of a pass come
+    # before the leg that crosses it, and a place already named "unknown"
+    # must not be named again as "probably too weak".
     unknown: list[str] = []
     for seg in segments:
         if seg.current_source == UNKNOWN_CURRENT_SOURCE:
             name = _unknown_current_zone(seg.start, seg.end, None)
             if name is not None and name not in unknown:
                 unknown.append(name)
-            continue
-        if seg.current_confidence == "high":
+    zones: list[str] = []
+    for seg in segments:
+        if seg.current_source == UNKNOWN_CURRENT_SOURCE or seg.current_confidence == "high":
             continue
         lat = (seg.start.lat + seg.end.lat) / 2
         lon = (seg.start.lon + seg.end.lon) / 2

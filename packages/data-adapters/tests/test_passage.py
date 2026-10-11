@@ -1944,6 +1944,9 @@ class TestTidalGapNotice:
         assert report.segments[-1].current_source == "unknown"
         unknown = [n for n in report.notices if n.code == "currents.unknown"]
         assert len(unknown) == 1 and "Messina" in unknown[0].params["zones"]
+        # The approach legs sit within 15 km of the same pass: named once,
+        # as unknown, not again as "probably too weak".
+        assert not [n for n in report.notices if n.code == "currents.tidal_gap"]
 
     async def test_the_rance_basin_has_no_current(self) -> None:
         # Saint-Malo roads to Saint-Suliac, above the tidal power plant: the
