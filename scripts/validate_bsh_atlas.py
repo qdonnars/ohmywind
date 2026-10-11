@@ -415,7 +415,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    registry = MarcAtlasRegistry.from_directory(args.reference_atlas_dir)
+    registry = MarcAtlasRegistry.from_directory(args.reference_atlas_dir, withheld=frozenset())
     report: dict = {
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "holdout": [],

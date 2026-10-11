@@ -38,6 +38,7 @@ import numpy as np
 import polars as pl
 
 from openwind_data.currents.harmonic import predict as schureman_predict
+from openwind_data.currents.serving_policy import EXCLUDED_BOXES, WITHHELD_ATLASES
 
 # Tile pitch of the historical MARC layout. An atlas may declare its own in
 # ``metadata.json`` (``grid.tile_deg``): a global 7 km atlas cut in 0.5 degree
@@ -82,6 +83,9 @@ class AtlasMeta:
     # them (the MARC and SHOM editions are frozen, not rebuilt).
     built_at: str | None = None
     record_end: str | None = None
+    # Boxes inside its validity where the atlas must not answer anyway
+    # (``serving_policy.EXCLUDED_BOXES``: Gibraltar for the Copernicus tide).
+    excluded_bboxes: tuple[tuple[float, float, float, float], ...] = ()
 
     @property
     def source_label(self) -> str:
@@ -150,6 +154,7 @@ def _scan_atlas(parquet_dir: Path) -> AtlasMeta | None:
         tile_deg=float((meta.get("grid") or {}).get("tile_deg") or _TILE_SIZE_DEG),
         built_at=_iso_or_none(meta.get("build_at")),
         record_end=_iso_or_none((meta.get("analysis") or {}).get("record_end")),
+        excluded_bboxes=EXCLUDED_BOXES.get(meta["atlas"], ()),
     )
 
 
@@ -406,7 +411,15 @@ class MarcAtlasRegistry:
     atlases: tuple[AtlasMeta, ...]
 
     @classmethod
-    def from_directory(cls, root: Path | str) -> MarcAtlasRegistry:
+    def from_directory(
+        cls, root: Path | str, *, withheld: frozenset[str] = WITHHELD_ATLASES
+    ) -> MarcAtlasRegistry:
+        """Every atlas under ``root``, except those ``withheld`` by name.
+
+        The default is the serving policy (``serving_policy``): an atlas
+        published in the dataset is not served for that alone. Tools that
+        study the atlases rather than serve them pass ``frozenset()``.
+        """
         root = Path(root)
         if not root.exists():
             return cls(atlases=())
@@ -415,7 +428,7 @@ class MarcAtlasRegistry:
             if not sub.is_dir():
                 continue
             atlas = _scan_atlas(sub)
-            if atlas is not None:
+            if atlas is not None and atlas.name not in withheld:
                 found.append(atlas)
         return cls(atlases=tuple(found))
 
@@ -548,8 +561,8 @@ class MarcAtlasRegistry:
     def covers(self, lat: float, lon: float) -> AtlasMeta | None:
         """Return the finest atlas with actual data near (lat, lon), or None.
 
-        Filters by bbox and, when the atlas declares one, by ``validity_bbox``;
-        then verifies the nearest cell in the matching tile is within the
+        Filters by bbox and, when the atlas declares one, by ``validity_bbox``,
+        and drops the boxes the serving policy cuts out of it; then verifies the nearest cell in the matching tile is within the
         distance threshold. This catches false bbox matches (e.g. ATLNE bbox
         spuriously covering the Mediterranean) and confines a model to the
         waters its producer validated it in.
@@ -562,6 +575,7 @@ class MarcAtlasRegistry:
             for a in self.atlases
             if _bbox_contains(a.bbox, lat, lon)
             and (a.validity_bbox is None or _bbox_contains(a.validity_bbox, lat, lon))
+            and not any(_bbox_contains(b, lat, lon) for b in a.excluded_bboxes)
         ]
         if not candidates:
             return None
