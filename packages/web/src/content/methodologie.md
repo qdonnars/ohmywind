@@ -242,12 +242,15 @@ Référence académique pour MARC : Pineau-Guillou Lucia (2013). PREVIMER, Valid
 
 ## Hébergement
 
-OhMyWind tourne intégralement sur des plateformes ouvertes et gratuites.
+OhMyWind est open source et tourne intégralement sur des plateformes gratuites. Il se compose de trois briques distinctes :
 
-- L'application web statique [ohmywind.fr](https://ohmywind.fr) est servie par **Cloudflare Pages**, qui héberge gratuitement les pages publiques d'un dépôt open source, avec HTTPS et domaine personnalisé inclus.
-- Le serveur MCP tourne sur **Hugging Face Spaces** en Docker SDK, qui fournit gratuitement un conteneur public Linux, le HTTPS, et un service de Dataset privé pour héberger les atlas harmoniques MARC pré-calculés (5 GB, tirés au moment du build de l'image).
+- **L'application web** [ohmywind.fr](https://ohmywind.fr) est un site statique servi par **Cloudflare Pages**, qui héberge gratuitement les pages publiques d'un dépôt open source, avec HTTPS et domaine personnalisé inclus. Les tableaux de prévision sont demandés par votre navigateur directement à Open-Meteo ; les estimations de passage et les courants de marée passent par l'API ci-dessous.
+- **L'API REST** (`/api/v1/`) est le service que l'application web appelle pour estimer un passage, lister les voilier-types et lire les atlas de courants de marée.
+- **Le serveur MCP** (`https://mcp.ohmywind.fr/mcp`) est le point d'entrée des assistants conversationnels compatibles MCP (Model Context Protocol) : il expose les mêmes calculs sous forme d'outils que l'assistant appelle pour répondre à une demande formulée en langage naturel.
 
-Faire vivre un planificateur météo-marine open source et sans publicité serait significativement plus coûteux sans ces deux infrastructures. Merci à Cloudflare et à Hugging Face de les rendre accessibles à tous.
+L'API et le serveur MCP sont deux portes d'un même service : ils partagent le moteur de calcul et tournent dans un seul conteneur Docker sur **Hugging Face Spaces**, qui fournit gratuitement un conteneur Linux public, le HTTPS et un Dataset privé pour les atlas de courants de marée pré-calculés, tirés au moment de la construction de l'image. Tous deux sont joignables sous le domaine `mcp.ohmywind.fr`, qu'un Worker **Cloudflare** relaie vers le Space : changer d'hébergeur ne changerait pas l'adresse enregistrée dans les clients MCP.
+
+Faire vivre un planificateur météo-marine open source, gratuit et sans compte serait significativement plus coûteux sans ces infrastructures. Merci à Cloudflare et à Hugging Face de les rendre accessibles à tous.
 
 ## Code et contributions
 

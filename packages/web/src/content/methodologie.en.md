@@ -244,12 +244,15 @@ Academic reference for MARC: Pineau-Guillou Lucia (2013). PREVIMER, Validation d
 
 ## Hosting
 
-OhMyWind runs entirely on open, free platforms.
+OhMyWind is open source and runs entirely on free platforms. It is made of three distinct parts:
 
-- The static web app [ohmywind.fr](https://ohmywind.fr) is served by **Cloudflare Pages**, which hosts the public pages of an open source repository free of charge, with HTTPS and a custom domain included.
-- The MCP server runs on **Hugging Face Spaces** with the Docker SDK, which provides a public Linux container free of charge, HTTPS, and a private Dataset service to host the pre-computed MARC harmonic atlases (5 GB, pulled when the image is built).
+- **The web app** [ohmywind.fr](https://ohmywind.fr) is a static site served by **Cloudflare Pages**, which hosts the public pages of an open source repository free of charge, with HTTPS and a custom domain included. The forecast tables are requested by your browser directly from Open-Meteo; passage estimates and tidal currents go through the API below.
+- **The REST API** (`/api/v1/`) is the service the web app calls to estimate a passage, list the reference boats and read the tidal current atlases.
+- **The MCP server** (`https://mcp.ohmywind.fr/mcp`) is the entry point for conversational assistants that support MCP (Model Context Protocol): it exposes the same calculations as tools the assistant calls to answer a request phrased in natural language.
 
-Keeping an open source, advertising-free marine weather planner alive would be significantly more expensive without these two infrastructures. Thanks to Cloudflare and to Hugging Face for making them available to everyone.
+The API and the MCP server are two doors into one service: they share the calculation engine and run in a single Docker container on **Hugging Face Spaces**, which provides a public Linux container free of charge, HTTPS, and a private Dataset for the pre-computed tidal current atlases, pulled when the image is built. Both are reachable under the `mcp.ohmywind.fr` domain, which a **Cloudflare** Worker relays to the Space: moving to another host would not change the address saved in MCP clients.
+
+Keeping an open source marine weather planner alive, free and without an account, would be significantly more expensive without these infrastructures. Thanks to Cloudflare and to Hugging Face for making them available to everyone.
 
 ## Code and contributions
 
