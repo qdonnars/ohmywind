@@ -59,7 +59,7 @@ Limite assumée : 8 km est suffisant au large mais reste trop grossier pour les 
 
 ### Courants de marée
 
-Près des côtes, le SMOC à 8 km ne suffit pas : OhMyWind sert les courants de marée depuis une cascade d'atlas harmoniques (SHOM, MARC, BSH, NorKyst, Copernicus), choisie point par point. Les sources, la règle de priorité, la précision de chacune, la carte de couverture et le calcul du courant en un point sont décrits dans une page dédiée : **[Courants de marée](/methodologie/courants)**.
+Près des côtes, le SMOC à 8 km ne suffit pas : OhMyWind sert les courants de marée depuis une cascade d'atlas harmoniques (SHOM, MARC, BSH, Copernicus), choisie point par point. Les sources, la règle de priorité, la précision de chacune, la carte de couverture et le calcul du courant en un point sont décrits dans une page dédiée : **[Courants de marée](/methodologie/courants)**.
 
 ## Comment on estime un passage
 

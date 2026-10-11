@@ -39,7 +39,7 @@ def main() -> None:
     ap.add_argument("--top", type=int, default=12, help="clusters listed per atlas")
     args = ap.parse_args()
 
-    registry = MarcAtlasRegistry.from_directory(args.atlas_dir)
+    registry = MarcAtlasRegistry.from_directory(args.atlas_dir, withheld=frozenset())
     for atlas in registry.atlases:
         frames = []
         for tile in sorted(Path(atlas.parquet_dir).glob("**/data.parquet")):

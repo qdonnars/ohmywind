@@ -829,3 +829,52 @@ def test_atlas_can_declare_its_own_tile_pitch(tmp_path: Path) -> None:
     assert registry.covers(53.28, 9.30) is atlas
     assert registry.predict_current(53.12, 9.31, datetime(2026, 9, 20, tzinfo=UTC)) is not None
     assert dict(registry.coverage_cells())["FES_GLOBAL"] == ((52.0, 8.0, 54.0, 10.0),)
+
+
+def test_the_serving_policy_withholds_a_published_atlas(tmp_path: Path) -> None:
+    """NorKyst is in the dataset but out of the cascade: the registry skips it
+    unless a study tool asks for everything."""
+    _write_single_cell_atlas(
+        tmp_path,
+        "NORKYST_LOFOTEN",
+        {
+            "atlas": "NORKYST_LOFOTEN",
+            "zone": "lofoten",
+            "rank": 1,
+            "resolution_m": 800,
+            "source": {"short": "norkyst"},
+            "schema_version": 3,
+        },
+        67.80,
+        12.83,
+    )
+    assert MarcAtlasRegistry.from_directory(tmp_path).atlases == ()
+    assert MarcAtlasRegistry.from_directory(tmp_path).covers(67.80, 12.83) is None
+    every = MarcAtlasRegistry.from_directory(tmp_path, withheld=frozenset())
+    assert [a.name for a in every.atlases] == ["NORKYST_LOFOTEN"]
+
+
+def test_gibraltar_is_cut_out_of_the_copernicus_tide(tmp_path: Path) -> None:
+    """The IBI atlas holds the tide alone and erases the Atlantic inflow in
+    the strait: it must not answer there, and still answers outside it."""
+    from openwind_data.currents.serving_policy import GIBRALTAR
+
+    meta = {
+        "atlas": "CMEMS_IBI",
+        "zone": "ibi",
+        "rank": 0,
+        "resolution_m": 3000,
+        "source": {"short": "cmems"},
+        "schema_version": 3,
+    }
+    _write_single_cell_atlas(tmp_path, "CMEMS_IBI", meta, 35.95, -5.60)
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    assert registry.atlas_named("CMEMS_IBI").excluded_bboxes == (GIBRALTAR,)
+    assert registry.covers(35.95, -5.60) is None
+    assert registry.cell_at(35.95, -5.60) is None
+    # Cadiz roads, same atlas, outside the box.
+    other = tmp_path / "other"
+    other.mkdir()
+    _write_single_cell_atlas(other, "CMEMS_IBI", meta, 36.50, -6.40)
+    atlas = MarcAtlasRegistry.from_directory(other).covers(36.50, -6.40)
+    assert atlas is not None and atlas.source_label == "cmems_ibi_3000m"

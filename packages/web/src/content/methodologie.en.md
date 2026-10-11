@@ -61,7 +61,7 @@ A limitation we accept: 8 km is enough offshore but stays too coarse for the nar
 
 ### Tidal currents
 
-Near the coast, SMOC at 8 km is not enough: OhMyWind serves tidal currents from a cascade of harmonic atlases (SHOM, MARC, BSH, NorKyst, Copernicus), chosen point by point. The sources, the priority rule, the precision of each, the coverage map and how the current is computed at a point are described on a page of their own: **[Tidal currents](/methodologie/courants)**.
+Near the coast, SMOC at 8 km is not enough: OhMyWind serves tidal currents from a cascade of harmonic atlases (SHOM, MARC, BSH, Copernicus), chosen point by point. The sources, the priority rule, the precision of each, the coverage map and how the current is computed at a point are described on a page of their own: **[Tidal currents](/methodologie/courants)**.
 
 ## How a passage is estimated
 

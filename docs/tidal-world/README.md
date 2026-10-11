@@ -22,6 +22,31 @@ Documents liés :
 - [`map/index.html`](map/index.html) : carte interactive (ouvrir le fichier dans un navigateur).
 - `.github/workflows/archive-bsh-currents.yml` : archivage quotidien, désactivé par défaut.
 
+## Revue du 2026-10-11 : périmètre servi et feuille de route
+
+Cette section prime sur les recommandations plus bas quand elles divergent.
+
+**Diagnostic.** Le problème n'est pas « une source locale contre Copernicus » : Copernicus est déjà dans la cascade, en global (SMOC, servi par Open-Meteo) et en régional (NWS, IBI, MED). Le problème est la grandeur servie. Tous nos atlas ne portent que la marée, et partout où l'un d'eux a une cellule, il remplace le courant total, circulation comprise. Le banc `bench-global.md` (branche `bench/tide-vs-global`) le mesure contre le modèle régional dont chaque atlas est tiré, une référence qui avantage l'atlas par construction. Même ainsi :
+- la Norvège et la Méditerranée finissent à égalité avec le global ;
+- Gibraltar est pire (1,1 à 1,9 kt d'erreur contre 0,5 à 0,75) ;
+- combiner la marée de l'atlas et la circulation SMOC gagne 10 %.
+
+**Périmètre servi** (`packages/data-adapters/src/openwind_data/currents/serving_policy.py`, dans le code et non dans le jeu de données, que dev et prod partagent) :
+- NorKyst (huit boîtes) et Copernicus Arctique Islande sont retirés de la cascade. Ils sortent de la mission, la façade française et ses voisins. NorKyst efface en plus le courant côtier norvégien sans battre le global. L'Islande coûte 0,02 kt contre le global, retirée quand même pour le périmètre.
+- Le détroit de Gibraltar (35,70 à 36,25 N, 6,10 à 5,20 W) est découpé hors des atlas Copernicus IBI et MED.
+- Les atlas restent dans le jeu de données : les remettre se fait en retirant une ligne.
+
+**Savoir qu'on ne sait pas** (`zones-inconnues.md`). Le courant est retiré, plutôt qu'affiché avec une confiance, dans les zones documentées (la Rance en amont de l'usine marémotrice) et à moins de 3 km d'une passe que la source ne voit pas.
+
+**Feuille de route :**
+1. Fait : zones inconnues et passes aveugles (PR #450), périmètre servi (cette section).
+2. Valider contre des **observations**, pas contre les modèles eux-mêmes : radars HF d'Iroise et du Pas de Calais, ADCP, stations. C'est la condition avant tout changement de règle de la cascade.
+3. Hybridation : marée de l'atlas plus circulation SMOC (`uo`, `vo`) sans dérive de Stokes, et SMOC sans Stokes hors atlas. Cela demande SMOC en composantes, donc un accès Copernicus et un cache côté serveur.
+4. Enrichir la liste des zones par contribution, chaque zone avec sa source : formulaire d'issue, candidats du scan des cellules mortes.
+5. Plus tard, des données spécifiques là où elles existent (prévisions de niveau du bassin de la Rance si EDF les publie sous une forme exploitable).
+
+Restent gelés tant que le périmètre ne bouge pas : Salish et Fundy, FES2014 mondial, DMI, Écosse.
+
 ## Résumé
 
 1. **La prémisse « hors France on retombe sur SMOC » est fausse pour l'Allemagne** [vérifié]. MARC ATLNE (2 km, 17 constituants de courant) couvre la mer du Nord entière et répond `marc_atlne_2000m` à Cuxhaven, Helgoland, Texel et au Skagerrak. Ce qu'il répond est faux : 0,09 kt devant Brunsbüttel et 0,8 kt à Cuxhaven sur 24 h, contre 2 à 3,5 kt publiés et 4,6 kt dans la prévision BSH du 19 septembre. Le problème allemand est « ATLNE hors de sa zone validée », et il est aujourd'hui masqué par un label de confiance `high`.

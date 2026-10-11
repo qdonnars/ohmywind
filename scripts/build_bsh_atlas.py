@@ -235,7 +235,7 @@ def reference_constants(
         return {}, {}, "none"
     from openwind_data.currents.marc_atlas import MarcAtlasRegistry
 
-    registry = MarcAtlasRegistry.from_directory(reference_dir)
+    registry = MarcAtlasRegistry.from_directory(reference_dir, withheld=frozenset())
     cell = registry.cell_at(lat, lon)
     if cell is None:
         return {}, {}, "none"

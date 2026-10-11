@@ -152,8 +152,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", type=Path, default=None)
     args = parser.parse_args(argv)
     result = compare(
-        MarcAtlasRegistry.from_directory(args.candidate),
-        MarcAtlasRegistry.from_directory(args.reference),
+        MarcAtlasRegistry.from_directory(args.candidate, withheld=frozenset()),
+        MarcAtlasRegistry.from_directory(args.reference, withheld=frozenset()),
         tuple(args.bbox),
         args.points,
         args.constituent,
