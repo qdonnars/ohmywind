@@ -1111,3 +1111,15 @@ def test_the_mediterranean_atlas_stays_in_the_mediterranean(tmp_path: Path) -> N
             assert [(d.reason, d.box) for d in registry.declined_at(lat, lon)] == [
                 ("excluded", "atlantic")
             ]
+
+
+def test_an_atlas_built_without_weak_cells_reaches_one_cell_only(tmp_path: Path) -> None:
+    """Its holes mean "weak tide here": a point 3 km from the only cell of a
+    1.5 km atlas is not covered (the map draws nothing there either), a
+    point 1 km away is."""
+    meta = {**_meta("CMEMS_NWS", 0, 1500), "analysis": {"min_speed_kt": 0.2}}
+    _write_single_cell_atlas(tmp_path, "CMEMS_NWS", meta, 47.5, -9.0)
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    assert registry.covers(47.509, -9.0) is not None  # 1 km north
+    assert registry.covers(47.527, -9.0) is None  # 3 km north
+    assert [d.reason for d in registry.declined_at(47.527, -9.0)] == ["weak_tide"]
