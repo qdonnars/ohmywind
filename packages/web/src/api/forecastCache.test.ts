@@ -1,17 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   assembleForecastCache,
   interpolateCorridor,
+  mappableActiveModels,
   planCorridor,
   routeLengthNm,
   serverAlignedCorridor,
   serverSegmentLengthNm,
+  singleWindowMs,
+  sweepWindowMs,
   CACHE_MODEL_SLUGS,
   type SampledPoint,
 } from "./forecastCache";
+import { saveModelConfig } from "../config/modelConfig";
 import { parisIsoToUtcMs } from "../domain/datetime";
 import { haversineNm, interpolateGreatCircle, type GeoPoint } from "../plan/geo";
 import type { ModelForecast, MarineHourly } from "../types";
@@ -373,5 +377,118 @@ describe("assembleForecastCache", () => {
       { lat: MARSEILLE[0], lon: MARSEILLE[1], models: [model("ARPEGE_EU", [8, 8, 8])], marine: null },
     ];
     expect(() => assembleForecastCache(onlyUnmappable)).toThrow();
+  });
+});
+
+// ── the axis has to keep the window's promise ────────────────────────────────
+// The browser fetches seven days from today's midnight; the server reads the
+// cache as the whole truth. A window the axis misses must not be posted.
+
+const HOUR_MS = 3_600_000;
+// Seven days of Paris-naive hours from 2026-05-01T00:00, what forecast_days=7
+// hands back.
+const WEEK = Array.from({ length: 7 * 24 }, (_, h) =>
+  new Date(Date.UTC(2026, 4, 1, h)).toISOString().slice(0, 16),
+);
+const WEEK_START_MS = parisIsoToUtcMs(WEEK[0]);
+
+function weekSamples(): SampledPoint[] {
+  const speeds = WEEK.map(() => 12);
+  const forecast = (name: string): ModelForecast => ({
+    modelName: name,
+    hourly: {
+      time: WEEK,
+      wind_speed_10m: speeds,
+      wind_direction_10m: speeds.map(() => 270),
+      wind_gusts_10m: speeds.map(() => null),
+      weather_code: speeds.map(() => 1),
+    },
+  });
+  return [MARSEILLE, PORQUEROLLES].map(([lat, lon]) => ({
+    lat,
+    lon,
+    models: [forecast("AROME"), forecast("ICON"), forecast("GFS")],
+    marine: null,
+  }));
+}
+
+describe("assembleForecastCache window coverage", () => {
+  const route: [number, number][] = [MARSEILLE, PORQUEROLLES];
+
+  it("keeps a departure the fetched days cover", () => {
+    const window = singleWindowMs(route, WEEK_START_MS + 30 * HOUR_MS);
+    expect(assembleForecastCache(weekSamples(), window).times_ms.length).toBeGreaterThan(0);
+  });
+
+  it("keeps a departure right on the first fetched hour", () => {
+    // The window's 90 min margin falls before midnight; the server's own
+    // fetch window absorbs it.
+    const window = singleWindowMs(route, WEEK_START_MS);
+    expect(() => assembleForecastCache(weekSamples(), window)).not.toThrow();
+  });
+
+  it("refuses a departure past the fetched days instead of posting an empty axis (#162)", () => {
+    // The slider reaches fourteen days, the browser fetched seven.
+    const window = singleWindowMs(route, WEEK_START_MS + 10 * 24 * HOUR_MS);
+    expect(() => assembleForecastCache(weekSamples(), window)).toThrow(/does not cover/);
+  });
+
+  it("refuses a passage that runs past the last fetched hour", () => {
+    const window = singleWindowMs(route, WEEK_START_MS + (7 * 24 - 3) * HOUR_MS);
+    expect(() => assembleForecastCache(weekSamples(), window)).toThrow(/does not cover/);
+  });
+
+  it("refuses a comparison that starts before the first fetched hour (#262)", () => {
+    // A range restored from a comparison run days ago: its first departure is
+    // behind today's midnight while the rest of the range reaches into the
+    // fetched days, so the axis is not empty but its first window has no data.
+    const window = sweepWindowMs(
+      route,
+      WEEK_START_MS - 20 * HOUR_MS,
+      WEEK_START_MS + 28 * HOUR_MS,
+    );
+    expect(() => assembleForecastCache(weekSamples(), window)).toThrow(/does not cover/);
+  });
+});
+
+describe("mappableActiveModels", () => {
+  let store: Record<string, string>;
+
+  beforeEach(() => {
+    store = {};
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => store[k] ?? null,
+      setItem: (k: string, v: string) => {
+        store[k] = v;
+      },
+      removeItem: (k: string) => {
+        delete store[k];
+      },
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("leaves the default ranking as it is", () => {
+    expect(mappableActiveModels()).toEqual(["AROME", "ICON", "ECMWF", "GFS"]);
+  });
+
+  it("fetches GFS as the last resort the cache promises when /config left it out (#262)", () => {
+    saveModelConfig({
+      order: ["AROME", "ARPEGE_EU", "ARPEGE_W", "ICON_D2", "ICON", "ECMWF", "GFS"],
+    });
+    expect(mappableActiveModels()).toEqual(["AROME", "GFS"]);
+  });
+
+  it("keeps the user's order ahead of the last resort", () => {
+    saveModelConfig({ order: ["ECMWF", "AROME", "ICON", "UKMO", "GFS"] });
+    expect(mappableActiveModels()).toEqual(["ECMWF", "AROME", "ICON", "GFS"]);
+  });
+
+  it("adds nothing when no active model is mappable, the server's own chain takes over", () => {
+    saveModelConfig({ order: ["ARPEGE_EU", "ARPEGE_W", "ICON_GLOBAL", "ICON_D2", "AROME"] });
+    expect(mappableActiveModels()).toEqual([]);
   });
 });

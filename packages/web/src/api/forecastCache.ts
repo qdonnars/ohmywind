@@ -264,13 +264,25 @@ export function etaWindowMs(waypoints: [number, number][], arrivalMs: number): C
   };
 }
 
+// Whether an hourly axis keeps the coverage contract above. The window carries
+// the +/-90 min fetch margin on both sides, which the server's own fetch window
+// already absorbs, so the axis only has to reach the core: the departure (or
+// the earliest one) and the worst-case end of the passage.
+function axisCoversWindow(timesMs: number[], window: CacheWindow): boolean {
+  if (timesMs.length === 0) return false;
+  if (window.startMs != null && timesMs[0] > window.startMs + MARGIN_MS) return false;
+  if (window.endMs != null && timesMs[timesMs.length - 1] < window.endMs - MARGIN_MS) return false;
+  return true;
+}
+
 // Assemble a ForecastCache from already-fetched corridor samples. Pure (no
 // network): converts every Open-Meteo Paris-naive timestamp to UTC epoch-ms via
 // parisIsoToUtcMs, builds one shared ascending time axis (optionally clamped to
 // `window`), index-aligns each per-model wind + sea series onto it and rounds
 // every float to the precision table above. Throws
-// when no sample carries a backend-mappable model, so the caller falls back to
-// the live server path rather than posting an empty chain.
+// when no sample carries a backend-mappable model, or when the axis misses
+// `window`, so the caller falls back to the live server path rather than
+// posting an empty chain or a cache that cannot answer.
 export function assembleForecastCache(
   samples: SampledPoint[],
   window: CacheWindow = {},
@@ -295,6 +307,16 @@ export function assembleForecastCache(
     }
   }
   const timesMs = Array.from(msSet).sort((a, b) => a - b);
+  // The server reads the cache as the whole truth and never fetches around
+  // it. The browser asks for seven days from today's midnight, the departure
+  // slider reaches fourteen, and a date typed by hand can sit in the past: an
+  // axis that misses the window is either empty, refused outright as
+  // `invalid_forecast_cache` (#162), or leaves a segment with no model at all,
+  // `no_model_covered` (#262). The live server fetch covers both, so hand the
+  // plan to it rather than post a cache that cannot answer.
+  if (!axisCoversWindow(timesMs, window)) {
+    throw new Error("forecast cache does not cover the window, fall back to live fetch");
+  }
   const n = timesMs.length;
   const idxByMs = new Map<number, number>();
   for (let i = 0; i < n; i++) idxByMs.set(timesMs[i], i);
@@ -380,8 +402,17 @@ function buildSea(
 // cache only carries models the server can route on; an empty result means the
 // user disabled every mappable model, so buildForecastCache yields no usable
 // cache and the caller falls back to the live server fetch.
-function mappableActiveModels(): ModelName[] {
-  return activeModels(loadModelConfig()).filter((m) => CACHE_MODEL_SLUGS[m] !== undefined);
+//
+// GFS comes last when the user has not ranked it among the active models. The
+// server ends every chain on gfs_seamless and the cache's `models` says so too
+// (assembleForecastCache), but a slug nobody fetched answers nothing: with
+// AROME as the only mappable model, about two days of horizon, every later
+// departure found no model at all (#262). Fetching it keeps that last resort
+// real whatever order /config holds.
+export function mappableActiveModels(): ModelName[] {
+  const models = activeModels(loadModelConfig()).filter((m) => CACHE_MODEL_SLUGS[m] !== undefined);
+  if (models.length > 0 && !models.includes("GFS")) models.push("GFS");
+  return models;
 }
 
 export async function buildForecastCache(
