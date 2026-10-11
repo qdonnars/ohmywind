@@ -57,6 +57,11 @@ export const MARKER_SETTLE_MS = 500;
     land within. */
 export const SEGMENT_HIT_PX = { coarse: 24, fine: 12 } as const;
 
+/** Radius of the invisible disc that catches a finger on a spot marker. The
+    dot is drawn 7 to 11 px; this is the 44 px a thumb needs, centred on it.
+    A cursor keeps the dot alone, and with it the name shown on hover. */
+export const SPOT_HIT_RADIUS_PX = 22;
+
 /** How far the drawer's grab handle reaches up over the map. A thumb aiming
     at the handle lands above it more often than below. */
 export const DRAWER_HANDLE_REACH_PX = 12;

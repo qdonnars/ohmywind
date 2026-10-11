@@ -329,7 +329,11 @@ function App() {
           <LocateButton status={geolocStatus} attempt={geolocAttempt} onClick={handleLocate} className="-top-4 right-3" />
           {spot ? (
             <>
-              <div className="shrink-0">
+              {/* pr-16 keeps the scrolling row clear of the locate button
+                  above (right-3 + w-12): with four pills on a phone the
+                  last one slid under it and could not be read or tapped
+                  (#387). The row scrolls to it instead. */}
+              <div className="shrink-0 pr-16">
                 <MetricPills
                   view={effectiveView}
                   onSelect={setView}

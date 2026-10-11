@@ -499,6 +499,13 @@ select,
   animation: doorSpotlight 1.2s ease-in-out 3;
 }
 
+/* The header's search field, lit up by « Ajouter un spot » on /comparer
+   (compare/focusSearch): the same halo, twice. The class comes off on
+   animationend, and the halo ending on nothing is what lets it. */
+.search-spotlight {
+  animation: doorSpotlight 1.2s ease-in-out 2;
+}
+
 /* Plan waypoint marker + hover delete badge */
 .ow-wpt {
   position: relative;

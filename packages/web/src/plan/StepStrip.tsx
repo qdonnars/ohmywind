@@ -19,6 +19,15 @@ import { useT } from "../i18n";
 
 type View = "average" | "detail";
 
+/** A block's floor, so a short step stays a target. Never more than an equal
+    share of the strip, though: at 22 px apiece a leg of ten steps was wider
+    than a phone, and the legs table, which grows to its widest cell, pushed
+    the toggle and the card past the edge of the screen (#385). A percentage
+    floor also counts for nothing in the table's own sizing. */
+function stepMinWidth(n: number): string {
+  return `min(22px, calc((100% - ${(n - 1) * 4}px) / ${n}))`;
+}
+
 function ViewToggle({ value, onChange }: { value: View; onChange: (v: View) => void }) {
   const { t } = useT();
   return (
@@ -90,7 +99,7 @@ export function StepStrip({
                 className="rounded-md transition-opacity"
                 style={{
                   flex: `${Math.max(step.distance_nm, 0.01)} 1 0`,
-                  minWidth: 22,
+                  minWidth: stepMinWidth(n),
                   height: 26,
                   background: cxLevelVar(cxLevel(step.tws_avg_kn)),
                   opacity: dimmed ? 0.4 : 1,

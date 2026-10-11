@@ -17,6 +17,7 @@
 import L from "leaflet";
 import type { Spot } from "../types";
 import { readToken } from "../design/tokens";
+import { isCoarsePointer, SPOT_HIT_RADIUS_PX } from "../domain/gestures";
 
 // Leaflet renders a CircleMarker into an SVG node it keeps to itself: there is
 // no public accessor, only the internal ``_path``. Hit-testing needs that node
@@ -24,6 +25,36 @@ import { readToken } from "../design/tokens";
 // being reached through ``any`` — same escape hatch, but one that still type
 // checks the property and its type.
 type WithSvgPath = { _path?: Element };
+
+/** The invisible disc under each marker, on a touch screen. The dot alone is
+    14 to 22 px across, less than a fingertip: a lone spot took several tries
+    to hit, and every miss previewed the water next to it instead (#422).
+    Keyed by the marker it serves, so the reconciliation keeps one map. */
+const hitAreas = new WeakMap<L.CircleMarker, L.CircleMarker>();
+
+/** Draws nothing and catches the taps around the dot. Sent to the back, below
+    every dot, so two spots side by side each keep their own dot. Registered
+    for the long press too: a press on it is a press on the spot. */
+function addHitArea(
+  map: L.Map,
+  marker: L.CircleMarker,
+  spot: Spot,
+  onSelect: (spot: Spot) => void,
+  elementToSpot: Map<Element, Spot>,
+): void {
+  const hit = L.circleMarker([spot.latitude, spot.longitude], {
+    radius: SPOT_HIT_RADIUS_PX,
+    stroke: false,
+    fillOpacity: 0,
+    bubblingMouseEvents: false,
+  })
+    .on("click", () => onSelect(spot))
+    .addTo(map)
+    .bringToBack();
+  const hitEl = (hit as unknown as WithSvgPath)._path;
+  if (hitEl) elementToSpot.set(hitEl, spot);
+  hitAreas.set(marker, hit);
+}
 
 /** Identity of a spot on the map: two spots at the same point are one marker. */
 export function spotKey(s: Spot): string {
@@ -91,9 +122,12 @@ export function syncSpotMarkers({
 
   for (const [key, marker] of markers) {
     if (!desiredKeys.has(key)) {
-      const svgEl = (marker as unknown as WithSvgPath)._path;
-      if (svgEl) elementToSpot.delete(svgEl);
-      marker.remove();
+      const hit = hitAreas.get(marker);
+      for (const layer of hit ? [marker, hit] : [marker]) {
+        const svgEl = (layer as unknown as WithSvgPath)._path;
+        if (svgEl) elementToSpot.delete(svgEl);
+        layer.remove();
+      }
       markers.delete(key);
     }
   }
@@ -119,6 +153,12 @@ export function syncSpotMarkers({
         elementToSpot.set(existingEl, spot);
         if (number != null) existingEl.setAttribute("aria-label", spot.name);
       }
+      const hit = hitAreas.get(existing);
+      if (hit) {
+        hit.off("click").on("click", () => onSelect(spot));
+        const hitEl = (hit as unknown as WithSvgPath)._path;
+        if (hitEl) elementToSpot.set(hitEl, spot);
+      }
       continue;
     }
     const marker = L.circleMarker([spot.latitude, spot.longitude], {
@@ -143,6 +183,7 @@ export function syncSpotMarkers({
       // it holds a digit: the spot still has to say what it is.
       if (number != null) svgEl.setAttribute("aria-label", spot.name);
     }
+    if (isCoarsePointer()) addHitArea(map, marker, spot, onSelect, elementToSpot);
     markers.set(key, marker);
   }
 }
