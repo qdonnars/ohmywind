@@ -8,6 +8,7 @@ import { useTimezone } from "../hooks/useTimezone";
 import { getLocale, t, tn, useLang, useT } from "../i18n";
 import { fmtNm } from "../utils/geo";
 import { formatHour } from "../utils/format";
+import { num1 } from "../plan/format";
 import type { Spot } from "../types";
 import {
   aggregateWaves,
@@ -89,7 +90,7 @@ function windAria(agg: WindAgg, res: Resolution): string {
 }
 
 function waveAria(agg: WaveAgg): string {
-  const hs = agg.hs.toFixed(1);
+  const hs = num1(agg.hs);
   const period = agg.period != null ? Math.round(agg.period) : "–";
   return agg.dir != null
     ? t("compare.cell.aria.waveFrom", { hs, dir: agg.dir, period })
@@ -157,7 +158,7 @@ function CellImpl({ wind, wave, withWave, res, width, dense }: CellProps) {
             <Band
               bg={`var(--ow-wave-${wl})`}
               ink={wave.hs < 1.0 ? "var(--ow-fg-0)" : "var(--ow-cell-ink)"}
-              main={wave.hs.toFixed(1)}
+              main={num1(wave.hs)}
               sub={wave.period != null ? `${Math.round(wave.period)}s` : undefined}
               height={add}
               dense={dense}

@@ -200,9 +200,11 @@ def _read_tile(parquet_path: str) -> pl.DataFrame | None:
 
 # The window the weak-tide rule measures a cell's spring current over: 15
 # days hourly from a fixed start, so the answer never depends on the date of
-# the request. 2026-01-01 to 01-16 holds the spring tides of the 3 January
-# full moon. The map rasters use the same 15 days hourly.
-_WEAK_TIDE_WINDOW = [datetime(2026, 1, 1, tzinfo=UTC) + timedelta(hours=h) for h in range(15 * 24)]
+# the request. The same window as the map rasters
+# (``scripts/build_tidal_world_raster.py``), so a cell the map draws is a
+# cell the server serves: 2026-03-01 to 03-16, the equinoctial spring tides
+# of the 3 March full moon.
+_WEAK_TIDE_WINDOW = [datetime(2026, 3, 1, tzinfo=UTC) + timedelta(hours=h) for h in range(15 * 24)]
 
 
 @lru_cache(maxsize=65536)
@@ -565,7 +567,18 @@ class MarcAtlasRegistry:
     _MAX_CELL_DISTANCE_M = 5000.0  # 5 km, generous
 
     def _cell_threshold_m(self, atlas: AtlasMeta) -> float:
-        """How far a cell may sit from the query and still answer for it."""
+        """How far a cell may sit from the query and still answer for it.
+
+        An atlas built without its weak cells (``min_speed_kt`` in its
+        metadata: the Copernicus atlases dropped every cell under 0.2 kt) has
+        holes that mean "weak tide here", not gaps to bridge: within one cell
+        or nothing. With the generous 5 km to 5 cells, a point in the deep Bay
+        of Biscay borrowed a cell 7 to 15 km away on the slope (0.3 to
+        0.7 kt) while the map, drawn at the native pitch, showed no atlas
+        there (2026-10-11 acceptance run).
+        """
+        if atlas.min_speed_kt is not None:
+            return float(atlas.resolution_m)
         return max(self._MAX_CELL_DISTANCE_M, 5.0 * atlas.resolution_m)
 
     def _best_cell(

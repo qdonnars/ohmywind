@@ -390,7 +390,7 @@ def explain_point(services: Services, lat: float, lon: float) -> tuple[dict[str,
     ``model_edge``: dead water of a coastal atlas), ``shom``, ``atlas`` or
     ``global`` (the general current of the global model). ``atlases`` lists
     every atlas whose emprise holds the point, in cascade order, with its
-    decision. ``plan`` says what a passage leg here gets on top: a pass
+    decision (``unknown_zone`` for the one a documented zone overrides). ``plan`` says what a passage leg here gets on top: a pass
     within 3 km its source cannot see (the leg reads "unknown"), a strong
     tidal zone within 15 km its source is too coarse for (a warning).
     """
@@ -425,6 +425,11 @@ def explain_point(services: Services, lat: float, lon: float) -> tuple[dict[str,
     answer: dict[str, Any]
     source: str | None
     if zone is not None and "current" in zone.fields:
+        # The zone wins over every source: the atlas that would have answered
+        # says so, rather than reading "used" under an "unknown" answer.
+        for item in atlases:
+            if item["decision"] in ("used", "dead_water"):
+                item["decision"] = "unknown_zone"
         answer = {
             "kind": "unknown",
             "zone": zone.name,

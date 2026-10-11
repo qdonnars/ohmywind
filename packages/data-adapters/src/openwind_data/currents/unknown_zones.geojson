@@ -12,29 +12,13 @@
           "current",
           "tide"
         ],
-        "source": "Le bassin de la Rance, entre l'usine marémotrice d'EDF et l'écluse du Châtelier, est exploité par les vannes et les turbines de l'usine : son niveau et ses courants suivent les consignes d'exploitation, pas la marée. MARC MANW 250 m y lit une eau morte (amplitude M2 nulle de 48,539 à 48,615 N), MARC MANGA 700 m une marée libre : aucune des deux n'est le régime réel. Contour : les cellules mortes de MANW dilatées de 300 à 500 m pour prendre les berges où la grille MANGA déborde (la retenue publiée fait environ 22 km²), prolongées par le fleuve jusqu'à l'écluse du Châtelier.",
+        "source": "Le bassin de la Rance, entre l'usine marémotrice d'EDF et l'écluse du Châtelier, est exploité par les vannes et les turbines de l'usine : son niveau et ses courants suivent les consignes d'exploitation, pas la marée. MARC MANW 250 m y lit une eau morte (amplitude M2 nulle de 48,539 à 48,615 N), MARC MANGA 700 m une marée libre : aucune des deux n'est le régime réel. Contour : les cellules mortes de MANW dilatées de 300 à 500 m pour prendre les berges où la grille MANGA déborde (la retenue publiée fait environ 22 km²), prolongées par le fleuve jusqu'à l'écluse du Châtelier (couloir retracé le 2026-10-11 d'après les points relevés sur l'eau par la recette : Mordreuc, Pleudihen, Lyvet).",
         "added": "2026-10-11"
       },
       "geometry": {
         "type": "Polygon",
         "coordinates": [
           [
-            [
-              -2.03524,
-              48.6165
-            ],
-            [
-              -2.00413,
-              48.6165
-            ],
-            [
-              -1.99068,
-              48.5972
-            ],
-            [
-              -1.97836,
-              48.59712
-            ],
             [
               -1.97257,
               48.59366
@@ -72,48 +56,88 @@
               48.54238
             ],
             [
-              -1.96868,
-              48.53593
+              -1.96345,
+              48.53923
             ],
             [
-              -1.98826,
-              48.5075
+              -1.9594,
+              48.53585
             ],
             [
-              -1.99854,
-              48.49512
+              -1.95811,
+              48.53315
             ],
             [
-              -2.01237,
-              48.48704
+              -1.9593,
+              48.52111
             ],
             [
-              -2.01454,
-              48.48727
+              -1.96056,
+              48.51896
             ],
             [
-              -2.01663,
-              48.48884
+              -1.97194,
+              48.50684
             ],
             [
-              -2.0175,
-              48.49131
+              -1.98715,
+              48.49971
             ],
             [
-              -2.01685,
-              48.49384
+              -2.01011,
+              48.48624
             ],
             [
-              -2.01529,
-              48.49537
+              -2.01234,
+              48.48554
             ],
             [
-              -2.00496,
-              48.50148
+              -2.01467,
+              48.48574
             ],
             [
-              -1.99561,
-              48.5127
+              -2.01719,
+              48.48721
+            ],
+            [
+              -2.01887,
+              48.49026
+            ],
+            [
+              -2.01876,
+              48.49317
+            ],
+            [
+              -2.01729,
+              48.49569
+            ],
+            [
+              -1.99314,
+              48.51011
+            ],
+            [
+              -1.97863,
+              48.51693
+            ],
+            [
+              -1.97075,
+              48.5256
+            ],
+            [
+              -1.97033,
+              48.52937
+            ],
+            [
+              -1.97648,
+              48.53429
+            ],
+            [
+              -1.97808,
+              48.537
+            ],
+            [
+              -1.97896,
+              48.537
             ],
             [
               -1.97871,
@@ -154,6 +178,22 @@
             [
               -2.03524,
               48.6165
+            ],
+            [
+              -2.00413,
+              48.6165
+            ],
+            [
+              -1.99068,
+              48.5972
+            ],
+            [
+              -1.97836,
+              48.59712
+            ],
+            [
+              -1.97257,
+              48.59366
             ]
           ]
         ]

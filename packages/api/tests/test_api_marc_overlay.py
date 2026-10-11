@@ -228,6 +228,7 @@ class TestExplain:
         body = _payload(await self._get("48.567", "-1.975"))
         assert body["answer"]["kind"] == "unknown" and "Rance" in body["answer"]["zone"]
         assert body["answer"]["reason"] == "managed"
+        assert all(a["decision"] not in ("used", "dead_water") for a in body["atlases"])
 
     async def test_a_coarse_source_beside_a_listed_pass_reads_unknown_on_a_plan(self) -> None:
         # Messina, global model answering: a leg here gets "unknown".

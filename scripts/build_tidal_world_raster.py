@@ -115,6 +115,7 @@ def atlas_grid(
     lon0 -= k * dlon
     rows = lat0 + dlat * np.arange(arr.shape[0])
     cols = lon0 + dlon * np.arange(arr.shape[1])
+    arr = _apply_serving_policy(meta, rows, cols, arr)
     vb = meta.get("validity_bbox")
     if vb:
         # The runtime refuses the atlas outside its validity box (ATLNE in
@@ -123,6 +124,39 @@ def atlas_grid(
         lon_ok = (cols >= vb[1]) & (cols <= vb[3])
         arr = np.where(lat_ok[:, None] & lon_ok[None, :], arr, np.nan)
     return meta, rows, cols, arr
+
+
+def _apply_serving_policy(meta: dict, rows: np.ndarray, cols: np.ndarray, arr: np.ndarray) -> np.ndarray:
+    """Blank the cells the runtime does not use, so they do not own their pixel.
+
+    The mosaic gives each pixel to the first atlas of the cascade that has a
+    cell there. A cell the server passes on (an open-sea atlas under
+    ``WEAK_TIDE_KT``, dead water of a coastal atlas, a box the policy cuts
+    out) must not hold it: the next atlas speaks there, or nothing, and the
+    map shows what a passage uses (2026-10-11 acceptance run: ATLNE's 0.08 kt
+    cells hid the Copernicus slope the server serves in the deep Bay of
+    Biscay).
+    """
+    from openwind_data.currents.serving_policy import (
+        COASTAL_MIN_RANK,
+        DEAD_CURRENT_M2_MS,
+        EXCLUDED_BOXES,
+        OPEN_SEA_MAX_RANK,
+        WEAK_TIDE_KT,
+    )
+
+    rank = int(meta.get("rank", 0))
+    out = arr.copy()
+    if rank <= OPEN_SEA_MAX_RANK:
+        out[~(out >= WEAK_TIDE_KT)] = np.nan
+    elif rank >= COASTAL_MIN_RANK:
+        # Dead water: an M2 current under 1 cm/s, about 0.02 kt at most.
+        out[~(out >= DEAD_CURRENT_M2_MS * MS_TO_KN)] = np.nan
+    for lat_min, lon_min, lat_max, lon_max in EXCLUDED_BOXES.get(meta.get("atlas", ""), ()):
+        lat_in = (rows >= lat_min) & (rows <= lat_max)
+        lon_in = (cols >= lon_min) & (cols <= lon_max)
+        out[lat_in[:, None] & lon_in[None, :]] = np.nan
+    return out
 
 
 def fill_pinholes(arr: np.ndarray) -> np.ndarray:
