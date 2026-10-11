@@ -210,7 +210,7 @@ type ExplainAtlas = {
   label: string;
   rank: number;
   resolution_m: number;
-  decision: "used" | "dead_water" | "lower_priority" | "weak_tide" | "excluded" | "no_cell" | "outside_validity";
+  decision: "used" | "dead_water" | "unknown_zone" | "lower_priority" | "weak_tide" | "excluded" | "no_cell" | "outside_validity";
   max_tide_kt?: number;
   box?: string;
 };
