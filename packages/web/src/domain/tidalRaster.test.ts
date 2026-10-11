@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { describe, expect, it } from "vitest";
-import { CALM_COLOR, RAMP_STOPS, RasterGrid, decodePixel, maxCurrentAt, rampColor, rampGradient, type RasterEntry } from "./tidalRaster";
+import { CALM_COLOR, RAMP_STOPS, RasterGrid, decodePixel, isWeakCoarse, maxCurrentAt, rampColor, rampGradient, weakTideAt, type RasterEntry } from "./tidalRaster";
 
 describe("ramp", () => {
   it("is calm under 0.5 kt, darkens up to 5 kt and clamps above", () => {
@@ -38,5 +38,25 @@ describe("pixels and grids", () => {
     const coarseGrid = new RasterGrid(coarse, 1, 1, new Uint8Array([41]));
     expect(maxCurrentAt(48.75, -4.25, [coarseGrid, grid])?.entry.atlas).toBe("T");
     expect(maxCurrentAt(48.75, -4.75, [coarseGrid, grid])).toEqual({ kt: 1, entry: coarse });
+  });
+});
+
+describe("the weak-tide rule, as the server applies it", () => {
+  const atlne: RasterEntry = { atlas: "ATLNE", label: "ATLNE 2 km", resolution_m: 2000, rank: 1, file: "raster/atlne.png", bounds: [[46, -13], [48, -11]], scale: 40, cells: 1 };
+  const nws: RasterEntry = { atlas: "CMEMS_NWS", label: "NWS 1,5 km", resolution_m: 1500, rank: 0, file: "raster/nws.png", bounds: [[46, -13], [48, -11]], scale: 40, cells: 1 };
+  const finis: RasterEntry = { ...atlne, atlas: "FINIS", label: "FINIS 250 m", resolution_m: 250, rank: 2 };
+
+  it("passes an open-sea atlas under 0.2 kt to the next source, keeps a coastal one", () => {
+    expect(isWeakCoarse(atlne, 0.08)).toBe(true);
+    expect(isWeakCoarse(atlne, 0.2)).toBe(false);
+    expect(isWeakCoarse(finis, 0.05)).toBe(false);
+    // MANGA, 700 m but a shelf atlas: in the deep Bay of Biscay its 0.06 kt passes too.
+    expect(isWeakCoarse({ ...atlne, atlas: "MANGA", resolution_m: 700 }, 0.06)).toBe(true);
+    // 1 + round(0.08 * 40) = 4; 1 + round(0.45 * 40) = 19.
+    const weak = new RasterGrid(atlne, 1, 1, new Uint8Array([4]));
+    const strong = new RasterGrid(nws, 1, 1, new Uint8Array([19]));
+    expect(maxCurrentAt(47, -12, [weak, strong])?.entry.atlas).toBe("CMEMS_NWS");
+    expect(maxCurrentAt(47, -12, [weak])).toBeNull();
+    expect(weakTideAt(47, -12, [weak])?.entry.atlas).toBe("ATLNE");
   });
 });

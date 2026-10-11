@@ -30,7 +30,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
 
@@ -38,7 +38,13 @@ import numpy as np
 import polars as pl
 
 from openwind_data.currents.harmonic import predict as schureman_predict
-from openwind_data.currents.serving_policy import EXCLUDED_BOXES, WITHHELD_ATLASES
+from openwind_data.currents.serving_policy import (
+    BOX_NAMES,
+    EXCLUDED_BOXES,
+    OPEN_SEA_MAX_RANK,
+    WEAK_TIDE_KT,
+    WITHHELD_ATLASES,
+)
 
 # Tile pitch of the historical MARC layout. An atlas may declare its own in
 # ``metadata.json`` (``grid.tile_deg``): a global 7 km atlas cut in 0.5 degree
@@ -86,6 +92,10 @@ class AtlasMeta:
     # Boxes inside its validity where the atlas must not answer anyway
     # (``serving_policy.EXCLUDED_BOXES``: Gibraltar for the Copernicus tide).
     excluded_bboxes: tuple[tuple[float, float, float, float], ...] = ()
+    # The tide under which the builder dropped cells (``analysis.min_speed_kt``,
+    # 0.2 kt for the Copernicus atlases): a point in such an atlas without a
+    # cell is, most of the time, water whose tide stayed under it.
+    min_speed_kt: float | None = None
 
     @property
     def source_label(self) -> str:
@@ -155,7 +165,12 @@ def _scan_atlas(parquet_dir: Path) -> AtlasMeta | None:
         built_at=_iso_or_none(meta.get("build_at")),
         record_end=_iso_or_none((meta.get("analysis") or {}).get("record_end")),
         excluded_bboxes=EXCLUDED_BOXES.get(meta["atlas"], ()),
+        min_speed_kt=_float_or_none((meta.get("analysis") or {}).get("min_speed_kt")),
     )
+
+
+def _float_or_none(value: object) -> float | None:
+    return float(value) if isinstance(value, int | float) and not isinstance(value, bool) else None
 
 
 def _iso_or_none(value: object) -> str | None:
@@ -172,6 +187,40 @@ def _read_tile(parquet_path: str) -> pl.DataFrame | None:
     if not Path(parquet_path).exists():
         return None
     return pl.read_parquet(parquet_path)
+
+
+# The window the weak-tide rule measures a cell's spring current over: 15
+# days hourly from a fixed start, so the answer never depends on the date of
+# the request. 2026-01-01 to 01-16 holds the spring tides of the 3 January
+# full moon. The map rasters use the same 15 days hourly.
+_WEAK_TIDE_WINDOW = [datetime(2026, 1, 1, tzinfo=UTC) + timedelta(hours=h) for h in range(15 * 24)]
+
+
+@lru_cache(maxsize=65536)
+def _max_tide_kt(
+    u: tuple[tuple[str, tuple[float, float]], ...],
+    v: tuple[tuple[str, tuple[float, float]], ...],
+) -> float:
+    """Spring tidal current of one cell, in knots: the maximum over the window."""
+    u_ms = schureman_predict(_WEAK_TIDE_WINDOW, dict(u))
+    v_ms = schureman_predict(_WEAK_TIDE_WINDOW, dict(v))
+    return float(np.max(np.hypot(u_ms, v_ms)) * _MS_TO_KN)
+
+
+@dataclass(frozen=True, slots=True)
+class Declined:
+    """An atlas that holds the point but does not answer there, and why.
+
+    ``reason`` is ``weak_tide`` (an open-sea atlas whose spring current stays
+    under ``WEAK_TIDE_KT``: the general current answers), ``excluded`` (a box
+    the serving policy cuts out, named in ``box``), or ``no_cell`` (no cell
+    within the distance threshold).
+    """
+
+    atlas: AtlasMeta
+    reason: str
+    max_tide_kt: float | None = None
+    box: str | None = None
 
 
 def _tile_origin_of(
@@ -562,29 +611,75 @@ class MarcAtlasRegistry:
         """Return the finest atlas with actual data near (lat, lon), or None.
 
         Filters by bbox and, when the atlas declares one, by ``validity_bbox``,
-        and drops the boxes the serving policy cuts out of it; then verifies the nearest cell in the matching tile is within the
-        distance threshold. This catches false bbox matches (e.g. ATLNE bbox
-        spuriously covering the Mediterranean) and confines a model to the
-        waters its producer validated it in.
+        and drops the boxes the serving policy cuts out of it; then verifies
+        the nearest cell in the matching tile is within the distance
+        threshold. This catches false bbox matches (e.g. ATLNE bbox spuriously
+        covering the Mediterranean) and confines a model to the waters its
+        producer validated it in. Last, an open-sea atlas (rank 0 or 1) must
+        reach ``WEAK_TIDE_KT`` of spring current at its cell: below, the
+        general current of the global model matters more (``serving_policy``).
 
         Reads the containing tile only, on purpose: see `_best_cell` for why
         the seam search must not reach the coverage decision.
         """
+        for atlas in self._candidates(lat, lon):
+            if self._decline(atlas, lat, lon) is None:
+                return atlas
+        return None
+
+    def declined_at(self, lat: float, lon: float) -> list[Declined]:
+        """The atlases that hold (lat, lon) in their validity but pass on it, in cascade order.
+
+        What the cascade would say if asked why it fell back: the overlay
+        sends it with an uncovered answer, so the map can name the atlas and
+        the reason (a 0.08 kt tide in ATLNE off Brittany, the Gibraltar box)
+        rather than leave the global model unexplained. Stops at the atlas
+        that answers, if one does.
+        """
+        out: list[Declined] = []
+        for atlas in self._candidates(lat, lon, keep_excluded=True):
+            declined = self._decline(atlas, lat, lon)
+            if declined is None:
+                break
+            out.append(declined)
+        return out
+
+    def _candidates(
+        self, lat: float, lon: float, *, keep_excluded: bool = False
+    ) -> list[AtlasMeta]:
         candidates = [
             a
             for a in self.atlases
             if _bbox_contains(a.bbox, lat, lon)
             and (a.validity_bbox is None or _bbox_contains(a.validity_bbox, lat, lon))
-            and not any(_bbox_contains(b, lat, lon) for b in a.excluded_bboxes)
+            and (keep_excluded or not any(_bbox_contains(b, lat, lon) for b in a.excluded_bboxes))
         ]
-        if not candidates:
-            return None
         candidates.sort(key=lambda a: (-a.rank, a.resolution_m))
-        for atlas in candidates:
-            # Use the unfiltered metric-nearest as the coverage signal; the
-            # variable-specific lookup happens at predict time.
-            if self._best_cell(atlas, lat, lon, required_col=None) is not None:
-                return atlas
+        return candidates
+
+    def _decline(self, atlas: AtlasMeta, lat: float, lon: float) -> Declined | None:
+        """Why ``atlas`` does not answer at (lat, lon), or ``None`` when it does."""
+        box = next((b for b in atlas.excluded_bboxes if _bbox_contains(b, lat, lon)), None)
+        if box is not None:
+            return Declined(atlas, "excluded", box=BOX_NAMES.get(box))
+        # Use the unfiltered metric-nearest as the coverage signal; the
+        # variable-specific lookup happens at predict time.
+        if self._best_cell(atlas, lat, lon, required_col=None) is None:
+            if atlas.min_speed_kt is not None:
+                # The builder dropped the weak cells: same rule, applied earlier.
+                return Declined(atlas, "weak_tide")
+            return Declined(atlas, "no_cell")
+        if atlas.rank <= OPEN_SEA_MAX_RANK:
+            found = self._best_cell(atlas, lat, lon, required_col="M2_u_amp")
+            if found is not None:
+                df, idx = found
+                u = tuple(sorted(_extract_constants(df, idx, "u").items()))
+                v = tuple(sorted(_extract_constants(df, idx, "v").items()))
+                # An atlas without current constants (heights only) has no
+                # tidal current to weigh against the general one.
+                kt = _max_tide_kt(u, v) if u and v else None
+                if kt is not None and kt < WEAK_TIDE_KT:
+                    return Declined(atlas, "weak_tide", max_tide_kt=kt)
         return None
 
     def cell_at(self, lat: float, lon: float) -> CellPrediction | None:

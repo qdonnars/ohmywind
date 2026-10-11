@@ -201,6 +201,10 @@ def overlay_for_point(
     marc_loaded = bool(services.marc.atlases)
     shom_covers = services.shom.covers(lat, lon)
     cell = services.marc.cell_at(lat, lon) if marc_loaded else None
+    # The atlases that hold the point but pass on it, and why: a 0.08 kt tide
+    # in ATLNE off Brittany, the Gibraltar box. What the map shows when it
+    # says who answers here; absent when nothing declined.
+    declined = _declined(services, lat, lon) if marc_loaded else []
     # If neither MARC nor SHOM has anything at this point, return uncovered
     # so the client keeps its Open-Meteo SMOC baseline.
     if cell is None and not shom_covers:
@@ -208,6 +212,8 @@ def overlay_for_point(
             # Cached briefly: attaching the dataset must not take a day to
             # become visible.
             return {"covered": False, "reason": "no atlas dataset loaded on this Space"}, 300
+        if declined:
+            return {"covered": False, "declined": declined}, 86400
         return {"covered": False}, 86400
 
     times = window.times
@@ -239,6 +245,7 @@ def overlay_for_point(
 
     payload: dict[str, Any] = {
         "covered": True,
+        **({"declined": declined} if declined else {}),
         "atlas_resolution_m": atlas_resolution_m,
         "z0_hydro_m": cell.z0_hydro_m if cell else None,
         "times": [t.isoformat() for t in times],
@@ -272,6 +279,24 @@ def overlay_for_point(
     return payload, 86400
 
 
+def _declined(services: Services, lat: float, lon: float) -> list[dict[str, Any]]:
+    """``MarcAtlasRegistry.declined_at`` as JSON: atlas, label, grid, reason."""
+    out = []
+    for d in services.marc.declined_at(lat, lon):
+        item: dict[str, Any] = {
+            "atlas": d.atlas.name,
+            "label": d.atlas.source_label,
+            "resolution_m": d.atlas.resolution_m,
+            "reason": d.reason,
+        }
+        if d.max_tide_kt is not None:
+            item["max_tide_kt"] = round(d.max_tide_kt, 2)
+        if d.box is not None:
+            item["box"] = d.box
+        out.append(item)
+    return out
+
+
 async def api_marc_overlay(request: Request) -> JSONResponse:
     """Return MARC PREVIMER currents and tide-height predictions for a point.
 
@@ -295,6 +320,11 @@ async def api_marc_overlay(request: Request) -> JSONResponse:
       "managed", "fields": ["current", "tide"]}}`` in a documented zone
       where no source describes the real stream: the client withholds the
       listed fields rather than keep its Open-Meteo baseline.
+      Either shape may carry ``"declined": [{"atlas", "label",
+      "resolution_m", "reason", "max_tide_kt"?, "box"?}]``: the atlases that
+      hold the point and pass on it (``weak_tide``: a coarse atlas under
+      0.2 kt, where the general current of the global model matters more;
+      ``excluded``: a box the serving policy cuts out; ``no_cell``).
       ``{"covered": true, "current_source": "marc_finis_250m",
          "atlas_resolution_m": 250, "z0_hydro_m": -3.85, "times": [...],
          "current_speed_kn": [...], "current_direction_to_deg": [...],

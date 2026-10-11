@@ -112,6 +112,47 @@ class TestUnknownZone:
         assert "unknown" not in _payload(resp)
 
 
+class TestDeclined:
+    async def test_a_weak_coarse_atlas_says_why_the_global_model_answers(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """ATLNE off Brittany holds a 0.08 kt tide: the 2 km atlas passes, the
+        global model answers with the general current, and the overlay names
+        the atlas and its tide so the map can say so."""
+        import polars as pl
+        from openwind_data.currents.marc_atlas import MarcAtlasRegistry
+
+        atlas = tmp_path / "ATLNE"
+        tile = atlas / "tile_lat=47.0" / "tile_lon=-12.0"
+        tile.mkdir(parents=True)
+        (atlas / "metadata.json").write_text(
+            json.dumps({"atlas": "ATLNE", "rank": 1, "resolution_m": 2000, "schema_version": 3})
+        )
+        ring = [[-13.0, 46.0], [-11.0, 46.0], [-11.0, 48.0], [-13.0, 48.0], [-13.0, 46.0]]
+        (atlas / "coverage.geojson").write_text(
+            json.dumps({"features": [{"geometry": {"type": "Polygon", "coordinates": [ring]}}]})
+        )
+        pl.DataFrame(
+            {
+                "lat": [47.0],
+                "lon": [-12.0],
+                "M2_h_amp": [1.2],
+                "M2_h_g": [100.0],
+                "M2_u_amp": [0.03],
+                "M2_u_g": [100.0],
+                "M2_v_amp": [0.01],
+                "M2_v_g": [190.0],
+            }
+        ).write_parquet(tile / "data.parquet")
+        monkeypatch.setattr(SERVICES, "marc", MarcAtlasRegistry.from_directory(tmp_path))
+        resp = await marine_routes.api_marc_overlay(_FakeRequest(_params(lat="47.0", lon="-12.0")))
+        body = _payload(resp)
+        assert body["covered"] is False
+        [declined] = body["declined"]
+        assert declined["atlas"] == "ATLNE" and declined["label"] == "marc_atlne_2000m"
+        assert declined["reason"] == "weak_tide" and declined["max_tide_kt"] < 0.2
+
+
 class TestUncoveredPath:
     async def test_answers_200_rather_than_404_when_it_has_nothing(self) -> None:
         # The client fires this alongside its Open-Meteo call and simply keeps

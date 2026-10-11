@@ -444,7 +444,11 @@ uses unless overridden by tool parameters.
   Iceland answer from SMOC: atlases exist for both, but they are out of
   the French-coast scope and the Norwegian one erased the coastal current.
   Priority between atlases is explicit in their metadata (rank, then
-  resolution): a validated atlas (MARC, BSH) beats a Copernicus one.
+  resolution): a validated atlas (MARC, BSH) beats a Copernicus one. An
+  open-sea atlas (rank 0 basin or 1 shelf: ATLNE, MANGA, BSH 926 m,
+  Copernicus) answers only where its spring tidal current reaches 0.2 kt:
+  below, the general current matters more than the tide, and the global
+  model, which holds it, answers. Coastal and pass atlases keep every cell.
   Each leg surfaces a ``current_source`` field so the caller knows which
   product applied (e.g. ``marc_finis_250m``, ``bsh_db_926m``,
   ``cmems_nws_1500m``, ``openmeteo_smoc``, ``unknown``).
