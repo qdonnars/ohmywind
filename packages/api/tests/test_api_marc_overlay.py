@@ -93,6 +93,25 @@ class TestLand:
         assert "land" not in _payload(resp)
 
 
+class TestUnknownZone:
+    async def test_the_rance_basin_answers_unknown_whatever_the_atlases_hold(self) -> None:
+        """Above the Rance tidal power plant MARC holds a dead basin (MANW) or
+        a free tide (MANGA); neither is the stream EDF's orders set. The
+        overlay says "unknown" so the client drops its SMOC baseline too."""
+        resp = await marine_routes.api_marc_overlay(
+            _FakeRequest(_params(lat="48.567", lon="-1.975"))
+        )
+        assert resp.status_code == 200
+        body = _payload(resp)
+        assert body["covered"] is False
+        assert "Rance" in body["unknown"]["zone"]
+        assert body["unknown"]["reason"] == "managed"
+        assert body["unknown"]["fields"] == ["current", "tide"]
+        # Dinard roads, seaward of the plant: the usual path.
+        resp = await marine_routes.api_marc_overlay(_FakeRequest(_params(lat="48.64", lon="-2.06")))
+        assert "unknown" not in _payload(resp)
+
+
 class TestUncoveredPath:
     async def test_answers_200_rather_than_404_when_it_has_nothing(self) -> None:
         # The client fires this alongside its Open-Meteo call and simply keeps

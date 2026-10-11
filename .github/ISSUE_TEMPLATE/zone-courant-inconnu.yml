@@ -1,0 +1,56 @@
+name: Zone où le courant n'est pas la marée
+description: Signaler un endroit où OhMyWind affiche un courant que personne ne devrait croire (écluse, barrage, chenal étroit, estuaire dominé par le débit).
+title: "[zone] "
+labels: ["courants", "zone-inconnue"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        OhMyWind retire le courant là où aucune de ses sources ne décrit le courant réel, plutôt que d'afficher un chiffre faux.
+        La liste de ces zones est tenue à la main dans `packages/data-adapters/src/openwind_data/currents/unknown_zones.geojson`, et chaque zone doit citer sa source.
+        La règle complète : `docs/tidal-world/zones-inconnues.md`.
+  - type: input
+    id: lieu
+    attributes:
+      label: Lieu
+      description: Le nom de l'endroit, tel qu'un navigateur le dirait.
+      placeholder: "Rance, en amont de l'usine marémotrice"
+    validations:
+      required: true
+  - type: textarea
+    id: emprise
+    attributes:
+      label: Emprise
+      description: Quelques points lat, lon en degrés décimaux qui entourent la zone, ou un lien vers une carte.
+      placeholder: "48.6165, -2.045 / 48.6165, -2.005 / 48.57, -1.94 / 48.48, -1.95 / 48.48, -2.06"
+    validations:
+      required: true
+  - type: dropdown
+    id: raison
+    attributes:
+      label: Pourquoi le courant n'y suit pas la marée
+      options:
+        - Un ouvrage le règle (barrage, écluse, vannes, usine)
+        - Un chenal trop étroit pour les grilles servies
+        - Il dépend d'autre chose que la marée (débit, vent)
+    validations:
+      required: true
+  - type: checkboxes
+    id: champs
+    attributes:
+      label: Ce qui est faux sur place
+      options:
+        - label: Le courant
+        - label: La hauteur d'eau
+  - type: textarea
+    id: source
+    attributes:
+      label: Source
+      description: Instructions nautiques, avis aux navigateurs, page de l'exploitant, article. Une zone sans source ne peut pas être ajoutée.
+    validations:
+      required: true
+  - type: textarea
+    id: observe
+    attributes:
+      label: Ce que l'application affiche aujourd'hui
+      description: Facultatif. Une capture ou les valeurs lues, avec la date.

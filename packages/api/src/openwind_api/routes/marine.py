@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from openwind_data.currents.unknown_zones import unknown_zone_at
 from openwind_data.routing.geometry import validate_point
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -188,6 +189,15 @@ def overlay_for_point(
     # current for a field. Cached a day, land does not move.
     if services.land.is_land(lat, lon):
         return {"covered": False, "land": True}, 86400
+    # A documented zone where no source describes the real stream (the Rance
+    # above its tidal power plant): say so, so the client withholds its own
+    # SMOC baseline too instead of falling back to it.
+    zone = unknown_zone_at(lat, lon)
+    if zone is not None:
+        return {
+            "covered": False,
+            "unknown": {"zone": zone.name, "reason": zone.reason, "fields": sorted(zone.fields)},
+        }, 86400
     marc_loaded = bool(services.marc.atlases)
     shom_covers = services.shom.covers(lat, lon)
     cell = services.marc.cell_at(lat, lon) if marc_loaded else None
@@ -281,6 +291,10 @@ async def api_marc_overlay(request: Request) -> JSONResponse:
       ``{"covered": false}`` when outside MARC coverage, and
       ``{"covered": false, "land": true}`` more than about 2 km inland
       (Natural Earth 10 m shoreline, one pixel of 1 km, sea grown by two).
+      ``{"covered": false, "unknown": {"zone": "Rance, ...", "reason":
+      "managed", "fields": ["current", "tide"]}}`` in a documented zone
+      where no source describes the real stream: the client withholds the
+      listed fields rather than keep its Open-Meteo baseline.
       ``{"covered": true, "current_source": "marc_finis_250m",
          "atlas_resolution_m": 250, "z0_hydro_m": -3.85, "times": [...],
          "current_speed_kn": [...], "current_direction_to_deg": [...],

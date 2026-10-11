@@ -41,6 +41,24 @@ _RESOLUTION_SUFFIX = re.compile(r"_(\d+)m$")
 _HIGH_CONFIDENCE_MAX_RESOLUTION_M = 1000
 
 
+def source_confidence(source: str | None) -> ConfidenceLevel | None:
+    """The tag a source earns by itself, wherever it answers.
+
+    ``"high"`` for SHOM Atlas C2D and any atlas at 1 km or finer,
+    ``"medium"`` for coarser atlases, Open-Meteo SMOC and unknown labels,
+    ``None`` without a source. :func:`confidence_for_point` adds the one
+    place-dependent rule on top (a fine grid beside a pass it misses).
+    """
+    if source is None:
+        return None
+    if source.startswith("shom_c2d_"):
+        return "high"
+    match = _RESOLUTION_SUFFIX.search(source)
+    if match is None or int(match.group(1)) > _HIGH_CONFIDENCE_MAX_RESOLUTION_M:
+        return "medium"
+    return "high"
+
+
 def confidence_for_point(lat: float, lon: float, source: str | None) -> ConfidenceLevel | None:
     """Confidence tag for the current value at (lat, lon) with given source.
 
@@ -60,16 +78,10 @@ def confidence_for_point(lat: float, lon: float, source: str | None) -> Confiden
       current, per ``tidal_gaps.geojson``) → ``"medium"``: the grid is
       blind to the channel, whatever its pitch says.
     """
-    if source is None:
-        return None
-    if source.startswith("shom_c2d_"):
-        return "high"
-    match = _RESOLUTION_SUFFIX.search(source)
-    if match is None or int(match.group(1)) > _HIGH_CONFIDENCE_MAX_RESOLUTION_M:
+    level = source_confidence(source)
+    if level == "high" and unresolved_pass_at(lat, lon, source) is not None:
         return "medium"
-    if unresolved_pass_at(lat, lon, source) is not None:
-        return "medium"
-    return "high"
+    return level
 
 
 def confidence_for_leg(

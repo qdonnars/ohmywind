@@ -227,3 +227,36 @@ def unresolved_pass_along(
     if not gaps.passes:
         return None
     return _blind_pass(gaps, _leg_distances_km(gaps, lat1, lon1, lat2, lon2), source, radius_km)
+
+
+def unknown_pass_along(
+    lat1: float,
+    lon1: float,
+    lat2: float,
+    lon2: float,
+    source: str | None,
+    *,
+    fine: bool,
+    radius_km: float = DEFAULT_UNRESOLVED_RADIUS_KM,
+) -> TidalGap | None:
+    """The nearest known pass within ``radius_km`` of the leg that its source cannot see.
+
+    Where the engine stops quoting a current. A fine source (``fine``: SHOM,
+    or an atlas at 1 km or finer) is blind only to the passes the builder
+    measured it missing (``unresolved_by``); a coarse one, 2 km and up or the
+    8 km global model, is blind to every pass of the list, since the list
+    holds the passes no fine source serves. Within the blind spot the value
+    on file is a coarse cell's average of a race, not a current anyone
+    should add to a boat speed.
+    """
+    gaps = _load()
+    if not gaps.passes:
+        return None
+    d = _leg_distances_km(gaps, lat1, lon1, lat2, lon2)
+    for i in np.argsort(d):
+        if d[i] > radius_km:
+            break
+        p = gaps.passes[int(i)]
+        if not fine or (source is not None and source in p.unresolved_by):
+            return TidalGap(p.name, p.max_spring_kt, "pass", float(d[i]))
+    return None

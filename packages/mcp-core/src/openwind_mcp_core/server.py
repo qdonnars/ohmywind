@@ -458,18 +458,24 @@ uses unless overridden by tool parameters.
   derived from the data source. ``"high"`` on SHOM Atlas C2D and on any
   atlas at 1 km or finer (MARC 250 m and 700 m, BSH 90 m and 926 m);
   ``"medium"`` on atlases coarser than 1 km (MARC ATLNE 2 km, Copernicus
-  1.5 to 4.2 km), on Open-Meteo SMOC (8 km global product), and on a fine
-  atlas for a leg passing within 3 km of a known pass it does not resolve
-  (its reconstructed maximum there is under half the published spring
-  current: an 800 m grid has no cell in a 150 m channel); ``None`` when no
-  current data is available.
-  A ``currents.tidal_gap`` notice is raised once per passage when a leg
-  whose current is not from a fine source crosses a zone where tidal
-  streams are probably strong (a known race, or more than 1.5 kt
-  reconstructed with no fine atlas); a ``currents.pass_unresolved`` notice
-  when the leg's own atlas is the one blind to the pass. Either way the
-  ETA carries a current that is probably wrong, and the notice names the
-  places. Relay it.
+  1.5 to 4.2 km) and on Open-Meteo SMOC (8 km global product); ``None``
+  when no current is given.
+
+- Unknown current (``current_source: "unknown"``, speed and direction
+  ``None``): we say we do not know rather than quote a number nobody
+  should trust. Two cases. A documented zone where no source describes the
+  real stream (the Rance above its tidal power plant, whose basin follows
+  EDF's operating orders, not the tide); and a leg passing within 3 km of a
+  known pass its source cannot see (a fine atlas measured blind there, or
+  any coarse source at a pass no fine source serves). The leg's ETA is
+  computed without current, and a ``currents.unknown`` notice names the
+  places once per passage. Relay it: the sailor must use local tables or
+  sailing directions there.
+  A ``currents.tidal_gap`` notice is raised when a leg whose current is
+  not from a fine source crosses a zone where tidal streams are probably
+  strong (a known race within 15 km, or more than 1.5 kt reconstructed
+  with no fine atlas): the value is kept but probably too weak, and the
+  notice names the places. Relay it.
 
 - Minimum boat speed / SOG: 0.5 kn floor to avoid blow-up in extreme
   stalls or strongly opposing currents.

@@ -6,6 +6,7 @@ import type {
 } from "../types";
 import { API_BASE } from "./config";
 import { tidalGapForSource } from "../domain/tidalGaps";
+import { unknownCurrentAt, unknownZoneAt, withhold } from "../domain/unknownCurrent";
 import { noteIfRefused } from "./openMeteoQuota";
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { parisIsoToUtcMs } from "../domain/datetime";
@@ -538,9 +539,23 @@ export async function fetchMarine(lat: number, lon: number): Promise<MarineHourl
   }
   const baseData = toMarineHourly(raw);
   if (!baseData) return null;
-  const data = await withTidalGap(lat, lon, mergeMarcOverlay(baseData, overlay));
+  const data = await withTidalGap(lat, lon, await withUnknown(lat, lon, mergeMarcOverlay(baseData, overlay)));
   cache.set(key, { data, fetchedAt: Date.now() });
   return data;
+}
+
+/**
+ * Blank what we know we do not know (domain/unknownCurrent): a documented
+ * zone, or a pass the spot's source cannot see. Best-effort like the gap: a
+ * failure to load the pass list leaves the data untouched.
+ */
+async function withUnknown(lat: number, lon: number, data: MarineHourly): Promise<MarineHourly> {
+  try {
+    const unknown = await unknownCurrentAt(lat, lon, data);
+    return unknown ? withhold(data, unknown) : data;
+  } catch {
+    return data;
+  }
 }
 
 /**
@@ -549,6 +564,7 @@ export async function fetchMarine(lat: number, lon: number): Promise<MarineHourl
  * load the gap file leaves the data untouched.
  */
 async function withTidalGap(lat: number, lon: number, data: MarineHourly): Promise<MarineHourly> {
+  if (data.current_unknown) return data;
   try {
     const gap = await tidalGapForSource(lat, lon, data.current_source, data.marc_resolution_m);
     if (!gap) return data;
@@ -638,7 +654,11 @@ export async function fetchMarineCorridor(
     const i = missing[k];
     const baseData = toMarineHourly(byMissingIndex[k]);
     if (!baseData) continue;
-    const data = mergeMarcOverlay(baseData, overlays[k]);
+    // Documented zones only: the pass rule needs the 360 kB gap file, and
+    // the passage engine applies it again on the server for every leg.
+    const merged = mergeMarcOverlay(baseData, overlays[k]);
+    const zone = unknownZoneAt(coords[i].lat, coords[i].lon);
+    const data = zone ? withhold(merged, zone) : merged;
     const key = marineCacheKey(coords[i].lat, coords[i].lon);
     cache.set(key, { data, fetchedAt });
     for (const idx of indicesByKey.get(key) ?? [i]) out[idx] = data;
@@ -653,6 +673,8 @@ export function clearMarineCache(): void {
 
 export function isCurrentsRelevant(marine: MarineHourly | null): boolean {
   if (!marine) return false;
+  // Withheld currents still get their tab: it is where the spot says why.
+  if (marine.current_unknown) return true;
   return marine.current_speed_kn.some(
     (v): v is number => v != null && v >= CURRENT_RELEVANCE_THRESHOLD_KN
   );

@@ -38,6 +38,8 @@ Pourquoi 500 m pour le SHOM et pas « partout où il a un point » : un bench su
 
 <div data-widget="tidal-map"></div>
 
+**Là où nous savons que nous ne savons pas.** Un chiffre faux avec une étiquette de confiance est pire qu'une absence de chiffre. Deux cas retirent donc le courant au lieu de l'afficher. D'abord, une liste de zones documentées, où aucune de nos sources ne décrit le courant réel : la première est la Rance en amont de l'usine marémotrice, dont le niveau et les courants suivent les consignes d'exploitation d'EDF, pas la marée (un atlas y lit une eau morte, l'autre une marée libre, aucun des deux n'est vrai). Chaque zone porte sa raison et sa source, et n'en corrige aucune valeur : elle la retire. Ensuite, à moins de 3 km d'une passe connue que la source ne voit pas : une grille fine dont la carte a mesuré qu'elle rate le courant publié, ou toute grille grossière là où aucune source fine ne sert. Dans ces deux cas, le tronçon est calculé sans courant, la fiche affiche « inconnu », et un avertissement nomme l'endroit. Une zone à ajouter (écluse, barrage, estuaire dominé par le débit, chenal étroit) se propose par une issue sur le dépôt, avec la source qui la justifie.
+
 ## Comment on déduit le courant en un point d'atlas
 
 Tous les atlas de la cascade, sauf le SHOM qui publie des séries horaires, partagent le même format : les amplitudes et phases harmoniques des composantes **U** (est-ouest) et **V** (nord-sud) du courant sont stockées par cellule (90 m à 4,2 km selon l'atlas), une valeur par constituant astronomique. Pour évaluer le courant à un instant $t$ et une position donnée, OhMyWind exécute le prédicteur Schureman/Cartwright séparément sur U et V :

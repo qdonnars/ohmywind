@@ -1,0 +1,31 @@
+{
+  "type": "FeatureCollection",
+  "name": "unknown_zones",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "rance",
+        "name": "Rance, en amont de l'usine marémotrice",
+        "reason": "managed",
+        "fields": ["current", "tide"],
+        "source": "Le bassin de la Rance, entre l'usine marémotrice d'EDF et l'écluse du Châtelier, est exploité par les vannes et les turbines de l'usine : son niveau et ses courants suivent les consignes d'exploitation, pas la marée. MARC MANW 250 m y lit une eau morte (amplitude M2 nulle de 48,539 à 48,615 N), MARC MANGA 700 m une marée libre : aucune des deux n'est le régime réel.",
+        "added": "2026-10-11"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-2.045, 48.6165],
+            [-2.005, 48.6165],
+            [-1.94, 48.57],
+            [-1.95, 48.48],
+            [-2.06, 48.48],
+            [-2.065, 48.56],
+            [-2.045, 48.6165]
+          ]
+        ]
+      }
+    }
+  ]
+}

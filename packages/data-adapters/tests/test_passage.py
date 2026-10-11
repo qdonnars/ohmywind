@@ -1824,11 +1824,11 @@ class TestTidalGapNotice:
             engine_module.confidence_for_leg = original
         assert not [n for n in report.notices if n.code == "currents.tidal_gap"]
 
-    async def test_a_fine_atlas_blind_to_the_pass_gets_its_own_notice(self, monkeypatch) -> None:
+    async def test_a_fine_atlas_blind_to_the_pass_withholds_the_current(self, monkeypatch) -> None:
         # Bodø roads to Saltstraumen with NorKyst 800 m answering: the grid
-        # has no cell in the 150 m channel, the snapshot lists it as blind,
-        # and the passage hears "pass unresolved by the atlas", not "our
-        # sources are coarse".
+        # has no cell in the 150 m channel and the snapshot lists it as blind.
+        # Inside the 3 km blind spot the leg carries no current at all, runs
+        # at boat speed, and the passage hears "current unknown", named.
         from openwind_data.currents import tidal_gaps
 
         passes = (
@@ -1860,22 +1860,28 @@ class TestTidalGapNotice:
             adapter=adapter,
             segment_length_nm=1.0,
         )
-        blind = [n for n in report.notices if n.code == "currents.pass_unresolved"]
-        assert len(blind) == 1 and blind[0].params["zones"] == "Saltstraumen"
-        assert "passe non résolue" in blind[0].message
+        unknown = [n for n in report.notices if n.code == "currents.unknown"]
+        assert len(unknown) == 1 and unknown[0].params["zones"] == "Saltstraumen"
+        assert "courant inconnu" in unknown[0].message
         assert not [n for n in report.notices if n.code == "currents.tidal_gap"]
 
-        # Confidence is tagged at the leg's midpoint: medium inside the 3 km
-        # blind spot, high for the same atlas out in the roads.
         def km_to_pass(s: SegmentReport) -> float:
-            mid_lat = (s.start.lat + s.end.lat) / 2
-            mid_lon = (s.start.lon + s.end.lon) / 2
-            return math.hypot((mid_lat - 67.2281) * 111, (mid_lon - 14.6164) * 111 * 0.39)
+            # Closest end of the leg: the rule measures from the whole leg.
+            return min(
+                math.hypot((p.lat - 67.2281) * 111, (p.lon - 14.6164) * 111 * 0.39)
+                for p in (s.start, s.end)
+            )
 
         near = [s for s in report.segments if km_to_pass(s) < 2.5]
         far = [s for s in report.segments if km_to_pass(s) > 3.5]
-        assert near and all(s.current_confidence == "medium" for s in near)
-        assert far and all(s.current_confidence == "high" for s in far)
+        assert near and far
+        for s in near:
+            assert s.current_source == "unknown"
+            assert s.current_speed_kn is None and s.current_direction_to_deg is None
+            assert s.current_confidence is None and s.sog_kn is None
+        for s in far:
+            assert s.current_source == "norkyst_lofoten_800m"
+            assert s.current_speed_kn == 0.3 and s.current_confidence == "high"
 
     async def test_a_long_leg_through_the_blind_pass_is_caught_too(self, monkeypatch) -> None:
         # Default 10 nm legs: the midpoint of the leg that crosses Saltstraumen
@@ -1911,6 +1917,57 @@ class TestTidalGapNotice:
             segment_length_nm=20.0,
         )
         assert len(report.segments) == 1
-        assert report.segments[0].current_confidence == "medium"
-        blind = [n for n in report.notices if n.code == "currents.pass_unresolved"]
-        assert len(blind) == 1 and blind[0].params["zones"] == "Saltstraumen"
+        assert report.segments[0].current_source == "unknown"
+        assert report.segments[0].current_speed_kn is None
+        unknown = [n for n in report.notices if n.code == "currents.unknown"]
+        assert len(unknown) == 1 and unknown[0].params["zones"] == "Saltstraumen"
+
+    async def test_a_coarse_source_beside_a_listed_pass_withholds_the_current(self) -> None:
+        # Messina with the 4.2 km Mediterranean atlas: the pass is on file
+        # because no fine source serves it, so any coarse value there is a
+        # cell's average of the race. Withheld within 3 km, kept beyond.
+        adapter = StubAdapter(
+            tws_kn=12.0,
+            twd_deg=0.0,
+            current_kn=0.8,
+            current_to_deg=180.0,
+            current_source="cmems_med_4200m",
+        )
+        report = await estimate_passage(
+            [Point(38.40, 15.70), Point(38.2458, 15.6325)],
+            DEPARTURE,
+            "cruiser_30ft",
+            adapter=adapter,
+            segment_length_nm=1.0,
+        )
+        assert report.segments[0].current_source == "cmems_med_4200m"
+        assert report.segments[-1].current_source == "unknown"
+        unknown = [n for n in report.notices if n.code == "currents.unknown"]
+        assert len(unknown) == 1 and "Messina" in unknown[0].params["zones"]
+
+    async def test_the_rance_basin_has_no_current(self) -> None:
+        # Saint-Malo roads to Saint-Suliac, above the tidal power plant: the
+        # stub answers 1 kt everywhere with a fine label, as MARC would. In
+        # the basin the plant sets the stream, so the leg runs at boat speed
+        # and the notice names the Rance; out at sea the value stays.
+        adapter = StubAdapter(
+            tws_kn=12.0,
+            twd_deg=270.0,
+            current_kn=1.0,
+            current_to_deg=0.0,
+            current_source="marc_manw_250m",
+        )
+        report = await estimate_passage(
+            [Point(48.66, -2.05), Point(48.6181, -2.0233), Point(48.567, -1.975)],
+            DEPARTURE,
+            "cruiser_30ft",
+            adapter=adapter,
+            segment_length_nm=1.0,
+        )
+        first, last = report.segments[0], report.segments[-1]
+        assert first.current_source == "marc_manw_250m" and first.current_speed_kn == 1.0
+        assert last.current_source == "unknown" and last.current_speed_kn is None
+        assert last.sog_kn is None
+        assert last.duration_h == pytest.approx(last.distance_nm / last.boat_speed_kn)
+        unknown = [n for n in report.notices if n.code == "currents.unknown"]
+        assert len(unknown) == 1 and "Rance" in unknown[0].params["zones"]

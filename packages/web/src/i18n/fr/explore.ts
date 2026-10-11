@@ -98,6 +98,9 @@ export const explore = {
   // Légende sous le tableau des courants : la source et le chiffre qui la qualifie
   "explore.marineTable.tidalGap.pass": "Attention : les courants annoncés ici sont probablement faux. {zone} est une zone de fort courant de marée et le calcul ne dispose ici que d'une maille de {size}, qui ne la voit pas. Nous travaillons à élargir la couverture, mais les données ne sont pas toutes en libre accès.",
   "explore.marineTable.tidalGap.zone": "Attention : les courants annoncés ici sont probablement faux. Le courant de marée y dépasse 1,5 kt et le calcul ne dispose ici que d'une maille de {size}, qui ne le voit pas. Nous travaillons à élargir la couverture, mais les données ne sont pas toutes en libre accès.",
+  "explore.marineTable.unknown.managed": "Courant inconnu ici ({zone}) : un ouvrage y règle les courants et le niveau, pas la marée, et aucune de nos sources ne le décrit. Plutôt qu'un chiffre faux, nous n'affichons rien. Consultez l'exploitant de l'ouvrage et les instructions nautiques.",
+  "explore.marineTable.unknown.unresolved": "Courant inconnu ici : {zone} est un passage de fort courant que la maille de nos sources ne voit pas. Plutôt qu'un chiffre faux, nous n'affichons rien. Consultez les tables de courant locales ou les instructions nautiques.",
+  "explore.marineTable.unknown.non_tidal": "Courant inconnu ici ({zone}) : le courant y dépend d'autre chose que la marée (débit, vent), qu'aucune de nos sources ne décrit. Plutôt qu'un chiffre faux, nous n'affichons rien. Consultez les instructions nautiques.",
   "explore.marineTable.currentSource.smoc":
     "Courant maille 8 km : marée, circulation et vagues confondues, trop grossier pour les passes.",
   "explore.marineTable.currentSource.marc": "Courant de marée seul, maille {res} : vent ignoré.",
