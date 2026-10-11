@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime, timedelta
 
 from mcp.server.fastmcp import FastMCP
@@ -169,6 +170,36 @@ class TestPlanPassage:
         uris = [str(r.uri) for r in resources]
         assert PLAN_UI_RESOURCE_URI in uris
 
+    async def test_widget_loads_only_from_declared_origins(self) -> None:
+        # The host enforces the resource's CSP and drops anything else without
+        # a word: a script, stylesheet or tile from an undeclared origin is a
+        # widget that renders without its map, or not at all.
+        from openwind_mcp_core.server import PLAN_UI_RESOURCE_URI
+
+        server = build_server(adapter=StubAdapter())
+        resource = next(
+            r for r in await server.list_resources() if str(r.uri) == PLAN_UI_RESOURCE_URI
+        )
+        declared = set(resource.meta["ui"]["csp"]["resourceDomains"])
+        html = next(iter(await server.read_resource(PLAN_UI_RESOURCE_URI))).content
+        loaded = set(
+            re.findall(r'<script[^>]+src="(https://[^/"]+)', html)
+            + re.findall(r'<link[^>]+href="(https://[^/"]+)', html)
+            + re.findall(r'from "(https://[^/"]+)', html)
+            + re.findall(r'"(https://[^/"]+)/\{z\}', html)
+        )
+        # The tile template is substituted at serve time; finding its origin
+        # here is what says the substitution happened.
+        assert "https://tile.openstreetmap.org" in loaded
+        assert loaded <= declared
+
+    async def test_waypoints_echoed_for_the_map(self) -> None:
+        # The widget's map marks the model's own waypoints, not the 10 nm
+        # subdivisions the segments carry.
+        server = build_server(adapter=StubAdapter())
+        out = await _call(server, "plan_passage", _BASE_PLAN_ARGS)
+        assert out["waypoints"] == [{"lat": 43.30, "lon": 5.35}, {"lat": 43.00, "lon": 6.20}]
+
     async def test_max_hs_factors_into_complexity(self) -> None:
         # max_hs_m used to be on its own tool (score_complexity); now it's
         # a kwarg on plan_passage. Confirm it still drives the score.
@@ -219,6 +250,13 @@ class TestPlanPassageSweep:
         out = await _call(server, "plan_passage", _SWEEP_ARGS)
         assert out["sweep"]["window_count"] == 2
         assert len(out["windows"]) == 2
+
+    async def test_sweep_echoes_waypoints_once(self) -> None:
+        # Every window sails the same line: the route travels once, at the top.
+        server = build_server(adapter=StubAdapter())
+        out = await _call(server, "plan_passage", _SWEEP_ARGS)
+        assert out["waypoints"] == [{"lat": 43.30, "lon": 5.35}, {"lat": 43.00, "lon": 6.20}]
+        assert all("waypoints" not in w for w in out["windows"])
 
     async def test_sweep_window_shape(self) -> None:
         server = build_server(adapter=StubAdapter())

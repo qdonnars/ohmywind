@@ -18,8 +18,9 @@ Tools exposed (V1):
 ## Rich rendering (MCP Apps)
 
 ``plan_passage`` declares ``_meta.ui.resourceUri`` pointing at
-``ui://openwind/plan-passage`` — a sandboxed HTML resource that iframes
-``ohmywind.fr/plan?...``. Hosts that support the MCP Apps spec (Claude,
+``ui://openwind/plan-passage`` — a sandboxed HTML resource that renders the
+plan inline: the figures, a map of the route the model drew, and the per-leg
+table. Hosts that support the MCP Apps spec (Claude,
 Claude Desktop, ChatGPT, VS Code Copilot, Goose, Postman, MCPJam — see the
 `extension client matrix`_) render the widget inline. Hosts that do NOT
 support MCP Apps (Cursor, Le Chat, terminal, …) silently fall back to the
@@ -75,9 +76,8 @@ from openwind_data.views import (
 from .render import WEB_BASE, WEB_HOST, build_ohmywind_url
 
 # MCP Apps UI resource URI for plan_passage. The host fetches this resource
-# and renders it in a sandboxed iframe; the resource itself iframes
-# ohmywind.fr/plan, so the rendered widget IS the live web app — single
-# source of truth, no duplicate widget code to maintain.
+# and renders it in a sandboxed iframe (see ``_PLAN_WIDGET_HTML`` for why it
+# renders the plan itself rather than iframing ohmywind.fr/plan).
 #
 # The URI keeps its pre-rebrand ``openwind`` segment on purpose: it is an
 # identifier hosts resolve, not display copy, so it moves with the Space and
@@ -106,11 +106,22 @@ PASSAGE_DISCLAIMER = (
     "up-to-date charts, or the skipper's judgement. Forecast models are "
     "sometimes wrong: the skipper remains responsible for the passage."
 )
+# Basemap of the widget's route map: OpenStreetMap's standard raster tiles.
+# Keyless, and loaded as plain <img>, which is all the host's CSP has to allow
+# (img-src, through resourceDomains). The web app's own basemap, OpenFreeMap
+# vector tiles drawn by MapLibre, is out of reach here: MapLibre parses tiles
+# in a Web Worker, and the MCP Apps CSP has no worker-src to give it. A plan
+# loads a few dozen tiles, well within the OSMF tile usage policy, which also
+# asks for the attribution the map shows.
+OSM_TILE_ORIGIN = "https://tile.openstreetmap.org"
+OSM_TILE_URL = OSM_TILE_ORIGIN + "/{z}/{x}/{y}.png"
+
 # unpkg serves the official @modelcontextprotocol/ext-apps SDK bundle that
 # implements the ui/initialize -> ui/notifications/initialized handshake and
-# the ui/notifications/tool-result listener. Same CDN as the official
-# qr-server / say-server / threejs-server examples.
-PLAN_UI_RESOURCE_DOMAINS = ["https://unpkg.com"]
+# the ui/notifications/tool-result listener (same CDN as the official
+# qr-server / say-server / threejs-server examples), and Leaflet, which draws
+# the route map.
+PLAN_UI_RESOURCE_DOMAINS = ["https://unpkg.com", OSM_TILE_ORIGIN]
 
 # Body of the MCP Apps UI resource. Uses the official @modelcontextprotocol/
 # ext-apps SDK from unpkg for the handshake (same pattern as qr-server /
@@ -132,19 +143,24 @@ _PLAN_WIDGET_HTML = """<!doctype html>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title>OhMyWind</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <style>
     :root{
       --bg:#FAF7EE;--card:#FFFFFF;--fg0:#1A1A1A;--fg1:#3F3F3F;--fg2:#777169;
       --line:#E2DDCD;--accent:#1D9E75;--accent-soft:#E8F4EE;
       --c1:#2dc97a;--c2:#8fcc30;--c3:#e8c432;--c4:#e87a18;--c5:#e84118;
+      --card-solid:#FFFFFF;--casing:#FFFFFF;--sea:#E4ECEC;
     }
     @media (prefers-color-scheme:dark){
       :root{
         --bg:#15140F;--card:rgba(255,255,255,0.04);--fg0:#F2F2F2;--fg1:#D4D2CB;
         --fg2:#888780;--line:rgba(255,255,255,0.10);
         --accent:#2BBE93;--accent-soft:rgba(43,190,147,0.12);
+        --card-solid:#24231E;--casing:#15140F;--sea:#17212A;
       }
     }
+    [hidden]{display:none !important}
     *{box-sizing:border-box}
     html,body{margin:0;background:var(--bg);color:var(--fg0);
       font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
@@ -178,12 +194,58 @@ _PLAN_WIDGET_HTML = """<!doctype html>
     .windows-row{cursor:pointer;transition:background .12s}
     .windows-row:hover{background:var(--accent-soft)}
     a{color:var(--accent)}
+    /* Route map. Muted tiles so the coloured legs read first; in dark mode
+       the light OSM tiles are inverted rather than swapped for another
+       provider, which would mean another origin in the CSP. */
+    .mapwrap{margin:1rem 0}
+    .map{height:250px;border-radius:10px;border:1px solid var(--line);overflow:hidden;
+      position:relative;background:var(--sea)}
+    @media (max-width:480px){.map{height:210px}}
+    .mapnote{margin:.45rem 0 0;font-size:.8rem;color:var(--fg1)}
+    .mapcap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.25rem 1rem;
+      font-size:.72rem;color:var(--fg2);margin-top:.2rem}
+    .legend{display:inline-flex;flex-wrap:wrap;gap:.15rem .55rem;align-items:center}
+    .legend i{width:.55rem;height:.55rem;border-radius:50%;display:inline-block;margin-right:.2rem}
+    .map.leaflet-container{background:var(--sea);font:inherit}
+    .map .leaflet-tile-pane{filter:grayscale(.72) contrast(.94) brightness(1.03)}
+    @media (prefers-color-scheme:dark){
+      .map .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) grayscale(.55) brightness(.82) contrast(.88)}
+    }
+    .map .leaflet-bar{border:1px solid var(--line);box-shadow:none}
+    .map .leaflet-bar a,.map .leaflet-bar a:hover{background:var(--card-solid);color:var(--fg0);
+      border-bottom-color:var(--line);width:26px;height:26px;line-height:26px}
+    .map .leaflet-bar a.leaflet-disabled{color:var(--fg2);opacity:.6}
+    .map .leaflet-control-attribution{background:color-mix(in srgb,var(--bg) 82%,transparent);
+      color:var(--fg2);font-size:10px}
+    .map .leaflet-control-attribution a{color:var(--fg1)}
+    .map .ow-icon{background:none;border:0}
+    .segnum{display:flex;align-items:center;justify-content:center;width:20px;height:20px;
+      border-radius:50%;color:#fff;font-weight:700;font-size:11px;border:2px solid var(--casing);
+      box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .12s,opacity .12s;cursor:pointer}
+    .segnum.dim{opacity:.35}
+    .segnum.hl{transform:scale(1.3)}
+    .map .leaflet-tooltip.ow-tip{background:var(--card-solid);color:var(--fg0);border:1px solid var(--line);
+      box-shadow:0 1px 3px rgba(0,0,0,.18);font-weight:700;font-size:11px;padding:1px 6px;border-radius:6px}
+    .map .leaflet-tooltip.ow-tip::before{display:none}
+    .recenter{cursor:pointer;background:var(--card-solid);color:var(--fg0);border:1px solid var(--line);
+      border-radius:6px;font:700 11px/1.2 inherit;padding:5px 8px}
+    .wheelhint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+      text-align:center;padding:1rem;background:rgba(10,10,8,.5);color:#fff;font-weight:600;
+      font-size:.85rem;z-index:1001;opacity:0;pointer-events:none;transition:opacity .2s}
+    .wheelhint.on{opacity:1}
+    .has-map tr.seg-row{cursor:pointer}
+    .has-map tr.seg-row td{transition:background .12s}
+    .has-map tr.seg-row:hover td,.has-map tr.seg-row.is-hl td{background:var(--accent-soft)}
+    .has-map tr.seg-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+    @media (prefers-reduced-motion:reduce){.segnum,.wheelhint,.has-map tr.seg-row td{transition:none}}
   </style>
 </head>
 <body>
   <div id="root" class="root">
     <div class="placeholder">Chargement du plan…</div>
   </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script type="module">
     import { App } from "https://unpkg.com/@modelcontextprotocol/ext-apps@0.4.0/app-with-deps";
 
@@ -245,7 +307,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
         const bs = s.boat_speed_kn != null ? s.boat_speed_kn.toFixed(1)+" kn" : "—";
         const tws = s.tws_kn != null ? Math.round(s.tws_kn)+" kn" : "—";
         const hs = s.hs_m != null ? s.hs_m.toFixed(1)+" m" : "—";
-        return `<tr>
+        return `<tr class="seg-row" data-seg="${i}">
           <td><span class="num" style="background:${c}">${i+1}</span></td>
           <td>${fmtTime(s.end_time)}</td>
           <td>${pointOfSail(s.twa_deg||0)}</td>
@@ -262,6 +324,9 @@ _PLAN_WIDGET_HTML = """<!doctype html>
         `).join("")}</div>
         ${badge(cx.level||3, cx.label||"")}
         ${warnings.map(w=>`<div class="warn">⚠ ${escapeHtml(w)}</div>`).join("")}
+        ${mapBlock(routePoints(sc), p.distance_nm||0,
+          "Tracé envoyé par l'assistant : le vent et la mer sont lus le long de cette ligne, tronçon par tronçon.",
+          true)}
         ${segs.length ? `<table>
           <thead><tr><th>#</th><th>Heure</th><th>Allure</th><th>Vent</th><th>Mer</th><th>Vitesse</th></tr></thead>
           <tbody>${legRows}</tbody>
@@ -304,12 +369,216 @@ _PLAN_WIDGET_HTML = """<!doctype html>
         <h2>Comparaison de ${windows.length} fenêtres</h2>
         <p class="sub">Du ${fmtDate(sweep.earliest)} au ${fmtDate(sweep.latest)} · pas de ${sweep.interval_hours||"?"}h</p>
         ${meta.map(m=>`<div class="warn">${escapeHtml(m)}</div>`).join("")}
+        ${windows.length ? mapBlock(routePoints(sc), windows[0].distance_nm||0,
+          `Tracé envoyé par l'assistant, le même pour les ${windows.length} fenêtres.`, false) : ""}
         <table>
           <thead><tr><th>Départ</th><th>Durée</th><th>ETA</th><th>Allure</th><th>Vent</th><th>Mer</th><th>⚡</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
         <p class="sub" style="margin-top:.75rem">Cliquez pour aller directement au routage de cette journée</p>
       `;
+    }
+
+    // ---- Route map ----
+    // Draws the polyline the model sent, so the user sees what the figures
+    // were computed along and can catch a leg drawn wrong. Leaflet and the
+    // tiles come from the two origins the resource's CSP declares: if the
+    // host drops Leaflet the plan renders without a map, if it drops only
+    // the tiles the route is drawn on a plain sea background.
+    const TILE_URL = "__TILE_URL__";
+    const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let map = null, mapObserver = null;
+
+    function routePoints(sc){
+      if(typeof L === "undefined") return null;
+      if(Array.isArray(sc.waypoints) && sc.waypoints.length > 1)
+        return sc.waypoints.map(w=>[w.lat, w.lon]);
+      // A payload from before ``waypoints``: the segment ends draw the same
+      // line, with the 10 nm subdivisions marked as if they were waypoints.
+      const segs = (sc.passage && sc.passage.segments) || [];
+      if(!segs.length) return null;
+      return [[segs[0].start.lat, segs[0].start.lon]].concat(segs.map(s=>[s.end.lat, s.end.lon]));
+    }
+
+    function mapBlock(pts, distNm, note, withLegend){
+      if(!pts) return "";
+      const legend = withLegend ? `<span class="legend">Vent du tronçon :
+        ${[[1,"&lt;10"],[2,"10-15"],[3,"15-20"],[4,"20-25"],[5,"25+ kn"]].map(([l,t])=>
+          `<span><i style="background:${CX_COLORS[l]}"></i>${t}</span>`).join("")}</span>` : "";
+      return `<div class="mapwrap">
+        <div class="map" id="ow-map"><div class="wheelhint" aria-hidden="true">Zoom : boutons + et &minus;, ou double-clic</div></div>
+        <p class="mapnote">${note}</p>
+        <div class="mapcap"><span>${pts.length} points · ${distNm.toFixed(1)} nm</span>${legend}</div>
+      </div>`;
+    }
+
+    function teardownMap(){
+      if(mapObserver){ mapObserver.disconnect(); mapObserver = null; }
+      if(map){ map.remove(); map = null; }
+    }
+
+    function buildMap(sc){
+      const el = document.getElementById('ow-map');
+      const pts = routePoints(sc);
+      if(!el || !pts) return;
+      const single = sc.mode !== "multi_window";
+      const css = getComputedStyle(document.documentElement);
+      const casing = css.getPropertyValue('--casing').trim();
+      const ink = css.getPropertyValue('--fg0').trim();
+      const accent = css.getPropertyValue('--accent').trim();
+      const bounds = L.latLngBounds(pts);
+      // No wheel zoom and, on touch screens, no one-finger drag: inside a
+      // chat both belong to scrolling the conversation. Buttons, double-tap
+      // and pinch still zoom.
+      map = L.map(el, {scrollWheelZoom:false, dragging:!L.Browser.mobile, zoomSnap:.25,
+        maxZoom:16, maxBounds:bounds.pad(1), fadeAnimation:!REDUCED, zoomAnimation:!REDUCED});
+      map.attributionControl.setPrefix(false);
+      L.tileLayer(TILE_URL, {maxZoom:16,
+        attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);
+
+      // "Vue d'ensemble" shows once the user zooms or pans off the whole
+      // route, and puts it back.
+      let fitting = false, moved = false;
+      function fit(){
+        if(!el.clientWidth) return;
+        fitting = true;
+        map.fitBounds(bounds, {padding:[28,28], animate:false});
+        fitting = false;
+      }
+      const Recenter = L.Control.extend({onAdd(){
+        const b = L.DomUtil.create('button', 'recenter');
+        b.type = 'button'; b.textContent = "Vue d'ensemble"; b.hidden = true;
+        L.DomEvent.disableClickPropagation(b);
+        L.DomEvent.on(b, 'click', ()=>{ moved = false; b.hidden = true; fit(); });
+        return b;
+      }});
+      const recenter = new Recenter({position:'topright'}).addTo(map).getContainer();
+      map.on('zoomstart dragstart', ()=>{ if(!fitting){ moved = true; recenter.hidden = false; } });
+
+      // One coloured leg per table row, same colour and number as its row.
+      const segs = [];
+      let declutter = null;
+      if(single){
+        (sc.passage.segments||[]).forEach((s,i)=>{
+          const ll = [[s.start.lat, s.start.lon], [s.end.lat, s.end.lon]];
+          const c = CX_COLORS[cxLevel(s.tws_kn||0)];
+          const halo = L.polyline(ll, {color:casing, weight:8, opacity:.95, lineCap:'round'}).addTo(map);
+          const line = L.polyline(ll, {color:c, weight:4.5, lineCap:'round'}).addTo(map);
+          const mid = [(ll[0][0]+ll[1][0])/2, (ll[0][1]+ll[1][1])/2];
+          const bubble = L.marker(mid, {keyboard:false, icon:L.divIcon({className:'ow-icon',
+            iconSize:[20,20], iconAnchor:[10,10],
+            html:`<div class="segnum" style="background:${c}">${i+1}</div>`})}).addTo(map);
+          segs.push({ll, halo, line, bubble});
+        });
+        // Short legs crowd their numbers together at the overview zoom: show
+        // a number only when it clears the last one shown. Zooming in brings
+        // the others back, and so does hovering their row.
+        declutter = ()=>{
+          let last = null;
+          segs.forEach(s=>{
+            const node = s.bubble.getElement();
+            if(!node) return;
+            const pt = map.latLngToContainerPoint(s.bubble.getLatLng());
+            const show = !last || pt.distanceTo(last) >= 24;
+            node.style.visibility = show ? '' : 'hidden';
+            if(show) last = pt;
+          });
+        };
+        map.on('zoomend', declutter);
+      } else {
+        // Compare mode: every window sails the same line, one neutral trace.
+        L.polyline(pts, {color:casing, weight:8, opacity:.95, lineCap:'round', lineJoin:'round'}).addTo(map);
+        L.polyline(pts, {color:accent, weight:4.5, lineCap:'round', lineJoin:'round'}).addTo(map);
+      }
+
+      // The waypoints as sent; departure and arrival filled and labelled.
+      const dots = pts.map((p,i)=>{
+        const end = i === 0 || i === pts.length-1;
+        const m = L.circleMarker(p, {radius:end?6:4, color:end?casing:ink, weight:2,
+          fillColor:end?ink:'#ffffff', fillOpacity:1, interactive:false}).addTo(map);
+        if(end){
+          const label = (i === 0 ? "Départ" : "Arrivée")
+            + (single ? " " + fmtTime(i === 0 ? sc.passage.departure_time : sc.passage.arrival_time) : "");
+          m.bindTooltip(label, {permanent:true, direction:i === 0 ? 'right' : 'bottom',
+            offset:i === 0 ? [8,0] : [0,8], className:'ow-tip'});
+        }
+        return m;
+      });
+      fit();
+      if(declutter) declutter();
+      // Hosts size the iframe after the first paint: refit until the user
+      // takes over the view.
+      mapObserver = new ResizeObserver(()=>{
+        if(!map) return;
+        map.invalidateSize();
+        if(!moved) fit();
+        if(declutter) declutter();
+      });
+      mapObserver.observe(el);
+
+      // The wheel scrolls the conversation, not the map: say how to zoom.
+      const hint = el.querySelector('.wheelhint');
+      let hintTimer = null;
+      el.addEventListener('wheel', ()=>{
+        hint.classList.add('on'); clearTimeout(hintTimer);
+        hintTimer = setTimeout(()=>hint.classList.remove('on'), 1300);
+      }, {passive:true});
+      // Leaflet stops click propagation on its controls, so catch the
+      // attribution link on the way down and open it through the host.
+      el.addEventListener('click', e=>{
+        const a = e.target.closest && e.target.closest('.leaflet-control-attribution a');
+        if(a){ e.preventDefault(); openUrl(a.href); }
+      }, true);
+
+      if(!single) return;
+      // Row and leg point at each other: hover either to light both, click a
+      // row to zoom on its leg.
+      const root = document.getElementById('root');
+      const rows = [...root.querySelectorAll('tr.seg-row')];
+      root.classList.add('has-map');
+      function highlight(i){
+        segs.forEach((s,j)=>{
+          const on = i == null || i === j;
+          s.line.setStyle({opacity:on ? 1 : .3, weight:i === j ? 7 : 4.5});
+          s.halo.setStyle({opacity:on ? .95 : .3, weight:i === j ? 11 : 8});
+          const b = s.bubble.getElement() && s.bubble.getElement().querySelector('.segnum');
+          if(b){ b.classList.toggle('dim', !on); b.classList.toggle('hl', i === j); }
+          if(i === j){ s.halo.bringToFront(); s.line.bringToFront(); }
+          s.bubble.setZIndexOffset(i === j ? 1000 : 0);
+        });
+        // The lit leg was raised above everything: put the waypoints back on top.
+        dots.forEach(d=>d.bringToFront());
+        declutter();
+        const lit = i != null && segs[i].bubble.getElement();
+        if(lit) lit.style.visibility = '';
+        rows.forEach((r,j)=>r.classList.toggle('is-hl', i === j));
+      }
+      function zoomTo(i){
+        map.flyToBounds(L.latLngBounds(segs[i].ll), {padding:[48,48], maxZoom:13,
+          animate:!REDUCED, duration:.6});
+      }
+      segs.forEach((s,i)=>{
+        [s.line, s.bubble].forEach(l=>{
+          l.on('mouseover', ()=>highlight(i));
+          l.on('mouseout', ()=>highlight(null));
+          l.on('click', ()=>{
+            highlight(i);
+            if(rows[i]) rows[i].scrollIntoView({block:'nearest', behavior:REDUCED ? 'auto' : 'smooth'});
+          });
+        });
+      });
+      rows.forEach((r,i)=>{
+        if(!segs[i]) return;
+        r.tabIndex = 0;
+        r.addEventListener('mouseenter', ()=>highlight(i));
+        r.addEventListener('mouseleave', ()=>highlight(null));
+        r.addEventListener('focus', ()=>highlight(i));
+        r.addEventListener('blur', ()=>highlight(null));
+        r.addEventListener('click', ()=>zoomTo(i));
+        r.addEventListener('keydown', e=>{
+          if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); zoomTo(i); }
+        });
+      });
     }
 
     // Hold the latest structured content so the delegated click handler can
@@ -359,6 +628,8 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       if(!sc) return;
       lastSc = sc;
       const root = document.getElementById('root');
+      teardownMap();
+      root.classList.remove('has-map');
       try {
         if(sc.mode === "multi_window") root.innerHTML = renderCompare(sc);
         else if(sc.passage) root.innerHTML = renderSingle(sc);
@@ -371,6 +642,16 @@ _PLAN_WIDGET_HTML = """<!doctype html>
           <br><a class="cta" href="${escapeHtml(url)}" rel="noopener">Ouvrir sur __WEB_HOST__ →</a>
         </div>`;
         wireClicks();
+      }
+      // The map sits on top of a plan that stands without it: if it fails,
+      // drop it and keep the rest.
+      try { buildMap(sc); }
+      catch(e) {
+        console.error('[ohmywind] route map failed', e);
+        teardownMap();
+        root.classList.remove('has-map');
+        const wrap = root.querySelector('.mapwrap');
+        if(wrap) wrap.remove();
       }
     }
 
@@ -592,6 +873,17 @@ def _window_with_link(
     return window
 
 
+def _route_view(points: list[Any]) -> list[dict[str, float]]:
+    """The route as the model sent it, for the widget's map.
+
+    The segments already carry coordinates, but they are the 10 nm
+    subdivisions of the route; the map marks the model's own waypoints, the
+    points a user would correct. Once per payload, never per sweep window:
+    every window sails the same line.
+    """
+    return [{"lat": p.lat, "lon": p.lon} for p in points]
+
+
 def build_server(
     *,
     adapter: MarineDataAdapter | None = None,
@@ -659,11 +951,11 @@ def build_server(
         meta={
             "ui": {
                 "csp": {
-                    # Allow the SDK bundle from unpkg (same CDN as the
-                    # official ext-apps examples). No `frameDomains` because
-                    # the widget renders inline — Claude.ai 2026-05 doesn't
-                    # honour `frameDomains` anyway, see comment on
-                    # `_PLAN_WIDGET_HTML`.
+                    # The SDK bundle and Leaflet from unpkg (same CDN as the
+                    # official ext-apps examples), the map tiles from OSM. No
+                    # `frameDomains` because the widget renders inline —
+                    # Claude.ai 2026-05 doesn't honour `frameDomains` anyway,
+                    # see comment on `_PLAN_WIDGET_HTML`.
                     "resourceDomains": PLAN_UI_RESOURCE_DOMAINS,
                 }
             }
@@ -674,17 +966,19 @@ def build_server(
 
         Receives the tool's ``structuredContent`` over postMessage (per the
         MCP Apps spec — the host pushes results to the iframe via a
-        JSON-RPC dialect on the postMessage channel) and binds the inner
-        iframe's ``src`` to ``openwind_url`` from the result.
-
-        Defensive against multiple message shapes — different hosts have
-        different framings, and the spec is young — and falls back to a
-        deep-link CTA if no result arrives within 6 s.
+        JSON-RPC dialect on the postMessage channel) and renders the figures,
+        a map of the route from ``waypoints``, and the per-leg table. The map
+        is optional: without Leaflet or tiles, the rest still renders.
         """
         # Substituted at serve time: the widget's fallback CTA has to name the
         # same environment the deep-links point at, or a plan rendered on dev
-        # would hand the tester a link to production.
-        return _PLAN_WIDGET_HTML.replace("__WEB_BASE__", WEB_BASE).replace("__WEB_HOST__", WEB_HOST)
+        # would hand the tester a link to production. The tile URL comes from
+        # the constant the CSP is derived from, so the two cannot drift.
+        return (
+            _PLAN_WIDGET_HTML.replace("__WEB_BASE__", WEB_BASE)
+            .replace("__WEB_HOST__", WEB_HOST)
+            .replace("__TILE_URL__", OSM_TILE_URL)
+        )
 
     # Every tool below spells out all four hints, including the two the spec
     # calls meaningful only when ``readOnlyHint`` is false. Redundant here by
@@ -900,6 +1194,8 @@ def build_server(
           human-readable rationale.
         - ``openwind_url``: deep-link to ohmywind.fr/plan that renders the
           same passage in the standalone web app.
+        - ``waypoints``: the route as you sent it, which the widget draws on
+          a map.
         - ``disclaimer``: usage warning to relay (see below).
 
         Compare-windows mode (``latest_departure`` set):
@@ -917,6 +1213,7 @@ def build_server(
           their values (``{"code": "sweep.skipped_windows", "params": …}``),
           for a client that says them in another language. Read the French
           ``message`` and ignore these.
+        - ``waypoints``: the route as you sent it, once for all windows.
         - ``disclaimer``: usage warning to relay (see below).
 
         ## ALWAYS relay the disclaimer
@@ -933,10 +1230,11 @@ def build_server(
 
         On hosts that support MCP Apps (Claude, Claude Desktop, ChatGPT, VS
         Code Copilot, Goose, Postman, MCPJam), the response is automatically
-        accompanied by an interactive widget: the live ohmywind.fr/plan view
-        served via the ``ui://openwind/plan-passage`` resource declared on
-        this tool's ``_meta``. The widget reads ``openwind_url`` from the
-        structured output and embeds the matching plan view as an iframe.
+        accompanied by an interactive widget served via the
+        ``ui://openwind/plan-passage`` resource declared on this tool's
+        ``_meta``: the figures, a map of the route you drew, and the per-leg
+        table. The user sees your waypoints on that map, one more reason to
+        keep every leg at sea.
 
         On hosts without MCP Apps support (Cursor, Le Chat, terminal), present
         a short text summary of the result (route, ETA, complexity, warnings)
@@ -1100,7 +1398,7 @@ def build_server(
                 interval_hours=effective_interval,
                 windows=windows,
                 meta_notices=meta_notices,
-            ) | {"disclaimer": PASSAGE_DISCLAIMER}
+            ) | {"waypoints": _route_view(pts), "disclaimer": PASSAGE_DISCLAIMER}
 
         # --- SINGLE MODE ---
         report = await _estimate_passage(
@@ -1117,6 +1415,7 @@ def build_server(
 
         return passage_envelope(report, score) | {
             "openwind_url": build_ohmywind_url(waypoints, departure, archetype),
+            "waypoints": _route_view(pts),
             "disclaimer": PASSAGE_DISCLAIMER,
         }
 
