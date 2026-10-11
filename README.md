@@ -92,7 +92,7 @@ Three prompts, each exercising a different tool:
 |------------------------------|----------------------------------------------------------------------------------------------|
 | 🆓 **Free, keyless**         | Wind & sea via [Open-Meteo](https://open-meteo.com) (CC BY 4.0). No account, no API key.     |
 | 🌍 **Works anywhere**        | Global models (ECMWF, GFS) cover any coast. Over France, AROME 1.3 km takes over and catches thermals, mistral, tramontane. |
-| ⛵ **Boat-aware**             | Seven archetypes from 20 ft trailer-cruisers to bluewater 50-footers, real polars, an `efficiency` parameter for trim and crew level. |
+| ⛵ **Boat-aware**             | Eight archetypes from a 16 ft sail-and-oar dinghy and 20 ft trailer-cruisers to bluewater 50-footers, real polars, an `efficiency` parameter for trim and crew level. |
 | 🗓️ **Window-aware**           | One call sweeps a 14-day departure range and lets your LLM pick the calmest weekend slot, no math by hand. |
 | 🔌 **Client-agnostic**        | One HTTP MCP endpoint. Works in Claude Desktop, Le Chat, Cursor, Goose, Zed, Continue, …     |
 | 🖼️ **Rich on supporting hosts** | On Claude / ChatGPT / VS Code Copilot / Goose, an interactive widget renders inline via [MCP Apps](https://modelcontextprotocol.io/extensions/client-matrix). Other hosts fall back to a clean text summary + deep-link. |
@@ -104,7 +104,7 @@ Four MCP tools, all async, all keyless:
 
 | Tool                      | What it does                                                              |
 |---------------------------|---------------------------------------------------------------------------|
-| `list_boat_archetypes`    | Seven descriptive archetypes; the LLM maps "Sun Odyssey 36" → `cruiser_30ft` itself. |
+| `list_boat_archetypes`    | Eight descriptive archetypes; the LLM maps "Sun Odyssey 36" → `cruiser_30ft` itself. |
 | `get_marine_forecast`     | Wind + sea around a point/window, multi-model.                            |
 | `plan_passage`            | End-to-end: per-leg timing + 1‑5 complexity + ohmywind.fr deep-link, in one call. Pass `latest_departure` to compare every hourly window up to 14 days out, and the LLM picks the calmest slot. |
 | `read_me`                 | Returns OhMyWind's calculation methodology. Call it when the user asks how things are computed. |
@@ -166,7 +166,7 @@ Implementation: [`packages/data-adapters/src/openwind_data/routing/passage.py`](
 
 ### Polar speed model
 
-- 7 archetypes (`cruiser_20ft`, `cruiser_25ft`, `cruiser_30ft`, `cruiser_40ft`, `cruiser_50ft`, `racer_cruiser`, `catamaran_40ft`), each with an ORC-style polar in [`packages/data-adapters/src/openwind_data/routing/polars/`](packages/data-adapters/src/openwind_data/routing/polars/).
+- 8 archetypes (`cruiser_20ft`, `cruiser_25ft`, `cruiser_30ft`, `cruiser_40ft`, `cruiser_50ft`, `racer_cruiser`, `catamaran_40ft`, `voile_aviron_16ft`), each with an ORC-style polar in [`packages/data-adapters/src/openwind_data/routing/polars/`](packages/data-adapters/src/openwind_data/routing/polars/).
 - Lookup is **bilinear interpolation** in (TWS, TWA), clamped at grid edges.
 - TWA is symmetric `[0°, 180°]` only, no port/starboard distinction.
 

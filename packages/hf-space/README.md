@@ -73,7 +73,7 @@ asks you for credentials is guessing rather than reading the server.
 
 - **Free and keyless.** Wind + sea data via [Open-Meteo](https://open-meteo.com) (CC BY 4.0).
 - **Mediterranean-tuned.** AROME 1.3 km by default, catches thermals and mistral. ICON-EU → ECMWF → GFS for longer reach.
-- **Boat-aware.** 7 archetypes from 20 to 50 ft, real polars, an `efficiency` parameter for trim and crew level.
+- **Boat-aware.** 8 archetypes from a 16 ft sail-and-oar dinghy to 50 ft cruisers, real polars, an `efficiency` parameter for trim and crew level.
 - **Window-aware.** One call sweeps up to 14 days of hourly departures so the LLM can pick the calmest slot.
 - **Client-agnostic.** One HTTP MCP endpoint, no vendor lock-in. Rich [MCP Apps](https://modelcontextprotocol.io/extensions/client-matrix) widget on supporting hosts; clean deep-link fallback on the rest.
 - **Open source, AGPL.** Self-host on Fly, Modal, or your own VPS in minutes, under your own name and icons.
@@ -82,7 +82,7 @@ asks you for credentials is guessing rather than reading the server.
 
 | Tool                      | What it does                                                              |
 |---------------------------|---------------------------------------------------------------------------|
-| `list_boat_archetypes`    | Seven descriptive archetypes; the LLM maps "Sun Odyssey 36" → `cruiser_30ft`. |
+| `list_boat_archetypes`    | Eight descriptive archetypes; the LLM maps "Sun Odyssey 36" → `cruiser_30ft`. |
 | `get_marine_forecast`     | Wind + sea around a point/window, multi-model.                            |
 | `plan_passage`            | End-to-end: per-leg timing + 1–5 complexity + ohmywind.fr deep-link, in one call. Pass `latest_departure` and it walks every hourly window up to 14 days out so the LLM can compare side-by-side. Declares an MCP Apps UI resource; supporting hosts auto-render the live plan in a sandboxed iframe. |
 | `read_me`                 | Returns OhMyWind's calculation methodology. Call it when the user asks how things are computed. |
@@ -94,7 +94,7 @@ JSON, no key and no account required.
 
 | Route | Method | Notes |
 |---|---|---|
-| `/api/v1/archetypes` | GET | The seven boat archetypes. `Cache-Control: public, max-age=86400`. |
+| `/api/v1/archetypes` | GET | The eight boat archetypes. `Cache-Control: public, max-age=86400`. |
 | `/api/v1/passage` | POST | Passage plan from a departure time. Sweeps departures when `latest_departure` is set. |
 | `/api/v1/passage-by-eta` | POST | Passage plan from a target arrival. |
 | `/api/v1/marine/marc` | GET | SHOM and MARC tidal atlas overlay for one point. Always 200, `covered` tells you whether there was anything to give. |

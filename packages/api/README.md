@@ -30,7 +30,7 @@ test asserts it by importing the package with the name `mcp` blocked.
 
 | Route | What it does |
 | --- | --- |
-| `GET /api/v1/archetypes` | the seven boat archetypes, cached a day |
+| `GET /api/v1/archetypes` | the eight boat archetypes, cached a day |
 | `POST /api/v1/passage` | plan one departure, or sweep a range of them |
 | `POST /api/v1/passage-by-eta` | pin the arrival, solve for the departure |
 | `GET /api/v1/marine/marc` | tidal atlas overlay for one point |

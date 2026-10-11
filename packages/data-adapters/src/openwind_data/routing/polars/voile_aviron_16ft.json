@@ -3,9 +3,9 @@
   "length_ft": 16,
   "type": "monohull",
   "category": "cruising",
-  "examples": ["Vivier Aven", "Vivier Ilur", "Vivier Pirmil", "CLC Skerry"],
+  "examples": ["Vivier Ilur", "Vivier Aven", "Vivier Aber", "Vivier Seil", "Vivier Pirmil", "CLC Skerry", "Drascombe Lugger"],
   "performance_class": "slow",
-  "min_upwind_twa_deg": 52,
+  "min_upwind_twa_deg": 50,
   "tws_kn": [4, 6, 8, 10, 12, 14, 16, 20, 25],
   "twa_deg": [50, 60, 75, 90, 110, 135, 150, 165],
   "boat_speed_kn": [

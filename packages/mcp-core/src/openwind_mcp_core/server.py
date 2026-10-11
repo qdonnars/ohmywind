@@ -404,7 +404,9 @@ uses unless overridden by tool parameters.
 
 - 8 ORC-style archetypes (cruiser_20ft / cruiser_25ft / cruiser_30ft /
   cruiser_40ft / cruiser_50ft / racer_cruiser / catamaran_40ft /
-  voile_aviron_16ft — small open sail-and-oar dinghy, pure sail polar).
+  voile_aviron_16ft). voile_aviron_16ft is an open sail-and-oar dinghy of
+  about 5 m (no cabin, centreboard); its polar is an estimate, pure sail,
+  oars not modelled.
 - Lookup is bilinear interpolation in (TWS, TWA), clamped at grid edges.
 - TWA symmetric on [0, 180] only (no port/starboard distinction).
 
@@ -722,10 +724,12 @@ def build_server(
         ),
     )
     def list_boat_archetypes() -> list[dict[str, Any]]:
-        """List the 7 boat archetypes with descriptive metadata.
+        """List the boat archetypes with descriptive metadata.
 
         The LLM (or user) maps a commercial model (e.g. "Sun Odyssey 32") to one
         of these archetypes from the metadata — there is no server-side mapping.
+        ``voile_aviron_16ft`` is for open sail-and-oar dinghies only (no cabin,
+        rowed as well as sailed); a small cabin cruiser maps to ``cruiser_20ft``.
         """
         return [_archetype_summary(p) for p in list_archetypes()]
 

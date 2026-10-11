@@ -120,6 +120,12 @@ class TestLookupPolar:
         # Halfway between (10, 90)=6.7 and (12, 90)=7.1 in TWS, TWA fixed
         assert lookup_polar(p, 11.0, 90.0) == pytest.approx((6.7 + 7.1) / 2)
 
+    def test_sail_and_oar_dinghy_stays_near_hull_speed(self) -> None:
+        # Displacement hull, waterline ~13.4 ft: hull speed 1.34 * sqrt(13.4)
+        # ~= 4.9 kn. A little surfing on a broad reach, never planing (#445).
+        dinghy = get_polar("voile_aviron_16ft")
+        assert max(max(row) for row in dinghy.boat_speed_kn) <= 5.5
+
     def test_returns_positive_speed_in_grid(self) -> None:
         for arch in list_archetypes():
             for tws in (6, 10, 14, 20):
@@ -137,6 +143,16 @@ class TestEffectiveMinUpwindTwa:
         for arch in list_archetypes():
             assert arch.min_upwind_twa_deg is not None, arch.name
             assert 42.0 <= arch.min_upwind_twa_deg <= 50.0, arch.name
+
+    def test_sail_and_oar_dinghy_points_no_closer_than_monohull_cruisers(self) -> None:
+        # Lug / sprit rig, shallow hull, small centreboard: it cannot beat
+        # closer than any keelboat of the fleet (#445).
+        dinghy = get_polar("voile_aviron_16ft")
+        assert dinghy.min_upwind_twa_deg is not None
+        for arch in list_archetypes():
+            if arch.type == "monohull" and arch.name != dinghy.name:
+                assert arch.min_upwind_twa_deg is not None
+                assert dinghy.min_upwind_twa_deg >= arch.min_upwind_twa_deg, arch.name
 
     def test_derives_first_twa_when_field_absent(self) -> None:
         p = dataclasses.replace(get_polar("cruiser_30ft"), min_upwind_twa_deg=None)
