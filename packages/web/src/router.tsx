@@ -81,5 +81,3 @@ export function useRouter(): AppLocation {
 
   return location;
 }
-
-export { navigate };

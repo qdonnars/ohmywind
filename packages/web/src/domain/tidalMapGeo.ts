@@ -15,9 +15,9 @@ import type { Feature, FeatureCollection, Geometry, MultiPolygon, Point, Polygon
 
 export type PrecisionClass = "fine" | "medium" | "coarse" | "global";
 
-export const FINE_MAX_M = 500;
-export const MEDIUM_MAX_M = 1000;
-export const COARSE_MAX_M = 3000;
+const FINE_MAX_M = 500;
+const MEDIUM_MAX_M = 1000;
+const COARSE_MAX_M = 3000;
 
 /** Precision class of an atlas from its grid size in metres; ``null`` is SMOC. */
 export function precisionClass(resolutionM: number | null | undefined): PrecisionClass {
@@ -210,7 +210,7 @@ export interface PassProperties {
 /** The engine's own radius for "this leg passes a known race"
     (``tidal_gaps.tidal_gap_at(pass_radius_km)``), so the card and the
     warning name the same pass for the same point. */
-export const PASS_RADIUS_KM = 15;
+const PASS_RADIUS_KM = 15;
 
 /** The known pass nearest to a point within ``maxKm``, or ``null``. */
 export function nearestPass(

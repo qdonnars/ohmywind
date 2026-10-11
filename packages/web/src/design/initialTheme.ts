@@ -49,7 +49,7 @@ export function getInitialMode(): ThemeMode {
  * values as --ow-bg-0 in tokens.css; the manifest pins the dark one, which
  * is the colour at launch, before any script runs.
  */
-export const THEME_COLOR: Record<ThemeMode, string> = {
+const THEME_COLOR: Record<ThemeMode, string> = {
   dark: "#030712",
   light: "#f4f6fb",
 };

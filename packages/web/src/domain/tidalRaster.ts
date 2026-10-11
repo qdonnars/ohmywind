@@ -48,7 +48,7 @@ function hex(color: string): [number, number, number] {
 
 /** The ramp colour of a maximum current, continuous between the stops,
     clamped at the last one; the calm colour under the first. */
-export function rampRgb(kt: number): [number, number, number] {
+function rampRgb(kt: number): [number, number, number] {
   if (!(kt >= RAMP_STOPS[0][0])) return hex(CALM_COLOR);
   for (let i = 1; i < RAMP_STOPS.length; i++) {
     const [k1, c1] = RAMP_STOPS[i];
@@ -120,8 +120,8 @@ export class RasterGrid {
  * and 3) keep every cell. The rasters hold the same maximum over 15 days
  * hourly, so the map applies the same cut.
  */
-export const WEAK_TIDE_KT = 0.2;
-export const OPEN_SEA_MAX_RANK = 1;
+const WEAK_TIDE_KT = 0.2;
+const OPEN_SEA_MAX_RANK = 1;
 
 /**
  * Dead water of a coastal atlas (rank 2 and up, ``serving_policy``: an M2
@@ -129,8 +129,8 @@ export const OPEN_SEA_MAX_RANK = 1;
  * draws nothing rather than a "weak tide" pale green. The raster rounds to
  * 1/40 kt, so 0.02 kt keeps only the zero cells.
  */
-export const COASTAL_MIN_RANK = 2;
-export const DEAD_CURRENT_KT = 0.02;
+const COASTAL_MIN_RANK = 2;
+const DEAD_CURRENT_KT = 0.02;
 
 export function isDeadCoastal(entry: RasterEntry, kt: number): boolean {
   return (entry.rank ?? 0) >= COASTAL_MIN_RANK && kt < DEAD_CURRENT_KT;

@@ -68,7 +68,7 @@ const FEATURE_LABELS: Record<string, Key> = {
 };
 
 /** Second line of a result row. Pure, so the fallback chain is testable. */
-export function photonContext(props: PhotonProperties): string {
+function photonContext(props: PhotonProperties): string {
   const key = FEATURE_LABELS[`${props.osm_key}:${props.osm_value}`];
   const feature = key ? t(key) : undefined;
   const admin = props.county || props.state || props.city || props.country;
@@ -84,7 +84,7 @@ interface PhotonFeature {
 
 /** Photon GeoJSON → our rows. Unnamed features are dropped: they would
     render as an empty line the user cannot act on. */
-export function mapPhotonResults(features: PhotonFeature[]): PlaceResult[] {
+function mapPhotonResults(features: PhotonFeature[]): PlaceResult[] {
   return features
     .filter((f) => f.properties?.name)
     .map((f) => ({
@@ -106,7 +106,7 @@ interface OpenMeteoResult {
   admin1?: string;
 }
 
-export function mapOpenMeteoResults(results: OpenMeteoResult[]): PlaceResult[] {
+function mapOpenMeteoResults(results: OpenMeteoResult[]): PlaceResult[] {
   return results.map((r) => ({
     id: `om:${r.id}`,
     name: r.name,
@@ -117,7 +117,7 @@ export function mapOpenMeteoResults(results: OpenMeteoResult[]): PlaceResult[] {
   }));
 }
 
-export function buildPhotonUrl(
+function buildPhotonUrl(
   query: string,
   near: { lat: number; lon: number } | null | undefined,
 ): string {

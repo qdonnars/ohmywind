@@ -87,13 +87,3 @@ export function formatDayHeader(iso: string, mode: TimezoneMode = "local"): stri
   const d = new Date(realUtcMs);
   return `${DAYS_EN[d.getDay()]} ${d.getDate()}`;
 }
-
-export function groupHoursByDay(times: string[]): Map<string, number[]> {
-  const map = new Map<string, number[]>();
-  times.forEach((t, i) => {
-    const key = t.slice(0, 10);
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(i);
-  });
-  return map;
-}

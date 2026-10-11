@@ -28,9 +28,9 @@ type GapProps =
   | { kind: "pass"; name: string; max_spring_kt: number | null; unresolved_by?: string[] };
 
 /** A pass influences the flow around it; 15 km matches the server's rule. */
-export const PASS_RADIUS_KM = 15;
+const PASS_RADIUS_KM = 15;
 /** The blind spot of a fine grid around a channel it does not resolve; the server's rule too. */
-export const UNRESOLVED_RADIUS_KM = 3;
+const UNRESOLVED_RADIUS_KM = 3;
 
 let loading: Promise<FeatureCollection<Geometry, GapProps>> | null = null;
 function load(): Promise<FeatureCollection<Geometry, GapProps>> {

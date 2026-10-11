@@ -7,7 +7,7 @@
  * stored preference only ever resolve to one of those. The two lists are
  * equal today; they split again the day a fifth language is being prepared.
  */
-export const LANGS = ["fr", "en", "de", "it", "es"] as const;
+const LANGS = ["fr", "en", "de", "it", "es"] as const;
 export type Lang = (typeof LANGS)[number];
 
 export const AVAILABLE_LANGS: readonly Lang[] = LANGS;

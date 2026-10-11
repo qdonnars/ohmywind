@@ -14,7 +14,7 @@ import { useT } from "../i18n";
 // Shown when fewer than 2 waypoints are placed: invites the user to draw a
 // route on the map. The route bar above is dimmed (locked) until placement.
 
-export function RouteSketch() {
+function RouteSketch() {
   return (
     <svg viewBox="0 0 280 100" className="w-full" style={{ maxHeight: 110 }} aria-hidden="true">
       <defs>
@@ -68,7 +68,7 @@ export function EmptyState() {
 // 4-cell stats row with a segmented complexity bar underneath; matches the
 // design's "Sim filled" header block.
 
-export function HeroCell({
+function HeroCell({
   label,
   value,
   unit,

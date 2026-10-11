@@ -13,11 +13,11 @@
  * own: the boat catalogue fetched from the server, the spinner of the mode on
  * screen, and the two computations wrapped so they also re-frame the map.
  *
- * The hooks below are about *what a component depends on*, not about
- * re-render count: React context has no per-field subscription, so every
- * consumer still re-renders when the session changes, exactly as they did when
- * the props were spread. What they buy is that each file states its own needs
- * in one line instead of accepting a bag of props from three levels up.
+ * `usePlan` is about *what a component depends on*, not about re-render count:
+ * React context has no per-field subscription, so every consumer still
+ * re-renders when the session changes, exactly as they did when the props were
+ * spread. What it buys is that each file states its own needs in one line
+ * instead of accepting a bag of props from three levels up.
  *
  * The provider component lives in `PlanProvider.tsx`, so this module stays
  * free of JSX and can be imported from anywhere without dragging one in.
@@ -49,14 +49,4 @@ export function usePlan(): PlanContextValue {
     throw new Error("usePlan doit être appelé sous un PlanProvider");
   }
   return value;
-}
-
-/** The domain state of the planner. */
-export function usePlanState(): PlanState {
-  return usePlan().state;
-}
-
-/** The named intents. Stable identity across a session. */
-export function usePlanActions(): PlanActions {
-  return usePlan().actions;
 }
