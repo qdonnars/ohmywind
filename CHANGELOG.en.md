@@ -9,7 +9,7 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 ### New
 
 - A new boat type, the sail and oar dinghy (about 5 m), covers small open boats without a cabin (#447).
-- A What's new page traces OhMyWind's releases, and a discreet dot in the menu flags a new version (#466).
+- A What's new page traces OhMyWind's releases. It opens from the "i" button, where a discreet dot flags a new version (#466, #469).
 
 ### Fixes
 
@@ -18,6 +18,7 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 - The methodology points to the Boat tab for polars and tells the web app, the API and the MCP server apart (#460).
 - The Explore hourly tables line up with the model column: no half-hidden column or day label after scrolling, and the line between two days keeps the same colour on every row; the boat picker in the plan shows readable names (#465).
 - On Compare, the place search measures its distances from your spots; a departure yesterday reads "Yesterday", not "Today"; an arrival on the next day shows its day (#467).
+- The boat picker button shows the boat's name, not its identifier; after "Cancel" on a route being drawn, the back button closes the comparison without leaving the plan (#469).
 
 ### Behind the scenes
 
