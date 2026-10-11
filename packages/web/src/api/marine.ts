@@ -6,7 +6,7 @@ import type {
 } from "../types";
 import { API_BASE } from "./config";
 import { tidalGapForSource } from "../domain/tidalGaps";
-import { unknownCurrentAt, unknownZoneAt, withhold } from "../domain/unknownCurrent";
+import { fromOverlay, unknownCurrentAt, unknownZoneAt, withhold } from "../domain/unknownCurrent";
 import { noteIfRefused } from "./openMeteoQuota";
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { parisIsoToUtcMs } from "../domain/datetime";
@@ -61,6 +61,9 @@ export interface MarcOverlay {
   tide_height_m?: (number | null)[];
   current_speed_kn?: (number | null)[];
   current_direction_to_deg?: (number | null)[];
+  // Set when the server withholds the current at this point: a documented
+  // zone, or dead water of a coastal atlas (``reason: "model_edge"``, no zone).
+  unknown?: { zone?: string | null; reason?: string; fields?: string[] };
   // National tidal coefficient at the start of the requested window
   // (Brest-anchored, integer in [20, 120]). Surfaced by the server when
   // the SHOM registry has Brest constants loaded; null otherwise.
@@ -539,7 +542,12 @@ export async function fetchMarine(lat: number, lon: number): Promise<MarineHourl
   }
   const baseData = toMarineHourly(raw);
   if (!baseData) return null;
-  const data = await withTidalGap(lat, lon, await withUnknown(lat, lon, mergeMarcOverlay(baseData, overlay)));
+  const merged = mergeMarcOverlay(baseData, overlay);
+  const data = await withTidalGap(
+    lat,
+    lon,
+    overlay?.unknown ? withhold(merged, fromOverlay(overlay.unknown)) : await withUnknown(lat, lon, merged),
+  );
   cache.set(key, { data, fetchedAt: Date.now() });
   return data;
 }
@@ -657,7 +665,8 @@ export async function fetchMarineCorridor(
     // Documented zones only: the pass rule needs the 360 kB gap file, and
     // the passage engine applies it again on the server for every leg.
     const merged = mergeMarcOverlay(baseData, overlays[k]);
-    const zone = unknownZoneAt(coords[i].lat, coords[i].lon);
+    const told = overlays[k]?.unknown;
+    const zone = told ? fromOverlay(told) : unknownZoneAt(coords[i].lat, coords[i].lon);
     const data = zone ? withhold(merged, zone) : merged;
     const key = marineCacheKey(coords[i].lat, coords[i].lon);
     cache.set(key, { data, fetchedAt });

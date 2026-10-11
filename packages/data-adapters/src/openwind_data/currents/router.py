@@ -128,11 +128,16 @@ class CompositeMarineAdapter:
             return bundle
         h_series = self.marc.predict_height_series(lat, lon, times)
         c_series = self.marc.predict_current_series(lat, lon, times)
-        if h_series is None and c_series is None:
+        # Dead water in a coastal atlas (the Seine above Tancarville): withheld,
+        # not replaced by a zero nor by the global model under the atlas's name.
+        cell = self.marc.cell_at(lat, lon)
+        current_dead = cell is not None and cell.current_dead
+        height_dead = cell is not None and cell.height_dead
+        if h_series is None and c_series is None and not (current_dead or height_dead):
             # No MARC data at this exact cell despite atlas coverage — fall back.
             return bundle
 
-        source_label = atlas.source_label
+        source_label = UNKNOWN_CURRENT_SOURCE if current_dead else atlas.source_label
         h_arr = h_series[0] if h_series is not None else None
         if c_series is not None:
             speeds_kn, dirs_to_deg, _ = c_series
@@ -146,6 +151,10 @@ class CompositeMarineAdapter:
             new_dir = (
                 float(dirs_to_deg[i]) if dirs_to_deg is not None else p.current_direction_to_deg
             )
+            if current_dead:
+                new_speed = new_dir = None
+            if height_dead:
+                new_tide = None
             new_points.append(
                 SeaPoint(
                     time=p.time,

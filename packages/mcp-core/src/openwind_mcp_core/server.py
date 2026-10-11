@@ -473,7 +473,11 @@ uses unless overridden by tool parameters.
   any coarse source at a pass no fine source serves). The leg's ETA is
   computed without current, and a ``currents.unknown`` notice names the
   places once per passage. Relay it: the sailor must use local tables or
-  sailing directions there.
+  sailing directions there. A third case has no name: dead water in a
+  coastal atlas (a river beyond the tidal model, such as the Seine above
+  Tancarville, a basin, a lock), where the atlas holds a zero current; it
+  is withheld the same way and raises ``currents.unknown_water`` with the
+  number of legs.
   A ``currents.tidal_gap`` notice is raised when a leg whose current is
   not from a fine source crosses a zone where tidal streams are probably
   strong (a known race within 15 km, or more than 1.5 kt reconstructed

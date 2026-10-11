@@ -98,6 +98,7 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.marineTable.unknown.managed": "Corrente sconosciuta qui ({zone}): un'opera regola le correnti e il livello, non la marea, e nessuna delle nostre fonti la descrive. Piuttosto che un numero sbagliato, non mostriamo nulla. Consultate il gestore dell'opera e il portolano.",
   "explore.marineTable.unknown.unresolved": "Corrente sconosciuta qui: {zone} è un passaggio di forte corrente che la maglia delle nostre fonti non vede. Piuttosto che un numero sbagliato, non mostriamo nulla. Consultate le tavole di corrente locali o il portolano.",
   "explore.marineTable.unknown.non_tidal": "Corrente sconosciuta qui ({zone}): la corrente dipende da altro che dalla marea (portata, vento), che nessuna delle nostre fonti descrive. Piuttosto che un numero sbagliato, non mostriamo nulla. Consultate il portolano.",
+  "explore.marineTable.unknown.model_edge": "Corrente sconosciuta qui: il modello di marea non descrive queste acque (fiume oltre il suo dominio, bacino, chiusa) e nessuna delle nostre altre fonti le vede. Piuttosto che un numero sbagliato, non mostriamo nulla. Consultate il portolano o le tavole locali.",
   "explore.marineTable.currentSource.smoc":
     "Corrente su griglia di 8 km: marea, circolazione e onde insieme, troppo grossolana per i passaggi.",
   "explore.marineTable.currentSource.marc": "Solo corrente di marea, griglia {res}: vento ignorato.",

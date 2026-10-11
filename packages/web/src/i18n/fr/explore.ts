@@ -101,6 +101,7 @@ export const explore = {
   "explore.marineTable.unknown.managed": "Courant inconnu ici ({zone}) : un ouvrage y règle les courants et le niveau, pas la marée, et aucune de nos sources ne le décrit. Plutôt qu'un chiffre faux, nous n'affichons rien. Consultez l'exploitant de l'ouvrage et les instructions nautiques.",
   "explore.marineTable.unknown.unresolved": "Courant inconnu ici : {zone} est un passage de fort courant que la maille de nos sources ne voit pas. Plutôt qu'un chiffre faux, nous n'affichons rien. Consultez les tables de courant locales ou les instructions nautiques.",
   "explore.marineTable.unknown.non_tidal": "Courant inconnu ici ({zone}) : le courant y dépend d'autre chose que la marée (débit, vent), qu'aucune de nos sources ne décrit. Plutôt qu'un chiffre faux, nous n'affichons rien. Consultez les instructions nautiques.",
+  "explore.marineTable.unknown.model_edge": "Courant inconnu ici : le modèle de marée ne décrit pas cette eau (rivière en amont de son domaine, bassin, écluse), et aucune autre de nos sources ne la voit. Plutôt qu'un chiffre faux, nous n'affichons rien. Consultez les instructions nautiques ou les tables locales.",
   "explore.marineTable.currentSource.smoc":
     "Courant maille 8 km : marée, circulation et vagues confondues, trop grossier pour les passes.",
   "explore.marineTable.currentSource.marc": "Courant de marée seul, maille {res} : vent ignoré.",

@@ -100,6 +100,7 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.marineTable.unknown.managed": "Current unknown here ({zone}): an engineering work sets the streams and the water level, not the tide, and none of our sources describes it. Rather than a wrong figure, we show nothing. Check with the operator of the work and the sailing directions.",
   "explore.marineTable.unknown.unresolved": "Current unknown here: {zone} is a strong-stream passage that the grid of our sources cannot see. Rather than a wrong figure, we show nothing. Check local tidal stream tables or the sailing directions.",
   "explore.marineTable.unknown.non_tidal": "Current unknown here ({zone}): the stream depends on something other than the tide (river flow, wind), which none of our sources describes. Rather than a wrong figure, we show nothing. Check the sailing directions.",
+  "explore.marineTable.unknown.model_edge": "Current unknown here: the tidal model does not describe this water (a river beyond its domain, a basin, a lock), and none of our other sources sees it. Rather than a wrong figure, we show nothing. Check the sailing directions or local tidal tables.",
   "explore.marineTable.currentSource.smoc":
     "Current on an 8 km grid: tide, circulation and waves folded together, too coarse for the passes.",
   "explore.marineTable.currentSource.marc": "Tidal stream only, {res} grid: wind ignored.",

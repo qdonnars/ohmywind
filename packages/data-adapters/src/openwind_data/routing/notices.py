@@ -48,6 +48,11 @@ FR_TEMPLATES: dict[str, str] = {
         "l'heure d'arrivée y est calculée sans courant. Consultez les instructions "
         "nautiques ou les tables locales."
     ),
+    "currents.unknown_water": (
+        "courant inconnu sur {count} tronçon(s) : le modèle de marée ne décrit pas cette eau "
+        "(rivière en amont de son domaine, bassin, écluse), l'heure d'arrivée y est calculée "
+        "sans courant. Consultez les instructions nautiques ou les tables locales."
+    ),
     "complexity.wind.3": "Vent soutenu : TWS {tws_range} kn sur {nm} nm",
     "complexity.wind.4": "Vent fort : TWS {tws_range} kn sur {nm} nm",
     "complexity.wind.5": "Vent très fort : TWS {tws_range} kn sur {nm} nm",

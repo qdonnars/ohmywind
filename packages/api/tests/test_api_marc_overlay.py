@@ -153,6 +153,62 @@ class TestDeclined:
         assert declined["reason"] == "weak_tide" and declined["max_tide_kt"] < 0.2
 
 
+class TestDeadWater:
+    async def test_dead_water_of_a_coastal_atlas_answers_unknown(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """A river beyond the model, as Rouen in MARC MANE, placed outside every
+        documented zone: zero current, zero range. The overlay says
+        unknown, it does not serve a zero and does not leave the client to
+        its SMOC baseline."""
+        import polars as pl
+        from openwind_data.currents.marc_atlas import MarcAtlasRegistry
+
+        atlas = tmp_path / "MANE"
+        tile = atlas / "tile_lat=47.0" / "tile_lon=-2.5"
+        tile.mkdir(parents=True)
+        (atlas / "metadata.json").write_text(
+            json.dumps(
+                {
+                    "atlas": "MANE",
+                    "rank": 2,
+                    "resolution_m": 250,
+                    "constituents_u": ["M2"],
+                    "constituents_v": ["M2"],
+                    "schema_version": 3,
+                }
+            )
+        )
+        ring = [[-2.5, 47.0], [-2.0, 47.0], [-2.0, 47.5], [-2.5, 47.5], [-2.5, 47.0]]
+        (atlas / "coverage.geojson").write_text(
+            json.dumps({"features": [{"geometry": {"type": "Polygon", "coordinates": [ring]}}]})
+        )
+        pl.DataFrame(
+            {
+                "lat": [47.30, 47.44],
+                "lon": [-2.30, -2.40],
+                "M2_h_amp": [2.5, 0.0],
+                "M2_h_g": [100.0, 0.0],
+                "M2_u_amp": [0.6, 0.0],
+                "M2_u_g": [100.0, 0.0],
+                "M2_v_amp": [0.2, 0.0],
+                "M2_v_g": [190.0, 0.0],
+            }
+        ).write_parquet(tile / "data.parquet")
+        monkeypatch.setattr(SERVICES, "marc", MarcAtlasRegistry.from_directory(tmp_path))
+        body = _payload(
+            await marine_routes.api_marc_overlay(_FakeRequest(_params(lat="47.44", lon="-2.40")))
+        )
+        assert body == {
+            "covered": False,
+            "unknown": {"zone": None, "reason": "model_edge", "fields": ["current", "tide"]},
+        }
+        alive = _payload(
+            await marine_routes.api_marc_overlay(_FakeRequest(_params(lat="47.30", lon="-2.30")))
+        )
+        assert alive["covered"] is True and alive["current_source"] == "marc_mane_250m"
+
+
 class TestUncoveredPath:
     async def test_answers_200_rather_than_404_when_it_has_nothing(self) -> None:
         # The client fires this alongside its Open-Meteo call and simply keeps

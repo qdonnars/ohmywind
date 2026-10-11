@@ -38,20 +38,23 @@ Chaque entité du GeoJSON porte :
 | Zone | Raison | Retiré | Justification |
 |---|---|---|---|
 | Rance, en amont de l'usine marémotrice | `managed` | courant, hauteur | Contour tracé d'après les cellules mortes de MANW, dilatées de 300 à 500 m, puis le fleuve jusqu'à l'écluse du Châtelier. Le bassin est exploité par les vannes et turbines d'EDF. MARC MANW 250 m y lit une eau morte (M2 nulle de 48,539 à 48,615 N), MARC MANGA 700 m une marée libre. Vérifié sur l'API dev le 2026-10-11 : `covered: true`, hauteur et courant à 0 vers La Richardais, marée de ±2 m à 0,1 kt plus en amont. |
+| Seine maritime, du pont de Normandie à Rouen | `unresolved` | courant | MARC MANE ne résout pas le chenal : pour 7,6 m de marnage, 0,04 kt de courant de vives-eaux à l'aval de Tancarville, 1,42 kt à Tancarville, 0,2 kt vers Villequier, puis une eau morte de Caudebec à Rouen. Une marée de 7 m ne se propage pas sans courant dans un fleuve chenalisé. Corridor tracé le long du fleuve, méandres compris. |
 
-## Candidats, à documenter avant d'entrer
+## Eau morte d'un atlas côtier (règle générique)
 
-Le scan `scripts/scan_dead_cells.py build/marc` liste les grappes de cellules où l'amplitude M2 de hauteur est quasi nulle dans un atlas de côte à marée : de l'eau que le modèle a coupée de la marée, ou de la terre remplie de zéros. Le scan ne fait que proposer. Une cellule morte n'est pas une règle générique : dans la Baltique, une marée quasi nulle est physique et le courant faible est la bonne réponse.
+Le scan `scripts/scan_dead_cells.py build/marc` montrait des grappes de cellules mortes dans les atlas côtiers MARC (rang 2) : de l'eau que le modèle a coupée de la marée. Depuis le 2026-10-11, une règle générique les traite, sans qu'il faille les lister une à une.
 
-| Atlas | Grappe (lat, lon) | Cellules | Hypothèse à vérifier |
-|---|---|---|---|
-| MANW | 48,586, −2,174 | 16 | estuaire de l'Arguenon |
-| MANW | 49,016, −1,564 | 28 | havre de Regnéville (Sienne) |
-| MANW | 48,637, −1,364 | 11 | estuaire de la Sélune |
-| AQUI | 46,323, −1,297 | 23 | estuaire du Lay |
-| MANE, MANGA | 49,3 à 49,55, 0,45 à 1,15 | plusieurs milliers | vallée de la Seine en aval de Rouen : peut-être de la terre remplie de zéros, peut-être la Seine maritime, où le courant est réel et que MARC lit nul |
+- **La règle.** Dans un atlas côtier (rang 2 ou plus), une cellule dont le courant M2 est sous 1 cm/s (0,02 kt), ou dont la hauteur M2 est sous 5 cm, est morte. Ces seuils vivent dans `serving_policy.py`.
+- **Le traitement.**
+  1. Si la cellule de courant la plus proche est morte, la cascade cherche une cellule vivante à trois mailles au plus. C'est le cas de la frange côté terre du maillage, où un point de mer a une cellule vivante à 250 m.
+  2. À défaut, le courant est retiré : `current_source: "unknown"`, notice `currents.unknown_water` dans le moteur, `unknown` avec la raison `model_edge` dans l'overlay. Une hauteur morte est retirée aussi.
+- **Pourquoi pas dans les atlas de large.** Dans la Baltique, une marée quasi nulle est physique. La règle des 0,2 kt confie déjà ces eaux au modèle global.
+- **Le cas d'école.** La Seine en amont de Tancarville. MARC MANE y lit 0 kt et 0 m de marnage à Rouen, et le servait avec une confiance haute ; à Caudebec, faute de constantes de courant, la cascade gardait la valeur SMOC sous l'étiquette de MANE.
+- **Mesuré sur 5 054 points de mer** des atlas côtiers, de la Manche au Pays basque : 62 sont déclarés morts, presque tous des points de plage ou d'île que le masque de terre à 1 km laisse en mer.
 
-Autres pistes, sans signal dans les atlas : les détroits où le vent domine (Bonifacio), les estuaires dominés par le débit en crue (Loire, Gironde), les ports à écluse.
+La Rance garde sa zone documentée : MANGA (rang 1) y répond une marée libre, que la règle des cellules mortes ne voit pas.
+
+Autres pistes, sans signal dans les atlas : les détroits où le vent domine (Bonifacio), les estuaires dominés par le débit en crue (Loire, Gironde). Ils entreront comme zones documentées, chacun avec sa source.
 
 ## Ajouter une zone
 

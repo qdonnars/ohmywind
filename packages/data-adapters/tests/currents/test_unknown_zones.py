@@ -123,3 +123,45 @@ async def test_the_cascade_withholds_current_and_tide_in_the_rance() -> None:
         assert p.wave_height_m == 0.4  # the sea state is not the zone's business
     outside = await adapter.fetch(*DINARD_ROADS, start, start + timedelta(hours=2))
     assert all(p.current_speed_kn == 1.2 for p in outside.sea.points)
+
+
+async def test_the_cascade_withholds_dead_water_of_a_coastal_atlas(tmp_path) -> None:
+    """A river beyond the model, as Rouen in MARC MANE (placed outside every zone): the atlas covers, its cells are dead. The point gets
+    no current and no tide under the "unknown" source, not a zero and not the
+    global model under MANE's name."""
+    from tests.currents.test_marc_atlas import _COASTAL, _write_rows
+
+    _write_rows(
+        tmp_path,
+        "MANE",
+        _COASTAL,
+        [
+            {"lat": 47.300, "lon": -2.300, "h": 2.5, "u": 0.6, "v": 0.2},
+            {"lat": 47.440, "lon": -2.400, "h": 0.0, "u": 0.0, "v": 0.0},
+        ],
+    )
+    adapter = CompositeMarineAdapter(
+        upstream=_Upstream(), marc=MarcAtlasRegistry.from_directory(tmp_path)
+    )
+    start = datetime(2026, 10, 11, 12, tzinfo=UTC)
+    dead = await adapter.fetch(47.440, -2.400, start, start + timedelta(hours=2))
+    for p in dead.sea.points:
+        assert p.current_speed_kn is None and p.current_direction_to_deg is None
+        assert p.tide_height_m is None
+        assert p.current_source == UNKNOWN_CURRENT_SOURCE
+    alive = await adapter.fetch(47.300, -2.300, start, start + timedelta(hours=2))
+    assert all(
+        p.current_source == "marc_mane_250m" and p.current_speed_kn for p in alive.sea.points
+    )
+
+
+def test_the_seine_above_the_pont_de_normandie_is_a_zone_and_its_mouth_is_not() -> None:
+    # MARC MANE reads 0.04 kt for a 7.6 m range above the bridge, dead water
+    # from Caudebec to Rouen: the whole river is one named zone. Honfleur and
+    # the Le Havre roads, where MANE reads 2.7 and 1.2 kt, stay outside.
+    for lat, lon in ((49.45, 0.35), (49.47, 0.46), (49.526, 0.728), (49.44, 1.08)):
+        zone = unknown_zone_at(lat, lon)
+        assert zone is not None and zone.id == "seine_maritime", (lat, lon)
+        assert zone.fields == {"current"}
+    assert unknown_zone_at(49.43, 0.24) is None  # Honfleur
+    assert unknown_zone_at(49.48, 0.05) is None  # Le Havre roads

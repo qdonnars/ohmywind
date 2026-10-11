@@ -90,7 +90,10 @@ def _segment_report(
     cur_to = sea_pt.current_direction_to_deg if sea_pt else None
     cur_src = sea_pt.current_source if sea_pt else None
     cur_conf = confidence_for_leg(seg.start.lat, seg.start.lon, seg.end.lat, seg.end.lon, cur_src)
-    if _unknown_current_zone(seg.start, seg.end, cur_src) is not None:
+    if cur_src == UNKNOWN_CURRENT_SOURCE:
+        # Withheld by the cascade (dead water in a coastal atlas, a zone).
+        cur_kn, cur_to, cur_conf = None, None, None
+    elif _unknown_current_zone(seg.start, seg.end, cur_src) is not None:
         # Withheld, not zeroed by mistake: the leg runs at boat speed, the
         # report says "unknown", and the notice names the place.
         cur_kn, cur_to, cur_src, cur_conf = None, None, UNKNOWN_CURRENT_SOURCE, None
@@ -193,6 +196,14 @@ def _tidal_gap_warnings(segments: list[SegmentReport]) -> list[Notice]:
             name = _unknown_current_zone(seg.start, seg.end, None)
             if name is not None and name not in unknown:
                 unknown.append(name)
+    # Legs the cascade withheld with no named zone or pass behind them: dead
+    # water in a coastal atlas (a river beyond the model, a basin).
+    dead_water = sum(
+        1
+        for seg in segments
+        if seg.current_source == UNKNOWN_CURRENT_SOURCE
+        and _unknown_current_zone(seg.start, seg.end, None) is None
+    )
     zones: list[str] = []
     for seg in segments:
         if seg.current_source == UNKNOWN_CURRENT_SOURCE or seg.current_confidence == "high":
@@ -205,6 +216,8 @@ def _tidal_gap_warnings(segments: list[SegmentReport]) -> list[Notice]:
     out: list[Notice] = []
     if unknown:
         out.append(notice("currents.unknown", zones=_named(unknown), count=len(unknown)))
+    if dead_water:
+        out.append(notice("currents.unknown_water", count=dead_water))
     if zones:
         out.append(notice("currents.tidal_gap", zones=_named(zones), count=len(zones)))
     return out

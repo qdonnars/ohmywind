@@ -124,6 +124,7 @@ export const plan = {
     "modèle {model} sans données sur {fallback_count}/{total} points (probable hors zone de couverture) ; fallback automatique sur {others}",
   "plan.notice.currents.tidal_gap": "courants de marée probablement forts ({zones}) et non résolus par nos sources : les courants annoncés viennent d'une maille de 2 à 8 km qui ne les voit pas. Nous travaillons à élargir la couverture, mais les données ne sont pas toutes en libre accès.",
   "plan.notice.currents.unknown": "courant inconnu ({zones}) : aucune de nos sources n'y décrit le courant réel, l'heure d'arrivée y est calculée sans courant. Consultez les instructions nautiques ou les tables locales.",
+  "plan.notice.currents.unknown_water": "courant inconnu sur {count} tronçon(s) : le modèle de marée ne décrit pas cette eau (rivière en amont de son domaine, bassin, écluse), l'heure d'arrivée y est calculée sans courant. Consultez les instructions nautiques ou les tables locales.",
   "plan.notice.complexity.wind.3": "Vent soutenu : TWS {tws_range} kn sur {nm} nm",
   "plan.notice.complexity.wind.4": "Vent fort : TWS {tws_range} kn sur {nm} nm",
   "plan.notice.complexity.wind.5": "Vent très fort : TWS {tws_range} kn sur {nm} nm",

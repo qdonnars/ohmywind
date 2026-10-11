@@ -99,6 +99,7 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.marineTable.unknown.managed": "Strömung hier unbekannt ({zone}): Ein Bauwerk regelt hier Strömung und Wasserstand, nicht die Gezeiten, und keine unserer Quellen beschreibt es. Statt einer falschen Zahl zeigen wir nichts an. Wenden Sie sich an den Betreiber des Bauwerks und ziehen Sie das Seehandbuch zu Rate.",
   "explore.marineTable.unknown.unresolved": "Strömung hier unbekannt: {zone} ist eine Engstelle mit starker Strömung, die das Gitter unserer Quellen nicht erfasst. Statt einer falschen Zahl zeigen wir nichts an. Ziehen Sie örtliche Strömungstafeln oder das Seehandbuch zu Rate.",
   "explore.marineTable.unknown.non_tidal": "Strömung hier unbekannt ({zone}): Die Strömung hängt hier von etwas anderem als den Gezeiten ab (Abfluss, Wind), das keine unserer Quellen beschreibt. Statt einer falschen Zahl zeigen wir nichts an. Ziehen Sie das Seehandbuch zu Rate.",
+  "explore.marineTable.unknown.model_edge": "Strömung hier unbekannt: Das Gezeitenmodell beschreibt dieses Gewässer nicht (Fluss jenseits seines Gebiets, Becken, Schleuse), und keine unserer anderen Quellen erfasst es. Statt einer falschen Zahl zeigen wir nichts an. Ziehen Sie das Seehandbuch oder örtliche Gezeitentafeln zu Rate.",
   "explore.marineTable.currentSource.smoc":
     "Strom auf 8-km-Gitter: Tide, Zirkulation und Wellen zusammengefasst, zu grob für die Passagen.",
   "explore.marineTable.currentSource.marc": "Nur Gezeitenstrom, Gitter {res}: Wind nicht berücksichtigt.",

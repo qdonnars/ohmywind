@@ -120,6 +120,7 @@ export const plan: Record<keyof typeof frPlan, string> = {
     "modelo {model} sin datos en {fallback_count}/{total} puntos (probablemente fuera de cobertura); recurso automático a {others}",
   "plan.notice.currents.tidal_gap": "Corrientes de marea probablemente fuertes ({zones}) y no resueltas por nuestras fuentes: las corrientes indicadas provienen de una malla de 2 a 8 km que no las ve. Trabajamos para ampliar la cobertura, pero no todos los datos son de libre acceso.",
   "plan.notice.currents.unknown": "Corriente desconocida ({zones}): ninguna de nuestras fuentes describe allí la corriente real, la hora de llegada se calcula allí sin corriente. Consulte el derrotero o las tablas locales.",
+  "plan.notice.currents.unknown_water": "Corriente desconocida en {count} tramo(s): el modelo de marea no describe estas aguas (río más allá de su dominio, dársena, esclusa), la hora de llegada se calcula allí sin corriente. Consulte el derrotero o las tablas locales.",
   "plan.notice.complexity.wind.3": "Viento fresco: TWS {tws_range} kn en {nm} nm",
   "plan.notice.complexity.wind.4": "Viento fuerte: TWS {tws_range} kn en {nm} nm",
   "plan.notice.complexity.wind.5": "Viento muy fuerte: TWS {tws_range} kn en {nm} nm",
