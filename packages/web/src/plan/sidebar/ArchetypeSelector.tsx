@@ -125,7 +125,9 @@ export function ArchetypeSelector() {
                   borderBottom: "1px solid var(--ow-line)",
                 }}
               >
-                <div className="font-semibold">{a.name}</div>
+                {/* The server's `name` is the slug (cruiser_20ft): the
+                    translated label, like everywhere else the boat is named. */}
+                <div className="font-semibold">{ARCHETYPE_LABELS[a.slug] ?? a.name}</div>
                 <div className="text-[11px] mt-0.5" style={{ color: "var(--ow-fg-2)" }}>
                   {a.length_ft} ft · {a.type} · {a.examples[0]}
                 </div>
