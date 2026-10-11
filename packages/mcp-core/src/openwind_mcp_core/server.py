@@ -436,8 +436,9 @@ uses unless overridden by tool parameters.
   forecasts, so S2 and N2 are inferred); Copernicus Marine regional
   models analysed over one year of hourly currents (NWS 1.5 km from the
   Channel to Shetland and Ireland, IBI 3 km for Iberia, Morocco and the
-  Canaries, MED 4.2 km for the Mediterranean straits, kept only where the
-  tide reaches 0.2 kt, and never in the Strait of Gibraltar, where the
+  Canaries, MED 4.2 km for the Mediterranean straits, confined to the
+  Mediterranean, kept only where the tide reaches 0.2 kt, and never in
+  the Strait of Gibraltar, where the
   tide alone would erase the Atlantic inflow) when the waypoint falls
   inside a covered emprise; otherwise Open-Meteo Marine (SMOC, 8 km
   global, tide plus general circulation, tides from FES2014). Norway and

@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from openwind_data.currents.narrow_pass import source_confidence
+from openwind_data.currents.tidal_gaps import tidal_gap_at, unknown_pass_along
 from openwind_data.currents.unknown_zones import unknown_zone_at
 from openwind_data.routing.geometry import validate_point
 from starlette.requests import Request
@@ -372,6 +374,122 @@ async def api_marc_overlay(request: Request) -> JSONResponse:
     payload, max_age = overlay_for_point(
         services, lat, lon, window, _TideCoefficient(services, window.start)
     )
+    return JSONResponse(payload, headers={"Cache-Control": f"public, max-age={max_age}"})
+
+
+def explain_point(services: Services, lat: float, lon: float) -> tuple[dict[str, Any], int]:
+    """What the app does with the current at (lat, lon), and why, from the cascade itself.
+
+    The map's card is an audit tool: it must show what a passage would use
+    here, never a story rebuilt in the browser. Every field comes from the
+    functions the cascade and the engine run (``unknown_zone_at``,
+    ``ShomC2dRegistry.covers``, ``MarcAtlasRegistry.explain``,
+    ``unknown_pass_along``, ``tidal_gap_at``), in the order they run.
+
+    ``answer.kind`` is ``land``, ``unknown`` (a documented zone, or
+    ``model_edge``: dead water of a coastal atlas), ``shom``, ``atlas`` or
+    ``global`` (the general current of the global model). ``atlases`` lists
+    every atlas whose emprise holds the point, in cascade order, with its
+    decision. ``plan`` says what a passage leg here gets on top: a pass
+    within 3 km its source cannot see (the leg reads "unknown"), a strong
+    tidal zone within 15 km its source is too coarse for (a warning).
+    """
+    base: dict[str, Any] = {"lat": lat, "lon": lon}
+    if services.land.is_land(lat, lon):
+        return {**base, "answer": {"kind": "land"}, "atlases": [], "plan": {}}, 86400
+    marc_loaded = bool(services.marc.atlases)
+    verdicts = services.marc.explain(lat, lon) if marc_loaded else []
+    atlases = []
+    for v in verdicts:
+        item: dict[str, Any] = {
+            "atlas": v.atlas.name,
+            "label": v.atlas.source_label,
+            "rank": v.atlas.rank,
+            "resolution_m": v.atlas.resolution_m,
+            "decision": v.decision,
+        }
+        if v.max_tide_kt is not None:
+            item["max_tide_kt"] = round(v.max_tide_kt, 2)
+        if v.box is not None:
+            item["box"] = v.box
+        atlases.append(item)
+    shom_covers = services.shom.covers(lat, lon)
+    shom_km = services.shom.nearest_km(lat, lon)
+    shom: dict[str, Any] = {
+        "covers": shom_covers,
+        "nearest_km": None if shom_km is None else round(shom_km, 2),
+        "max_km": 0.5,
+    }
+    used = next((a for a in atlases if a["decision"] in ("used", "dead_water")), None)
+    zone = unknown_zone_at(lat, lon)
+    answer: dict[str, Any]
+    source: str | None
+    if zone is not None and "current" in zone.fields:
+        answer = {
+            "kind": "unknown",
+            "zone": zone.name,
+            "reason": zone.reason,
+            "fields": sorted(zone.fields),
+        }
+        source = None
+    elif shom_covers:
+        result = services.shom.predict_current_series(lat, lon, [datetime.now(UTC)])
+        source = result[2].lower() if result is not None else "shom_c2d"
+        answer = {"kind": "shom", "source": source, "confidence": source_confidence(source)}
+    elif used is not None and used["decision"] == "dead_water":
+        answer = {"kind": "unknown", "zone": None, "reason": "model_edge", "fields": ["current"]}
+        source = None
+    elif used is not None:
+        source = used["label"]
+        answer = {
+            "kind": "atlas",
+            "source": source,
+            "atlas": used["atlas"],
+            "resolution_m": used["resolution_m"],
+            "confidence": source_confidence(source),
+            "max_tide_kt": used.get("max_tide_kt"),
+        }
+    else:
+        source = "openmeteo_smoc"
+        answer = {"kind": "global", "source": source, "confidence": "medium"}
+    plan: dict[str, Any] = {}
+    if answer["kind"] in ("shom", "atlas", "global"):
+        fine = source_confidence(source) == "high"
+        blind = unknown_pass_along(lat, lon, lat, lon, source, fine=fine)
+        if blind is not None:
+            plan["blind_pass"] = {
+                "name": blind.zone,
+                "km": round(blind.distance_km, 1),
+                "max_spring_kt": blind.max_spring_kt,
+            }
+        elif not fine:
+            gap = tidal_gap_at(lat, lon)
+            if gap is not None:
+                plan["tidal_gap"] = {
+                    "zone": gap.zone,
+                    "kind": gap.kind,
+                    "km": round(gap.distance_km, 1),
+                }
+    max_age = 86400 if marc_loaded else 300
+    return {**base, "answer": answer, "atlases": atlases, "shom": shom, "plan": plan}, max_age
+
+
+async def api_marc_explain(request: Request) -> JSONResponse:
+    """``GET /api/v1/marine/marc/explain?lat=&lon=``: what the app does here, and why.
+
+    See :func:`explain_point`. Always 200 for a valid point, like the
+    overlay; cached a day, since nothing in it depends on the clock.
+    """
+    try:
+        lat = float(request.query_params["lat"])
+        lon = float(request.query_params["lon"])
+    except (KeyError, ValueError, TypeError) as exc:
+        return error(f"missing or invalid query params (lat, lon): {exc}", "invalid_query_params")
+    try:
+        validate_point(lat, lon)
+    except ValueError as exc:
+        return error(str(exc), "waypoint_out_of_range")
+    payload, max_age = explain_point(_services(request), lat, lon)
     return JSONResponse(payload, headers={"Cache-Control": f"public, max-age={max_age}"})
 
 

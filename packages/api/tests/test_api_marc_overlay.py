@@ -209,6 +209,74 @@ class TestDeadWater:
         assert alive["covered"] is True and alive["current_source"] == "marc_mane_250m"
 
 
+class TestExplain:
+    """``/api/v1/marine/marc/explain``: the card's audit, from the cascade itself."""
+
+    def _get(self, lat: str, lon: str):
+        return marine_routes.api_marc_explain(_FakeRequest({"lat": lat, "lon": lon}))
+
+    async def test_open_water_without_atlases_is_the_global_model(self) -> None:
+        body = _payload(await self._get("46.0", "-12.0"))
+        assert body["answer"] == {
+            "kind": "global",
+            "source": "openmeteo_smoc",
+            "confidence": "medium",
+        }
+        assert body["atlases"] == [] and body["plan"] == {}
+
+    async def test_the_rance_is_unknown_with_its_zone(self) -> None:
+        body = _payload(await self._get("48.567", "-1.975"))
+        assert body["answer"]["kind"] == "unknown" and "Rance" in body["answer"]["zone"]
+        assert body["answer"]["reason"] == "managed"
+
+    async def test_a_coarse_source_beside_a_listed_pass_reads_unknown_on_a_plan(self) -> None:
+        # Messina, global model answering: a leg here gets "unknown".
+        body = _payload(await self._get("38.2458", "15.6325"))
+        assert body["answer"]["kind"] == "global"
+        assert "Messina" in body["plan"]["blind_pass"]["name"]
+
+    async def test_a_weak_coarse_atlas_is_listed_with_its_decision(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        import polars as pl
+        from openwind_data.currents.marc_atlas import MarcAtlasRegistry
+
+        atlas = tmp_path / "ATLNE"
+        tile = atlas / "tile_lat=47.0" / "tile_lon=-12.0"
+        tile.mkdir(parents=True)
+        (atlas / "metadata.json").write_text(
+            json.dumps({"atlas": "ATLNE", "rank": 1, "resolution_m": 2000, "schema_version": 3})
+        )
+        ring = [[-13.0, 46.0], [-11.0, 46.0], [-11.0, 48.0], [-13.0, 48.0], [-13.0, 46.0]]
+        (atlas / "coverage.geojson").write_text(
+            json.dumps({"features": [{"geometry": {"type": "Polygon", "coordinates": [ring]}}]})
+        )
+        pl.DataFrame(
+            {
+                "lat": [47.0],
+                "lon": [-12.0],
+                "M2_h_amp": [1.2],
+                "M2_h_g": [100.0],
+                "M2_u_amp": [0.03],
+                "M2_u_g": [100.0],
+                "M2_v_amp": [0.01],
+                "M2_v_g": [190.0],
+            }
+        ).write_parquet(tile / "data.parquet")
+        monkeypatch.setattr(SERVICES, "marc", MarcAtlasRegistry.from_directory(tmp_path))
+        resp = await self._get("47.0", "-12.0")
+        body = _payload(resp)
+        assert body["answer"]["kind"] == "global"
+        [atlne] = body["atlases"]
+        assert (atlne["atlas"], atlne["decision"]) == ("ATLNE", "weak_tide")
+        assert atlne["max_tide_kt"] < 0.2
+        assert resp.headers["cache-control"] == "public, max-age=86400"
+
+    async def test_a_bad_point_is_refused(self) -> None:
+        resp = await self._get("95", "0")
+        assert resp.status_code == 422  # waypoint_out_of_range, as the overlay
+
+
 class TestUncoveredPath:
     async def test_answers_200_rather_than_404_when_it_has_nothing(self) -> None:
         # The client fires this alongside its Open-Meteo call and simply keeps

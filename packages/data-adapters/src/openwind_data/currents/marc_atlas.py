@@ -232,6 +232,22 @@ def _alive(found: tuple[pl.DataFrame, int] | None) -> bool:
 
 
 @dataclass(frozen=True, slots=True)
+class AtlasVerdict:
+    """One atlas holding a point, and what the cascade does with it there.
+
+    ``decision``: ``used``, ``dead_water`` (used, but no living current near
+    the point: the current is withheld), ``lower_priority``, ``weak_tide``,
+    ``excluded`` (``box`` names it), ``no_cell``, ``outside_validity``.
+    ``max_tide_kt`` is the spring current of the cell when it was measured.
+    """
+
+    atlas: AtlasMeta
+    decision: str
+    max_tide_kt: float | None = None
+    box: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class Declined:
     """An atlas that holds the point but does not answer there, and why.
 
@@ -666,6 +682,46 @@ class MarcAtlasRegistry:
             if declined is None:
                 break
             out.append(declined)
+        return out
+
+    def explain(self, lat: float, lon: float) -> list[AtlasVerdict]:
+        """Every atlas whose emprise holds (lat, lon), in cascade order, with its decision.
+
+        The audit behind the map's card: which atlas answers (``used``, or
+        ``dead_water`` when it covers but holds no living current there), and
+        why each other one does not (``lower_priority``, ``weak_tide``,
+        ``excluded``, ``no_cell``, ``outside_validity``). Built from the very
+        functions ``covers`` and ``cell_at`` use, so the card cannot tell a
+        story the cascade does not follow.
+        """
+        held = [a for a in self.atlases if _bbox_contains(a.bbox, lat, lon)]
+        held.sort(key=lambda a: (-a.rank, a.resolution_m))
+        out: list[AtlasVerdict] = []
+        chosen: AtlasMeta | None = None
+        for atlas in held:
+            if atlas.validity_bbox is not None and not _bbox_contains(
+                atlas.validity_bbox, lat, lon
+            ):
+                out.append(AtlasVerdict(atlas, "outside_validity"))
+                continue
+            declined = self._decline(atlas, lat, lon)
+            if declined is not None:
+                out.append(AtlasVerdict(atlas, declined.reason, declined.max_tide_kt, declined.box))
+                continue
+            if chosen is not None:
+                out.append(AtlasVerdict(atlas, "lower_priority"))
+                continue
+            chosen = atlas
+            cell = self.cell_at(lat, lon)
+            if cell is not None and cell.current_dead:
+                out.append(AtlasVerdict(atlas, "dead_water"))
+                continue
+            kt = None
+            if cell is not None and cell.u_constants and cell.v_constants:
+                kt = _max_tide_kt(
+                    tuple(sorted(cell.u_constants.items())), tuple(sorted(cell.v_constants.items()))
+                )
+            out.append(AtlasVerdict(atlas, "used", kt))
         return out
 
     def _candidates(

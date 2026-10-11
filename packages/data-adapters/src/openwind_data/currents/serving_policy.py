@@ -22,6 +22,9 @@ README.md``, "Périmètre servi"):
 - **An open-sea atlas does not answer where the tide is weak** (``WEAK_TIDE_KT``
   below): the general current, which only the global model holds, matters
   more there.
+- **The Mediterranean atlas stays in the Mediterranean**: its model's
+  domain reaches the Bay of Biscay, where the bench against observations
+  measured it at 1.7 to 3.1 times the observed M2.
 - **Gibraltar is cut out of the Copernicus IBI and MED atlases.** The atlas
   holds the tide alone and erases the Atlantic inflow: 1.1 to 1.9 kt of
   error in the strait against 0.5 to 0.75 for the global model, which keeps
@@ -77,10 +80,24 @@ WITHHELD_ATLASES: frozenset[str] = frozenset(
 # where the inflow the tidal atlases cannot hold is strongest.
 GIBRALTAR: Box = (35.70, -6.10, 36.25, -5.20)
 
+# The Atlantic part of the Mediterranean model's domain (it reaches the Bay
+# of Biscay and the Iberian and Moroccan coasts as a boundary buffer). The
+# 2026-10-11 bench against observations caught the MED atlas answering in
+# the Bay of Biscay (52 radar cells and the Cabo Peñas buoy) with 1.7 to 3.1
+# times the measured M2 (docs/tidal-world/bench-observations.md). North of
+# 42.5 N the Mediterranean starts east of 3 E, south of it east of the
+# Gibraltar box: two boxes keep the atlas in its own sea.
+ATLANTIC_NORTH: Box = (42.5, -20.0, 48.0, 0.5)
+ATLANTIC_SOUTH: Box = (30.0, -20.0, 42.5, -5.95)
+
 # Stable ids, translated by the clients.
-BOX_NAMES: dict[Box, str] = {GIBRALTAR: "gibraltar"}
+BOX_NAMES: dict[Box, str] = {
+    GIBRALTAR: "gibraltar",
+    ATLANTIC_NORTH: "atlantic",
+    ATLANTIC_SOUTH: "atlantic",
+}
 
 EXCLUDED_BOXES: dict[str, tuple[Box, ...]] = {
     "CMEMS_IBI": (GIBRALTAR,),
-    "CMEMS_MED": (GIBRALTAR,),
+    "CMEMS_MED": (GIBRALTAR, ATLANTIC_NORTH, ATLANTIC_SOUTH),
 }

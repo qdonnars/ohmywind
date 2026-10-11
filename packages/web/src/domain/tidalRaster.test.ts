@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { describe, expect, it } from "vitest";
-import { CALM_COLOR, RAMP_STOPS, RasterGrid, decodePixel, isWeakCoarse, maxCurrentAt, rampColor, rampGradient, weakTideAt, type RasterEntry } from "./tidalRaster";
+import { CALM_COLOR, RAMP_STOPS, RasterGrid, decodePixel, isDeadCoastal, isWeakCoarse, maxCurrentAt, rampColor, rampGradient, weakTideAt, type RasterEntry } from "./tidalRaster";
 
 describe("ramp", () => {
   it("is calm under 0.5 kt, darkens up to 5 kt and clamps above", () => {
@@ -58,5 +58,17 @@ describe("the weak-tide rule, as the server applies it", () => {
     expect(maxCurrentAt(47, -12, [weak, strong])?.entry.atlas).toBe("CMEMS_NWS");
     expect(maxCurrentAt(47, -12, [weak])).toBeNull();
     expect(weakTideAt(47, -12, [weak])?.entry.atlas).toBe("ATLNE");
+  });
+});
+
+describe("dead water of a coastal atlas", () => {
+  const mane: RasterEntry = { atlas: "MANE", label: "MANE 250 m", resolution_m: 250, rank: 2, file: "raster/mane.png", bounds: [[49, 0], [50, 1]], scale: 40, cells: 1 };
+  it("is drawn as nothing and never answers a click, a weak but living cell still does", () => {
+    expect(isDeadCoastal(mane, 0)).toBe(true);
+    expect(isDeadCoastal(mane, 0.025)).toBe(false);
+    expect(isDeadCoastal({ ...mane, rank: 1 }, 0)).toBe(false);
+    // 1 + round(0 * 40) = 1: a zero cell, as Rouen in MARC MANE.
+    expect(maxCurrentAt(49.5, 0.5, [new RasterGrid(mane, 1, 1, new Uint8Array([1]))])).toBeNull();
+    expect(maxCurrentAt(49.5, 0.5, [new RasterGrid(mane, 1, 1, new Uint8Array([3]))])?.kt).toBe(0.05);
   });
 });

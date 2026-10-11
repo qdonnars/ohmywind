@@ -123,6 +123,19 @@ export class RasterGrid {
 export const WEAK_TIDE_KT = 0.2;
 export const OPEN_SEA_MAX_RANK = 1;
 
+/**
+ * Dead water of a coastal atlas (rank 2 and up, ``serving_policy``: an M2
+ * current under 1 cm/s): the server withholds the current there, so the map
+ * draws nothing rather than a "weak tide" pale green. The raster rounds to
+ * 1/40 kt, so 0.02 kt keeps only the zero cells.
+ */
+export const COASTAL_MIN_RANK = 2;
+export const DEAD_CURRENT_KT = 0.02;
+
+export function isDeadCoastal(entry: RasterEntry, kt: number): boolean {
+  return (entry.rank ?? 0) >= COASTAL_MIN_RANK && kt < DEAD_CURRENT_KT;
+}
+
 /** Whether a value of this raster is one the server passes on to the global model. */
 export function isWeakCoarse(entry: RasterEntry, kt: number): boolean {
   return (entry.rank ?? 0) <= OPEN_SEA_MAX_RANK && kt < WEAK_TIDE_KT;
@@ -136,7 +149,7 @@ const byCascade = (grids: RasterGrid[]) =>
 export function maxCurrentAt(lat: number, lon: number, grids: RasterGrid[]): { kt: number; entry: RasterEntry } | null {
   for (const g of byCascade(grids)) {
     const kt = g.valueAt(lat, lon);
-    if (kt != null && !isWeakCoarse(g.entry, kt)) return { kt, entry: g.entry };
+    if (kt != null && !isWeakCoarse(g.entry, kt) && !isDeadCoastal(g.entry, kt)) return { kt, entry: g.entry };
   }
   return null;
 }

@@ -1053,3 +1053,61 @@ def test_a_river_beyond_the_model_is_dead_water(tmp_path: Path) -> None:
     assert (
         registry.predict_current_series(49.440, 0.400, [datetime(2026, 1, 1, tzinfo=UTC)]) is None
     )
+
+
+def test_explain_tells_the_decision_of_every_atlas_holding_the_point(tmp_path: Path) -> None:
+    """Off Brittany: ATLNE passes on a weak tide, NWS answers. Same answer as
+    covers(), with the reason of the one that passed."""
+    _write_single_cell_atlas(
+        tmp_path, "ATLNE", _meta("ATLNE", 1, 2000), 47.5, -9.0, u_amp=0.03, v_amp=0.01
+    )
+    _write_single_cell_atlas(tmp_path, "CMEMS_NWS", _meta("CMEMS_NWS", 0, 1500), 47.5, -9.0)
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    verdicts = registry.explain(47.5, -9.0)
+    assert [(v.atlas.name, v.decision) for v in verdicts] == [
+        ("ATLNE", "weak_tide"),
+        ("CMEMS_NWS", "used"),
+    ]
+    assert verdicts[0].max_tide_kt < 0.2 and verdicts[1].max_tide_kt > 0.2
+    assert registry.covers(47.5, -9.0).name == "CMEMS_NWS"
+
+
+def test_explain_says_dead_water_and_outside_validity(tmp_path: Path) -> None:
+    _write_rows(
+        tmp_path,
+        "MANE",
+        _COASTAL,
+        [
+            {"lat": 47.300, "lon": -2.300, "h": 2.5, "u": 0.6, "v": 0.2},
+            {"lat": 47.440, "lon": -2.400, "h": 0.0, "u": 0.0, "v": 0.0},
+        ],
+    )
+    meta = {**_meta("ATLNE", 1, 2000), "validity_bbox": [40.0, -20.0, 47.0, 3.0]}
+    _write_single_cell_atlas(tmp_path, "ATLNE", meta, 47.44, -2.40)
+    verdicts = MarcAtlasRegistry.from_directory(tmp_path).explain(47.44, -2.40)
+    assert [(v.atlas.name, v.decision) for v in verdicts] == [
+        ("MANE", "dead_water"),
+        ("ATLNE", "outside_validity"),
+    ]
+
+
+def test_the_mediterranean_atlas_stays_in_the_mediterranean(tmp_path: Path) -> None:
+    """Its model's domain reaches the Bay of Biscay; measured there at 1.7 to
+    3.1 times the observed M2, it must not answer outside its own sea."""
+    meta = {**_meta("CMEMS_MED", 0, 4200), "source": {"short": "cmems"}}
+    for name, (lat, lon) in {
+        "biscay": (43.6, -2.3),
+        "cadiz": (36.6, -7.0),
+        "lion": (43.0, 4.0),
+    }.items():
+        root = tmp_path / name
+        root.mkdir()
+        _write_single_cell_atlas(root, "CMEMS_MED", meta, lat, lon)
+        registry = MarcAtlasRegistry.from_directory(root)
+        if name == "lion":
+            assert registry.covers(lat, lon) is not None
+        else:
+            assert registry.covers(lat, lon) is None
+            assert [(d.reason, d.box) for d in registry.declined_at(lat, lon)] == [
+                ("excluded", "atlantic")
+            ]
