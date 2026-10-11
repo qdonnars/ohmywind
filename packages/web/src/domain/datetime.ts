@@ -182,6 +182,30 @@ export function nowParisHourPrefix(): string {
   return `${get("year")}-${get("month")}-${get("day")}T${h === "24" ? "00" : h}`;
 }
 
+const PARIS_DAY_DTF = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Europe/Paris",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/** The Paris calendar date of an instant, as UTC midnight milliseconds. */
+function parisDayMs(when: Date | string): number {
+  const parts = PARIS_DAY_DTF.formatToParts(asDate(when));
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  return Date.UTC(get("year"), get("month") - 1, get("day"));
+}
+
+/**
+ * Calendar days from `from` to `to`, both read on the Paris wall clock: 0 on
+ * the same day, 1 on the next, -1 on the day before, whatever their hours.
+ * Not a count of 24 h spans: tomorrow 08:00 seen from today 20:00 is twelve
+ * hours away and still tomorrow, and yesterday is never today.
+ */
+export function parisDayDelta(from: Date | string, to: Date | string): number {
+  return Math.round((parisDayMs(to) - parisDayMs(from)) / 86_400_000);
+}
+
 // ── French display formatters ────────────────────────────────────────────────
 
 // One formatter per shape and per locale, built on first use and kept.

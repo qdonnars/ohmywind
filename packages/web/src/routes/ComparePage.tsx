@@ -23,7 +23,14 @@ import {
   WindowChip,
 } from "../compare/CompareControls";
 import { CompareTable } from "../compare/CompareTable";
-import { compareDays, rowKey, sameSpot, type HourWindow, type Resolution } from "../compare/data";
+import {
+  compareDays,
+  rowKey,
+  sameSpot,
+  searchReference,
+  type HourWindow,
+  type Resolution,
+} from "../compare/data";
 import { focusSearch } from "../compare/focusSearch";
 import {
   clampSheet,
@@ -38,7 +45,7 @@ import {
 } from "../compare/prefs";
 import { AddSpotButton, SpotPicker } from "../compare/SpotPicker";
 import { useCompareData } from "../compare/useCompareData";
-import { saveLastSpot } from "../config/lastSpot";
+import { loadLastSpot, saveLastSpot } from "../config/lastSpot";
 import { useCustomSpots } from "../hooks/useCustomSpots";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useMapView } from "../hooks/useMapView";
@@ -130,6 +137,9 @@ export function ComparePage() {
     setFocused(spot);
     saveLastSpot(spot);
   }, []);
+  // The last spot looked at when the page opened, here or on Explorer: a
+  // reference for the place search until a spot is focused.
+  const [lastSpot] = useState(loadLastSpot);
 
   // Phone only: the height of the sheet, and the favourites panel inside it.
   // The height is dragged by the handle and kept across visits, so a reader
@@ -370,11 +380,15 @@ export function ComparePage() {
     />
   );
 
+  // Not the map centre first, as on Explorer: here the sheet hides most of
+  // the map, and the centre of a map framed above it lies far off. See
+  // searchReference.
+  const near = searchReference(userPosition, [focused, lastSpot, customSpots[0]], mapView);
   const header = (
     <Header
       onSelectSpot={handleSearchSelect}
-      nearLat={userPosition?.lat ?? mapView?.lat ?? customSpots[0]?.latitude ?? null}
-      nearLon={userPosition?.lon ?? mapView?.lon ?? customSpots[0]?.longitude ?? null}
+      nearLat={near?.lat ?? null}
+      nearLon={near?.lon ?? null}
       savedSpots={customSpots}
       current="compare"
       mapQuery=""
