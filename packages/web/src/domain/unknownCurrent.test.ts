@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import type { MarineHourly } from "../types";
 import { isCurrentsRelevant } from "../api/marine";
-import { unknownCurrentAt, unknownZoneAt, withhold } from "./unknownCurrent";
+import { fromOverlay, unknownCurrentAt, unknownZoneAt, withhold } from "./unknownCurrent";
 
 const SAINT_SULIAC = [48.567, -1.975] as const;
 const DINARD_ROADS = [48.64, -2.06] as const;
@@ -72,5 +72,18 @@ describe("unknown currents", () => {
   it("withholds a fine atlas the builder measured blind at the pass", async () => {
     const hit = await unknownCurrentAt(67.2281, 14.6164, { current_source: "norkyst_lofoten_800m", marc_resolution_m: 800 });
     expect(hit?.zone).toBe("Saltstraumen");
+  });
+});
+
+describe("the server's own unknown", () => {
+  it("reads dead water of a coastal atlas as unknown with no zone", () => {
+    const u = fromOverlay({ zone: null, reason: "model_edge", fields: ["current", "tide"] });
+    expect(u).toEqual({ zone: "", reason: "model_edge", fields: ["current", "tide"] });
+    const out = withhold(series(), u);
+    expect(out.current_speed_kn).toEqual([null, null]);
+    expect(out.tide_height_m).toEqual([null, null]);
+    expect(out.current_unknown?.reason).toBe("model_edge");
+    // A reason this build does not know stays an unknown, not a value.
+    expect(fromOverlay({ reason: "later" }).reason).toBe("model_edge");
   });
 });

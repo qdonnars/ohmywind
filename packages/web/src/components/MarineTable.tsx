@@ -47,6 +47,7 @@ const UNKNOWN_NOTE = {
   managed: "explore.marineTable.unknown.managed",
   unresolved: "explore.marineTable.unknown.unresolved",
   non_tidal: "explore.marineTable.unknown.non_tidal",
+  model_edge: "explore.marineTable.unknown.model_edge",
 } as const;
 
 /** The grid the currents on screen were sampled on: "8 km" for the global

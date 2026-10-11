@@ -205,6 +205,15 @@ def overlay_for_point(
     # in ATLNE off Brittany, the Gibraltar box. What the map shows when it
     # says who answers here; absent when nothing declined.
     declined = _declined(services, lat, lon) if marc_loaded else []
+    # Dead water in a coastal atlas (the Seine above Tancarville): the atlas
+    # covers but holds no living current near the point. Unknown, like a
+    # documented zone, so the client does not fall back to its SMOC baseline.
+    if cell is not None and cell.current_dead and not shom_covers:
+        fields = ["current", "tide"] if cell.height_dead else ["current"]
+        return {
+            "covered": False,
+            "unknown": {"zone": None, "reason": "model_edge", "fields": fields},
+        }, 86400
     # If neither MARC nor SHOM has anything at this point, return uncovered
     # so the client keeps its Open-Meteo SMOC baseline.
     if cell is None and not shom_covers:
@@ -319,7 +328,9 @@ async def api_marc_overlay(request: Request) -> JSONResponse:
       ``{"covered": false, "unknown": {"zone": "Rance, ...", "reason":
       "managed", "fields": ["current", "tide"]}}`` in a documented zone
       where no source describes the real stream: the client withholds the
-      listed fields rather than keep its Open-Meteo baseline.
+      listed fields rather than keep its Open-Meteo baseline. Same shape
+      with ``"zone": null, "reason": "model_edge"`` on dead water of a
+      coastal atlas (a river beyond the model).
       Either shape may carry ``"declined": [{"atlas", "label",
       "resolution_m", "reason", "max_tide_kt"?, "box"?}]``: the atlases that
       hold the point and pass on it (``weak_tide``: a coarse atlas under

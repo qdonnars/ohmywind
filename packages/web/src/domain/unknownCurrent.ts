@@ -18,7 +18,7 @@ import type { MarineHourly } from "../types";
 import { blindPassAt, inGeometry } from "./tidalGaps";
 import zonesJson from "./unknownZones.json";
 
-export type UnknownReason = "managed" | "unresolved" | "non_tidal";
+export type UnknownReason = "managed" | "unresolved" | "non_tidal" | "model_edge";
 export type WithheldField = "current" | "tide";
 
 export interface UnknownCurrent {
@@ -57,6 +57,15 @@ export async function unknownCurrentAt(
   if (zone) return zone;
   const blind = await blindPassAt(lat, lon, data.current_source, data.marc_resolution_m);
   return blind ? { zone: blind.zone, reason: "unresolved", fields: ["current"] } : null;
+}
+
+/** The server's own "unknown" (overlay ``unknown``), in the shape the screens read:
+    a documented zone, or dead water of a coastal atlas (``model_edge``, no zone). */
+export function fromOverlay(u: { zone?: string | null; reason?: string; fields?: string[] }): UnknownCurrent {
+  const reasons: UnknownReason[] = ["managed", "unresolved", "non_tidal", "model_edge"];
+  const reason = reasons.includes(u.reason as UnknownReason) ? (u.reason as UnknownReason) : "model_edge";
+  const fields = (u.fields ?? ["current"]).filter((f): f is WithheldField => f === "current" || f === "tide");
+  return { zone: u.zone ?? "", reason, fields: fields.length ? fields : ["current"] };
 }
 
 /** The series with what `unknown` lists blanked, and the mark the screens read. */

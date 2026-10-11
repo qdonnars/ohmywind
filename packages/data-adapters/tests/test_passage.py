@@ -1974,3 +1974,25 @@ class TestTidalGapNotice:
         assert last.duration_h == pytest.approx(last.distance_nm / last.boat_speed_kn)
         unknown = [n for n in report.notices if n.code == "currents.unknown"]
         assert len(unknown) == 1 and "Rance" in unknown[0].params["zones"]
+
+
+class TestDeadWaterNotice:
+    async def test_a_leg_the_cascade_withheld_is_named_as_dead_water(self) -> None:
+        # A river beyond the tidal model, outside every documented zone: the
+        # cascade hands the engine an "unknown" source with no current (dead
+        # water of a coastal atlas). No zone or pass explains it, so the
+        # notice is the dead-water one.
+        adapter = StubAdapter(tws_kn=12.0, twd_deg=270.0, hs_m=0.3, current_source="unknown")
+        report = await estimate_passage(
+            [Point(47.44, -2.40), Point(47.30, -2.10)],
+            DEPARTURE,
+            "cruiser_30ft",
+            adapter=adapter,
+        )
+        assert all(
+            s.current_source == "unknown" and s.current_speed_kn is None for s in report.segments
+        )
+        assert all(s.current_confidence is None for s in report.segments)
+        dead = [n for n in report.notices if n.code == "currents.unknown_water"]
+        assert len(dead) == 1 and dead[0].params["count"] == len(report.segments)
+        assert not [n for n in report.notices if n.code == "currents.unknown"]

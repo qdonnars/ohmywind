@@ -968,3 +968,88 @@ def test_a_shelf_atlas_passes_too_whatever_its_grid(tmp_path: Path) -> None:
     registry = MarcAtlasRegistry.from_directory(tmp_path)
     assert registry.covers(45.5, -4.0) is None
     assert [d.reason for d in registry.declined_at(45.5, -4.0)] == ["weak_tide"]
+
+
+def _write_rows(root: Path, name: str, meta: dict, rows: list[dict]) -> None:
+    """A coastal atlas whose cells all sit in one 0.5 degree tile."""
+    atlas_dir = root / name
+    atlas_dir.mkdir()
+    (atlas_dir / "metadata.json").write_text(json.dumps(meta))
+    lats = [r["lat"] for r in rows]
+    lons = [r["lon"] for r in rows]
+    ring = [
+        [min(lons) - 0.1, min(lats) - 0.1],
+        [max(lons) + 0.1, min(lats) - 0.1],
+        [max(lons) + 0.1, max(lats) + 0.1],
+        [min(lons) - 0.1, max(lats) + 0.1],
+        [min(lons) - 0.1, min(lats) - 0.1],
+    ]
+    (atlas_dir / "coverage.geojson").write_text(
+        json.dumps({"features": [{"geometry": {"type": "Polygon", "coordinates": [ring]}}]})
+    )
+    tile_dir = (
+        atlas_dir
+        / f"tile_lat={(lats[0] // 0.5) * 0.5:.1f}"
+        / f"tile_lon={(lons[0] // 0.5) * 0.5:.1f}"
+    )
+    tile_dir.mkdir(parents=True)
+    pl.DataFrame(
+        {
+            "lat": lats,
+            "lon": lons,
+            "M2_h_amp": [r["h"] for r in rows],
+            "M2_h_g": [100.0] * len(rows),
+            "M2_u_amp": [r["u"] for r in rows],
+            "M2_u_g": [100.0] * len(rows),
+            "M2_v_amp": [r["v"] for r in rows],
+            "M2_v_g": [190.0] * len(rows),
+        }
+    ).write_parquet(tile_dir / "data.parquet")
+
+
+_COASTAL = {
+    "atlas": "MANE",
+    "rank": 2,
+    "resolution_m": 250,
+    "constituents_u": ["M2"],
+    "constituents_v": ["M2"],
+    "schema_version": 3,
+}
+
+
+def test_a_dead_fringe_cell_gives_way_to_the_living_sea_cell_next_to_it(tmp_path: Path) -> None:
+    """The nearest U face is a zero-flow land-fringe cell; a living sea cell
+    sits 220 m away. The current comes from the living one, nothing is dead."""
+    _write_rows(
+        tmp_path,
+        "MANE",
+        _COASTAL,
+        [
+            {"lat": 49.300, "lon": 0.300, "h": 2.5, "u": 0.6, "v": 0.2},
+            {"lat": 49.302, "lon": 0.300, "h": 2.5, "u": 0.0, "v": 0.0},
+        ],
+    )
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    cell = registry.cell_at(49.3021, 0.300)
+    assert cell is not None and not cell.current_dead and not cell.height_dead
+    assert cell.u_constants["M2"][0] == 0.6
+
+
+def test_a_river_beyond_the_model_is_dead_water(tmp_path: Path) -> None:
+    """Rouen in MARC MANE: zero current, zero range, and no living cell within
+    three cells. Dead current and dead height, not a zero."""
+    _write_rows(
+        tmp_path,
+        "MANE",
+        _COASTAL,
+        [
+            {"lat": 49.300, "lon": 0.300, "h": 2.5, "u": 0.6, "v": 0.2},
+            {"lat": 49.440, "lon": 0.400, "h": 0.0, "u": 0.0, "v": 0.0},
+        ],
+    )
+    registry = MarcAtlasRegistry.from_directory(tmp_path)
+    cell = registry.cell_at(49.440, 0.400)
+    assert cell is not None and cell.current_dead and cell.height_dead
+    assert (
+        registry.predict_current_series(49.440, 0.400, [datetime(2026, 1, 1, tzinfo=UTC)]) is None
+    )

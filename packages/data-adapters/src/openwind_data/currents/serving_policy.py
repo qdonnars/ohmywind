@@ -46,6 +46,19 @@ Box = tuple[float, float, float, float]  # (lat_min, lon_min, lat_max, lon_max)
 WEAK_TIDE_KT = 0.2
 OPEN_SEA_MAX_RANK = 1
 
+# Dead water in a coastal atlas (rank 2 and up, MARC 250 m, BSH 90 m): an M2
+# current under 1 cm/s (0.02 kt) or an M2 height under 5 cm, on a coast where
+# the tide runs in metres. The lattice holds such cells on its land fringe
+# and wherever the model cut the water off from the tide: the Rance above its
+# barrage, the Seine above Tancarville (a zero at Rouen, served with a high
+# confidence). The cascade first looks for a living cell within three cells,
+# and withholds the value when there is none. Not applied to open-sea atlases:
+# a near-zero tide in the Baltic is physics, and the weak-tide rule already
+# hands those waters to the global model.
+COASTAL_MIN_RANK = 2
+DEAD_CURRENT_M2_MS = 0.01
+DEAD_HEIGHT_M2_M = 0.05
+
 WITHHELD_ATLASES: frozenset[str] = frozenset(
     {
         "NORKYST_SKAGERRAK",

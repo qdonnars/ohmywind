@@ -39,13 +39,13 @@ export interface SourceAnswer {
   resolutionM: number | null;
   shomDistanceM: number | null;
   /** For ``unknown``: the documented zone and why its current is withheld. */
-  unknown?: { zone: string; reason: "managed" | "unresolved" | "non_tidal" };
+  unknown?: { zone: string; reason: "managed" | "unresolved" | "non_tidal" | "model_edge" };
 }
 
 export function classifyAnswer(overlay: {
   covered?: boolean;
   land?: boolean;
-  unknown?: { zone: string; reason: string };
+  unknown?: { zone: string | null; reason: string };
   current_source?: string;
   atlas_resolution_m?: number | null;
   shom_nearest_km?: number | null;
@@ -58,14 +58,14 @@ export function classifyAnswer(overlay: {
   // not say it does.
   if (overlay.unknown) {
     const r = overlay.unknown.reason;
-    const reason = r === "unresolved" || r === "non_tidal" ? r : "managed";
+    const reason = r === "unresolved" || r === "non_tidal" || r === "model_edge" ? r : "managed";
     return {
       kind: "unknown",
       label: "unknown",
       precision: "global",
       resolutionM: null,
       shomDistanceM: null,
-      unknown: { zone: overlay.unknown.zone, reason },
+      unknown: { zone: overlay.unknown.zone ?? "", reason },
     };
   }
   const label = overlay.covered && overlay.current_source ? overlay.current_source : "openmeteo_smoc";

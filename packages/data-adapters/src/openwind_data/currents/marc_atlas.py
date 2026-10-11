@@ -40,6 +40,9 @@ import polars as pl
 from openwind_data.currents.harmonic import predict as schureman_predict
 from openwind_data.currents.serving_policy import (
     BOX_NAMES,
+    COASTAL_MIN_RANK,
+    DEAD_CURRENT_M2_MS,
+    DEAD_HEIGHT_M2_M,
     EXCLUDED_BOXES,
     OPEN_SEA_MAX_RANK,
     WEAK_TIDE_KT,
@@ -120,6 +123,12 @@ class CellPrediction:
     h_constants: dict[str, tuple[float, float]]
     u_constants: dict[str, tuple[float, float]]
     v_constants: dict[str, tuple[float, float]]
+    # Dead water in a coastal atlas (rank 2 and up): no living current cell
+    # near the point, or a height cell the model cut off from the tide (the
+    # Seine above Tancarville, a basin behind a barrage). The cascade withholds
+    # what is dead instead of serving a zero with a high-confidence label.
+    current_dead: bool = False
+    height_dead: bool = False
 
 
 def _scan_atlas(parquet_dir: Path) -> AtlasMeta | None:
@@ -205,6 +214,21 @@ def _max_tide_kt(
     u_ms = schureman_predict(_WEAK_TIDE_WINDOW, dict(u))
     v_ms = schureman_predict(_WEAK_TIDE_WINDOW, dict(v))
     return float(np.max(np.hypot(u_ms, v_ms)) * _MS_TO_KN)
+
+
+def _m2_amp(found: tuple[pl.DataFrame, int], col: str) -> float:
+    df, idx = found
+    if col not in df.columns:
+        return float("nan")
+    return float(df[col].to_numpy()[idx])
+
+
+def _alive(found: tuple[pl.DataFrame, int] | None) -> bool:
+    """Whether a current cell carries a living M2 current (u and v read on its row)."""
+    if found is None:
+        return False
+    u, v = _m2_amp(found, "M2_u_amp"), _m2_amp(found, "M2_v_amp")
+    return bool(np.isfinite(u) and np.isfinite(v) and np.hypot(u, v) >= DEAD_CURRENT_M2_MS)
 
 
 @dataclass(frozen=True, slots=True)
@@ -698,6 +722,47 @@ class MarcAtlasRegistry:
         """
         return _cell_at_cached(self, lat, lon)
 
+    def _nearest_live_current(
+        self, atlas: AtlasMeta, lat: float, lon: float, radius_m: float
+    ) -> tuple[pl.DataFrame, int] | None:
+        """Nearest cell within ``radius_m`` whose M2 current is alive, across tile seams.
+
+        A coastal MARC lattice holds zero-current cells on its land fringe
+        (regridded heights, no flow) and in water the model cut off from the
+        tide. The nearest finite U face can be one of them while a living sea
+        cell sits one or two cells away; this finds the living one, and finds
+        nothing in a river beyond the model.
+        """
+        best: tuple[pl.DataFrame, int] | None = None
+        best_d = radius_m
+        tile_lat, tile_lon = _tile_origin_of(lat, lon, atlas.tile_deg)
+        tiles = [(tile_lat, tile_lon, 0.0), *_neighbour_tiles(lat, lon, atlas.tile_deg)]
+        for t_lat, t_lon, floor_m in tiles:
+            if floor_m >= best_d:
+                break
+            df = _read_tile(str(_tile_path_at(atlas, t_lat, t_lon)))
+            if (
+                df is None
+                or df.height == 0
+                or "M2_u_amp" not in df.columns
+                or "M2_v_amp" not in df.columns
+            ):
+                continue
+            u = df["M2_u_amp"].to_numpy()
+            v = df["M2_v_amp"].to_numpy()
+            alive = np.isfinite(u) & np.isfinite(v) & (np.hypot(u, v) >= DEAD_CURRENT_M2_MS)
+            if not alive.any():
+                continue
+            lats = df["lat"].to_numpy()
+            lons = df["lon"].to_numpy()
+            cos_lat = np.cos(np.deg2rad(lat))
+            d = np.hypot((lats - lat) * _M_PER_DEG, (lons - lon) * _M_PER_DEG * cos_lat)
+            d = np.where(alive, d, np.inf)
+            idx = int(np.argmin(d))
+            if d[idx] < best_d:
+                best, best_d = (df, idx), float(d[idx])
+        return best
+
     def _cell_at_uncached(self, lat: float, lon: float) -> CellPrediction | None:
         atlas = self.covers(lat, lon)
         if atlas is None:
@@ -712,6 +777,18 @@ class MarcAtlasRegistry:
         anchor = h_found if h_found is not None else (u_found or v_found)
         if anchor is None:
             return None
+        current_dead = height_dead = False
+        if atlas.rank >= COASTAL_MIN_RANK and atlas.constituents_u:
+            # Coastal atlas: a dead nearest cell is either land fringe, with a
+            # living sea cell a cell or two away, or water the model cut off
+            # from the tide. Look three cells around; past that, say dead.
+            if not _alive(u_found) or not _alive(v_found):
+                live = self._nearest_live_current(atlas, lat, lon, 3.0 * atlas.resolution_m)
+                u_found = v_found = live
+                current_dead = live is None
+            if h_found is not None and _m2_amp(h_found, "M2_h_amp") < DEAD_HEIGHT_M2_M:
+                h_found = None
+                height_dead = True
         anchor_df, anchor_idx = anchor
         cell_lat = float(anchor_df["lat"].to_numpy()[anchor_idx])
         cell_lon = float(anchor_df["lon"].to_numpy()[anchor_idx])
@@ -730,6 +807,8 @@ class MarcAtlasRegistry:
             h_constants=_extract_constants(h_found[0], h_found[1], "h") if h_found else {},
             u_constants=_extract_constants(u_found[0], u_found[1], "u") if u_found else {},
             v_constants=_extract_constants(v_found[0], v_found[1], "v") if v_found else {},
+            current_dead=current_dead,
+            height_dead=height_dead,
         )
 
     def predict_height(self, lat: float, lon: float, t: datetime) -> tuple[float, str] | None:

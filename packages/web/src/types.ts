@@ -72,7 +72,7 @@ export interface MarineHourly {
   // see. The listed fields are blanked and the currents table says why.
   current_unknown?: {
     zone: string;
-    reason: "managed" | "unresolved" | "non_tidal";
+    reason: "managed" | "unresolved" | "non_tidal" | "model_edge";
     fields: ("current" | "tide")[];
   };
   // National tidal coefficient at the start of the displayed window
