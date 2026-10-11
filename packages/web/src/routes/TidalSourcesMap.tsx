@@ -36,7 +36,16 @@ import {
   type ZoneProperties,
   type ZoneStatus,
 } from "../domain/tidalMapGeo";
-import { CALM_COLOR, RasterGrid, maxCurrentAt, rampColor, rampGradient, type RasterManifest } from "../domain/tidalRaster";
+import {
+  CALM_COLOR,
+  RasterGrid,
+  isWeakCoarse,
+  maxCurrentAt,
+  rampColor,
+  rampGradient,
+  weakTideAt,
+  type RasterManifest,
+} from "../domain/tidalRaster";
 import { useT } from "../i18n";
 import { addBasemap } from "../utils/basemapLayer";
 import { useBackDismiss } from "../hooks/useBackDismiss";
@@ -184,13 +193,29 @@ async function loadLayers(): Promise<Layers> {
 
 /** The maximum-current rasters, decoded: each PNG is drawn through a canvas
     into an image overlay (calm colour under 0.5 kt, the ramp above, nothing
-    where the atlas has no cell) and kept for the value under a click. Best
-    effort: a missing manifest or a browser without canvas leaves the map
-    without them. */
-async function loadRasters(): Promise<{ grids: RasterGrid[]; overlays: { url: string; bounds: L.LatLngBoundsExpression }[] }> {
+    where the atlas has no cell) and kept for the value under a click. A
+    coarse atlas's cells under 0.2 kt go to a second overlay in the "general
+    currents" blue, drawn under every raster: the server passes them on to the
+    global model, and a finer or lower-ranked atlas that does answer there
+    must show through. Best effort: a missing manifest or a browser without
+    canvas leaves the map without them. */
+/** One atlas the server says holds the point and passes on it. */
+type DeclinedAtlas = {
+  atlas: string;
+  label: string;
+  resolution_m: number;
+  reason: "weak_tide" | "excluded" | "no_cell";
+  max_tide_kt?: number;
+  box?: string;
+};
+
+type RasterOverlay = { url: string; bounds: L.LatLngBoundsExpression; width: number; weak: boolean };
+
+async function loadRasters(): Promise<{ grids: RasterGrid[]; overlays: RasterOverlay[] }> {
   const manifest = await loadJson<RasterManifest>("raster/rasters.json");
   const grids: RasterGrid[] = [];
-  const overlays: { url: string; bounds: L.LatLngBoundsExpression }[] = [];
+  const overlays: RasterOverlay[] = [];
+  const weakRgb = hexToRgb(NEGLIGIBLE_COLOR);
   for (const entry of manifest.rasters) {
     const img = new Image();
     img.decoding = "async";
@@ -209,14 +234,24 @@ async function loadRasters(): Promise<{ grids: RasterGrid[]; overlays: { url: st
     const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const values = new Uint8Array(canvas.width * canvas.height);
     const out = ctx.createImageData(canvas.width, canvas.height);
+    const weak = ctx.createImageData(canvas.width, canvas.height);
+    let weakCount = 0;
     const cache = new Map<number, [number, number, number]>();
     for (let i = 0; i < values.length; i++) {
       const v = pixels.data[i * 4];
       values[i] = v;
       if (v === 0) continue;
+      const kt = (v - 1) / entry.scale;
+      if (isWeakCoarse(entry, kt)) {
+        weak.data[i * 4] = weakRgb[0];
+        weak.data[i * 4 + 1] = weakRgb[1];
+        weak.data[i * 4 + 2] = weakRgb[2];
+        weak.data[i * 4 + 3] = 255;
+        weakCount++;
+        continue;
+      }
       let rgb = cache.get(v);
       if (!rgb) {
-        const kt = (v - 1) / entry.scale;
         rgb = kt >= 0.5 ? hexToRgb(rampColor(kt)) : hexToRgb(CALM_COLOR);
         cache.set(v, rgb);
       }
@@ -225,9 +260,13 @@ async function loadRasters(): Promise<{ grids: RasterGrid[]; overlays: { url: st
       out.data[i * 4 + 2] = rgb[2];
       out.data[i * 4 + 3] = 255;
     }
-    ctx.putImageData(out, 0, 0);
     grids.push(new RasterGrid(entry, canvas.width, canvas.height, values));
-    overlays.push({ url: canvas.toDataURL("image/png"), bounds: entry.bounds });
+    if (weakCount > 0) {
+      ctx.putImageData(weak, 0, 0);
+      overlays.push({ url: canvas.toDataURL("image/png"), bounds: entry.bounds, width: canvas.width, weak: true });
+    }
+    ctx.putImageData(out, 0, 0);
+    overlays.push({ url: canvas.toDataURL("image/png"), bounds: entry.bounds, width: canvas.width, weak: false });
   }
   return { grids, overlays };
 }
@@ -304,7 +343,7 @@ export function TidalSourcesMap() {
   const fmtKt = (kt: number) => kt.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   // What the card says about the tide at a point: the value of the finest
   // served atlas under it, else the status of an uncovered strong zone.
-  const zoneBadge = (lat: number, lon: number, z: ZoneProperties | null): string => {
+  const zoneBadge = (lat: number, lon: number, z: ZoneProperties | null, globalAnswers: boolean): string => {
     const hit = maxCurrentAt(lat, lon, gridsRef.current);
     if (hit) {
       const text =
@@ -314,6 +353,13 @@ export function TidalSourcesMap() {
       return badge(hit.kt >= 0.5 ? rampColor(hit.kt) : "#7fb08f", text);
     }
     if (z && z.status !== "covered" && z.status !== "calm") return badge(STATUS_COLOR[z.status], statusText(z.status));
+    // Only when the server itself fell back to the global model: the raster
+    // pixel and the server's nearest cell can disagree at an atlas's edge,
+    // and the card follows the server.
+    const weak = globalAnswers ? weakTideAt(lat, lon, gridsRef.current) : null;
+    if (weak) {
+      return badge(NEGLIGIBLE_COLOR, t("config.methodo.tidal.status.weakTide", { kt: fmtKt(weak.kt), atlas: weak.entry.label }));
+    }
     const d = dataRef.current;
     if (d && d.negligible.features.some((f) => pointInGeometry(lon, lat, f.geometry))) {
       return esc(t("config.methodo.tidal.status.negligible"));
@@ -353,13 +399,17 @@ export function TidalSourcesMap() {
     let precision: PrecisionClass | null = null;
     let answerLabel = "openmeteo_smoc";
     let unknownAnswer: SourceAnswer["unknown"] | null = null;
+    // The atlases the server says hold the point and pass on it, and why.
+    let declinedList: DeclinedAtlas[] = [];
     try {
       const url =
         `${MARC_URL}?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}` +
         `&start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}&step_minutes=60`;
       const resp = await fetch(url);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const answer = classifyAnswer((await resp.json()) as Parameters<typeof classifyAnswer>[0]);
+      const body = (await resp.json()) as Parameters<typeof classifyAnswer>[0] & { declined?: unknown };
+      if (Array.isArray(body.declined)) declinedList = body.declined as DeclinedAtlas[];
+      const answer = classifyAnswer(body);
       if (answer.kind === "land") {
         // Inland: the server refuses to answer, the card says so and stops.
         return (
@@ -397,8 +447,22 @@ export function TidalSourcesMap() {
     const chosen = cascade.find((a) => labelNamesAtlas(answerLabel, a)) ?? null;
     const rankOf = (a: CoverageAtlas) => a.rank ?? byName.get(a.name)?.rank ?? 0;
     const resOf = (a: CoverageAtlas) => a.resolution_m ?? byName.get(a.name)?.resolution_m ?? null;
+    // The server's own reason first: a weak tide, a box cut out by the policy.
+    const declinedText = (d: DeclinedAtlas): string =>
+      d.reason === "weak_tide"
+        ? d.max_tide_kt != null
+          ? t("config.methodo.tidal.reason.weakTide", { kt: fmtKt(d.max_tide_kt) })
+          : t("config.methodo.tidal.reason.weakTideBuild")
+        : d.reason === "excluded"
+          ? t("config.methodo.tidal.reason.excludedBox", {
+              box: d.box === "gibraltar" ? t("config.methodo.tidal.box.gibraltar") : (d.box ?? "?"),
+            })
+          : t("config.methodo.tidal.reason.noCell");
+    const declinedByName = new Map(declinedList.map((d) => [d.atlas, d]));
     // Why the cascade passed an atlas over, relative to the one it chose.
     const reason = (a: CoverageAtlas): string => {
+      const said = declinedByName.get(a.name);
+      if (said) return declinedText(said);
       if (a.source === "shom") return t("config.methodo.tidal.reason.noShomPoint");
       if (!chosen) return t("config.methodo.tidal.reason.noCell");
       if (chosen.source === "shom") return t("config.methodo.tidal.reason.afterShom");
@@ -419,6 +483,9 @@ export function TidalSourcesMap() {
     };
     const passedOver = cascade
       .filter((a) => a !== chosen)
+      // When the global model answers, the atlases that declined are already
+      // the "why" row: listing them twice says nothing more.
+      .filter((a) => !(answerLabel === "openmeteo_smoc" && declinedByName.has(a.name)))
       .map((a) => {
         const res = a.source === "shom" ? null : resOf(a);
         return esc([shortName(a), res == null ? null : formatGridSize(res), reason(a)].filter(Boolean).join(" · "));
@@ -439,6 +506,13 @@ export function TidalSourcesMap() {
       );
     }
     if (answerLabel !== "openmeteo_smoc") passedOver.push(esc(`SMOC · 8 km · ${t("config.methodo.tidal.reason.fallback")}`));
+    // When the global model answers: which atlases held the point and passed,
+    // or that none is there at all. The general current is an answer, not a gap.
+    const generalWhy = declinedList.length
+      ? declinedList
+          .map((d) => esc(`${shortName({ name: d.atlas, source: d.label.split("_")[0] } as CoverageAtlas)} · ${formatGridSize(d.resolution_m)} · ${declinedText(d)}`))
+          .join("<br>")
+      : esc(t("config.methodo.tidal.reason.noAtlas"));
     const inObjective = d?.objective.features.some((f) => pointInGeometry(lon, lat, f.geometry)) ?? false;
     const here = (d?.sources.features ?? [])
       .filter((f) => f.properties.status === "ok" && f.properties.kind !== "station_points" && pointInGeometry(lon, lat, f.geometry))
@@ -453,8 +527,9 @@ export function TidalSourcesMap() {
       (precision ? badge(PRECISION_COLOR[precision], t(`config.methodo.tidal.precision.${precision}`)) : "") +
       `<dl class="methodo-map-popup-grid">` +
       row(t("config.methodo.tidal.popup.source"), answerHtml) +
+      row(t("config.methodo.tidal.popup.why"), answerLabel === "openmeteo_smoc" ? generalWhy : null) +
       row(t("config.methodo.tidal.popup.passedOver"), passedOver.length ? passedOver.join("<br>") : null) +
-      row(t("config.methodo.tidal.popup.status"), zoneBadge(lat, lon, zone)) +
+      row(t("config.methodo.tidal.popup.status"), zoneBadge(lat, lon, zone, answerLabel === "openmeteo_smoc")) +
       row(
         t("config.methodo.tidal.popup.pass"),
         near
@@ -511,14 +586,22 @@ export function TidalSourcesMap() {
         // from the rasters, drawn underneath, coarse first and fine on top.
         const rasterPane = map.createPane("tidal-rasters");
         rasterPane.style.zIndex = "350";
+        // Under every raster: where a coarse atlas finds under 0.2 kt and
+        // nothing else answers, the general currents of the global model.
+        const weakPane = map.createPane("tidal-weak");
+        weakPane.style.zIndex = "340";
         void loadRasters()
           .then(({ grids, overlays }) => {
             if (cancelled) return;
             gridsRef.current = grids;
-            const layers = overlays.map((o, i) => ({
-              layer: L.imageOverlay(o.url, o.bounds, { opacity: 0.72, interactive: false, pane: "tidal-rasters" }).addTo(map),
+            const layers = overlays.map((o) => ({
+              layer: L.imageOverlay(o.url, o.bounds, {
+                opacity: o.weak ? 0.42 : 0.72,
+                interactive: false,
+                pane: o.weak ? "tidal-weak" : "tidal-rasters",
+              }).addTo(map),
               bounds: L.latLngBounds(o.bounds as L.LatLngTuple[]),
-              width: grids[i]?.width ?? 1,
+              width: o.width,
             }));
             // A raster pixel wider than a screen pixel is drawn as a crisp
             // square; narrower, it is smoothed: nearest-neighbour shrinking

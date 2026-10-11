@@ -112,14 +112,41 @@ export class RasterGrid {
   }
 }
 
-/** The value under a point across grids, in cascade order (rank, then resolution). */
+/**
+ * The server's weak-tide rule (``serving_policy.WEAK_TIDE_KT``): an open-sea
+ * atlas (rank 0 basin or 1 shelf: ATLNE, MANGA, BSH 926 m, Copernicus)
+ * answers only where its spring current reaches 0.2 kt; below, the global
+ * model answers with the general current. Coastal and pass atlases (rank 2
+ * and 3) keep every cell. The rasters hold the same maximum over 15 days
+ * hourly, so the map applies the same cut.
+ */
+export const WEAK_TIDE_KT = 0.2;
+export const OPEN_SEA_MAX_RANK = 1;
+
+/** Whether a value of this raster is one the server passes on to the global model. */
+export function isWeakCoarse(entry: RasterEntry, kt: number): boolean {
+  return (entry.rank ?? 0) <= OPEN_SEA_MAX_RANK && kt < WEAK_TIDE_KT;
+}
+
+const byCascade = (grids: RasterGrid[]) =>
+  [...grids].sort((a, b) => (b.entry.rank ?? 0) - (a.entry.rank ?? 0) || a.entry.resolution_m - b.entry.resolution_m);
+
+/** The value under a point across grids, in cascade order (rank, then
+    resolution), skipping a coarse atlas whose tide is too weak to answer. */
 export function maxCurrentAt(lat: number, lon: number, grids: RasterGrid[]): { kt: number; entry: RasterEntry } | null {
-  const byCascade = [...grids].sort(
-    (a, b) => (b.entry.rank ?? 0) - (a.entry.rank ?? 0) || a.entry.resolution_m - b.entry.resolution_m,
-  );
-  for (const g of byCascade) {
+  for (const g of byCascade(grids)) {
     const kt = g.valueAt(lat, lon);
-    if (kt != null) return { kt, entry: g.entry };
+    if (kt != null && !isWeakCoarse(g.entry, kt)) return { kt, entry: g.entry };
+  }
+  return null;
+}
+
+/** The first coarse atlas, in cascade order, that holds the point with a tide
+    too weak to answer: where the map says "general currents". */
+export function weakTideAt(lat: number, lon: number, grids: RasterGrid[]): { kt: number; entry: RasterEntry } | null {
+  for (const g of byCascade(grids)) {
+    const kt = g.valueAt(lat, lon);
+    if (kt != null && isWeakCoarse(g.entry, kt)) return { kt, entry: g.entry };
   }
   return null;
 }
