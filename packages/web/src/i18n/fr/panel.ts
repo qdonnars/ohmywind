@@ -23,6 +23,8 @@ export const panel = {
   "panel.boat.changeTitle": "Changer le type de bateau",
   "panel.boat.edit": "éditer",
   "panel.boat.reset": "réinitialiser",
+  "panel.boat.type.monohull": "monocoque",
+  "panel.boat.type.catamaran": "catamaran",
   "panel.boat.recapImported": "{name} (importée)",
   "panel.boat.recapAdjusted": "{base} (ajustée)",
 

@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import changelogFr from "../../../../CHANGELOG.md?raw";
 import changelogEn from "../../../../CHANGELOG.en.md?raw";
 import { APP_VERSION, compareVersions } from "../utils/version";
-import { linkPullRequests, parseChangelog, visibleReleases, type Release } from "./changelog";
+import { formatReleaseDate, linkPullRequests, parseChangelog, visibleReleases, type Release } from "./changelog";
 
 const FILES: Array<[string, string, readonly string[]]> = [
   ["CHANGELOG.md", changelogFr, ["Nouveautés", "Corrections", "Coulisses"]],
@@ -127,5 +127,15 @@ describe("visibleReleases", () => {
   it("shows it on the preview and in development", () => {
     expect(visibleReleases(releases, "dev.ohmywind.fr")).toHaveLength(2);
     expect(visibleReleases(releases, "localhost")).toHaveLength(2);
+  });
+});
+
+describe("formatReleaseDate", () => {
+  const long = (locale: string) => new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric" });
+
+  it("writes the first of the month as an ordinal in French, and only there", () => {
+    expect(formatReleaseDate("2026-09-01", long("fr-FR"))).toBe("1er septembre 2026");
+    expect(formatReleaseDate("2026-09-11", long("fr-FR"))).toBe("11 septembre 2026");
+    expect(formatReleaseDate("2026-09-01", long("en-GB"))).toBe("1 September 2026");
   });
 });

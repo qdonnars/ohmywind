@@ -6,7 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { LOCALE_BY_LANG, useT, type Lang } from "../i18n";
-import { linkPullRequests, parseChangelog, visibleReleases, type Release } from "../content/changelog";
+import { formatReleaseDate, linkPullRequests, parseChangelog, visibleReleases, type Release } from "../content/changelog";
 import { markWhatsNewSeen } from "../config/whatsNewSeen";
 import { APP_VERSION } from "../utils/version";
 // The release log lives at the root of the repository, where GitHub readers
@@ -55,13 +55,6 @@ function MarkdownLink({ node, ...props }: ComponentProps<"a"> & { node?: unknown
   return <a {...props} {...EXTERNAL} />;
 }
 
-/** "2026-10-11" as a local date: `new Date(iso)` reads UTC midnight, which
-    west of Greenwich prints as the day before. */
-function localDate(iso: string): Date {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
 function ReleaseCard({ release, contentLang, dateFormat }: {
   release: Release;
   contentLang: Lang;
@@ -77,7 +70,7 @@ function ReleaseCard({ release, contentLang, dateFormat }: {
         {release.date && (
           <>
             <span className="wn-sep" aria-hidden="true" />
-            <time dateTime={release.date}>{dateFormat.format(localDate(release.date))}</time>
+            <time dateTime={release.date}>{formatReleaseDate(release.date, dateFormat)}</time>
           </>
         )}
         {upcoming && <span className="wn-chip wn-chip-upcoming">{t("common.whatsNew.upcoming")}</span>}
@@ -98,7 +91,7 @@ function ReleaseCard({ release, contentLang, dateFormat }: {
 /**
  * /nouveautes: the release log, newest first. A page of the app rather than
  * a document, so it follows the theme like /presse. Opening it is what clears
- * the dot on the menu entry.
+ * the dot on the "i" in the header.
  */
 export function WhatsNewPage() {
   const { t, lang } = useT();

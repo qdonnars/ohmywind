@@ -23,6 +23,8 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.boat.changeTitle": "Cambiare il tipo di barca",
   "panel.boat.edit": "modificare",
   "panel.boat.reset": "reimpostare",
+  "panel.boat.type.monohull": "monoscafo",
+  "panel.boat.type.catamaran": "catamarano",
   "panel.boat.recapImported": "{name} (importata)",
   "panel.boat.recapAdjusted": "{base} (regolata)",
 

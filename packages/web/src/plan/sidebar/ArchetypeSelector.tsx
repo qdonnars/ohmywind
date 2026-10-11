@@ -40,7 +40,9 @@ export function ArchetypeSelector() {
   const persoSelected = isPersoActive(polarCfg);
   const baseLabel = ARCHETYPE_LABELS[polarCfg.base] ?? polarCfg.base;
   const current = archetypes.find((a) => a.slug === currentSlug);
-  const label = persoSelected ? t("panel.boat.custom") : (current?.name ?? currentSlug);
+  // The server's `name` is the slug (cruiser_30ft): the translated label,
+  // like everywhere else the boat is named.
+  const label = persoSelected ? t("panel.boat.custom") : (ARCHETYPE_LABELS[currentSlug] ?? current?.name ?? currentSlug);
   // Detail line of the « Perso » entry, same shape as the archetype rows:
   // provenance of the customization rather than hull specs.
   const persoDetail = isImportedActive(polarCfg)
@@ -48,6 +50,11 @@ export function ArchetypeSelector() {
         name: polarCfg.imported?.name ?? t("panel.boat.polarFallback"),
       })
     : t("panel.boat.detailAdjusted", { base: baseLabel });
+
+  // The server sends the hull in English ("monohull"); an unknown one is
+  // shown as sent rather than hidden.
+  const hullType = (type: string) =>
+    type === "monohull" || type === "catamaran" ? t(`panel.boat.type.${type}`) : type;
 
   function resetCustom() {
     savePolarConfig(defaultPolarConfig());
@@ -125,11 +132,9 @@ export function ArchetypeSelector() {
                   borderBottom: "1px solid var(--ow-line)",
                 }}
               >
-                {/* The server's `name` is the slug (cruiser_20ft): the
-                    translated label, like everywhere else the boat is named. */}
                 <div className="font-semibold">{ARCHETYPE_LABELS[a.slug] ?? a.name}</div>
                 <div className="text-[11px] mt-0.5" style={{ color: "var(--ow-fg-2)" }}>
-                  {a.length_ft} ft · {a.type} · {a.examples[0]}
+                  {a.length_ft} ft · {hullType(a.type)} · {a.examples[0]}
                 </div>
               </button>
             ))}
