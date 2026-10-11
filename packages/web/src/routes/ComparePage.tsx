@@ -24,6 +24,7 @@ import {
 } from "../compare/CompareControls";
 import { CompareTable } from "../compare/CompareTable";
 import { compareDays, rowKey, sameSpot, type HourWindow, type Resolution } from "../compare/data";
+import { focusSearch } from "../compare/focusSearch";
 import {
   clampSheet,
   loadComparePrefs,
@@ -54,12 +55,6 @@ const DEFAULT_MAP_CENTER: { lat: number; lon: number } = { lat: 43.3, lon: 5.35 
 /** Under this much map left above the sheet, framing the spots would only
     move them behind it: the reader has asked for the table, not the map. */
 const MAP_STRIP_MIN_PX = 100;
-
-/** Hands the reader to the header's search field: on this page a picked
-    result becomes a favourite, which is how a spot gets added here. */
-function focusSearch(): void {
-  document.querySelector<HTMLInputElement>('header input[role="combobox"]')?.focus();
-}
 
 function Notice({ title, body, children }: { title: string; body: string; children?: ReactNode }) {
   return (
