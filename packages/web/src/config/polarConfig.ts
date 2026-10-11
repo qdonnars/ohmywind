@@ -22,6 +22,7 @@ import cruiser30ft from "../data/polars/cruiser_30ft.json";
 import cruiser40ft from "../data/polars/cruiser_40ft.json";
 import cruiser50ft from "../data/polars/cruiser_50ft.json";
 import racerCruiser from "../data/polars/racer_cruiser.json";
+import voileAviron16ft from "../data/polars/voile_aviron_16ft.json";
 
 /** Exported so a subscriber can tell this key apart in a `storage` event. */
 export const POLAR_CONFIG_KEY = LOCAL_STORAGE_KEYS.polarConfig;
@@ -59,6 +60,7 @@ export const BASE_POLARS: Readonly<Record<string, PolarData>> = {
   cruiser_50ft: cruiser50ft as PolarData,
   racer_cruiser: racerCruiser as PolarData,
   catamaran_40ft: catamaran40ft as PolarData,
+  voile_aviron_16ft: voileAviron16ft as PolarData,
 };
 
 const ARCHETYPE_LABEL_KEYS: Readonly<Record<string, Key>> = {
@@ -69,6 +71,7 @@ const ARCHETYPE_LABEL_KEYS: Readonly<Record<string, Key>> = {
   cruiser_50ft: "config.boat.archetype.cruiser50ft",
   racer_cruiser: "config.boat.archetype.racerCruiser",
   catamaran_40ft: "config.boat.archetype.catamaran40ft",
+  voile_aviron_16ft: "config.boat.archetype.voileAviron16ft",
 };
 
 /**
