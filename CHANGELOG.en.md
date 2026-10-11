@@ -9,7 +9,7 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 ### New
 
 - A new boat type, the sail and oar dinghy (about 5 m), covers small open boats without a cabin (#447).
-- A What's new page traces OhMyWind's releases, and a discreet dot in the menu flags a new version (#464).
+- A What's new page traces OhMyWind's releases, and a discreet dot in the menu flags a new version (#466).
 
 ### Fixes
 

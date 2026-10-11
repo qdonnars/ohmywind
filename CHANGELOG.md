@@ -9,7 +9,7 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 ### Nouveautés
 
 - Un nouveau bateau type, voile-aviron (environ 5 m), couvre les petits voiliers ouverts sans cabine (#447).
-- Une page Quoi de neuf retrace les versions d'OhMyWind, et un point discret dans le menu signale une nouvelle version (#464).
+- Une page Quoi de neuf retrace les versions d'OhMyWind, et un point discret dans le menu signale une nouvelle version (#466).
 
 ### Corrections
 
