@@ -3,10 +3,12 @@
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import UTC, datetime, timedelta
 
 from mcp.server.fastmcp import FastMCP
+from mcp.types import CallToolResult
 from openwind_data.adapters.base import (
     ForecastBundle,
     SeaSeries,
@@ -57,7 +59,11 @@ class StubAdapter:
 
 async def _call(server: FastMCP, name: str, args: dict) -> object:
     result = await server.call_tool(name, args)
-    # FastMCP.call_tool returns (content, structured_or_dict)
+    # FastMCP.call_tool returns (content, structured_or_dict), or the
+    # CallToolResult itself when the tool builds one: plan_passage does, to
+    # carry a _meta for its widget.
+    if isinstance(result, CallToolResult):
+        return result.structuredContent
     if isinstance(result, tuple):
         return result[1]
     return result
@@ -193,6 +199,31 @@ class TestPlanPassage:
         assert "https://tile.openstreetmap.org" in loaded
         assert loaded <= declared
 
+    async def test_widget_placeholders_are_all_substituted(self) -> None:
+        # A placeholder left in the page is a widget reading the wrong _meta
+        # key or loading tiles from "__TILE_URL__", silently.
+        from openwind_mcp_core.server import PLAN_UI_LEGS_META_KEY, PLAN_UI_RESOURCE_URI
+
+        server = build_server(adapter=StubAdapter())
+        html = next(iter(await server.read_resource(PLAN_UI_RESOURCE_URI))).content
+        assert re.search(r"__[A-Z_]+__", html) is None
+        assert f'"{PLAN_UI_LEGS_META_KEY}"' in html
+
+    async def test_still_declares_an_output_schema(self) -> None:
+        # plan_passage returns a CallToolResult to carry its _meta; clients
+        # must still get the schema they validate structuredContent against.
+        server = build_server(adapter=StubAdapter())
+        tool = next(t for t in await server.list_tools() if t.name == "plan_passage")
+        assert tool.outputSchema is not None
+
+    async def test_single_mode_needs_no_meta(self) -> None:
+        # The passage already carries its segments; only a sweep needs _meta.
+        # The text block is still the payload the model has always read.
+        server = build_server(adapter=StubAdapter())
+        result = await server.call_tool("plan_passage", _BASE_PLAN_ARGS)
+        assert result.meta is None
+        assert json.loads(result.content[0].text) == result.structuredContent
+
     async def test_waypoints_echoed_for_the_map(self) -> None:
         # The widget's map marks the model's own waypoints, not the 10 nm
         # subdivisions the segments carry.
@@ -250,6 +281,43 @@ class TestPlanPassageSweep:
         out = await _call(server, "plan_passage", _SWEEP_ARGS)
         assert out["sweep"]["window_count"] == 2
         assert len(out["windows"]) == 2
+
+    async def test_sweep_legs_travel_in_meta_for_the_widget(self) -> None:
+        # The widget colours the map and fills the per-leg table of the
+        # selected window from _meta. The model reads the same compact rows as
+        # before: the legs stay out of its context.
+        from openwind_mcp_core.server import PLAN_UI_LEGS_META_KEY
+
+        server = build_server(adapter=StubAdapter())
+        result = await server.call_tool("plan_passage", _SWEEP_ARGS)
+        out = result.structuredContent
+        legs = result.meta[PLAN_UI_LEGS_META_KEY]
+        assert json.loads(result.content[0].text) == out
+        assert PLAN_UI_LEGS_META_KEY not in result.content[0].text
+        assert legs["fields"] == ["end_time", "tws_kn", "twa_deg", "hs_m", "boat_speed_kn"]
+        assert legs["geometry"][0] == [43.30, 5.35]
+        assert legs["geometry"][-1] == [43.00, 6.20]
+        assert len(legs["windows"]) == len(out["windows"])
+        for w, rows in zip(out["windows"], legs["windows"], strict=True):
+            assert len(rows) == len(legs["geometry"]) - 1
+            assert rows[-1][0] == w["arrival"]
+
+    async def test_target_eta_keeps_legs_aligned_with_windows(self) -> None:
+        # The filter drops windows after the legs are built: each window must
+        # still get its own rows, not its neighbour's.
+        from openwind_mcp_core.server import PLAN_UI_LEGS_META_KEY
+
+        server = build_server(adapter=StubAdapter())
+        args = {
+            **_BASE_PLAN_ARGS,
+            "latest_departure": datetime(2026, 5, 1, 12, 0, tzinfo=UTC).isoformat(),
+            "sweep_interval_hours": 3,
+            "target_eta": datetime(2026, 5, 1, 14, 0, tzinfo=UTC).isoformat(),
+        }
+        result = await server.call_tool("plan_passage", args)
+        windows = result.structuredContent["windows"]
+        rows = result.meta[PLAN_UI_LEGS_META_KEY]["windows"]
+        assert [r[-1][0] for r in rows] == [w["arrival"] for w in windows]
 
     async def test_sweep_echoes_waypoints_once(self) -> None:
         # Every window sails the same line: the route travels once, at the top.

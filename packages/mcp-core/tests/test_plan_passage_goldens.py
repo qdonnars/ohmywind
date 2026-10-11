@@ -88,7 +88,9 @@ def server():
 
 async def _structured(server, args: dict) -> dict:
     result = await server.call_tool("plan_passage", args)
-    return result[1] if isinstance(result, tuple) else result
+    # plan_passage builds its own CallToolResult (to carry the widget's
+    # _meta); the golden is the structured part, as before.
+    return result.structuredContent
 
 
 async def test_single_mode(server) -> None:

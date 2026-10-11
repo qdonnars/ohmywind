@@ -35,13 +35,14 @@ by design (see PR #74 for the full reasoning).
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import replace
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
 from mcp.server.fastmcp import FastMCP
-from mcp.types import ToolAnnotations
+from mcp.types import CallToolResult, TextContent, ToolAnnotations
 from openwind_data.adapters.base import MarineDataAdapter
 from openwind_data.adapters.openmeteo import AUTO_MODEL, OpenMeteoAdapter
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
@@ -123,6 +124,14 @@ OSM_TILE_URL = OSM_TILE_ORIGIN + "/{z}/{x}/{y}.png"
 # the route map.
 PLAN_UI_RESOURCE_DOMAINS = ["https://unpkg.com", OSM_TILE_ORIGIN]
 
+# Where the widget finds the legs of each sweep window: in the tool result's
+# ``_meta``, which MCP Apps hands to the widget and keeps out of the model's
+# context. A sweep row is compact on purpose (see ``window_view``): the legs of
+# every window would put up to 336 times the segment count in front of the
+# model, for a table only the widget draws.
+PLAN_UI_LEGS_META_KEY = "ohmywind.fr/legs"
+_LEG_FIELDS = ("end_time", "tws_kn", "twa_deg", "hs_m", "boat_speed_kn")
+
 # Body of the MCP Apps UI resource. Uses the official @modelcontextprotocol/
 # ext-apps SDK from unpkg for the handshake (same pattern as qr-server /
 # say-server / threejs-server reference examples in the ext-apps repo).
@@ -191,8 +200,32 @@ _PLAN_WIDGET_HTML = """<!doctype html>
     .cta{display:inline-block;margin-top:1rem;padding:.55rem 1rem;background:var(--accent);
       color:#fff !important;text-decoration:none;border-radius:8px;font-weight:700;font-size:.85rem}
     .cta:hover{filter:brightness(1.05)}
-    .windows-row{cursor:pointer;transition:background .12s}
-    .windows-row:hover{background:var(--accent-soft)}
+    .tablewrap{overflow-x:auto}
+    .tablewrap td{white-space:nowrap}
+    td sup{font-size:.62rem;color:var(--fg2);margin-left:1px}
+    /* Departures list: the selected row drives everything below it. */
+    tr.dep{cursor:pointer}
+    tr.dep td{transition:background .12s}
+    tr.dep:hover td{background:var(--accent-soft)}
+    tr.dep[aria-selected="true"] td{background:var(--accent-soft);color:var(--fg0);font-weight:700}
+    tr.dep:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+    .pick{display:inline-block;width:.8rem;height:.8rem;border-radius:50%;border:2px solid var(--fg2);
+      margin-right:.45rem;vertical-align:-.1rem}
+    tr.dep[aria-selected="true"] .pick{border-color:var(--accent);
+      background:radial-gradient(var(--accent) 45%,transparent 50%)}
+    .hint{color:var(--fg2);font-size:.75rem;margin:.45rem 0 0}
+    .chosen{margin:1.1rem 0 .6rem;padding-top:.9rem;border-top:1px solid var(--line);display:grid;gap:.45rem}
+    .chosen.single{margin-top:0;padding-top:0;border-top:0}
+    .chosen .warn{margin:0}
+    .chosen-line{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .7rem;font-size:.9rem}
+    .chosen-line .meta{color:var(--fg2);font-size:.82rem}
+    details.detail summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:.4rem;
+      padding:.35rem 0;font-size:.82rem;font-weight:700;color:var(--fg1)}
+    details.detail summary::-webkit-details-marker{display:none}
+    details.detail summary::before{content:"";width:.45rem;height:.45rem;border-right:2px solid var(--fg2);
+      border-bottom:2px solid var(--fg2);transform:rotate(-45deg);transition:transform .15s;margin-right:.15rem}
+    details.detail[open] summary::before{transform:rotate(45deg)}
+    details.detail summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
     a{color:var(--accent)}
     /* Route map. Muted tiles so the coloured legs read first; in dark mode
        the light OSM tiles are inverted rather than swapped for another
@@ -233,11 +266,13 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       text-align:center;padding:1rem;background:rgba(10,10,8,.5);color:#fff;font-weight:600;
       font-size:.85rem;z-index:1001;opacity:0;pointer-events:none;transition:opacity .2s}
     .wheelhint.on{opacity:1}
-    .has-map tr.seg-row{cursor:pointer}
-    .has-map tr.seg-row td{transition:background .12s}
-    .has-map tr.seg-row:hover td,.has-map tr.seg-row.is-hl td{background:var(--accent-soft)}
-    .has-map tr.seg-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-    @media (prefers-reduced-motion:reduce){.segnum,.wheelhint,.has-map tr.seg-row td{transition:none}}
+    .has-map tr.leg{cursor:pointer}
+    .has-map tr.leg td{transition:background .12s}
+    .has-map tr.leg:hover td,.has-map tr.leg.is-hl td{background:var(--accent-soft)}
+    .has-map tr.leg:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+    @media (prefers-reduced-motion:reduce){
+      .segnum,.wheelhint,tr.dep td,.has-map tr.leg td,details.detail summary::before{transition:none}
+    }
   </style>
 </head>
 <body>
@@ -289,52 +324,6 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       </span>`;
     }
 
-    function renderSingle(sc){
-      const p = sc.passage || {};
-      const cx = sc.complexity || {};
-      const segs = p.segments || [];
-      const warnings = (p.warnings||[]).concat((cx.warnings||[]).map(w=>w.message||w));
-      const url = sc.openwind_url || "__WEB_BASE__/plan";
-      const stats = [
-        ["Distance", (p.distance_nm||0).toFixed(1)+" nm"],
-        ["Durée",    fmtDur(p.duration_h)],
-        ["Arrivée",  fmtTime(p.arrival_time)],
-        ["Modèle",   (p.model||"").replace(/_/g," ")],
-      ];
-      const legRows = segs.map((s,i)=>{
-        const lvl = cxLevel(s.tws_kn||0);
-        const c = CX_COLORS[lvl];
-        const bs = s.boat_speed_kn != null ? s.boat_speed_kn.toFixed(1)+" kn" : "—";
-        const tws = s.tws_kn != null ? Math.round(s.tws_kn)+" kn" : "—";
-        const hs = s.hs_m != null ? s.hs_m.toFixed(1)+" m" : "—";
-        return `<tr class="seg-row" data-seg="${i}">
-          <td><span class="num" style="background:${c}">${i+1}</span></td>
-          <td>${fmtTime(s.end_time)}</td>
-          <td>${pointOfSail(s.twa_deg||0)}</td>
-          <td>${tws}</td>
-          <td>${hs}</td>
-          <td>${bs}</td>
-        </tr>`;
-      }).join("");
-      return `
-        <h2>Plan de passage</h2>
-        <p class="sub">${segs.length} tronçon${segs.length>1?"s":""} · ${(p.distance_nm||0).toFixed(1)} nm</p>
-        <div class="stats">${stats.map(([l,v])=>`
-          <div class="stat"><div class="l">${l}</div><div class="v">${escapeHtml(v)}</div></div>
-        `).join("")}</div>
-        ${badge(cx.level||3, cx.label||"")}
-        ${warnings.map(w=>`<div class="warn">⚠ ${escapeHtml(w)}</div>`).join("")}
-        ${mapBlock(routePoints(sc), p.distance_nm||0,
-          "Tracé envoyé par l'assistant : le vent et la mer sont lus le long de cette ligne, tronçon par tronçon.",
-          true)}
-        ${segs.length ? `<table>
-          <thead><tr><th>#</th><th>Heure</th><th>Allure</th><th>Vent</th><th>Mer</th><th>Vitesse</th></tr></thead>
-          <tbody>${legRows}</tbody>
-        </table>` : ""}
-        <a class="cta" href="${escapeHtml(url)}" rel="noopener">Voir le plan complet sur __WEB_HOST__ →</a>
-      `;
-    }
-
     function fmtHsRange(min, max){
       if(min == null && max == null) return "—";
       if(min == null) return `${max.toFixed(1)} m`;
@@ -342,40 +331,165 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       const a = min.toFixed(1), b = max.toFixed(1);
       return a === b ? `${a} m` : `${a}-${b} m`;
     }
+    // Calendar days between two instants, in the viewer's zone: a 20 h
+    // passage lands at "02:27", and the time alone hides that it is the
+    // next day.
+    function dayShift(a, b){
+      const day = iso => { const d = new Date(iso); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
+      return Math.round((day(b) - day(a)) / 864e5);
+    }
+    function plusDays(a, b){
+      const n = dayShift(a, b);
+      return n > 0 ? `<sup>+${n}</sup>` : "";
+    }
 
-    function renderCompare(sc){
-      const windows = sc.windows || [];
-      const sweep = sc.sweep || {};
-      const meta = sc.meta_warnings || [];
-      const rows = windows.map((w,idx)=>{
-        const cs = w.conditions_summary || {};
-        const cx = w.complexity || {};
-        const c = CX_COLORS[cx.level] || CX_COLORS[3];
+    // ---- One shape for both modes ----
+    // A run is one departure and its legs: a pinned departure gives one, a
+    // sweep one per window. Everything under the departures list reads the
+    // selected run, so both modes render through the same code.
+    const LEGS_META_KEY = "__LEGS_META_KEY__";
+
+    function runsOf(sc, meta){
+      if(sc.mode !== "multi_window"){
+        const p = sc.passage || {};
+        const cx = sc.complexity || {};
+        return [{
+          departure: p.departure_time, arrival: p.arrival_time, duration_h: p.duration_h,
+          distance_nm: p.distance_nm || 0, model: p.model, complexity: cx, url: sc.openwind_url,
+          warnings: (p.warnings||[]).concat((cx.warnings||[]).map(w=>w.message||w)),
+          legs: (p.segments||[]).map(s=>({ll:[[s.start.lat, s.start.lon], [s.end.lat, s.end.lon]],
+            end_time:s.end_time, tws:s.tws_kn, twa:s.twa_deg, hs:s.hs_m, bs:s.boat_speed_kn})),
+        }];
+      }
+      // Sweep windows carry no legs: they come in the result's _meta, kept
+      // out of the model's context. A host that drops _meta still gets the
+      // list and the route, without per-departure colours or detail.
+      const m = meta && meta[LEGS_META_KEY];
+      const g = m && m.geometry;
+      const at = k => m.fields.indexOf(k);
+      return (sc.windows||[]).map((w,i)=>{
+        const rows = m && m.windows && m.windows[i];
+        const legs = g && rows && rows.length === g.length - 1
+          ? rows.map((r,j)=>({ll:[g[j], g[j+1]], end_time:r[at("end_time")], tws:r[at("tws_kn")],
+              twa:r[at("twa_deg")], hs:r[at("hs_m")], bs:r[at("boat_speed_kn")]}))
+          : null;
+        return {
+          departure: w.departure, arrival: w.arrival, duration_h: w.duration_h,
+          distance_nm: w.distance_nm || 0, complexity: w.complexity || {}, url: w.openwind_url,
+          warnings: w.warnings || [], summary: w.conditions_summary || {}, legs,
+        };
+      });
+    }
+
+    function listBlock(runs, sel){
+      const rows = runs.map((r,i)=>{
+        const cs = r.summary;
+        const c = CX_COLORS[r.complexity.level] || CX_COLORS[3];
         const tws = (cs.tws_min_kn != null && cs.tws_max_kn != null)
           ? `${Math.round(cs.tws_min_kn)}-${Math.round(cs.tws_max_kn)} kn` : "—";
         const sail = SAIL[cs.predominant_sail_angle] || cs.predominant_sail_angle || "—";
-        const sea = fmtHsRange(cs.hs_min_m, cs.hs_max_m);
-        return `<tr class="windows-row" data-window-idx="${idx}" tabindex="0" role="link">
-          <td>${fmtDate(w.departure)}</td>
-          <td>${fmtDur(w.duration_h)}</td>
-          <td>${fmtTime(w.arrival)}</td>
+        return `<tr class="dep" data-i="${i}" tabindex="0" aria-selected="${i === sel}">
+          <td><span class="pick" aria-hidden="true"></span>${fmtDate(r.departure)}</td>
+          <td>${fmtDur(r.duration_h)}</td>
+          <td>${fmtTime(r.arrival)}${plusDays(r.departure, r.arrival)}</td>
           <td>${escapeHtml(sail)}</td>
           <td>${tws}</td>
-          <td>${sea}</td>
-          <td><span class="num" style="background:${c}">${cx.level||"?"}</span></td>
+          <td>${fmtHsRange(cs.hs_min_m, cs.hs_max_m)}</td>
+          <td><span class="num" style="background:${c}">${r.complexity.level||"?"}</span></td>
         </tr>`;
       }).join("");
+      return `<div class="tablewrap"><table role="grid" aria-label="Départs possibles">
+          <thead><tr><th>Départ</th><th>Durée</th><th>Arrivée</th><th>Allure</th><th>Vent</th><th>Mer</th><th>⚡</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+        <p class="hint">Sélectionnez un départ pour voir sa route et son détail.</p>`;
+    }
+
+    function statsBlock(r){
+      const shift = dayShift(r.departure, r.arrival);
+      const stats = [
+        ["Distance", r.distance_nm.toFixed(1)+" nm"],
+        ["Durée",    fmtDur(r.duration_h)],
+        ["Arrivée",  fmtTime(r.arrival) + (shift > 0 ? ` +${shift}` : "")],
+        ["Modèle",   (r.model||"").replace(/_/g," ")],
+      ];
+      return `<div class="stats">${stats.map(([l,v])=>`
+        <div class="stat"><div class="l">${l}</div><div class="v">${escapeHtml(v)}</div></div>
+      `).join("")}</div>`;
+    }
+
+    function chosenBlock(r, multi){
+      const cx = r.complexity;
+      const head = multi
+        ? `<div class="chosen-line"><b>Départ ${fmtDate(r.departure)}</b>
+            <span class="meta">arrivée ${fmtDate(r.arrival)} · ${fmtDur(r.duration_h)}</span>
+            ${badge(cx.level||3, cx.label||"")}</div>`
+        : `<div class="chosen-line">${badge(cx.level||3, cx.label||"")}</div>`;
+      return head + r.warnings.map(w=>`<div class="warn">⚠ ${escapeHtml(w)}</div>`).join("");
+    }
+
+    // Collapsed by default: the list and the map carry the answer, the legs
+    // are there for whoever wants the numbers. The choice sticks across
+    // departures.
+    let detailOpen = false;
+    function detailBlock(r, multi){
+      if(!r.legs || !r.legs.length) return "";
+      const rows = r.legs.map((l,i)=>{
+        const c = CX_COLORS[cxLevel(l.tws||0)];
+        return `<tr class="leg" data-seg="${i}">
+          <td><span class="num" style="background:${c}">${i+1}</span></td>
+          <td>${fmtTime(l.end_time)}</td>
+          <td>${pointOfSail(l.twa||0)}</td>
+          <td>${l.tws != null ? Math.round(l.tws)+" kn" : "—"}</td>
+          <td>${l.hs != null ? l.hs.toFixed(1)+" m" : "—"}</td>
+          <td>${l.bs != null ? l.bs.toFixed(1)+" kn" : "—"}</td>
+        </tr>`;
+      }).join("");
+      const n = r.legs.length;
+      const title = multi
+        ? `Détail par tronçon · départ ${fmtTime(r.departure)}`
+        : `Détail par tronçon · ${n} tronçon${n>1?"s":""}`;
+      return `<details class="detail"${detailOpen ? " open" : ""}><summary>${title}</summary>
+        <div class="tablewrap"><table>
+          <thead><tr><th>#</th><th>Heure</th><th>Allure</th><th>Vent</th><th>Mer</th><th>Vitesse</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div></details>`;
+    }
+
+    function renderSingle(sc, r){
+      const n = r.legs.length;
       return `
-        <h2>Comparaison de ${windows.length} fenêtres</h2>
+        <h2>Plan de passage</h2>
+        <p class="sub">${n} tronçon${n>1?"s":""} · ${r.distance_nm.toFixed(1)} nm</p>
+        ${statsBlock(r)}
+        <div class="chosen single" id="ow-chosen">${chosenBlock(r, false)}</div>
+        ${mapBlock(routePoints(sc), r.distance_nm,
+          "Tracé envoyé par l'assistant : le vent et la mer sont lus le long de cette ligne, tronçon par tronçon.",
+          n > 0)}
+        <div id="ow-detail">${detailBlock(r, false)}</div>
+        <a class="cta" id="ow-cta" href="${escapeHtml(r.url || "__WEB_BASE__/plan")}" rel="noopener">Voir le plan complet sur __WEB_HOST__ →</a>
+      `;
+    }
+
+    function renderCompare(sc, runs, sel){
+      const sweep = sc.sweep || {};
+      const meta = sc.meta_warnings || [];
+      const r = runs[sel];
+      const below = r ? `
+        <div class="chosen" id="ow-chosen">${chosenBlock(r, true)}</div>
+        ${mapBlock(routePoints(sc), r.distance_nm,
+          r.legs ? "Tracé envoyé par l'assistant, coloré selon le vent de chaque tronçon pour ce départ."
+                 : "Tracé envoyé par l'assistant, le même pour tous les départs.",
+          !!r.legs)}
+        <div id="ow-detail">${detailBlock(r, true)}</div>
+        <a class="cta" id="ow-cta" href="${escapeHtml(r.url || "__WEB_BASE__/plan")}" rel="noopener">Voir ce départ sur __WEB_HOST__ →</a>
+      ` : "";
+      return `
+        <h2>Comparaison de ${runs.length} départ${runs.length>1?"s":""}</h2>
         <p class="sub">Du ${fmtDate(sweep.earliest)} au ${fmtDate(sweep.latest)} · pas de ${sweep.interval_hours||"?"}h</p>
         ${meta.map(m=>`<div class="warn">${escapeHtml(m)}</div>`).join("")}
-        ${windows.length ? mapBlock(routePoints(sc), windows[0].distance_nm||0,
-          `Tracé envoyé par l'assistant, le même pour les ${windows.length} fenêtres.`, false) : ""}
-        <table>
-          <thead><tr><th>Départ</th><th>Durée</th><th>ETA</th><th>Allure</th><th>Vent</th><th>Mer</th><th>⚡</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-        <p class="sub" style="margin-top:.75rem">Cliquez pour aller directement au routage de cette journée</p>
+        ${runs.length ? listBlock(runs, sel) : ""}
+        ${below}
       `;
     }
 
@@ -387,7 +501,9 @@ _PLAN_WIDGET_HTML = """<!doctype html>
     // the tiles the route is drawn on a plain sea background.
     const TILE_URL = "__TILE_URL__";
     const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let map = null, mapObserver = null;
+    // ``mapApi`` is what the list and the detail rows talk to: repaint the
+    // legs for a departure, light one leg, zoom on one leg.
+    let map = null, mapObserver = null, mapApi = null;
 
     function routePoints(sc){
       if(typeof L === "undefined") return null;
@@ -415,13 +531,13 @@ _PLAN_WIDGET_HTML = """<!doctype html>
     function teardownMap(){
       if(mapObserver){ mapObserver.disconnect(); mapObserver = null; }
       if(map){ map.remove(); map = null; }
+      mapApi = null;
     }
 
-    function buildMap(sc){
+    function buildMap(sc, run){
       const el = document.getElementById('ow-map');
       const pts = routePoints(sc);
-      if(!el || !pts) return;
-      const single = sc.mode !== "multi_window";
+      if(!el || !pts || !run) return;
       const css = getComputedStyle(document.documentElement);
       const casing = css.getPropertyValue('--casing').trim();
       const ink = css.getPropertyValue('--fg0').trim();
@@ -455,64 +571,107 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       const recenter = new Recenter({position:'topright'}).addTo(map).getContainer();
       map.on('zoomstart dragstart', ()=>{ if(!fitting){ moved = true; recenter.hidden = false; } });
 
-      // One coloured leg per table row, same colour and number as its row.
-      const segs = [];
-      let declutter = null;
-      if(single){
-        (sc.passage.segments||[]).forEach((s,i)=>{
-          const ll = [[s.start.lat, s.start.lon], [s.end.lat, s.end.lon]];
-          const c = CX_COLORS[cxLevel(s.tws_kn||0)];
-          const halo = L.polyline(ll, {color:casing, weight:8, opacity:.95, lineCap:'round'}).addTo(map);
-          const line = L.polyline(ll, {color:c, weight:4.5, lineCap:'round'}).addTo(map);
-          const mid = [(ll[0][0]+ll[1][0])/2, (ll[0][1]+ll[1][1])/2];
-          const bubble = L.marker(mid, {keyboard:false, icon:L.divIcon({className:'ow-icon',
-            iconSize:[20,20], iconAnchor:[10,10],
-            html:`<div class="segnum" style="background:${c}">${i+1}</div>`})}).addTo(map);
-          segs.push({ll, halo, line, bubble});
-        });
-        // Short legs crowd their numbers together at the overview zoom: show
-        // a number only when it clears the last one shown. Zooming in brings
-        // the others back, and so does hovering their row.
-        declutter = ()=>{
-          let last = null;
-          segs.forEach(s=>{
-            const node = s.bubble.getElement();
-            if(!node) return;
-            const pt = map.latLngToContainerPoint(s.bubble.getLatLng());
-            const show = !last || pt.distanceTo(last) >= 24;
-            node.style.visibility = show ? '' : 'hidden';
-            if(show) last = pt;
-          });
-        };
-        map.on('zoomend', declutter);
-      } else {
-        // Compare mode: every window sails the same line, one neutral trace.
+      // One leg per detail row, same colour and number. Without legs (a host
+      // that dropped _meta), one neutral trace.
+      const legColor = (r, i) => r.legs && r.legs[i] ? CX_COLORS[cxLevel(r.legs[i].tws||0)] : accent;
+      const segs = (run.legs || []).map((l,i)=>{
+        const c = legColor(run, i);
+        const halo = L.polyline(l.ll, {color:casing, weight:8, opacity:.95, lineCap:'round'}).addTo(map);
+        const line = L.polyline(l.ll, {color:c, weight:4.5, lineCap:'round'}).addTo(map);
+        const mid = [(l.ll[0][0]+l.ll[1][0])/2, (l.ll[0][1]+l.ll[1][1])/2];
+        const bubble = L.marker(mid, {keyboard:false, icon:L.divIcon({className:'ow-icon',
+          iconSize:[20,20], iconAnchor:[10,10],
+          html:`<div class="segnum" style="background:${c}">${i+1}</div>`})}).addTo(map);
+        return {ll:l.ll, halo, line, bubble};
+      });
+      if(!segs.length){
         L.polyline(pts, {color:casing, weight:8, opacity:.95, lineCap:'round', lineJoin:'round'}).addTo(map);
         L.polyline(pts, {color:accent, weight:4.5, lineCap:'round', lineJoin:'round'}).addTo(map);
       }
 
+      // Short legs crowd their numbers together at the overview zoom: show a
+      // number only when it clears the last one shown. Zooming in brings the
+      // others back, and so does hovering their row.
+      function declutter(){
+        let last = null;
+        segs.forEach(s=>{
+          const node = s.bubble.getElement();
+          if(!node) return;
+          const pt = map.latLngToContainerPoint(s.bubble.getLatLng());
+          const show = !last || pt.distanceTo(last) >= 24;
+          node.style.visibility = show ? '' : 'hidden';
+          if(show) last = pt;
+        });
+      }
+      map.on('zoomend', declutter);
+
       // The waypoints as sent; departure and arrival filled and labelled.
+      const ends = [];
       const dots = pts.map((p,i)=>{
         const end = i === 0 || i === pts.length-1;
         const m = L.circleMarker(p, {radius:end?6:4, color:end?casing:ink, weight:2,
           fillColor:end?ink:'#ffffff', fillOpacity:1, interactive:false}).addTo(map);
         if(end){
-          const label = (i === 0 ? "Départ" : "Arrivée")
-            + (single ? " " + fmtTime(i === 0 ? sc.passage.departure_time : sc.passage.arrival_time) : "");
-          m.bindTooltip(label, {permanent:true, direction:i === 0 ? 'right' : 'bottom',
-            offset:i === 0 ? [8,0] : [0,8], className:'ow-tip'});
+          m.bindTooltip(i === 0 ? "Départ" : "Arrivée", {permanent:true,
+            direction:i === 0 ? 'right' : 'bottom', offset:i === 0 ? [8,0] : [0,8], className:'ow-tip'});
+          ends.push(m);
         }
         return m;
       });
+
+      // Colour the legs and label the ends for one departure: the selected
+      // one, or the one under the pointer in the list.
+      function paint(r){
+        segs.forEach((s,i)=>{
+          const c = legColor(r, i);
+          s.line.setStyle({color:c});
+          const b = s.bubble.getElement() && s.bubble.getElement().querySelector('.segnum');
+          if(b) b.style.background = c;
+        });
+        const shift = dayShift(r.departure, r.arrival);
+        ends[0].setTooltipContent("Départ " + fmtTime(r.departure));
+        ends[1].setTooltipContent("Arrivée " + fmtTime(r.arrival) + (shift > 0 ? ` +${shift}` : ""));
+      }
+      function highlight(i){
+        segs.forEach((s,j)=>{
+          const on = i == null || i === j;
+          s.line.setStyle({opacity:on ? 1 : .3, weight:i === j ? 7 : 4.5});
+          s.halo.setStyle({opacity:on ? .95 : .3, weight:i === j ? 11 : 8});
+          const b = s.bubble.getElement() && s.bubble.getElement().querySelector('.segnum');
+          if(b){ b.classList.toggle('dim', !on); b.classList.toggle('hl', i === j); }
+          if(i === j){ s.halo.bringToFront(); s.line.bringToFront(); }
+          s.bubble.setZIndexOffset(i === j ? 1000 : 0);
+        });
+        // The lit leg was raised above everything: put the waypoints back on top.
+        dots.forEach(d=>d.bringToFront());
+        declutter();
+        const lit = i != null && segs[i] && segs[i].bubble.getElement();
+        if(lit) lit.style.visibility = '';
+        document.querySelectorAll('#root tr.leg').forEach((r,j)=>r.classList.toggle('is-hl', i === j));
+      }
+      function zoomTo(i){
+        if(!segs[i]) return;
+        map.flyToBounds(L.latLngBounds(segs[i].ll), {padding:[48,48], maxZoom:13,
+          animate:!REDUCED, duration:.6});
+      }
+      segs.forEach((s,i)=>{
+        [s.line, s.bubble].forEach(l=>{
+          l.on('mouseover', ()=>highlight(i));
+          l.on('mouseout', ()=>highlight(null));
+          l.on('click', ()=>highlight(i));
+        });
+      });
+
       fit();
-      if(declutter) declutter();
+      paint(run);
+      declutter();
       // Hosts size the iframe after the first paint: refit until the user
       // takes over the view.
       mapObserver = new ResizeObserver(()=>{
         if(!map) return;
         map.invalidateSize();
         if(!moved) fit();
-        if(declutter) declutter();
+        declutter();
       });
       mapObserver.observe(el);
 
@@ -530,60 +689,12 @@ _PLAN_WIDGET_HTML = """<!doctype html>
         if(a){ e.preventDefault(); openUrl(a.href); }
       }, true);
 
-      if(!single) return;
-      // Row and leg point at each other: hover either to light both, click a
-      // row to zoom on its leg.
-      const root = document.getElementById('root');
-      const rows = [...root.querySelectorAll('tr.seg-row')];
-      root.classList.add('has-map');
-      function highlight(i){
-        segs.forEach((s,j)=>{
-          const on = i == null || i === j;
-          s.line.setStyle({opacity:on ? 1 : .3, weight:i === j ? 7 : 4.5});
-          s.halo.setStyle({opacity:on ? .95 : .3, weight:i === j ? 11 : 8});
-          const b = s.bubble.getElement() && s.bubble.getElement().querySelector('.segnum');
-          if(b){ b.classList.toggle('dim', !on); b.classList.toggle('hl', i === j); }
-          if(i === j){ s.halo.bringToFront(); s.line.bringToFront(); }
-          s.bubble.setZIndexOffset(i === j ? 1000 : 0);
-        });
-        // The lit leg was raised above everything: put the waypoints back on top.
-        dots.forEach(d=>d.bringToFront());
-        declutter();
-        const lit = i != null && segs[i].bubble.getElement();
-        if(lit) lit.style.visibility = '';
-        rows.forEach((r,j)=>r.classList.toggle('is-hl', i === j));
-      }
-      function zoomTo(i){
-        map.flyToBounds(L.latLngBounds(segs[i].ll), {padding:[48,48], maxZoom:13,
-          animate:!REDUCED, duration:.6});
-      }
-      segs.forEach((s,i)=>{
-        [s.line, s.bubble].forEach(l=>{
-          l.on('mouseover', ()=>highlight(i));
-          l.on('mouseout', ()=>highlight(null));
-          l.on('click', ()=>{
-            highlight(i);
-            if(rows[i]) rows[i].scrollIntoView({block:'nearest', behavior:REDUCED ? 'auto' : 'smooth'});
-          });
-        });
-      });
-      rows.forEach((r,i)=>{
-        if(!segs[i]) return;
-        r.tabIndex = 0;
-        r.addEventListener('mouseenter', ()=>highlight(i));
-        r.addEventListener('mouseleave', ()=>highlight(null));
-        r.addEventListener('focus', ()=>highlight(i));
-        r.addEventListener('blur', ()=>highlight(null));
-        r.addEventListener('click', ()=>zoomTo(i));
-        r.addEventListener('keydown', e=>{
-          if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); zoomTo(i); }
-        });
-      });
+      mapApi = {paint, highlight, zoomTo, hasLegs: segs.length > 0};
     }
 
-    // Hold the latest structured content so the delegated click handler can
-    // resolve a row index back to its openwind_url.
-    let lastSc = null;
+    // Hold the latest result so the handlers can resolve a row back to its
+    // departure.
+    let lastSc = null, lastRuns = [], sel = 0;
     const app = new App({ name: "OhMyWind Plan", version: "1.0.0" });
 
     function openUrl(url){
@@ -599,22 +710,62 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       });
     }
 
-    function wireClicks(){
+    // Selecting a departure keeps the map and its zoom, repaints the legs,
+    // and swaps the summary, the detail and the link.
+    function select(i){
+      const r = lastRuns[i];
+      if(!r) return;
+      sel = i;
       const root = document.getElementById('root');
-      // Compare-mode rows
-      root.querySelectorAll('.windows-row').forEach(tr=>{
-        tr.addEventListener('click', ()=>{
-          const idx = Number(tr.dataset.windowIdx);
-          const w = lastSc && lastSc.windows && lastSc.windows[idx];
-          if(w && w.openwind_url) openUrl(w.openwind_url);
-        });
-        tr.addEventListener('keydown', e=>{
-          if(e.key === 'Enter' || e.key === ' '){
-            e.preventDefault(); tr.click();
-          }
+      root.querySelectorAll('tr.dep').forEach((row,j)=>row.setAttribute('aria-selected', String(j === i)));
+      document.getElementById('ow-chosen').innerHTML = chosenBlock(r, true);
+      document.getElementById('ow-detail').innerHTML = detailBlock(r, true);
+      document.getElementById('ow-cta').setAttribute('href', r.url || "__WEB_BASE__/plan");
+      if(mapApi) mapApi.paint(r);
+      wireDetail();
+    }
+
+    function wireDetail(){
+      const root = document.getElementById('root');
+      const details = root.querySelector('details.detail');
+      if(details) details.addEventListener('toggle', ()=>{ detailOpen = details.open; });
+      const live = !!(mapApi && mapApi.hasLegs);
+      root.classList.toggle('has-map', live);
+      if(!live) return;
+      // Row and leg point at each other: hover either to light both, click a
+      // row to zoom on its leg.
+      root.querySelectorAll('tr.leg').forEach((row,i)=>{
+        row.tabIndex = 0;
+        row.addEventListener('mouseenter', ()=>mapApi.highlight(i));
+        row.addEventListener('mouseleave', ()=>mapApi.highlight(null));
+        row.addEventListener('focus', ()=>mapApi.highlight(i));
+        row.addEventListener('blur', ()=>mapApi.highlight(null));
+        row.addEventListener('click', ()=>mapApi.zoomTo(i));
+        row.addEventListener('keydown', e=>{
+          if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); mapApi.zoomTo(i); }
         });
       });
-      // Single-mode CTA links (any .cta or [data-openlink])
+    }
+
+    function wireClicks(){
+      const root = document.getElementById('root');
+      // Departures list: click or Enter selects, arrows move through it, and
+      // hovering a departure previews its colours on the map.
+      const rows = [...root.querySelectorAll('tr.dep')];
+      rows.forEach((tr,i)=>{
+        tr.addEventListener('click', ()=>select(i));
+        tr.addEventListener('keydown', e=>{
+          if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); select(i); }
+          else if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+            e.preventDefault();
+            const next = rows[i + (e.key === 'ArrowDown' ? 1 : -1)];
+            if(next){ next.focus(); select(Number(next.dataset.i)); }
+          }
+        });
+        tr.addEventListener('mouseenter', ()=>{ if(mapApi) mapApi.paint(lastRuns[i]); });
+        tr.addEventListener('mouseleave', ()=>{ if(mapApi) mapApi.paint(lastRuns[sel]); });
+      });
+      // The link reads its href on click: select() rewrites it.
       root.querySelectorAll('a.cta, a[data-openlink]').forEach(a=>{
         a.addEventListener('click', e=>{
           e.preventDefault();
@@ -631,28 +782,33 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       teardownMap();
       root.classList.remove('has-map');
       try {
-        if(sc.mode === "multi_window") root.innerHTML = renderCompare(sc);
-        else if(sc.passage) root.innerHTML = renderSingle(sc);
+        const multi = sc.mode === "multi_window";
+        if(!multi && !sc.passage) return;
+        lastRuns = runsOf(sc, result._meta);
+        sel = 0;
+        root.innerHTML = multi ? renderCompare(sc, lastRuns, sel) : renderSingle(sc, lastRuns[0]);
         wireClicks();
       } catch(e) {
         console.error('[ohmywind] render failed', e);
+        lastRuns = [];
         const url = (sc.openwind_url || (sc.windows && sc.windows[0] && sc.windows[0].openwind_url) || "__WEB_BASE__/plan");
         root.innerHTML = `<div class="placeholder">
           Impossible d'afficher le plan ici.
           <br><a class="cta" href="${escapeHtml(url)}" rel="noopener">Ouvrir sur __WEB_HOST__ →</a>
         </div>`;
         wireClicks();
+        return;
       }
       // The map sits on top of a plan that stands without it: if it fails,
       // drop it and keep the rest.
-      try { buildMap(sc); }
+      try { buildMap(sc, lastRuns[sel]); }
       catch(e) {
         console.error('[ohmywind] route map failed', e);
         teardownMap();
-        root.classList.remove('has-map');
         const wrap = root.querySelector('.mapwrap');
         if(wrap) wrap.remove();
       }
+      wireDetail();
     }
 
     app.ontoolresult = render;
@@ -884,6 +1040,55 @@ def _route_view(points: list[Any]) -> list[dict[str, float]]:
     return [{"lat": p.lat, "lon": p.lon} for p in points]
 
 
+def _legs_meta(reports: list[Any], windows: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The legs of every listed sweep window, for the widget only.
+
+    The geometry travels once: every window sails the same polyline, cut into
+    the same segments. The rows follow ``windows``, after any target-ETA
+    filter, matched on the departure each window reports.
+    """
+    first = reports[0].segments if reports else ()
+    if not first:
+        return None
+    by_departure = {
+        r.departure_time.isoformat(): [
+            [
+                s.end_time.isoformat(),
+                round(s.tws_kn, 1),
+                round(s.twa_deg),
+                None if s.hs_m is None else round(s.hs_m, 2),
+                round(s.boat_speed_kn, 2),
+            ]
+            for s in r.segments
+        ]
+        for r in reports
+    }
+    return {
+        PLAN_UI_LEGS_META_KEY: {
+            "geometry": [[first[0].start.lat, first[0].start.lon]]
+            + [[s.end.lat, s.end.lon] for s in first],
+            "fields": list(_LEG_FIELDS),
+            "windows": [by_departure[w["departure"]] for w in windows],
+        }
+    }
+
+
+def _tool_result(structured: dict[str, Any], meta: dict[str, Any] | None = None) -> CallToolResult:
+    """The result FastMCP would build from ``structured``, plus a ``_meta``.
+
+    A tool that returns a dict gets no ``_meta``: FastMCP builds the result
+    itself. The text block is the same JSON the model has always read,
+    indented as FastMCP indents it; the ``_meta`` goes to the widget.
+    """
+    return CallToolResult(
+        content=[
+            TextContent(type="text", text=json.dumps(structured, indent=2, ensure_ascii=False))
+        ],
+        structuredContent=structured,
+        _meta=meta,
+    )
+
+
 def build_server(
     *,
     adapter: MarineDataAdapter | None = None,
@@ -978,6 +1183,7 @@ def build_server(
             _PLAN_WIDGET_HTML.replace("__WEB_BASE__", WEB_BASE)
             .replace("__WEB_HOST__", WEB_HOST)
             .replace("__TILE_URL__", OSM_TILE_URL)
+            .replace("__LEGS_META_KEY__", PLAN_UI_LEGS_META_KEY)
         )
 
     # Every tool below spells out all four hints, including the two the spec
@@ -1116,7 +1322,7 @@ def build_server(
         motor_threshold_kn: float | None = None,
         motor_speed_kn: float | None = None,
         min_upwind_twa_deg: float | None = None,
-    ) -> dict[str, Any]:
+    ) -> Annotated[CallToolResult, dict[str, Any]]:
         """Plan an A→B passage. Compare departure windows by default; pin a
         single departure only when the user gives an explicit time.
 
@@ -1232,9 +1438,12 @@ def build_server(
         Code Copilot, Goose, Postman, MCPJam), the response is automatically
         accompanied by an interactive widget served via the
         ``ui://openwind/plan-passage`` resource declared on this tool's
-        ``_meta``: the figures, a map of the route you drew, and the per-leg
-        table. The user sees your waypoints on that map, one more reason to
-        keep every leg at sea.
+        ``_meta``. In compare-windows mode it lists the departures; the one
+        the user selects (the earliest at first) drives a map of the route
+        you drew, coloured by its wind, and its per-leg detail. In single
+        mode it shows the figures, the map and the per-leg detail. The user
+        sees your waypoints on that map, one more reason to keep every leg at
+        sea.
 
         On hosts without MCP Apps support (Cursor, Le Chat, terminal), present
         a short text summary of the result (route, ETA, complexity, warnings)
@@ -1254,7 +1463,8 @@ def build_server(
         - **Compare-windows mode**: list 2-4 of the most relevant windows
           and give each its own link, e.g.
           ``- Sam 2 mai 09h · 11h12 · ⚡2/5 · [voir →](url)``.
-          The user picks one from the chat, not the widget.
+          The widget lets the user inspect any window, but it does not
+          rank them: your picks and their links still belong in the reply.
 
         Phrase the link with intent ("voir le plan détaillé", "ouvrir cette
         fenêtre dans l'app"), not just a bare URL: the user should know
@@ -1392,13 +1602,17 @@ def build_server(
                 if unmatched is not None:
                     meta_notices.append(unmatched)
 
-            return sweep_view(
-                earliest=dep,
-                latest=latest_dep,
-                interval_hours=effective_interval,
-                windows=windows,
-                meta_notices=meta_notices,
-            ) | {"waypoints": _route_view(pts), "disclaimer": PASSAGE_DISCLAIMER}
+            return _tool_result(
+                sweep_view(
+                    earliest=dep,
+                    latest=latest_dep,
+                    interval_hours=effective_interval,
+                    windows=windows,
+                    meta_notices=meta_notices,
+                )
+                | {"waypoints": _route_view(pts), "disclaimer": PASSAGE_DISCLAIMER},
+                _legs_meta(reports, windows),
+            )
 
         # --- SINGLE MODE ---
         report = await _estimate_passage(
@@ -1413,10 +1627,13 @@ def build_server(
         )
         score = _score_complexity(report, max_hs_m=max_hs_m)
 
-        return passage_envelope(report, score) | {
-            "openwind_url": build_ohmywind_url(waypoints, departure, archetype),
-            "waypoints": _route_view(pts),
-            "disclaimer": PASSAGE_DISCLAIMER,
-        }
+        return _tool_result(
+            passage_envelope(report, score)
+            | {
+                "openwind_url": build_ohmywind_url(waypoints, departure, archetype),
+                "waypoints": _route_view(pts),
+                "disclaimer": PASSAGE_DISCLAIMER,
+            }
+        )
 
     return server
