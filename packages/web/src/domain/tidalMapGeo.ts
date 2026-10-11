@@ -33,22 +33,40 @@ export function precisionClass(resolutionM: number | null | undefined): Precisio
  * ``openmeteo_smoc``); ``covered: false`` and an absent label both mean SMOC.
  */
 export interface SourceAnswer {
-  kind: "shom" | "atlas" | "smoc" | "land";
+  kind: "shom" | "atlas" | "smoc" | "land" | "unknown";
   label: string;
   precision: PrecisionClass;
   resolutionM: number | null;
   shomDistanceM: number | null;
+  /** For ``unknown``: the documented zone and why its current is withheld. */
+  unknown?: { zone: string; reason: "managed" | "unresolved" | "non_tidal" };
 }
 
 export function classifyAnswer(overlay: {
   covered?: boolean;
   land?: boolean;
+  unknown?: { zone: string; reason: string };
   current_source?: string;
   atlas_resolution_m?: number | null;
   shom_nearest_km?: number | null;
 }): SourceAnswer {
   if (overlay.land) {
     return { kind: "land", label: "land", precision: "global", resolutionM: null, shomDistanceM: null };
+  }
+  // A documented zone (the Rance above its tidal power plant): the server
+  // withholds the current, it does not fall back to SMOC, and the card must
+  // not say it does.
+  if (overlay.unknown) {
+    const r = overlay.unknown.reason;
+    const reason = r === "unresolved" || r === "non_tidal" ? r : "managed";
+    return {
+      kind: "unknown",
+      label: "unknown",
+      precision: "global",
+      resolutionM: null,
+      shomDistanceM: null,
+      unknown: { zone: overlay.unknown.zone, reason },
+    };
   }
   const label = overlay.covered && overlay.current_source ? overlay.current_source : "openmeteo_smoc";
   if (label.startsWith("shom_c2d_")) {
