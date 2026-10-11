@@ -9,11 +9,12 @@
  * also what makes the split safe to keep going: a sub-component that reaches
  * for something the context does not carry fails here rather than at runtime.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PlanSidebar } from "./PlanSidebar";
 import { ReturnBanner } from "./ReturnBanner";
+import { DepartureSlider } from "./sidebar/DepartureSlider";
 import { PlanProvider } from "./session/PlanProvider";
 import type { PlanContextValue } from "./session/planContext";
 import { createInitialState, type PlanState } from "./session/reducer";
@@ -486,5 +487,35 @@ describe("open leg", () => {
     expect(screen.getByText(`${fmtClock("2026-09-10T08:00:00+02:00")} → ${fmtClock("2026-09-10T18:00:00+02:00")}`)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Détail" })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Pas / })).toBeNull();
+  });
+});
+
+// ── The day word beside the departure ────────────────────────────────────────
+// Absolute instants, never a Paris clock time: the CI runner sits in UTC.
+// toNaiveLocal writes the runner's own clock, the one the control reads back.
+
+describe("departure day word", () => {
+  afterEach(() => vi.useRealTimers());
+
+  function mountAt(nowUtc: string, departureUtc: string) {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(nowUtc));
+    mountWith(<DepartureSlider value={toNaiveLocal(new Date(departureUtc))} onChange={vi.fn()} />);
+  }
+
+  it("calls yesterday « Hier », not « Aujourd'hui »", () => {
+    mountAt("2026-10-11T10:00:00Z", "2026-10-10T10:00:00Z");
+    expect(screen.getByText("Hier")).toBeTruthy();
+    expect(screen.queryByText("Aujourd'hui")).toBeNull();
+  });
+
+  it("counts the days further back", () => {
+    mountAt("2026-10-11T10:00:00Z", "2026-10-08T10:00:00Z");
+    expect(screen.getByText("Il y a 3 jours")).toBeTruthy();
+  });
+
+  it("calls tomorrow morning « Demain », seen from the evening", () => {
+    mountAt("2026-10-11T18:00:00Z", "2026-10-12T06:00:00Z");
+    expect(screen.getByText("Demain")).toBeTruthy();
   });
 });

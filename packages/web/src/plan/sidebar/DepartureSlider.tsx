@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useMemo, useState } from "react";
-import { fmtClock, fmtDayLong, toNaiveLocal } from "../../domain/datetime";
+import { fmtClock, fmtDayLong, parisDayDelta, toNaiveLocal } from "../../domain/datetime";
 import { useTheme } from "../../design/useTheme";
 import { usePlan } from "../session/planContext";
 import { useT } from "../../i18n";
@@ -64,9 +64,14 @@ export function DepartureSlider({
     timeAnchor === "arrival" ? t("panel.departure.ariaArrival") : t("panel.departure.ariaDeparture");
   const dateLabel = fmtDayLong(valueDate);
   const timeLabel = fmtClock(valueDate);
-  const dayDelta = Math.floor((valueDate.getTime() - anchor.getTime()) / 86_400_000);
+  // Calendar days on the Paris clock, not 24 h spans: the spans called
+  // yesterday « Aujourd'hui » and tomorrow morning, seen from the evening,
+  // too.
+  const dayDelta = parisDayDelta(anchor, valueDate);
   const offsetLabel =
-    dayDelta <= 0 ? t("panel.departure.today") :
+    dayDelta < -1 ? tn("panel.departure.daysAgo", -dayDelta) :
+    dayDelta === -1 ? t("panel.departure.yesterday") :
+    dayDelta === 0 ? t("panel.departure.today") :
     dayDelta === 1 ? t("panel.departure.tomorrow") :
     tn("panel.departure.inDays", dayDelta);
 
