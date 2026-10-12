@@ -439,8 +439,8 @@ export function CompareTable({
                 type="button"
                 role="rowheader"
                 onClick={() => onFocusSpot(row.spot)}
-                aria-label={t("compare.row.focus", { name: row.spot.name })}
-                title={t("compare.row.focus", { name: row.spot.name })}
+                aria-label={t(focused ? "compare.row.open" : "compare.row.focus", { name: row.spot.name })}
+                title={t(focused ? "compare.row.open" : "compare.row.focus", { name: row.spot.name })}
                 className="shrink-0 z-[2] text-left transition-colors flex items-center"
                 style={{
                   ...stickyLeft,
@@ -490,7 +490,13 @@ export function CompareTable({
                     className="block truncate"
                     style={{ fontFamily: "var(--ow-font-mono)", fontSize: 9.5, color: "var(--ow-fg-2)", minHeight: 12 }}
                   >
-                    {!row.forecast
+                    {/* The focused row says where a second tap goes: Explorer,
+                        where the detail by model lives. */}
+                    {focused ? (
+                      <span style={{ fontFamily: "var(--ow-font-ui)", fontWeight: 600, color: "var(--ow-accent)" }}>
+                        {t("compare.row.openHint")}
+                      </span>
+                    ) : !row.forecast
                       ? t("compare.row.noData")
                       : distance != null
                         ? distance < 1

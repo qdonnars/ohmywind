@@ -37,6 +37,29 @@ function isInAppNavigation(e: MouseEvent, anchor: HTMLAnchorElement): boolean {
   return !!href && href.startsWith("/") && !href.startsWith("//");
 }
 
+/**
+ * Go to another page of the app, the way a click on one of its links does.
+ * For the few places where the way there is a gesture rather than a link
+ * (a second tap on a spot of the comparison opens it in Explorer).
+ */
+export function goTo(href: string): void {
+  // Re-clicking the current URL should do nothing rather than remount.
+  if (href === window.location.pathname + window.location.search) return;
+  // Leaving a page with a panel open: the entry that panel pushed is
+  // transient state of the page being left, so the navigation takes its
+  // place rather than stacking on top of it. Otherwise a back press would
+  // land on an entry whose panel is long gone and appear to do nothing.
+  navigate(href, { replace: isLayerEntry(window.history.state) });
+  backStack.detachAll();
+  window.scrollTo(0, 0);
+  checkForAppUpdate();
+  // Safest occasion to apply an update already found and held back: the
+  // reader asked to change view, so a reload here reads as that navigation.
+  // Deliberately not on `popstate`: a back press that only dismisses a panel
+  // must not reload the page.
+  flushPendingUpdate();
+}
+
 export function useRouter(): AppLocation {
   const location = useSyncExternalStore(subscribe, getLocation);
 
@@ -50,23 +73,8 @@ export function useRouter(): AppLocation {
       if (!(target instanceof Element)) return;
       const anchor = target.closest("a");
       if (!anchor || !isInAppNavigation(e, anchor)) return;
-      const href = anchor.getAttribute("href")!;
       e.preventDefault();
-      // Re-clicking the current URL should do nothing rather than remount.
-      if (href === window.location.pathname + window.location.search) return;
-      // Leaving a page with a panel open: the entry that panel pushed is
-      // transient state of the page being left, so the navigation takes its
-      // place rather than stacking on top of it. Otherwise a back press would
-      // land on an entry whose panel is long gone and appear to do nothing.
-      navigate(href, { replace: isLayerEntry(window.history.state) });
-      backStack.detachAll();
-      window.scrollTo(0, 0);
-      checkForAppUpdate();
-      // Safest occasion to apply an update already found and held back: the
-      // reader asked to change view, so a reload here reads as that
-      // navigation. Deliberately not on `popstate`: a back press that only
-      // dismisses a panel must not reload the page.
-      flushPendingUpdate();
+      goTo(anchor.getAttribute("href")!);
     };
 
     window.addEventListener("popstate", onPopState);
