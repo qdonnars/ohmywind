@@ -4,7 +4,7 @@ OhMyWind porte un seul numéro de version pour le site et le serveur MCP, en [se
 
 Trois endroits portent la version, et un test vérifie qu'ils s'accordent :
 
-- `CHANGELOG.md` (français, la référence) et `CHANGELOG.en.md` (traduction, servie aussi en allemand, italien et espagnol) : la page `/nouveautes` de l'application les affiche, et les releases GitHub en copient les sections ;
+- `CHANGELOG.md` (français, la référence) et `CHANGELOG.en.md` (traduction, servie aussi en allemand, italien et espagnol) : la page Quoi de neuf de l'application (`/a-propos/nouveautes`) les affiche, et les releases GitHub en copient les sections ;
 - `"version"` dans `packages/web/package.json`, injecté au build et affiché dans le menu et le panneau À propos ;
 - le tag `vX.Y.Z` sur le commit de merge de la promotion, sur `main`.
 

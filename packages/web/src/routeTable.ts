@@ -21,6 +21,7 @@ export type RouteName =
   | "methodologie-courants"
   | "confidentialite"
   | "press"
+  | "about"
   | "whats-new"
   | "press-release"
   | "not-found";
@@ -38,6 +39,9 @@ const ROUTES = new Map<string, RouteName>([
   ["/methodologie/courants", "methodologie-courants"],
   ["/confidentialite", "confidentialite"],
   ["/presse", "press"],
+  ["/a-propos", "about"],
+  ["/a-propos/nouveautes", "whats-new"],
+  // The release log's first address, kept so a link to it still lands.
   ["/nouveautes", "whats-new"],
   ["/presse/communique", "press-release"],
 ]);

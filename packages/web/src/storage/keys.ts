@@ -75,6 +75,8 @@ export const LOCAL_STORAGE_KEYS = {
 export const SESSION_STORAGE_KEYS = {
   /** Where `/config` should return to when the user backs out of it. */
   configReturnPath: "ow_config_return_to",
+  /** Where `/a-propos` returns to: the page whose « i » opened it. */
+  aboutReturnPath: "ow_about_return_to",
   /** Waypoints drawn but not yet computed, so a service worker update or a
       reload does not throw away work in progress. */
   planDraft: "ow_plan_draft_v1",

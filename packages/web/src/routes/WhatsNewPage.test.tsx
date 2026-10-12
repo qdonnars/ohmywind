@@ -32,6 +32,11 @@ describe("WhatsNewPage", () => {
     expect(link.getAttribute("target")).toBe("_blank");
   });
 
+  it("goes back, top left, to « À propos », the page it hangs from", () => {
+    render(<WhatsNewPage />);
+    expect(screen.getByRole("link", { name: "← À propos" }).getAttribute("href")).toBe("/a-propos");
+  });
+
   it("clears the dot on the \"i\" by recording the version as seen", () => {
     render(<WhatsNewPage />);
     expect(localStorage.getItem(LOCAL_STORAGE_KEYS.whatsNewSeen)).toBe(APP_VERSION);

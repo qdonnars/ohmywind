@@ -37,6 +37,9 @@ const loadConfidentialite = () =>
 // CHANGELOG : meme traitement que les pages de documentation, a la demande et
 // hors precache.
 const loadWhatsNew = () => import("./routes/WhatsNewPage").then((m) => ({ default: m.WhatsNewPage }));
+// La page « À propos » n'a ni carte ni markdown : petite, chargee a la
+// demande quand meme, puisque plus rien dans l'en-tete ne l'importe.
+const loadAbout = () => import("./routes/AboutPage").then((m) => ({ default: m.AboutPage }));
 // Le communique de presse tire lui aussi react-markdown, pour une page que
 // seuls les journalistes ouvriront : meme traitement, a la demande.
 const loadPressRelease = () =>
@@ -59,8 +62,9 @@ function DocFallback() {
   );
 }
 
-// /nouveautes suit le theme de l'application, comme /presse : son attente
-// prend donc les jetons du theme et non le papier blanc des documents.
+// /a-propos et /a-propos/nouveautes suivent le theme de l'application, comme
+// /presse : leur attente prend donc les jetons du theme et non le papier blanc
+// des documents.
 function AppPageFallback() {
   const { t } = useT();
   return (
@@ -120,6 +124,8 @@ export function Routes() {
       return <LazyPageBoundary key={key} load={loadMethodologieCourants} fallback={<DocFallback />} />;
     case "confidentialite":
       return <LazyPageBoundary key={key} load={loadConfidentialite} fallback={<DocFallback />} />;
+    case "about":
+      return <LazyPageBoundary key={key} load={loadAbout} fallback={<AppPageFallback />} />;
     case "whats-new":
       return <LazyPageBoundary key={key} load={loadWhatsNew} fallback={<AppPageFallback />} />;
     case "not-found":

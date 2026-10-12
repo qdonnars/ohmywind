@@ -89,7 +89,7 @@ function ReleaseCard({ release, contentLang, dateFormat }: {
 }
 
 /**
- * /nouveautes: the release log, newest first. A page of the app rather than
+ * /a-propos/nouveautes: the release log, newest first. A page of the app rather than
  * a document, so it follows the theme like /presse. Opening it is what clears
  * the dot on the "i" in the header.
  */
@@ -114,8 +114,10 @@ export function WhatsNewPage() {
     <div className="wn-root min-h-screen">
       <header className="wn-header sticky top-0 z-10 border-b backdrop-blur">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
-          <a href="/" className="text-sm font-medium opacity-80 hover:opacity-100 transition">
-            ← OhMyWind
+          {/* A sub-page of « À propos », where the « i » leads: the way back
+              goes there, like the currents map goes back to the methodology. */}
+          <a href="/a-propos" className="text-sm font-medium opacity-80 hover:opacity-100 transition">
+            ← {t("explore.infoButton.title")}
           </a>
           <span className="text-xs opacity-60">{t("common.nav.whatsNew.title")}</span>
         </div>
