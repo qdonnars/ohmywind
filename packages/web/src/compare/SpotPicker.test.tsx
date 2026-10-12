@@ -42,3 +42,24 @@ describe("SpotsChip", () => {
     expect(chip.style.background).toBe("var(--ow-accent-strong)");
   });
 });
+
+describe("SpotPicker, the fade over a list that scrolls", () => {
+  function mountWithLayout(scrollHeight: number) {
+    // jsdom has no layout: the list's box is given by hand.
+    const spy = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(scrollHeight);
+    const spyH = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(168);
+    render(<SpotPicker spots={SPOTS} hidden={new Set()} onToggle={vi.fn()} onAll={vi.fn()} variant="panel" onClose={vi.fn()} />);
+    spy.mockRestore();
+    spyH.mockRestore();
+  }
+
+  it("fades the bottom while spots are left below, the case of six spots on a phone", () => {
+    mountWithLayout(204);
+    expect(screen.getByTestId("spots-more-fade")).toBeTruthy();
+  });
+
+  it("shows no fade when every spot fits", () => {
+    mountWithLayout(168);
+    expect(screen.queryByTestId("spots-more-fade")).toBeNull();
+  });
+});
