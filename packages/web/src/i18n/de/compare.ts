@@ -14,6 +14,8 @@ export const compare: Record<keyof typeof frCompare, string> = {
     "Offline: Die Vorhersagen können nicht geladen werden. Verbinden Sie sich erneut und öffnen Sie diese Seite noch einmal.",
 
   "compare.row.focus": "Karte auf {name} zentrieren",
+  "compare.row.open": "{name} in Erkunden öffnen",
+  "compare.row.openHint": "Erkunden ›",
   "compare.row.noData": "Außerhalb der Abdeckung",
 
   "compare.controls.resLabel": "Zeitschritt",

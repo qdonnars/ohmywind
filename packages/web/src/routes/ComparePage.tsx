@@ -46,6 +46,7 @@ import {
 import { AddSpotButton, SpotPicker } from "../compare/SpotPicker";
 import { useCompareData } from "../compare/useCompareData";
 import { loadLastSpot, saveLastSpot } from "../config/lastSpot";
+import { goTo } from "../router";
 import { useCustomSpots } from "../hooks/useCustomSpots";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useMapView } from "../hooks/useMapView";
@@ -131,12 +132,22 @@ export function ComparePage() {
 
   // The spot the map is centred on and the table highlights. Recorded as
   // the last spot looked at, so Explorer, next door in the menu, opens on
-  // it: that is where the detail by model lives.
+  // it: that is where the detail by model lives. A second tap on the spot
+  // already focused, its row or its marker, goes there: a double tap does
+  // it in one go, and the focused row says so (« Explorer › »).
   const [focused, setFocused] = useState<Spot | null>(null);
+  const focusedRef = useRef<Spot | null>(null);
   const handleFocus = useCallback((spot: Spot) => {
-    setFocused(spot);
     saveLastSpot(spot);
+    if (sameSpot(focusedRef.current, spot)) {
+      goTo("/");
+      return;
+    }
+    setFocused(spot);
   }, []);
+  useEffect(() => {
+    focusedRef.current = focused;
+  }, [focused]);
   // The last spot looked at when the page opened, here or on Explorer: a
   // reference for the place search until a spot is focused.
   const [lastSpot] = useState(loadLastSpot);

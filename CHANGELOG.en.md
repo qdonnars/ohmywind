@@ -22,6 +22,7 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 - On Compare, the place search measures its distances from your spots; a departure yesterday reads "Yesterday", not "Today"; an arrival on the next day shows its day (#467).
 - The boat picker button shows the boat's name, not its identifier; after "Cancel" on a route being drawn, the back button closes the comparison without leaving the plan (#469).
 - "Adjust" opens the departure calendar straight away; on Compare, "Add a spot" moves into the "Spots" panel, whose pill fills while it is open; a fade at the bottom of its list shows there are more spots to scroll to (#473, #476).
+- On Compare, a second tap on the selected spot, in the table or on the map, opens it in Explore; the selected row says so with "Explore ›" (#477).
 
 ### Behind the scenes
 
