@@ -19,7 +19,7 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 - Les tableaux horaires d'Explorer se calent sur la colonne des modèles : plus de colonne ni d'étiquette de jour à moitié cachée après un défilement, et le trait entre deux jours garde la même couleur sur toutes les lignes ; le choix du bateau dans le plan affiche des noms lisibles (#465).
 - Sur Comparer, la recherche de lieu mesure ses distances depuis vos spots ; un départ d'hier s'affiche « Hier » et non « Aujourd'hui » ; une arrivée le lendemain affiche son jour (#467).
 - Le bouton du choix du bateau affiche le nom du bateau et non son identifiant, et la liste dit « monocoque » ; après « Annuler » sur un itinéraire en cours de tracé, le bouton retour ferme la comparaison sans quitter le plan (#469).
-- « Ajuster » ouvre directement le calendrier du départ ; sur Comparer, « Ajouter un spot » passe dans le panneau « Spots », dont la pastille se remplit tant qu'il est ouvert (#470).
+- « Ajuster » ouvre directement le calendrier du départ ; sur Comparer, « Ajouter un spot » passe dans le panneau « Spots », dont la pastille se remplit tant qu'il est ouvert (#473).
 
 ### Coulisses
 
