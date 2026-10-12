@@ -8,8 +8,8 @@ export const SEARCH_SPOTLIGHT_CLASS = "search-spotlight";
  * Hands the reader to the header's search field: on /comparer a picked
  * result becomes a favourite, which is how a spot gets added there.
  *
- * Focus alone was not enough. « Ajouter un spot » sits at the bottom of the
- * sheet, the field at the top of the screen, and without a keyboard sliding
+ * Focus alone was not enough. « Ajouter un spot » sits in the spots list,
+ * the field at the top of the screen, and without a keyboard sliding
  * up (a desktop, a phone emulated in a browser) the only change was a thin
  * focus ring nobody was looking at: the button read as doing nothing
  * (#395). The field is lit up for a moment too, and its text selected, so

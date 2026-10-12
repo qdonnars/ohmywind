@@ -26,6 +26,9 @@ interface SpotPickerProps {
       card, with a close button and a bounded height. */
   variant: "column" | "panel";
   onClose?: () => void;
+  /** The panel's last row, « Ajouter un spot »: on a phone the list is where
+      one looks for the way to grow it. */
+  onAdd?: () => void;
 }
 
 function CloseIcon() {
@@ -48,6 +51,7 @@ export function SpotPicker({
   numbers,
   variant,
   onClose,
+  onAdd,
 }: SpotPickerProps) {
   const { t } = useT();
   const picked = spots.filter((s) => !hidden.has(rowKey(s))).length;
@@ -175,6 +179,17 @@ export function SpotPicker({
           );
         })}
       </div>
+      {panel && onAdd && (
+        <button
+          type="button"
+          onClick={onAdd}
+          className="flex w-full items-center gap-2 px-3 py-2 text-[12.5px] font-semibold cursor-pointer"
+          style={{ color: "var(--ow-accent)", borderTop: "1px solid var(--ow-line)" }}
+        >
+          <PlusIcon />
+          {t("compare.spots.add")}
+        </button>
+      )}
     </div>
   );
 }
@@ -187,21 +202,9 @@ function PlusIcon() {
   );
 }
 
-/** "Ajouter un spot": hands the reader to the search field.
-
-    `compact` is the phone's footer: the sheet is the table, and a full-height
-    button under it takes a row away for a control the reader uses once. It
-    only loses height, and stays full width, so the target keeps its size
-    where a thumb aims. */
-export function AddSpotButton({
-  onClick,
-  className = "",
-  compact = false,
-}: {
-  onClick: () => void;
-  className?: string;
-  compact?: boolean;
-}) {
+/** "Ajouter un spot": hands the reader to the search field. Under the list
+    on a wide screen, and in the empty page's notice. */
+export function AddSpotButton({ onClick, className = "" }: { onClick: () => void; className?: string }) {
   const { t } = useT();
   return (
     <button
@@ -209,8 +212,8 @@ export function AddSpotButton({
       onClick={onClick}
       className={`flex w-full items-center justify-center gap-2 rounded-lg font-medium cursor-pointer transition-colors hover:bg-surface-3 ${className}`}
       style={{
-        padding: compact ? "6px 12px" : 11,
-        fontSize: compact ? 12.5 : 13,
+        padding: 11,
+        fontSize: 13,
         background: "var(--ow-bg-2)",
         color: "var(--ow-fg-1)",
         border: "1px solid var(--ow-line-2)",

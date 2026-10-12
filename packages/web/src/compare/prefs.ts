@@ -35,8 +35,9 @@ export const SHEET_MAX = 100;
 /** Its two tap heights: the table read wide, and a glance over the map. */
 export const SHEET_OPEN = 78;
 export const SHEET_PEEK = 40;
-/** Below this the sheet is a peek, and the footer would eat the table. */
-export const SHEET_FOOTER_MIN = 60;
+/** Below this the sheet is a peek: a tap on the handle opens it, above it
+    a tap brings it down to the peek. */
+export const SHEET_OPEN_MIN = 60;
 
 export const DEFAULT_PREFS: ComparePrefs = {
   res: 3,
