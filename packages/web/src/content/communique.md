@@ -8,7 +8,7 @@ L'utilisateur [trace sa route](/plan), choisit un type de bateau, et OhMyWind ca
 - le vent, la mer et le courant rencontrés sur chaque tronçon ;
 - un score de complexité de 1 à 5, avec des alertes concrètes (vent soutenu, mer formée, vent contre courant).
 
-Les fenêtres se comparent d'un coup d'œil, et plusieurs tracés peuvent être [mis côte à côte](/comparer).
+Les fenêtres se comparent d'un coup d'œil, tout comme plusieurs itinéraires pour une même traversée. La page [Comparer](/comparer) met aussi les spots favoris côte à côte, heure par heure.
 
 ## Les courants de marée, pris au sérieux
 
@@ -55,7 +55,7 @@ Visuels (logo, captures d'écran) disponibles sur simple demande.
 
 - **Application web** : [ohmywind.fr](/)
 - **Planifier une navigation** : [ohmywind.fr/plan](/plan)
-- **Comparer des tracés** : [ohmywind.fr/comparer](/comparer)
+- **Comparer ses spots favoris** : [ohmywind.fr/comparer](/comparer)
 - **Android** : [Google Play](https://play.google.com/store/apps/details?id=fr.ohmywind.app)
 - **Méthodologie** : [ohmywind.fr/methodologie](/methodologie)
 - **Carte des courants de marée** : [ohmywind.fr/methodologie/courants](/methodologie/courants)

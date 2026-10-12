@@ -10,6 +10,7 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 
 - Un nouveau bateau type, voile-aviron (environ 5 m), couvre les petits voiliers ouverts sans cabine (#447).
 - Une page Quoi de neuf retrace les versions d'OhMyWind. On l'ouvre depuis le bouton « i », où un point discret signale une nouvelle version (#466, #469).
+- Le communiqué de presse d'octobre 2026 se lit sur /presse/communique, en tête de la revue de presse (#464).
 
 ### Corrections
 
