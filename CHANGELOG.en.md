@@ -19,6 +19,7 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 - The Explore hourly tables line up with the model column: no half-hidden column or day label after scrolling, and the line between two days keeps the same colour on every row; the boat picker in the plan shows readable names (#465).
 - On Compare, the place search measures its distances from your spots; a departure yesterday reads "Yesterday", not "Today"; an arrival on the next day shows its day (#467).
 - The boat picker button shows the boat's name, not its identifier; after "Cancel" on a route being drawn, the back button closes the comparison without leaving the plan (#469).
+- "Adjust" opens the departure calendar straight away; on Compare, "Add a spot" moves into the "Spots" panel, whose pill fills while it is open (#473).
 
 ### Behind the scenes
 

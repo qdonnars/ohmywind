@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { fmtClock, fmtDayLong, parisDayDelta, toNaiveLocal } from "../../domain/datetime";
 import { useTheme } from "../../design/useTheme";
 import { usePlan } from "../session/planContext";
@@ -32,6 +33,7 @@ export function DepartureSlider({
   const timeAnchor = state.timeAnchor;
   const { resolvedTheme } = useTheme();
   const [showManual, setShowManual] = useState(false);
+  const manualRef = useRef<HTMLInputElement>(null);
 
   // Anchor "now" once per mount so the slider's left edge stays fixed during interaction.
   const anchor = useMemo(() => {
@@ -55,6 +57,27 @@ export function DepartureSlider({
     const d = new Date();
     d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0);
     onChange(toNaiveLocal(d));
+  }
+
+  // « Ajuster » opens the calendar itself, not a field to tap a second time.
+  // The browser only lets a page open its picker during the user's gesture,
+  // so the field is rendered synchronously, inside the tap, then asked to
+  // open. Where `showPicker` is missing or refused, the field is focused and
+  // one tap away, as before.
+  function toggleManual() {
+    if (showManual) {
+      setShowManual(false);
+      return;
+    }
+    flushSync(() => setShowManual(true));
+    const input = manualRef.current;
+    if (!input) return;
+    input.focus();
+    try {
+      input.showPicker?.();
+    } catch {
+      /* no picker to open from script: the focused field remains */
+    }
   }
 
   // Display labels: the section header changes with the time anchor.
@@ -83,7 +106,7 @@ export function DepartureSlider({
         </span>
         <button
           type="button"
-          onClick={() => setShowManual((v) => !v)}
+          onClick={toggleManual}
           className="text-[10px] underline"
           style={{ color: "var(--ow-fg-2)" }}
         >
@@ -100,7 +123,9 @@ export function DepartureSlider({
 
       {showManual ? (
         <input
+          ref={manualRef}
           type="datetime-local"
+          aria-label={ariaLabel}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="ow-datetime-input w-full rounded-lg px-3 py-2 text-sm font-semibold tabular-nums"

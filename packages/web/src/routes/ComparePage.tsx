@@ -36,7 +36,7 @@ import {
   clampSheet,
   loadComparePrefs,
   saveComparePrefs,
-  SHEET_FOOTER_MIN,
+  SHEET_OPEN_MIN,
   SHEET_MAX,
   SHEET_MIN,
   SHEET_OPEN,
@@ -304,7 +304,7 @@ export function ComparePage() {
       tapHandledRef.current = false;
       return;
     }
-    const next = sheet >= SHEET_FOOTER_MIN ? SHEET_PEEK : SHEET_OPEN;
+    const next = sheet >= SHEET_OPEN_MIN ? SHEET_PEEK : SHEET_OPEN;
     setSheetAnimating(true);
     setSheet(next);
     setPrefs({ sheet: next });
@@ -314,7 +314,7 @@ export function ComparePage() {
     setSheetAnimating(false);
     refitMap(sheet);
   };
-  const sheetOpen = sheet >= SHEET_FOOTER_MIN;
+  const sheetOpen = sheet >= SHEET_OPEN_MIN;
 
   const focusedKey = focused ? rowKey(focused) : null;
 
@@ -516,14 +516,16 @@ export function ComparePage() {
               numbers={markerNumbers}
               variant="panel"
               onClose={() => setPanelOpen(false)}
+              onAdd={() => {
+                setPanelOpen(false);
+                focusSearch();
+              }}
             />
           )}
+          {/* No « Ajouter un spot » under the table: the sheet is the table,
+              and the way to add one is in the « Spots » panel, with the list
+              it grows. */}
           <div className="flex-1 min-h-0 flex flex-col pl-3.5">{content(true)}</div>
-          {sheetOpen && (
-            <div className="shrink-0 px-3 pt-1.5 pb-1" style={{ borderTop: "1px solid var(--ow-line)" }}>
-              <AddSpotButton onClick={focusSearch} compact />
-            </div>
-          )}
         </div>
       </div>
     </div>
