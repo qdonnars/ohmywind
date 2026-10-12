@@ -50,6 +50,9 @@ export class BackStack {
   /** Pops this stack asked for itself. Their `popstate` must dismiss nothing:
       the layer that triggered them is already closing. */
   private selfPops = 0;
+  /** Layers opened while one of those pops was still on its way, whose entry
+      waits for it to land (see `open`). */
+  private pendingPushes: number[] = [];
   private nextToken = 1;
 
   constructor(history: HistoryLike) {
@@ -60,11 +63,19 @@ export class BackStack {
     return this.layers.length;
   }
 
-  /** Opens a layer: one history entry to spend on the next back press. */
+  /** Opens a layer: one history entry to spend on the next back press.
+
+      When a layer closed from inside the app a moment ago, its `back()` has
+      not landed yet: it is asynchronous, and a push made now is applied
+      first. Leaving the drawing of a variant for the comparison does exactly
+      that in one commit, and the pop then went one entry too far, under the
+      page: the next back press left the planner with the comparison still
+      open. So the entry waits for that pop, and `handlePop` pushes it. */
   open(dismiss: () => void): number {
     const token = this.nextToken++;
     this.layers.push({ token, dismiss });
-    this.history.pushState({ [LAYER_KEY]: token }, "");
+    if (this.selfPops > 0) this.pendingPushes.push(token);
+    else this.history.pushState({ [LAYER_KEY]: token }, "");
     return token;
   }
 
@@ -73,6 +84,10 @@ export class BackStack {
   handlePop(): void {
     if (this.selfPops > 0) {
       this.selfPops -= 1;
+      if (this.selfPops === 0) {
+        for (const token of this.pendingPushes) this.history.pushState({ [LAYER_KEY]: token }, "");
+        this.pendingPushes = [];
+      }
       return;
     }
     this.layers.pop()?.dismiss();
@@ -87,6 +102,12 @@ export class BackStack {
     const idx = this.layers.findIndex((layer) => layer.token === token);
     if (idx === -1) return;
     this.layers.splice(idx, 1);
+    // Closed before its entry was pushed: there is nothing to pop.
+    const pending = this.pendingPushes.indexOf(token);
+    if (pending !== -1) {
+      this.pendingPushes.splice(pending, 1);
+      return;
+    }
     if (entryToken(this.history.state) !== token) return;
     this.selfPops += 1;
     this.history.back();
@@ -97,6 +118,7 @@ export class BackStack {
       dismissing something nobody can see. */
   detachAll(): void {
     this.layers.length = 0;
+    this.pendingPushes = [];
   }
 }
 

@@ -5,8 +5,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { isLayerEntry } from "../hooks/useBackDismiss";
 import { useRouter } from "../router";
-import { LOCAL_STORAGE_KEYS } from "../storage/keys";
-import { APP_VERSION } from "../utils/version";
 import { NavMenu } from "./NavMenu";
 
 // The router pings the service worker on every navigation; that module
@@ -32,11 +30,10 @@ function Page({ current }: { current: "explore" | "plan" | "compare" }) {
     while open, so reset between cases. */
 beforeEach(() => {
   window.history.replaceState(null, "", "/plan");
-  localStorage.clear();
 });
 
 describe("NavMenu", () => {
-  it("is one control at rest, and lists the three destinations and the release log once open", () => {
+  it("is one control at rest, and lists the three destinations once open", () => {
     render(<NavMenu variant="map" current="plan" mapQuery="?center=43.30000,5.35000&zoom=9" />);
     expect(screen.queryByRole("navigation")).toBeNull();
 
@@ -47,14 +44,12 @@ describe("NavMenu", () => {
       "ExplorerLa carte et la météo du spot",
       "PlanifierSimuler une route, comparer les fenêtres",
       "Comparer mes spotsMes favoris côte à côte",
-      `Quoi de neufVersion ${APP_VERSION}`,
     ]);
     // The camera travels with the two map pages, not with the comparison.
     expect(links.map((a) => a.getAttribute("href"))).toEqual([
       "/?center=43.30000,5.35000&zoom=9",
       "/plan?center=43.30000,5.35000&zoom=9",
       "/comparer",
-      "/nouveautes",
     ]);
   });
 
@@ -62,7 +57,7 @@ describe("NavMenu", () => {
     render(<NavMenu variant="header" current="compare" />);
     fireEvent.click(screen.getByRole("button"));
     const links = screen.getAllByRole("link");
-    expect(links.map((a) => a.getAttribute("aria-current"))).toEqual([null, null, "page", null]);
+    expect(links.map((a) => a.getAttribute("aria-current"))).toEqual([null, null, "page"]);
     expect(screen.getByRole("button").getAttribute("aria-expanded")).toBe("true");
   });
 
@@ -146,39 +141,5 @@ describe("NavMenu, under the router", () => {
     fireEvent.click(screen.getByRole("link", { name: /Planifier/ }));
     fireEvent.popState(window);
     expect(window.location.pathname).toBe("/plan");
-  });
-});
-
-describe("NavMenu, the new-release dot", () => {
-  const SEEN = LOCAL_STORAGE_KEYS.whatsNewSeen;
-
-  it("stays off on a first visit, and records the version for next time", () => {
-    render(<NavMenu variant="header" current="plan" />);
-    expect(screen.queryByTestId("whats-new-dot")).toBeNull();
-    expect(localStorage.getItem(SEEN)).toBe(APP_VERSION);
-  });
-
-  it("shows on the trigger and on the entry for a returning reader with an older version", () => {
-    localStorage.setItem(LOCAL_STORAGE_KEYS.lastSpot, "{}");
-    localStorage.setItem(SEEN, "0.0.1");
-    render(<NavMenu variant="header" current="plan" />);
-    expect(screen.getByTestId("whats-new-dot")).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "Ouvrir le menu" }));
-    const entry = screen.getByRole("link", { name: /Quoi de neuf/ });
-    expect(entry.textContent).toContain("Nouvelle version");
-    // Open, the entry carries the dot; the trigger's would sit on the accent.
-    expect(screen.queryByTestId("whats-new-dot")).toBeNull();
-    // Reading the menu is not reading the page: the version stays unseen.
-    expect(localStorage.getItem(SEEN)).toBe("0.0.1");
-  });
-
-  it("stays off once the current version has been seen", () => {
-    localStorage.setItem(LOCAL_STORAGE_KEYS.lastSpot, "{}");
-    localStorage.setItem(SEEN, APP_VERSION);
-    render(<NavMenu variant="header" current="plan" />);
-    expect(screen.queryByTestId("whats-new-dot")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Ouvrir le menu" }));
-    expect(screen.getByRole("link", { name: /Quoi de neuf/ }).textContent).not.toContain("Nouvelle version");
   });
 });

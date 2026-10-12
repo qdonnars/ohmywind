@@ -23,6 +23,8 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.boat.changeTitle": "Change the boat type",
   "panel.boat.edit": "edit",
   "panel.boat.reset": "reset",
+  "panel.boat.type.monohull": "monohull",
+  "panel.boat.type.catamaran": "catamaran",
   "panel.boat.recapImported": "{name} (imported)",
   "panel.boat.recapAdjusted": "{base} (adjusted)",
 

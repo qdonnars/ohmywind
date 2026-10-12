@@ -79,3 +79,20 @@ const PRODUCTION_HOSTS = new Set(["ohmywind.fr", "www.ohmywind.fr"]);
 export function visibleReleases(releases: readonly Release[], hostname: string): Release[] {
   return PRODUCTION_HOSTS.has(hostname) ? releases.filter((r) => r.date !== null) : [...releases];
 }
+
+/** "2026-10-11" as a local date: `new Date(iso)` reads UTC midnight, which
+    west of Greenwich prints as the day before. */
+function localDate(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/** The release date in the reader's language. French writes the first of the
+    month as an ordinal ("1er septembre"), which `Intl` does not do. */
+export function formatReleaseDate(iso: string, format: Intl.DateTimeFormat): string {
+  const fr = format.resolvedOptions().locale.startsWith("fr");
+  return format
+    .formatToParts(localDate(iso))
+    .map((p) => (fr && p.type === "day" && p.value === "1" ? "1er" : p.value))
+    .join("");
+}

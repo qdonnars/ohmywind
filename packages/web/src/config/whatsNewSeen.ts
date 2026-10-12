@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 /**
- * The dot on the menu's "Quoi de neuf" entry.
+ * The dot on the info button ("i") and on the "Quoi de neuf" entry of its panel.
  *
  * The browser remembers the last version whose release notes it has seen.
- * When the app runs a newer one, the menu shows a small dot until the page
+ * When the app runs a newer one, the "i" shows a small dot until the page
  * is opened. No modal and no toast: the release log is there for whoever
  * wants it, the dot only says it has grown.
  *
@@ -49,7 +49,7 @@ export function shouldShowWhatsNewDot(seen: string | null, current: string, retu
 }
 
 interface WhatsNewState {
-  /** The dot shows on the menu entry. */
+  /** The dot shows on the "i" and on the panel's entry. */
   dot: boolean;
   /** Nothing stored and no trace of use: record the version, show nothing. */
   firstVisit: boolean;
@@ -88,9 +88,9 @@ function localStorageOrNull(): Storage | null {
 }
 
 /**
- * The dot, read once when the menu mounts. Every page change remounts the
- * menu, and opening the page is a page change, so the dot is gone on the way
- * back without anything having to broadcast it.
+ * The dot, read once when the header's "i" mounts. Every page change
+ * remounts the header, and opening the page is a page change, so the dot is
+ * gone on the way back without anything having to broadcast it.
  */
 export function useWhatsNewDot(): boolean {
   const [state] = useState(() => readWhatsNewState(localStorageOrNull(), APP_VERSION));
