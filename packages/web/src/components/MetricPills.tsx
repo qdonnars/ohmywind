@@ -90,10 +90,19 @@ export function MetricPills({
             aria-selected={active}
             onClick={() => onSelect(p.view)}
             className="shrink-0 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-all"
+            // The pills float over the map: on the same glass as the other
+            // controls there. A bare outline let the basemap through, and in
+            // the light theme its place names read as loud as the labels and
+            // the pills as barely there (#387). The active tint is laid over
+            // the glass, not instead of it.
             style={{
               color: active ? "var(--ow-accent)" : "var(--ow-fg-1)",
-              background: active ? "var(--ow-accent-soft)" : "transparent",
-              border: `1px solid ${active ? "var(--ow-accent-line)" : "var(--ow-line)"}`,
+              background: active
+                ? "linear-gradient(var(--ow-accent-soft), var(--ow-accent-soft)), var(--ow-surface-glass)"
+                : "var(--ow-surface-glass)",
+              backdropFilter: "blur(8px)",
+              border: `1px solid ${active ? "var(--ow-accent-line)" : "var(--ow-line-2)"}`,
+              boxShadow: "var(--ow-shadow-1)",
             }}
           >
             <span aria-hidden className="shrink-0">{p.icon}</span>

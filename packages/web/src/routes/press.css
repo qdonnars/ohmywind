@@ -45,6 +45,24 @@
   color: var(--ow-fg-1);
 }
 
+/* Our release, above the articles: same card, the accent's border. */
+.press-card.press-release-card {
+  margin-bottom: 2.25rem;
+  border-color: var(--ow-accent-line);
+  box-shadow: inset 3px 0 0 var(--ow-accent);
+}
+.press-release-card-lead {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  margin: 0.5rem 0 1.125rem;
+  font-size: 0.925rem;
+  line-height: 1.6;
+  color: var(--ow-fg-1);
+}
+
 /* Articles */
 .press-list {
   display: flex;

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
 // Generates PWA icons (192x192 and 512x512 PNG) using only Node built-ins
 import zlib from "zlib";
 import fs from "fs";

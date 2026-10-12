@@ -71,44 +71,9 @@ When you ask "how long does it take to get from Marseille to Porquerolles in a 4
 
 We start by matching the boat to a standard **archetype**. Each archetype carries a theoretical **ORC** (Offshore Racing Congress, the international rating body) polar, that is, the boat's speed for every combination of **TWS** (True Wind Speed) and **TWA** (True Wind Angle, the angle between the true wind and the boat's heading). OhMyWind does not map a production model to an archetype server-side: the match is made from the text descriptions published for each archetype.
 
-The polars used can be viewed below (click to open). Each diagram is drawn as a half circle (right-hand side): boat speed is the distance from the centre (in knots), the wind angle TWA is read around the circumference (0° = head to wind at the top, 90° = beam reach on the right, 180° = dead run at the bottom). One curve per TWS value, from light blue (light wind) to magenta (strong wind).
+The polar of each reference boat can be viewed in the app, on the [Configuration](/config) page (the gear at the top of the screen), **Boat** tab: the **Resulting polar** tile draws the one for the boat chosen under "My boat", with the performance coefficient applied. The diagram is drawn as a half circle (right-hand side): boat speed is the distance from the centre (in knots), the wind angle TWA is read around the circumference (0° = head to wind at the top, 90° = beam reach on the right, 180° = dead run at the bottom). One curve per TWS value, with the one picked above the diagram highlighted.
 
-> **Reading note.** The polars do not run all the way down to TWA = 0°. By convention, ORC tables only define speed from the boat's minimum upwind angle (typically 40° to 45°). In the "forbidden" zone closer to the wind than that angle, OhMyWind does not read a zero from the polar (which would cancel the planning speed): it switches to the tacking calculation by VMG projection described in [step 4 below](#4-polar-wind-angle-and-upwind-tactics). That is why the curves appear open at the top.
-
-<details>
-<summary>Polar: 20 ft cruiser (Beneteau First 210, Catalina 22, Jeanneau Tonic 23, Jeanneau Sun 2000)</summary>
-<img src="/polars/cruiser_20ft.svg" alt="Speed polar of the 20 ft cruiser" />
-</details>
-
-<details>
-<summary>Polar: 25 ft cruiser (Beneteau First 25, Catalina 25, Jeanneau Sun Odyssey 24, Beneteau Oceanis 251)</summary>
-<img src="/polars/cruiser_25ft.svg" alt="Speed polar of the 25 ft cruiser" />
-</details>
-
-<details>
-<summary>Polar: 30 ft cruiser (Sun Odyssey 32, Bavaria 31, Beneteau Oceanis 31)</summary>
-<img src="/polars/cruiser_30ft.svg" alt="Speed polar of the 30 ft cruiser" />
-</details>
-
-<details>
-<summary>Polar: 40 ft cruiser (Sun Odyssey 410, Bavaria 41 Cruiser, Hanse 418)</summary>
-<img src="/polars/cruiser_40ft.svg" alt="Speed polar of the 40 ft cruiser" />
-</details>
-
-<details>
-<summary>Polar: 50 ft cruiser (Sun Odyssey 519, Bavaria C50, Hanse 508)</summary>
-<img src="/polars/cruiser_50ft.svg" alt="Speed polar of the 50 ft cruiser" />
-</details>
-
-<details>
-<summary>Polar: racer-cruiser (J/122, Pogo 12.50, Solaris 40, Grand Soleil 43)</summary>
-<img src="/polars/racer_cruiser.svg" alt="Speed polar of the racer-cruiser" />
-</details>
-
-<details>
-<summary>Polar: 40 ft catamaran (Lagoon 40, Bali 4.1, Fountaine Pajot Lucia 40)</summary>
-<img src="/polars/catamaran_40ft.svg" alt="Speed polar of the 40 ft catamaran" />
-</details>
+> **Reading note.** The polars do not run all the way down to TWA = 0°. By convention, ORC tables only define speed from the boat's minimum upwind angle (typically 40° to 45°). In the "forbidden" zone closer to the wind than that angle, OhMyWind does not read a zero from the polar (which would cancel the planning speed): it switches to the tacking calculation by VMG projection described in [step 4 below](#4-polar-wind-angle-and-upwind-tactics). That is why the curves stop short of the top of the diagram, at the edge of a shaded sector.
 
 The source files (JSON) are in the repository under [`packages/data-adapters/src/openwind_data/routing/polars/`](https://github.com/qdonnars/ohmywind/tree/main/packages/data-adapters/src/openwind_data/routing/polars). Each file holds the raw TWS x TWA table, the performance class and the example boats.
 
@@ -279,12 +244,15 @@ Academic reference for MARC: Pineau-Guillou Lucia (2013). PREVIMER, Validation d
 
 ## Hosting
 
-OhMyWind runs entirely on open, free platforms.
+OhMyWind is open source and runs entirely on free platforms. It is made of three distinct parts:
 
-- The static web app [ohmywind.fr](https://ohmywind.fr) is served by **Cloudflare Pages**, which hosts the public pages of an open source repository free of charge, with HTTPS and a custom domain included.
-- The MCP server runs on **Hugging Face Spaces** with the Docker SDK, which provides a public Linux container free of charge, HTTPS, and a private Dataset service to host the pre-computed MARC harmonic atlases (5 GB, pulled when the image is built).
+- **The web app** [ohmywind.fr](https://ohmywind.fr) is a static site served by **Cloudflare Pages**, which hosts the public pages of an open source repository free of charge, with HTTPS and a custom domain included. The forecast tables are requested by your browser directly from Open-Meteo; passage estimates and tidal currents go through the API below.
+- **The REST API** (`/api/v1/`) is the service the web app calls to estimate a passage, list the reference boats and read the tidal current atlases.
+- **The MCP server** (`https://mcp.ohmywind.fr/mcp`) is the entry point for conversational assistants that support MCP (Model Context Protocol): it exposes the same calculations as tools the assistant calls to answer a request phrased in natural language.
 
-Keeping an open source, advertising-free marine weather planner alive would be significantly more expensive without these two infrastructures. Thanks to Cloudflare and to Hugging Face for making them available to everyone.
+The API and the MCP server are two doors into one service: they share the calculation engine and run in a single Docker container on **Hugging Face Spaces**, which provides a public Linux container free of charge, HTTPS, and a private Dataset for the pre-computed tidal current atlases, pulled when the image is built. Both are reachable under the `mcp.ohmywind.fr` domain, which a **Cloudflare** Worker relays to the Space: moving to another host would not change the address saved in MCP clients.
+
+Keeping an open source marine weather planner alive, free and without an account, would be significantly more expensive without these infrastructures. Thanks to Cloudflare and to Hugging Face for making them available to everyone.
 
 ## Code and contributions
 

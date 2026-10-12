@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* SPDX-FileCopyrightText: 2026 Quentin Donnars */
+
 @import "tailwindcss";
 @import './design/tokens.css';
 
@@ -275,6 +278,13 @@ select,
 .wind-table-scroll th {
   scroll-snap-align: start;
 }
+/* The sticky label column never moves: as a snap target it only pulls the
+   strip back to its own position. The hour columns snap to its right edge
+   instead (scroll-padding set by useTimelineScroll). */
+.wind-table-scroll td.sticky,
+.wind-table-scroll th.sticky {
+  scroll-snap-align: none;
+}
 /* While a mouse drags the table (useTimelineScroll): the scroll position is
    set by hand on every move, so neither the smooth scrolling nor the snap
    must intervene, and the text under the pointer must not get selected. */
@@ -497,6 +507,13 @@ select,
 }
 .door-spotlight {
   animation: doorSpotlight 1.2s ease-in-out 3;
+}
+
+/* The header's search field, lit up by « Ajouter un spot » on /comparer
+   (compare/focusSearch): the same halo, twice. The class comes off on
+   animationend, and the halo ending on nothing is what lets it. */
+.search-spotlight {
+  animation: doorSpotlight 1.2s ease-in-out 2;
 }
 
 /* Plan waypoint marker + hover delete badge */
@@ -805,13 +822,17 @@ select,
   color: var(--ow-fg-2);
 }
 /* Day separator: discreet on mobile, accent stripe on desktop so the eye
-   finds the day boundary without taking extra vertical space on phones. */
+   finds the day boundary without taking extra vertical space on phones.
+   Opaque colours: the line crosses the header and every coloured cell of
+   the column, and a translucent one took each cell's tint, grey over the
+   header and a darker green over a 10 kn cell, so it read as a different
+   line on every row. */
 .ow-day-sep {
-  border-left: 1px solid var(--ow-line-2);
+  border-left: 1px solid var(--ow-fg-3);
 }
 @media (min-width: 1024px) {
   .ow-day-sep {
-    border-left: 2px solid var(--ow-accent-line);
+    border-left: 2px solid color-mix(in srgb, var(--ow-accent) 55%, var(--ow-bg-1));
   }
 }
 

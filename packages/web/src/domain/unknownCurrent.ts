@@ -18,8 +18,8 @@ import type { MarineHourly } from "../types";
 import { blindPassAt, inGeometry } from "./tidalGaps";
 import zonesJson from "./unknownZones.json";
 
-export type UnknownReason = "managed" | "unresolved" | "non_tidal" | "model_edge";
-export type WithheldField = "current" | "tide";
+type UnknownReason = "managed" | "unresolved" | "non_tidal" | "model_edge";
+type WithheldField = "current" | "tide";
 
 export interface UnknownCurrent {
   zone: string;

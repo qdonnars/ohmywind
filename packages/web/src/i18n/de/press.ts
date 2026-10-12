@@ -10,6 +10,9 @@ export const press: Record<keyof typeof frPress, string> = {
   "press.intro":
     "Was die Wassersportpresse über OhMyWind geschrieben hat. Jeder Eintrag verweist auf die englische Ausgabe, sofern es eine gibt; die anderen Ausgaben stehen darunter.",
 
+  "press.release.label": "Pressemitteilung",
+  "press.release.read": "Pressemitteilung lesen",
+
   "press.article.read": "Artikel auf {site} lesen",
   "press.article.editions": "Weitere Ausgaben",
 

@@ -4,6 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import L from "leaflet";
 import { spotKey, syncSpotMarkers } from "./spotMarkerLayer";
+import { SPOT_HIT_RADIUS_PX } from "../domain/gestures";
 import type { Spot } from "../types";
 
 const AT = { latitude: 43.2965, longitude: 5.37 };
@@ -43,6 +44,43 @@ describe("syncSpotMarkers", () => {
     marker.fire("click");
     expect(onSelect).toHaveBeenCalledTimes(1);
     expect(onSelect).toHaveBeenCalledWith(after);
+  });
+
+  it("widens a marker's target under a finger, without drawing it bigger (#422)", () => {
+    // jsdom has no matchMedia: lend a coarse pointer, as a phone reports.
+    window.matchMedia = (query: string) =>
+      ({ matches: query === "(pointer: coarse)" }) as unknown as MediaQueryList;
+    try {
+      const state = { markers: new Map<string, L.CircleMarker>(), elementToSpot: new Map<Element, Spot>() };
+      const spot: Spot = { ...AT, name: "Vieux-Port" };
+      sync([spot], state);
+      const marker = state.markers.get(spotKey(spot))!;
+      const layers: L.CircleMarker[] = [];
+      map.eachLayer((l) => {
+        if (l instanceof L.CircleMarker) layers.push(l);
+      });
+      const hit = layers.find((l) => l !== marker)!;
+      expect(layers).toHaveLength(2);
+      expect(hit.getRadius()).toBe(SPOT_HIT_RADIUS_PX);
+      expect(hit.getRadius()).toBeGreaterThan(marker.getRadius());
+      expect(hit.options.stroke).toBe(false);
+      expect(hit.options.fillOpacity).toBe(0);
+
+      // A tap on it is a tap on the spot, and a long press too. It follows
+      // a rename like the dot does.
+      const renamed: Spot = { ...AT, name: "Frioul" };
+      const onSelect = sync([renamed], state);
+      hit.fire("click");
+      expect(onSelect).toHaveBeenCalledWith(renamed);
+      expect([...state.elementToSpot.values()]).toEqual([renamed, renamed]);
+
+      // And it goes with the spot.
+      sync([], state);
+      expect(map.hasLayer(hit)).toBe(false);
+      expect(state.elementToSpot.size).toBe(0);
+    } finally {
+      Reflect.deleteProperty(window, "matchMedia");
+    }
   });
 
   it("names a numbered marker by its rank and keeps the name for assistive tech", () => {

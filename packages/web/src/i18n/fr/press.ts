@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-/** La page `/presse` : les articles que la presse nautique a consacrés au
-    projet, et à qui écrire pour le prochain. Titres et chapôs des articles
+/** La page `/presse` : notre communiqué (`/presse/communique`), les articles
+    que la presse nautique a consacrés au projet, et à qui écrire pour le
+    prochain. Titres et chapôs des articles
     sont cités tels que publiés, ils ne passent pas par le dictionnaire. */
 export const press = {
   "press.header.title": "Presse",
@@ -10,6 +11,10 @@ export const press = {
   "press.title": "Ils parlent d'OhMyWind",
   "press.intro":
     "Les articles que la presse nautique a consacrés à OhMyWind. Chaque fiche renvoie à l'édition en anglais quand elle existe ; les autres éditions sont indiquées dessous.",
+
+  // Communiqué
+  "press.release.label": "Communiqué de presse",
+  "press.release.read": "Lire le communiqué",
 
   // Fiche article
   "press.article.read": "Lire l'article sur {site}",

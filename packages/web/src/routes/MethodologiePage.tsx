@@ -101,8 +101,7 @@ function DocPage({ md, back, label }: { md: string; back: { href: string; text: 
 export function MethodologiePage() {
   const { t, lang } = useT();
   // Resolve the relative ./segmentation.svg reference inside the markdown to
-  // the URL Vite produces. Polar SVGs live under /polars/ in public/, the
-  // markdown can reference them directly.
+  // the URL Vite produces.
   const md = CONTENT[lang].replace("./segmentation.svg", segmentationSvgUrl);
   return <DocPage md={md} back={{ href: "/", text: "OhMyWind" }} label={t("config.docs.methodology")} />;
 }

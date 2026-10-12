@@ -10,6 +10,9 @@ export const press: Record<keyof typeof frPress, string> = {
   "press.intro":
     "What the sailing press has written about OhMyWind. Each entry links to the English edition where one exists; the other editions are listed below it.",
 
+  "press.release.label": "Press release",
+  "press.release.read": "Read the press release",
+
   "press.article.read": "Read the article on {site}",
   "press.article.editions": "Other editions",
 

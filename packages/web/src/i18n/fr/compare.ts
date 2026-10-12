@@ -17,6 +17,8 @@ export const compare = {
 
   // Lignes
   "compare.row.focus": "Centrer la carte sur {name}",
+  "compare.row.open": "Ouvrir {name} dans Explorer",
+  "compare.row.openHint": "Explorer ›",
   "compare.row.noData": "Hors couverture",
 
   // Réglages

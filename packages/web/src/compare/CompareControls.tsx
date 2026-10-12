@@ -279,7 +279,10 @@ interface SpotsChipProps {
   small: boolean;
 }
 
-/** Changes glyph and shows the count as soon as a spot is left out. */
+/** Changes glyph and shows the count as soon as a spot is left out. Filled
+    with the accent while its panel is open, as the menu's button is: the
+    panel opens inside the sheet, under the row, and without it nothing said
+    which control had put it there. */
 export function SpotsChip({ picked, total, open, onClick, small }: SpotsChipProps) {
   const { t } = useT();
   const filtered = picked < total;
@@ -291,9 +294,9 @@ export function SpotsChip({ picked, total, open, onClick, small }: SpotsChipProp
       onClick={onClick}
       className={`${CHIP} ${chipPadding(small)} gap-[5px]`}
       style={{
-        background: filtered ? "var(--ow-accent-soft)" : "transparent",
-        color: filtered ? "var(--ow-accent)" : "var(--ow-fg-2)",
-        borderColor: filtered ? "var(--ow-accent-line)" : "var(--ow-line-2)",
+        background: open ? "var(--ow-accent-strong)" : filtered ? "var(--ow-accent-soft)" : "transparent",
+        color: open ? "var(--ow-on-accent)" : filtered ? "var(--ow-accent)" : "var(--ow-fg-2)",
+        borderColor: open ? "transparent" : filtered ? "var(--ow-accent-line)" : "var(--ow-line-2)",
       }}
     >
       {filtered ? <TargetIcon /> : <MenuIcon />}

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useT } from "../i18n";
 import type { Spot } from "../types";
 import { fmtNm } from "../utils/geo";
@@ -26,6 +27,9 @@ interface SpotPickerProps {
       card, with a close button and a bounded height. */
   variant: "column" | "panel";
   onClose?: () => void;
+  /** The panel's last row, « Ajouter un spot »: on a phone the list is where
+      one looks for the way to grow it. */
+  onAdd?: () => void;
 }
 
 function CloseIcon() {
@@ -48,11 +52,25 @@ export function SpotPicker({
   numbers,
   variant,
   onClose,
+  onAdd,
 }: SpotPickerProps) {
   const { t } = useT();
   const picked = spots.filter((s) => !hidden.has(rowKey(s))).length;
   const all = picked === spots.length;
   const panel = variant === "panel";
+
+  // The phone's panel holds about five rows and scrolls past them, which an
+  // iPhone does not show: with six spots the sixth was out of sight with
+  // nothing to say so. A fade over the bottom of the list says there is more
+  // to slide to, and goes once the end is reached.
+  const listRef = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState(false);
+  const measure = useCallback(() => {
+    const el = listRef.current;
+    if (!el || !panel) return;
+    setMore(el.scrollTop + el.clientHeight < el.scrollHeight - 1);
+  }, [panel]);
+  useLayoutEffect(measure, [measure, spots.length]);
 
   return (
     <div
@@ -92,89 +110,112 @@ export function SpotPicker({
           </button>
         )}
       </div>
-      <div
-        className={`ow-hscroll overflow-y-auto ${panel ? "" : "flex-1 min-h-0 px-2.5"}`}
-        style={panel ? { maxHeight: 168 } : undefined}
-        role="group"
-        aria-label={t("compare.spots.title")}
-      >
-        {spots.map((spot) => {
-          const key = rowKey(spot);
-          const on = !hidden.has(key);
-          const distance = distances?.get(key);
-          const number = numbers?.get(key);
-          return (
-            <button
-              key={key}
-              type="button"
-              role="checkbox"
-              aria-checked={on}
-              aria-label={t("compare.spots.toggle", { name: spot.name })}
-              onClick={() => onToggle(spot)}
-              className={`flex w-full items-center gap-2.5 text-left cursor-pointer transition-opacity ${
-                panel ? "px-3 py-2" : "px-2.5 py-[9px] rounded-lg mb-[3px]"
-              }`}
-              style={{
-                opacity: on ? 1 : panel ? 0.45 : 0.5,
-                background: !panel && on ? "var(--ow-bg-2)" : "transparent",
-              }}
-            >
-              <span
-                aria-hidden="true"
-                className="shrink-0 rounded flex items-center justify-center text-[10px]"
+      <div className={panel ? "relative" : "contents"}>
+        <div
+          ref={listRef}
+          onScroll={measure}
+          className={`ow-hscroll overflow-y-auto relative ${panel ? "" : "flex-1 min-h-0 px-2.5"}`}
+          style={panel ? { maxHeight: 168 } : undefined}
+          role="group"
+          aria-label={t("compare.spots.title")}
+        >
+          {spots.map((spot) => {
+            const key = rowKey(spot);
+            const on = !hidden.has(key);
+            const distance = distances?.get(key);
+            const number = numbers?.get(key);
+            return (
+              <button
+                key={key}
+                type="button"
+                role="checkbox"
+                aria-checked={on}
+                aria-label={t("compare.spots.toggle", { name: spot.name })}
+                onClick={() => onToggle(spot)}
+                className={`flex w-full items-center gap-2.5 text-left cursor-pointer transition-opacity ${
+                  panel ? "px-3 py-2" : "px-2.5 py-[9px] rounded-lg mb-[3px]"
+                }`}
                 style={{
-                  width: panel ? 16 : 15,
-                  height: panel ? 16 : 15,
-                  border: on ? 0 : "1.5px solid var(--ow-line-2)",
-                  background: on ? "var(--ow-accent-strong)" : "transparent",
-                  color: "var(--ow-on-accent)",
+                  opacity: on ? 1 : panel ? 0.45 : 0.5,
+                  background: !panel && on ? "var(--ow-bg-2)" : "transparent",
                 }}
               >
-                {on ? "✓" : ""}
-              </span>
-              {number != null && (
                 <span
                   aria-hidden="true"
-                  className="shrink-0 rounded-full flex items-center justify-center"
+                  className="shrink-0 rounded flex items-center justify-center text-[10px]"
                   style={{
-                    width: 16,
-                    height: 16,
-                    background: "var(--ow-accent-strong)",
+                    width: panel ? 16 : 15,
+                    height: panel ? 16 : 15,
+                    border: on ? 0 : "1.5px solid var(--ow-line-2)",
+                    background: on ? "var(--ow-accent-strong)" : "transparent",
                     color: "var(--ow-on-accent)",
-                    fontFamily: "var(--ow-font-mono)",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    lineHeight: 1,
                   }}
                 >
-                  {number}
+                  {on ? "✓" : ""}
                 </span>
-              )}
-              <span className="flex-1 min-w-0">
-                <span
-                  className="block truncate font-semibold"
-                  style={{ fontSize: panel ? 12.5 : 13, letterSpacing: "-0.01em", color: "var(--ow-fg-0)" }}
-                >
-                  {spot.name}
-                </span>
-                {(spot.admin1 || spot.country) && (
-                  <span className="block truncate" style={{ fontSize: panel ? 10 : 10.5, color: "var(--ow-fg-2)" }}>
-                    {[spot.admin1, spot.country].filter(Boolean).join(" · ")}
+                {number != null && (
+                  <span
+                    aria-hidden="true"
+                    className="shrink-0 rounded-full flex items-center justify-center"
+                    style={{
+                      width: 16,
+                      height: 16,
+                      background: "var(--ow-accent-strong)",
+                      color: "var(--ow-on-accent)",
+                      fontFamily: "var(--ow-font-mono)",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {number}
                   </span>
                 )}
-              </span>
-              {distance != null && (
-                <span
-                  className="shrink-0 tabular-nums"
-                  style={{ fontFamily: "var(--ow-font-mono)", fontSize: panel ? 10 : 10.5, color: "var(--ow-fg-2)" }}
-                >
-                  {fmtNm(distance)}
+                <span className="flex-1 min-w-0">
+                  <span
+                    className="block truncate font-semibold"
+                    style={{ fontSize: panel ? 12.5 : 13, letterSpacing: "-0.01em", color: "var(--ow-fg-0)" }}
+                  >
+                    {spot.name}
+                  </span>
+                  {(spot.admin1 || spot.country) && (
+                    <span className="block truncate" style={{ fontSize: panel ? 10 : 10.5, color: "var(--ow-fg-2)" }}>
+                      {[spot.admin1, spot.country].filter(Boolean).join(" · ")}
+                    </span>
+                  )}
                 </span>
-              )}
-            </button>
-          );
-        })}
+                {distance != null && (
+                  <span
+                    className="shrink-0 tabular-nums"
+                    style={{ fontFamily: "var(--ow-font-mono)", fontSize: panel ? 10 : 10.5, color: "var(--ow-fg-2)" }}
+                  >
+                    {fmtNm(distance)}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {panel && more && (
+          <div
+            aria-hidden="true"
+            data-testid="spots-more-fade"
+            className="pointer-events-none absolute inset-x-0 bottom-0"
+            style={{ height: 40, background: "linear-gradient(to bottom, transparent, var(--ow-bg-2))" }}
+          />
+        )}
       </div>
+      {panel && onAdd && (
+        <button
+          type="button"
+          onClick={onAdd}
+          className="flex w-full items-center gap-2 px-3 py-2 text-[12.5px] font-semibold cursor-pointer"
+          style={{ color: "var(--ow-accent)", borderTop: "1px solid var(--ow-line)" }}
+        >
+          <PlusIcon />
+          {t("compare.spots.add")}
+        </button>
+      )}
     </div>
   );
 }
@@ -187,21 +228,9 @@ function PlusIcon() {
   );
 }
 
-/** "Ajouter un spot": hands the reader to the search field.
-
-    `compact` is the phone's footer: the sheet is the table, and a full-height
-    button under it takes a row away for a control the reader uses once. It
-    only loses height, and stays full width, so the target keeps its size
-    where a thumb aims. */
-export function AddSpotButton({
-  onClick,
-  className = "",
-  compact = false,
-}: {
-  onClick: () => void;
-  className?: string;
-  compact?: boolean;
-}) {
+/** "Ajouter un spot": hands the reader to the search field. Under the list
+    on a wide screen, and in the empty page's notice. */
+export function AddSpotButton({ onClick, className = "" }: { onClick: () => void; className?: string }) {
   const { t } = useT();
   return (
     <button
@@ -209,8 +238,8 @@ export function AddSpotButton({
       onClick={onClick}
       className={`flex w-full items-center justify-center gap-2 rounded-lg font-medium cursor-pointer transition-colors hover:bg-surface-3 ${className}`}
       style={{
-        padding: compact ? "6px 12px" : 11,
-        fontSize: compact ? 12.5 : 13,
+        padding: 11,
+        fontSize: 13,
         background: "var(--ow-bg-2)",
         color: "var(--ow-fg-1)",
         border: "1px solid var(--ow-line-2)",

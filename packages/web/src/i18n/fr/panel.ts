@@ -23,6 +23,8 @@ export const panel = {
   "panel.boat.changeTitle": "Changer le type de bateau",
   "panel.boat.edit": "éditer",
   "panel.boat.reset": "réinitialiser",
+  "panel.boat.type.monohull": "monocoque",
+  "panel.boat.type.catamaran": "catamaran",
   "panel.boat.recapImported": "{name} (importée)",
   "panel.boat.recapAdjusted": "{base} (ajustée)",
 
@@ -33,6 +35,9 @@ export const panel = {
   "panel.departure.ariaDeparture": "Date de départ",
   "panel.departure.slider": "Slider",
   "panel.departure.adjust": "Ajuster",
+  "panel.departure.daysAgo.one": "Il y a {count} jour",
+  "panel.departure.daysAgo.other": "Il y a {count} jours",
+  "panel.departure.yesterday": "Hier",
   "panel.departure.today": "Aujourd'hui",
   "panel.departure.tomorrow": "Demain",
   "panel.departure.inDays.one": "Dans {count} jour",

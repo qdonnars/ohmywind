@@ -33,6 +33,17 @@ const loadMethodologieCourants = () =>
   import("./routes/MethodologiePage").then((m) => ({ default: m.MethodologieCourantsPage }));
 const loadConfidentialite = () =>
   import("./routes/ConfidentialitePage").then((m) => ({ default: m.ConfidentialitePage }));
+// Le journal des versions tire lui aussi react-markdown et les deux
+// CHANGELOG : meme traitement que les pages de documentation, a la demande et
+// hors precache.
+const loadWhatsNew = () => import("./routes/WhatsNewPage").then((m) => ({ default: m.WhatsNewPage }));
+// La page « À propos » n'a ni carte ni markdown : petite, chargee a la
+// demande quand meme, puisque plus rien dans l'en-tete ne l'importe.
+const loadAbout = () => import("./routes/AboutPage").then((m) => ({ default: m.AboutPage }));
+// Le communique de presse tire lui aussi react-markdown, pour une page que
+// seuls les journalistes ouvriront : meme traitement, a la demande.
+const loadPressRelease = () =>
+  import("./routes/PressReleasePage").then((m) => ({ default: m.PressReleasePage }));
 
 // Les deux pages imposent un fond "papier blanc" quel que soit le theme.
 // L'attente reprend ce fond pour eviter un clignotement sombre puis clair
@@ -47,6 +58,31 @@ function DocFallback() {
   return (
     <div className="min-h-screen" style={{ background: "#ffffff", color: "#6b7280" }}>
       <p className="max-w-3xl mx-auto px-6 py-10 text-sm">{t("common.loading")}</p>
+    </div>
+  );
+}
+
+// /a-propos et /a-propos/nouveautes suivent le theme de l'application, comme
+// /presse : leur attente prend donc les jetons du theme et non le papier blanc
+// des documents.
+function AppPageFallback() {
+  const { t } = useT();
+  return (
+    <div className="min-h-screen" style={{ background: "var(--ow-bg-0)", color: "var(--ow-fg-2)" }}>
+      <p className="max-w-3xl mx-auto px-6 py-10 text-sm">{t("common.loading")}</p>
+    </div>
+  );
+}
+
+// Le communique suit le theme de l'application, comme /presse : son attente
+// aussi, sur les classes de press.css, deja chargee avec la page presse.
+function PressFallback() {
+  const { t } = useT();
+  return (
+    <div className="press-root min-h-screen">
+      <p className="max-w-3xl mx-auto px-6 py-10 text-sm" style={{ color: "var(--ow-fg-2)" }}>
+        {t("common.loading")}
+      </p>
     </div>
   );
 }
@@ -80,12 +116,18 @@ export function Routes() {
       return <ConfigPage key={key} />;
     case "press":
       return <PressPage key={key} />;
+    case "press-release":
+      return <LazyPageBoundary key={key} load={loadPressRelease} fallback={<PressFallback />} />;
     case "methodologie":
       return <LazyPageBoundary key={key} load={loadMethodologie} fallback={<DocFallback />} />;
     case "methodologie-courants":
       return <LazyPageBoundary key={key} load={loadMethodologieCourants} fallback={<DocFallback />} />;
     case "confidentialite":
       return <LazyPageBoundary key={key} load={loadConfidentialite} fallback={<DocFallback />} />;
+    case "about":
+      return <LazyPageBoundary key={key} load={loadAbout} fallback={<AppPageFallback />} />;
+    case "whats-new":
+      return <LazyPageBoundary key={key} load={loadWhatsNew} fallback={<AppPageFallback />} />;
     case "not-found":
       return <NotFoundPage key={key} />;
     case "explore":

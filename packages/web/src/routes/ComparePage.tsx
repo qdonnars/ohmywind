@@ -23,12 +23,20 @@ import {
   WindowChip,
 } from "../compare/CompareControls";
 import { CompareTable } from "../compare/CompareTable";
-import { compareDays, rowKey, sameSpot, type HourWindow, type Resolution } from "../compare/data";
+import {
+  compareDays,
+  rowKey,
+  sameSpot,
+  searchReference,
+  type HourWindow,
+  type Resolution,
+} from "../compare/data";
+import { focusSearch } from "../compare/focusSearch";
 import {
   clampSheet,
   loadComparePrefs,
   saveComparePrefs,
-  SHEET_FOOTER_MIN,
+  SHEET_OPEN_MIN,
   SHEET_MAX,
   SHEET_MIN,
   SHEET_OPEN,
@@ -37,7 +45,8 @@ import {
 } from "../compare/prefs";
 import { AddSpotButton, SpotPicker } from "../compare/SpotPicker";
 import { useCompareData } from "../compare/useCompareData";
-import { saveLastSpot } from "../config/lastSpot";
+import { loadLastSpot, saveLastSpot } from "../config/lastSpot";
+import { goTo } from "../router";
 import { useCustomSpots } from "../hooks/useCustomSpots";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useMapView } from "../hooks/useMapView";
@@ -54,12 +63,6 @@ const DEFAULT_MAP_CENTER: { lat: number; lon: number } = { lat: 43.3, lon: 5.35 
 /** Under this much map left above the sheet, framing the spots would only
     move them behind it: the reader has asked for the table, not the map. */
 const MAP_STRIP_MIN_PX = 100;
-
-/** Hands the reader to the header's search field: on this page a picked
-    result becomes a favourite, which is how a spot gets added here. */
-function focusSearch(): void {
-  document.querySelector<HTMLInputElement>('header input[role="combobox"]')?.focus();
-}
 
 function Notice({ title, body, children }: { title: string; body: string; children?: ReactNode }) {
   return (
@@ -129,12 +132,25 @@ export function ComparePage() {
 
   // The spot the map is centred on and the table highlights. Recorded as
   // the last spot looked at, so Explorer, next door in the menu, opens on
-  // it: that is where the detail by model lives.
+  // it: that is where the detail by model lives. A second tap on the spot
+  // already focused, its row or its marker, goes there: a double tap does
+  // it in one go, and the focused row says so (« Explorer › »).
   const [focused, setFocused] = useState<Spot | null>(null);
+  const focusedRef = useRef<Spot | null>(null);
   const handleFocus = useCallback((spot: Spot) => {
-    setFocused(spot);
     saveLastSpot(spot);
+    if (sameSpot(focusedRef.current, spot)) {
+      goTo("/");
+      return;
+    }
+    setFocused(spot);
   }, []);
+  useEffect(() => {
+    focusedRef.current = focused;
+  }, [focused]);
+  // The last spot looked at when the page opened, here or on Explorer: a
+  // reference for the place search until a spot is focused.
+  const [lastSpot] = useState(loadLastSpot);
 
   // Phone only: the height of the sheet, and the favourites panel inside it.
   // The height is dragged by the handle and kept across visits, so a reader
@@ -299,7 +315,7 @@ export function ComparePage() {
       tapHandledRef.current = false;
       return;
     }
-    const next = sheet >= SHEET_FOOTER_MIN ? SHEET_PEEK : SHEET_OPEN;
+    const next = sheet >= SHEET_OPEN_MIN ? SHEET_PEEK : SHEET_OPEN;
     setSheetAnimating(true);
     setSheet(next);
     setPrefs({ sheet: next });
@@ -309,7 +325,7 @@ export function ComparePage() {
     setSheetAnimating(false);
     refitMap(sheet);
   };
-  const sheetOpen = sheet >= SHEET_FOOTER_MIN;
+  const sheetOpen = sheet >= SHEET_OPEN_MIN;
 
   const focusedKey = focused ? rowKey(focused) : null;
 
@@ -375,11 +391,15 @@ export function ComparePage() {
     />
   );
 
+  // Not the map centre first, as on Explorer: here the sheet hides most of
+  // the map, and the centre of a map framed above it lies far off. See
+  // searchReference.
+  const near = searchReference(userPosition, [focused, lastSpot, customSpots[0]], mapView);
   const header = (
     <Header
       onSelectSpot={handleSearchSelect}
-      nearLat={userPosition?.lat ?? mapView?.lat ?? customSpots[0]?.latitude ?? null}
-      nearLon={userPosition?.lon ?? mapView?.lon ?? customSpots[0]?.longitude ?? null}
+      nearLat={near?.lat ?? null}
+      nearLon={near?.lon ?? null}
       savedSpots={customSpots}
       current="compare"
       mapQuery=""
@@ -507,14 +527,16 @@ export function ComparePage() {
               numbers={markerNumbers}
               variant="panel"
               onClose={() => setPanelOpen(false)}
+              onAdd={() => {
+                setPanelOpen(false);
+                focusSearch();
+              }}
             />
           )}
+          {/* No « Ajouter un spot » under the table: the sheet is the table,
+              and the way to add one is in the « Spots » panel, with the list
+              it grows. */}
           <div className="flex-1 min-h-0 flex flex-col pl-3.5">{content(true)}</div>
-          {sheetOpen && (
-            <div className="shrink-0 px-3 pt-1.5 pb-1" style={{ borderTop: "1px solid var(--ow-line)" }}>
-              <AddSpotButton onClick={focusSearch} compact />
-            </div>
-          )}
         </div>
       </div>
     </div>

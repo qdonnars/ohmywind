@@ -15,10 +15,12 @@ import {
   nowColumnKey,
   rowKey,
   sameSpot,
+  searchReference,
   waveLevel,
   windLabel,
   type CompareRow,
 } from "./data";
+import { haversineNm } from "../utils/geo";
 
 const marseille: Spot = { name: "Marseille", latitude: 43.3, longitude: 5.35 };
 const toulon: Spot = { name: "Toulon", latitude: 43.1, longitude: 5.93 };
@@ -49,6 +51,37 @@ describe("rowKey / sameSpot", () => {
     expect(sameSpot(marseille, { ...marseille, name: "Vieux-Port" })).toBe(true);
     expect(sameSpot(marseille, toulon)).toBe(false);
     expect(sameSpot(null, toulon)).toBe(false);
+  });
+});
+
+describe("searchReference", () => {
+  // Where the QA found the map's centre on a phone: the favourites framed
+  // above the sheet, the centre itself near the equator.
+  const offMap = { lat: 1.58, lon: 5.4, zoom: 3 };
+  const porquerolles = { lat: 43.0, lon: 6.2 };
+
+  it("measures from a spot, not from the centre of a map hidden by the sheet", () => {
+    const near = searchReference(null, [null, null, marseille], offMap);
+    expect(near).toEqual({ lat: 43.3, lon: 5.35 });
+    // Porquerolles a few dozen miles away, not the 2555 nm of the QA.
+    expect(haversineNm(near!.lat, near!.lon, porquerolles.lat, porquerolles.lon)).toBeLessThan(50);
+  });
+
+  it("puts the reader's position first, then the spots in the caller's order", () => {
+    expect(searchReference({ lat: 48.4, lon: -4.5 }, [toulon, marseille], offMap)).toEqual({
+      lat: 48.4,
+      lon: -4.5,
+    });
+    expect(searchReference(null, [toulon, marseille], offMap)).toEqual({ lat: 43.1, lon: 5.93 });
+    expect(searchReference(undefined, [undefined, marseille], offMap)).toEqual({ lat: 43.3, lon: 5.35 });
+  });
+
+  it("falls back to the map centre without any spot, and to nothing at all", () => {
+    expect(searchReference(null, [null, null, undefined], { lat: 43.3, lon: 5.35 })).toEqual({
+      lat: 43.3,
+      lon: 5.35,
+    });
+    expect(searchReference(null, [], null)).toBeNull();
   });
 });
 

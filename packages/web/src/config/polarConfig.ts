@@ -22,6 +22,7 @@ import cruiser30ft from "../data/polars/cruiser_30ft.json";
 import cruiser40ft from "../data/polars/cruiser_40ft.json";
 import cruiser50ft from "../data/polars/cruiser_50ft.json";
 import racerCruiser from "../data/polars/racer_cruiser.json";
+import voileAviron16ft from "../data/polars/voile_aviron_16ft.json";
 
 /** Exported so a subscriber can tell this key apart in a `storage` event. */
 export const POLAR_CONFIG_KEY = LOCAL_STORAGE_KEYS.polarConfig;
@@ -59,6 +60,7 @@ export const BASE_POLARS: Readonly<Record<string, PolarData>> = {
   cruiser_50ft: cruiser50ft as PolarData,
   racer_cruiser: racerCruiser as PolarData,
   catamaran_40ft: catamaran40ft as PolarData,
+  voile_aviron_16ft: voileAviron16ft as PolarData,
 };
 
 const ARCHETYPE_LABEL_KEYS: Readonly<Record<string, Key>> = {
@@ -69,6 +71,7 @@ const ARCHETYPE_LABEL_KEYS: Readonly<Record<string, Key>> = {
   cruiser_50ft: "config.boat.archetype.cruiser50ft",
   racer_cruiser: "config.boat.archetype.racerCruiser",
   catamaran_40ft: "config.boat.archetype.catamaran40ft",
+  voile_aviron_16ft: "config.boat.archetype.voileAviron16ft",
 };
 
 /**
@@ -206,7 +209,7 @@ interface PersistedConfig {
 // (North Sails, Yachting World, sail forums): asymmetric peaks on the reach
 // 110-135 deg and stays usable up to 150 deg by heating up; symmetric is
 // dead at beam reach but excels at broad reach + run (135-165 deg).
-export const ASYMMETRIC_BOOST_BY_TWA: Readonly<Record<number, number>> = {
+const ASYMMETRIC_BOOST_BY_TWA: Readonly<Record<number, number>> = {
   40: 1.0,
   50: 1.0,
   60: 1.0,
@@ -218,7 +221,7 @@ export const ASYMMETRIC_BOOST_BY_TWA: Readonly<Record<number, number>> = {
   165: 1.05,
 };
 
-export const SYMMETRIC_BOOST_BY_TWA: Readonly<Record<number, number>> = {
+const SYMMETRIC_BOOST_BY_TWA: Readonly<Record<number, number>> = {
   40: 1.0,
   50: 1.0,
   60: 1.0,

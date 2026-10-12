@@ -66,12 +66,17 @@ export const LOCAL_STORAGE_KEYS = {
   compareHint: "ow_compare_hint_v1",
   /** Comparison page settings: step, hour window, sea band, unticked spots. */
   compare: "ow_compare_v1",
+  /** Last app version (x.y.z) whose "Quoi de neuf" this browser has seen.
+      Behind the dot on the menu entry, see `config/whatsNewSeen.ts`. */
+  whatsNewSeen: "ow_whats_new_seen_v1",
 } as const;
 
 /** Keys written to `window.sessionStorage`, i.e. dropped when the tab closes. */
 export const SESSION_STORAGE_KEYS = {
   /** Where `/config` should return to when the user backs out of it. */
   configReturnPath: "ow_config_return_to",
+  /** Where `/a-propos` returns to: the page whose « i » opened it. */
+  aboutReturnPath: "ow_about_return_to",
   /** Waypoints drawn but not yet computed, so a service worker update or a
       reload does not throw away work in progress. */
   planDraft: "ow_plan_draft_v1",
@@ -85,9 +90,6 @@ export const LEGACY_STORAGE_KEYS = {
   customSpots: "openwind_custom_spots",
   onboarding: "openwind:onboarding-v1",
 } as const;
-
-export type LocalStorageKey = (typeof LOCAL_STORAGE_KEYS)[keyof typeof LOCAL_STORAGE_KEYS];
-export type SessionStorageKey = (typeof SESSION_STORAGE_KEYS)[keyof typeof SESSION_STORAGE_KEYS];
 
 /** Every key the app owns, for tests and for a future "erase my data". */
 export const STORAGE_KEYS: readonly string[] = [

@@ -107,7 +107,7 @@ class TestListArchetypes:
         server = build_server(adapter=StubAdapter())
         out = await _call(server, "list_boat_archetypes", {})
         items = out["result"] if isinstance(out, dict) and "result" in out else out
-        assert len(items) == 7
+        assert len(items) == 8
         names = {a["name"] for a in items}
         assert "cruiser_40ft" in names
         assert {"cruiser_20ft", "cruiser_25ft"} <= names

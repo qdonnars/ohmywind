@@ -184,9 +184,14 @@ export function TimelineHeader({
             className={`py-1 border-b ${gi > 0 ? 'ow-day-sep' : ''}`}
             style={{
               background: 'var(--ow-bg-1)',
-              borderColor: 'var(--ow-line-2)',
+              // The bottom border only: a full borderColor here would also
+              // repaint the day separator's left border (.ow-day-sep).
+              borderBottomColor: 'var(--ow-line-2)',
               position: 'sticky',
-              left: firstColumnPx,
+              // The measured width of the sticky label column
+              // (useTimelineScroll): the model names make it wider than the
+              // nominal 56 px, and the label slid under it (« N 12 »).
+              left: `var(--ow-sticky-col, ${firstColumnPx}px)`,
               zIndex: 19,
             }}
           >
@@ -251,7 +256,7 @@ export function TimelineHeader({
                   : "ow-hour-cell"
               }`}
               style={{
-                borderColor: 'var(--ow-line-2)',
+                borderBottomColor: 'var(--ow-line-2)',
               }}
               onClick={() => onSelectHour(col.time)}
             >

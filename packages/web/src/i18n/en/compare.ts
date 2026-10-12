@@ -14,6 +14,8 @@ export const compare: Record<keyof typeof frCompare, string> = {
     "Offline: the forecasts cannot be fetched. Reconnect, then reopen this page.",
 
   "compare.row.focus": "Centre the map on {name}",
+  "compare.row.open": "Open {name} in Explore",
+  "compare.row.openHint": "Explore ›",
   "compare.row.noData": "Out of coverage",
 
   "compare.controls.resLabel": "Time step",
