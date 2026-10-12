@@ -81,7 +81,7 @@ export function subscribe(listener: () => void): () => void {
 }
 
 /** Tell every subscriber to re-read the location. */
-export function notify(): void {
+function notify(): void {
   for (const listener of [...listeners]) listener();
 }
 

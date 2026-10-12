@@ -2,7 +2,7 @@
   "name": "openwind-web",
   "private": true,
   "license": "AGPL-3.0-or-later",
-  "version": "0.0.0",
+  "version": "1.9.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "lint:budget": "node scripts/lint-budget.mjs",
+    "knip": "knip",
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
@@ -32,6 +33,7 @@
     "@tailwindcss/vite": "^4.2.2",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
+    "@types/geojson": "^7946.0.16",
     "@types/leaflet": "^1.9.21",
     "@types/node": "^24.12.0",
     "@types/react": "^19.2.14",
@@ -42,6 +44,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
     "jsdom": "^30.0.1",
+    "knip": "^6.41.0",
     "tailwindcss": "^4.2.2",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.57.0",

@@ -318,3 +318,28 @@ export function mergeModelChain(models: readonly ModelForecast[]): ModelForecast
     },
   };
 }
+
+type LatLon = { lat: number; lon: number };
+
+/**
+ * The point the place search ranks around and measures its distances from.
+ *
+ * The reader's position first, when the browser already grants it, as on
+ * Explorer. Then a spot, not the map: on a phone the sheet covers most of
+ * the map, and framing the favourites in the strip it leaves (a padding as
+ * tall as the sheet) sends the map's own centre far south of them. The QA
+ * saw it at latitude 1.58, with Porquerolles listed 2555 nm away. The
+ * candidates come in the caller's order (the spot in focus, the last one
+ * looked at, the first favourite); the map centre only when there is none,
+ * and the map was then never framed.
+ */
+export function searchReference(
+  userPosition: LatLon | null | undefined,
+  spots: readonly (Spot | null | undefined)[],
+  mapView: LatLon | null | undefined,
+): LatLon | null {
+  if (userPosition) return { lat: userPosition.lat, lon: userPosition.lon };
+  const spot = spots.find((s) => s != null);
+  if (spot) return { lat: spot.latitude, lon: spot.longitude };
+  return mapView ? { lat: mapView.lat, lon: mapView.lon } : null;
+}

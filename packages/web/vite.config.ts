@@ -1,10 +1,25 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// La version du produit (site et serveur MCP) vit dans package.json, et nulle
+// part ailleurs cote web : elle est injectee au build sous __APP_VERSION__
+// (voir src/utils/version.ts). Un test verifie qu'elle est celle de la
+// derniere section publiee de CHANGELOG.md. Marche a suivre : docs/releases.md.
+const { version } = JSON.parse(
+  readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
+) as { version: string }
+
 export default defineConfig({
   base: '/',
+  define: {
+    __APP_VERSION__: JSON.stringify(version),
+  },
   build: {
     rollupOptions: {
       output: {
@@ -58,11 +73,11 @@ export default defineConfig({
         // precacher coutait ~330 KB de reseau a la premiere visite et autant
         // de stockage, pour des pages que la plupart des visiteurs n'ouvrent
         // jamais et qui n'ont pas besoin de fonctionner hors ligne.
-        // /methodologie et /confidentialite sont chargees a la demande et n'ont
-        // aucune raison de fonctionner hors ligne : ce sont des pages de
-        // lecture, pas la coque de l'application. Restent donc hors precache
-        // leurs chunks, leur CSS, le schema de segmentation et les polices
-        // KaTeX. Le chunk partage lib-*.js n'est importe que par ces deux
+        // /methodologie, /confidentialite et /presse/communique sont chargees a
+        // la demande et n'ont aucune raison de fonctionner hors ligne : ce sont
+        // des pages de lecture, pas la coque de l'application. Restent donc
+        // hors precache leurs chunks, leur CSS, le schema de segmentation et
+        // les polices KaTeX. Le chunk partage lib-*.js n'est importe que par ces trois
         // pages (verifie sur la sortie de build : le chunk d'entree n'importe
         // que maplibre et le runtime rolldown) ; si un jour l'entree en
         // dependait, il faudrait le remettre au precache sous peine de casser
@@ -78,6 +93,10 @@ export default defineConfig({
           'polars/**',
           '**/MethodologiePage-*',
           '**/ConfidentialitePage-*',
+          // Le journal des versions (/nouveautes) suit la meme regle : une
+          // page de lecture chargee a la demande, qui partage lib-*.js.
+          '**/WhatsNewPage-*',
+          '**/PressReleasePage-*',
           '**/lib-*.js',
           '**/segmentation-*.svg',
         ],

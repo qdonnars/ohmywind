@@ -8,7 +8,7 @@ import type { Lang } from "../i18n";
  * lives. Bateaux.com publishes each piece on five sister sites, one per
  * language, so an article is a set of editions rather than one URL.
  */
-export interface PressEdition {
+interface PressEdition {
   lang: Lang;
   url: string;
   /** The host the reader lands on, shown in the link so the jump from
@@ -35,6 +35,20 @@ export interface PressArticle {
   /** Every other edition, listed under the card in its own language. */
   editions: PressEdition[];
 }
+
+/**
+ * Our own press release, at `/presse/communique`. The head lives here so the
+ * press page can show it as a card without loading the release's chunk; the
+ * body is `communique.md`. Written in French only, hence `lang`: the card and
+ * the page mark it, whatever the interface language.
+ */
+export const PRESS_RELEASE: { lang: Lang; dateline: string; title: string; lead: string } = {
+  lang: "fr",
+  dateline: "Marseille, octobre 2026",
+  title: "OhMyWind : l'outil gratuit qui dit aux plaisanciers à quelle heure partir",
+  lead:
+    "Né d'un projet personnel à Marseille, OhMyWind est un planificateur de navigation à la voile gratuit, sans compte et open source. Il compare les heures de départ possibles d'une navigation en croisant météo, état de la mer, courants de marée et performances du bateau. Sans campagne de lancement, il réunit déjà plus de 600 utilisateurs par jour, en France et en Allemagne.",
+};
 
 /** Newest first. Text is quoted verbatim from each outlet, do not edit. */
 export const PRESS_ARTICLES: readonly PressArticle[] = [

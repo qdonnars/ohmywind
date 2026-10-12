@@ -14,6 +14,8 @@ export const compare: Record<keyof typeof frCompare, string> = {
     "Sin conexión: no se pueden recuperar las previsiones. Vuelva a conectarse y abra de nuevo esta página.",
 
   "compare.row.focus": "Centrar el mapa en {name}",
+  "compare.row.open": "Abrir {name} en Explorar",
+  "compare.row.openHint": "Explorar ›",
   "compare.row.noData": "Fuera de cobertura",
 
   "compare.controls.resLabel": "Paso horario",

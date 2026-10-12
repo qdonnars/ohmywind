@@ -3,7 +3,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render } from "@testing-library/react";
-import { useRouter } from "./router";
+import { goTo, useRouter } from "./router";
 import { getLocation, navigate, normalisePath } from "./navigation";
 
 // The router calls into the service worker on every navigation. That module
@@ -213,5 +213,19 @@ describe("useRouter", () => {
     // The detached node keeps the last value it was given, and no update was
     // attempted on an unmounted tree (React would warn).
     expect(rendered.textContent).toBe("/");
+  });
+});
+
+describe("goTo", () => {
+  it("goes to a page the way a link does, over an open panel's entry", () => {
+    window.history.replaceState(null, "", "/comparer");
+    window.history.pushState({ "ohmywind:layer": 1 }, "", "/comparer");
+    const before = window.history.length;
+    const { getByTestId } = render(<Probe />);
+    act(() => goTo("/"));
+    expect(getByTestId("path").textContent).toBe("/");
+    // The panel's entry is taken over, not stacked on.
+    expect(window.history.length).toBe(before);
+    expect(window.history.state).toBeNull();
   });
 });

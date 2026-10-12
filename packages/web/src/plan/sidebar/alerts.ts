@@ -14,7 +14,7 @@ export interface Alert {
 /** The server's complexity warnings carry their kind; its passage warnings
     are sentences, sorted here by what they name. French and English, the
     two languages the backend has spoken. */
-export function classifyAlert(message: string): AlertKind {
+function classifyAlert(message: string): AlertKind {
   if (/courant|current/i.test(message)) return "current";
   if (/\bvent|wind|tws|rafale|gust/i.test(message)) return "wind";
   if (/\bmer\b|houle|\bhs\b|vague|\bsea\b|swell|wave/i.test(message)) return "sea";

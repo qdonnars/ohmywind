@@ -7,14 +7,14 @@
 import type { PassageReport, SegmentReport } from "./types";
 import { cxLevel, cxLevelVar } from "../domain/thresholds";
 import { fmtDurationSafe, num1 } from "./format";
-import { fmtClock } from "../domain/datetime";
+import { capitalise, fmtClock, fmtDay, parisDayDelta } from "../domain/datetime";
 import { useT } from "../i18n";
 
 // ── EmptyState ────────────────────────────────────────────────────────────────
 // Shown when fewer than 2 waypoints are placed: invites the user to draw a
 // route on the map. The route bar above is dimmed (locked) until placement.
 
-export function RouteSketch() {
+function RouteSketch() {
   return (
     <svg viewBox="0 0 280 100" className="w-full" style={{ maxHeight: 110 }} aria-hidden="true">
       <defs>
@@ -68,16 +68,20 @@ export function EmptyState() {
 // 4-cell stats row with a segmented complexity bar underneath; matches the
 // design's "Sim filled" header block.
 
-export function HeroCell({
+function HeroCell({
   label,
   value,
   unit,
+  note,
   tone,
   size = "md",
 }: {
   label: string;
   value: string;
   unit?: string;
+  /** A line under the value: the day of an arrival that is not the
+      departure's. */
+  note?: string;
   tone?: "warn" | "accent" | "default";
   /** `lg` is the drawer head on mobile (StatBand): the three totals are the
       headline there, not one block among the results. */
@@ -106,8 +110,22 @@ export function HeroCell({
           </span>
         )}
       </div>
+      {note && (
+        <div className={`${large ? "text-xs" : "text-[10px]"} mt-1`} style={{ color: "var(--ow-fg-2)" }}>
+          {note}
+        </div>
+      )}
     </div>
   );
+}
+
+/** The arrival's day, in the departure's short form (« Dim. 12 oct. »), when
+    the passage ends on another Paris day than it starts: alone, « 08:07 »
+    read as the morning of the departure. */
+function arrivalDay(passage: PassageReport): string | undefined {
+  return parisDayDelta(passage.departure_time, passage.arrival_time) !== 0
+    ? capitalise(fmtDay(passage.arrival_time))
+    : undefined;
 }
 
 // One cell per server step, wide in proportion to its distance. With
@@ -215,7 +233,7 @@ export function HeroStats({
       <div className="grid grid-cols-3 gap-3 mb-3">
         <HeroCell label={t("plan.hero.distance")} value={num1(passage.distance_nm)} unit="nm" />
         <HeroCell label={t("plan.hero.duration")} value={fmtDurationSafe(passage.duration_h)} />
-        <HeroCell label={t("plan.hero.arrival")} value={fmtClock(passage.arrival_time)} />
+        <HeroCell label={t("plan.hero.arrival")} value={fmtClock(passage.arrival_time)} note={arrivalDay(passage)} />
       </div>
       <SegmentBar
         segments={passage.segments}
@@ -252,7 +270,13 @@ export function StatBand({ passage }: { passage: PassageReport }) {
         <HeroCell size="lg" label={t("plan.hero.duration")} value={fmtDurationSafe(passage.duration_h)} />
       </div>
       <div className="pl-3.5" style={divider}>
-        <HeroCell size="lg" tone="accent" label={t("plan.hero.arrival")} value={fmtClock(passage.arrival_time)} />
+        <HeroCell
+          size="lg"
+          tone="accent"
+          label={t("plan.hero.arrival")}
+          value={fmtClock(passage.arrival_time)}
+          note={arrivalDay(passage)}
+        />
       </div>
     </div>
   );

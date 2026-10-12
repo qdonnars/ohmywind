@@ -52,7 +52,7 @@ export const ALL_MODELS: readonly ModelName[] = [
 
 // Default ranking — the four historical models stay active out of the box so
 // existing users see no change, the rest appended (greyed) for opt-in promotion.
-export const DEFAULT_ORDER: readonly ModelName[] = [
+const DEFAULT_ORDER: readonly ModelName[] = [
   "AROME",
   "ICON",
   "ECMWF",

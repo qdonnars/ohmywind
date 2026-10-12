@@ -32,3 +32,26 @@ export function consumeReturnPath(): string {
     return "/";
   }
 }
+
+// The same for /a-propos, with one difference: the page is read again on the
+// way back from its own sub-page (/a-propos/nouveautes), so the path is kept
+// rather than consumed. The next « i » overwrites it.
+const ABOUT_KEY = SESSION_STORAGE_KEYS.aboutReturnPath;
+
+export function rememberAboutReturnPath(): void {
+  try {
+    const here = window.location.pathname + window.location.search;
+    if (here.startsWith("/a-propos")) return;
+    sessionStorage.setItem(ABOUT_KEY, here);
+  } catch {
+    // sessionStorage unavailable: the back link falls back to "/".
+  }
+}
+
+export function aboutReturnPath(): string {
+  try {
+    return sessionStorage.getItem(ABOUT_KEY) ?? "/";
+  } catch {
+    return "/";
+  }
+}

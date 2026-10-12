@@ -98,7 +98,7 @@ against a stub adapter.
 
 The simulation engine lives in `openwind_data.routing.passage`. Defaults below are what `plan_passage` uses unless overridden.
 
-- **Polar lookup** 7 ORC-style archetypes (20 to 50 ft cruisers, racer-cruiser, 40 ft catamaran), bilinear interpolation in (TWS, TWA), clamped at grid edges. TWA symmetric on [0°, 180°].
+- **Polar lookup** 8 ORC-style archetypes (20 to 50 ft cruisers, racer-cruiser, 40 ft catamaran, 16 ft sail-and-oar dinghy), bilinear interpolation in (TWS, TWA), clamped at grid edges. TWA symmetric on [0°, 180°].
 - **Efficiency 0.75** by default (cruising). Override via the `efficiency` arg: `0.85` racing, `0.65` loaded family, `0.55` heavy seas / fouled hull.
 - **VMG / tacking correction** when route TWA < optimal upwind angle (~42-48°), effective speed = `polar(opt_TWA) × cos(opt_TWA − route_TWA)`. Models a sailor who tacks instead of pinching.
 - **Wave derate** opt-in via `use_wave_correction`: `max(0.5, 1 − 0.05 × Hs^1.75 × cos²(TWA/2))`. Off by default; sea state feeds warnings instead.

@@ -9,6 +9,7 @@ import {
   capitalise,
   localOffsetFor,
   nowParisHourPrefix,
+  parisDayDelta,
   parisIsoToUtcMs,
   parisOffsetMinAt,
   toNaiveLocal,
@@ -220,6 +221,36 @@ describe("nowParisHourPrefix", () => {
       .replace(", ", "T")
       .replace("24", "00");
     expect(nowParisHourPrefix()).toBe(expected);
+  });
+});
+
+// Absolute instants only: the CI runner sits in UTC, a laptop in Paris, and
+// the answer must not depend on which one runs the test.
+describe("parisDayDelta", () => {
+  it("counts yesterday as -1 however few hours separate the two instants", () => {
+    // 01:00 Paris on the 11th seen from 23:30 Paris on the 10th, and back.
+    expect(parisDayDelta("2026-10-10T21:30:00Z", "2026-10-10T23:00:00Z")).toBe(1);
+    expect(parisDayDelta("2026-10-10T23:00:00Z", "2026-10-10T21:30:00Z")).toBe(-1);
+  });
+
+  it("reads the Paris date, not the UTC one", () => {
+    // Same UTC day, two Paris days: 23:30 UTC is already the next morning.
+    expect(parisDayDelta("2026-10-11T08:00:00Z", "2026-10-11T23:30:00Z")).toBe(1);
+    // Two UTC days, one Paris day.
+    expect(parisDayDelta("2026-10-10T22:30:00Z", "2026-10-11T20:00:00Z")).toBe(0);
+  });
+
+  it("calls tomorrow morning tomorrow, even less than 24 h away", () => {
+    expect(parisDayDelta(new Date("2026-10-11T18:00:00Z"), new Date("2026-10-12T06:00:00Z"))).toBe(1);
+  });
+
+  it("stays whole across a daylight-saving change", () => {
+    // 48 h over the 25-hour day of 2026-10-25: 00:30 on the 25th to 23:30
+    // on the 26th, one day. 23 h over the 23-hour day of 2026-03-29: 00:30
+    // on the 29th to 00:30 on the 30th, one day too.
+    expect(parisDayDelta("2026-10-24T22:30:00Z", "2026-10-26T22:30:00Z")).toBe(1);
+    expect(parisDayDelta("2026-03-28T23:30:00Z", "2026-03-29T22:30:00Z")).toBe(1);
+    expect(parisDayDelta("2026-10-01T10:00:00Z", "2026-09-24T10:00:00Z")).toBe(-7);
   });
 });
 

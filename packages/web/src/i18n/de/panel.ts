@@ -23,6 +23,8 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.boat.changeTitle": "Bootstyp wechseln",
   "panel.boat.edit": "bearbeiten",
   "panel.boat.reset": "zurücksetzen",
+  "panel.boat.type.monohull": "Einrumpfboot",
+  "panel.boat.type.catamaran": "Katamaran",
   "panel.boat.recapImported": "{name} (importiert)",
   "panel.boat.recapAdjusted": "{base} (angepasst)",
 
@@ -33,6 +35,9 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.departure.ariaDeparture": "Abfahrtsdatum",
   "panel.departure.slider": "Regler",
   "panel.departure.adjust": "Anpassen",
+  "panel.departure.daysAgo.one": "Vor {count} Tag",
+  "panel.departure.daysAgo.other": "Vor {count} Tagen",
+  "panel.departure.yesterday": "Gestern",
   "panel.departure.today": "Heute",
   "panel.departure.tomorrow": "Morgen",
   "panel.departure.inDays.one": "In {count} Tag",

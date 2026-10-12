@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 /**
- * The seven archetype polars under `src/data/polars/` are copies of the files
+ * The archetype polars under `src/data/polars/` are copies of the files
  * the server plans with, in `packages/data-adapters`. The client needs its own
  * copy: the polar editor draws a diagram and computes an override before any
  * request is sent, and `/config` has to work offline.

@@ -265,7 +265,7 @@ function classifyCurrent(deltaKn: number, currentSpeedKn: number | null): "porta
  * short gusty one, and the speed build-up adds up. `range` is only carried
  * through for provenance. Returns null for an empty or zero-length run.
  */
-export function aggregateSegments(
+function aggregateSegments(
   segs: SegmentReport[],
   efficiency: number,
   minUpwindDeg: number,

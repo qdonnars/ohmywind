@@ -171,6 +171,47 @@ describe("BackStack", () => {
     expect(kept).toHaveBeenCalledTimes(1);
   });
 
+  it("hands over to a layer opened in the same commit as one closed", () => {
+    // Seed (QA J13): « Annuler » on the drawing of a variant closes that
+    // layer and reopens the comparison under it at once. The close's back()
+    // is asynchronous; the comparison's push went first, the pop then landed
+    // under the page, and the next back press left the planner.
+    const history = new FakeHistory();
+    const stack = new BackStack(history);
+    const drawing = stack.open(() => {});
+    const closeCompare = vi.fn();
+
+    stack.close(drawing);
+    stack.open(closeCompare);
+    // Nothing pushed until the pop has landed.
+    expect(history.entries).toHaveLength(2);
+    expect(history.index).toBe(0);
+
+    stack.handlePop();
+    expect(history.index).toBe(1);
+    expect(isLayerEntry(history.state)).toBe(true);
+    expect(closeCompare).not.toHaveBeenCalled();
+
+    // The next press closes the comparison and stays on the page.
+    history.back();
+    stack.handlePop();
+    expect(closeCompare).toHaveBeenCalledTimes(1);
+    expect(history.index).toBe(0);
+  });
+
+  it("pushes nothing for a layer closed before its entry was pushed", () => {
+    const history = new FakeHistory();
+    const stack = new BackStack(history);
+    const first = stack.open(() => {});
+    stack.close(first);
+    const second = stack.open(() => {});
+    stack.close(second);
+
+    stack.handlePop();
+    expect(history.entries.slice(0, history.index + 1)).toEqual([{ state: null, url: "/plan" }]);
+    expect(stack.depth).toBe(0);
+  });
+
   it("forgets the layers of a page being left", () => {
     const history = new FakeHistory();
     const stack = new BackStack(history);

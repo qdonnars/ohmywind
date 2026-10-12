@@ -69,44 +69,9 @@ Quand on demande "combien de temps pour aller de Marseille à Porquerolles avec 
 
 On commence par associer le bateau à un **archétype** standard. Chaque archétype porte un polaire **ORC** (Offshore Racing Congress, l'organisme international de jauge) théorique, c'est-à-dire la vitesse du bateau pour chaque combinaison de **TWS** (True Wind Speed, vitesse réelle du vent) et **TWA** (True Wind Angle, angle entre le vent réel et le cap du bateau). OhMyWind n'associe pas un modèle commercial à un archétype côté serveur : la correspondance se fait à partir des descriptions textuelles publiées pour chaque archétype.
 
-Les polaires utilisées sont consultables ci-dessous (cliquez pour ouvrir). Chaque diagramme est tracé en demi-cercle (côté droit) : la vitesse du bateau est la distance au centre (en nœuds), l'angle au vent TWA est lu autour de la circonférence (0° = vent debout en haut, 90° = travers à droite, 180° = vent arrière en bas). Une courbe par valeur de TWS, du bleu clair (vent faible) au magenta (vent fort).
+Les polaires de chaque voilier-type se consultent dans l'application, page [Configuration](/config) (l'engrenage en haut de l'écran), onglet **Bateau** : la tuile **Polaire résultante** trace celle du bateau choisi dans « Mon bateau », coefficient de performance appliqué. Le diagramme est tracé en demi-cercle (côté droit) : la vitesse du bateau est la distance au centre (en nœuds), l'angle au vent TWA est lu autour de la circonférence (0° = vent debout en haut, 90° = travers à droite, 180° = vent arrière en bas). Une courbe par valeur de TWS, celle choisie au-dessus du diagramme mise en avant.
 
-> **Note de lecture.** Les polaires ne descendent pas jusqu'à TWA = 0°. Par convention, les tableaux ORC ne définissent la vitesse qu'à partir de l'angle minimal de remontée du bateau (typiquement 40° à 45°). Dans la zone "interdite" plus serrée que cet angle, OhMyWind ne lit pas un zéro dans la polaire (qui annulerait la vitesse de planification) : on bascule sur le calcul de louvoyage par projection VMG décrit à l'[étape 4 ci-dessous](#4-polaire-angle-au-vent-et-tactique-au-près). C'est pour cette raison que les courbes apparaissent ouvertes en haut.
-
-<details>
-<summary>Polaire : croiseur 20 pieds (Beneteau First 210, Catalina 22, Jeanneau Tonic 23, Jeanneau Sun 2000)</summary>
-<img src="/polars/cruiser_20ft.svg" alt="Polaire de vitesse du croiseur 20 pieds" />
-</details>
-
-<details>
-<summary>Polaire : croiseur 25 pieds (Beneteau First 25, Catalina 25, Jeanneau Sun Odyssey 24, Beneteau Oceanis 251)</summary>
-<img src="/polars/cruiser_25ft.svg" alt="Polaire de vitesse du croiseur 25 pieds" />
-</details>
-
-<details>
-<summary>Polaire : croiseur 30 pieds (Sun Odyssey 32, Bavaria 31, Beneteau Oceanis 31)</summary>
-<img src="/polars/cruiser_30ft.svg" alt="Polaire de vitesse du croiseur 30 pieds" />
-</details>
-
-<details>
-<summary>Polaire : croiseur 40 pieds (Sun Odyssey 410, Bavaria 41 Cruiser, Hanse 418)</summary>
-<img src="/polars/cruiser_40ft.svg" alt="Polaire de vitesse du croiseur 40 pieds" />
-</details>
-
-<details>
-<summary>Polaire : croiseur 50 pieds (Sun Odyssey 519, Bavaria C50, Hanse 508)</summary>
-<img src="/polars/cruiser_50ft.svg" alt="Polaire de vitesse du croiseur 50 pieds" />
-</details>
-
-<details>
-<summary>Polaire : racer-cruiser (J/122, Pogo 12.50, Solaris 40, Grand Soleil 43)</summary>
-<img src="/polars/racer_cruiser.svg" alt="Polaire de vitesse du racer-cruiser" />
-</details>
-
-<details>
-<summary>Polaire : catamaran 40 pieds (Lagoon 40, Bali 4.1, Fountaine Pajot Lucia 40)</summary>
-<img src="/polars/catamaran_40ft.svg" alt="Polaire de vitesse du catamaran 40 pieds" />
-</details>
+> **Note de lecture.** Les polaires ne descendent pas jusqu'à TWA = 0°. Par convention, les tableaux ORC ne définissent la vitesse qu'à partir de l'angle minimal de remontée du bateau (typiquement 40° à 45°). Dans la zone "interdite" plus serrée que cet angle, OhMyWind ne lit pas un zéro dans la polaire (qui annulerait la vitesse de planification) : on bascule sur le calcul de louvoyage par projection VMG décrit à l'[étape 4 ci-dessous](#4-polaire-angle-au-vent-et-tactique-au-près). C'est pour cette raison que les courbes s'arrêtent avant le haut du diagramme, au bord d'une zone grisée.
 
 Les fichiers source (JSON) sont dans le dépôt sous [`packages/data-adapters/src/openwind_data/routing/polars/`](https://github.com/qdonnars/ohmywind/tree/main/packages/data-adapters/src/openwind_data/routing/polars). Chaque fichier contient le tableau brut TWS x TWA, la classe de performance et les exemples de bateaux.
 
@@ -277,12 +242,15 @@ Référence académique pour MARC : Pineau-Guillou Lucia (2013). PREVIMER, Valid
 
 ## Hébergement
 
-OhMyWind tourne intégralement sur des plateformes ouvertes et gratuites.
+OhMyWind est open source et tourne intégralement sur des plateformes gratuites. Il se compose de trois briques distinctes :
 
-- L'application web statique [ohmywind.fr](https://ohmywind.fr) est servie par **Cloudflare Pages**, qui héberge gratuitement les pages publiques d'un dépôt open source, avec HTTPS et domaine personnalisé inclus.
-- Le serveur MCP tourne sur **Hugging Face Spaces** en Docker SDK, qui fournit gratuitement un conteneur public Linux, le HTTPS, et un service de Dataset privé pour héberger les atlas harmoniques MARC pré-calculés (5 GB, tirés au moment du build de l'image).
+- **L'application web** [ohmywind.fr](https://ohmywind.fr) est un site statique servi par **Cloudflare Pages**, qui héberge gratuitement les pages publiques d'un dépôt open source, avec HTTPS et domaine personnalisé inclus. Les tableaux de prévision sont demandés par votre navigateur directement à Open-Meteo ; les estimations de passage et les courants de marée passent par l'API ci-dessous.
+- **L'API REST** (`/api/v1/`) est le service que l'application web appelle pour estimer un passage, lister les voilier-types et lire les atlas de courants de marée.
+- **Le serveur MCP** (`https://mcp.ohmywind.fr/mcp`) est le point d'entrée des assistants conversationnels compatibles MCP (Model Context Protocol) : il expose les mêmes calculs sous forme d'outils que l'assistant appelle pour répondre à une demande formulée en langage naturel.
 
-Faire vivre un planificateur météo-marine open source et sans publicité serait significativement plus coûteux sans ces deux infrastructures. Merci à Cloudflare et à Hugging Face de les rendre accessibles à tous.
+L'API et le serveur MCP sont deux portes d'un même service : ils partagent le moteur de calcul et tournent dans un seul conteneur Docker sur **Hugging Face Spaces**, qui fournit gratuitement un conteneur Linux public, le HTTPS et un Dataset privé pour les atlas de courants de marée pré-calculés, tirés au moment de la construction de l'image. Tous deux sont joignables sous le domaine `mcp.ohmywind.fr`, qu'un Worker **Cloudflare** relaie vers le Space : changer d'hébergeur ne changerait pas l'adresse enregistrée dans les clients MCP.
+
+Faire vivre un planificateur météo-marine open source, gratuit et sans compte serait significativement plus coûteux sans ces infrastructures. Merci à Cloudflare et à Hugging Face de les rendre accessibles à tous.
 
 ## Code et contributions
 

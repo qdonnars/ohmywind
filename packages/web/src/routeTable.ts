@@ -21,6 +21,9 @@ export type RouteName =
   | "methodologie-courants"
   | "confidentialite"
   | "press"
+  | "about"
+  | "whats-new"
+  | "press-release"
   | "not-found";
 
 // A Map rather than an object literal: a path is untrusted input, and an
@@ -36,6 +39,11 @@ const ROUTES = new Map<string, RouteName>([
   ["/methodologie/courants", "methodologie-courants"],
   ["/confidentialite", "confidentialite"],
   ["/presse", "press"],
+  ["/a-propos", "about"],
+  ["/a-propos/nouveautes", "whats-new"],
+  // The release log's first address, kept so a link to it still lands.
+  ["/nouveautes", "whats-new"],
+  ["/presse/communique", "press-release"],
 ]);
 
 /** `path` is expected already normalised (see `navigation.normalisePath`). */
