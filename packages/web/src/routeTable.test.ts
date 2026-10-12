@@ -14,6 +14,8 @@ describe("matchRoute", () => {
     expect(matchRoute("/methodologie/courants")).toBe("methodologie-courants");
     expect(matchRoute("/confidentialite")).toBe("confidentialite");
     expect(matchRoute("/presse")).toBe("press");
+    expect(matchRoute("/a-propos")).toBe("about");
+    expect(matchRoute("/a-propos/nouveautes")).toBe("whats-new");
     expect(matchRoute("/nouveautes")).toBe("whats-new");
     expect(matchRoute("/presse/communique")).toBe("press-release");
   });

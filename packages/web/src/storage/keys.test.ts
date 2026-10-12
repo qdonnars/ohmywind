@@ -39,6 +39,7 @@ describe("storage key registry", () => {
     });
     expect(SESSION_STORAGE_KEYS).toEqual({
       configReturnPath: "ow_config_return_to",
+      aboutReturnPath: "ow_about_return_to",
       planDraft: "ow_plan_draft_v1",
     });
   });

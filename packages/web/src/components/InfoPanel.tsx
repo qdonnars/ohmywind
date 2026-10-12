@@ -66,18 +66,19 @@ export function InfoPanel({ whatsNewUnseen = false }: { whatsNewUnseen?: boolean
       className="px-4 py-5 lg:px-6 lg:py-6 max-w-3xl mx-auto"
       style={{ color: "var(--ow-fg-0)" }}
     >
-      <h2
+      <h1
         className="text-lg lg:text-xl font-bold tracking-tight mb-4"
         style={{ color: "var(--ow-fg-0)" }}
       >
         {t("explore.infoPanel.title")}
-      </h2>
+      </h1>
 
       {/* The version the app runs and the way to what changed in it, under
-          the title: the panel is "about the app", and the release log is the
-          part of it that moves. Opening the page is what clears the dot. */}
+          the title: the page is "about the app", and the release log, its
+          sub-page, is the part of it that moves. Opening the log is what
+          clears the dot. */}
       <a
-        href="/nouveautes"
+        href="/a-propos/nouveautes"
         className="mb-4 flex items-center gap-[11px] rounded-xl transition-colors hover:bg-surface-2"
         style={{ padding: "10px 11px", border: "1px solid var(--ow-line)" }}
       >

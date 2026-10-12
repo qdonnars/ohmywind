@@ -3,6 +3,7 @@
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { aboutReturnPath } from "../config/returnPath";
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { APP_VERSION } from "../utils/version";
 import { InfoButton } from "./InfoButton";
@@ -10,19 +11,21 @@ import { InfoButton } from "./InfoButton";
 const SEEN = LOCAL_STORAGE_KEYS.whatsNewSeen;
 
 beforeEach(() => {
-  window.history.replaceState(null, "", "/plan");
+  window.history.replaceState(null, "", "/plan?wpts=43.29,5.37;43.00,6.20");
   localStorage.clear();
+  sessionStorage.clear();
 });
 
-describe("InfoButton, the release log", () => {
-  it("opens on the « Quoi de neuf » entry with the version the app runs", () => {
+describe("InfoButton", () => {
+  it("leads to the about page, remembering the page it was tapped from", () => {
     render(<InfoButton />);
-    fireEvent.click(screen.getByRole("button", { name: "À propos d'OhMyWind" }));
-    const entry = screen.getByRole("link", { name: /Quoi de neuf/ });
-    expect(entry.getAttribute("href")).toBe("/nouveautes");
-    expect(entry.textContent).toContain(`Version ${APP_VERSION}`);
-    // The version is said once in the panel, on that entry.
-    expect(screen.getAllByText(`Version ${APP_VERSION}`)).toHaveLength(1);
+    const link = screen.getByRole("link", { name: "À propos d'OhMyWind" });
+    expect(link.getAttribute("href")).toBe("/a-propos");
+    // No window to open over the map any more.
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    fireEvent.click(link);
+    expect(aboutReturnPath()).toBe("/plan?wpts=43.29,5.37;43.00,6.20");
   });
 
   it("shows no dot on a first visit, and records the version for next time", () => {
@@ -31,16 +34,12 @@ describe("InfoButton, the release log", () => {
     expect(localStorage.getItem(SEEN)).toBe(APP_VERSION);
   });
 
-  it("shows the dot on the button and on the entry for a returning reader with an older version", () => {
+  it("shows the dot for a returning reader with an older version, and says so", () => {
     localStorage.setItem(LOCAL_STORAGE_KEYS.lastSpot, "{}");
     localStorage.setItem(SEEN, "0.0.1");
     render(<InfoButton />);
     expect(screen.getByTestId("whats-new-dot")).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: /Nouvelle version/ }));
-    expect(screen.getByRole("link", { name: /Quoi de neuf/ }).textContent).toContain("Nouvelle version");
-    // Reading the panel is not reading the page: the version stays unseen.
-    expect(localStorage.getItem(SEEN)).toBe("0.0.1");
+    expect(screen.getByRole("link", { name: /Nouvelle version/ })).toBeTruthy();
   });
 
   it("shows no dot once the current version has been seen", () => {
@@ -48,7 +47,5 @@ describe("InfoButton, the release log", () => {
     localStorage.setItem(SEEN, APP_VERSION);
     render(<InfoButton />);
     expect(screen.queryByTestId("whats-new-dot")).toBeNull();
-    fireEvent.click(screen.getByRole("button"));
-    expect(screen.getByRole("link", { name: /Quoi de neuf/ }).textContent).not.toContain("Nouvelle version");
   });
 });
