@@ -10,6 +10,7 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 
 - A new boat type, the sail and oar dinghy (about 5 m), covers small open boats without a cabin (#447).
 - A What's new page traces OhMyWind's releases. It opens from the "i" button, where a discreet dot flags a new version (#466, #469).
+- The October 2026 press release (in French) is on /presse/communique, at the top of the press page (#464).
 
 ### Fixes
 

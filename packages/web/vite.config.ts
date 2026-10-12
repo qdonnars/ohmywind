@@ -73,11 +73,11 @@ export default defineConfig({
         // precacher coutait ~330 KB de reseau a la premiere visite et autant
         // de stockage, pour des pages que la plupart des visiteurs n'ouvrent
         // jamais et qui n'ont pas besoin de fonctionner hors ligne.
-        // /methodologie et /confidentialite sont chargees a la demande et n'ont
-        // aucune raison de fonctionner hors ligne : ce sont des pages de
-        // lecture, pas la coque de l'application. Restent donc hors precache
-        // leurs chunks, leur CSS, le schema de segmentation et les polices
-        // KaTeX. Le chunk partage lib-*.js n'est importe que par ces deux
+        // /methodologie, /confidentialite et /presse/communique sont chargees a
+        // la demande et n'ont aucune raison de fonctionner hors ligne : ce sont
+        // des pages de lecture, pas la coque de l'application. Restent donc
+        // hors precache leurs chunks, leur CSS, le schema de segmentation et
+        // les polices KaTeX. Le chunk partage lib-*.js n'est importe que par ces trois
         // pages (verifie sur la sortie de build : le chunk d'entree n'importe
         // que maplibre et le runtime rolldown) ; si un jour l'entree en
         // dependait, il faudrait le remettre au precache sous peine de casser
@@ -96,6 +96,7 @@ export default defineConfig({
           // Le journal des versions (/nouveautes) suit la meme regle : une
           // page de lecture chargee a la demande, qui partage lib-*.js.
           '**/WhatsNewPage-*',
+          '**/PressReleasePage-*',
           '**/lib-*.js',
           '**/segmentation-*.svg',
         ],
