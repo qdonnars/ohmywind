@@ -547,3 +547,29 @@ describe("departure day word", () => {
     expect(screen.getByText("Demain")).toBeTruthy();
   });
 });
+
+// ── « Ajuster » ───────────────────────────────────────────────────────────────
+
+describe("departure « Ajuster »", () => {
+  afterEach(() => {
+    delete (HTMLInputElement.prototype as { showPicker?: unknown }).showPicker;
+  });
+
+  it("opens the calendar in the same tap, not a field to tap again", () => {
+    const showPicker = vi.fn();
+    Object.defineProperty(HTMLInputElement.prototype, "showPicker", { value: showPicker, configurable: true });
+    mountWith(<DepartureSlider value="2026-10-12T10:00" onChange={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Ajuster" }));
+    const field = screen.getByLabelText("Date de départ") as HTMLInputElement;
+    expect(field.type).toBe("datetime-local");
+    expect(document.activeElement).toBe(field);
+    expect(showPicker).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves the field focused where the browser has no picker to open", () => {
+    mountWith(<DepartureSlider value="2026-10-12T10:00" onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Ajuster" }));
+    expect(document.activeElement).toBe(screen.getByLabelText("Date de départ"));
+  });
+});
