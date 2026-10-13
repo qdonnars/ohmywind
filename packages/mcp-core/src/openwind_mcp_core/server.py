@@ -43,8 +43,12 @@ from typing import Annotated, Any
 
 from mcp.server.fastmcp import FastMCP
 from mcp.types import CallToolResult, TextContent, ToolAnnotations
-from openwind_data.adapters.base import MarineDataAdapter
-from openwind_data.adapters.openmeteo import AUTO_MODEL, OpenMeteoAdapter
+from openwind_data.adapters.base import (
+    CURRENT_RELEVANCE_THRESHOLD_KN,
+    TIDE_RANGE_RELEVANCE_THRESHOLD_M,
+    MarineDataAdapter,
+)
+from openwind_data.adapters.openmeteo import AUTO_MODEL, OpenMeteoAdapter, auto_chain_from
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
 from openwind_data.currents.router import compose_marine_adapter
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
@@ -74,7 +78,7 @@ from openwind_data.views import (
     window_view,
 )
 
-from .render import WEB_BASE, WEB_HOST, build_ohmywind_url
+from .render import WEB_BASE, WEB_HOST, build_explore_url, build_ohmywind_url
 
 # MCP Apps UI resource URI for plan_passage. The host fetches this resource
 # and renders it in a sandboxed iframe (see ``_PLAN_WIDGET_HTML`` for why it
@@ -1040,6 +1044,58 @@ def _route_view(points: list[Any]) -> list[dict[str, float]]:
     return [{"lat": p.lat, "lon": p.lon} for p in points]
 
 
+def _auto_forecast_models(start: datetime, end: datetime) -> list[str]:
+    """The models for a point forecast when the caller names none.
+
+    The first model that reaches the start of the window, so AROME wherever
+    it can answer, and the first one that reaches its end when the window
+    outruns it: a window from now to day 5 gets AROME's detail for two days
+    and ICON-EU after, for one more request instead of three days of nulls.
+    """
+    first = auto_chain_from(start)[0]
+    last = auto_chain_from(end)[0]
+    return [first] if first == last else [first, last]
+
+
+def _material_current_and_tide(points: Any) -> dict[str, Any]:
+    """The current and the tide at a point, only where they matter.
+
+    Same rule as everywhere else in OhMyWind: a current under 0.3 kt or a
+    tidal range under 0.5 m is noise, which covers most of the
+    Mediterranean. The values are those the composite adapter already put on
+    the sea series (an atlas where one covers the point, Open-Meteo Marine
+    otherwise): no extra request.
+    """
+    out: dict[str, Any] = {}
+    currents = [p for p in points if p.current_speed_kn is not None]
+    if currents and max(p.current_speed_kn for p in currents) >= CURRENT_RELEVANCE_THRESHOLD_KN:
+        out["current"] = {
+            "source": next((p.current_source for p in currents if p.current_source), None),
+            "points": [
+                {
+                    "time": p.time.isoformat(),
+                    "speed_kn": round(p.current_speed_kn, 2),
+                    "direction_to_deg": None
+                    if p.current_direction_to_deg is None
+                    else round(p.current_direction_to_deg),
+                }
+                for p in currents
+            ],
+        }
+    heights = [p for p in points if p.tide_height_m is not None]
+    if heights:
+        values = [p.tide_height_m for p in heights]
+        if max(values) - min(values) >= TIDE_RANGE_RELEVANCE_THRESHOLD_M:
+            out["tide"] = {
+                "source": next((p.current_source for p in heights if p.current_source), None),
+                "points": [
+                    {"time": p.time.isoformat(), "height_m": round(p.tide_height_m, 2)}
+                    for p in heights
+                ],
+            }
+    return out
+
+
 def _legs_meta(reports: list[Any], windows: list[dict[str, Any]]) -> dict[str, Any] | None:
     """The legs of every listed sweep window, for the widget only.
 
@@ -1249,14 +1305,40 @@ def build_server(
         end: str,
         models: list[str] | None = None,
     ) -> dict[str, Any]:
-        """Fetch wind (and sea, when available) for a point and time window.
+        """Wind, sea, and where it matters current and tide, at one point.
+
+        For the questions about a place rather than a passage: how hard it
+        blows at Groix this afternoon, when the thermal breeze fills in, when
+        the mistral eases, whether the models agree, what the swell does at a
+        harbour entrance tonight.
 
         Args:
             lat: latitude in degrees.
             lon: longitude in degrees.
             start: ISO-8601 datetime, timezone-aware (e.g. "2026-05-01T06:00:00+00:00").
             end: ISO-8601 datetime, timezone-aware.
-            models: optional list of model names; defaults to AROME for the Med.
+            models: optional list of model names. Leave it unset for the
+                automatic choice: AROME (1.3 km) wherever it reaches the
+                window, and the next model that reaches its end when the
+                window runs past two days. Name several models (e.g.
+                ``["meteofrance_arome_france", "icon_eu", "ecmwf_ifs025"]``)
+                only when the user asks whether the models agree: each one
+                costs a request.
+
+        Returns hourly ``wind`` per model (speed, direction it comes from,
+        gusts, in knots), ``sea`` (wave height, period, direction), and, only
+        where they are material, ``current`` (speed in knots, direction it
+        flows to, from a tidal atlas where one covers the point) and ``tide``
+        (height around mean sea level: read the range and the times of high
+        and low water from it, not a depth over chart datum). Also
+        ``openwind_url``, the OhMyWind map centred on the point.
+
+        Answer in a sentence first (the user is often in a car or at the bar),
+        then give the few numbers that back it, as a short table or a small
+        chart if your interface draws one. No widget comes with this tool:
+        the presentation is yours. Offer ``openwind_url`` as "voir sur la
+        carte". This is a forecast: never present it as a measurement of
+        what is blowing right now.
 
         Pass a point at sea. Over land Open-Meteo still returns wind, but
         every sea value comes back null, so the ``sea`` array is present and
@@ -1268,35 +1350,43 @@ def build_server(
         validate_point(lat, lon)
         start_dt = datetime.fromisoformat(start)
         end_dt = datetime.fromisoformat(end)
+        if not models or models == [AUTO_MODEL]:
+            models = _auto_forecast_models(start_dt, end_dt)
         bundle = await fetch_adapter.fetch(lat, lon, start_dt, end_dt, models=models)
-        return {
-            "lat": bundle.lat,
-            "lon": bundle.lon,
-            "start": bundle.start.isoformat(),
-            "end": bundle.end.isoformat(),
-            "requested_at": bundle.requested_at.isoformat(),
-            "wind": {
-                model: [
+        return (
+            {
+                "lat": bundle.lat,
+                "lon": bundle.lon,
+                "start": bundle.start.isoformat(),
+                "end": bundle.end.isoformat(),
+                "requested_at": bundle.requested_at.isoformat(),
+                "wind": {
+                    model: [
+                        {
+                            "time": p.time.isoformat(),
+                            "speed_kn": p.speed_kn,
+                            "direction_deg": p.direction_deg,
+                            "gust_kn": p.gust_kn,
+                        }
+                        for p in series.points
+                    ]
+                    for model, series in bundle.wind_by_model.items()
+                },
+                "sea": [
                     {
                         "time": p.time.isoformat(),
-                        "speed_kn": p.speed_kn,
-                        "direction_deg": p.direction_deg,
-                        "gust_kn": p.gust_kn,
+                        "wave_height_m": p.wave_height_m,
+                        "wave_period_s": p.wave_period_s,
+                        "wave_direction_deg": p.wave_direction_deg,
                     }
-                    for p in series.points
-                ]
-                for model, series in bundle.wind_by_model.items()
-            },
-            "sea": [
-                {
-                    "time": p.time.isoformat(),
-                    "wave_height_m": p.wave_height_m,
-                    "wave_period_s": p.wave_period_s,
-                    "wave_direction_deg": p.wave_direction_deg,
-                }
-                for p in bundle.sea.points
-            ],
-        }
+                    for p in bundle.sea.points
+                ],
+            }
+            | _material_current_and_tide(bundle.sea.points)
+            | {
+                "openwind_url": build_explore_url(lat, lon),
+            }
+        )
 
     @server.tool(
         annotations=ToolAnnotations(

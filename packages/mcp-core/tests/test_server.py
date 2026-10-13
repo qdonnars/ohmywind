@@ -11,6 +11,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import CallToolResult
 from openwind_data.adapters.base import (
     ForecastBundle,
+    SeaPoint,
     SeaSeries,
     WindPoint,
     WindSeries,
@@ -419,6 +420,52 @@ class TestPlanPassageSweep:
             assert "336" in str(exc) or "cap" in str(exc).lower() or "windows" in str(exc).lower()
 
 
+_FORECAST_ARGS: dict = {
+    "lat": 48.03,
+    "lon": -4.74,
+    "start": datetime(2026, 5, 1, 6, 0, tzinfo=UTC).isoformat(),
+    "end": datetime(2026, 5, 1, 18, 0, tzinfo=UTC).isoformat(),
+}
+
+
+class SeaStubAdapter(StubAdapter):
+    """The stub with a sea series carrying current and tide, as the
+    composite adapter leaves it where an atlas covers the point."""
+
+    def __init__(self, current_kn: float, tide_amplitude_m: float) -> None:
+        super().__init__()
+        self.current_kn = current_kn
+        self.tide_amplitude_m = tide_amplitude_m
+
+    async def fetch(self, lat, lon, start, end, models=None) -> ForecastBundle:
+        bundle = await super().fetch(lat, lon, start, end, models)
+        times = [p.time for p in next(iter(bundle.wind_by_model.values())).points]
+        sea = tuple(
+            SeaPoint(
+                time=t,
+                wave_height_m=0.8,
+                wave_period_s=6.0,
+                wave_direction_deg=270.0,
+                wind_wave_height_m=None,
+                swell_wave_height_m=None,
+                current_speed_kn=self.current_kn,
+                current_direction_to_deg=180.0,
+                tide_height_m=self.tide_amplitude_m * (1 if i % 12 < 6 else -1),
+                current_source="marc_finis_250m",
+            )
+            for i, t in enumerate(times)
+        )
+        return ForecastBundle(
+            lat=lat,
+            lon=lon,
+            start=start,
+            end=end,
+            wind_by_model=bundle.wind_by_model,
+            sea=SeaSeries(points=sea),
+            requested_at=start,
+        )
+
+
 class TestGetMarineForecast:
     async def test_returns_serializable_bundle(self) -> None:
         server = build_server(adapter=StubAdapter())
@@ -435,6 +482,63 @@ class TestGetMarineForecast:
         assert "wind" in out
         assert "meteofrance_arome_france" in out["wind"]
         assert isinstance(out["wind"]["meteofrance_arome_france"][0]["time"], str)
+
+    async def test_auto_keeps_arome_and_adds_the_model_that_reaches_the_end(self) -> None:
+        # A window from now to day 5: AROME's detail for the first two days,
+        # ICON-EU after, rather than three days of nulls.
+        server = build_server(adapter=StubAdapter())
+        now = datetime.now(UTC)
+        out = await _call(
+            server,
+            "get_marine_forecast",
+            {
+                "lat": 43.30,
+                "lon": 5.35,
+                "start": now.isoformat(),
+                "end": (now + timedelta(days=5)).isoformat(),
+            },
+        )
+        assert list(out["wind"]) == ["meteofrance_arome_france", "icon_eu"]
+
+    async def test_auto_skips_arome_for_a_window_it_does_not_reach(self) -> None:
+        server = build_server(adapter=StubAdapter())
+        start = datetime.now(UTC) + timedelta(days=6)
+        out = await _call(
+            server,
+            "get_marine_forecast",
+            {
+                "lat": 43.30,
+                "lon": 5.35,
+                "start": start.isoformat(),
+                "end": (start + timedelta(hours=12)).isoformat(),
+            },
+        )
+        assert list(out["wind"]) == ["ecmwf_ifs025"]
+
+    async def test_current_and_tide_only_where_they_matter(self) -> None:
+        # The Raz de Sein runs at several knots on a 5 m range; the rade de
+        # Marseille barely moves. Only the first is worth a line.
+        strong = await _call(
+            build_server(adapter=SeaStubAdapter(current_kn=3.2, tide_amplitude_m=2.5)),
+            "get_marine_forecast",
+            _FORECAST_ARGS,
+        )
+        assert strong["current"]["source"] == "marc_finis_250m"
+        assert strong["current"]["points"][0]["speed_kn"] == 3.2
+        assert strong["tide"]["points"]
+        weak = await _call(
+            build_server(adapter=SeaStubAdapter(current_kn=0.1, tide_amplitude_m=0.1)),
+            "get_marine_forecast",
+            _FORECAST_ARGS,
+        )
+        assert "current" not in weak
+        assert "tide" not in weak
+
+    async def test_links_to_the_map_at_the_point(self) -> None:
+        out = await _call(
+            build_server(adapter=StubAdapter()), "get_marine_forecast", _FORECAST_ARGS
+        )
+        assert out["openwind_url"].endswith("/?center=48.0300,-4.7400&zoom=11")
 
 
 class TestDisclaimer:
