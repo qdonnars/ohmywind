@@ -144,7 +144,15 @@ PLAN_UI_RESOURCE_DOMAINS = ["https://unpkg.com", OSM_TILE_ORIGIN]
 # every window would put up to 336 times the segment count in front of the
 # model, for a table only the widget draws.
 PLAN_UI_LEGS_META_KEY = "ohmywind.fr/legs"
-_LEG_FIELDS = ("end_time", "tws_kn", "twa_deg", "hs_m", "boat_speed_kn")
+_LEG_FIELDS = (
+    "end_time",
+    "tws_kn",
+    "twa_deg",
+    "hs_m",
+    "boat_speed_kn",
+    "current_kn",
+    "current_to_deg",
+)
 
 # Body of the MCP Apps UI resource. Uses the official @modelcontextprotocol/
 # ext-apps SDK from unpkg for the handshake (same pattern as qr-server /
@@ -228,6 +236,15 @@ _PLAN_WIDGET_HTML = """<!doctype html>
     tr.dep[aria-selected="true"] .pick{border-color:var(--accent);
       background:radial-gradient(var(--accent) 45%,transparent 50%)}
     .hint{color:var(--fg2);font-size:.75rem;margin:.45rem 0 0}
+    .more-deps{appearance:none;border:0;background:none;padding:.35rem 0 0;cursor:pointer;
+      color:var(--accent);font:600 .78rem/1.3 inherit}
+    .more-deps:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+    details.warns summary{list-style:none;cursor:pointer}
+    details.warns summary::-webkit-details-marker{display:none}
+    details.warns summary .more{font-weight:700;margin-left:.35rem;opacity:.8}
+    details.warns[open] summary .more{display:none}
+    details.warns .warn{margin:.35rem 0 0}
+    .cur-arrow{display:inline-block;margin-left:.25rem}
     .chosen{margin:1.1rem 0 .6rem;padding-top:.9rem;border-top:1px solid var(--line);display:grid;gap:.45rem}
     .chosen.single{margin-top:0;padding-top:0;border-top:0}
     .chosen .warn{margin:0}
@@ -370,9 +387,11 @@ _PLAN_WIDGET_HTML = """<!doctype html>
         return [{
           departure: p.departure_time, arrival: p.arrival_time, duration_h: p.duration_h,
           distance_nm: p.distance_nm || 0, model: p.model, complexity: cx, url: sc.openwind_url,
-          warnings: (p.warnings||[]).concat((cx.warnings||[]).map(w=>w.message||w)),
+          // What makes the passage hard first, light wind and model notes after.
+          warnings: (cx.warnings||[]).map(w=>w.message||w).concat(p.warnings||[]),
           legs: (p.segments||[]).map(s=>({ll:[[s.start.lat, s.start.lon], [s.end.lat, s.end.lon]],
-            end_time:s.end_time, tws:s.tws_kn, twa:s.twa_deg, hs:s.hs_m, bs:s.boat_speed_kn})),
+            end_time:s.end_time, tws:s.tws_kn, twa:s.twa_deg, hs:s.hs_m, bs:s.boat_speed_kn,
+            cur:s.current_speed_kn, curTo:s.current_direction_to_deg})),
         }];
       }
       // Sweep windows carry no legs: they come in the result's _meta, kept
@@ -385,15 +404,33 @@ _PLAN_WIDGET_HTML = """<!doctype html>
         const rows = m && m.windows && m.windows[i];
         const legs = g && rows && rows.length === g.length - 1
           ? rows.map((r,j)=>({ll:[g[j], g[j+1]], end_time:r[at("end_time")], tws:r[at("tws_kn")],
-              twa:r[at("twa_deg")], hs:r[at("hs_m")], bs:r[at("boat_speed_kn")]}))
+              twa:r[at("twa_deg")], hs:r[at("hs_m")], bs:r[at("boat_speed_kn")],
+              cur:at("current_kn") < 0 ? null : r[at("current_kn")],
+              curTo:at("current_to_deg") < 0 ? null : r[at("current_to_deg")]}))
           : null;
         return {
           departure: w.departure, arrival: w.arrival, duration_h: w.duration_h,
           distance_nm: w.distance_nm || 0, complexity: w.complexity || {}, url: w.openwind_url,
-          warnings: w.warnings || [], summary: w.conditions_summary || {}, legs,
+          warnings: difficultyFirst(w), summary: w.conditions_summary || {}, legs,
         };
       });
     }
+
+    // A sweep window's warnings come passage first (light wind, model
+    // fallback), then the difficulty. Its notices carry the codes that say
+    // which is which, so the difficulty can lead.
+    function difficultyFirst(w){
+      const notices = w.notices || [];
+      if(notices.length !== (w.warnings || []).length) return w.warnings || [];
+      const hard = notices.filter(n=>String(n.code).startsWith("complexity."));
+      const rest = notices.filter(n=>!String(n.code).startsWith("complexity."));
+      return hard.concat(rest).map(n=>n.message);
+    }
+
+    // Five departures show; the rest wait behind a link, so a fortnight of
+    // hourly windows does not push the map out of the chat.
+    const LIST_LIMIT = 5;
+    let listExpanded = false;
 
     function listBlock(runs, sel){
       const rows = runs.map((r,i)=>{
@@ -402,7 +439,8 @@ _PLAN_WIDGET_HTML = """<!doctype html>
         const tws = (cs.tws_min_kn != null && cs.tws_max_kn != null)
           ? `${Math.round(cs.tws_min_kn)}-${Math.round(cs.tws_max_kn)} kn` : "—";
         const sail = SAIL[cs.predominant_sail_angle] || cs.predominant_sail_angle || "—";
-        return `<tr class="dep" data-i="${i}" tabindex="0" aria-selected="${i === sel}">
+        const hidden = !listExpanded && i >= LIST_LIMIT && i !== sel;
+        return `<tr class="dep" data-i="${i}" tabindex="0" aria-selected="${i === sel}"${hidden ? " hidden" : ""}>
           <td><span class="pick" aria-hidden="true"></span>${fmtDate(r.departure)}</td>
           <td>${fmtDur(r.duration_h)}</td>
           <td>${fmtTime(r.arrival)}${plusDays(r.departure, r.arrival)}</td>
@@ -416,6 +454,8 @@ _PLAN_WIDGET_HTML = """<!doctype html>
           <thead><tr><th>Départ</th><th>Durée</th><th>Arrivée</th><th>Allure</th><th>Vent</th><th>Mer</th><th>⚡</th></tr></thead>
           <tbody>${rows}</tbody>
         </table></div>
+        ${!listExpanded && runs.length > LIST_LIMIT
+          ? `<button type="button" class="more-deps" id="ow-more">Afficher les ${runs.length - LIST_LIMIT} autres départs</button>` : ""}
         <p class="hint">Sélectionnez un départ pour voir sa route et son détail.</p>`;
     }
 
@@ -439,7 +479,16 @@ _PLAN_WIDGET_HTML = """<!doctype html>
             <span class="meta">arrivée ${fmtDate(r.arrival)} · ${fmtDur(r.duration_h)}</span>
             ${badge(cx.level||3, cx.label||"")}</div>`
         : `<div class="chosen-line">${badge(cx.level||3, cx.label||"")}</div>`;
-      return head + r.warnings.map(w=>`<div class="warn">⚠ ${escapeHtml(w)}</div>`).join("");
+      return head + warnBlock(r.warnings);
+    }
+
+    // The assistant relays the warnings in its reply; here the first one
+    // shows and the others fold under it.
+    function warnBlock(list){
+      if(!list.length) return "";
+      if(list.length === 1) return `<div class="warn">⚠ ${escapeHtml(list[0])}</div>`;
+      return `<details class="warns"><summary class="warn">⚠ ${escapeHtml(list[0])}<span class="more">+${list.length - 1}</span></summary>
+        ${list.slice(1).map(w=>`<div class="warn">⚠ ${escapeHtml(w)}</div>`).join("")}</details>`;
     }
 
     // Collapsed by default: the list and the map carry the answer, the legs
@@ -448,6 +497,9 @@ _PLAN_WIDGET_HTML = """<!doctype html>
     let detailOpen = false;
     function detailBlock(r, multi){
       if(!r.legs || !r.legs.length) return "";
+      // The current gets a column only where it matters (0.3 kt, as
+      // everywhere in OhMyWind): most Mediterranean legs never show it.
+      const showCur = r.legs.some(l=>l.cur != null && l.cur >= 0.3);
       const rows = r.legs.map((l,i)=>{
         const c = CX_COLORS[cxLevel(l.tws||0)];
         return `<tr class="leg" data-seg="${i}">
@@ -457,6 +509,8 @@ _PLAN_WIDGET_HTML = """<!doctype html>
           <td>${l.tws != null ? Math.round(l.tws)+" kn" : "—"}</td>
           <td>${l.hs != null ? l.hs.toFixed(1)+" m" : "—"}</td>
           <td>${l.bs != null ? l.bs.toFixed(1)+" kn" : "—"}</td>
+          ${showCur ? `<td>${l.cur != null ? l.cur.toFixed(1)+" kn" : "—"}${l.cur != null && l.curTo != null
+            ? `<span class="cur-arrow" style="transform:rotate(${l.curTo}deg)" aria-label="vers ${l.curTo}°">↑</span>` : ""}</td>` : ""}
         </tr>`;
       }).join("");
       const n = r.legs.length;
@@ -465,7 +519,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
         : `Détail par tronçon · ${n} tronçon${n>1?"s":""}`;
       return `<details class="detail"${detailOpen ? " open" : ""}><summary>${title}</summary>
         <div class="tablewrap"><table>
-          <thead><tr><th>#</th><th>Heure</th><th>Allure</th><th>Vent</th><th>Mer</th><th>Vitesse</th></tr></thead>
+          <thead><tr><th>#</th><th>Heure</th><th>Allure</th><th>Vent</th><th>Mer</th><th>Vitesse</th>${showCur ? "<th>Courant</th>" : ""}</tr></thead>
           <tbody>${rows}</tbody>
         </table></div></details>`;
     }
@@ -773,11 +827,17 @@ _PLAN_WIDGET_HTML = """<!doctype html>
           else if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
             e.preventDefault();
             const next = rows[i + (e.key === 'ArrowDown' ? 1 : -1)];
-            if(next){ next.focus(); select(Number(next.dataset.i)); }
+            if(next && !next.hidden){ next.focus(); select(Number(next.dataset.i)); }
           }
         });
         tr.addEventListener('mouseenter', ()=>{ if(mapApi) mapApi.paint(lastRuns[i]); });
         tr.addEventListener('mouseleave', ()=>{ if(mapApi) mapApi.paint(lastRuns[sel]); });
+      });
+      const more = root.querySelector('#ow-more');
+      if(more) more.addEventListener('click', ()=>{
+        listExpanded = true;
+        rows.forEach(tr=>{ tr.hidden = false; });
+        more.remove();
       });
       // The link reads its href on click: select() rewrites it.
       root.querySelectorAll('a.cta, a[data-openlink]').forEach(a=>{
@@ -800,6 +860,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
         if(!multi && !sc.passage) return;
         lastRuns = runsOf(sc, result._meta);
         sel = 0;
+        listExpanded = false;
         root.innerHTML = multi ? renderCompare(sc, lastRuns, sel) : renderSingle(sc, lastRuns[0]);
         wireClicks();
       } catch(e) {
@@ -1296,6 +1357,8 @@ def _legs_meta(reports: list[Any], windows: list[dict[str, Any]]) -> dict[str, A
                 round(s.twa_deg),
                 None if s.hs_m is None else round(s.hs_m, 2),
                 round(s.boat_speed_kn, 2),
+                None if s.current_speed_kn is None else round(s.current_speed_kn, 2),
+                None if s.current_direction_to_deg is None else round(s.current_direction_to_deg),
             ]
             for s in r.segments
         ]

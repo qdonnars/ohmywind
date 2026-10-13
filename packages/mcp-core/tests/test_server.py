@@ -296,7 +296,15 @@ class TestPlanPassageSweep:
         legs = result.meta[PLAN_UI_LEGS_META_KEY]
         assert json.loads(result.content[0].text) == out
         assert PLAN_UI_LEGS_META_KEY not in result.content[0].text
-        assert legs["fields"] == ["end_time", "tws_kn", "twa_deg", "hs_m", "boat_speed_kn"]
+        assert legs["fields"] == [
+            "end_time",
+            "tws_kn",
+            "twa_deg",
+            "hs_m",
+            "boat_speed_kn",
+            "current_kn",
+            "current_to_deg",
+        ]
         assert legs["geometry"][0] == [43.30, 5.35]
         assert legs["geometry"][-1] == [43.00, 6.20]
         assert len(legs["windows"]) == len(out["windows"])
