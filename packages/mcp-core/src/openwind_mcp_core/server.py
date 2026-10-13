@@ -41,8 +41,9 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 from dataclasses import replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Annotated, Any
 
 from mcp.server.fastmcp import FastMCP
@@ -55,7 +56,12 @@ from openwind_data.adapters.base import (
     SeaPoint,
     SeaSeries,
 )
-from openwind_data.adapters.openmeteo import AUTO_MODEL, OpenMeteoAdapter, auto_chain_from
+from openwind_data.adapters.openmeteo import (
+    AUTO_FALLBACK_CHAIN,
+    AUTO_MODEL,
+    OpenMeteoAdapter,
+    auto_chain_from,
+)
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
 from openwind_data.currents.narrow_pass import confidence_for_point
 from openwind_data.currents.router import CompositeMarineAdapter, compose_marine_adapter
@@ -122,14 +128,24 @@ get_marine_forecast.
 - When to be at a pass, slack water, high or low water, the tidal \
 coefficient: get_tidal_stream. It costs no weather request.
 - A trip from A to B (does it go, how long, which departure): plan_passage, \
-comparing departures unless the user pins a time.
+comparing departures unless the user pins a time. A day out and back is two \
+trips: plan the return as well.
 - Two ways to go (north or south of an island, two destinations): one \
 plan_passage call with alternatives.
+- A cruise of several days (a week out of Biograd, a loop of the islands) is \
+not one passage: read the days ahead at the cruising area with one \
+get_marine_forecast call, and plan only the next leg.
 - How OhMyWind computes: read_me.
 Call no tool for questions that are not about weather, sea or tide (gear, \
 regulations, marinas, formalities), nor for typical seasonal weather beyond \
 about 16 days (the meltem in July): answer from your own knowledge, and say \
 that no forecast reaches that far.
+Send every time with the user's UTC offset: the answers come back in that \
+offset, so read them as the user's clock. Make independent calls in the same \
+turn: the stream at a pass and the wind there, the outbound and return legs. \
+Durations are under sail alone unless you pass motor_threshold_kn and \
+motor_speed_kn: when the user must arrive by a given time (before dark) on a \
+boat with an engine, pass them.
 Answer first in one sentence, then the few numbers that back it; the user is \
 often in a car or at the bar. These are forecasts: never present them as \
 what is blowing right now, and send real-time conditions and warnings to \
@@ -1051,6 +1067,20 @@ _PLAN_WIDGET_HTML = """<!doctype html>
 """
 
 
+def _archetype_lines(indent: str) -> str:
+    """The archetypes as one line each, for a tool description."""
+    lines = [
+        f"{indent}- ``{p.name}``: {p.length_ft} ft {p.type}, {p.performance_class} "
+        f"({', '.join(p.examples[:3])})"
+        for p in list_archetypes()
+    ]
+    lines.append(
+        f"{indent}``voile_aviron_16ft`` is an open sail-and-oar dinghy only; a small "
+        "cabin cruiser is ``cruiser_20ft``."
+    )
+    return "\n".join(lines)
+
+
 def _archetype_summary(p: Any) -> dict[str, Any]:
     return {
         "name": p.name,
@@ -1365,6 +1395,120 @@ def _auto_forecast_models(start: datetime, end: datetime) -> list[str]:
     return [first] if first == last else [first, last]
 
 
+# The names the model reaches for when it compares models. Open-Meteo answers
+# a 400 to "gfs" or "arome"; one alias table saves the round trip an error
+# costs, and an unknown name fails here, before any request.
+MODEL_ALIASES: dict[str, str] = {
+    "arome": "meteofrance_arome_france",
+    "meteofrance_arome": "meteofrance_arome_france",
+    "icon": "icon_eu",
+    "icon-eu": "icon_eu",
+    "ecmwf": "ecmwf_ifs025",
+    "ifs": "ecmwf_ifs025",
+    "ecmwf_ifs": "ecmwf_ifs025",
+    "gfs": "gfs_seamless",
+    "noaa_gfs": "gfs_seamless",
+    "gfs_global": "gfs_seamless",
+}
+
+
+def _resolve_model(name: str) -> str:
+    """A model name as Open-Meteo knows it, from the name or a common alias."""
+    key = name.strip().lower()
+    if key == AUTO_MODEL:
+        return AUTO_MODEL
+    model = MODEL_ALIASES.get(key, key)
+    if model not in AUTO_FALLBACK_CHAIN:
+        raise ValueError(
+            f"unknown model {name!r}: use arome, icon_eu, ecmwf or gfs, "
+            "or leave it unset for the automatic choice"
+        )
+    return model
+
+
+def _table(columns: list[str], rows: list[list[Any]]) -> dict[str, Any]:
+    """A series as a header and its rows.
+
+    A list of objects repeats every key on every hour: two days of hourly
+    wind read as 6,000 characters, half of them key names. The header says
+    them once.
+    """
+    return {"columns": columns, "rows": rows}
+
+
+_ISO_INSTANT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$")
+
+
+def _in_zone(obj: Any, tz: tzinfo | None) -> Any:
+    """Every instant of a payload in the caller's UTC offset, to the minute.
+
+    The engine works in UTC. A small model read "09:00:00+00:00" as nine in
+    the morning for a user two hours ahead, and sent the family out at the
+    wrong time; the offset the caller sent is the user's clock, so the
+    answer speaks it. Deep links keep their own encoding: they are URLs, not
+    instants.
+    """
+    if isinstance(obj, dict):
+        return {k: _in_zone(v, tz) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_in_zone(v, tz) for v in obj]
+    if isinstance(obj, str) and _ISO_INSTANT.match(obj):
+        instant = datetime.fromisoformat(obj)
+        if tz is not None and instant.tzinfo is not None:
+            instant = instant.astimezone(tz)
+        return instant.isoformat(timespec="minutes")
+    return obj
+
+
+# A warning about the route rather than the departure: the same line on every
+# window of a sweep. Said once, in ``meta_warnings``.
+_ROUTE_LEVEL_NOTICES = ("passage.long_route",)
+
+
+def _model_windows(
+    windows: list[dict[str, Any]], route_notes: list[str], tz: tzinfo | None
+) -> list[dict[str, Any]]:
+    """The sweep rows as the model reads them.
+
+    The coded ``notices`` repeat each ``warnings`` line for a client that
+    composes its own wording; a model translates the line itself, so the codes
+    only sort the lines here, difficulty first, and go. The ``weekday`` spares
+    a small model the calendar sum that announced a Monday departure as a
+    Saturday one.
+    """
+    out = []
+    for w in windows:
+        w = dict(w)
+        notices = w.pop("notices", None) or []
+        warnings = w.get("warnings") or []
+        if len(notices) == len(warnings):
+            hard, soft = [], []
+            for n in notices:
+                code = str(n.get("code"))
+                if code in _ROUTE_LEVEL_NOTICES:
+                    if n["message"] not in route_notes:
+                        route_notes.append(n["message"])
+                elif code.startswith("complexity."):
+                    hard.append(n["message"])
+                else:
+                    soft.append(n["message"])
+            w["warnings"] = hard + soft
+        departure = datetime.fromisoformat(w["departure"])
+        if tz is not None:
+            departure = departure.astimezone(tz)
+        out.append({"departure": w.pop("departure"), "weekday": departure.strftime("%a")} | w)
+    return out
+
+
+def _drop_notices(obj: Any) -> Any:
+    """The payload without its coded copies of the warnings (see ``_model_windows``)."""
+    if isinstance(obj, dict):
+        return {k: _drop_notices(v) for k, v in obj.items() if k not in ("notices", "meta_notices")}
+    if isinstance(obj, list):
+        return [_drop_notices(v) for v in obj]
+    return obj
+
+
 def _material_current_and_tide(points: Any) -> dict[str, Any]:
     """The current and the tide at a point, only where they matter.
 
@@ -1379,17 +1523,19 @@ def _material_current_and_tide(points: Any) -> dict[str, Any]:
     if currents and max(p.current_speed_kn for p in currents) >= CURRENT_RELEVANCE_THRESHOLD_KN:
         out["current"] = {
             "source": next((p.current_source for p in currents if p.current_source), None),
-            "points": [
-                {
-                    "time": p.time.isoformat(),
-                    "speed_kn": round(p.current_speed_kn, 2),
-                    "direction_to_deg": None
+        } | _table(
+            ["time", "speed_kn", "direction_to_deg"],
+            [
+                [
+                    p.time.isoformat(),
+                    round(p.current_speed_kn, 2),
+                    None
                     if p.current_direction_to_deg is None
                     else round(p.current_direction_to_deg),
-                }
+                ]
                 for p in currents
             ],
-        }
+        )
     heights = [p for p in points if p.tide_height_m is not None]
     if heights:
         values = [p.tide_height_m for p in heights]
@@ -1399,11 +1545,10 @@ def _material_current_and_tide(points: Any) -> dict[str, Any]:
                 # Where an atlas withholds a dead current it still gives the
                 # height; the "unknown" label is the current's, not the tide's.
                 "source": None if source == UNKNOWN_CURRENT_SOURCE else source,
-                "points": [
-                    {"time": p.time.isoformat(), "height_m": round(p.tide_height_m, 2)}
-                    for p in heights
-                ],
-            }
+            } | _table(
+                ["time", "height_m"],
+                [[p.time.isoformat(), round(p.tide_height_m, 2)] for p in heights],
+            )
     return out
 
 
@@ -1542,16 +1687,24 @@ def _tidal_stream_view(
         if heading_deg is not None
         else None
     )
+    columns = ["time", "speed_kn", "direction_to_deg"]
+    columns += ["along_kn"] if along is not None else []
+    columns += ["height_m"] if any(h is not None for h in heights) else []
+
+    def r2(v: float | None) -> float | None:
+        return None if v is None else round(v, 2)
+
     rows = []
     for i, t in enumerate(times):
-        row: dict[str, Any] = {"time": t.isoformat()}
-        if speeds[i] is not None:
-            row["speed_kn"] = round(speeds[i], 2)
-            row["direction_to_deg"] = None if dirs[i] is None else round(dirs[i])
-        if along is not None and along[i] is not None:
-            row["along_kn"] = round(along[i], 2)
-        if heights[i] is not None:
-            row["height_m"] = round(heights[i], 2)
+        row: list[Any] = [
+            t.isoformat(),
+            r2(speeds[i]),
+            None if speeds[i] is None or dirs[i] is None else round(dirs[i]),
+        ]
+        if along is not None:
+            row.append(r2(along[i]))
+        if "height_m" in columns:
+            row.append(r2(heights[i]))
         rows.append(row)
     out: dict[str, Any] = {
         "lat": lat,
@@ -1560,7 +1713,7 @@ def _tidal_stream_view(
         "source": source,
         "confidence": confidence_for_point(lat, lon, source),
         "heading_deg": heading_deg,
-        "points": rows,
+        "points": _table(columns, rows),
         # Slack: the dips where the stream nearly stops. A pass with a
         # double-humped flood also dips to 2 kt mid-tide, which is no slack:
         # keep the dips under a quarter of the day's strongest stream, or
@@ -1635,17 +1788,23 @@ def _legs_meta(reports: list[Any], windows: list[dict[str, Any]]) -> dict[str, A
     }
 
 
-def _tool_result(structured: dict[str, Any], meta: dict[str, Any] | None = None) -> CallToolResult:
-    """The result FastMCP would build from ``structured``, plus a ``_meta``.
+def _tool_result(
+    structured: dict[str, Any],
+    meta: dict[str, Any] | None = None,
+    *,
+    tz: tzinfo | None = None,
+) -> CallToolResult:
+    """The result FastMCP would build from ``structured``, compact, plus a ``_meta``.
 
-    A tool that returns a dict gets no ``_meta``: FastMCP builds the result
-    itself. The text block is the same JSON the model has always read,
-    indented as FastMCP indents it; the ``_meta`` goes to the widget.
+    Every instant goes out in ``tz``, the offset the caller sent (see
+    ``_in_zone``). The text block is the JSON without FastMCP's two-space
+    indent, a third of the characters the model reads; the ``_meta`` goes to
+    the widget.
     """
+    structured = _in_zone(structured, tz)
+    meta = _in_zone(meta, tz) if meta else meta
     return CallToolResult(
-        content=[
-            TextContent(type="text", text=json.dumps(structured, indent=2, ensure_ascii=False))
-        ],
+        content=[TextContent(type="text", text=json.dumps(structured, ensure_ascii=False))],
         structuredContent=structured,
         _meta=meta,
     )
@@ -1812,7 +1971,7 @@ def build_server(
         start: str,
         end: str,
         models: list[str] | None = None,
-    ) -> dict[str, Any]:
+    ) -> Annotated[CallToolResult, dict[str, Any]]:
         """Wind, sea, and where it matters current and tide, at one point.
 
         For the questions about a place rather than a passage: how hard it
@@ -1823,23 +1982,25 @@ def build_server(
         Args:
             lat: latitude in degrees.
             lon: longitude in degrees.
-            start: ISO-8601 datetime, timezone-aware (e.g. "2026-05-01T06:00:00+00:00").
+            start: ISO-8601 datetime with the user's UTC offset (e.g.
+                "2026-05-01T08:00:00+02:00"). Every time in the answer comes
+                back in that offset.
             end: ISO-8601 datetime, timezone-aware.
             models: optional list of model names. Leave it unset for the
                 automatic choice: AROME (1.3 km) wherever it reaches the
                 window, and the next model that reaches its end when the
-                window runs past two days. Name several models (e.g.
-                ``["meteofrance_arome_france", "icon_eu", "ecmwf_ifs025"]``)
-                only when the user asks whether the models agree: each one
-                costs a request.
+                window runs past two days. Name several models (``["arome",
+                "icon_eu", "ecmwf", "gfs"]``) only when the user asks whether
+                the models agree: each one costs a request.
 
         Returns hourly ``wind`` per model (speed, direction it comes from,
         gusts, in knots), ``sea`` (wave height, period, direction), and, only
         where they are material, ``current`` (speed in knots, direction it
         flows to, from a tidal atlas where one covers the point) and ``tide``
         (height around mean sea level: read the range and the times of high
-        and low water from it, not a depth over chart datum). Also
-        ``openwind_url``, the OhMyWind map centred on the point.
+        and low water from it, not a depth over chart datum). Each series is
+        a table: ``columns`` names the fields once, each of ``rows`` is one
+        hour. Also ``openwind_url``, the OhMyWind map centred on the point.
 
         Answer in a sentence first (the user is often in a car or at the bar),
         then give the few numbers that back it, as a short table or a small
@@ -1858,10 +2019,17 @@ def build_server(
         validate_point(lat, lon)
         start_dt = datetime.fromisoformat(start)
         end_dt = datetime.fromisoformat(end)
-        if not models or models == [AUTO_MODEL]:
-            models = _auto_forecast_models(start_dt, end_dt)
-        bundle = await fetch_adapter.fetch(lat, lon, start_dt, end_dt, models=models)
-        return (
+        resolved = [_resolve_model(m) for m in models or []]
+        if not resolved or AUTO_MODEL in resolved:
+            resolved = _auto_forecast_models(start_dt, end_dt)
+        bundle = await fetch_adapter.fetch(
+            lat, lon, start_dt, end_dt, models=list(dict.fromkeys(resolved))
+        )
+
+        def deg(v: float | None) -> int | None:
+            return None if v is None else round(v)
+
+        view = (
             {
                 "lat": bundle.lat,
                 "lon": bundle.lon,
@@ -1869,32 +2037,34 @@ def build_server(
                 "end": bundle.end.isoformat(),
                 "requested_at": bundle.requested_at.isoformat(),
                 "wind": {
-                    model: [
-                        {
-                            "time": p.time.isoformat(),
-                            "speed_kn": p.speed_kn,
-                            "direction_deg": p.direction_deg,
-                            "gust_kn": p.gust_kn,
-                        }
-                        for p in series.points
-                    ]
+                    model: _table(
+                        ["time", "speed_kn", "direction_deg", "gust_kn"],
+                        [
+                            [p.time.isoformat(), p.speed_kn, deg(p.direction_deg), p.gust_kn]
+                            for p in series.points
+                        ],
+                    )
                     for model, series in bundle.wind_by_model.items()
                 },
-                "sea": [
-                    {
-                        "time": p.time.isoformat(),
-                        "wave_height_m": p.wave_height_m,
-                        "wave_period_s": p.wave_period_s,
-                        "wave_direction_deg": p.wave_direction_deg,
-                    }
-                    for p in bundle.sea.points
-                ],
+                "sea": _table(
+                    ["time", "wave_height_m", "wave_period_s", "wave_direction_deg"],
+                    [
+                        [
+                            p.time.isoformat(),
+                            p.wave_height_m,
+                            p.wave_period_s,
+                            deg(p.wave_direction_deg),
+                        ]
+                        for p in bundle.sea.points
+                    ],
+                ),
             }
             | _material_current_and_tide(bundle.sea.points)
             | {
                 "openwind_url": build_explore_url(lat, lon),
             }
         )
+        return _tool_result(view, tz=start_dt.tzinfo)
 
     @server.tool(
         annotations=ToolAnnotations(
@@ -1912,7 +2082,7 @@ def build_server(
         end: str,
         heading_deg: float | None = None,
         step_minutes: int = 30,
-    ) -> dict[str, Any]:
+    ) -> Annotated[CallToolResult, dict[str, Any]]:
         """The tidal stream and the tide at one point, from the tidal atlases alone.
 
         For the questions about a pass or a harbour entrance: when to be at
@@ -1925,7 +2095,8 @@ def build_server(
         Args:
             lat: latitude in degrees, at sea, in the pass itself.
             lon: longitude in degrees.
-            start: ISO-8601 datetime, timezone-aware.
+            start: ISO-8601 datetime with the user's UTC offset; every time
+                in the answer comes back in that offset.
             end: ISO-8601 datetime, timezone-aware. At most 400 steps.
             heading_deg: optional course through the point (true degrees,
                 the direction you head to). With it, each step gets
@@ -1934,9 +2105,10 @@ def build_server(
                 ``adverse`` windows.
             step_minutes: 5 to 180, default 30.
 
-        Returns ``covered``, ``source``, ``confidence``, ``points`` (time,
-        ``speed_kn``, ``direction_to_deg`` it flows to, ``height_m`` around
-        mean sea level, ``along_kn``), ``slack`` (the moments the stream nearly
+        Returns ``covered``, ``source``, ``confidence``, ``points`` (a table:
+        ``columns`` time, ``speed_kn``, ``direction_to_deg`` it flows to,
+        ``along_kn``, ``height_m`` around mean sea level; one row per step),
+        ``slack`` (the moments the stream nearly
         stops), ``high_waters`` / ``low_waters``, ``favourable`` /
         ``adverse`` when a heading is given, ``tide_coefficient`` (French
         national coefficient, Brest, on French atlases), a ``warning`` when
@@ -1971,18 +2143,10 @@ def build_server(
             )
         times = [start_dt + step * i for i in range(n_steps)]
         heading = None if heading_deg is None else heading_deg % 360
-        return _tidal_stream_view(fetch_adapter, lat, lon, times, heading)
+        return _tool_result(
+            _tidal_stream_view(fetch_adapter, lat, lon, times, heading), tz=start_dt.tzinfo
+        )
 
-    @server.tool(
-        annotations=ToolAnnotations(
-            title="Plan a passage",
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=True,
-            openWorldHint=True,
-        ),
-        meta={"ui": {"resourceUri": PLAN_UI_RESOURCE_URI}},
-    )
     async def plan_passage(
         waypoints: list[dict[str, float]],
         departure: str,
@@ -2037,8 +2201,9 @@ def build_server(
 
         5. **When to be at a pass** ("à quelle heure au Raz de Sein ?",
            "quand renverse le courant au Fromveur ?"): ``get_tidal_stream``
-           at the pass, with the course you will steer, then ``plan_passage``
-           for the departure that brings you there in the favourable window.
+           at the pass, with the course you will steer, and ``plan_passage``
+           comparing departures, both in the same turn; then pick the
+           departure that brings you there in the favourable window.
 
         6. **Methodology question** ("comment c'est calculé ?",
            "quelle efficacité par défaut ?"): call ``read_me``.
@@ -2083,6 +2248,10 @@ def build_server(
 
         ## Returned payload
 
+        Every time comes back in the UTC offset of ``departure``: send the
+        user's own (``+02:00`` for France in summer) and read the times as
+        their clock.
+
         Single mode:
 
         - ``passage``: per-segment timing report (distance_nm, duration_h,
@@ -2103,15 +2272,13 @@ def build_server(
         - ``mode``: ``"multi_window"``.
         - ``sweep``: ``earliest`` / ``latest`` / ``interval_hours`` /
           ``window_count``.
-        - ``windows[]``: each entry has ``departure``, ``arrival``,
-          ``duration_h``, ``distance_nm``, ``complexity`` (level + label +
-          rationale), ``conditions_summary`` (tws_min/max, predominant sail
-          angle, hs_min/max), ``warnings``, ``openwind_url``.
-        - ``meta_warnings``: top-level notes ("3 fenêtres ignorées …").
-        - ``notices`` / ``meta_notices``: the same warnings as codes with
-          their values (``{"code": "sweep.skipped_windows", "params": …}``),
-          for a client that says them in another language. Read the French
-          ``message`` and ignore these.
+        - ``windows[]``: each entry has ``departure``, its ``weekday``,
+          ``arrival``, ``duration_h``, ``distance_nm``, ``complexity`` (level
+          + label + rationale), ``conditions_summary`` (tws_min/max,
+          predominant sail angle, hs_min/max), ``warnings`` (the difficulty
+          first), ``openwind_url``.
+        - ``meta_warnings``: notes about the whole sweep or the route ("3
+          fenêtres ignorées …", a long route sampled more sparsely).
         - ``waypoints``: the route as you sent it, once for all windows.
         - ``route_label`` and ``alternatives[]``, only when you passed
           alternatives: each alternative has its ``label``, ``waypoints``
@@ -2172,7 +2339,9 @@ def build_server(
                 Used exactly as drawn. Read "Waypoints must stay in the
                 water" above before building it.
             departure: ISO-8601 datetime, timezone-aware.
-            archetype: one of ``list_boat_archetypes()`` names.
+            archetype: the boat. Pick it yourself from what the user sails,
+                among these (``list_boat_archetypes`` returns the same list):
+                {archetypes}
             efficiency: multiplier on polar speed. ``0.85`` racing, ``0.75``
                 cruising (default), ``0.65`` loaded family cruising, ``0.55``
                 heavy seas / fouled hull.
@@ -2181,7 +2350,7 @@ def build_server(
                 coastal work, raise to 20 for long offshore legs.
             model: wind model. Default ``"auto"`` tries AROME (≤48 h) →
                 ICON-EU (≤5 d) → ECMWF IFS 0.25° (≤10 d) → GFS (≤16 d).
-                Pass an explicit name to bypass.
+                Pass ``arome``, ``icon_eu``, ``ecmwf`` or ``gfs`` to bypass.
             max_hs_m: optional max significant wave height (meters) over the
                 route: pass it if you have a sea-state estimate from
                 ``get_marine_forecast`` and want it factored into the score.
@@ -2247,6 +2416,7 @@ def build_server(
             raise ValueError(f"min_upwind_twa_deg must be in [25, 70], got {min_upwind_twa_deg}")
 
         dep = datetime.fromisoformat(departure)
+        model = _resolve_model(model)
         alts = _parse_alternatives(alternatives)
         main_label = (route_label or "Variante A").strip()[:40]
 
@@ -2292,6 +2462,8 @@ def build_server(
                 windows=windows,
                 meta_notices=meta_notices,
             ) | {"waypoints": _route_view(pts)}
+            route_notes: list[str] = []
+            body["windows"] = _model_windows(body["windows"], route_notes, dep.tzinfo)
             meta = _legs_meta(reports, windows)
             if alts:
                 alt_entries, alt_legs = [], []
@@ -2300,14 +2472,21 @@ def build_server(
                         alt_pts, _route_view(alt_pts)
                     )
                     alt_entries.append(
-                        {"label": label, "waypoints": _route_view(alt_pts), "windows": alt_windows}
+                        {
+                            "label": label,
+                            "waypoints": _route_view(alt_pts),
+                            "windows": _model_windows(alt_windows, route_notes, dep.tzinfo),
+                        }
                     )
                     alt_legs.append(
                         (_legs_meta(alt_reports, alt_windows) or {}).get(PLAN_UI_LEGS_META_KEY)
                     )
                 body |= {"route_label": main_label, "alternatives": alt_entries}
                 meta = (meta or {}) | {PLAN_UI_ALT_LEGS_META_KEY: alt_legs}
-            return _tool_result(body | {"disclaimer": PASSAGE_DISCLAIMER}, meta)
+            body["meta_warnings"] = route_notes + list(body.get("meta_warnings") or [])
+            return _tool_result(
+                _drop_notices(body | {"disclaimer": PASSAGE_DISCLAIMER}), meta, tz=dep.tzinfo
+            )
 
         # --- SINGLE MODE ---
         report = await _estimate_passage(
@@ -2346,6 +2525,25 @@ def build_server(
                     | {"openwind_url": build_ohmywind_url(alt_raw, departure, archetype)}
                 )
             body |= {"route_label": main_label, "alternatives": alt_entries}
-        return _tool_result(body | {"disclaimer": PASSAGE_DISCLAIMER})
+        return _tool_result(_drop_notices(body | {"disclaimer": PASSAGE_DISCLAIMER}), tz=dep.tzinfo)
+
+    # Registered by hand so the description can carry the archetypes: a model
+    # that reads them here picks the boat without a list_boat_archetypes round
+    # trip, and the list comes from the polars, never from a copy.
+    doc = plan_passage.__doc__ or ""
+    indent = next(
+        (ln[: len(ln) - len(ln.lstrip())] for ln in doc.splitlines() if "{archetypes}" in ln), ""
+    )
+    plan_passage.__doc__ = doc.replace("{archetypes}", _archetype_lines(indent=indent).lstrip())
+    server.tool(
+        annotations=ToolAnnotations(
+            title="Plan a passage",
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
+            openWorldHint=True,
+        ),
+        meta={"ui": {"resourceUri": PLAN_UI_RESOURCE_URI}},
+    )(plan_passage)
 
     return server

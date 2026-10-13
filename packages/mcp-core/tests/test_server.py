@@ -285,6 +285,33 @@ class TestPlanPassageSweep:
         assert out["sweep"]["window_count"] == 2
         assert len(out["windows"]) == 2
 
+    async def test_windows_speak_the_callers_clock(self) -> None:
+        # A small model announced 22:00 UTC as a ten o'clock departure, and a
+        # Monday as a Saturday: the windows carry the offset sent and the day.
+        server = build_server(adapter=StubAdapter())
+        out = await _call(
+            server,
+            "plan_passage",
+            _SWEEP_ARGS
+            | {
+                "departure": "2026-05-01T08:00:00+02:00",
+                "latest_departure": "2026-05-01T11:00:00+02:00",
+            },
+        )
+        first = out["windows"][0]
+        assert first["departure"] == "2026-05-01T08:00+02:00"
+        assert first["weekday"] == "Fri"
+        assert first["arrival"].endswith("+02:00")
+        assert out["sweep"]["earliest"] == "2026-05-01T08:00+02:00"
+
+    async def test_warnings_once_and_without_their_codes(self) -> None:
+        # The coded notices repeat every warning line; the model reads the
+        # line, the widget too.
+        server = build_server(adapter=StubAdapter())
+        out = await _call(server, "plan_passage", _SWEEP_ARGS)
+        assert "meta_notices" not in out
+        assert all("notices" not in w for w in out["windows"])
+
     async def test_sweep_legs_travel_in_meta_for_the_widget(self) -> None:
         # The widget colours the map and fills the per-leg table of the
         # selected window from _meta. The model reads the same compact rows as
@@ -491,11 +518,51 @@ class TestGetMarineForecast:
         )
         assert "wind" in out
         assert "meteofrance_arome_france" in out["wind"]
-        assert isinstance(out["wind"]["meteofrance_arome_france"][0]["time"], str)
+        table = out["wind"]["meteofrance_arome_france"]
+        assert table["columns"] == ["time", "speed_kn", "direction_deg", "gust_kn"]
+        assert isinstance(table["rows"][0][0], str)
+
+    async def test_times_come_back_in_the_offset_sent(self) -> None:
+        # Haiku read "09:00:00+00:00" as nine in the morning in France.
+        server = build_server(adapter=StubAdapter())
+        out = await _call(
+            server,
+            "get_marine_forecast",
+            {
+                "lat": 43.30,
+                "lon": 5.35,
+                "start": "2026-05-01T08:00:00+02:00",
+                "end": "2026-05-01T20:00:00+02:00",
+            },
+        )
+        assert out["start"] == "2026-05-01T08:00+02:00"
+        assert out["wind"]["meteofrance_arome_france"]["rows"][0][0] == "2026-05-01T08:00+02:00"
+
+    async def test_the_text_the_model_reads_is_compact(self) -> None:
+        server = build_server(adapter=StubAdapter())
+        result = await server.call_tool("get_marine_forecast", _FORECAST_ARGS)
+        assert isinstance(result, CallToolResult)
+        text = result.content[0].text
+        assert "\n" not in text
+        assert json.loads(text) == result.structuredContent
+
+    async def test_common_model_names_are_understood(self) -> None:
+        server = build_server(adapter=StubAdapter())
+        out = await _call(
+            server, "get_marine_forecast", _FORECAST_ARGS | {"models": ["arome", "gfs"]}
+        )
+        assert list(out["wind"]) == ["meteofrance_arome_france", "gfs_seamless"]
+
+    async def test_an_unknown_model_fails_before_any_request(self) -> None:
+        adapter = StubAdapter()
+        server = build_server(adapter=adapter)
+        with pytest.raises(Exception, match="use arome, icon_eu, ecmwf or gfs"):
+            await server.call_tool("get_marine_forecast", _FORECAST_ARGS | {"models": ["harmonie"]})
+        assert adapter.fetch_calls == 0
 
     async def test_auto_keeps_arome_and_adds_the_model_that_reaches_the_end(self) -> None:
-        # A window from now to day 5: AROME's detail for the first two days,
-        # ICON-EU after, rather than three days of nulls.
+        # A window from now to day 4: AROME's detail for the first two days,
+        # ICON-EU after, rather than two days of nulls.
         server = build_server(adapter=StubAdapter())
         now = datetime.now(UTC)
         out = await _call(
@@ -505,7 +572,7 @@ class TestGetMarineForecast:
                 "lat": 43.30,
                 "lon": 5.35,
                 "start": now.isoformat(),
-                "end": (now + timedelta(days=5)).isoformat(),
+                "end": (now + timedelta(days=4)).isoformat(),
             },
         )
         assert list(out["wind"]) == ["meteofrance_arome_france", "icon_eu"]
@@ -534,8 +601,9 @@ class TestGetMarineForecast:
             _FORECAST_ARGS,
         )
         assert strong["current"]["source"] == "marc_finis_250m"
-        assert strong["current"]["points"][0]["speed_kn"] == 3.2
-        assert strong["tide"]["points"]
+        assert strong["current"]["columns"] == ["time", "speed_kn", "direction_to_deg"]
+        assert strong["current"]["rows"][0][1] == 3.2
+        assert strong["tide"]["rows"]
         weak = await _call(
             build_server(adapter=SeaStubAdapter(current_kn=0.1, tide_amplitude_m=0.1)),
             "get_marine_forecast",

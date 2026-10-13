@@ -92,6 +92,11 @@ def atlas_dir(tmp_path: Path) -> Path:
     return tmp_path
 
 
+def _rows(table: dict) -> list[dict]:
+    """A table of the answer read back as one dict per row."""
+    return [dict(zip(table["columns"], row, strict=True)) for row in table["rows"]]
+
+
 async def _stream(server, **args) -> dict:
     result = await server.call_tool("get_tidal_stream", {"start": START, "end": END, **args})
     if isinstance(result, CallToolResult):
@@ -113,7 +118,7 @@ async def test_inside_an_atlas_without_a_weather_request(atlas_dir: Path) -> Non
     assert out["covered"] is True
     assert out["source"] == "marc_finis_250m"
     assert upstream.fetch_calls == 0
-    first = out["points"][0]
+    first = _rows(out["points"])[0]
     assert {"time", "speed_kn", "direction_to_deg", "height_m"} <= first.keys()
     # An M2 tide: two high waters, two low waters and a few slacks in 24 h.
     assert len(out["high_waters"]) == 2
@@ -125,7 +130,7 @@ async def test_a_heading_splits_the_day_into_carrying_and_stemming(atlas_dir: Pa
     server, _ = _server_with_atlas(atlas_dir)
     out = await _stream(server, **IN_ATLAS, heading_deg=60)
     assert out["heading_deg"] == 60
-    assert all("along_kn" in p for p in out["points"])
+    assert all(p["along_kn"] is not None for p in _rows(out["points"]))
     assert out["favourable"]
     assert out["adverse"]
     assert all(w["peak_kn"] > 0 for w in out["favourable"])
@@ -174,6 +179,6 @@ def test_a_window_of_a_single_step_is_dropped() -> None:
 async def test_slack_is_only_where_the_stream_nearly_stops(atlas_dir: Path) -> None:
     server, _ = _server_with_atlas(atlas_dir)
     out = await _stream(server, **IN_ATLAS)
-    strongest = max(p["speed_kn"] for p in out["points"])
+    strongest = max(p["speed_kn"] for p in _rows(out["points"]))
     assert out["slack"]
     assert all(s["speed_kn"] <= max(0.5, 0.25 * strongest) for s in out["slack"])

@@ -93,3 +93,30 @@ def test_server_instructions_route_questions_and_say_when_to_call_nothing() -> N
     assert "Call no tool" in SERVER_INSTRUCTIONS
     assert "alternatives" in SERVER_INSTRUCTIONS
     assert "\u2014" not in SERVER_INSTRUCTIONS
+
+
+def test_plan_passage_lists_the_archetypes_it_takes(by_name) -> None:
+    """Seven of twenty passage questions spent a round on list_boat_archetypes.
+
+    The list in the description comes from the polars: every archetype is
+    there, with its examples, and the model still makes the match itself.
+    """
+    from openwind_data.routing import list_archetypes
+
+    description = by_name["plan_passage"].description
+    assert "{archetypes}" not in description
+    for p in list_archetypes():
+        assert f"``{p.name}``" in description
+    assert "Sun Odyssey 32" in description
+
+
+def test_server_instructions_cover_offsets_parallel_calls_and_the_engine() -> None:
+    """What the Haiku traces got wrong: UTC read as local, a loop of several
+    days planned as one 42 h passage, calls made one after the other, and a
+    calm passage sailed for 24 h without the engine."""
+    from openwind_mcp_core.server import SERVER_INSTRUCTIONS
+
+    assert "UTC offset" in SERVER_INSTRUCTIONS
+    assert "same turn" in SERVER_INSTRUCTIONS
+    assert "several days" in SERVER_INSTRUCTIONS
+    assert "motor_threshold_kn" in SERVER_INSTRUCTIONS

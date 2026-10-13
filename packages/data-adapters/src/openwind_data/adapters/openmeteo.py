@@ -57,10 +57,13 @@ AUTO_FALLBACK_CHAIN: tuple[str, ...] = (
 # point per step. A passage on day 7 used to spend ~40 requests that way
 # before landing on ECMWF. Starting the chain at the first model that reaches
 # the date skips that walk. Approximate on purpose: a model asked slightly
-# past its real reach still gets caught by the same fallback.
+# past its real reach still gets caught by the same fallback. ICON-EU runs to
+# 120 h from its own start, and the freshest run is already six to nine hours
+# old when it is served: a departure at 117 h found no ICON data and paid the
+# fallback, so its reach counts from now with that age taken off.
 AUTO_REACH_HOURS: dict[str, float] = {
     "meteofrance_arome_france": 48,
-    "icon_eu": 120,
+    "icon_eu": 108,
     "ecmwf_ifs025": 240,
     "gfs_seamless": 384,
 }

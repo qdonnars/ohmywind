@@ -1637,7 +1637,9 @@ class TestAutoChainStartsWhereTheModelReaches:
             (12, "meteofrance_arome_france"),
             (48, "meteofrance_arome_france"),
             (49, "icon_eu"),
-            (5 * 24, "icon_eu"),
+            (108, "icon_eu"),
+            # ICON-EU's 120 h count from a run already hours old.
+            (5 * 24, "ecmwf_ifs025"),
             (6 * 24, "ecmwf_ifs025"),
             (11 * 24, "gfs_seamless"),
             (20 * 24, "gfs_seamless"),
