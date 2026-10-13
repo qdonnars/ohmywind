@@ -7,6 +7,7 @@ import json
 import re
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from mcp.server.fastmcp import FastMCP
 from mcp.types import CallToolResult
 from openwind_data.adapters.base import (
@@ -548,6 +549,66 @@ class TestGetMarineForecast:
             build_server(adapter=StubAdapter()), "get_marine_forecast", _FORECAST_ARGS
         )
         assert out["openwind_url"].endswith("/?center=48.0300,-4.7400&zoom=11")
+
+
+_SOUTH_OF_THE_ISLAND = [
+    {"lat": 43.30, "lon": 5.35},
+    {"lat": 42.95, "lon": 5.80},
+    {"lat": 43.00, "lon": 6.20},
+]
+
+
+class TestAlternatives:
+    """Two ways to go, compared in one call (the Fromveur question)."""
+
+    async def test_single_mode_compares_the_routes(self) -> None:
+        server = build_server(adapter=StubAdapter())
+        out = await _call(
+            server,
+            "plan_passage",
+            {
+                **_BASE_PLAN_ARGS,
+                "route_label": "Direct",
+                "alternatives": [{"label": "Par le large", "waypoints": _SOUTH_OF_THE_ISLAND}],
+            },
+        )
+        assert out["route_label"] == "Direct"
+        [alt] = out["alternatives"]
+        assert alt["label"] == "Par le large"
+        assert alt["waypoints"] == _SOUTH_OF_THE_ISLAND
+        assert alt["passage"]["distance_nm"] > out["passage"]["distance_nm"]
+        assert alt["openwind_url"].startswith("https://ohmywind.fr/plan?wpts=43.300,5.350;42.950")
+        assert list(out)[-1] == "disclaimer"
+
+    async def test_sweep_gives_each_route_the_same_departures(self) -> None:
+        from openwind_mcp_core.server import PLAN_UI_ALT_LEGS_META_KEY
+
+        server = build_server(adapter=StubAdapter())
+        result = await server.call_tool(
+            "plan_passage",
+            {**_SWEEP_ARGS, "alternatives": [{"waypoints": _SOUTH_OF_THE_ISLAND}]},
+        )
+        out = result.structuredContent
+        [alt] = out["alternatives"]
+        assert alt["label"] == "Variante B"
+        assert out["route_label"] == "Variante A"
+        assert [w["departure"] for w in alt["windows"]] == [w["departure"] for w in out["windows"]]
+        [alt_legs] = result.meta[PLAN_UI_ALT_LEGS_META_KEY]
+        assert len(alt_legs["windows"]) == len(alt["windows"])
+
+    async def test_without_alternatives_nothing_changes(self) -> None:
+        server = build_server(adapter=StubAdapter())
+        out = await _call(server, "plan_passage", _BASE_PLAN_ARGS)
+        assert "alternatives" not in out
+        assert "route_label" not in out
+
+    async def test_at_most_two_alternatives(self) -> None:
+        server = build_server(adapter=StubAdapter())
+        alt = {"waypoints": _SOUTH_OF_THE_ISLAND}
+        with pytest.raises(Exception, match="at most 2"):
+            await server.call_tool(
+                "plan_passage", {**_BASE_PLAN_ARGS, "alternatives": [alt, alt, alt]}
+            )
 
 
 class TestDisclaimer:

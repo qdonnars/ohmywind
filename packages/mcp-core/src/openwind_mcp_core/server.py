@@ -79,6 +79,7 @@ from openwind_data.routing import (
 from openwind_data.routing import (
     score_complexity as _score_complexity,
 )
+from openwind_data.routing.geometry import Point
 from openwind_data.routing.notices import Notice
 from openwind_data.views import (
     filter_windows_by_target_eta,
@@ -105,6 +106,7 @@ PLAN_UI_MIME = "text/html;profile=mcp-app"
 # value still on the old brand, because the sweep that renamed everything else
 # matched "OpenWind" and "openwind.fr" and this one is lowercase and bare.
 SERVER_NAME = "ohmywind"
+
 
 # Usage warning attached to every plan_passage payload, single mode and
 # compare-windows alike. The tool hands back an ETA and a 1-5 complexity score
@@ -144,6 +146,13 @@ PLAN_UI_RESOURCE_DOMAINS = ["https://unpkg.com", OSM_TILE_ORIGIN]
 # every window would put up to 336 times the segment count in front of the
 # model, for a table only the widget draws.
 PLAN_UI_LEGS_META_KEY = "ohmywind.fr/legs"
+# The same, one entry per alternative route, in the order of ``alternatives``.
+PLAN_UI_ALT_LEGS_META_KEY = "ohmywind.fr/alternatives_legs"
+
+# Routes compared in one plan_passage call besides the main one. Two is the
+# question sailors ask ("north or south of the Fromveur", "Ré or Aix"); each
+# route costs its own requests, so the cap also bounds the call.
+MAX_ALTERNATIVES = 2
 _LEG_FIELDS = (
     "end_time",
     "tws_kn",
@@ -245,6 +254,14 @@ _PLAN_WIDGET_HTML = """<!doctype html>
     details.warns[open] summary .more{display:none}
     details.warns .warn{margin:.35rem 0 0}
     .cur-arrow{display:inline-block;margin-left:.25rem}
+    /* Variants: one column per route, a cell per departure. */
+    .cell{appearance:none;display:inline-flex;align-items:center;gap:.35rem;cursor:pointer;
+      background:none;border:1px solid transparent;border-radius:7px;padding:.2rem .45rem;
+      font:inherit;color:var(--fg1)}
+    .cell:hover{background:var(--accent-soft)}
+    .cell[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);
+      color:var(--fg0);font-weight:700}
+    .cell:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
     .chosen{margin:1.1rem 0 .6rem;padding-top:.9rem;border-top:1px solid var(--line);display:grid;gap:.45rem}
     .chosen.single{margin-top:0;padding-top:0;border-top:0}
     .chosen .warn{margin:0}
@@ -379,9 +396,23 @@ _PLAN_WIDGET_HTML = """<!doctype html>
     // sweep one per window. Everything under the departures list reads the
     // selected run, so both modes render through the same code.
     const LEGS_META_KEY = "__LEGS_META_KEY__";
+    const ALT_LEGS_META_KEY = "__ALT_LEGS_META_KEY__";
 
-    function runsOf(sc, meta){
-      if(sc.mode !== "multi_window"){
+    // The routes of a result: the main one, then each alternative the model
+    // asked to compare, each with its own runs. Without alternatives, one.
+    function routesOf(sc, meta){
+      const multi = sc.mode === "multi_window";
+      const altLegs = (meta && meta[ALT_LEGS_META_KEY]) || [];
+      const main = {label: sc.route_label || "Variante A", pts: routePoints(sc),
+        runs: runsOf(sc, meta && meta[LEGS_META_KEY], multi)};
+      return [main].concat((sc.alternatives || []).map((a,k)=>({
+        label: a.label || `Variante ${String.fromCharCode(66 + k)}`, pts: routePoints(a),
+        runs: runsOf(a, altLegs[k], multi),
+      })));
+    }
+
+    function runsOf(sc, m, multi){
+      if(!multi){
         const p = sc.passage || {};
         const cx = sc.complexity || {};
         return [{
@@ -397,7 +428,6 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       // Sweep windows carry no legs: they come in the result's _meta, kept
       // out of the model's context. A host that drops _meta still gets the
       // list and the route, without per-departure colours or detail.
-      const m = meta && meta[LEGS_META_KEY];
       const g = m && m.geometry;
       const at = k => m.fields.indexOf(k);
       return (sc.windows||[]).map((w,i)=>{
@@ -459,6 +489,33 @@ _PLAN_WIDGET_HTML = """<!doctype html>
         <p class="hint">Sélectionnez un départ pour voir sa route et son détail.</p>`;
     }
 
+    // Several routes for the same departures: a row per departure, a column
+    // per route, the duration and difficulty in each cell. The cell picks
+    // the route and the departure at once.
+    function matrixBlock(routes, ri, si, multi){
+      const deps = [...new Set(routes.flatMap(route=>route.runs.map(x=>x.departure)))].sort();
+      const selDep = routes[ri].runs[si] && routes[ri].runs[si].departure;
+      const rows = deps.map((d,k)=>{
+        const hidden = !listExpanded && k >= LIST_LIMIT && d !== selDep;
+        const cells = routes.map((route,rj)=>{
+          const i = route.runs.findIndex(x=>x.departure === d);
+          if(i < 0) return `<td>—</td>`;
+          const r = route.runs[i];
+          const c = CX_COLORS[r.complexity.level] || CX_COLORS[3];
+          return `<td><button type="button" class="cell" data-r="${rj}" data-i="${i}"
+            aria-pressed="${rj === ri && i === si}">${fmtDur(r.duration_h)}<span class="num" style="background:${c}">${r.complexity.level||"?"}</span></button></td>`;
+        }).join("");
+        return `<tr class="mrow"${hidden ? " hidden" : ""}><td>${multi ? fmtDate(d) : fmtTime(d)}</td>${cells}</tr>`;
+      }).join("");
+      return `<div class="tablewrap"><table aria-label="Variantes par départ">
+          <thead><tr><th>Départ</th>${routes.map(route=>`<th>${escapeHtml(route.label)}</th>`).join("")}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+        ${!listExpanded && deps.length > LIST_LIMIT
+          ? `<button type="button" class="more-deps" id="ow-more">Afficher les ${deps.length - LIST_LIMIT} autres départs</button>` : ""}
+        <p class="hint">Choisissez une case pour voir cette variante à ce départ.</p>`;
+    }
+
     function statsBlock(r){
       const shift = dayShift(r.departure, r.arrival);
       const stats = [
@@ -472,10 +529,10 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       `).join("")}</div>`;
     }
 
-    function chosenBlock(r, multi){
+    function chosenBlock(r, multi, label){
       const cx = r.complexity;
       const head = multi
-        ? `<div class="chosen-line"><b>Départ ${fmtDate(r.departure)}</b>
+        ? `<div class="chosen-line"><b>${label ? escapeHtml(label) + " · " : ""}Départ ${fmtDate(r.departure)}</b>
             <span class="meta">arrivée ${fmtDate(r.arrival)} · ${fmtDur(r.duration_h)}</span>
             ${badge(cx.level||3, cx.label||"")}</div>`
         : `<div class="chosen-line">${badge(cx.level||3, cx.label||"")}</div>`;
@@ -561,6 +618,30 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       `;
     }
 
+    function renderVariants(sc, routes){
+      const multi = sc.mode === "multi_window";
+      const route = routes[selRoute];
+      const r = route.runs[sel];
+      const sweep = sc.sweep || {};
+      const below = r ? `
+        <div class="chosen" id="ow-chosen">${chosenBlock(r, true, route.label)}</div>
+        ${mapBlock(route.pts, r.distance_nm,
+          "Les tracés envoyés par l'assistant ; la variante choisie est colorée selon le vent de ses tronçons.",
+          !!r.legs)}
+        <div id="ow-detail">${detailBlock(r, true)}</div>
+        <a class="cta" id="ow-cta" href="${escapeHtml(r.url || "__WEB_BASE__/plan")}" rel="noopener">Voir cette variante sur __WEB_HOST__ →</a>
+      ` : "";
+      return `
+        <h2>Comparaison de ${routes.length} variantes</h2>
+        <p class="sub">${multi
+          ? `Du ${fmtDate(sweep.earliest)} au ${fmtDate(sweep.latest)} · pas de ${sweep.interval_hours||"?"}h`
+          : `Départ ${r ? fmtDate(r.departure) : ""}`}</p>
+        ${(sc.meta_warnings || []).map(m=>`<div class="warn">${escapeHtml(m)}</div>`).join("")}
+        ${matrixBlock(routes, selRoute, sel, multi)}
+        ${below}
+      `;
+    }
+
     // ---- Route map ----
     // Draws the polyline the model sent, so the user sees what the figures
     // were computed along and can catch a leg drawn wrong. Leaflet and the
@@ -592,7 +673,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       return `<div class="mapwrap">
         <div class="map" id="ow-map"><div class="wheelhint" aria-hidden="true">Zoom : boutons + et &minus;, ou double-clic</div></div>
         <p class="mapnote">${note}</p>
-        <div class="mapcap"><span>${pts.length} points · ${distNm.toFixed(1)} nm</span>${legend}</div>
+        <div class="mapcap"><span id="ow-mapcap">${pts.length} points · ${distNm.toFixed(1)} nm</span>${legend}</div>
       </div>`;
     }
 
@@ -602,15 +683,16 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       mapApi = null;
     }
 
-    function buildMap(sc, run){
+    function buildMap(pts, run, others){
       const el = document.getElementById('ow-map');
-      const pts = routePoints(sc);
       if(!el || !pts || !run) return;
+      others = (others || []).filter(o=>o.pts);
       const css = getComputedStyle(document.documentElement);
       const casing = css.getPropertyValue('--casing').trim();
       const ink = css.getPropertyValue('--fg0').trim();
       const accent = css.getPropertyValue('--accent').trim();
-      const bounds = L.latLngBounds(pts);
+      // Frame every route compared, so switching variant keeps the view.
+      const bounds = L.latLngBounds(pts.concat(...others.map(o=>o.pts)));
       // No wheel zoom and, on touch screens, no one-finger drag: inside a
       // chat both belong to scrolling the conversation. Buttons, double-tap
       // and pinch still zoom.
@@ -656,6 +738,14 @@ _PLAN_WIDGET_HTML = """<!doctype html>
         L.polyline(pts, {color:casing, weight:8, opacity:.95, lineCap:'round', lineJoin:'round'}).addTo(map);
         L.polyline(pts, {color:accent, weight:4.5, lineCap:'round', lineJoin:'round'}).addTo(map);
       }
+      // The routes not chosen: grey dashes, named at their middle vertex.
+      others.forEach(o=>{
+        L.polyline(o.pts, {color:ink, weight:2.5, opacity:.55, dashArray:'6 6',
+          interactive:false}).addTo(map);
+        const mid = o.pts[Math.floor((o.pts.length - 1) / 2)];
+        L.tooltip({permanent:true, direction:'top', className:'ow-tip', offset:[0,-4]})
+          .setLatLng(mid).setContent(escapeHtml(o.label)).addTo(map);
+      });
 
       // Short legs crowd their numbers together at the overview zoom: show a
       // number only when it clears the last one shown. Zooming in brings the
@@ -762,7 +852,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
 
     // Hold the latest result so the handlers can resolve a row back to its
     // departure.
-    let lastSc = null, lastRuns = [], sel = 0;
+    let lastSc = null, lastRoutes = [], lastRuns = [], sel = 0, selRoute = 0;
     const app = new App({ name: "OhMyWind Plan", version: "1.0.0" });
 
     function openUrl(url){
@@ -780,13 +870,34 @@ _PLAN_WIDGET_HTML = """<!doctype html>
 
     // Selecting a departure keeps the map and its zoom, repaints the legs,
     // and swaps the summary, the detail and the link.
-    function select(i){
+    function mapOthers(){
+      return lastRoutes.filter((_,k)=>k !== selRoute).map(route=>({pts: route.pts, label: route.label}));
+    }
+
+    function select(i, rj){
+      const root = document.getElementById('root');
+      // Another variant: its own geometry, so the map is rebuilt; the frame
+      // covers every route, so the view does not jump.
+      if(rj != null && rj !== selRoute){
+        selRoute = rj;
+        lastRuns = lastRoutes[rj].runs;
+        sel = i;
+        teardownMap();
+        try { buildMap(lastRoutes[rj].pts, lastRuns[i], mapOthers()); }
+        catch(e) { console.error('[ohmywind] route map failed', e); teardownMap(); }
+        const cap = document.getElementById('ow-mapcap');
+        if(cap && lastRuns[i] && lastRoutes[rj].pts)
+          cap.textContent = `${lastRoutes[rj].pts.length} points · ${lastRuns[i].distance_nm.toFixed(1)} nm`;
+      }
       const r = lastRuns[i];
       if(!r) return;
       sel = i;
-      const root = document.getElementById('root');
+      const variants = lastRoutes.length > 1;
       root.querySelectorAll('tr.dep').forEach((row,j)=>row.setAttribute('aria-selected', String(j === i)));
-      document.getElementById('ow-chosen').innerHTML = chosenBlock(r, true);
+      root.querySelectorAll('button.cell').forEach(b=>b.setAttribute('aria-pressed',
+        String(Number(b.dataset.r) === selRoute && Number(b.dataset.i) === i)));
+      document.getElementById('ow-chosen').innerHTML =
+        chosenBlock(r, true, variants ? lastRoutes[selRoute].label : null);
       document.getElementById('ow-detail').innerHTML = detailBlock(r, true);
       document.getElementById('ow-cta').setAttribute('href', r.url || "__WEB_BASE__/plan");
       if(mapApi) mapApi.paint(r);
@@ -833,10 +944,18 @@ _PLAN_WIDGET_HTML = """<!doctype html>
         tr.addEventListener('mouseenter', ()=>{ if(mapApi) mapApi.paint(lastRuns[i]); });
         tr.addEventListener('mouseleave', ()=>{ if(mapApi) mapApi.paint(lastRuns[sel]); });
       });
+      // Variant cells: a click picks the route and the departure; hovering a
+      // cell of the route on the map previews that departure's colours.
+      root.querySelectorAll('button.cell').forEach(b=>{
+        const rj = Number(b.dataset.r), i = Number(b.dataset.i);
+        b.addEventListener('click', ()=>select(i, rj));
+        b.addEventListener('mouseenter', ()=>{ if(mapApi && rj === selRoute) mapApi.paint(lastRuns[i]); });
+        b.addEventListener('mouseleave', ()=>{ if(mapApi) mapApi.paint(lastRuns[sel]); });
+      });
       const more = root.querySelector('#ow-more');
       if(more) more.addEventListener('click', ()=>{
         listExpanded = true;
-        rows.forEach(tr=>{ tr.hidden = false; });
+        root.querySelectorAll('tr.dep, tr.mrow').forEach(tr=>{ tr.hidden = false; });
         more.remove();
       });
       // The link reads its href on click: select() rewrites it.
@@ -858,14 +977,18 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       try {
         const multi = sc.mode === "multi_window";
         if(!multi && !sc.passage) return;
-        lastRuns = runsOf(sc, result._meta);
+        lastRoutes = routesOf(sc, result._meta);
+        selRoute = 0;
+        lastRuns = lastRoutes[0].runs;
         sel = 0;
         listExpanded = false;
-        root.innerHTML = multi ? renderCompare(sc, lastRuns, sel) : renderSingle(sc, lastRuns[0]);
+        root.innerHTML = lastRoutes.length > 1 ? renderVariants(sc, lastRoutes)
+          : multi ? renderCompare(sc, lastRuns, sel) : renderSingle(sc, lastRuns[0]);
         wireClicks();
       } catch(e) {
         console.error('[ohmywind] render failed', e);
         lastRuns = [];
+        lastRoutes = [];
         const url = (sc.openwind_url || (sc.windows && sc.windows[0] && sc.windows[0].openwind_url) || "__WEB_BASE__/plan");
         root.innerHTML = `<div class="placeholder">
           Impossible d'afficher le plan ici.
@@ -876,7 +999,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       }
       // The map sits on top of a plan that stands without it: if it fails,
       // drop it and keep the rest.
-      try { buildMap(sc, lastRuns[sel]); }
+      try { buildMap(lastRoutes[selRoute] && lastRoutes[selRoute].pts, lastRuns[sel], mapOthers()); }
       catch(e) {
         console.error('[ohmywind] route map failed', e);
         teardownMap();
@@ -1113,6 +1236,87 @@ def _route_view(points: list[Any]) -> list[dict[str, float]]:
     every window sails the same line.
     """
     return [{"lat": p.lat, "lon": p.lon} for p in points]
+
+
+async def _sweep_one_route(
+    route_pts: list[Point],
+    route_raw: list[dict[str, float]],
+    *,
+    dep: datetime,
+    latest_dep: datetime,
+    archetype: str,
+    sweep_interval_hours: int,
+    efficiency: float,
+    segment_length_nm: float,
+    adapter: MarineDataAdapter,
+    model: str,
+    polar_override: BoatPolar | None,
+    max_hs_m: float | None,
+    target_eta: str | None,
+) -> tuple[list[Any], list[dict[str, Any]], int, list[Notice]]:
+    """One route's compare-windows sweep: reports, window rows, interval, notices.
+
+    The main route and each alternative go through here, so a variant is
+    swept exactly as the route it is compared with.
+    """
+    reports = await _estimate_passage_windows(
+        route_pts,
+        dep,
+        latest_dep,
+        archetype,
+        sweep_interval_hours=sweep_interval_hours,
+        efficiency=efficiency,
+        segment_length_nm=segment_length_nm,
+        adapter=adapter,
+        model=model,
+        polar_override=polar_override,
+    )
+    windows = [
+        _window_with_link(r, _score_complexity(r, max_hs_m=max_hs_m), route_raw) for r in reports
+    ]
+    meta_notices: list[Notice] = []
+    # The engine widens the interval when windows x segments would blow the
+    # simulation budget, so report what the sweep actually did rather than
+    # what was asked for.
+    effective_interval = sweep_interval_hours
+    if reports:
+        effective_interval, _ = resolve_sweep_interval(
+            (latest_dep.astimezone(UTC) - dep.astimezone(UTC)).total_seconds() / 3600,
+            sweep_interval_hours,
+            len(reports[0].segments),
+        )
+        if effective_interval != sweep_interval_hours:
+            meta_notices.append(
+                widened_interval_warning(
+                    effective_interval, sweep_interval_hours, len(reports[0].segments)
+                )
+            )
+    if target_eta is not None:
+        windows, unmatched = filter_windows_by_target_eta(
+            windows, datetime.fromisoformat(target_eta), target_eta
+        )
+        if unmatched is not None:
+            meta_notices.append(unmatched)
+    return reports, windows, effective_interval, meta_notices
+
+
+def _parse_alternatives(raw: Any) -> list[tuple[str, list[Point]]]:
+    """The alternative routes of a plan_passage call, labelled and parsed.
+
+    Same wording on a bad route as the main one (``parse_waypoints``), so
+    the model reads one kind of error whichever route it drew wrong.
+    """
+    if not raw:
+        return []
+    if not isinstance(raw, list) or len(raw) > MAX_ALTERNATIVES:
+        raise ValueError(f"alternatives: a list of at most {MAX_ALTERNATIVES} routes")
+    out: list[tuple[str, list[Point]]] = []
+    for k, alt in enumerate(raw):
+        if not isinstance(alt, dict) or "waypoints" not in alt:
+            raise ValueError("alternatives: each route needs a 'waypoints' list")
+        label = str(alt.get("label") or f"Variante {chr(ord('B') + k)}").strip()[:40]
+        out.append((label, parse_waypoints(alt["waypoints"])))
+    return out
 
 
 def _auto_forecast_models(start: datetime, end: datetime) -> list[str]:
@@ -1485,6 +1689,7 @@ def build_server(
             .replace("__WEB_HOST__", WEB_HOST)
             .replace("__TILE_URL__", OSM_TILE_URL)
             .replace("__LEGS_META_KEY__", PLAN_UI_LEGS_META_KEY)
+            .replace("__ALT_LEGS_META_KEY__", PLAN_UI_ALT_LEGS_META_KEY)
         )
 
     # Every tool below spells out all four hints, including the two the spec
@@ -1734,6 +1939,8 @@ def build_server(
         motor_threshold_kn: float | None = None,
         motor_speed_kn: float | None = None,
         min_upwind_twa_deg: float | None = None,
+        route_label: str | None = None,
+        alternatives: list[dict[str, Any]] | None = None,
     ) -> Annotated[CallToolResult, dict[str, Any]]:
         """Plan an A→B passage. Compare departure windows by default; pin a
         single departure only when the user gives an explicit time.
@@ -1761,7 +1968,21 @@ def build_server(
            mode (no ``latest_departure``). Used for the final "show me the
            detailed plan for THIS departure" view, often after step 2.
 
-        4. **Methodology question** ("comment c'est calculé ?",
+        4. **Two ways to go** ("nord ou sud du Fromveur pour Ouessant ?",
+           "par l'intérieur ou l'extérieur des Glénan ?", "Ré ou Aix
+           demain ?"): one ``plan_passage`` call, the first route in
+           ``waypoints`` and the others in ``alternatives`` (two at most),
+           each with a short ``label`` saying how it goes ("Par le nord du
+           Fromveur"). Every route is computed for the same departures, so
+           the widget compares them cell by cell. Do not make one call per
+           route.
+
+        5. **When to be at a pass** ("à quelle heure au Raz de Sein ?",
+           "quand renverse le courant au Fromveur ?"): ``get_tidal_stream``
+           at the pass, with the course you will steer, then ``plan_passage``
+           for the departure that brings you there in the favourable window.
+
+        6. **Methodology question** ("comment c'est calculé ?",
            "quelle efficacité par défaut ?"): call ``read_me``.
 
         Rule of thumb: if the user does NOT give an exact hour, prefer
@@ -1814,6 +2035,9 @@ def build_server(
           same passage in the standalone web app.
         - ``waypoints``: the route as you sent it, which the widget draws on
           a map.
+        - ``route_label`` and ``alternatives[]``, only when you passed
+          alternatives: each alternative has its ``label``, ``waypoints``,
+          ``passage``, ``complexity`` and ``openwind_url``.
         - ``disclaimer``: usage warning to relay (see below).
 
         Compare-windows mode (``latest_departure`` set):
@@ -1824,14 +2048,16 @@ def build_server(
         - ``windows[]``: each entry has ``departure``, ``arrival``,
           ``duration_h``, ``distance_nm``, ``complexity`` (level + label +
           rationale), ``conditions_summary`` (tws_min/max, predominant sail
-          angle, hs_min/max), ``warnings``, ``passage`` (full per-segment
-          report), ``complexity_full`` (full score), ``openwind_url``.
+          angle, hs_min/max), ``warnings``, ``openwind_url``.
         - ``meta_warnings``: top-level notes ("3 fenêtres ignorées …").
         - ``notices`` / ``meta_notices``: the same warnings as codes with
           their values (``{"code": "sweep.skipped_windows", "params": …}``),
           for a client that says them in another language. Read the French
           ``message`` and ignore these.
         - ``waypoints``: the route as you sent it, once for all windows.
+        - ``route_label`` and ``alternatives[]``, only when you passed
+          alternatives: each alternative has its ``label``, ``waypoints``
+          and its own ``windows[]``, same departures.
         - ``disclaimer``: usage warning to relay (see below).
 
         ## ALWAYS relay the disclaimer
@@ -1915,6 +2141,13 @@ def build_server(
                 overriding the archetype's own value (42-50 deg depending on
                 the boat). Pass it when you know the boat points better or
                 worse than the archetype suggests. Range [25, 70].
+            route_label: optional short name for the main route, shown in
+                the widget when you pass alternatives ("Par le nord").
+            alternatives: optional other routes for the same trip, at most
+                two: ``[{"label": "Par le sud", "waypoints": [...]}, ...]``.
+                Same departures, same boat, same rules for the waypoints
+                (stay at sea). Each route costs its own forecast requests:
+                pass them only when the user weighs two ways to go.
 
         ## Compare-windows mode (latest_departure set)
 
@@ -1956,6 +2189,8 @@ def build_server(
             raise ValueError(f"min_upwind_twa_deg must be in [25, 70], got {min_upwind_twa_deg}")
 
         dep = datetime.fromisoformat(departure)
+        alts = _parse_alternatives(alternatives)
+        main_label = (route_label or "Variante A").strip()[:40]
 
         # Polar override: clone the archetype polar with the caller's knobs.
         # Motor requires BOTH values (same rule as ``_apply_motor``) so a
@@ -1973,58 +2208,48 @@ def build_server(
         # --- SWEEP MODE ---
         if latest_departure is not None:
             latest_dep = datetime.fromisoformat(latest_departure)
-            reports = await _estimate_passage_windows(
-                pts,
-                dep,
-                latest_dep,
-                archetype,
-                sweep_interval_hours=sweep_interval_hours,
-                efficiency=efficiency,
-                segment_length_nm=segment_length_nm,
-                adapter=fetch_adapter,
-                model=model,
-                polar_override=polar_override,
-            )
-            windows = [
-                _window_with_link(r, _score_complexity(r, max_hs_m=max_hs_m), waypoints)
-                for r in reports
-            ]
 
-            meta_notices: list[Notice] = []
-            # The engine widens the interval when windows x segments would blow
-            # the simulation budget, so report what the sweep actually did
-            # rather than what was asked for.
-            effective_interval = sweep_interval_hours
-            if reports:
-                effective_interval, _ = resolve_sweep_interval(
-                    (latest_dep.astimezone(UTC) - dep.astimezone(UTC)).total_seconds() / 3600,
-                    sweep_interval_hours,
-                    len(reports[0].segments),
+            async def sweep_route(route_pts, route_raw):
+                return await _sweep_one_route(
+                    route_pts,
+                    route_raw,
+                    dep=dep,
+                    latest_dep=latest_dep,
+                    archetype=archetype,
+                    sweep_interval_hours=sweep_interval_hours,
+                    efficiency=efficiency,
+                    segment_length_nm=segment_length_nm,
+                    adapter=fetch_adapter,
+                    model=model,
+                    polar_override=polar_override,
+                    max_hs_m=max_hs_m,
+                    target_eta=target_eta,
                 )
-                if effective_interval != sweep_interval_hours:
-                    meta_notices.append(
-                        widened_interval_warning(
-                            effective_interval, sweep_interval_hours, len(reports[0].segments)
-                        )
+
+            reports, windows, effective_interval, meta_notices = await sweep_route(pts, waypoints)
+            body = sweep_view(
+                earliest=dep,
+                latest=latest_dep,
+                interval_hours=effective_interval,
+                windows=windows,
+                meta_notices=meta_notices,
+            ) | {"waypoints": _route_view(pts)}
+            meta = _legs_meta(reports, windows)
+            if alts:
+                alt_entries, alt_legs = [], []
+                for label, alt_pts in alts:
+                    alt_reports, alt_windows, _, _ = await sweep_route(
+                        alt_pts, _route_view(alt_pts)
                     )
-            if target_eta is not None:
-                windows, unmatched = filter_windows_by_target_eta(
-                    windows, datetime.fromisoformat(target_eta), target_eta
-                )
-                if unmatched is not None:
-                    meta_notices.append(unmatched)
-
-            return _tool_result(
-                sweep_view(
-                    earliest=dep,
-                    latest=latest_dep,
-                    interval_hours=effective_interval,
-                    windows=windows,
-                    meta_notices=meta_notices,
-                )
-                | {"waypoints": _route_view(pts), "disclaimer": PASSAGE_DISCLAIMER},
-                _legs_meta(reports, windows),
-            )
+                    alt_entries.append(
+                        {"label": label, "waypoints": _route_view(alt_pts), "windows": alt_windows}
+                    )
+                    alt_legs.append(
+                        (_legs_meta(alt_reports, alt_windows) or {}).get(PLAN_UI_LEGS_META_KEY)
+                    )
+                body |= {"route_label": main_label, "alternatives": alt_entries}
+                meta = (meta or {}) | {PLAN_UI_ALT_LEGS_META_KEY: alt_legs}
+            return _tool_result(body | {"disclaimer": PASSAGE_DISCLAIMER}, meta)
 
         # --- SINGLE MODE ---
         report = await _estimate_passage(
@@ -2039,13 +2264,30 @@ def build_server(
         )
         score = _score_complexity(report, max_hs_m=max_hs_m)
 
-        return _tool_result(
-            passage_envelope(report, score)
-            | {
-                "openwind_url": build_ohmywind_url(waypoints, departure, archetype),
-                "waypoints": _route_view(pts),
-                "disclaimer": PASSAGE_DISCLAIMER,
-            }
-        )
+        body = passage_envelope(report, score) | {
+            "openwind_url": build_ohmywind_url(waypoints, departure, archetype),
+            "waypoints": _route_view(pts),
+        }
+        if alts:
+            alt_entries = []
+            for label, alt_pts in alts:
+                alt_report = await _estimate_passage(
+                    alt_pts,
+                    dep,
+                    archetype,
+                    efficiency=efficiency,
+                    segment_length_nm=segment_length_nm,
+                    adapter=fetch_adapter,
+                    model=model,
+                    polar_override=polar_override,
+                )
+                alt_raw = _route_view(alt_pts)
+                alt_entries.append(
+                    {"label": label, "waypoints": alt_raw}
+                    | passage_envelope(alt_report, _score_complexity(alt_report, max_hs_m=max_hs_m))
+                    | {"openwind_url": build_ohmywind_url(alt_raw, departure, archetype)}
+                )
+            body |= {"route_label": main_label, "alternatives": alt_entries}
+        return _tool_result(body | {"disclaimer": PASSAGE_DISCLAIMER})
 
     return server
