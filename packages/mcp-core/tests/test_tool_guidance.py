@@ -108,6 +108,8 @@ def test_plan_passage_lists_the_archetypes_it_takes(by_name) -> None:
     for p in list_archetypes():
         assert f"``{p.name}``" in description
     assert "Sun Odyssey 32" in description
+    # A "12 mètres" went out as cruiser_25ft: the metres sit beside the feet.
+    assert "40 ft (12 m)" in description
 
 
 def test_server_instructions_cover_offsets_parallel_calls_and_the_engine() -> None:
@@ -120,3 +122,5 @@ def test_server_instructions_cover_offsets_parallel_calls_and_the_engine() -> No
     assert "same turn" in SERVER_INSTRUCTIONS
     assert "several days" in SERVER_INSTRUCTIONS
     assert "motor_threshold_kn" in SERVER_INSTRUCTIONS
+    assert "weekday" in SERVER_INSTRUCTIONS
+    assert "the pass rather than the nearest town" in SERVER_INSTRUCTIONS

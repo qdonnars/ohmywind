@@ -141,11 +141,14 @@ regulations, marinas, formalities), nor for typical seasonal weather beyond \
 about 16 days (the meltem in July): answer from your own knowledge, and say \
 that no forecast reaches that far.
 Send every time with the user's UTC offset: the answers come back in that \
-offset, so read them as the user's clock. Make independent calls in the same \
-turn: the stream at a pass and the wind there, the outbound and return legs. \
-Durations are under sail alone unless you pass motor_threshold_kn and \
+offset, so read them as the user's clock, and each departure carries its \
+weekday: check it is the day the user named. Take the coordinates of the \
+place itself, the pass rather than the nearest town: a few kilometres off a \
+pass the stream is a fraction of its strength. Make independent calls in the \
+same turn: the stream at a pass and the wind there, the outbound and return \
+legs. Durations are under sail alone unless you pass motor_threshold_kn and \
 motor_speed_kn: when the user must arrive by a given time (before dark) on a \
-boat with an engine, pass them.
+boat with an engine, pass 4 and 5.5, a cruiser under 4 kn motors.
 Answer first in one sentence, then the few numbers that back it; the user is \
 often in a car or at the bar. These are forecasts: never present them as \
 what is blowing right now, and send real-time conditions and warnings to \
@@ -1070,7 +1073,8 @@ _PLAN_WIDGET_HTML = """<!doctype html>
 def _archetype_lines(indent: str) -> str:
     """The archetypes as one line each, for a tool description."""
     lines = [
-        f"{indent}- ``{p.name}``: {p.length_ft} ft {p.type}, {p.performance_class} "
+        f"{indent}- ``{p.name}``: {p.length_ft} ft ({round(p.length_ft * 0.3048)} m) "
+        f"{p.type}, {p.performance_class} "
         f"({', '.join(p.examples[:3])})"
         for p in list_archetypes()
     ]
