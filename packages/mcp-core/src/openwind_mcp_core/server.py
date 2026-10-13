@@ -11,8 +11,11 @@ Tools exposed (V1):
 
 1. ``list_boat_archetypes`` — descriptive list for LLM mapping ("Sun Odyssey 32"
    → ``cruiser_30ft``). No server-side mapping table.
-2. ``get_marine_forecast`` — wind+sea around a point/window for one or more models.
-3. ``plan_passage`` — single-shot end-to-end: timing along the polyline,
+2. ``get_marine_forecast`` — wind+sea around a point/window for one or more models,
+   with current and tide where they matter.
+3. ``get_tidal_stream`` — tidal stream and tide at a point, from the tidal
+   atlases alone: no weather request.
+4. ``plan_passage`` — single-shot end-to-end: timing along the polyline,
    1-5 complexity score, rendered MCP App widget, and ohmywind.fr deep-link.
 
 ## Rich rendering (MCP Apps)
@@ -36,9 +39,10 @@ by design (see PR #74 for the full reasoning).
 from __future__ import annotations
 
 import json
+import math
 import os
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 from mcp.server.fastmcp import FastMCP
@@ -46,12 +50,18 @@ from mcp.types import CallToolResult, TextContent, ToolAnnotations
 from openwind_data.adapters.base import (
     CURRENT_RELEVANCE_THRESHOLD_KN,
     TIDE_RANGE_RELEVANCE_THRESHOLD_M,
+    ForecastBundle,
     MarineDataAdapter,
+    SeaPoint,
+    SeaSeries,
 )
 from openwind_data.adapters.openmeteo import AUTO_MODEL, OpenMeteoAdapter, auto_chain_from
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
-from openwind_data.currents.router import compose_marine_adapter
+from openwind_data.currents.narrow_pass import confidence_for_point
+from openwind_data.currents.router import CompositeMarineAdapter, compose_marine_adapter
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
+from openwind_data.currents.tidal_gaps import unresolved_pass_at
+from openwind_data.currents.unknown_zones import UNKNOWN_CURRENT_SOURCE
 from openwind_data.routing import (
     BoatPolar,
     get_polar,
@@ -1096,6 +1106,178 @@ def _material_current_and_tide(points: Any) -> dict[str, Any]:
     return out
 
 
+# A tidal-stream answer holds one row per step. 400 covers four days at 15
+# minutes or a week at 30, more than any question about a pass needs, and
+# keeps the reply short enough for the model to read whole.
+MAX_TIDAL_STEPS = 400
+
+
+def _runs(times: list[datetime], values: list[float | None], keep: Any) -> list[dict[str, Any]]:
+    """The stretches where ``keep(value)`` holds, each with its strongest value."""
+    out: list[dict[str, Any]] = []
+    start: datetime | None = None
+    last = peak = None
+    for t, v in zip(times, values, strict=True):
+        if v is not None and keep(v):
+            if start is None:
+                start, peak = t, v
+            elif abs(v) > abs(peak):
+                peak = v
+            last = t
+        elif start is not None:
+            out.append(
+                {"start": start.isoformat(), "end": last.isoformat(), "peak_kn": round(peak, 2)}
+            )
+            start = None
+    if start is not None:
+        out.append({"start": start.isoformat(), "end": last.isoformat(), "peak_kn": round(peak, 2)})
+    return out
+
+
+def _turning_points(
+    times: list[datetime], values: list[float | None], highest: bool
+) -> list[tuple[datetime, float]]:
+    """Local maxima (``highest``) or minima of a sampled series.
+
+    As exact as the step: at 30 minutes, a high water or a slack lands within
+    a quarter of an hour of the time given.
+    """
+    out = []
+    for i in range(1, len(values) - 1):
+        a, b, c = values[i - 1], values[i], values[i + 1]
+        if a is None or b is None or c is None:
+            continue
+        if (highest and b > a and b >= c) or (not highest and b < a and b <= c):
+            out.append((times[i], b))
+    return out
+
+
+def _tidal_stream_view(
+    adapter: MarineDataAdapter,
+    lat: float,
+    lon: float,
+    times: list[datetime],
+    heading_deg: float | None,
+) -> dict[str, Any]:
+    """The atlas prediction at a point, without a single weather request.
+
+    Runs the cascade ``plan_passage`` applies leg by leg (unknown zones, SHOM
+    up close, then the harmonic atlases) on a bare series of times, so a pass
+    reads here exactly as it does in a plan. Outside every atlas the answer
+    is "not covered", not the global model: that one costs a request, and
+    ``get_marine_forecast`` already returns it where it matters.
+    """
+    link = build_explore_url(lat, lon)
+    if not isinstance(adapter, CompositeMarineAdapter):
+        return {
+            "covered": False,
+            "reason": "no tidal atlas is loaded on this server",
+            "openwind_url": link,
+        }
+    bare = ForecastBundle(
+        lat=lat,
+        lon=lon,
+        start=times[0],
+        end=times[-1],
+        sea=SeaSeries(
+            points=tuple(
+                SeaPoint(
+                    time=t,
+                    wave_height_m=None,
+                    wave_period_s=None,
+                    wave_direction_deg=None,
+                    wind_wave_height_m=None,
+                    swell_wave_height_m=None,
+                )
+                for t in times
+            )
+        ),
+    )
+    points = adapter.apply_atlases(bare, lat, lon).sea.points
+    source = next((p.current_source for p in points if p.current_source), None)
+    if source == UNKNOWN_CURRENT_SOURCE:
+        return {
+            "covered": False,
+            "reason": "a documented zone where no source describes the real stream",
+            "openwind_url": link,
+        }
+    if source is None:
+        return {
+            "covered": False,
+            "reason": "no tidal atlas covers this point (most of the Mediterranean, the open "
+            "sea); get_marine_forecast reports the global model's current where it matters",
+            "openwind_url": link,
+        }
+    speeds = [p.current_speed_kn for p in points]
+    dirs = [p.current_direction_to_deg for p in points]
+    heights = [p.tide_height_m for p in points]
+    if all(h is None for h in heights):
+        # SHOM C2D primes on the current and carries no height; MARC still has
+        # the height at that point, as the web's tide chart shows it.
+        predicted = adapter.marc.predict_height_series(lat, lon, times)
+        if predicted is not None:
+            heights = [float(v) for v in predicted[0]]
+    along = (
+        [
+            None if s is None or d is None else s * math.cos(math.radians(d - heading_deg))
+            for s, d in zip(speeds, dirs, strict=True)
+        ]
+        if heading_deg is not None
+        else None
+    )
+    rows = []
+    for i, t in enumerate(times):
+        row: dict[str, Any] = {"time": t.isoformat()}
+        if speeds[i] is not None:
+            row["speed_kn"] = round(speeds[i], 2)
+            row["direction_to_deg"] = None if dirs[i] is None else round(dirs[i])
+        if along is not None and along[i] is not None:
+            row["along_kn"] = round(along[i], 2)
+        if heights[i] is not None:
+            row["height_m"] = round(heights[i], 2)
+        rows.append(row)
+    out: dict[str, Any] = {
+        "lat": lat,
+        "lon": lon,
+        "covered": True,
+        "source": source,
+        "confidence": confidence_for_point(lat, lon, source),
+        "heading_deg": heading_deg,
+        "points": rows,
+        "slack": [
+            {"time": t.isoformat(), "speed_kn": round(v, 2)}
+            for t, v in _turning_points(times, speeds, highest=False)
+        ],
+    }
+    if any(h is not None for h in heights):
+        out["high_waters"] = [
+            {"time": t.isoformat(), "height_m": round(v, 2)}
+            for t, v in _turning_points(times, heights, highest=True)
+        ]
+        out["low_waters"] = [
+            {"time": t.isoformat(), "height_m": round(v, 2)}
+            for t, v in _turning_points(times, heights, highest=False)
+        ]
+    if along is not None:
+        out["favourable"] = _runs(times, along, lambda v: v >= CURRENT_RELEVANCE_THRESHOLD_KN)
+        out["adverse"] = _runs(times, along, lambda v: v <= -CURRENT_RELEVANCE_THRESHOLD_KN)
+    gap = unresolved_pass_at(lat, lon, source)
+    if gap is not None:
+        spring = f", published spring stream {gap.max_spring_kt:g} kt" if gap.max_spring_kt else ""
+        out["warning"] = (
+            f"{gap.zone}: the atlas does not resolve this pass{spring}; "
+            "the real stream is stronger than these values"
+        )
+    if (
+        source.startswith(("shom_c2d", "marc_"))
+        and adapter.shom is not None
+        and adapter.shom.ref_ports
+    ):
+        out["tide_coefficient"] = adapter.shom.tide_coefficient(times[0])
+    out["openwind_url"] = link
+    return out
+
+
 def _legs_meta(reports: list[Any], windows: list[dict[str, Any]]) -> dict[str, Any] | None:
     """The legs of every listed sweep window, for the widget only.
 
@@ -1387,6 +1569,83 @@ def build_server(
                 "openwind_url": build_explore_url(lat, lon),
             }
         )
+
+    @server.tool(
+        annotations=ToolAnnotations(
+            title="Tidal stream at a point",
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
+            openWorldHint=False,
+        ),
+    )
+    async def get_tidal_stream(
+        lat: float,
+        lon: float,
+        start: str,
+        end: str,
+        heading_deg: float | None = None,
+        step_minutes: int = 30,
+    ) -> dict[str, Any]:
+        """The tidal stream and the tide at one point, from the tidal atlases alone.
+
+        For the questions about a pass or a harbour entrance: when to be at
+        the Raz de Sein to carry the stream, when the Fromveur turns, how
+        hard it runs at Port-Navalo tomorrow, when high water is at Chausey.
+        Costs no weather request: harmonic predictions from the atlases this
+        server ships (SHOM, MARC and others), the same ones ``plan_passage``
+        applies leg by leg.
+
+        Args:
+            lat: latitude in degrees, at sea, in the pass itself.
+            lon: longitude in degrees.
+            start: ISO-8601 datetime, timezone-aware.
+            end: ISO-8601 datetime, timezone-aware. At most 400 steps.
+            heading_deg: optional course through the point (true degrees,
+                the direction you head to). With it, each step gets
+                ``along_kn`` (positive: the stream carries you, negative: it
+                stems you) and the answer lists the ``favourable`` and
+                ``adverse`` windows.
+            step_minutes: 5 to 180, default 30.
+
+        Returns ``covered``, ``source``, ``confidence``, ``points`` (time,
+        ``speed_kn``, ``direction_to_deg`` it flows to, ``height_m`` around
+        mean sea level, ``along_kn``), ``slack`` (the weakest moments of the
+        stream), ``high_waters`` / ``low_waters``, ``favourable`` /
+        ``adverse`` when a heading is given, ``tide_coefficient`` (French
+        national coefficient, Brest, on French atlases), a ``warning`` when
+        the atlas does not resolve the pass, and ``openwind_url``.
+
+        Outside every atlas (most of the Mediterranean, the open sea)
+        ``covered`` is false: say so, and use ``get_marine_forecast``, which
+        returns the global model's current where it matters.
+
+        Astronomical tide only: no surge, no wind-driven current. The windows
+        are facts about the stream, not a recommendation: weigh them against
+        the wind (``get_marine_forecast``) and the whole passage
+        (``plan_passage``). Present the answer yourself, the time to be at the
+        pass in one sentence and the few times that back it: no widget comes
+        with this tool.
+        """
+        validate_point(lat, lon)
+        start_dt = datetime.fromisoformat(start)
+        end_dt = datetime.fromisoformat(end)
+        if start_dt.tzinfo is None or end_dt.tzinfo is None:
+            raise ValueError("start and end must be timezone-aware")
+        if end_dt <= start_dt:
+            raise ValueError("end must be after start")
+        if not 5 <= step_minutes <= 180:
+            raise ValueError(f"step_minutes must be in [5, 180], got {step_minutes}")
+        step = timedelta(minutes=step_minutes)
+        n_steps = int((end_dt - start_dt) / step) + 1
+        if n_steps > MAX_TIDAL_STEPS:
+            raise ValueError(
+                f"requested {n_steps} steps, at most {MAX_TIDAL_STEPS}: "
+                "shorten the window or widen step_minutes"
+            )
+        times = [start_dt + step * i for i in range(n_steps)]
+        heading = None if heading_deg is None else heading_deg % 360
+        return _tidal_stream_view(fetch_adapter, lat, lon, times, heading)
 
     @server.tool(
         annotations=ToolAnnotations(

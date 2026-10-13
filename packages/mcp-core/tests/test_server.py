@@ -82,8 +82,8 @@ class TestBuildServer:
         server = build_server(adapter=StubAdapter())
         assert isinstance(server, FastMCP)
 
-    async def test_lists_four_tools(self) -> None:
-        # The V1 surface: 3 functional tools + read_me for methodology Q&A.
+    async def test_lists_five_tools(self) -> None:
+        # Four functional tools + read_me for methodology Q&A.
         # `feedback` was removed before publication: an unauthenticated,
         # unrate-limited write endpoint on a public server ingests whatever a
         # prompt injection decides to send, and we would be storing it.
@@ -94,6 +94,7 @@ class TestBuildServer:
             "read_me",
             "list_boat_archetypes",
             "get_marine_forecast",
+            "get_tidal_stream",
             "plan_passage",
         }
 

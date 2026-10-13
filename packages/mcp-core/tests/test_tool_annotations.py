@@ -63,6 +63,8 @@ async def test_open_world_marks_the_tools_that_call_out(tools) -> None:
     assert by_name["plan_passage"] is True
     assert by_name["list_boat_archetypes"] is False
     assert by_name["read_me"] is False
+    # Harmonic predictions from the atlases this server ships: no upstream.
+    assert by_name["get_tidal_stream"] is False
 
 
 async def test_all_four_hints_are_explicit_booleans(tools) -> None:

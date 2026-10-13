@@ -83,7 +83,8 @@ asks you for credentials is guessing rather than reading the server.
 | Tool                      | What it does                                                              |
 |---------------------------|---------------------------------------------------------------------------|
 | `list_boat_archetypes`    | Eight descriptive archetypes; the LLM maps "Sun Odyssey 36" → `cruiser_30ft`. |
-| `get_marine_forecast`     | Wind + sea around a point/window, multi-model.                            |
+| `get_marine_forecast`     | Wind + sea around a point/window, multi-model; AROME first, then the model that reaches the date; current and tide where they matter. |
+| `get_tidal_stream`        | Tidal stream and tide at a point (a pass, a harbour entrance), straight from the tidal atlases: slack water, high and low water, the windows where the stream carries you. No weather request. |
 | `plan_passage`            | End-to-end: per-leg timing + 1–5 complexity + ohmywind.fr deep-link, in one call. Pass `latest_departure` and it walks every hourly window up to 14 days out so the LLM can compare side-by-side. Declares an MCP Apps UI resource; supporting hosts auto-render the live plan in a sandboxed iframe. |
 | `read_me`                 | Returns OhMyWind's calculation methodology. Call it when the user asks how things are computed. |
 
