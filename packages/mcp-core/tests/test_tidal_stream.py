@@ -158,3 +158,22 @@ async def test_window_is_capped(atlas_dir: Path) -> None:
                 "step_minutes": 5,
             },
         )
+
+
+def test_a_window_of_a_single_step_is_dropped() -> None:
+    # The tail of a stream that turned before the window began is no window.
+    from datetime import timedelta
+
+    from openwind_mcp_core.server import _runs
+
+    times = [datetime(2026, 5, 1, tzinfo=UTC) + timedelta(minutes=30 * i) for i in range(6)]
+    runs = _runs(times, [1.0, -0.5, -0.5, 0.8, 0.9, -0.2], lambda v: v >= 0.3)
+    assert [(r["start"][11:16], r["end"][11:16]) for r in runs] == [("01:30", "02:00")]
+
+
+async def test_slack_is_only_where_the_stream_nearly_stops(atlas_dir: Path) -> None:
+    server, _ = _server_with_atlas(atlas_dir)
+    out = await _stream(server, **IN_ATLAS)
+    strongest = max(p["speed_kn"] for p in out["points"])
+    assert out["slack"]
+    assert all(s["speed_kn"] <= max(0.5, 0.25 * strongest) for s in out["slack"])

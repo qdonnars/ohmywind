@@ -1394,8 +1394,11 @@ def _material_current_and_tide(points: Any) -> dict[str, Any]:
     if heights:
         values = [p.tide_height_m for p in heights]
         if max(values) - min(values) >= TIDE_RANGE_RELEVANCE_THRESHOLD_M:
+            source = next((p.current_source for p in heights if p.current_source), None)
             out["tide"] = {
-                "source": next((p.current_source for p in heights if p.current_source), None),
+                # Where an atlas withholds a dead current it still gives the
+                # height; the "unknown" label is the current's, not the tide's.
+                "source": None if source == UNKNOWN_CURRENT_SOURCE else source,
                 "points": [
                     {"time": p.time.isoformat(), "height_m": round(p.tide_height_m, 2)}
                     for p in heights
@@ -1411,10 +1414,22 @@ MAX_TIDAL_STEPS = 400
 
 
 def _runs(times: list[datetime], values: list[float | None], keep: Any) -> list[dict[str, Any]]:
-    """The stretches where ``keep(value)`` holds, each with its strongest value."""
+    """The stretches where ``keep(value)`` holds, each with its strongest value.
+
+    A stretch of a single step is dropped: at the edge of the window it is the
+    tail of a stream that turned before the window began, a window of no
+    length that reads like a bug.
+    """
     out: list[dict[str, Any]] = []
     start: datetime | None = None
     last = peak = None
+
+    def close() -> None:
+        if last != start:
+            out.append(
+                {"start": start.isoformat(), "end": last.isoformat(), "peak_kn": round(peak, 2)}
+            )
+
     for t, v in zip(times, values, strict=True):
         if v is not None and keep(v):
             if start is None:
@@ -1423,12 +1438,10 @@ def _runs(times: list[datetime], values: list[float | None], keep: Any) -> list[
                 peak = v
             last = t
         elif start is not None:
-            out.append(
-                {"start": start.isoformat(), "end": last.isoformat(), "peak_kn": round(peak, 2)}
-            )
+            close()
             start = None
     if start is not None:
-        out.append({"start": start.isoformat(), "end": last.isoformat(), "peak_kn": round(peak, 2)})
+        close()
     return out
 
 
@@ -1440,12 +1453,18 @@ def _turning_points(
     As exact as the step: at 30 minutes, a high water or a slack lands within
     a quarter of an hour of the time given.
     """
-    out = []
+    out: list[tuple[datetime, float]] = []
     for i in range(1, len(values) - 1):
         a, b, c = values[i - 1], values[i], values[i + 1]
         if a is None or b is None or c is None:
             continue
         if (highest and b > a and b >= c) or (not highest and b < a and b <= c):
+            # Two wiggles of one turn of the tide (a rotary stream at the
+            # Fromveur dips twice an hour apart): one event, the extreme one.
+            if out and times[i] - out[-1][0] < timedelta(hours=2):
+                if (b > out[-1][1]) if highest else (b < out[-1][1]):
+                    out[-1] = (times[i], b)
+                continue
             out.append((times[i], b))
     return out
 
@@ -1542,9 +1561,14 @@ def _tidal_stream_view(
         "confidence": confidence_for_point(lat, lon, source),
         "heading_deg": heading_deg,
         "points": rows,
+        # Slack: the dips where the stream nearly stops. A pass with a
+        # double-humped flood also dips to 2 kt mid-tide, which is no slack:
+        # keep the dips under a quarter of the day's strongest stream, or
+        # under half a knot where the stream is weak all day.
         "slack": [
             {"time": t.isoformat(), "speed_kn": round(v, 2)}
             for t, v in _turning_points(times, speeds, highest=False)
+            if v <= max(0.5, 0.25 * max((s for s in speeds if s is not None), default=0.0))
         ],
     }
     if any(h is not None for h in heights):
@@ -1912,8 +1936,8 @@ def build_server(
 
         Returns ``covered``, ``source``, ``confidence``, ``points`` (time,
         ``speed_kn``, ``direction_to_deg`` it flows to, ``height_m`` around
-        mean sea level, ``along_kn``), ``slack`` (the weakest moments of the
-        stream), ``high_waters`` / ``low_waters``, ``favourable`` /
+        mean sea level, ``along_kn``), ``slack`` (the moments the stream nearly
+        stops), ``high_waters`` / ``low_waters``, ``favourable`` /
         ``adverse`` when a heading is given, ``tide_coefficient`` (French
         national coefficient, Brest, on French atlases), a ``warning`` when
         the atlas does not resolve the pass, and ``openwind_url``.
