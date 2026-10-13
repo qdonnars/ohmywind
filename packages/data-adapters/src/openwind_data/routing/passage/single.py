@@ -17,6 +17,7 @@ from openwind_data.adapters.openmeteo import (
     AUTO_FALLBACK_CHAIN,
     AUTO_MODEL,
     DEFAULT_MODEL,
+    auto_chain_from,
 )
 from openwind_data.routing.archetypes import BoatPolar
 from openwind_data.routing.geometry import Point
@@ -74,7 +75,9 @@ async def estimate_passage(
         raise ValueError("efficiency must be in (0, 1]")
 
     if model == AUTO_MODEL:
-        chain = model_chain if model_chain else AUTO_FALLBACK_CHAIN
+        # Start at the first model that reaches the departure: asking AROME
+        # about day 6 buys a point-by-point fallback and nothing else.
+        chain = model_chain if model_chain else auto_chain_from(departure_time)
         last_err: ForecastHorizonError | None = None
         for idx, candidate in enumerate(chain):
             try:

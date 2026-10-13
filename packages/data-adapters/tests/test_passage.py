@@ -19,6 +19,7 @@ from openwind_data.adapters.base import (
     WindPoint,
     WindSeries,
 )
+from openwind_data.adapters.openmeteo import AUTO_FALLBACK_CHAIN, auto_chain_from
 from openwind_data.routing.archetypes import BoatPolar, get_polar, lookup_polar
 from openwind_data.routing.geometry import Point
 from openwind_data.routing.passage import (
@@ -1603,6 +1604,87 @@ class TestNullDataPerSegmentFallback:
         models_attempted = {c[2] for c in adapter.calls}
         assert "icon_d2" in models_attempted
         assert "icon_eu" in models_attempted
+
+
+class PrewarmingGeoCoverageStub(GeoCoverageStubAdapter):
+    """The coverage stub, plus the batch warm-up the real adapter offers."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.prewarms: list[tuple[int, tuple[str, ...]]] = []
+
+    async def prewarm_batch(
+        self,
+        points: list[tuple[float, float]],
+        start: datetime,
+        end: datetime,
+        models: list[str] | None = None,
+    ) -> None:
+        self.prewarms.append((len(points), tuple(models or ())))
+
+
+class TestAutoChainStartsWhereTheModelReaches:
+    """Asking AROME about day 6 answers nulls, and the per-segment fallback
+    then walks the chain point by point at two requests per point per step.
+    The chain now starts at the first model that reaches the date."""
+
+    NOW = datetime(2026, 10, 13, 6, 0, tzinfo=UTC)
+
+    @pytest.mark.parametrize(
+        ("lead_h", "first"),
+        [
+            (-24, "meteofrance_arome_france"),
+            (12, "meteofrance_arome_france"),
+            (48, "meteofrance_arome_france"),
+            (49, "icon_eu"),
+            (5 * 24, "icon_eu"),
+            (6 * 24, "ecmwf_ifs025"),
+            (11 * 24, "gfs_seamless"),
+            (20 * 24, "gfs_seamless"),
+        ],
+    )
+    def test_chain_starts_at_the_first_model_that_reaches(self, lead_h, first) -> None:
+        chain = auto_chain_from(self.NOW + timedelta(hours=lead_h), now=self.NOW)
+        assert chain == AUTO_FALLBACK_CHAIN[AUTO_FALLBACK_CHAIN.index(first) :]
+
+    async def test_day_six_passage_never_asks_arome_or_icon(self) -> None:
+        # Every model has data in this stub, so only the date can steer the
+        # choice: before the fix, auto picked AROME here.
+        adapter = GeoCoverageStubAdapter(
+            model_coverage={m: (lambda _lat, _lon: True) for m in AUTO_FALLBACK_CHAIN}
+        )
+        report = await estimate_passage(
+            [MARSEILLE, PORQUEROLLES],
+            datetime.now(UTC) + timedelta(days=6),
+            "cruiser_40ft",
+            adapter=adapter,
+            model="auto",
+            segment_length_nm=10.0,
+        )
+        assert report.model == "ecmwf_ifs025"
+        assert {model for _, _, model in adapter.calls} == {"ecmwf_ifs025"}
+
+    async def test_fallback_model_is_warmed_in_one_batch(self) -> None:
+        # The points the primary cannot cover get their fallback model in one
+        # batched call, like the primary, instead of two requests each.
+        adapter = PrewarmingGeoCoverageStub(
+            model_coverage={
+                "meteofrance_arome_france": lambda lat, _lon: lat <= 43.2,
+                "icon_eu": lambda _lat, _lon: True,
+            }
+        )
+        report = await estimate_passage(
+            [MARSEILLE, PORQUEROLLES],
+            DEPARTURE,
+            "cruiser_40ft",
+            adapter=adapter,
+            model="auto",
+            model_chain=("meteofrance_arome_france", "icon_eu"),
+            segment_length_nm=10.0,
+        )
+        missed = sum(1 for s in report.segments if s.model_used == "icon_eu")
+        assert missed > 0
+        assert (missed, ("icon_eu",)) in adapter.prewarms
 
 
 class TestSweepFloorNeverBelowGridData:
