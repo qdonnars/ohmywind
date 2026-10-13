@@ -11,8 +11,11 @@ Tools exposed (V1):
 
 1. ``list_boat_archetypes`` — descriptive list for LLM mapping ("Sun Odyssey 32"
    → ``cruiser_30ft``). No server-side mapping table.
-2. ``get_marine_forecast`` — wind+sea around a point/window for one or more models.
-3. ``plan_passage`` — single-shot end-to-end: timing along the polyline,
+2. ``get_marine_forecast`` — wind+sea around a point/window for one or more models,
+   with current and tide where they matter.
+3. ``get_tidal_stream`` — tidal stream and tide at a point, from the tidal
+   atlases alone: no weather request.
+4. ``plan_passage`` — single-shot end-to-end: timing along the polyline,
    1-5 complexity score, rendered MCP App widget, and ohmywind.fr deep-link.
 
 ## Rich rendering (MCP Apps)
@@ -36,18 +39,36 @@ by design (see PR #74 for the full reasoning).
 from __future__ import annotations
 
 import json
+import math
 import os
+import re
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Annotated, Any
 
 from mcp.server.fastmcp import FastMCP
 from mcp.types import CallToolResult, TextContent, ToolAnnotations
-from openwind_data.adapters.base import MarineDataAdapter
-from openwind_data.adapters.openmeteo import AUTO_MODEL, OpenMeteoAdapter
+from openwind_data.adapters.base import (
+    CURRENT_RELEVANCE_THRESHOLD_KN,
+    TIDE_RANGE_RELEVANCE_THRESHOLD_M,
+    ForecastBundle,
+    MarineDataAdapter,
+    SeaPoint,
+    SeaSeries,
+)
+from openwind_data.adapters.openmeteo import (
+    AUTO_FALLBACK_CHAIN,
+    AUTO_MODEL,
+    OpenMeteoAdapter,
+    auto_chain_from,
+)
+from openwind_data.currents.land_mask import LandMask
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
-from openwind_data.currents.router import compose_marine_adapter
+from openwind_data.currents.narrow_pass import confidence_for_point
+from openwind_data.currents.router import CompositeMarineAdapter, compose_marine_adapter
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
+from openwind_data.currents.tidal_gaps import unresolved_pass_at
+from openwind_data.currents.unknown_zones import UNKNOWN_CURRENT_SOURCE
 from openwind_data.routing import (
     BoatPolar,
     get_polar,
@@ -65,6 +86,8 @@ from openwind_data.routing import (
 from openwind_data.routing import (
     score_complexity as _score_complexity,
 )
+from openwind_data.routing.geometry import Point
+from openwind_data.routing.land_check import land_crossings, waypoints_ashore
 from openwind_data.routing.notices import Notice
 from openwind_data.views import (
     filter_windows_by_target_eta,
@@ -74,7 +97,7 @@ from openwind_data.views import (
     window_view,
 )
 
-from .render import WEB_BASE, WEB_HOST, build_ohmywind_url
+from .render import WEB_BASE, WEB_HOST, build_explore_url, build_ohmywind_url
 
 # MCP Apps UI resource URI for plan_passage. The host fetches this resource
 # and renders it in a sandboxed iframe (see ``_PLAN_WIDGET_HTML`` for why it
@@ -91,6 +114,53 @@ PLAN_UI_MIME = "text/html;profile=mcp-app"
 # value still on the old brand, because the sweep that renamed everything else
 # matched "OpenWind" and "openwind.fr" and this one is lowercase and bare.
 SERVER_NAME = "ohmywind"
+
+# Sent to the client once, at initialisation, ahead of every tool
+# description. It routes a sailor's question to the cheapest tool that
+# answers it, and says when to call none: most of what a crew asks in the car
+# or at the bar needs one point forecast, a tidal stream with no request at
+# all, or nothing from this server. English for the model; it answers in the
+# user's language.
+SERVER_INSTRUCTIONS = """\
+OhMyWind answers sailors' weather, sea and tide questions on European coasts, \
+from marine forecasts and tidal atlases. Pick the tool by the question:
+- A place rather than a passage (wind at Groix this afternoon, when the \
+mistral eases, the thermal breeze, whether the models agree): \
+get_marine_forecast.
+- When to be at a pass, slack water, high or low water, the tidal \
+coefficient: get_tidal_stream. It costs no weather request.
+- A trip from A to B (does it go, how long, which departure): plan_passage, \
+comparing departures unless the user pins a time. A day out and back is two \
+trips: plan the return as well.
+- Two ways to go (north or south of an island, two destinations): one \
+plan_passage call with alternatives.
+- A cruise of several days (a week out of Biograd, a loop of the islands) is \
+not one passage: read the days ahead at the cruising area with one \
+get_marine_forecast call, and plan only the next leg.
+- How OhMyWind computes: read_me.
+Call no tool for questions that are not about weather, sea or tide (gear, \
+regulations, marinas, formalities), nor for typical seasonal weather beyond \
+about 16 days (the meltem in July): answer from your own knowledge, and say \
+that no forecast reaches that far.
+Send every time with the user's UTC offset: the answers come back in that \
+offset, so read them as the user's clock, and each departure carries its \
+weekday: check it is the day the user named. Take the coordinates of the \
+place itself, the pass rather than the nearest town: a few kilometres off a \
+pass the stream is a fraction of its strength. Make independent calls in the \
+same turn: the stream at a pass and the wind there, the outbound and return \
+legs. Durations are under sail alone unless you pass motor_threshold_kn and \
+motor_speed_kn: when the user must arrive by a given time (before dark) on a \
+boat with an engine, pass 4 and 5.5, a cruiser under 4 kn motors.
+Answer first in one sentence, then the few numbers that back it; the user is \
+often in a car or at the bar. These are forecasts: never present them as \
+what is blowing right now, and send real-time conditions and warnings to \
+the official sources (the CROSS bulletin on VHF, the national weather \
+service). Reliability falls with lead time: AROME up to two days, ICON-EU \
+to five, ECMWF to ten, GFS beyond; past five days give a trend, not a plan.
+Reuse a result already in the conversation rather than asking again for the \
+same place and dates, and for a quick question compare departures every \
+three to six hours, not every hour.
+"""
 
 # Usage warning attached to every plan_passage payload, single mode and
 # compare-windows alike. The tool hands back an ETA and a 1-5 complexity score
@@ -130,7 +200,22 @@ PLAN_UI_RESOURCE_DOMAINS = ["https://unpkg.com", OSM_TILE_ORIGIN]
 # every window would put up to 336 times the segment count in front of the
 # model, for a table only the widget draws.
 PLAN_UI_LEGS_META_KEY = "ohmywind.fr/legs"
-_LEG_FIELDS = ("end_time", "tws_kn", "twa_deg", "hs_m", "boat_speed_kn")
+# The same, one entry per alternative route, in the order of ``alternatives``.
+PLAN_UI_ALT_LEGS_META_KEY = "ohmywind.fr/alternatives_legs"
+
+# Routes compared in one plan_passage call besides the main one. Two is the
+# question sailors ask ("north or south of the Fromveur", "Ré or Aix"); each
+# route costs its own requests, so the cap also bounds the call.
+MAX_ALTERNATIVES = 2
+_LEG_FIELDS = (
+    "end_time",
+    "tws_kn",
+    "twa_deg",
+    "hs_m",
+    "boat_speed_kn",
+    "current_kn",
+    "current_to_deg",
+)
 
 # Body of the MCP Apps UI resource. Uses the official @modelcontextprotocol/
 # ext-apps SDK from unpkg for the handshake (same pattern as qr-server /
@@ -214,6 +299,23 @@ _PLAN_WIDGET_HTML = """<!doctype html>
     tr.dep[aria-selected="true"] .pick{border-color:var(--accent);
       background:radial-gradient(var(--accent) 45%,transparent 50%)}
     .hint{color:var(--fg2);font-size:.75rem;margin:.45rem 0 0}
+    .more-deps{appearance:none;border:0;background:none;padding:.35rem 0 0;cursor:pointer;
+      color:var(--accent);font:600 .78rem/1.3 inherit}
+    .more-deps:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+    details.warns summary{list-style:none;cursor:pointer}
+    details.warns summary::-webkit-details-marker{display:none}
+    details.warns summary .more{font-weight:700;margin-left:.35rem;opacity:.8}
+    details.warns[open] summary .more{display:none}
+    details.warns .warn{margin:.35rem 0 0}
+    .cur-arrow{display:inline-block;margin-left:.25rem}
+    /* Variants: one column per route, a cell per departure. */
+    .cell{appearance:none;display:inline-flex;align-items:center;gap:.35rem;cursor:pointer;
+      background:none;border:1px solid transparent;border-radius:7px;padding:.2rem .45rem;
+      font:inherit;color:var(--fg1)}
+    .cell:hover{background:var(--accent-soft)}
+    .cell[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);
+      color:var(--fg0);font-weight:700}
+    .cell:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
     .chosen{margin:1.1rem 0 .6rem;padding-top:.9rem;border-top:1px solid var(--line);display:grid;gap:.45rem}
     .chosen.single{margin-top:0;padding-top:0;border-top:0}
     .chosen .warn{margin:0}
@@ -348,38 +450,71 @@ _PLAN_WIDGET_HTML = """<!doctype html>
     // sweep one per window. Everything under the departures list reads the
     // selected run, so both modes render through the same code.
     const LEGS_META_KEY = "__LEGS_META_KEY__";
+    const ALT_LEGS_META_KEY = "__ALT_LEGS_META_KEY__";
 
-    function runsOf(sc, meta){
-      if(sc.mode !== "multi_window"){
+    // The routes of a result: the main one, then each alternative the model
+    // asked to compare, each with its own runs. Without alternatives, one.
+    function routesOf(sc, meta){
+      const multi = sc.mode === "multi_window";
+      const altLegs = (meta && meta[ALT_LEGS_META_KEY]) || [];
+      const main = {label: sc.route_label || "Variante A", pts: routePoints(sc),
+        runs: runsOf(sc, meta && meta[LEGS_META_KEY], multi)};
+      return [main].concat((sc.alternatives || []).map((a,k)=>({
+        label: a.label || `Variante ${String.fromCharCode(66 + k)}`, pts: routePoints(a),
+        runs: runsOf(a, altLegs[k], multi),
+      })));
+    }
+
+    function runsOf(sc, m, multi){
+      if(!multi){
         const p = sc.passage || {};
         const cx = sc.complexity || {};
         return [{
           departure: p.departure_time, arrival: p.arrival_time, duration_h: p.duration_h,
           distance_nm: p.distance_nm || 0, model: p.model, complexity: cx, url: sc.openwind_url,
-          warnings: (p.warnings||[]).concat((cx.warnings||[]).map(w=>w.message||w)),
+          // What makes the passage hard first, light wind and model notes after.
+          warnings: (cx.warnings||[]).map(w=>w.message||w).concat(p.warnings||[]),
           legs: (p.segments||[]).map(s=>({ll:[[s.start.lat, s.start.lon], [s.end.lat, s.end.lon]],
-            end_time:s.end_time, tws:s.tws_kn, twa:s.twa_deg, hs:s.hs_m, bs:s.boat_speed_kn})),
+            end_time:s.end_time, tws:s.tws_kn, twa:s.twa_deg, hs:s.hs_m, bs:s.boat_speed_kn,
+            cur:s.current_speed_kn, curTo:s.current_direction_to_deg})),
         }];
       }
       // Sweep windows carry no legs: they come in the result's _meta, kept
       // out of the model's context. A host that drops _meta still gets the
       // list and the route, without per-departure colours or detail.
-      const m = meta && meta[LEGS_META_KEY];
       const g = m && m.geometry;
       const at = k => m.fields.indexOf(k);
       return (sc.windows||[]).map((w,i)=>{
         const rows = m && m.windows && m.windows[i];
         const legs = g && rows && rows.length === g.length - 1
           ? rows.map((r,j)=>({ll:[g[j], g[j+1]], end_time:r[at("end_time")], tws:r[at("tws_kn")],
-              twa:r[at("twa_deg")], hs:r[at("hs_m")], bs:r[at("boat_speed_kn")]}))
+              twa:r[at("twa_deg")], hs:r[at("hs_m")], bs:r[at("boat_speed_kn")],
+              cur:at("current_kn") < 0 ? null : r[at("current_kn")],
+              curTo:at("current_to_deg") < 0 ? null : r[at("current_to_deg")]}))
           : null;
         return {
           departure: w.departure, arrival: w.arrival, duration_h: w.duration_h,
           distance_nm: w.distance_nm || 0, complexity: w.complexity || {}, url: w.openwind_url,
-          warnings: w.warnings || [], summary: w.conditions_summary || {}, legs,
+          warnings: difficultyFirst(w), summary: w.conditions_summary || {}, legs,
         };
       });
     }
+
+    // A sweep window's warnings come passage first (light wind, model
+    // fallback), then the difficulty. Its notices carry the codes that say
+    // which is which, so the difficulty can lead.
+    function difficultyFirst(w){
+      const notices = w.notices || [];
+      if(notices.length !== (w.warnings || []).length) return w.warnings || [];
+      const hard = notices.filter(n=>String(n.code).startsWith("complexity."));
+      const rest = notices.filter(n=>!String(n.code).startsWith("complexity."));
+      return hard.concat(rest).map(n=>n.message);
+    }
+
+    // Five departures show; the rest wait behind a link, so a fortnight of
+    // hourly windows does not push the map out of the chat.
+    const LIST_LIMIT = 5;
+    let listExpanded = false;
 
     function listBlock(runs, sel){
       const rows = runs.map((r,i)=>{
@@ -388,7 +523,8 @@ _PLAN_WIDGET_HTML = """<!doctype html>
         const tws = (cs.tws_min_kn != null && cs.tws_max_kn != null)
           ? `${Math.round(cs.tws_min_kn)}-${Math.round(cs.tws_max_kn)} kn` : "—";
         const sail = SAIL[cs.predominant_sail_angle] || cs.predominant_sail_angle || "—";
-        return `<tr class="dep" data-i="${i}" tabindex="0" aria-selected="${i === sel}">
+        const hidden = !listExpanded && i >= LIST_LIMIT && i !== sel;
+        return `<tr class="dep" data-i="${i}" tabindex="0" aria-selected="${i === sel}"${hidden ? " hidden" : ""}>
           <td><span class="pick" aria-hidden="true"></span>${fmtDate(r.departure)}</td>
           <td>${fmtDur(r.duration_h)}</td>
           <td>${fmtTime(r.arrival)}${plusDays(r.departure, r.arrival)}</td>
@@ -402,7 +538,36 @@ _PLAN_WIDGET_HTML = """<!doctype html>
           <thead><tr><th>Départ</th><th>Durée</th><th>Arrivée</th><th>Allure</th><th>Vent</th><th>Mer</th><th>⚡</th></tr></thead>
           <tbody>${rows}</tbody>
         </table></div>
+        ${!listExpanded && runs.length > LIST_LIMIT
+          ? `<button type="button" class="more-deps" id="ow-more">Afficher les ${runs.length - LIST_LIMIT} autres départs</button>` : ""}
         <p class="hint">Sélectionnez un départ pour voir sa route et son détail.</p>`;
+    }
+
+    // Several routes for the same departures: a row per departure, a column
+    // per route, the duration and difficulty in each cell. The cell picks
+    // the route and the departure at once.
+    function matrixBlock(routes, ri, si, multi){
+      const deps = [...new Set(routes.flatMap(route=>route.runs.map(x=>x.departure)))].sort();
+      const selDep = routes[ri].runs[si] && routes[ri].runs[si].departure;
+      const rows = deps.map((d,k)=>{
+        const hidden = !listExpanded && k >= LIST_LIMIT && d !== selDep;
+        const cells = routes.map((route,rj)=>{
+          const i = route.runs.findIndex(x=>x.departure === d);
+          if(i < 0) return `<td>—</td>`;
+          const r = route.runs[i];
+          const c = CX_COLORS[r.complexity.level] || CX_COLORS[3];
+          return `<td><button type="button" class="cell" data-r="${rj}" data-i="${i}"
+            aria-pressed="${rj === ri && i === si}">${fmtDur(r.duration_h)}<span class="num" style="background:${c}">${r.complexity.level||"?"}</span></button></td>`;
+        }).join("");
+        return `<tr class="mrow"${hidden ? " hidden" : ""}><td>${multi ? fmtDate(d) : fmtTime(d)}</td>${cells}</tr>`;
+      }).join("");
+      return `<div class="tablewrap"><table aria-label="Variantes par départ">
+          <thead><tr><th>Départ</th>${routes.map(route=>`<th>${escapeHtml(route.label)}</th>`).join("")}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+        ${!listExpanded && deps.length > LIST_LIMIT
+          ? `<button type="button" class="more-deps" id="ow-more">Afficher les ${deps.length - LIST_LIMIT} autres départs</button>` : ""}
+        <p class="hint">Choisissez une case pour voir cette variante à ce départ.</p>`;
     }
 
     function statsBlock(r){
@@ -418,14 +583,23 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       `).join("")}</div>`;
     }
 
-    function chosenBlock(r, multi){
+    function chosenBlock(r, multi, label){
       const cx = r.complexity;
       const head = multi
-        ? `<div class="chosen-line"><b>Départ ${fmtDate(r.departure)}</b>
+        ? `<div class="chosen-line"><b>${label ? escapeHtml(label) + " · " : ""}Départ ${fmtDate(r.departure)}</b>
             <span class="meta">arrivée ${fmtDate(r.arrival)} · ${fmtDur(r.duration_h)}</span>
             ${badge(cx.level||3, cx.label||"")}</div>`
         : `<div class="chosen-line">${badge(cx.level||3, cx.label||"")}</div>`;
-      return head + r.warnings.map(w=>`<div class="warn">⚠ ${escapeHtml(w)}</div>`).join("");
+      return head + warnBlock(r.warnings);
+    }
+
+    // The assistant relays the warnings in its reply; here the first one
+    // shows and the others fold under it.
+    function warnBlock(list){
+      if(!list.length) return "";
+      if(list.length === 1) return `<div class="warn">⚠ ${escapeHtml(list[0])}</div>`;
+      return `<details class="warns"><summary class="warn">⚠ ${escapeHtml(list[0])}<span class="more">+${list.length - 1}</span></summary>
+        ${list.slice(1).map(w=>`<div class="warn">⚠ ${escapeHtml(w)}</div>`).join("")}</details>`;
     }
 
     // Collapsed by default: the list and the map carry the answer, the legs
@@ -434,6 +608,9 @@ _PLAN_WIDGET_HTML = """<!doctype html>
     let detailOpen = false;
     function detailBlock(r, multi){
       if(!r.legs || !r.legs.length) return "";
+      // The current gets a column only where it matters (0.3 kt, as
+      // everywhere in OhMyWind): most Mediterranean legs never show it.
+      const showCur = r.legs.some(l=>l.cur != null && l.cur >= 0.3);
       const rows = r.legs.map((l,i)=>{
         const c = CX_COLORS[cxLevel(l.tws||0)];
         return `<tr class="leg" data-seg="${i}">
@@ -443,6 +620,8 @@ _PLAN_WIDGET_HTML = """<!doctype html>
           <td>${l.tws != null ? Math.round(l.tws)+" kn" : "—"}</td>
           <td>${l.hs != null ? l.hs.toFixed(1)+" m" : "—"}</td>
           <td>${l.bs != null ? l.bs.toFixed(1)+" kn" : "—"}</td>
+          ${showCur ? `<td>${l.cur != null ? l.cur.toFixed(1)+" kn" : "—"}${l.cur != null && l.curTo != null
+            ? `<span class="cur-arrow" style="transform:rotate(${l.curTo}deg)" aria-label="vers ${l.curTo}°">↑</span>` : ""}</td>` : ""}
         </tr>`;
       }).join("");
       const n = r.legs.length;
@@ -451,7 +630,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
         : `Détail par tronçon · ${n} tronçon${n>1?"s":""}`;
       return `<details class="detail"${detailOpen ? " open" : ""}><summary>${title}</summary>
         <div class="tablewrap"><table>
-          <thead><tr><th>#</th><th>Heure</th><th>Allure</th><th>Vent</th><th>Mer</th><th>Vitesse</th></tr></thead>
+          <thead><tr><th>#</th><th>Heure</th><th>Allure</th><th>Vent</th><th>Mer</th><th>Vitesse</th>${showCur ? "<th>Courant</th>" : ""}</tr></thead>
           <tbody>${rows}</tbody>
         </table></div></details>`;
     }
@@ -493,6 +672,30 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       `;
     }
 
+    function renderVariants(sc, routes){
+      const multi = sc.mode === "multi_window";
+      const route = routes[selRoute];
+      const r = route.runs[sel];
+      const sweep = sc.sweep || {};
+      const below = r ? `
+        <div class="chosen" id="ow-chosen">${chosenBlock(r, true, route.label)}</div>
+        ${mapBlock(route.pts, r.distance_nm,
+          "Les tracés envoyés par l'assistant ; la variante choisie est colorée selon le vent de ses tronçons.",
+          !!r.legs)}
+        <div id="ow-detail">${detailBlock(r, true)}</div>
+        <a class="cta" id="ow-cta" href="${escapeHtml(r.url || "__WEB_BASE__/plan")}" rel="noopener">Voir cette variante sur __WEB_HOST__ →</a>
+      ` : "";
+      return `
+        <h2>Comparaison de ${routes.length} variantes</h2>
+        <p class="sub">${multi
+          ? `Du ${fmtDate(sweep.earliest)} au ${fmtDate(sweep.latest)} · pas de ${sweep.interval_hours||"?"}h`
+          : `Départ ${r ? fmtDate(r.departure) : ""}`}</p>
+        ${(sc.meta_warnings || []).map(m=>`<div class="warn">${escapeHtml(m)}</div>`).join("")}
+        ${matrixBlock(routes, selRoute, sel, multi)}
+        ${below}
+      `;
+    }
+
     // ---- Route map ----
     // Draws the polyline the model sent, so the user sees what the figures
     // were computed along and can catch a leg drawn wrong. Leaflet and the
@@ -524,7 +727,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       return `<div class="mapwrap">
         <div class="map" id="ow-map"><div class="wheelhint" aria-hidden="true">Zoom : boutons + et &minus;, ou double-clic</div></div>
         <p class="mapnote">${note}</p>
-        <div class="mapcap"><span>${pts.length} points · ${distNm.toFixed(1)} nm</span>${legend}</div>
+        <div class="mapcap"><span id="ow-mapcap">${pts.length} points · ${distNm.toFixed(1)} nm</span>${legend}</div>
       </div>`;
     }
 
@@ -534,15 +737,16 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       mapApi = null;
     }
 
-    function buildMap(sc, run){
+    function buildMap(pts, run, others){
       const el = document.getElementById('ow-map');
-      const pts = routePoints(sc);
       if(!el || !pts || !run) return;
+      others = (others || []).filter(o=>o.pts);
       const css = getComputedStyle(document.documentElement);
       const casing = css.getPropertyValue('--casing').trim();
       const ink = css.getPropertyValue('--fg0').trim();
       const accent = css.getPropertyValue('--accent').trim();
-      const bounds = L.latLngBounds(pts);
+      // Frame every route compared, so switching variant keeps the view.
+      const bounds = L.latLngBounds(pts.concat(...others.map(o=>o.pts)));
       // No wheel zoom and, on touch screens, no one-finger drag: inside a
       // chat both belong to scrolling the conversation. Buttons, double-tap
       // and pinch still zoom.
@@ -588,6 +792,14 @@ _PLAN_WIDGET_HTML = """<!doctype html>
         L.polyline(pts, {color:casing, weight:8, opacity:.95, lineCap:'round', lineJoin:'round'}).addTo(map);
         L.polyline(pts, {color:accent, weight:4.5, lineCap:'round', lineJoin:'round'}).addTo(map);
       }
+      // The routes not chosen: grey dashes, named at their middle vertex.
+      others.forEach(o=>{
+        L.polyline(o.pts, {color:ink, weight:2.5, opacity:.55, dashArray:'6 6',
+          interactive:false}).addTo(map);
+        const mid = o.pts[Math.floor((o.pts.length - 1) / 2)];
+        L.tooltip({permanent:true, direction:'top', className:'ow-tip', offset:[0,-4]})
+          .setLatLng(mid).setContent(escapeHtml(o.label)).addTo(map);
+      });
 
       // Short legs crowd their numbers together at the overview zoom: show a
       // number only when it clears the last one shown. Zooming in brings the
@@ -694,7 +906,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
 
     // Hold the latest result so the handlers can resolve a row back to its
     // departure.
-    let lastSc = null, lastRuns = [], sel = 0;
+    let lastSc = null, lastRoutes = [], lastRuns = [], sel = 0, selRoute = 0;
     const app = new App({ name: "OhMyWind Plan", version: "1.0.0" });
 
     function openUrl(url){
@@ -712,13 +924,34 @@ _PLAN_WIDGET_HTML = """<!doctype html>
 
     // Selecting a departure keeps the map and its zoom, repaints the legs,
     // and swaps the summary, the detail and the link.
-    function select(i){
+    function mapOthers(){
+      return lastRoutes.filter((_,k)=>k !== selRoute).map(route=>({pts: route.pts, label: route.label}));
+    }
+
+    function select(i, rj){
+      const root = document.getElementById('root');
+      // Another variant: its own geometry, so the map is rebuilt; the frame
+      // covers every route, so the view does not jump.
+      if(rj != null && rj !== selRoute){
+        selRoute = rj;
+        lastRuns = lastRoutes[rj].runs;
+        sel = i;
+        teardownMap();
+        try { buildMap(lastRoutes[rj].pts, lastRuns[i], mapOthers()); }
+        catch(e) { console.error('[ohmywind] route map failed', e); teardownMap(); }
+        const cap = document.getElementById('ow-mapcap');
+        if(cap && lastRuns[i] && lastRoutes[rj].pts)
+          cap.textContent = `${lastRoutes[rj].pts.length} points · ${lastRuns[i].distance_nm.toFixed(1)} nm`;
+      }
       const r = lastRuns[i];
       if(!r) return;
       sel = i;
-      const root = document.getElementById('root');
+      const variants = lastRoutes.length > 1;
       root.querySelectorAll('tr.dep').forEach((row,j)=>row.setAttribute('aria-selected', String(j === i)));
-      document.getElementById('ow-chosen').innerHTML = chosenBlock(r, true);
+      root.querySelectorAll('button.cell').forEach(b=>b.setAttribute('aria-pressed',
+        String(Number(b.dataset.r) === selRoute && Number(b.dataset.i) === i)));
+      document.getElementById('ow-chosen').innerHTML =
+        chosenBlock(r, true, variants ? lastRoutes[selRoute].label : null);
       document.getElementById('ow-detail').innerHTML = detailBlock(r, true);
       document.getElementById('ow-cta').setAttribute('href', r.url || "__WEB_BASE__/plan");
       if(mapApi) mapApi.paint(r);
@@ -759,11 +992,25 @@ _PLAN_WIDGET_HTML = """<!doctype html>
           else if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
             e.preventDefault();
             const next = rows[i + (e.key === 'ArrowDown' ? 1 : -1)];
-            if(next){ next.focus(); select(Number(next.dataset.i)); }
+            if(next && !next.hidden){ next.focus(); select(Number(next.dataset.i)); }
           }
         });
         tr.addEventListener('mouseenter', ()=>{ if(mapApi) mapApi.paint(lastRuns[i]); });
         tr.addEventListener('mouseleave', ()=>{ if(mapApi) mapApi.paint(lastRuns[sel]); });
+      });
+      // Variant cells: a click picks the route and the departure; hovering a
+      // cell of the route on the map previews that departure's colours.
+      root.querySelectorAll('button.cell').forEach(b=>{
+        const rj = Number(b.dataset.r), i = Number(b.dataset.i);
+        b.addEventListener('click', ()=>select(i, rj));
+        b.addEventListener('mouseenter', ()=>{ if(mapApi && rj === selRoute) mapApi.paint(lastRuns[i]); });
+        b.addEventListener('mouseleave', ()=>{ if(mapApi) mapApi.paint(lastRuns[sel]); });
+      });
+      const more = root.querySelector('#ow-more');
+      if(more) more.addEventListener('click', ()=>{
+        listExpanded = true;
+        root.querySelectorAll('tr.dep, tr.mrow').forEach(tr=>{ tr.hidden = false; });
+        more.remove();
       });
       // The link reads its href on click: select() rewrites it.
       root.querySelectorAll('a.cta, a[data-openlink]').forEach(a=>{
@@ -784,13 +1031,18 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       try {
         const multi = sc.mode === "multi_window";
         if(!multi && !sc.passage) return;
-        lastRuns = runsOf(sc, result._meta);
+        lastRoutes = routesOf(sc, result._meta);
+        selRoute = 0;
+        lastRuns = lastRoutes[0].runs;
         sel = 0;
-        root.innerHTML = multi ? renderCompare(sc, lastRuns, sel) : renderSingle(sc, lastRuns[0]);
+        listExpanded = false;
+        root.innerHTML = lastRoutes.length > 1 ? renderVariants(sc, lastRoutes)
+          : multi ? renderCompare(sc, lastRuns, sel) : renderSingle(sc, lastRuns[0]);
         wireClicks();
       } catch(e) {
         console.error('[ohmywind] render failed', e);
         lastRuns = [];
+        lastRoutes = [];
         const url = (sc.openwind_url || (sc.windows && sc.windows[0] && sc.windows[0].openwind_url) || "__WEB_BASE__/plan");
         root.innerHTML = `<div class="placeholder">
           Impossible d'afficher le plan ici.
@@ -801,7 +1053,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       }
       // The map sits on top of a plan that stands without it: if it fails,
       // drop it and keep the rest.
-      try { buildMap(sc, lastRuns[sel]); }
+      try { buildMap(lastRoutes[selRoute] && lastRoutes[selRoute].pts, lastRuns[sel], mapOthers()); }
       catch(e) {
         console.error('[ohmywind] route map failed', e);
         teardownMap();
@@ -818,6 +1070,21 @@ _PLAN_WIDGET_HTML = """<!doctype html>
 </body>
 </html>
 """
+
+
+def _archetype_lines(indent: str) -> str:
+    """The archetypes as one line each, for a tool description."""
+    lines = [
+        f"{indent}- ``{p.name}``: {p.length_ft} ft ({round(p.length_ft * 0.3048)} m) "
+        f"{p.type}, {p.performance_class} "
+        f"({', '.join(p.examples[:3])})"
+        for p in list_archetypes()
+    ]
+    lines.append(
+        f"{indent}``voile_aviron_16ft`` is an open sail-and-oar dinghy only; a small "
+        "cabin cruiser is ``cruiser_20ft``."
+    )
+    return "\n".join(lines)
 
 
 def _archetype_summary(p: Any) -> dict[str, Any]:
@@ -985,8 +1252,13 @@ but the underlying complexity is unchanged.
 
 - No automatic routing optimisation (LLM + human choose).
 - No coastal acceleration zones (caller adds intermediate waypoints).
-- No land or obstacle check: the polyline is timed exactly as drawn,
-  so keeping it off the coast is the caller's job.
+- A coarse land check only: a route whose legs run a couple of
+  kilometres over land, or a waypoint inland, is refused before any
+  forecast request (Natural Earth 10 m, about 1 km, coast widened by 2 km).
+  A spit narrower than about 4 km or a leg shaving a headland passes: the
+  polyline is timed exactly as drawn, and keeping it off the coast is
+  still the caller's job. No obstacle check (shoals, marks, traffic
+  schemes).
 - No port/starboard polar asymmetry, no spinnaker-specific curves.
 - No hull condition modelling beyond the `efficiency` knob.
 
@@ -1040,6 +1312,492 @@ def _route_view(points: list[Any]) -> list[dict[str, float]]:
     return [{"lat": p.lat, "lon": p.lon} for p in points]
 
 
+async def _sweep_one_route(
+    route_pts: list[Point],
+    route_raw: list[dict[str, float]],
+    *,
+    dep: datetime,
+    latest_dep: datetime,
+    archetype: str,
+    sweep_interval_hours: int,
+    efficiency: float,
+    segment_length_nm: float,
+    adapter: MarineDataAdapter,
+    model: str,
+    polar_override: BoatPolar | None,
+    max_hs_m: float | None,
+    target_eta: str | None,
+) -> tuple[list[Any], list[dict[str, Any]], int, list[Notice]]:
+    """One route's compare-windows sweep: reports, window rows, interval, notices.
+
+    The main route and each alternative go through here, so a variant is
+    swept exactly as the route it is compared with.
+    """
+    reports = await _estimate_passage_windows(
+        route_pts,
+        dep,
+        latest_dep,
+        archetype,
+        sweep_interval_hours=sweep_interval_hours,
+        efficiency=efficiency,
+        segment_length_nm=segment_length_nm,
+        adapter=adapter,
+        model=model,
+        polar_override=polar_override,
+    )
+    windows = [
+        _window_with_link(r, _score_complexity(r, max_hs_m=max_hs_m), route_raw) for r in reports
+    ]
+    meta_notices: list[Notice] = []
+    # The engine widens the interval when windows x segments would blow the
+    # simulation budget, so report what the sweep actually did rather than
+    # what was asked for.
+    effective_interval = sweep_interval_hours
+    if reports:
+        effective_interval, _ = resolve_sweep_interval(
+            (latest_dep.astimezone(UTC) - dep.astimezone(UTC)).total_seconds() / 3600,
+            sweep_interval_hours,
+            len(reports[0].segments),
+        )
+        if effective_interval != sweep_interval_hours:
+            meta_notices.append(
+                widened_interval_warning(
+                    effective_interval, sweep_interval_hours, len(reports[0].segments)
+                )
+            )
+    if target_eta is not None:
+        windows, unmatched = filter_windows_by_target_eta(
+            windows, datetime.fromisoformat(target_eta), target_eta
+        )
+        if unmatched is not None:
+            meta_notices.append(unmatched)
+    return reports, windows, effective_interval, meta_notices
+
+
+def _land_refusal(routes: list[tuple[str | None, list[Point]]], mask: LandMask) -> str | None:
+    """Why a route has to be redrawn before anything is computed, or None.
+
+    Checked before the first forecast request: a leg across the Cotentin
+    used to come back as a quiet 11 h 40 passage, scored on wind over
+    fields, and the user found the error on the map. Waypoints count from 1,
+    as the model reads its own list; a route is named only when there are
+    several.
+    """
+    found: list[str] = []
+    for label, pts in routes:
+        prefix = f'route "{label}": ' if label else ""
+        found += [
+            f"{prefix}waypoint {i + 1} ({pts[i].lat:.3f}, {pts[i].lon:.3f}) is inland"
+            for i in waypoints_ashore(pts, mask)
+        ]
+        found += [
+            f"{prefix}leg {c.leg + 1} (waypoint {c.leg + 1} to {c.leg + 2}) runs about "
+            f"{c.land_nm:g} nm over land from {c.lat:.3f}, {c.lon:.3f}"
+            for c in land_crossings(pts, mask)
+        ]
+    if not found:
+        return None
+    return (
+        "This route crosses land, so no forecast was requested: "
+        + "; ".join(found)
+        + ". Redraw it at sea: keep the first and last waypoints where the user leaves "
+        "and arrives (a harbour is at sea for this check) and add waypoints between "
+        "them to go round the headland, peninsula or island each leg cuts, then call "
+        "plan_passage again. Never show the user a route over land, and never move the "
+        "departure or the arrival to get past this check."
+    )
+
+
+def _parse_alternatives(raw: Any) -> list[tuple[str, list[Point]]]:
+    """The alternative routes of a plan_passage call, labelled and parsed.
+
+    Same wording on a bad route as the main one (``parse_waypoints``), so
+    the model reads one kind of error whichever route it drew wrong.
+    """
+    if not raw:
+        return []
+    if not isinstance(raw, list) or len(raw) > MAX_ALTERNATIVES:
+        raise ValueError(f"alternatives: a list of at most {MAX_ALTERNATIVES} routes")
+    out: list[tuple[str, list[Point]]] = []
+    for k, alt in enumerate(raw):
+        if not isinstance(alt, dict) or "waypoints" not in alt:
+            raise ValueError("alternatives: each route needs a 'waypoints' list")
+        label = str(alt.get("label") or f"Variante {chr(ord('B') + k)}").strip()[:40]
+        out.append((label, parse_waypoints(alt["waypoints"])))
+    return out
+
+
+def _auto_forecast_models(start: datetime, end: datetime) -> list[str]:
+    """The models for a point forecast when the caller names none.
+
+    The first model that reaches the start of the window, so AROME wherever
+    it can answer, and the first one that reaches its end when the window
+    outruns it: a window from now to day 5 gets AROME's detail for two days
+    and ICON-EU after, for one more request instead of three days of nulls.
+    """
+    first = auto_chain_from(start)[0]
+    last = auto_chain_from(end)[0]
+    return [first] if first == last else [first, last]
+
+
+# The names the model reaches for when it compares models. Open-Meteo answers
+# a 400 to "gfs" or "arome"; one alias table saves the round trip an error
+# costs, and an unknown name fails here, before any request.
+MODEL_ALIASES: dict[str, str] = {
+    "arome": "meteofrance_arome_france",
+    "meteofrance_arome": "meteofrance_arome_france",
+    "icon": "icon_eu",
+    "icon-eu": "icon_eu",
+    "ecmwf": "ecmwf_ifs025",
+    "ifs": "ecmwf_ifs025",
+    "ecmwf_ifs": "ecmwf_ifs025",
+    "gfs": "gfs_seamless",
+    "noaa_gfs": "gfs_seamless",
+    "gfs_global": "gfs_seamless",
+}
+
+
+def _resolve_model(name: str) -> str:
+    """A model name as Open-Meteo knows it, from the name or a common alias."""
+    key = name.strip().lower()
+    if key == AUTO_MODEL:
+        return AUTO_MODEL
+    model = MODEL_ALIASES.get(key, key)
+    if model not in AUTO_FALLBACK_CHAIN:
+        raise ValueError(
+            f"unknown model {name!r}: use arome, icon_eu, ecmwf or gfs, "
+            "or leave it unset for the automatic choice"
+        )
+    return model
+
+
+def _table(columns: list[str], rows: list[list[Any]]) -> dict[str, Any]:
+    """A series as a header and its rows.
+
+    A list of objects repeats every key on every hour: two days of hourly
+    wind read as 6,000 characters, half of them key names. The header says
+    them once.
+    """
+    return {"columns": columns, "rows": rows}
+
+
+_ISO_INSTANT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$")
+
+
+def _in_zone(obj: Any, tz: tzinfo | None) -> Any:
+    """Every instant of a payload in the caller's UTC offset, to the minute.
+
+    The engine works in UTC. A small model read "09:00:00+00:00" as nine in
+    the morning for a user two hours ahead, and sent the family out at the
+    wrong time; the offset the caller sent is the user's clock, so the
+    answer speaks it. Deep links keep their own encoding: they are URLs, not
+    instants.
+    """
+    if isinstance(obj, dict):
+        return {k: _in_zone(v, tz) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_in_zone(v, tz) for v in obj]
+    if isinstance(obj, str) and _ISO_INSTANT.match(obj):
+        instant = datetime.fromisoformat(obj)
+        if tz is not None and instant.tzinfo is not None:
+            instant = instant.astimezone(tz)
+        return instant.isoformat(timespec="minutes")
+    return obj
+
+
+# A warning about the route rather than the departure: the same line on every
+# window of a sweep. Said once, in ``meta_warnings``.
+_ROUTE_LEVEL_NOTICES = ("passage.long_route",)
+
+
+def _model_windows(
+    windows: list[dict[str, Any]], route_notes: list[str], tz: tzinfo | None
+) -> list[dict[str, Any]]:
+    """The sweep rows as the model reads them.
+
+    The coded ``notices`` repeat each ``warnings`` line for a client that
+    composes its own wording; a model translates the line itself, so the codes
+    only sort the lines here, difficulty first, and go. The ``weekday`` spares
+    a small model the calendar sum that announced a Monday departure as a
+    Saturday one.
+    """
+    out = []
+    for w in windows:
+        w = dict(w)
+        notices = w.pop("notices", None) or []
+        warnings = w.get("warnings") or []
+        if len(notices) == len(warnings):
+            hard, soft = [], []
+            for n in notices:
+                code = str(n.get("code"))
+                if code in _ROUTE_LEVEL_NOTICES:
+                    if n["message"] not in route_notes:
+                        route_notes.append(n["message"])
+                elif code.startswith("complexity."):
+                    hard.append(n["message"])
+                else:
+                    soft.append(n["message"])
+            w["warnings"] = hard + soft
+        departure = datetime.fromisoformat(w["departure"])
+        if tz is not None:
+            departure = departure.astimezone(tz)
+        out.append({"departure": w.pop("departure"), "weekday": departure.strftime("%a")} | w)
+    return out
+
+
+def _drop_notices(obj: Any) -> Any:
+    """The payload without its coded copies of the warnings (see ``_model_windows``)."""
+    if isinstance(obj, dict):
+        return {k: _drop_notices(v) for k, v in obj.items() if k not in ("notices", "meta_notices")}
+    if isinstance(obj, list):
+        return [_drop_notices(v) for v in obj]
+    return obj
+
+
+def _material_current_and_tide(points: Any) -> dict[str, Any]:
+    """The current and the tide at a point, only where they matter.
+
+    Same rule as everywhere else in OhMyWind: a current under 0.3 kt or a
+    tidal range under 0.5 m is noise, which covers most of the
+    Mediterranean. The values are those the composite adapter already put on
+    the sea series (an atlas where one covers the point, Open-Meteo Marine
+    otherwise): no extra request.
+    """
+    out: dict[str, Any] = {}
+    currents = [p for p in points if p.current_speed_kn is not None]
+    if currents and max(p.current_speed_kn for p in currents) >= CURRENT_RELEVANCE_THRESHOLD_KN:
+        out["current"] = {
+            "source": next((p.current_source for p in currents if p.current_source), None),
+        } | _table(
+            ["time", "speed_kn", "direction_to_deg"],
+            [
+                [
+                    p.time.isoformat(),
+                    round(p.current_speed_kn, 2),
+                    None
+                    if p.current_direction_to_deg is None
+                    else round(p.current_direction_to_deg),
+                ]
+                for p in currents
+            ],
+        )
+    heights = [p for p in points if p.tide_height_m is not None]
+    if heights:
+        values = [p.tide_height_m for p in heights]
+        if max(values) - min(values) >= TIDE_RANGE_RELEVANCE_THRESHOLD_M:
+            source = next((p.current_source for p in heights if p.current_source), None)
+            out["tide"] = {
+                # Where an atlas withholds a dead current it still gives the
+                # height; the "unknown" label is the current's, not the tide's.
+                "source": None if source == UNKNOWN_CURRENT_SOURCE else source,
+            } | _table(
+                ["time", "height_m"],
+                [[p.time.isoformat(), round(p.tide_height_m, 2)] for p in heights],
+            )
+    return out
+
+
+# A tidal-stream answer holds one row per step. 400 covers four days at 15
+# minutes or a week at 30, more than any question about a pass needs, and
+# keeps the reply short enough for the model to read whole.
+MAX_TIDAL_STEPS = 400
+
+
+def _runs(times: list[datetime], values: list[float | None], keep: Any) -> list[dict[str, Any]]:
+    """The stretches where ``keep(value)`` holds, each with its strongest value.
+
+    A stretch of a single step is dropped: at the edge of the window it is the
+    tail of a stream that turned before the window began, a window of no
+    length that reads like a bug.
+    """
+    out: list[dict[str, Any]] = []
+    start: datetime | None = None
+    last = peak = None
+
+    def close() -> None:
+        if last != start:
+            out.append(
+                {"start": start.isoformat(), "end": last.isoformat(), "peak_kn": round(peak, 2)}
+            )
+
+    for t, v in zip(times, values, strict=True):
+        if v is not None and keep(v):
+            if start is None:
+                start, peak = t, v
+            elif abs(v) > abs(peak):
+                peak = v
+            last = t
+        elif start is not None:
+            close()
+            start = None
+    if start is not None:
+        close()
+    return out
+
+
+def _turning_points(
+    times: list[datetime], values: list[float | None], highest: bool
+) -> list[tuple[datetime, float]]:
+    """Local maxima (``highest``) or minima of a sampled series.
+
+    As exact as the step: at 30 minutes, a high water or a slack lands within
+    a quarter of an hour of the time given.
+    """
+    out: list[tuple[datetime, float]] = []
+    for i in range(1, len(values) - 1):
+        a, b, c = values[i - 1], values[i], values[i + 1]
+        if a is None or b is None or c is None:
+            continue
+        if (highest and b > a and b >= c) or (not highest and b < a and b <= c):
+            # Two wiggles of one turn of the tide (a rotary stream at the
+            # Fromveur dips twice an hour apart): one event, the extreme one.
+            if out and times[i] - out[-1][0] < timedelta(hours=2):
+                if (b > out[-1][1]) if highest else (b < out[-1][1]):
+                    out[-1] = (times[i], b)
+                continue
+            out.append((times[i], b))
+    return out
+
+
+def _tidal_stream_view(
+    adapter: MarineDataAdapter,
+    lat: float,
+    lon: float,
+    times: list[datetime],
+    heading_deg: float | None,
+) -> dict[str, Any]:
+    """The atlas prediction at a point, without a single weather request.
+
+    Runs the cascade ``plan_passage`` applies leg by leg (unknown zones, SHOM
+    up close, then the harmonic atlases) on a bare series of times, so a pass
+    reads here exactly as it does in a plan. Outside every atlas the answer
+    is "not covered", not the global model: that one costs a request, and
+    ``get_marine_forecast`` already returns it where it matters.
+    """
+    link = build_explore_url(lat, lon)
+    if not isinstance(adapter, CompositeMarineAdapter):
+        return {
+            "covered": False,
+            "reason": "no tidal atlas is loaded on this server",
+            "openwind_url": link,
+        }
+    bare = ForecastBundle(
+        lat=lat,
+        lon=lon,
+        start=times[0],
+        end=times[-1],
+        sea=SeaSeries(
+            points=tuple(
+                SeaPoint(
+                    time=t,
+                    wave_height_m=None,
+                    wave_period_s=None,
+                    wave_direction_deg=None,
+                    wind_wave_height_m=None,
+                    swell_wave_height_m=None,
+                )
+                for t in times
+            )
+        ),
+    )
+    points = adapter.apply_atlases(bare, lat, lon).sea.points
+    source = next((p.current_source for p in points if p.current_source), None)
+    if source == UNKNOWN_CURRENT_SOURCE:
+        return {
+            "covered": False,
+            "reason": "a documented zone where no source describes the real stream",
+            "openwind_url": link,
+        }
+    if source is None:
+        return {
+            "covered": False,
+            "reason": "no tidal atlas covers this point (most of the Mediterranean, the open "
+            "sea); get_marine_forecast reports the global model's current where it matters",
+            "openwind_url": link,
+        }
+    speeds = [p.current_speed_kn for p in points]
+    dirs = [p.current_direction_to_deg for p in points]
+    heights = [p.tide_height_m for p in points]
+    if all(h is None for h in heights):
+        # SHOM C2D primes on the current and carries no height; MARC still has
+        # the height at that point, as the web's tide chart shows it.
+        predicted = adapter.marc.predict_height_series(lat, lon, times)
+        if predicted is not None:
+            heights = [float(v) for v in predicted[0]]
+    along = (
+        [
+            None if s is None or d is None else s * math.cos(math.radians(d - heading_deg))
+            for s, d in zip(speeds, dirs, strict=True)
+        ]
+        if heading_deg is not None
+        else None
+    )
+    columns = ["time", "speed_kn", "direction_to_deg"]
+    columns += ["along_kn"] if along is not None else []
+    columns += ["height_m"] if any(h is not None for h in heights) else []
+
+    def r2(v: float | None) -> float | None:
+        return None if v is None else round(v, 2)
+
+    rows = []
+    for i, t in enumerate(times):
+        row: list[Any] = [
+            t.isoformat(),
+            r2(speeds[i]),
+            None if speeds[i] is None or dirs[i] is None else round(dirs[i]),
+        ]
+        if along is not None:
+            row.append(r2(along[i]))
+        if "height_m" in columns:
+            row.append(r2(heights[i]))
+        rows.append(row)
+    out: dict[str, Any] = {
+        "lat": lat,
+        "lon": lon,
+        "covered": True,
+        "source": source,
+        "confidence": confidence_for_point(lat, lon, source),
+        "heading_deg": heading_deg,
+        "points": _table(columns, rows),
+        # Slack: the dips where the stream nearly stops. A pass with a
+        # double-humped flood also dips to 2 kt mid-tide, which is no slack:
+        # keep the dips under a quarter of the day's strongest stream, or
+        # under half a knot where the stream is weak all day.
+        "slack": [
+            {"time": t.isoformat(), "speed_kn": round(v, 2)}
+            for t, v in _turning_points(times, speeds, highest=False)
+            if v <= max(0.5, 0.25 * max((s for s in speeds if s is not None), default=0.0))
+        ],
+    }
+    if any(h is not None for h in heights):
+        out["high_waters"] = [
+            {"time": t.isoformat(), "height_m": round(v, 2)}
+            for t, v in _turning_points(times, heights, highest=True)
+        ]
+        out["low_waters"] = [
+            {"time": t.isoformat(), "height_m": round(v, 2)}
+            for t, v in _turning_points(times, heights, highest=False)
+        ]
+    if along is not None:
+        out["favourable"] = _runs(times, along, lambda v: v >= CURRENT_RELEVANCE_THRESHOLD_KN)
+        out["adverse"] = _runs(times, along, lambda v: v <= -CURRENT_RELEVANCE_THRESHOLD_KN)
+    gap = unresolved_pass_at(lat, lon, source)
+    if gap is not None:
+        spring = f", published spring stream {gap.max_spring_kt:g} kt" if gap.max_spring_kt else ""
+        out["warning"] = (
+            f"{gap.zone}: the atlas does not resolve this pass{spring}; "
+            "the real stream is stronger than these values"
+        )
+    if (
+        source.startswith(("shom_c2d", "marc_"))
+        and adapter.shom is not None
+        and adapter.shom.ref_ports
+    ):
+        out["tide_coefficient"] = adapter.shom.tide_coefficient(times[0])
+    out["openwind_url"] = link
+    return out
+
+
 def _legs_meta(reports: list[Any], windows: list[dict[str, Any]]) -> dict[str, Any] | None:
     """The legs of every listed sweep window, for the widget only.
 
@@ -1058,6 +1816,8 @@ def _legs_meta(reports: list[Any], windows: list[dict[str, Any]]) -> dict[str, A
                 round(s.twa_deg),
                 None if s.hs_m is None else round(s.hs_m, 2),
                 round(s.boat_speed_kn, 2),
+                None if s.current_speed_kn is None else round(s.current_speed_kn, 2),
+                None if s.current_direction_to_deg is None else round(s.current_direction_to_deg),
             ]
             for s in r.segments
         ]
@@ -1073,17 +1833,23 @@ def _legs_meta(reports: list[Any], windows: list[dict[str, Any]]) -> dict[str, A
     }
 
 
-def _tool_result(structured: dict[str, Any], meta: dict[str, Any] | None = None) -> CallToolResult:
-    """The result FastMCP would build from ``structured``, plus a ``_meta``.
+def _tool_result(
+    structured: dict[str, Any],
+    meta: dict[str, Any] | None = None,
+    *,
+    tz: tzinfo | None = None,
+) -> CallToolResult:
+    """The result FastMCP would build from ``structured``, compact, plus a ``_meta``.
 
-    A tool that returns a dict gets no ``_meta``: FastMCP builds the result
-    itself. The text block is the same JSON the model has always read,
-    indented as FastMCP indents it; the ``_meta`` goes to the widget.
+    Every instant goes out in ``tz``, the offset the caller sent (see
+    ``_in_zone``). The text block is the JSON without FastMCP's two-space
+    indent, a third of the characters the model reads; the ``_meta`` goes to
+    the widget.
     """
+    structured = _in_zone(structured, tz)
+    meta = _in_zone(meta, tz) if meta else meta
     return CallToolResult(
-        content=[
-            TextContent(type="text", text=json.dumps(structured, indent=2, ensure_ascii=False))
-        ],
+        content=[TextContent(type="text", text=json.dumps(structured, ensure_ascii=False))],
         structuredContent=structured,
         _meta=meta,
     )
@@ -1092,6 +1858,7 @@ def _tool_result(structured: dict[str, Any], meta: dict[str, Any] | None = None)
 def build_server(
     *,
     adapter: MarineDataAdapter | None = None,
+    land_mask: LandMask | None = None,
 ) -> FastMCP:
     """Build a FastMCP server with all OhMyWind tools registered.
 
@@ -1111,6 +1878,11 @@ def build_server(
             itself this factory loads its own registries, which is right for
             the stdio runner (the only process where it is alone) and was
             5 MB and 51 ms of pure duplication in the Space (audit M5).
+        land_mask: the coarse land mask ``plan_passage`` checks routes
+            against. Defaults to ``land_mask.npz`` next to the atlases, under
+            ``MARC_ATLAS_DIR`` or else ``SHOM_C2D_DIR``, as the REST API
+            loads it; without the file the check finds nothing. A deployment
+            that serves both shells passes the API's.
     """
     # ``stateless_http=True`` disables the in-memory session table that
     # otherwise tracks an ``mcp-session-id`` per client across requests.
@@ -1131,6 +1903,7 @@ def build_server(
     # recommended config for production deployments.
     server: FastMCP = FastMCP(
         SERVER_NAME,
+        instructions=SERVER_INSTRUCTIONS,
         stateless_http=True,
         json_response=True,
     )
@@ -1148,6 +1921,13 @@ def build_server(
             MarcAtlasRegistry.from_directory(marc_dir) if marc_dir else None,
             ShomC2dRegistry.from_directory(shom_dir) if shom_dir else None,
         )
+    land: LandMask = (
+        land_mask
+        if land_mask is not None
+        else LandMask.from_directory(
+            os.environ.get("MARC_ATLAS_DIR") or os.environ.get("SHOM_C2D_DIR")
+        )
+    )
 
     @server.resource(
         PLAN_UI_RESOURCE_URI,
@@ -1184,6 +1964,7 @@ def build_server(
             .replace("__WEB_HOST__", WEB_HOST)
             .replace("__TILE_URL__", OSM_TILE_URL)
             .replace("__LEGS_META_KEY__", PLAN_UI_LEGS_META_KEY)
+            .replace("__ALT_LEGS_META_KEY__", PLAN_UI_ALT_LEGS_META_KEY)
         )
 
     # Every tool below spells out all four hints, including the two the spec
@@ -1248,15 +2029,43 @@ def build_server(
         start: str,
         end: str,
         models: list[str] | None = None,
-    ) -> dict[str, Any]:
-        """Fetch wind (and sea, when available) for a point and time window.
+    ) -> Annotated[CallToolResult, dict[str, Any]]:
+        """Wind, sea, and where it matters current and tide, at one point.
+
+        For the questions about a place rather than a passage: how hard it
+        blows at Groix this afternoon, when the thermal breeze fills in, when
+        the mistral eases, whether the models agree, what the swell does at a
+        harbour entrance tonight.
 
         Args:
             lat: latitude in degrees.
             lon: longitude in degrees.
-            start: ISO-8601 datetime, timezone-aware (e.g. "2026-05-01T06:00:00+00:00").
+            start: ISO-8601 datetime with the user's UTC offset (e.g.
+                "2026-05-01T08:00:00+02:00"). Every time in the answer comes
+                back in that offset.
             end: ISO-8601 datetime, timezone-aware.
-            models: optional list of model names; defaults to AROME for the Med.
+            models: optional list of model names. Leave it unset for the
+                automatic choice: AROME (1.3 km) wherever it reaches the
+                window, and the next model that reaches its end when the
+                window runs past two days. Name several models (``["arome",
+                "icon_eu", "ecmwf", "gfs"]``) only when the user asks whether
+                the models agree: each one costs a request.
+
+        Returns hourly ``wind`` per model (speed, direction it comes from,
+        gusts, in knots), ``sea`` (wave height, period, direction), and, only
+        where they are material, ``current`` (speed in knots, direction it
+        flows to, from a tidal atlas where one covers the point) and ``tide``
+        (height around mean sea level: read the range and the times of high
+        and low water from it, not a depth over chart datum). Each series is
+        a table: ``columns`` names the fields once, each of ``rows`` is one
+        hour. Also ``openwind_url``, the OhMyWind map centred on the point.
+
+        Answer in a sentence first (the user is often in a car or at the bar),
+        then give the few numbers that back it, as a short table or a small
+        chart if your interface draws one. No widget comes with this tool:
+        the presentation is yours. Offer ``openwind_url`` as "voir sur la
+        carte". This is a forecast: never present it as a measurement of
+        what is blowing right now.
 
         Pass a point at sea. Over land Open-Meteo still returns wind, but
         every sea value comes back null, so the ``sea`` array is present and
@@ -1268,46 +2077,134 @@ def build_server(
         validate_point(lat, lon)
         start_dt = datetime.fromisoformat(start)
         end_dt = datetime.fromisoformat(end)
-        bundle = await fetch_adapter.fetch(lat, lon, start_dt, end_dt, models=models)
-        return {
-            "lat": bundle.lat,
-            "lon": bundle.lon,
-            "start": bundle.start.isoformat(),
-            "end": bundle.end.isoformat(),
-            "requested_at": bundle.requested_at.isoformat(),
-            "wind": {
-                model: [
-                    {
-                        "time": p.time.isoformat(),
-                        "speed_kn": p.speed_kn,
-                        "direction_deg": p.direction_deg,
-                        "gust_kn": p.gust_kn,
-                    }
-                    for p in series.points
-                ]
-                for model, series in bundle.wind_by_model.items()
-            },
-            "sea": [
-                {
-                    "time": p.time.isoformat(),
-                    "wave_height_m": p.wave_height_m,
-                    "wave_period_s": p.wave_period_s,
-                    "wave_direction_deg": p.wave_direction_deg,
-                }
-                for p in bundle.sea.points
-            ],
-        }
+        resolved = [_resolve_model(m) for m in models or []]
+        if not resolved or AUTO_MODEL in resolved:
+            resolved = _auto_forecast_models(start_dt, end_dt)
+        bundle = await fetch_adapter.fetch(
+            lat, lon, start_dt, end_dt, models=list(dict.fromkeys(resolved))
+        )
+
+        def deg(v: float | None) -> int | None:
+            return None if v is None else round(v)
+
+        view = (
+            {
+                "lat": bundle.lat,
+                "lon": bundle.lon,
+                "start": bundle.start.isoformat(),
+                "end": bundle.end.isoformat(),
+                "requested_at": bundle.requested_at.isoformat(),
+                "wind": {
+                    model: _table(
+                        ["time", "speed_kn", "direction_deg", "gust_kn"],
+                        [
+                            [p.time.isoformat(), p.speed_kn, deg(p.direction_deg), p.gust_kn]
+                            for p in series.points
+                        ],
+                    )
+                    for model, series in bundle.wind_by_model.items()
+                },
+                "sea": _table(
+                    ["time", "wave_height_m", "wave_period_s", "wave_direction_deg"],
+                    [
+                        [
+                            p.time.isoformat(),
+                            p.wave_height_m,
+                            p.wave_period_s,
+                            deg(p.wave_direction_deg),
+                        ]
+                        for p in bundle.sea.points
+                    ],
+                ),
+            }
+            | _material_current_and_tide(bundle.sea.points)
+            | {
+                "openwind_url": build_explore_url(lat, lon),
+            }
+        )
+        return _tool_result(view, tz=start_dt.tzinfo)
 
     @server.tool(
         annotations=ToolAnnotations(
-            title="Plan a passage",
+            title="Tidal stream at a point",
             readOnlyHint=True,
             destructiveHint=False,
             idempotentHint=True,
-            openWorldHint=True,
+            openWorldHint=False,
         ),
-        meta={"ui": {"resourceUri": PLAN_UI_RESOURCE_URI}},
     )
+    async def get_tidal_stream(
+        lat: float,
+        lon: float,
+        start: str,
+        end: str,
+        heading_deg: float | None = None,
+        step_minutes: int = 30,
+    ) -> Annotated[CallToolResult, dict[str, Any]]:
+        """The tidal stream and the tide at one point, from the tidal atlases alone.
+
+        For the questions about a pass or a harbour entrance: when to be at
+        the Raz de Sein to carry the stream, when the Fromveur turns, how
+        hard it runs at Port-Navalo tomorrow, when high water is at Chausey.
+        Costs no weather request: harmonic predictions from the atlases this
+        server ships (SHOM, MARC and others), the same ones ``plan_passage``
+        applies leg by leg.
+
+        Args:
+            lat: latitude in degrees, at sea, in the pass itself.
+            lon: longitude in degrees.
+            start: ISO-8601 datetime with the user's UTC offset; every time
+                in the answer comes back in that offset.
+            end: ISO-8601 datetime, timezone-aware. At most 400 steps.
+            heading_deg: optional course through the point (true degrees,
+                the direction you head to). With it, each step gets
+                ``along_kn`` (positive: the stream carries you, negative: it
+                stems you) and the answer lists the ``favourable`` and
+                ``adverse`` windows.
+            step_minutes: 5 to 180, default 30.
+
+        Returns ``covered``, ``source``, ``confidence``, ``points`` (a table:
+        ``columns`` time, ``speed_kn``, ``direction_to_deg`` it flows to,
+        ``along_kn``, ``height_m`` around mean sea level; one row per step),
+        ``slack`` (the moments the stream nearly
+        stops), ``high_waters`` / ``low_waters``, ``favourable`` /
+        ``adverse`` when a heading is given, ``tide_coefficient`` (French
+        national coefficient, Brest, on French atlases), a ``warning`` when
+        the atlas does not resolve the pass, and ``openwind_url``.
+
+        Outside every atlas (most of the Mediterranean, the open sea)
+        ``covered`` is false: say so, and use ``get_marine_forecast``, which
+        returns the global model's current where it matters.
+
+        Astronomical tide only: no surge, no wind-driven current. The windows
+        are facts about the stream, not a recommendation: weigh them against
+        the wind (``get_marine_forecast``) and the whole passage
+        (``plan_passage``). Present the answer yourself, the time to be at the
+        pass in one sentence and the few times that back it: no widget comes
+        with this tool.
+        """
+        validate_point(lat, lon)
+        start_dt = datetime.fromisoformat(start)
+        end_dt = datetime.fromisoformat(end)
+        if start_dt.tzinfo is None or end_dt.tzinfo is None:
+            raise ValueError("start and end must be timezone-aware")
+        if end_dt <= start_dt:
+            raise ValueError("end must be after start")
+        if not 5 <= step_minutes <= 180:
+            raise ValueError(f"step_minutes must be in [5, 180], got {step_minutes}")
+        step = timedelta(minutes=step_minutes)
+        n_steps = int((end_dt - start_dt) / step) + 1
+        if n_steps > MAX_TIDAL_STEPS:
+            raise ValueError(
+                f"requested {n_steps} steps, at most {MAX_TIDAL_STEPS}: "
+                "shorten the window or widen step_minutes"
+            )
+        times = [start_dt + step * i for i in range(n_steps)]
+        heading = None if heading_deg is None else heading_deg % 360
+        return _tool_result(
+            _tidal_stream_view(fetch_adapter, lat, lon, times, heading), tz=start_dt.tzinfo
+        )
+
     async def plan_passage(
         waypoints: list[dict[str, float]],
         departure: str,
@@ -1322,6 +2219,9 @@ def build_server(
         motor_threshold_kn: float | None = None,
         motor_speed_kn: float | None = None,
         min_upwind_twa_deg: float | None = None,
+        route_label: str | None = None,
+        alternatives: list[dict[str, Any]] | None = None,
+        inland_waterway: bool = False,
     ) -> Annotated[CallToolResult, dict[str, Any]]:
         """Plan an A→B passage. Compare departure windows by default; pin a
         single departure only when the user gives an explicit time.
@@ -1349,7 +2249,22 @@ def build_server(
            mode (no ``latest_departure``). Used for the final "show me the
            detailed plan for THIS departure" view, often after step 2.
 
-        4. **Methodology question** ("comment c'est calculé ?",
+        4. **Two ways to go** ("nord ou sud du Fromveur pour Ouessant ?",
+           "par l'intérieur ou l'extérieur des Glénan ?", "Ré ou Aix
+           demain ?"): one ``plan_passage`` call, the first route in
+           ``waypoints`` and the others in ``alternatives`` (two at most),
+           each with a short ``label`` saying how it goes ("Par le nord du
+           Fromveur"). Every route is computed for the same departures, so
+           the widget compares them cell by cell. Do not make one call per
+           route.
+
+        5. **When to be at a pass** ("à quelle heure au Raz de Sein ?",
+           "quand renverse le courant au Fromveur ?"): ``get_tidal_stream``
+           at the pass, with the course you will steer, and ``plan_passage``
+           comparing departures, both in the same turn; then pick the
+           departure that brings you there in the favourable window.
+
+        6. **Methodology question** ("comment c'est calculé ?",
            "quelle efficacité par défaut ?"): call ``read_me``.
 
         Rule of thumb: if the user does NOT give an exact hour, prefer
@@ -1358,13 +2273,17 @@ def build_server(
 
         ## Waypoints must stay in the water
 
-        This server does no land check. It samples wind and sea along the
-        polyline you pass, then reports distance, ETA and complexity for that
-        polyline, whatever it crosses. A leg drawn through a peninsula raises
-        no error: it returns a passage that is too short, too fast, and scored
-        on conditions the boat would never meet.
+        This server runs a coarse land check before anything else: a leg
+        that runs a couple of kilometres over land, or a waypoint inland, gets
+        the call refused before any forecast request, with the leg and the
+        place named. Redraw it and call again; never show the user a route
+        over land. The shoreline is coarse (about 1 km, the coast widened by
+        2 km so harbours stay at sea): a spit narrower than about 4 km, or a
+        leg that shaves a headland, passes the check and is timed as drawn,
+        too short, too fast, and scored on conditions the boat would never
+        meet.
 
-        So the route is yours to draw. Between every consecutive pair of
+        So the route is still yours to draw. Between every consecutive pair of
         waypoints the straight line must stay at sea. Add intermediate
         waypoints to round anything the direct line would cut: headlands,
         peninsulas, islands, shoals.
@@ -1392,6 +2311,10 @@ def build_server(
 
         ## Returned payload
 
+        Every time comes back in the UTC offset of ``departure``: send the
+        user's own (``+02:00`` for France in summer) and read the times as
+        their clock.
+
         Single mode:
 
         - ``passage``: per-segment timing report (distance_nm, duration_h,
@@ -1402,6 +2325,9 @@ def build_server(
           same passage in the standalone web app.
         - ``waypoints``: the route as you sent it, which the widget draws on
           a map.
+        - ``route_label`` and ``alternatives[]``, only when you passed
+          alternatives: each alternative has its ``label``, ``waypoints``,
+          ``passage``, ``complexity`` and ``openwind_url``.
         - ``disclaimer``: usage warning to relay (see below).
 
         Compare-windows mode (``latest_departure`` set):
@@ -1409,17 +2335,17 @@ def build_server(
         - ``mode``: ``"multi_window"``.
         - ``sweep``: ``earliest`` / ``latest`` / ``interval_hours`` /
           ``window_count``.
-        - ``windows[]``: each entry has ``departure``, ``arrival``,
-          ``duration_h``, ``distance_nm``, ``complexity`` (level + label +
-          rationale), ``conditions_summary`` (tws_min/max, predominant sail
-          angle, hs_min/max), ``warnings``, ``passage`` (full per-segment
-          report), ``complexity_full`` (full score), ``openwind_url``.
-        - ``meta_warnings``: top-level notes ("3 fenêtres ignorées …").
-        - ``notices`` / ``meta_notices``: the same warnings as codes with
-          their values (``{"code": "sweep.skipped_windows", "params": …}``),
-          for a client that says them in another language. Read the French
-          ``message`` and ignore these.
+        - ``windows[]``: each entry has ``departure``, its ``weekday``,
+          ``arrival``, ``duration_h``, ``distance_nm``, ``complexity`` (level
+          + label + rationale), ``conditions_summary`` (tws_min/max,
+          predominant sail angle, hs_min/max), ``warnings`` (the difficulty
+          first), ``openwind_url``.
+        - ``meta_warnings``: notes about the whole sweep or the route ("3
+          fenêtres ignorées …", a long route sampled more sparsely).
         - ``waypoints``: the route as you sent it, once for all windows.
+        - ``route_label`` and ``alternatives[]``, only when you passed
+          alternatives: each alternative has its ``label``, ``waypoints``
+          and its own ``windows[]``, same departures.
         - ``disclaimer``: usage warning to relay (see below).
 
         ## ALWAYS relay the disclaimer
@@ -1476,7 +2402,9 @@ def build_server(
                 Used exactly as drawn. Read "Waypoints must stay in the
                 water" above before building it.
             departure: ISO-8601 datetime, timezone-aware.
-            archetype: one of ``list_boat_archetypes()`` names.
+            archetype: the boat. Pick it yourself from what the user sails,
+                among these (``list_boat_archetypes`` returns the same list):
+                {archetypes}
             efficiency: multiplier on polar speed. ``0.85`` racing, ``0.75``
                 cruising (default), ``0.65`` loaded family cruising, ``0.55``
                 heavy seas / fouled hull.
@@ -1485,7 +2413,7 @@ def build_server(
                 coastal work, raise to 20 for long offshore legs.
             model: wind model. Default ``"auto"`` tries AROME (≤48 h) →
                 ICON-EU (≤5 d) → ECMWF IFS 0.25° (≤10 d) → GFS (≤16 d).
-                Pass an explicit name to bypass.
+                Pass ``arome``, ``icon_eu``, ``ecmwf`` or ``gfs`` to bypass.
             max_hs_m: optional max significant wave height (meters) over the
                 route: pass it if you have a sea-state estimate from
                 ``get_marine_forecast`` and want it factored into the score.
@@ -1503,6 +2431,18 @@ def build_server(
                 overriding the archetype's own value (42-50 deg depending on
                 the boat). Pass it when you know the boat points better or
                 worse than the archetype suggests. Range [25, 70].
+            route_label: optional short name for the main route, shown in
+                the widget when you pass alternatives ("Par le nord").
+            alternatives: optional other routes for the same trip, at most
+                two: ``[{"label": "Par le sud", "waypoints": [...]}, ...]``.
+                Same departures, same boat, same rules for the waypoints
+                (stay at sea). Each route costs its own forecast requests:
+                pass them only when the user weighs two ways to go.
+            inland_waterway: true only when the user sails up a river or a
+                canal the coarse shoreline counts as land (the Seine to
+                Rouen, the Loire to Nantes): it turns the land check off for
+                this call. Never set it to get past a refusal at sea; redraw
+                the route instead.
 
         ## Compare-windows mode (latest_departure set)
 
@@ -1544,6 +2484,14 @@ def build_server(
             raise ValueError(f"min_upwind_twa_deg must be in [25, 70], got {min_upwind_twa_deg}")
 
         dep = datetime.fromisoformat(departure)
+        model = _resolve_model(model)
+        alts = _parse_alternatives(alternatives)
+        main_label = (route_label or "Variante A").strip()[:40]
+        if not inland_waterway:
+            routes: list[tuple[str | None, list[Point]]] = [(main_label if alts else None, pts)]
+            refusal = _land_refusal(routes + [(label, p) for label, p in alts], land)
+            if refusal is not None:
+                raise ValueError(refusal)
 
         # Polar override: clone the archetype polar with the caller's knobs.
         # Motor requires BOTH values (same rule as ``_apply_motor``) so a
@@ -1561,57 +2509,56 @@ def build_server(
         # --- SWEEP MODE ---
         if latest_departure is not None:
             latest_dep = datetime.fromisoformat(latest_departure)
-            reports = await _estimate_passage_windows(
-                pts,
-                dep,
-                latest_dep,
-                archetype,
-                sweep_interval_hours=sweep_interval_hours,
-                efficiency=efficiency,
-                segment_length_nm=segment_length_nm,
-                adapter=fetch_adapter,
-                model=model,
-                polar_override=polar_override,
-            )
-            windows = [
-                _window_with_link(r, _score_complexity(r, max_hs_m=max_hs_m), waypoints)
-                for r in reports
-            ]
 
-            meta_notices: list[Notice] = []
-            # The engine widens the interval when windows x segments would blow
-            # the simulation budget, so report what the sweep actually did
-            # rather than what was asked for.
-            effective_interval = sweep_interval_hours
-            if reports:
-                effective_interval, _ = resolve_sweep_interval(
-                    (latest_dep.astimezone(UTC) - dep.astimezone(UTC)).total_seconds() / 3600,
-                    sweep_interval_hours,
-                    len(reports[0].segments),
+            async def sweep_route(route_pts, route_raw):
+                return await _sweep_one_route(
+                    route_pts,
+                    route_raw,
+                    dep=dep,
+                    latest_dep=latest_dep,
+                    archetype=archetype,
+                    sweep_interval_hours=sweep_interval_hours,
+                    efficiency=efficiency,
+                    segment_length_nm=segment_length_nm,
+                    adapter=fetch_adapter,
+                    model=model,
+                    polar_override=polar_override,
+                    max_hs_m=max_hs_m,
+                    target_eta=target_eta,
                 )
-                if effective_interval != sweep_interval_hours:
-                    meta_notices.append(
-                        widened_interval_warning(
-                            effective_interval, sweep_interval_hours, len(reports[0].segments)
-                        )
+
+            reports, windows, effective_interval, meta_notices = await sweep_route(pts, waypoints)
+            body = sweep_view(
+                earliest=dep,
+                latest=latest_dep,
+                interval_hours=effective_interval,
+                windows=windows,
+                meta_notices=meta_notices,
+            ) | {"waypoints": _route_view(pts)}
+            route_notes: list[str] = []
+            body["windows"] = _model_windows(body["windows"], route_notes, dep.tzinfo)
+            meta = _legs_meta(reports, windows)
+            if alts:
+                alt_entries, alt_legs = [], []
+                for label, alt_pts in alts:
+                    alt_reports, alt_windows, _, _ = await sweep_route(
+                        alt_pts, _route_view(alt_pts)
                     )
-            if target_eta is not None:
-                windows, unmatched = filter_windows_by_target_eta(
-                    windows, datetime.fromisoformat(target_eta), target_eta
-                )
-                if unmatched is not None:
-                    meta_notices.append(unmatched)
-
+                    alt_entries.append(
+                        {
+                            "label": label,
+                            "waypoints": _route_view(alt_pts),
+                            "windows": _model_windows(alt_windows, route_notes, dep.tzinfo),
+                        }
+                    )
+                    alt_legs.append(
+                        (_legs_meta(alt_reports, alt_windows) or {}).get(PLAN_UI_LEGS_META_KEY)
+                    )
+                body |= {"route_label": main_label, "alternatives": alt_entries}
+                meta = (meta or {}) | {PLAN_UI_ALT_LEGS_META_KEY: alt_legs}
+            body["meta_warnings"] = route_notes + list(body.get("meta_warnings") or [])
             return _tool_result(
-                sweep_view(
-                    earliest=dep,
-                    latest=latest_dep,
-                    interval_hours=effective_interval,
-                    windows=windows,
-                    meta_notices=meta_notices,
-                )
-                | {"waypoints": _route_view(pts), "disclaimer": PASSAGE_DISCLAIMER},
-                _legs_meta(reports, windows),
+                _drop_notices(body | {"disclaimer": PASSAGE_DISCLAIMER}), meta, tz=dep.tzinfo
             )
 
         # --- SINGLE MODE ---
@@ -1627,13 +2574,49 @@ def build_server(
         )
         score = _score_complexity(report, max_hs_m=max_hs_m)
 
-        return _tool_result(
-            passage_envelope(report, score)
-            | {
-                "openwind_url": build_ohmywind_url(waypoints, departure, archetype),
-                "waypoints": _route_view(pts),
-                "disclaimer": PASSAGE_DISCLAIMER,
-            }
-        )
+        body = passage_envelope(report, score) | {
+            "openwind_url": build_ohmywind_url(waypoints, departure, archetype),
+            "waypoints": _route_view(pts),
+        }
+        if alts:
+            alt_entries = []
+            for label, alt_pts in alts:
+                alt_report = await _estimate_passage(
+                    alt_pts,
+                    dep,
+                    archetype,
+                    efficiency=efficiency,
+                    segment_length_nm=segment_length_nm,
+                    adapter=fetch_adapter,
+                    model=model,
+                    polar_override=polar_override,
+                )
+                alt_raw = _route_view(alt_pts)
+                alt_entries.append(
+                    {"label": label, "waypoints": alt_raw}
+                    | passage_envelope(alt_report, _score_complexity(alt_report, max_hs_m=max_hs_m))
+                    | {"openwind_url": build_ohmywind_url(alt_raw, departure, archetype)}
+                )
+            body |= {"route_label": main_label, "alternatives": alt_entries}
+        return _tool_result(_drop_notices(body | {"disclaimer": PASSAGE_DISCLAIMER}), tz=dep.tzinfo)
+
+    # Registered by hand so the description can carry the archetypes: a model
+    # that reads them here picks the boat without a list_boat_archetypes round
+    # trip, and the list comes from the polars, never from a copy.
+    doc = plan_passage.__doc__ or ""
+    indent = next(
+        (ln[: len(ln) - len(ln.lstrip())] for ln in doc.splitlines() if "{archetypes}" in ln), ""
+    )
+    plan_passage.__doc__ = doc.replace("{archetypes}", _archetype_lines(indent=indent).lstrip())
+    server.tool(
+        annotations=ToolAnnotations(
+            title="Plan a passage",
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
+            openWorldHint=True,
+        ),
+        meta={"ui": {"resourceUri": PLAN_UI_RESOURCE_URI}},
+    )(plan_passage)
 
     return server

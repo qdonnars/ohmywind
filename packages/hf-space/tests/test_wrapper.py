@@ -113,8 +113,9 @@ def test_the_rest_api_and_the_mcp_server_share_one_marine_adapter(wrapper, monke
         def streamable_http_app():
             return _StubMcpApp()
 
-    def _fake_build_server(*, adapter=None):
+    def _fake_build_server(*, adapter=None, land_mask=None):
         captured["adapter"] = adapter
+        captured["land_mask"] = land_mask
         return _StubServer()
 
     monkeypatch.setattr(wrapper, "build_server", _fake_build_server)
@@ -122,11 +123,13 @@ def test_the_rest_api_and_the_mcp_server_share_one_marine_adapter(wrapper, monke
 
     assert captured["adapter"] is app.state.services.marine
     assert captured["adapter"] is not None
+    # The mask plan_passage checks routes against is the overlay's own.
+    assert captured["land_mask"] is app.state.services.land
 
 
 def test_the_shared_client_is_closed_when_the_process_stops(wrapper, monkeypatch) -> None:
     """Nothing else can close it: it outlives every request by construction."""
-    monkeypatch.setattr(wrapper, "build_mcp_app", lambda _adapter: _StubMcpApp())
+    monkeypatch.setattr(wrapper, "build_mcp_app", lambda _adapter, _land_mask=None: _StubMcpApp())
     app = wrapper.build_app()
     with TestClient(app) as client:
         assert client.get("/api/v1/archetypes").status_code == 200

@@ -51,6 +51,44 @@ AUTO_FALLBACK_CHAIN: tuple[str, ...] = (
     "gfs_seamless",
 )
 
+# How far ahead each model of the chain reaches, in hours from now. Asking a
+# model past its reach does not fail: it answers with nulls, and the
+# per-segment fallback then walks the chain point by point, two requests per
+# point per step. A passage on day 7 used to spend ~40 requests that way
+# before landing on ECMWF. Starting the chain at the first model that reaches
+# the date skips that walk. Approximate on purpose: a model asked slightly
+# past its real reach still gets caught by the same fallback. ICON-EU runs to
+# 120 h from its own start, and the freshest run is already six to nine hours
+# old when it is served: a departure at 117 h found no ICON data and paid the
+# fallback, so its reach counts from now with that age taken off.
+AUTO_REACH_HOURS: dict[str, float] = {
+    "meteofrance_arome_france": 48,
+    "icon_eu": 108,
+    "ecmwf_ifs025": 240,
+    "gfs_seamless": 384,
+}
+
+
+def auto_chain_from(
+    when: datetime,
+    *,
+    chain: tuple[str, ...] = AUTO_FALLBACK_CHAIN,
+    now: datetime | None = None,
+) -> tuple[str, ...]:
+    """The ``auto`` chain, starting at the first model that reaches ``when``.
+
+    A time in the past or within AROME's reach keeps the whole chain, so
+    AROME stays first wherever it can answer. Past the last model's reach,
+    the last model alone: the request then fails on the API's own horizon,
+    with the error the caller already handles.
+    """
+    lead_h = (when - (now or datetime.now(UTC))).total_seconds() / 3600
+    for i, model in enumerate(chain):
+        if lead_h <= AUTO_REACH_HOURS.get(model, float("inf")):
+            return chain[i:]
+    return chain[-1:]
+
+
 # Open-Meteo's forecast endpoint caps both ``start_date`` and ``end_date`` to
 # roughly today + 16 d (model-agnostic — the cap is on the API, not the model).
 # We cap one day below that to leave margin for clock skew and same-day TZ

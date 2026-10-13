@@ -210,10 +210,11 @@
     deep-link. It declares an MCP Apps UI resource, so supporting hosts also
     render the live plan view in a sandboxed iframe. Pass
     <code>latest_departure</code> and it walks every hourly window up to 14
-    days out so the LLM can compare side-by-side. The other three tools
+    days out so the LLM can compare side-by-side. The other four tools
     (<code>list_boat_archetypes</code>,
-    <code>get_marine_forecast</code>, <code>read_me</code>) let the
-    assistant pick a boat, sample the forecast ad hoc, or explain the math
+    <code>get_marine_forecast</code>, <code>get_tidal_stream</code>,
+    <code>read_me</code>) let the assistant pick a boat, sample the forecast
+    at a point, read the tidal stream through a pass, or explain the math
     behind a result.</p>
   <p>Don&rsquo;t want to wire an MCP host? You can also drive everything by
     hand at <a href="https://ohmywind.fr/plan">ohmywind.fr/plan</a>:
