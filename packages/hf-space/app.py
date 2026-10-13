@@ -98,7 +98,9 @@ def build_app() -> Any:
     """
     settings = settings_from_env()
     services = Services.from_settings(settings)
-    return create_app(settings, mcp_app=build_mcp_app(services.marine, services.land), services=services)
+    return create_app(
+        settings, mcp_app=build_mcp_app(services.marine, services.land), services=services
+    )
 
 
 def configure_logging() -> None:
