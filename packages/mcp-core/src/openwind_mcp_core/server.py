@@ -107,6 +107,39 @@ PLAN_UI_MIME = "text/html;profile=mcp-app"
 # matched "OpenWind" and "openwind.fr" and this one is lowercase and bare.
 SERVER_NAME = "ohmywind"
 
+# Sent to the client once, at initialisation, ahead of every tool
+# description. It routes a sailor's question to the cheapest tool that
+# answers it, and says when to call none: most of what a crew asks in the car
+# or at the bar needs one point forecast, a tidal stream with no request at
+# all, or nothing from this server. English for the model; it answers in the
+# user's language.
+SERVER_INSTRUCTIONS = """\
+OhMyWind answers sailors' weather, sea and tide questions on European coasts, \
+from marine forecasts and tidal atlases. Pick the tool by the question:
+- A place rather than a passage (wind at Groix this afternoon, when the \
+mistral eases, the thermal breeze, whether the models agree): \
+get_marine_forecast.
+- When to be at a pass, slack water, high or low water, the tidal \
+coefficient: get_tidal_stream. It costs no weather request.
+- A trip from A to B (does it go, how long, which departure): plan_passage, \
+comparing departures unless the user pins a time.
+- Two ways to go (north or south of an island, two destinations): one \
+plan_passage call with alternatives.
+- How OhMyWind computes: read_me.
+Call no tool for questions that are not about weather, sea or tide (gear, \
+regulations, marinas, formalities), nor for typical seasonal weather beyond \
+about 16 days (the meltem in July): answer from your own knowledge, and say \
+that no forecast reaches that far.
+Answer first in one sentence, then the few numbers that back it; the user is \
+often in a car or at the bar. These are forecasts: never present them as \
+what is blowing right now, and send real-time conditions and warnings to \
+the official sources (the CROSS bulletin on VHF, the national weather \
+service). Reliability falls with lead time: AROME up to two days, ICON-EU \
+to five, ECMWF to ten, GFS beyond; past five days give a trend, not a plan.
+Reuse a result already in the conversation rather than asking again for the \
+same place and dates, and for a quick question compare departures every \
+three to six hours, not every hour.
+"""
 
 # Usage warning attached to every plan_passage payload, single mode and
 # compare-windows alike. The tool hands back an ETA and a 1-5 complexity score
@@ -1636,6 +1669,7 @@ def build_server(
     # recommended config for production deployments.
     server: FastMCP = FastMCP(
         SERVER_NAME,
+        instructions=SERVER_INSTRUCTIONS,
         stateless_http=True,
         json_response=True,
     )

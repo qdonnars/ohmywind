@@ -76,3 +76,20 @@ def test_plan_passage_tells_the_model_to_relay_the_disclaimer(by_name) -> None:
     assert description.index("## Returned payload") < description.index(
         "## ALWAYS relay the disclaimer"
     )
+
+
+def test_server_instructions_route_questions_and_say_when_to_call_nothing() -> None:
+    """The instructions reach the model before any tool description.
+
+    They are what sends a point question to the point tool, a pass to the
+    request-free tidal tool, and a question about marinas to no tool at all.
+    """
+    from openwind_mcp_core.server import SERVER_INSTRUCTIONS
+
+    server = build_server(adapter=object())
+    assert server.instructions == SERVER_INSTRUCTIONS
+    for tool in ("get_marine_forecast", "get_tidal_stream", "plan_passage", "read_me"):
+        assert tool in SERVER_INSTRUCTIONS
+    assert "Call no tool" in SERVER_INSTRUCTIONS
+    assert "alternatives" in SERVER_INSTRUCTIONS
+    assert "\u2014" not in SERVER_INSTRUCTIONS
