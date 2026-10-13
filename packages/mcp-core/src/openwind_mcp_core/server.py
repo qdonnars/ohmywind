@@ -1400,9 +1400,11 @@ def _land_refusal(routes: list[tuple[str | None, list[Point]]], mask: LandMask) 
     return (
         "This route crosses land, so no forecast was requested: "
         + "; ".join(found)
-        + ". Redraw it at sea: add waypoints to go round the headland, peninsula or "
-        "island each leg cuts, check that every waypoint is at sea where the user "
-        "named it, then call plan_passage again. Never show the user a route over land."
+        + ". Redraw it at sea: keep the first and last waypoints where the user leaves "
+        "and arrives (a harbour is at sea for this check) and add waypoints between "
+        "them to go round the headland, peninsula or island each leg cuts, then call "
+        "plan_passage again. Never show the user a route over land, and never move the "
+        "departure or the arrival to get past this check."
     )
 
 

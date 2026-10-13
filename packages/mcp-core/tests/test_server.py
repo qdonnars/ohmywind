@@ -795,6 +795,9 @@ class TestLandCheck:
             await server.call_tool("plan_passage", _SWEEP_ARGS)
         assert "leg 1 (waypoint 1 to 2) runs about" in str(excinfo.value)
         assert "Redraw it at sea" in str(excinfo.value)
+        # Haiku got past the refusal by moving Marseille out to sea off Cap
+        # Sicié, and timed a passage twenty miles short.
+        assert "never move the departure or the arrival" in str(excinfo.value)
         assert adapter.fetch_calls == 0
 
     async def test_the_same_trip_round_the_cape_is_planned(self) -> None:
