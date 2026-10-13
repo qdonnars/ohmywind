@@ -32,7 +32,8 @@ def test_plan_passage_makes_the_land_rule_prominent(by_name) -> None:
     """Not buried in the Args block, where it lived until this test existed."""
     description = by_name["plan_passage"].description
     assert "## Waypoints must stay in the water" in description
-    assert "no land check" in description
+    assert "coarse land check" in description
+    assert "never show the user a route" in description
 
     # Ahead of the payload docs: the caller has to read it before it matters,
     # not after it has already drawn the route.

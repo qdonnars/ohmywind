@@ -62,6 +62,7 @@ from openwind_data.adapters.openmeteo import (
     OpenMeteoAdapter,
     auto_chain_from,
 )
+from openwind_data.currents.land_mask import LandMask
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
 from openwind_data.currents.narrow_pass import confidence_for_point
 from openwind_data.currents.router import CompositeMarineAdapter, compose_marine_adapter
@@ -86,6 +87,7 @@ from openwind_data.routing import (
     score_complexity as _score_complexity,
 )
 from openwind_data.routing.geometry import Point
+from openwind_data.routing.land_check import land_crossings, waypoints_ashore
 from openwind_data.routing.notices import Notice
 from openwind_data.views import (
     filter_windows_by_target_eta,
@@ -1250,8 +1252,13 @@ but the underlying complexity is unchanged.
 
 - No automatic routing optimisation (LLM + human choose).
 - No coastal acceleration zones (caller adds intermediate waypoints).
-- No land or obstacle check: the polyline is timed exactly as drawn,
-  so keeping it off the coast is the caller's job.
+- A coarse land check only: a route whose legs run a couple of
+  kilometres over land, or a waypoint inland, is refused before any
+  forecast request (Natural Earth 10 m, about 1 km, coast widened by 2 km).
+  A spit narrower than about 4 km or a leg shaving a headland passes: the
+  polyline is timed exactly as drawn, and keeping it off the coast is
+  still the caller's job. No obstacle check (shoals, marks, traffic
+  schemes).
 - No port/starboard polar asymmetry, no spinnaker-specific curves.
 - No hull condition modelling beyond the `efficiency` knob.
 
@@ -1365,6 +1372,38 @@ async def _sweep_one_route(
         if unmatched is not None:
             meta_notices.append(unmatched)
     return reports, windows, effective_interval, meta_notices
+
+
+def _land_refusal(routes: list[tuple[str | None, list[Point]]], mask: LandMask) -> str | None:
+    """Why a route has to be redrawn before anything is computed, or None.
+
+    Checked before the first forecast request: a leg across the Cotentin
+    used to come back as a quiet 11 h 40 passage, scored on wind over
+    fields, and the user found the error on the map. Waypoints count from 1,
+    as the model reads its own list; a route is named only when there are
+    several.
+    """
+    found: list[str] = []
+    for label, pts in routes:
+        prefix = f'route "{label}": ' if label else ""
+        found += [
+            f"{prefix}waypoint {i + 1} ({pts[i].lat:.3f}, {pts[i].lon:.3f}) is inland"
+            for i in waypoints_ashore(pts, mask)
+        ]
+        found += [
+            f"{prefix}leg {c.leg + 1} (waypoint {c.leg + 1} to {c.leg + 2}) runs about "
+            f"{c.land_nm:g} nm over land from {c.lat:.3f}, {c.lon:.3f}"
+            for c in land_crossings(pts, mask)
+        ]
+    if not found:
+        return None
+    return (
+        "This route crosses land, so no forecast was requested: "
+        + "; ".join(found)
+        + ". Redraw it at sea: add waypoints to go round the headland, peninsula or "
+        "island each leg cuts, check that every waypoint is at sea where the user "
+        "named it, then call plan_passage again. Never show the user a route over land."
+    )
 
 
 def _parse_alternatives(raw: Any) -> list[tuple[str, list[Point]]]:
@@ -1817,6 +1856,7 @@ def _tool_result(
 def build_server(
     *,
     adapter: MarineDataAdapter | None = None,
+    land_mask: LandMask | None = None,
 ) -> FastMCP:
     """Build a FastMCP server with all OhMyWind tools registered.
 
@@ -1836,6 +1876,11 @@ def build_server(
             itself this factory loads its own registries, which is right for
             the stdio runner (the only process where it is alone) and was
             5 MB and 51 ms of pure duplication in the Space (audit M5).
+        land_mask: the coarse land mask ``plan_passage`` checks routes
+            against. Defaults to ``land_mask.npz`` next to the atlases, under
+            ``MARC_ATLAS_DIR`` or else ``SHOM_C2D_DIR``, as the REST API
+            loads it; without the file the check finds nothing. A deployment
+            that serves both shells passes the API's.
     """
     # ``stateless_http=True`` disables the in-memory session table that
     # otherwise tracks an ``mcp-session-id`` per client across requests.
@@ -1874,6 +1919,13 @@ def build_server(
             MarcAtlasRegistry.from_directory(marc_dir) if marc_dir else None,
             ShomC2dRegistry.from_directory(shom_dir) if shom_dir else None,
         )
+    land: LandMask = (
+        land_mask
+        if land_mask is not None
+        else LandMask.from_directory(
+            os.environ.get("MARC_ATLAS_DIR") or os.environ.get("SHOM_C2D_DIR")
+        )
+    )
 
     @server.resource(
         PLAN_UI_RESOURCE_URI,
@@ -2167,6 +2219,7 @@ def build_server(
         min_upwind_twa_deg: float | None = None,
         route_label: str | None = None,
         alternatives: list[dict[str, Any]] | None = None,
+        inland_waterway: bool = False,
     ) -> Annotated[CallToolResult, dict[str, Any]]:
         """Plan an A→B passage. Compare departure windows by default; pin a
         single departure only when the user gives an explicit time.
@@ -2218,13 +2271,17 @@ def build_server(
 
         ## Waypoints must stay in the water
 
-        This server does no land check. It samples wind and sea along the
-        polyline you pass, then reports distance, ETA and complexity for that
-        polyline, whatever it crosses. A leg drawn through a peninsula raises
-        no error: it returns a passage that is too short, too fast, and scored
-        on conditions the boat would never meet.
+        This server runs a coarse land check before anything else: a leg
+        that runs a couple of kilometres over land, or a waypoint inland, gets
+        the call refused before any forecast request, with the leg and the
+        place named. Redraw it and call again; never show the user a route
+        over land. The shoreline is coarse (about 1 km, the coast widened by
+        2 km so harbours stay at sea): a spit narrower than about 4 km, or a
+        leg that shaves a headland, passes the check and is timed as drawn,
+        too short, too fast, and scored on conditions the boat would never
+        meet.
 
-        So the route is yours to draw. Between every consecutive pair of
+        So the route is still yours to draw. Between every consecutive pair of
         waypoints the straight line must stay at sea. Add intermediate
         waypoints to round anything the direct line would cut: headlands,
         peninsulas, islands, shoals.
@@ -2379,6 +2436,11 @@ def build_server(
                 Same departures, same boat, same rules for the waypoints
                 (stay at sea). Each route costs its own forecast requests:
                 pass them only when the user weighs two ways to go.
+            inland_waterway: true only when the user sails up a river or a
+                canal the coarse shoreline counts as land (the Seine to
+                Rouen, the Loire to Nantes): it turns the land check off for
+                this call. Never set it to get past a refusal at sea; redraw
+                the route instead.
 
         ## Compare-windows mode (latest_departure set)
 
@@ -2423,6 +2485,11 @@ def build_server(
         model = _resolve_model(model)
         alts = _parse_alternatives(alternatives)
         main_label = (route_label or "Variante A").strip()[:40]
+        if not inland_waterway:
+            routes: list[tuple[str | None, list[Point]]] = [(main_label if alts else None, pts)]
+            refusal = _land_refusal(routes + [(label, p) for label, p in alts], land)
+            if refusal is not None:
+                raise ValueError(refusal)
 
         # Polar override: clone the archetype polar with the caller's knobs.
         # Motor requires BOTH values (same rule as ``_apply_motor``) so a

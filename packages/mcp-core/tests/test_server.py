@@ -762,3 +762,66 @@ class TestSweepBudget:
         out = await _call(server, "plan_passage", _SWEEP_ARGS)
         assert out["sweep"]["interval_hours"] == _SWEEP_ARGS["sweep_interval_hours"]
         assert not any("élargi" in w for w in out["meta_warnings"])
+
+
+def _mask_with_a_cape() -> object:
+    """Sea from 42.9 N to 43.4 N and 5.3 E to 6.3 E, a block of land from
+    43.10 N to 43.20 N and 5.70 E to 5.80 E, right across the direct line of
+    ``_BASE_PLAN_ARGS``."""
+    import numpy as np
+    from openwind_data.currents.land_mask import LandMask
+
+    land = np.zeros((50, 100), dtype=bool)
+    land[20:30, 40:50] = True
+    return LandMask(
+        bits=np.packbits(land, axis=1), n_lat=50, n_lon=100, lat0=42.9, lon0=5.3, pitch_deg=0.01
+    )
+
+
+_ROUND_THE_CAPE = [
+    {"lat": 43.30, "lon": 5.35},
+    {"lat": 43.30, "lon": 6.20},
+    {"lat": 43.00, "lon": 6.20},
+]
+
+
+class TestLandCheck:
+    """A route over land is refused before the first forecast request."""
+
+    async def test_a_leg_over_land_is_refused_before_any_request(self) -> None:
+        adapter = StubAdapter()
+        server = build_server(adapter=adapter, land_mask=_mask_with_a_cape())
+        with pytest.raises(Exception, match="no forecast was requested") as excinfo:
+            await server.call_tool("plan_passage", _SWEEP_ARGS)
+        assert "leg 1 (waypoint 1 to 2) runs about" in str(excinfo.value)
+        assert "Redraw it at sea" in str(excinfo.value)
+        assert adapter.fetch_calls == 0
+
+    async def test_the_same_trip_round_the_cape_is_planned(self) -> None:
+        server = build_server(adapter=StubAdapter(), land_mask=_mask_with_a_cape())
+        out = await _call(server, "plan_passage", _SWEEP_ARGS | {"waypoints": _ROUND_THE_CAPE})
+        assert out["mode"] == "multi_window"
+
+    async def test_an_alternative_over_land_is_named(self) -> None:
+        server = build_server(adapter=StubAdapter(), land_mask=_mask_with_a_cape())
+        with pytest.raises(Exception, match='route "Au plus court": leg 1'):
+            await server.call_tool(
+                "plan_passage",
+                _SWEEP_ARGS
+                | {
+                    "waypoints": _ROUND_THE_CAPE,
+                    "route_label": "Par le large",
+                    "alternatives": [
+                        {"label": "Au plus court", "waypoints": _BASE_PLAN_ARGS["waypoints"]}
+                    ],
+                },
+            )
+
+    async def test_a_river_passage_can_turn_the_check_off(self) -> None:
+        server = build_server(adapter=StubAdapter(), land_mask=_mask_with_a_cape())
+        out = await _call(server, "plan_passage", _SWEEP_ARGS | {"inland_waterway": True})
+        assert out["mode"] == "multi_window"
+
+    async def test_without_a_mask_nothing_is_refused(self) -> None:
+        out = await _call(build_server(adapter=StubAdapter()), "plan_passage", _SWEEP_ARGS)
+        assert out["mode"] == "multi_window"
