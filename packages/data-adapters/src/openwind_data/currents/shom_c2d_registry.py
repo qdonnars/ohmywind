@@ -51,8 +51,9 @@ _HOUR_OFFSETS = np.arange(-6, 7, dtype=float)
 # into a tidal coefficient.
 _BREST_MEAN_RANGE_M = 6.1
 # How wide a window to scan around the query time when locating a tide
-# event. Slightly wider than half the M2 period (12.42 h) so we always
-# bracket exactly one PM and one BM.
+# event. Wider than half the M2 period (12.42 h) on each side, so the
+# nearest high and low water are inside whichever side they fall; the
+# window then often holds two high waters, and the search keeps the nearer.
 _TIDE_SCAN_HALFWINDOW = timedelta(hours=7.0)
 # Sampling step inside the scan window (minutes). 5-min step gives < 1 min
 # of error on the located extremum, well below the harmonic resolution.
@@ -79,6 +80,10 @@ _LATTICE_STEP_US = _TIDE_SCAN_STEP_MIN * 60 * 1_000_000
 # Lattice offsets of the tide-event window: +-7 h in 5-minute steps.
 _EVENT_HALF_STEPS = int(_TIDE_SCAN_HALFWINDOW.total_seconds() / 60 / _TIDE_SCAN_STEP_MIN)
 _EVENT_STEPS = np.arange(-_EVENT_HALF_STEPS, _EVENT_HALF_STEPS + 1)
+# A high water stands above everything within three hours of it; two crests
+# closer than that are one high water with a double top (the tenue du plein
+# of the Seine), and its higher crest is the event.
+_EVENT_MERGE_STEPS = int(3 * 60 / _TIDE_SCAN_STEP_MIN)
 # Lattice offsets of the coefficient window: +-12.5 h in 30-minute steps,
 # which is +-25 steps of 6. A 25 h span covers two semi-diurnal cycles.
 _COEF_STEPS = np.arange(-25, 26) * (30 // _TIDE_SCAN_STEP_MIN)
@@ -136,6 +141,44 @@ def _scan_groups(times: list[datetime]) -> list[_ScanGroup]:
             )
         )
     return groups
+
+
+def _nearest_events(windows: np.ndarray, *, highest: bool) -> np.ndarray:
+    """The lattice step of the tide event nearest to each query.
+
+    ``windows`` holds one row per query, the harmonic sampled at
+    ``_EVENT_STEPS`` around it. An event is a true turning point (a sample
+    above both neighbours, below for a low water) that no higher crest
+    within ``_EVENT_MERGE_STEPS`` outranks; of those, the one closest to the
+    query wins, the earlier on a tie. A row with no turning point at all,
+    which a 14 h window cannot produce on a semi-diurnal tide, falls back to
+    its extreme sample.
+    """
+    w = windows if highest else -windows
+    n = w.shape[0]
+    steps = _EVENT_STEPS[1:-1]
+    rows, cols = np.nonzero((w[:, 1:-1] >= w[:, :-2]) & (w[:, 1:-1] > w[:, 2:]))
+    picked = _EVENT_STEPS[np.argmax(w, axis=1)]
+    if rows.size == 0:
+        return picked
+    # Lay the few turning points of each row side by side, padded.
+    counts = np.bincount(rows, minlength=n)
+    rank = np.arange(rows.size) - np.repeat(np.cumsum(counts) - counts, counts)
+    width = int(counts.max())
+    pos = np.full((n, width), np.iinfo(np.int64).max // 4, dtype=np.int64)
+    val = np.full((n, width), -np.inf)
+    pos[rows, rank] = steps[cols]
+    val[rows, rank] = w[rows, cols + 1]
+    near = np.abs(pos[:, :, None] - pos[:, None, :]) <= _EVENT_MERGE_STEPS
+    outranked = (near & (val[:, None, :] > val[:, :, None])).any(axis=2)
+    eligible = np.isfinite(val) & ~outranked
+    # Nearest first, then earliest: a distance doubled plus one for the
+    # crests after the query breaks the tie towards the one before.
+    score = np.where(eligible, 2 * np.abs(pos) + (pos > 0), np.iinfo(np.int64).max)
+    best = np.argmin(score, axis=1)
+    found = eligible[np.arange(n), best]
+    picked[found] = pos[np.arange(n), best][found]
+    return picked
 
 
 def _sampled_windows(
@@ -431,20 +474,27 @@ class ShomC2dRegistry:
     def _event_offsets_h(self, port: _RefPortMeta, times: list[datetime]) -> np.ndarray:
         """Hours from each query time to its nearest ``port.ref_tide`` event.
 
-        The event is the global maximum (PM) or minimum (BM) of the harmonic
-        over a +-7 h window sampled every 5 minutes: a 14 h span exceeds the
-        M2 period (12.42 h), so it always contains exactly one of each. The
-        result is what indexes the SHOM 13-sample series, which runs from
-        -6 h to +6 h around the event.
+        The event is the high water (PM) or low water (BM) nearest to the
+        query, among the turning points of the harmonic over a +-7 h window
+        sampled every 5 minutes (see :func:`_nearest_events`). The result is
+        what indexes the SHOM 13-sample series, which runs from -6 h to +6 h
+        around the event.
+
+        Until 2026-10 the event was the window's global maximum. A 14 h
+        window holds two high waters for part of every tide, and on a day of
+        diurnal inequality the higher one is the far one: the offset ran past
+        +6 h, the clamp froze the stream for an hour and a half around low
+        water, then the series flipped to the next tide's frame. At the
+        Fromveur that read 1.8 kt from 14:00 to 15:30, then 5.3 kt the other
+        way at 16:00, with no slack between.
 
         Sign convention: the offset is ``query - event``, negative before the
         event, matching the series' own axis.
         """
         offsets = np.empty(len(times), dtype=float)
-        take = np.argmax if port.ref_tide == "PM" else np.argmin
         for group in _scan_groups(times):
             windows = _sampled_windows(group, _EVENT_STEPS, port.constants)
-            picked = _EVENT_STEPS[take(windows, axis=1)]
+            picked = _nearest_events(windows, highest=port.ref_tide == "PM")
             # ``(query - event).total_seconds() / 3600`` written out: the
             # event sits ``picked`` lattice steps *after* the query, so the
             # offset is the negative of that, in hours.
