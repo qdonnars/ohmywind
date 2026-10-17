@@ -4,6 +4,21 @@ Every OhMyWind release, newest first. The ohmywind.fr site and the MCP server sh
 
 This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the reference. Each release is also published on the repository's [Releases](https://github.com/qdonnars/ohmywind/releases) page, and the app shows this log on its "What's new" page.
 
+## 1.10.0 · 2026-10-17 · The MCP server answers sailors' questions
+
+### New
+
+- In your assistant, a passage fits in one view: the list of departures first, then the route on a map and the leg-by-leg detail of the chosen departure (#455).
+- The assistant answers questions about a pass or a harbour entrance without planning a passage: time of slack water, strength and direction of the stream, high and low water, tidal coefficient (#478).
+- Two ways to go, north or south of an island or to two destinations, are compared in a single request, departure by departure (#478).
+- The assistant's answers come in your local time, with the weekday, and are shorter, so faster (#478).
+- A route that cuts across land is refused before any computation, and the assistant is asked to redraw it at sea (#478).
+
+### Fixes
+
+- In the areas of the SHOM atlases, the stream no longer stays frozen around low water before flipping at once: it turns gradually through slack water, in the app as in the assistant (#479).
+- A plan more than two days ahead starts with the weather model that reaches the date, which saves dozens of useless requests (#478).
+
 ## 1.9.0 · 2026-10-12 · Sail and oar dinghies, and a What's new page
 
 ### New
