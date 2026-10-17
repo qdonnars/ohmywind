@@ -62,7 +62,7 @@ from openwind_data.adapters.openmeteo import (
     OpenMeteoAdapter,
     auto_chain_from,
 )
-from openwind_data.currents.land_mask import LandMask
+from openwind_data.currents.land_mask import LandMask, load_land_mask
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
 from openwind_data.currents.narrow_pass import confidence_for_point
 from openwind_data.currents.router import CompositeMarineAdapter, compose_marine_adapter
@@ -1254,10 +1254,10 @@ but the underlying complexity is unchanged.
 - No coastal acceleration zones (caller adds intermediate waypoints).
 - A coarse land check only: a route whose legs run a couple of
   kilometres over land, or a waypoint inland, is refused before any
-  forecast request (Natural Earth 10 m, about 1 km, coast widened by 2 km).
-  A spit narrower than about 4 km or a leg shaving a headland passes: the
-  polyline is timed exactly as drawn, and keeping it off the coast is
-  still the caller's job. No obstacle check (shoals, marks, traffic
+  forecast request (Natural Earth 10 m, about 1 km, coast widened by 2 km;
+  water a fine current atlas resolves counts as sea). A spit narrower than
+  about 4 km or a leg shaving a headland passes: the polyline is timed
+  exactly as drawn, and keeping it off the coast is still the caller's job. No obstacle check (shoals, marks, traffic
   schemes).
 - No port/starboard polar asymmetry, no spinnaker-specific curves.
 - No hull condition modelling beyond the `efficiency` knob.
@@ -1880,8 +1880,9 @@ def build_server(
             5 MB and 51 ms of pure duplication in the Space (audit M5).
         land_mask: the coarse land mask ``plan_passage`` checks routes
             against. Defaults to ``land_mask.npz`` next to the atlases, under
-            ``MARC_ATLAS_DIR`` or else ``SHOM_C2D_DIR``, as the REST API
-            loads it; without the file the check finds nothing. A deployment
+            ``MARC_ATLAS_DIR`` or else ``SHOM_C2D_DIR``, with the water of
+            the fine atlases cleared from it, as the REST API loads it;
+            without the file the check finds nothing. A deployment
             that serves both shells passes the API's.
     """
     # ``stateless_http=True`` disables the in-memory session table that
@@ -1907,26 +1908,25 @@ def build_server(
         stateless_http=True,
         json_response=True,
     )
+    marc_dir = os.environ.get("MARC_ATLAS_DIR")
+    shom_dir = os.environ.get("SHOM_C2D_DIR")
+    # Read only when something below is built from them: a deployment that
+    # hands in both the adapter and the mask (the Space) loads nothing twice.
+    needs_registries = adapter is None or land_mask is None
+    marc = MarcAtlasRegistry.from_directory(marc_dir) if marc_dir and needs_registries else None
+    shom = ShomC2dRegistry.from_directory(shom_dir) if shom_dir and needs_registries else None
     if adapter is not None:
         fetch_adapter: MarineDataAdapter = adapter
     else:
-        marc_dir = os.environ.get("MARC_ATLAS_DIR")
-        shom_dir = os.environ.get("SHOM_C2D_DIR")
         # ``compose_marine_adapter`` owns the "which tiers can this deployment
         # actually feed" rule. It used to be written out here and nowhere on
         # the REST side, which is how the same waypoint got SHOM currents over
         # MCP and 8 km SMOC over REST (audit M2).
-        fetch_adapter = compose_marine_adapter(
-            OpenMeteoAdapter(),
-            MarcAtlasRegistry.from_directory(marc_dir) if marc_dir else None,
-            ShomC2dRegistry.from_directory(shom_dir) if shom_dir else None,
-        )
+        fetch_adapter = compose_marine_adapter(OpenMeteoAdapter(), marc, shom)
     land: LandMask = (
         land_mask
         if land_mask is not None
-        else LandMask.from_directory(
-            os.environ.get("MARC_ATLAS_DIR") or os.environ.get("SHOM_C2D_DIR")
-        )
+        else load_land_mask(marc_dir or shom_dir, marc=marc, shom=shom)
     )
 
     @server.resource(
@@ -2278,7 +2278,8 @@ def build_server(
         the call refused before any forecast request, with the leg and the
         place named. Redraw it and call again; never show the user a route
         over land. The shoreline is coarse (about 1 km, the coast widened by
-        2 km so harbours stay at sea): a spit narrower than about 4 km, or a
+        2 km so harbours stay at sea, and any water a fine current atlas
+        resolves counts as sea): a spit narrower than about 4 km, or a
         leg that shaves a headland, passes the check and is timed as drawn,
         too short, too fast, and scored on conditions the boat would never
         meet.

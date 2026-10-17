@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 import httpx
 from openwind_data.adapters.base import MarineDataAdapter
 from openwind_data.adapters.openmeteo import OpenMeteoAdapter
-from openwind_data.currents.land_mask import LandMask
+from openwind_data.currents.land_mask import LandMask, load_land_mask
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
 from openwind_data.currents.router import compose_marine_adapter
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
@@ -78,14 +78,17 @@ class Services:
     http: httpx.AsyncClient
     marine: MarineDataAdapter
     # Where the tidal overlay answers nothing: a packed bitmap shipped next
-    # to the atlases (``land_mask.npz``), empty when the dataset lacks it.
+    # to the atlases (``land_mask.npz``), with the water of the fine atlases
+    # cleared from it; empty when the dataset lacks it.
     land: LandMask = field(default_factory=LandMask.empty)
 
     @classmethod
     def from_settings(cls, settings: Settings) -> Services:
         marc = MarcAtlasRegistry.from_directory(settings.marc_atlas_dir)
         shom = ShomC2dRegistry.from_directory(settings.shom_c2d_dir)
-        land = LandMask.from_directory(settings.marc_atlas_dir or settings.shom_c2d_dir)
+        land = load_land_mask(
+            settings.marc_atlas_dir or settings.shom_c2d_dir, marc=marc, shom=shom
+        )
         # Constructed outside a running loop on purpose: httpx binds nothing
         # at construction, and building it here rather than in the lifespan is
         # what lets ``create_app`` stay synchronous and lets a deployment hand
