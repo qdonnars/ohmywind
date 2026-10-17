@@ -32,6 +32,7 @@ from openwind_data.testing import DeterministicMarineAdapter
 
 from openwind_mcp_core import build_server
 from openwind_mcp_core import render as render_module
+from openwind_mcp_core.server import _drop_notices, _in_zone
 
 GOLDEN_DIR = pathlib.Path(__file__).parent / "goldens"
 REGENERATE = os.environ.get("OPENWIND_REGENERATE_GOLDENS") == "1"
@@ -88,7 +89,9 @@ def server():
 
 async def _structured(server, args: dict) -> dict:
     result = await server.call_tool("plan_passage", args)
-    return result[1] if isinstance(result, tuple) else result
+    # plan_passage builds its own CallToolResult (to carry the widget's
+    # _meta); the golden is the structured part, as before.
+    return result.structuredContent
 
 
 async def test_single_mode(server) -> None:
@@ -158,5 +161,8 @@ async def test_the_two_shells_describe_the_same_passage(server) -> None:
             pathlib.Path(__file__).parents[2] / "api" / "tests" / "goldens" / "passage_single.json"
         ).read_bytes()
     )
-    assert payload["passage"] == rest["passage"]
+    # The MCP shell writes its instants to the minute, in the caller's offset,
+    # and leaves the coded copies of the warnings to REST; the passage behind
+    # them is the same.
+    assert payload["passage"] == _drop_notices(_in_zone(rest["passage"], UTC))
     assert payload["complexity"] == rest["complexity"]

@@ -4,6 +4,21 @@ Toutes les versions d'OhMyWind, de la plus récente à la plus ancienne. Le site
 
 Chaque version est aussi publiée sur la page [Releases](https://github.com/qdonnars/ohmywind/releases) du dépôt, et l'application affiche ce journal sur sa page « Quoi de neuf ». La marche à suivre pour publier une version est dans [docs/releases.md](docs/releases.md). English version: [CHANGELOG.en.md](CHANGELOG.en.md).
 
+## 1.10.0 · 2026-10-17 · Le serveur MCP répond aux questions de marins
+
+### Nouveautés
+
+- Dans votre assistant, un trajet tient en une seule vue : la liste des départs en tête, puis la route sur une carte et le détail par tronçon du départ choisi (#455).
+- L'assistant répond aux questions sur une passe ou une entrée de port sans calculer de trajet : heure de l'étale, force et sens du courant, pleines et basses mers, coefficient (#478).
+- Deux façons d'y aller, par le nord ou le sud d'une île ou vers deux destinations, se comparent en une seule demande, départ par départ (#478).
+- Les réponses de l'assistant sont données dans votre heure locale, avec le jour de la semaine, et sont plus courtes, donc plus rapides (#478).
+- Une route qui coupe la terre est refusée avant tout calcul, et l'assistant est invité à la redessiner en mer (#478).
+
+### Corrections
+
+- Dans les zones des atlas SHOM, le courant ne reste plus figé autour de la basse mer avant de s'inverser d'un coup : il tourne progressivement et passe par l'étale, dans l'application comme dans l'assistant (#479).
+- Dans l'assistant, un plan à plus de deux jours commence par le modèle météo qui couvre la date, ce qui évite des dizaines de requêtes inutiles (#478).
+
 ## 1.9.0 · 2026-10-12 · Voile-aviron et page Quoi de neuf
 
 ### Nouveautés

@@ -20,12 +20,13 @@ on the server.
         │  openwind-mcp-core   (FastMCP, cloud-agnostic)│
         │   ┌── list_boat_archetypes                    │
         │   ├── get_marine_forecast                     │
+        │   ├── get_tidal_stream (atlases, no request)  │
         │   ├── plan_passage    (single + compare-      │
         │   │                    windows mode; declares │
         │   │                    MCP Apps UI resource)  │
         │   └── read_me                                 │
         │                                               │
-        │   All four are read-only. Nothing on the      │
+        │   All five are read-only. Nothing on the      │
         │   public surface writes.                      │
         └────────────┬─────────────────────────────────┘
                      │  mounted at "/" by a deployment

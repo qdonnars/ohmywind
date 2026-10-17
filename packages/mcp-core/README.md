@@ -3,7 +3,8 @@
 Cloud-agnostic FastMCP server for OhMyWind. Exposes 5 tools:
 
 - `list_boat_archetypes` descriptive list, no server-side mapping
-- `get_marine_forecast` wind + sea around a point/window
+- `get_marine_forecast` wind + sea around a point/window, plus current and tide where they matter
+- `get_tidal_stream` tidal stream and tide at a point from the tidal atlases alone (no weather request)
 - `plan_passage` end-to-end timing + complexity + ohmywind.fr deep-link; declares an MCP Apps UI resource so supporting hosts auto-render the iframe widget. Optional compare-windows mode (sweep N hourly departures over the same route).
 - `read_me` calculation methodology (polars, efficiency, VMG, defaults)
 
@@ -65,7 +66,7 @@ asyncio.run(main())
 Expected output:
 
 ```
-['read_me', 'list_boat_archetypes', 'get_marine_forecast', 'plan_passage']
+['read_me', 'list_boat_archetypes', 'get_marine_forecast', 'get_tidal_stream', 'plan_passage']
 ```
 
 ### Smoke conversation prompt

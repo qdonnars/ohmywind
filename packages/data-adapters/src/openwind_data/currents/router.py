@@ -111,6 +111,18 @@ class CompositeMarineAdapter:
         models: list[str] | None = None,
     ) -> ForecastBundle:
         bundle = await self.upstream.fetch(lat, lon, start, end, models=models)
+        return self.apply_atlases(bundle, lat, lon)
+
+    def apply_atlases(self, bundle: ForecastBundle, lat: float, lon: float) -> ForecastBundle:
+        """The cascade on a bundle already in hand, with no request.
+
+        What ``fetch`` does once Open-Meteo has answered. Public so a caller
+        can run the atlases alone on a bare series of times: a sea series
+        whose fields are all ``None`` comes back with the atlas current and
+        tide where an atlas covers the point, and untouched (``current_source``
+        still ``None``) where none does. That is how the MCP tidal-stream tool
+        answers without spending an Open-Meteo request.
+        """
         zone = unknown_zone_at(lat, lon)
         if zone is not None:
             return _withhold(bundle, zone)
