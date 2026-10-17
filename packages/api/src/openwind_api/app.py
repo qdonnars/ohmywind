@@ -29,6 +29,7 @@ from openwind_api.access import AccessLogMiddleware
 from openwind_api.routes.archetypes import api_archetypes, api_client_debug
 from openwind_api.routes.landing import ICON_REDIRECTS, icon_redirect, index, static_asset_route
 from openwind_api.routes.marine import (
+    api_land,
     api_marc_batch,
     api_marc_coverage,
     api_marc_explain,
@@ -157,6 +158,7 @@ def create_app(
         Route("/api/v1/marine/marc/batch", api_marc_batch, methods=["POST"]),
         Route("/api/v1/marine/marc/coverage", api_marc_coverage, methods=["GET"]),
         Route("/api/v1/marine/marc/explain", api_marc_explain, methods=["GET"]),
+        Route("/api/v1/marine/land", api_land, methods=["GET"]),
     ]
     if mcp_app is not None:
         routes.append(Mount("/", app=mcp_app))

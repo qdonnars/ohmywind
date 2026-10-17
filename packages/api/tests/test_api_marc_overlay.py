@@ -93,6 +93,33 @@ class TestLand:
         assert "land" not in _payload(resp)
 
 
+class TestLandRoute:
+    """``/api/v1/marine/land``: the mask alone, for the web's spot card."""
+
+    async def test_land_inside_the_mask_and_sea_everywhere_else(self, monkeypatch) -> None:
+        import numpy as np
+        from openwind_data.currents.land_mask import pack
+
+        bits = pack(np.ones((1, 1), dtype=bool), lat0=48.0, lon0=-5.0, pitch_deg=1.0, source="test")
+        mask = _LandMask(
+            bits=bits["bits"], n_lat=1, n_lon=1, lat0=48.0, lon0=-5.0, pitch_deg=1.0, source="test"
+        )
+        monkeypatch.setattr(SERVICES, "land", mask)
+        resp = await marine_routes.api_land(_FakeRequest({"lat": "48.5", "lon": "-4.4"}))
+        assert resp.status_code == 200
+        assert _payload(resp) == {"land": True}
+        assert resp.headers["cache-control"] == "public, max-age=86400"
+        # Outside the bitmap the mask never says land.
+        resp = await marine_routes.api_land(_FakeRequest({"lat": "43.3", "lon": "5.4"}))
+        assert _payload(resp) == {"land": False}
+
+    async def test_a_bad_point_is_refused(self) -> None:
+        resp = await marine_routes.api_land(_FakeRequest({"lat": "abc", "lon": "1"}))
+        assert _payload(resp)["code"] == "invalid_query_params"
+        resp = await marine_routes.api_land(_FakeRequest({"lat": "95", "lon": "1"}))
+        assert _payload(resp)["code"] == "waypoint_out_of_range"
+
+
 class TestUnknownZone:
     async def test_the_rance_basin_answers_unknown_whatever_the_atlases_hold(self) -> None:
         """Above the Rance tidal power plant MARC holds a dead basin (MANW) or

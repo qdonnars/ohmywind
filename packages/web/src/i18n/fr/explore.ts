@@ -63,6 +63,7 @@ export const explore = {
   "explore.pills.waves": "Vagues",
   "explore.pills.tides": "Marées",
   "explore.pills.currents": "Courants",
+  "explore.pills.onLand": "Point à terre : ni vagues, ni courant, ni marée",
 
   // Table du vent
   "explore.windTable.empty": "Aucune donnée disponible pour ce point.",
