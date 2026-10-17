@@ -17,7 +17,7 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 ### Corrections
 
 - Dans les zones des atlas SHOM, le courant ne reste plus figé autour de la basse mer avant de s'inverser d'un coup : il tourne progressivement et passe par l'étale, dans l'application comme dans l'assistant (#479).
-- Un plan à plus de deux jours commence par le modèle météo qui couvre la date, ce qui évite des dizaines de requêtes inutiles (#478).
+- Dans l'assistant, un plan à plus de deux jours commence par le modèle météo qui couvre la date, ce qui évite des dizaines de requêtes inutiles (#478).
 
 ## 1.9.0 · 2026-10-12 · Voile-aviron et page Quoi de neuf
 

@@ -17,7 +17,7 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 ### Fixes
 
 - In the areas of the SHOM atlases, the stream no longer stays frozen around low water before flipping at once: it turns gradually through slack water, in the app as in the assistant (#479).
-- A plan more than two days ahead starts with the weather model that reaches the date, which saves dozens of useless requests (#478).
+- In the assistant, a plan more than two days ahead starts with the weather model that reaches the date, which saves dozens of useless requests (#478).
 
 ## 1.9.0 · 2026-10-12 · Sail and oar dinghies, and a What's new page
 
