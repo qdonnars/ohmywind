@@ -70,7 +70,7 @@ def settings_from_env() -> Settings:
     )
 
 
-def build_mcp_app(adapter: Any) -> Any:
+def build_mcp_app(adapter: Any, land_mask: Any = None) -> Any:
     """The FastMCP streamable-http app, with the Space's hosts allowed.
 
     The adapter is the API's ``MarineDataAdapter``, handed in rather than
@@ -78,8 +78,10 @@ def build_mcp_app(adapter: Any) -> Any:
     connection pool, one forecast cache and one copy of the tidal atlases
     instead of two of each, and what makes a passage planned over REST and
     the same passage planned over MCP read their currents off one source.
+    The land mask travels the same way: the one the tidal overlay answers
+    with is the one ``plan_passage`` checks routes against.
     """
-    server = build_server(adapter=adapter)
+    server = build_server(adapter=adapter, land_mask=land_mask)
     server.settings.transport_security = TransportSecuritySettings(
         enable_dns_rebinding_protection=True,
         allowed_hosts=ALLOWED_HOSTS,
@@ -96,7 +98,9 @@ def build_app() -> Any:
     """
     settings = settings_from_env()
     services = Services.from_settings(settings)
-    return create_app(settings, mcp_app=build_mcp_app(services.marine), services=services)
+    return create_app(
+        settings, mcp_app=build_mcp_app(services.marine, services.land), services=services
+    )
 
 
 def configure_logging() -> None:

@@ -86,3 +86,14 @@ def build_ohmywind_url(
     wpts = ";".join(f"{w['lat']:.3f},{w['lon']:.3f}" for w in waypoints)
     dep = quote(departure_iso, safe="")
     return f"{WEB_BASE}/plan?wpts={wpts}&departure={dep}&archetype={archetype}"
+
+
+def build_explore_url(lat: float, lon: float, zoom: int = 11) -> str:
+    """The web app's map, centred on a point.
+
+    For the answers that have no plan to open: a forecast or a tidal stream at
+    one point. The map opens there and the user picks the spot. Same
+    ``center``/``zoom`` parameters the web app already reads to carry its
+    camera between pages (``web/src/utils/mapViewParams.ts``).
+    """
+    return f"{WEB_BASE}/?center={lat:.4f},{lon:.4f}&zoom={zoom}"

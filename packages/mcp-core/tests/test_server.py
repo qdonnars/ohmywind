@@ -3,11 +3,16 @@
 
 from __future__ import annotations
 
+import json
+import re
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from mcp.server.fastmcp import FastMCP
+from mcp.types import CallToolResult
 from openwind_data.adapters.base import (
     ForecastBundle,
+    SeaPoint,
     SeaSeries,
     WindPoint,
     WindSeries,
@@ -56,7 +61,11 @@ class StubAdapter:
 
 async def _call(server: FastMCP, name: str, args: dict) -> object:
     result = await server.call_tool(name, args)
-    # FastMCP.call_tool returns (content, structured_or_dict)
+    # FastMCP.call_tool returns (content, structured_or_dict), or the
+    # CallToolResult itself when the tool builds one: plan_passage does, to
+    # carry a _meta for its widget.
+    if isinstance(result, CallToolResult):
+        return result.structuredContent
     if isinstance(result, tuple):
         return result[1]
     return result
@@ -74,8 +83,8 @@ class TestBuildServer:
         server = build_server(adapter=StubAdapter())
         assert isinstance(server, FastMCP)
 
-    async def test_lists_four_tools(self) -> None:
-        # The V1 surface: 3 functional tools + read_me for methodology Q&A.
+    async def test_lists_five_tools(self) -> None:
+        # Four functional tools + read_me for methodology Q&A.
         # `feedback` was removed before publication: an unauthenticated,
         # unrate-limited write endpoint on a public server ingests whatever a
         # prompt injection decides to send, and we would be storing it.
@@ -86,6 +95,7 @@ class TestBuildServer:
             "read_me",
             "list_boat_archetypes",
             "get_marine_forecast",
+            "get_tidal_stream",
             "plan_passage",
         }
 
@@ -169,6 +179,61 @@ class TestPlanPassage:
         uris = [str(r.uri) for r in resources]
         assert PLAN_UI_RESOURCE_URI in uris
 
+    async def test_widget_loads_only_from_declared_origins(self) -> None:
+        # The host enforces the resource's CSP and drops anything else without
+        # a word: a script, stylesheet or tile from an undeclared origin is a
+        # widget that renders without its map, or not at all.
+        from openwind_mcp_core.server import PLAN_UI_RESOURCE_URI
+
+        server = build_server(adapter=StubAdapter())
+        resource = next(
+            r for r in await server.list_resources() if str(r.uri) == PLAN_UI_RESOURCE_URI
+        )
+        declared = set(resource.meta["ui"]["csp"]["resourceDomains"])
+        html = next(iter(await server.read_resource(PLAN_UI_RESOURCE_URI))).content
+        loaded = set(
+            re.findall(r'<script[^>]+src="(https://[^/"]+)', html)
+            + re.findall(r'<link[^>]+href="(https://[^/"]+)', html)
+            + re.findall(r'from "(https://[^/"]+)', html)
+            + re.findall(r'"(https://[^/"]+)/\{z\}', html)
+        )
+        # The tile template is substituted at serve time; finding its origin
+        # here is what says the substitution happened.
+        assert "https://tile.openstreetmap.org" in loaded
+        assert loaded <= declared
+
+    async def test_widget_placeholders_are_all_substituted(self) -> None:
+        # A placeholder left in the page is a widget reading the wrong _meta
+        # key or loading tiles from "__TILE_URL__", silently.
+        from openwind_mcp_core.server import PLAN_UI_LEGS_META_KEY, PLAN_UI_RESOURCE_URI
+
+        server = build_server(adapter=StubAdapter())
+        html = next(iter(await server.read_resource(PLAN_UI_RESOURCE_URI))).content
+        assert re.search(r"__[A-Z_]+__", html) is None
+        assert f'"{PLAN_UI_LEGS_META_KEY}"' in html
+
+    async def test_still_declares_an_output_schema(self) -> None:
+        # plan_passage returns a CallToolResult to carry its _meta; clients
+        # must still get the schema they validate structuredContent against.
+        server = build_server(adapter=StubAdapter())
+        tool = next(t for t in await server.list_tools() if t.name == "plan_passage")
+        assert tool.outputSchema is not None
+
+    async def test_single_mode_needs_no_meta(self) -> None:
+        # The passage already carries its segments; only a sweep needs _meta.
+        # The text block is still the payload the model has always read.
+        server = build_server(adapter=StubAdapter())
+        result = await server.call_tool("plan_passage", _BASE_PLAN_ARGS)
+        assert result.meta is None
+        assert json.loads(result.content[0].text) == result.structuredContent
+
+    async def test_waypoints_echoed_for_the_map(self) -> None:
+        # The widget's map marks the model's own waypoints, not the 10 nm
+        # subdivisions the segments carry.
+        server = build_server(adapter=StubAdapter())
+        out = await _call(server, "plan_passage", _BASE_PLAN_ARGS)
+        assert out["waypoints"] == [{"lat": 43.30, "lon": 5.35}, {"lat": 43.00, "lon": 6.20}]
+
     async def test_max_hs_factors_into_complexity(self) -> None:
         # max_hs_m used to be on its own tool (score_complexity); now it's
         # a kwarg on plan_passage. Confirm it still drives the score.
@@ -219,6 +284,85 @@ class TestPlanPassageSweep:
         out = await _call(server, "plan_passage", _SWEEP_ARGS)
         assert out["sweep"]["window_count"] == 2
         assert len(out["windows"]) == 2
+
+    async def test_windows_speak_the_callers_clock(self) -> None:
+        # A small model announced 22:00 UTC as a ten o'clock departure, and a
+        # Monday as a Saturday: the windows carry the offset sent and the day.
+        server = build_server(adapter=StubAdapter())
+        out = await _call(
+            server,
+            "plan_passage",
+            _SWEEP_ARGS
+            | {
+                "departure": "2026-05-01T08:00:00+02:00",
+                "latest_departure": "2026-05-01T11:00:00+02:00",
+            },
+        )
+        first = out["windows"][0]
+        assert first["departure"] == "2026-05-01T08:00+02:00"
+        assert first["weekday"] == "Fri"
+        assert first["arrival"].endswith("+02:00")
+        assert out["sweep"]["earliest"] == "2026-05-01T08:00+02:00"
+
+    async def test_warnings_once_and_without_their_codes(self) -> None:
+        # The coded notices repeat every warning line; the model reads the
+        # line, the widget too.
+        server = build_server(adapter=StubAdapter())
+        out = await _call(server, "plan_passage", _SWEEP_ARGS)
+        assert "meta_notices" not in out
+        assert all("notices" not in w for w in out["windows"])
+
+    async def test_sweep_legs_travel_in_meta_for_the_widget(self) -> None:
+        # The widget colours the map and fills the per-leg table of the
+        # selected window from _meta. The model reads the same compact rows as
+        # before: the legs stay out of its context.
+        from openwind_mcp_core.server import PLAN_UI_LEGS_META_KEY
+
+        server = build_server(adapter=StubAdapter())
+        result = await server.call_tool("plan_passage", _SWEEP_ARGS)
+        out = result.structuredContent
+        legs = result.meta[PLAN_UI_LEGS_META_KEY]
+        assert json.loads(result.content[0].text) == out
+        assert PLAN_UI_LEGS_META_KEY not in result.content[0].text
+        assert legs["fields"] == [
+            "end_time",
+            "tws_kn",
+            "twa_deg",
+            "hs_m",
+            "boat_speed_kn",
+            "current_kn",
+            "current_to_deg",
+        ]
+        assert legs["geometry"][0] == [43.30, 5.35]
+        assert legs["geometry"][-1] == [43.00, 6.20]
+        assert len(legs["windows"]) == len(out["windows"])
+        for w, rows in zip(out["windows"], legs["windows"], strict=True):
+            assert len(rows) == len(legs["geometry"]) - 1
+            assert rows[-1][0] == w["arrival"]
+
+    async def test_target_eta_keeps_legs_aligned_with_windows(self) -> None:
+        # The filter drops windows after the legs are built: each window must
+        # still get its own rows, not its neighbour's.
+        from openwind_mcp_core.server import PLAN_UI_LEGS_META_KEY
+
+        server = build_server(adapter=StubAdapter())
+        args = {
+            **_BASE_PLAN_ARGS,
+            "latest_departure": datetime(2026, 5, 1, 12, 0, tzinfo=UTC).isoformat(),
+            "sweep_interval_hours": 3,
+            "target_eta": datetime(2026, 5, 1, 14, 0, tzinfo=UTC).isoformat(),
+        }
+        result = await server.call_tool("plan_passage", args)
+        windows = result.structuredContent["windows"]
+        rows = result.meta[PLAN_UI_LEGS_META_KEY]["windows"]
+        assert [r[-1][0] for r in rows] == [w["arrival"] for w in windows]
+
+    async def test_sweep_echoes_waypoints_once(self) -> None:
+        # Every window sails the same line: the route travels once, at the top.
+        server = build_server(adapter=StubAdapter())
+        out = await _call(server, "plan_passage", _SWEEP_ARGS)
+        assert out["waypoints"] == [{"lat": 43.30, "lon": 5.35}, {"lat": 43.00, "lon": 6.20}]
+        assert all("waypoints" not in w for w in out["windows"])
 
     async def test_sweep_window_shape(self) -> None:
         server = build_server(adapter=StubAdapter())
@@ -313,6 +457,52 @@ class TestPlanPassageSweep:
             assert "336" in str(exc) or "cap" in str(exc).lower() or "windows" in str(exc).lower()
 
 
+_FORECAST_ARGS: dict = {
+    "lat": 48.03,
+    "lon": -4.74,
+    "start": datetime(2026, 5, 1, 6, 0, tzinfo=UTC).isoformat(),
+    "end": datetime(2026, 5, 1, 18, 0, tzinfo=UTC).isoformat(),
+}
+
+
+class SeaStubAdapter(StubAdapter):
+    """The stub with a sea series carrying current and tide, as the
+    composite adapter leaves it where an atlas covers the point."""
+
+    def __init__(self, current_kn: float, tide_amplitude_m: float) -> None:
+        super().__init__()
+        self.current_kn = current_kn
+        self.tide_amplitude_m = tide_amplitude_m
+
+    async def fetch(self, lat, lon, start, end, models=None) -> ForecastBundle:
+        bundle = await super().fetch(lat, lon, start, end, models)
+        times = [p.time for p in next(iter(bundle.wind_by_model.values())).points]
+        sea = tuple(
+            SeaPoint(
+                time=t,
+                wave_height_m=0.8,
+                wave_period_s=6.0,
+                wave_direction_deg=270.0,
+                wind_wave_height_m=None,
+                swell_wave_height_m=None,
+                current_speed_kn=self.current_kn,
+                current_direction_to_deg=180.0,
+                tide_height_m=self.tide_amplitude_m * (1 if i % 12 < 6 else -1),
+                current_source="marc_finis_250m",
+            )
+            for i, t in enumerate(times)
+        )
+        return ForecastBundle(
+            lat=lat,
+            lon=lon,
+            start=start,
+            end=end,
+            wind_by_model=bundle.wind_by_model,
+            sea=SeaSeries(points=sea),
+            requested_at=start,
+        )
+
+
 class TestGetMarineForecast:
     async def test_returns_serializable_bundle(self) -> None:
         server = build_server(adapter=StubAdapter())
@@ -328,7 +518,165 @@ class TestGetMarineForecast:
         )
         assert "wind" in out
         assert "meteofrance_arome_france" in out["wind"]
-        assert isinstance(out["wind"]["meteofrance_arome_france"][0]["time"], str)
+        table = out["wind"]["meteofrance_arome_france"]
+        assert table["columns"] == ["time", "speed_kn", "direction_deg", "gust_kn"]
+        assert isinstance(table["rows"][0][0], str)
+
+    async def test_times_come_back_in_the_offset_sent(self) -> None:
+        # Haiku read "09:00:00+00:00" as nine in the morning in France.
+        server = build_server(adapter=StubAdapter())
+        out = await _call(
+            server,
+            "get_marine_forecast",
+            {
+                "lat": 43.30,
+                "lon": 5.35,
+                "start": "2026-05-01T08:00:00+02:00",
+                "end": "2026-05-01T20:00:00+02:00",
+            },
+        )
+        assert out["start"] == "2026-05-01T08:00+02:00"
+        assert out["wind"]["meteofrance_arome_france"]["rows"][0][0] == "2026-05-01T08:00+02:00"
+
+    async def test_the_text_the_model_reads_is_compact(self) -> None:
+        server = build_server(adapter=StubAdapter())
+        result = await server.call_tool("get_marine_forecast", _FORECAST_ARGS)
+        assert isinstance(result, CallToolResult)
+        text = result.content[0].text
+        assert "\n" not in text
+        assert json.loads(text) == result.structuredContent
+
+    async def test_common_model_names_are_understood(self) -> None:
+        server = build_server(adapter=StubAdapter())
+        out = await _call(
+            server, "get_marine_forecast", _FORECAST_ARGS | {"models": ["arome", "gfs"]}
+        )
+        assert list(out["wind"]) == ["meteofrance_arome_france", "gfs_seamless"]
+
+    async def test_an_unknown_model_fails_before_any_request(self) -> None:
+        adapter = StubAdapter()
+        server = build_server(adapter=adapter)
+        with pytest.raises(Exception, match="use arome, icon_eu, ecmwf or gfs"):
+            await server.call_tool("get_marine_forecast", _FORECAST_ARGS | {"models": ["harmonie"]})
+        assert adapter.fetch_calls == 0
+
+    async def test_auto_keeps_arome_and_adds_the_model_that_reaches_the_end(self) -> None:
+        # A window from now to day 4: AROME's detail for the first two days,
+        # ICON-EU after, rather than two days of nulls.
+        server = build_server(adapter=StubAdapter())
+        now = datetime.now(UTC)
+        out = await _call(
+            server,
+            "get_marine_forecast",
+            {
+                "lat": 43.30,
+                "lon": 5.35,
+                "start": now.isoformat(),
+                "end": (now + timedelta(days=4)).isoformat(),
+            },
+        )
+        assert list(out["wind"]) == ["meteofrance_arome_france", "icon_eu"]
+
+    async def test_auto_skips_arome_for_a_window_it_does_not_reach(self) -> None:
+        server = build_server(adapter=StubAdapter())
+        start = datetime.now(UTC) + timedelta(days=6)
+        out = await _call(
+            server,
+            "get_marine_forecast",
+            {
+                "lat": 43.30,
+                "lon": 5.35,
+                "start": start.isoformat(),
+                "end": (start + timedelta(hours=12)).isoformat(),
+            },
+        )
+        assert list(out["wind"]) == ["ecmwf_ifs025"]
+
+    async def test_current_and_tide_only_where_they_matter(self) -> None:
+        # The Raz de Sein runs at several knots on a 5 m range; the rade de
+        # Marseille barely moves. Only the first is worth a line.
+        strong = await _call(
+            build_server(adapter=SeaStubAdapter(current_kn=3.2, tide_amplitude_m=2.5)),
+            "get_marine_forecast",
+            _FORECAST_ARGS,
+        )
+        assert strong["current"]["source"] == "marc_finis_250m"
+        assert strong["current"]["columns"] == ["time", "speed_kn", "direction_to_deg"]
+        assert strong["current"]["rows"][0][1] == 3.2
+        assert strong["tide"]["rows"]
+        weak = await _call(
+            build_server(adapter=SeaStubAdapter(current_kn=0.1, tide_amplitude_m=0.1)),
+            "get_marine_forecast",
+            _FORECAST_ARGS,
+        )
+        assert "current" not in weak
+        assert "tide" not in weak
+
+    async def test_links_to_the_map_at_the_point(self) -> None:
+        out = await _call(
+            build_server(adapter=StubAdapter()), "get_marine_forecast", _FORECAST_ARGS
+        )
+        assert out["openwind_url"].endswith("/?center=48.0300,-4.7400&zoom=11")
+
+
+_SOUTH_OF_THE_ISLAND = [
+    {"lat": 43.30, "lon": 5.35},
+    {"lat": 42.95, "lon": 5.80},
+    {"lat": 43.00, "lon": 6.20},
+]
+
+
+class TestAlternatives:
+    """Two ways to go, compared in one call (the Fromveur question)."""
+
+    async def test_single_mode_compares_the_routes(self) -> None:
+        server = build_server(adapter=StubAdapter())
+        out = await _call(
+            server,
+            "plan_passage",
+            {
+                **_BASE_PLAN_ARGS,
+                "route_label": "Direct",
+                "alternatives": [{"label": "Par le large", "waypoints": _SOUTH_OF_THE_ISLAND}],
+            },
+        )
+        assert out["route_label"] == "Direct"
+        [alt] = out["alternatives"]
+        assert alt["label"] == "Par le large"
+        assert alt["waypoints"] == _SOUTH_OF_THE_ISLAND
+        assert alt["passage"]["distance_nm"] > out["passage"]["distance_nm"]
+        assert alt["openwind_url"].startswith("https://ohmywind.fr/plan?wpts=43.300,5.350;42.950")
+        assert list(out)[-1] == "disclaimer"
+
+    async def test_sweep_gives_each_route_the_same_departures(self) -> None:
+        from openwind_mcp_core.server import PLAN_UI_ALT_LEGS_META_KEY
+
+        server = build_server(adapter=StubAdapter())
+        result = await server.call_tool(
+            "plan_passage",
+            {**_SWEEP_ARGS, "alternatives": [{"waypoints": _SOUTH_OF_THE_ISLAND}]},
+        )
+        out = result.structuredContent
+        [alt] = out["alternatives"]
+        assert alt["label"] == "Variante B"
+        assert out["route_label"] == "Variante A"
+        assert [w["departure"] for w in alt["windows"]] == [w["departure"] for w in out["windows"]]
+        [alt_legs] = result.meta[PLAN_UI_ALT_LEGS_META_KEY]
+        assert len(alt_legs["windows"]) == len(alt["windows"])
+
+    async def test_without_alternatives_nothing_changes(self) -> None:
+        server = build_server(adapter=StubAdapter())
+        out = await _call(server, "plan_passage", _BASE_PLAN_ARGS)
+        assert "alternatives" not in out
+        assert "route_label" not in out
+
+    async def test_at_most_two_alternatives(self) -> None:
+        server = build_server(adapter=StubAdapter())
+        alt = {"waypoints": _SOUTH_OF_THE_ISLAND}
+        with pytest.raises(Exception, match="at most 2"):
+            await server.call_tool(
+                "plan_passage", {**_BASE_PLAN_ARGS, "alternatives": [alt, alt, alt]}
+            )
 
 
 class TestDisclaimer:
@@ -414,3 +762,69 @@ class TestSweepBudget:
         out = await _call(server, "plan_passage", _SWEEP_ARGS)
         assert out["sweep"]["interval_hours"] == _SWEEP_ARGS["sweep_interval_hours"]
         assert not any("élargi" in w for w in out["meta_warnings"])
+
+
+def _mask_with_a_cape() -> object:
+    """Sea from 42.9 N to 43.4 N and 5.3 E to 6.3 E, a block of land from
+    43.10 N to 43.20 N and 5.70 E to 5.80 E, right across the direct line of
+    ``_BASE_PLAN_ARGS``."""
+    import numpy as np
+    from openwind_data.currents.land_mask import LandMask
+
+    land = np.zeros((50, 100), dtype=bool)
+    land[20:30, 40:50] = True
+    return LandMask(
+        bits=np.packbits(land, axis=1), n_lat=50, n_lon=100, lat0=42.9, lon0=5.3, pitch_deg=0.01
+    )
+
+
+_ROUND_THE_CAPE = [
+    {"lat": 43.30, "lon": 5.35},
+    {"lat": 43.30, "lon": 6.20},
+    {"lat": 43.00, "lon": 6.20},
+]
+
+
+class TestLandCheck:
+    """A route over land is refused before the first forecast request."""
+
+    async def test_a_leg_over_land_is_refused_before_any_request(self) -> None:
+        adapter = StubAdapter()
+        server = build_server(adapter=adapter, land_mask=_mask_with_a_cape())
+        with pytest.raises(Exception, match="no forecast was requested") as excinfo:
+            await server.call_tool("plan_passage", _SWEEP_ARGS)
+        assert "leg 1 (waypoint 1 to 2) runs about" in str(excinfo.value)
+        assert "Redraw it at sea" in str(excinfo.value)
+        # Haiku got past the refusal by moving Marseille out to sea off Cap
+        # Sicié, and timed a passage twenty miles short.
+        assert "never move the departure or the arrival" in str(excinfo.value)
+        assert adapter.fetch_calls == 0
+
+    async def test_the_same_trip_round_the_cape_is_planned(self) -> None:
+        server = build_server(adapter=StubAdapter(), land_mask=_mask_with_a_cape())
+        out = await _call(server, "plan_passage", _SWEEP_ARGS | {"waypoints": _ROUND_THE_CAPE})
+        assert out["mode"] == "multi_window"
+
+    async def test_an_alternative_over_land_is_named(self) -> None:
+        server = build_server(adapter=StubAdapter(), land_mask=_mask_with_a_cape())
+        with pytest.raises(Exception, match='route "Au plus court": leg 1'):
+            await server.call_tool(
+                "plan_passage",
+                _SWEEP_ARGS
+                | {
+                    "waypoints": _ROUND_THE_CAPE,
+                    "route_label": "Par le large",
+                    "alternatives": [
+                        {"label": "Au plus court", "waypoints": _BASE_PLAN_ARGS["waypoints"]}
+                    ],
+                },
+            )
+
+    async def test_a_river_passage_can_turn_the_check_off(self) -> None:
+        server = build_server(adapter=StubAdapter(), land_mask=_mask_with_a_cape())
+        out = await _call(server, "plan_passage", _SWEEP_ARGS | {"inland_waterway": True})
+        assert out["mode"] == "multi_window"
+
+    async def test_without_a_mask_nothing_is_refused(self) -> None:
+        out = await _call(build_server(adapter=StubAdapter()), "plan_passage", _SWEEP_ARGS)
+        assert out["mode"] == "multi_window"

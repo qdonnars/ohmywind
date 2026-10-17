@@ -7,7 +7,9 @@ PR 2.4 rewrote ``ShomC2dRegistry.predict_current_series`` from a Python loop
 over instants into one harmonic evaluation for the whole series. That is a
 rewrite of the thing that decides how fast the water is running in the Raz de
 Sein, so "it looks about right" is not a test. ``_reference_predict`` below is
-the pre-2.4 implementation, copied verbatim; the two must agree.
+the pre-2.4 implementation, copied verbatim; the two must agree. One rule has
+changed in both since, the same way: the tide event is the nearest high water,
+no longer the highest one in the window (2026-10, see ``_nearest_events``).
 
 They agree exactly, and the reason is worth stating: the vectorised version
 does not approximate the old scan, it *is* the old scan. Both sample the tide
@@ -65,7 +67,17 @@ def _reference_tide_event_time(port: _RefPortMeta, target_t: datetime) -> dateti
     )
     scan_times = [target_t + timedelta(minutes=float(m)) for m in offsets_min]
     heights = harmonic_predict(scan_times, port.constants)
-    idx = int(np.argmax(heights) if port.ref_tide == "PM" else np.argmin(heights))
+    h = heights if port.ref_tide == "PM" else -heights
+    # The nearest true turning point that no higher crest within three hours
+    # outranks, the earlier on a tie; the extreme sample if there is none.
+    peaks = [j for j in range(1, len(h) - 1) if h[j] >= h[j - 1] and h[j] > h[j + 1]]
+    merge = int(3 * 60 / _TIDE_SCAN_STEP_MIN)
+    kept = [j for j in peaks if not any(abs(k - j) <= merge and h[k] > h[j] for k in peaks)]
+    centre = (len(h) - 1) // 2
+    if kept:
+        idx = min(kept, key=lambda j: (abs(j - centre), j > centre))
+    else:
+        idx = int(np.argmax(h))
     return scan_times[idx]
 
 

@@ -318,6 +318,18 @@ async def _sample_route(
             if not _segment_has_wind(b, model, mid)
         ]
         if fallback_indices:
+            # Warm the first fallback model for all those points in one
+            # batched call, as for the primary above, so the walk below finds
+            # them in the cache instead of paying two requests per point.
+            # The later steps of the chain, rarer, stay per point.
+            if isinstance(fetch_adapter, PrewarmingAdapter):
+                fallback_times = [mid_times[i] for i in fallback_indices]
+                await fetch_adapter.prewarm_batch(
+                    [(mid_points[i].lat, mid_points[i].lon) for i in fallback_indices],
+                    min(fallback_times) - WIND_FETCH_WINDOW / 2,
+                    max(fallback_times) + WIND_FETCH_WINDOW / 2,
+                    [chain_tail[0]],
+                )
             fallback_results = await asyncio.gather(
                 *[
                     _fetch_segment_with_fallback(

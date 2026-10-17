@@ -89,7 +89,7 @@ class TestPlanPassageBounds:
         # Guard against the validation being too strict for real input.
         server = build_server(adapter=StubAdapter())
         out = await server.call_tool("plan_passage", _BASE_PLAN_ARGS)
-        payload = out[1] if isinstance(out, tuple) else out
+        payload = out.structuredContent
         assert "passage" in payload
 
 
