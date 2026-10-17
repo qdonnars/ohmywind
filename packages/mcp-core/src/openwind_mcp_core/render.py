@@ -77,8 +77,8 @@ def build_ohmywind_url(
     """Build the ``/plan`` deep-link URL for the configured web app.
 
     Used as the always-on fallback CTA for clients that don't render the MCP
-    Apps iframe (Le Chat, Goose, terminals) — they show this URL as
-    "View full plan →" instead.
+    Apps iframe (Le Chat, Goose, terminals) — they show this URL as the
+    link to adjust the route or the departure on the site.
 
     Deep-links emitted before the rebrand pointed at ``openwind.fr``; those
     keep working through the 301 that fronts the old domain.
