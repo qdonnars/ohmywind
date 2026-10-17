@@ -11,6 +11,9 @@ interface PillsProps {
   showWaves: boolean;
   showTides: boolean;
   showCurrents: boolean;
+  /** The server's land mask put the spot on land: no sea tab, and a note
+      where the tabs would be, so an empty card does not read as a bug. */
+  onLand?: boolean;
 }
 
 interface PillDef {
@@ -59,8 +62,28 @@ export function MetricPills({
   showWaves,
   showTides,
   showCurrents,
+  onLand = false,
 }: PillsProps) {
   const { t } = useT();
+  if (onLand) {
+    return (
+      <div className="flex px-3 py-2.5">
+        <p
+          role="status"
+          className="inline-flex items-center text-xs font-semibold px-3 py-1.5 rounded-full"
+          style={{
+            color: "var(--ow-fg-1)",
+            background: "var(--ow-surface-glass)",
+            backdropFilter: "blur(8px)",
+            border: "1px solid var(--ow-line-2)",
+            boxShadow: "var(--ow-shadow-1)",
+          }}
+        >
+          {t("explore.pills.onLand")}
+        </p>
+      </div>
+    );
+  }
   const pills: PillDef[] = [
     { view: "wind", label: "explore.pills.wind", visible: true, icon: WindIcon },
     { view: "waves", label: "explore.pills.waves", visible: showWaves, icon: WavesIcon },
