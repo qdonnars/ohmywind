@@ -12,6 +12,7 @@ plan, and an honest "not covered" outside every atlas.
 from __future__ import annotations
 
 import json
+import math
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -41,17 +42,18 @@ IN_ATLAS = {"lat": 48.355, "lon": -4.795}  # the one FINIS-like cell below
 IN_THE_MED = {"lat": 43.0, "lon": 5.0}
 
 
-@pytest.fixture
-def atlas_dir(tmp_path: Path) -> Path:
-    """A single FINIS-like cell with an M2 tide and stream, as in the router tests."""
-    d = tmp_path / "FINIS"
+def _write_atlas(
+    root: Path, name: str, resolution_m: int, square: list, cell: tuple[float, float]
+) -> Path:
+    """One atlas of a single cell with an M2 tide and stream, as in the router tests."""
+    d = root / name
     d.mkdir()
     (d / "metadata.json").write_text(
         json.dumps(
             {
-                "atlas": "FINIS",
+                "atlas": name,
                 "rank": 2,
-                "resolution_m": 250,
+                "resolution_m": resolution_m,
                 "constituents_h": ["M2"],
                 "constituents_u": ["M2"],
                 "constituents_v": ["M2"],
@@ -59,7 +61,6 @@ def atlas_dir(tmp_path: Path) -> Path:
             }
         )
     )
-    square = [[-5.5, 47.5], [-4.5, 47.5], [-4.5, 49.0], [-5.5, 49.0], [-5.5, 47.5]]
     (d / "coverage.geojson").write_text(
         json.dumps(
             {
@@ -74,12 +75,14 @@ def atlas_dir(tmp_path: Path) -> Path:
             }
         )
     )
-    tile = d / "tile_lat=48.0" / "tile_lon=-5.0"
+    lat, lon = cell
+    # Half-degree tiles, named by their south-west corner.
+    tile = d / f"tile_lat={math.floor(lat * 2) / 2:.1f}" / f"tile_lon={math.floor(lon * 2) / 2:.1f}"
     tile.mkdir(parents=True)
     pl.DataFrame(
         {
-            "lat": [48.35],
-            "lon": [-4.80],
+            "lat": [lat],
+            "lon": [lon],
             "z0_hydro_m": [-3.85],
             "M2_h_amp": [2.05],
             "M2_h_g": [108.0],
@@ -89,7 +92,14 @@ def atlas_dir(tmp_path: Path) -> Path:
             "M2_v_g": [120.0],
         }
     ).write_parquet(tile / "data.parquet")
-    return tmp_path
+    return root
+
+
+@pytest.fixture
+def atlas_dir(tmp_path: Path) -> Path:
+    """A single FINIS-like cell."""
+    square = [[-5.5, 47.5], [-4.5, 47.5], [-4.5, 49.0], [-5.5, 49.0], [-5.5, 47.5]]
+    return _write_atlas(tmp_path, "FINIS", 250, square, (48.35, -4.80))
 
 
 def _rows(table: dict) -> list[dict]:
@@ -182,3 +192,22 @@ async def test_slack_is_only_where_the_stream_nearly_stops(atlas_dir: Path) -> N
     strongest = max(p["speed_kn"] for p in _rows(out["points"]))
     assert out["slack"]
     assert all(s["speed_kn"] <= max(0.5, 0.25 * strongest) for s in out["slack"])
+
+
+async def test_a_coarse_atlas_beside_a_listed_pass_warns(tmp_path: Path) -> None:
+    # Messina under a 4.2 km grid: the cell averages a 5 kt race down to
+    # 1 kt. A plan withholds that value; the stream tool keeps the timing
+    # and must say the real stream is stronger.
+    square = [[15.0, 37.5], [16.0, 37.5], [16.0, 38.5], [15.0, 38.5], [15.0, 37.5]]
+    server, _ = _server_with_atlas(_write_atlas(tmp_path, "MED", 4200, square, (38.25, 15.63)))
+    out = await _stream(server, lat=38.255, lon=15.635)
+    assert out["covered"] is True
+    assert out["confidence"] == "medium"
+    assert "Messina" in out["warning"]
+    assert "stronger" in out["warning"]
+
+
+async def test_a_fine_atlas_away_from_any_pass_does_not_warn(atlas_dir: Path) -> None:
+    server, _ = _server_with_atlas(atlas_dir)
+    out = await _stream(server, **IN_ATLAS)
+    assert "warning" not in out
