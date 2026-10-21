@@ -1,16 +1,4 @@
-## A simple question: when to leave?
-
-Navigation apps often do a great deal, and cost a lot, for needs that remain simple. OhMyWind starts from what sailors actually face: for a day sail or a short crossing, they do not need full weather routing, they need to know which departure window is the right one.
-
-The user [draws the route](/plan), picks a type of boat, and for every possible departure hour OhMyWind works out:
-
-- the duration and arrival time, leg by leg, from the boat's polars;
-- the wind, sea and current met on each leg;
-- a complexity score from 1 to 5, with concrete warnings (fresh wind, rough sea, wind against tide).
-
-Departure windows compare at a glance, and so do several routes for the same crossing. The [Compare my spots](/comparer) page also sets favourite spots side by side, hour by hour.
-
-## In AI assistants, a sailor's conversation
+## New: a sailor's conversation with AI assistants
 
 OhMyWind plugs into AI assistants (Claude, ChatGPT, Le Chat…) through the open [MCP](https://modelcontextprotocol.io) protocol. Sailors describe their trip as they would to a crew member, "tomorrow, Marseille to Porquerolles on a Sun Odyssey 36, when should I leave?", and the assistant queries OhMyWind to answer. Version 1.10, released on 17 October 2026, turns it into a real tool for the boat:
 
@@ -21,6 +9,18 @@ OhMyWind plugs into AI assistants (Claude, ChatGPT, Le Chat…) through the open
 - **A route that crosses land is rejected** before any calculation, and the assistant is asked to redraw it at sea.
 
 Connecting takes a minute, with no OhMyWind account and no API key: just follow the [step-by-step guide](https://mcp.ohmywind.fr) with the address `https://mcp.ohmywind.fr/mcp`. The full list of changes is in the [release notes](/a-propos/nouveautes).
+
+## Just what is needed: when to leave, which way to go
+
+Navigation apps often do a great deal, and cost a lot, for needs that remain simple. OhMyWind focuses on just what is needed: not one more routing program, but answers to the questions sailors ask before a day sail or a short crossing. What time should we leave? Which way should we go?
+
+The user [draws the route](/plan), picks a type of boat, and for every possible departure hour OhMyWind works out:
+
+- the duration and arrival time, leg by leg, from the boat's polars;
+- the wind, sea and current met on each leg;
+- a complexity score from 1 to 5, with concrete warnings (fresh wind, rough sea, wind against tide).
+
+Departure windows compare at a glance, and so do several routes for the same crossing. The [Compare my spots](/comparer) page also sets favourite spots side by side, hour by hour.
 
 ## Tidal currents, taken seriously
 
@@ -45,7 +45,7 @@ OhMyWind is developed by Quentin Donnars, an Arts et Métiers engineer, data sci
 
 The [source code is public](https://github.com/qdonnars/ohmywind) ([AGPL licence](https://github.com/qdonnars/ohmywind/blob/main/LICENSE)). Funding relies on sponsorship from marine brands, with no influence whatsoever on the calculations or on the tool's recommendations.
 
-> "Public weather and ocean data are of remarkable quality, but they remain hard for leisure sailors to get at. OhMyWind puts them to work on a very concrete question: what time to leave so that the passage goes well."
+> "Public weather and ocean data are of remarkable quality, but they remain hard for leisure sailors to get at. OhMyWind puts them to work on very concrete questions: when to leave, which way to go. We focus on just what is needed: not one more routing program, simply answers to sailors' questions."
 >
 > Quentin Donnars, founder of OhMyWind
 

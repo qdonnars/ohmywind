@@ -1,16 +1,4 @@
-## Una pregunta sencilla: ¿cuándo salir?
-
-Las aplicaciones de navegación suelen hacer muchísimas cosas, y cuestan caras, para necesidades que siguen siendo sencillas. OhMyWind parte de una constatación sobre el terreno: para una salida de un día o una travesía corta, el navegante no necesita un enrutamiento completo, necesita saber cuál es la ventana de salida adecuada.
-
-El usuario [traza su ruta](/plan), elige un tipo de barco, y OhMyWind calcula para cada hora de salida posible:
-
-- la duración y la hora de llegada, tramo a tramo, a partir de las polares del barco;
-- el viento, el mar y la corriente que encontrará en cada tramo;
-- una puntuación de complejidad de 1 a 5, con avisos concretos (viento fresco, mar gruesa, viento contra corriente).
-
-Las ventanas se comparan de un vistazo, igual que varias rutas para una misma travesía. La página [Comparar mis spots](/comparer) pone además los spots favoritos uno al lado de otro, hora a hora.
-
-## En los asistentes de IA, una conversación de navegante
+## Novedad: una conversación de navegante con los asistentes de IA
 
 OhMyWind se conecta a los asistentes de inteligencia artificial (Claude, ChatGPT, Le Chat…) gracias al protocolo abierto [MCP](https://modelcontextprotocol.io). El navegante describe su salida como se la contaría a un tripulante, «mañana, de Marsella a Porquerolles en un Sun Odyssey 36, ¿cuándo salgo?», y el asistente consulta OhMyWind para responder. La versión 1.10, publicada el 17 de octubre de 2026, lo convierte en una verdadera herramienta de a bordo:
 
@@ -21,6 +9,18 @@ OhMyWind se conecta a los asistentes de inteligencia artificial (Claude, ChatGPT
 - **Una ruta que cruza tierra se rechaza** antes de cualquier cálculo, y se pide al asistente que la vuelva a trazar por mar.
 
 La conexión lleva un minuto, sin cuenta de OhMyWind ni clave de API: basta con seguir la [guía paso a paso](https://mcp.ohmywind.fr) con la dirección `https://mcp.ohmywind.fr/mcp`. Todos los cambios están en las [Novedades](/a-propos/nouveautes).
+
+## Lo justo y necesario: cuándo salir, por dónde pasar
+
+Las aplicaciones de navegación suelen hacer muchísimas cosas, y cuestan caras, para necesidades que siguen siendo sencillas. OhMyWind se centra en lo justo y necesario: no un programa de enrutamiento más, sino respuestas a las preguntas que se hace el navegante antes de una salida de un día o una travesía corta. ¿A qué hora salir? ¿Por dónde pasar?
+
+El usuario [traza su ruta](/plan), elige un tipo de barco, y OhMyWind calcula para cada hora de salida posible:
+
+- la duración y la hora de llegada, tramo a tramo, a partir de las polares del barco;
+- el viento, el mar y la corriente que encontrará en cada tramo;
+- una puntuación de complejidad de 1 a 5, con avisos concretos (viento fresco, mar gruesa, viento contra corriente).
+
+Las ventanas se comparan de un vistazo, igual que varias rutas para una misma travesía. La página [Comparar mis spots](/comparer) pone además los spots favoritos uno al lado de otro, hora a hora.
 
 ## Las corrientes de marea, en serio
 
@@ -45,7 +45,7 @@ OhMyWind lo desarrolla Quentin Donnars, ingeniero de Arts et Métiers, científi
 
 El [código fuente es público](https://github.com/qdonnars/ohmywind) ([licencia AGPL](https://github.com/qdonnars/ohmywind/blob/main/LICENSE)). El modelo de financiación se basa en el patrocinio de marcas del sector náutico, sin ninguna influencia en los cálculos ni en las recomendaciones de la herramienta.
 
-> «Los datos meteorológicos y oceanográficos públicos son de una calidad notable, pero siguen siendo de difícil acceso para el navegante de recreo. OhMyWind los pone al servicio de una pregunta muy concreta: a qué hora salir para que la navegación vaya bien.»
+> «Los datos meteorológicos y oceanográficos públicos son de una calidad notable, pero siguen siendo de difícil acceso para el navegante de recreo. OhMyWind los pone al servicio de preguntas muy concretas: cuándo salir, por dónde pasar. Nos centramos en lo justo y necesario: no un programa de enrutamiento más, solo respuestas a las preguntas de los navegantes.»
 >
 > Quentin Donnars, fundador de OhMyWind
 

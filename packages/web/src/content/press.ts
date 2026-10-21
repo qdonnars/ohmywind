@@ -62,9 +62,9 @@ const CAP_INNOVATION = "https://www.parisnauticshow.com/cap-innovation/";
 export const PRESS_RELEASES: Record<Lang, PressRelease> = {
   fr: {
     dateline: "Marseille, octobre 2026",
-    title: "OhMyWind : l'outil gratuit qui dit aux plaisanciers à quelle heure partir",
+    title: "OhMyWind : l'innovation qui simplifie l'accès aux données météo et marines gratuites",
     lead:
-      "Né d'un projet personnel à Marseille, OhMyWind est un planificateur de navigation à la voile gratuit, sans compte et open source. Il compare les heures de départ possibles d'une navigation en croisant météo, état de la mer, courants de marée et performances du bateau, sur le web, sur Android et dans les assistants d'intelligence artificielle. Sans campagne de lancement, il réunit déjà plus de 600 utilisateurs par jour, en France et en Allemagne.",
+      "OhMyWind simplifie l'accès des plaisanciers aux données publiques et gratuites de météo, d'état de la mer et de courants de marée. Sa nouvelle version les met à portée de conversation : on décrit sa navigation à un assistant d'intelligence artificielle (Claude, ChatGPT, Le Chat…) et il répond, carte et horaires à l'appui. Gratuit, sans compte et open source, OhMyWind fonctionne aussi sur le web et sur Android. Sans campagne de lancement, il réunit déjà plus de 600 utilisateurs par jour, en France et en Allemagne.",
     highlight: {
       badge: "Cap Innovation 2026",
       title: "Candidat au concours Cap Innovation du Paris Nautic Show",
@@ -75,9 +75,9 @@ export const PRESS_RELEASES: Record<Lang, PressRelease> = {
   },
   en: {
     dateline: "Marseille, October 2026",
-    title: "OhMyWind: the free tool that tells sailors what time to leave",
+    title: "OhMyWind: the innovation that makes free marine weather data easy to use",
     lead:
-      "Born as a personal project in Marseille, OhMyWind is a free, open-source sailing passage planner that needs no account. It compares the possible departure times for a passage by combining weather, sea state, tidal currents and boat performance, on the web, on Android and inside AI assistants. With no launch campaign, it already has more than 600 users a day, in France and Germany.",
+      "OhMyWind makes it simple for sailors to use free public data on weather, sea state and tidal currents. Its new version puts that data within reach of a conversation: sailors describe their passage to an AI assistant (Claude, ChatGPT, Le Chat…) and it answers, with the map and the times. Free, open source and with no account needed, OhMyWind also runs on the web and on Android. With no launch campaign, it already has more than 600 users a day, in France and Germany.",
     highlight: {
       badge: "Cap Innovation 2026",
       title: "Entered in the Paris Nautic Show's Cap Innovation competition",
@@ -88,9 +88,9 @@ export const PRESS_RELEASES: Record<Lang, PressRelease> = {
   },
   de: {
     dateline: "Marseille, Oktober 2026",
-    title: "OhMyWind: das kostenlose Werkzeug, das Seglern sagt, wann sie ablegen sollen",
+    title: "OhMyWind: die Innovation, die den Zugang zu kostenlosen Wetter- und Meeresdaten vereinfacht",
     lead:
-      "Als privates Projekt in Marseille entstanden, ist OhMyWind ein kostenloser Open-Source-Törnplaner für Segler, ganz ohne Konto. Er vergleicht die möglichen Abfahrtszeiten eines Törns anhand von Wetter, Seegang, Gezeitenströmen und Bootsleistung, im Web, auf Android und in KI-Assistenten. Ohne Einführungskampagne zählt er bereits mehr als 600 Nutzer pro Tag, in Frankreich und Deutschland.",
+      "OhMyWind vereinfacht Seglern den Zugang zu den kostenlosen öffentlichen Daten über Wetter, Seegang und Gezeitenströme. Die neue Version macht sie im Gespräch zugänglich: Man beschreibt seinen Törn einem KI-Assistenten (Claude, ChatGPT, Le Chat…), und er antwortet, mit Karte und Uhrzeiten. Kostenlos, ohne Konto und Open Source, läuft OhMyWind auch im Web und auf Android. Ohne Einführungskampagne zählt es bereits mehr als 600 Nutzer pro Tag, in Frankreich und Deutschland.",
     highlight: {
       badge: "Cap Innovation 2026",
       title: "Bewerber beim Wettbewerb Cap Innovation der Paris Nautic Show",
@@ -101,9 +101,9 @@ export const PRESS_RELEASES: Record<Lang, PressRelease> = {
   },
   it: {
     dateline: "Marsiglia, ottobre 2026",
-    title: "OhMyWind: lo strumento gratuito che dice ai diportisti a che ora partire",
+    title: "OhMyWind: l'innovazione che semplifica l'accesso ai dati meteo e marini gratuiti",
     lead:
-      "Nato come progetto personale a Marsiglia, OhMyWind è un pianificatore di navigazione a vela gratuito, senza account e open source. Confronta le ore di partenza possibili di una navigazione incrociando meteo, stato del mare, correnti di marea e prestazioni della barca, sul web, su Android e negli assistenti di intelligenza artificiale. Senza campagna di lancio, conta già più di 600 utenti al giorno, in Francia e in Germania.",
+      "OhMyWind semplifica ai diportisti l'accesso ai dati pubblici e gratuiti su meteo, stato del mare e correnti di marea. La nuova versione li mette a portata di conversazione: si descrive la propria navigazione a un assistente di intelligenza artificiale (Claude, ChatGPT, Le Chat…) e lui risponde, con mappa e orari. Gratuito, senza account e open source, OhMyWind funziona anche sul web e su Android. Senza campagna di lancio, conta già più di 600 utenti al giorno, in Francia e in Germania.",
     highlight: {
       badge: "Cap Innovation 2026",
       title: "Candidato al concorso Cap Innovation del Paris Nautic Show",
@@ -114,9 +114,9 @@ export const PRESS_RELEASES: Record<Lang, PressRelease> = {
   },
   es: {
     dateline: "Marsella, octubre de 2026",
-    title: "OhMyWind: la herramienta gratuita que dice a los navegantes a qué hora salir",
+    title: "OhMyWind: la innovación que simplifica el acceso a los datos meteorológicos y marinos gratuitos",
     lead:
-      "Nacido como proyecto personal en Marsella, OhMyWind es un planificador de navegación a vela gratuito, sin cuenta y de código abierto. Compara las horas de salida posibles de una navegación cruzando meteorología, estado del mar, corrientes de marea y prestaciones del barco, en la web, en Android y en los asistentes de inteligencia artificial. Sin campaña de lanzamiento, ya reúne a más de 600 usuarios al día, en Francia y Alemania.",
+      "OhMyWind simplifica a los navegantes el acceso a los datos públicos y gratuitos de meteorología, estado del mar y corrientes de marea. Su nueva versión los pone al alcance de una conversación: basta con describir la navegación a un asistente de inteligencia artificial (Claude, ChatGPT, Le Chat…) y responde, con el mapa y los horarios. Gratuito, sin cuenta y de código abierto, OhMyWind funciona también en la web y en Android. Sin campaña de lanzamiento, ya reúne a más de 600 usuarios al día, en Francia y Alemania.",
     highlight: {
       badge: "Cap Innovation 2026",
       title: "Candidato al concurso Cap Innovation del Paris Nautic Show",

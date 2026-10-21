@@ -1,16 +1,4 @@
-## Eine einfache Frage: Wann losfahren?
-
-Navigations-Apps können oft sehr viel und kosten viel, für Bedürfnisse, die einfach bleiben. OhMyWind geht von der Praxis aus: Für einen Tagestörn oder eine kurze Überfahrt braucht man kein vollständiges Wetterrouting, sondern muss wissen, welches Abfahrtsfenster das richtige ist.
-
-Man [zeichnet die Route](/plan), wählt einen Bootstyp, und OhMyWind berechnet für jede mögliche Abfahrtsstunde:
-
-- die Dauer und die Ankunftszeit, Etappe für Etappe, aus den Polaren des Boots;
-- Wind, Seegang und Strömung auf jedem Abschnitt;
-- eine Komplexitätsnote von 1 bis 5, mit konkreten Warnungen (frischer Wind, grobe See, Wind gegen Strom).
-
-Die Abfahrtsfenster lassen sich auf einen Blick vergleichen, ebenso mehrere Routen für dieselbe Überfahrt. Die Seite [Meine Spots vergleichen](/comparer) stellt außerdem die Lieblingsspots Stunde für Stunde nebeneinander.
-
-## In KI-Assistenten: ein Gespräch unter Seglern
+## Neu: ein Gespräch unter Seglern mit KI-Assistenten
 
 OhMyWind lässt sich über das offene Protokoll [MCP](https://modelcontextprotocol.io) an KI-Assistenten anbinden (Claude, ChatGPT, Le Chat…). Man beschreibt den Törn wie einem Crewmitglied, „morgen von Marseille nach Porquerolles mit einer Sun Odyssey 36, wann soll ich los?“, und der Assistent fragt OhMyWind, um zu antworten. Version 1.10, veröffentlicht am 17. Oktober 2026, macht daraus ein echtes Bordwerkzeug:
 
@@ -21,6 +9,18 @@ OhMyWind lässt sich über das offene Protokoll [MCP](https://modelcontextprotoc
 - **Eine Route über Land wird abgelehnt**, bevor gerechnet wird, und der Assistent wird gebeten, sie auf See neu zu zeichnen.
 
 Die Verbindung dauert eine Minute, ohne OhMyWind-Konto und ohne API-Schlüssel: einfach der [Schritt-für-Schritt-Anleitung](https://mcp.ohmywind.fr) mit der Adresse `https://mcp.ohmywind.fr/mcp` folgen. Alle Änderungen stehen in den [Neuigkeiten](/a-propos/nouveautes).
+
+## Das Nötige: wann los, welcher Weg
+
+Navigations-Apps können oft sehr viel und kosten viel, für Bedürfnisse, die einfach bleiben. OhMyWind konzentriert sich auf das Nötige: keine weitere Routing-Software, sondern Antworten auf die Fragen, die man sich vor einem Tagestörn oder einer kurzen Überfahrt stellt. Wann losfahren? Welchen Weg nehmen?
+
+Man [zeichnet die Route](/plan), wählt einen Bootstyp, und OhMyWind berechnet für jede mögliche Abfahrtsstunde:
+
+- die Dauer und die Ankunftszeit, Etappe für Etappe, aus den Polaren des Boots;
+- Wind, Seegang und Strömung auf jedem Abschnitt;
+- eine Komplexitätsnote von 1 bis 5, mit konkreten Warnungen (frischer Wind, grobe See, Wind gegen Strom).
+
+Die Abfahrtsfenster lassen sich auf einen Blick vergleichen, ebenso mehrere Routen für dieselbe Überfahrt. Die Seite [Meine Spots vergleichen](/comparer) stellt außerdem die Lieblingsspots Stunde für Stunde nebeneinander.
 
 ## Gezeitenströme, ernst genommen
 
@@ -45,7 +45,7 @@ OhMyWind wird von Quentin Donnars entwickelt, Ingenieur (Arts et Métiers), Data
 
 Der [Quellcode ist öffentlich](https://github.com/qdonnars/ohmywind) ([AGPL-Lizenz](https://github.com/qdonnars/ohmywind/blob/main/LICENSE)). Die Finanzierung beruht auf dem Sponsoring durch Marken aus dem Wassersport, ohne jeden Einfluss auf die Berechnungen oder die Empfehlungen des Werkzeugs.
 
-> „Die öffentlichen Wetter- und Meeresdaten sind von bemerkenswerter Qualität, für Freizeitsegler aber schwer zugänglich. OhMyWind stellt sie in den Dienst einer ganz konkreten Frage: Wann losfahren, damit der Törn gut verläuft?“
+> „Die öffentlichen Wetter- und Meeresdaten sind von bemerkenswerter Qualität, für Freizeitsegler aber schwer zugänglich. OhMyWind stellt sie in den Dienst ganz konkreter Fragen: wann losfahren, welchen Weg nehmen. Wir konzentrieren uns auf das Nötige: keine weitere Routing-Software, einfach Antworten auf die Fragen der Segler.“
 >
 > Quentin Donnars, Gründer von OhMyWind
 

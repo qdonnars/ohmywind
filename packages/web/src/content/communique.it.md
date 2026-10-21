@@ -1,16 +1,4 @@
-## Una domanda semplice: quando partire?
-
-Le app di navigazione spesso fanno moltissime cose, e costano care, per esigenze che restano semplici. OhMyWind parte da un'osservazione sul campo: per un'uscita in giornata o una breve traversata, il diportista non ha bisogno di un routing completo, ha bisogno di sapere qual è la finestra di partenza giusta.
-
-L'utente [traccia la rotta](/plan), sceglie un tipo di barca, e OhMyWind calcola per ogni ora di partenza possibile:
-
-- la durata e l'ora di arrivo, tappa per tappa, a partire dalle polari della barca;
-- il vento, il mare e la corrente incontrati su ogni tratto;
-- un punteggio di complessità da 1 a 5, con avvisi concreti (vento teso, mare formato, vento contro corrente).
-
-Le finestre si confrontano a colpo d'occhio, così come più rotte per la stessa traversata. La pagina [Confrontare i miei spot](/comparer) mette inoltre gli spot preferiti fianco a fianco, ora per ora.
-
-## Negli assistenti IA, una conversazione da marinai
+## Novità: una conversazione da marinai con gli assistenti IA
 
 OhMyWind si collega agli assistenti di intelligenza artificiale (Claude, ChatGPT, Le Chat…) grazie al protocollo aperto [MCP](https://modelcontextprotocol.io). Il diportista descrive la sua uscita come farebbe con un membro dell'equipaggio, «domani, da Marsiglia a Porquerolles con un Sun Odyssey 36, quando parto?», e l'assistente interroga OhMyWind per rispondere. La versione 1.10, pubblicata il 17 ottobre 2026, ne fa un vero strumento di bordo:
 
@@ -21,6 +9,18 @@ OhMyWind si collega agli assistenti di intelligenza artificiale (Claude, ChatGPT
 - **Una rotta che attraversa la terraferma viene rifiutata** prima di qualsiasi calcolo, e all'assistente viene chiesto di ridisegnarla in mare.
 
 Il collegamento richiede un minuto, senza account OhMyWind né chiave API: basta seguire la [guida passo passo](https://mcp.ohmywind.fr) con l'indirizzo `https://mcp.ohmywind.fr/mcp`. Tutte le modifiche sono nelle [Novità](/a-propos/nouveautes).
+
+## Il giusto bisogno: quando partire, da dove passare
+
+Le app di navigazione spesso fanno moltissime cose, e costano care, per esigenze che restano semplici. OhMyWind si concentra sul giusto bisogno: non l'ennesimo software di routing, ma risposte alle domande che il diportista si pone prima di un'uscita in giornata o di una breve traversata. A che ora partire? Da dove passare?
+
+L'utente [traccia la rotta](/plan), sceglie un tipo di barca, e OhMyWind calcola per ogni ora di partenza possibile:
+
+- la durata e l'ora di arrivo, tappa per tappa, a partire dalle polari della barca;
+- il vento, il mare e la corrente incontrati su ogni tratto;
+- un punteggio di complessità da 1 a 5, con avvisi concreti (vento teso, mare formato, vento contro corrente).
+
+Le finestre si confrontano a colpo d'occhio, così come più rotte per la stessa traversata. La pagina [Confrontare i miei spot](/comparer) mette inoltre gli spot preferiti fianco a fianco, ora per ora.
 
 ## Le correnti di marea, prese sul serio
 
@@ -45,7 +45,7 @@ OhMyWind è sviluppato da Quentin Donnars, ingegnere Arts et Métiers, data scie
 
 Il [codice sorgente è pubblico](https://github.com/qdonnars/ohmywind) ([licenza AGPL](https://github.com/qdonnars/ohmywind/blob/main/LICENSE)). Il modello di finanziamento si basa sulla sponsorizzazione di marchi della nautica, senza alcuna influenza sui calcoli né sulle raccomandazioni dello strumento.
 
-> «I dati meteorologici e oceanografici pubblici sono di una qualità notevole, ma restano difficili da usare per il diportista. OhMyWind li mette al servizio di una domanda molto concreta: a che ora partire perché la navigazione vada bene.»
+> «I dati meteorologici e oceanografici pubblici sono di una qualità notevole, ma restano difficili da usare per il diportista. OhMyWind li mette al servizio di domande molto concrete: quando partire, da dove passare. Ci concentriamo sul giusto bisogno: non l'ennesimo software di routing, solo risposte alle domande dei diportisti.»
 >
 > Quentin Donnars, fondatore di OhMyWind
 

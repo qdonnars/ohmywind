@@ -1,16 +1,4 @@
-## Une question simple : quand partir ?
-
-Les applications de navigation font souvent beaucoup de choses, et coûtent cher pour des besoins qui restent simples. OhMyWind part d'un constat de terrain : pour une sortie à la journée ou une petite traversée, le plaisancier n'a pas besoin d'un routage complet, il a besoin de savoir quelle fenêtre de départ est la bonne.
-
-L'utilisateur [trace sa route](/plan), choisit un type de bateau, et OhMyWind calcule pour chaque heure de départ possible :
-
-- la durée et l'heure d'arrivée, étape par étape, à partir des polaires du bateau ;
-- le vent, la mer et le courant rencontrés sur chaque tronçon ;
-- un score de complexité de 1 à 5, avec des alertes concrètes (vent soutenu, mer formée, vent contre courant).
-
-Les fenêtres se comparent d'un coup d'œil, tout comme plusieurs itinéraires pour une même traversée. La page [Comparer](/comparer) met aussi les spots favoris côte à côte, heure par heure.
-
-## Dans les assistants IA, une conversation de marin
+## Nouveau : une conversation de marin avec les assistants IA
 
 OhMyWind se branche sur les assistants d'intelligence artificielle (Claude, ChatGPT, Le Chat…) grâce au protocole ouvert [MCP](https://modelcontextprotocol.io). Le plaisancier décrit sa sortie comme il le ferait à un équipier, « demain, Marseille vers Porquerolles sur un Sun Odyssey 36, je pars quand ? », et l'assistant interroge OhMyWind pour lui répondre. La version 1.10, publiée le 17 octobre 2026, en fait un véritable outil de bord :
 
@@ -21,6 +9,18 @@ OhMyWind se branche sur les assistants d'intelligence artificielle (Claude, Chat
 - **Une route qui coupe la terre est refusée** avant tout calcul, et l'assistant est invité à la redessiner en mer.
 
 La connexion prend une minute, sans compte OhMyWind ni clé d'API : il suffit de suivre le [tutoriel pas à pas](https://mcp.ohmywind.fr) avec l'adresse `https://mcp.ohmywind.fr/mcp`. Le détail des nouveautés est dans le [journal des versions](/a-propos/nouveautes).
+
+## Le juste besoin : quand partir, par où passer
+
+Les applications de navigation font souvent beaucoup de choses, et coûtent cher pour des besoins qui restent simples. OhMyWind se concentre sur le juste besoin : pas un logiciel de routage de plus, mais des réponses aux questions que se pose le plaisancier avant une sortie à la journée ou une petite traversée. À quelle heure partir ? Par où passer ?
+
+L'utilisateur [trace sa route](/plan), choisit un type de bateau, et OhMyWind calcule pour chaque heure de départ possible :
+
+- la durée et l'heure d'arrivée, étape par étape, à partir des polaires du bateau ;
+- le vent, la mer et le courant rencontrés sur chaque tronçon ;
+- un score de complexité de 1 à 5, avec des alertes concrètes (vent soutenu, mer formée, vent contre courant).
+
+Les fenêtres se comparent d'un coup d'œil, tout comme plusieurs itinéraires pour une même traversée. La page [Comparer](/comparer) met aussi les spots favoris côte à côte, heure par heure.
 
 ## Les courants de marée, pris au sérieux
 
@@ -45,7 +45,7 @@ OhMyWind est développé par Quentin Donnars, ingénieur Arts et Métiers, data 
 
 Le [code source est public](https://github.com/qdonnars/ohmywind) ([licence AGPL](https://github.com/qdonnars/ohmywind/blob/main/LICENSE)). Le modèle de financement repose sur le parrainage par des marques du nautisme, sans aucune influence sur les calculs ni sur les recommandations de l'outil.
 
-> « Les données météo et océanographiques publiques sont d'une qualité remarquable, mais elles restent difficiles d'accès pour le plaisancier. OhMyWind les met au service d'une question très concrète : à quelle heure partir pour que la navigation se passe bien. »
+> « Les données météo et océanographiques publiques sont d'une qualité remarquable, mais elles restent difficiles d'accès pour le plaisancier. OhMyWind les met au service de questions très concrètes : quand partir, par où passer. Nous nous concentrons sur le juste besoin : pas un logiciel de routage de plus, juste des réponses aux questions des plaisanciers. »
 >
 > Quentin Donnars, fondateur d'OhMyWind
 
