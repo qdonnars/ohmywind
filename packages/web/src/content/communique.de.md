@@ -73,7 +73,8 @@ Bildmaterial (Logo, Bildschirmfotos) auf Anfrage.
 - **Karte der Gezeitenströme**: [ohmywind.fr/methodologie/courants](/methodologie/courants)
 - **Neuigkeiten (Version 1.10 und frühere)**: [ohmywind.fr/a-propos/nouveautes](/a-propos/nouveautes)
 - **MCP-Server**: `https://mcp.ohmywind.fr/mcp`
-- **Anleitung zur Verbindung mit KI-Assistenten (Claude, ChatGPT, Le Chat) und Demovideo**: [mcp.ohmywind.fr](https://mcp.ohmywind.fr) (auf Englisch)
+- **Anleitung zur Verbindung mit KI-Assistenten (Claude, ChatGPT, Le Chat)**: [mcp.ohmywind.fr](https://mcp.ohmywind.fr) (auf Englisch)
+- **Demovideos**: [ohmywind.fr/youtube](https://ohmywind.fr/youtube)
 - **Andere MCP-Clients (Cursor, VS Code, Goose…)**: [Schnellstart](https://github.com/qdonnars/ohmywind#try-it-in-30-seconds) (auf Englisch)
 - **MCP-Protokoll**: [modelcontextprotocol.io](https://modelcontextprotocol.io)
 - **Quellcode**: [github.com/qdonnars/ohmywind](https://github.com/qdonnars/ohmywind)

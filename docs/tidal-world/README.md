@@ -21,7 +21,7 @@ Documents liés :
 - [`spike-cmems-arctic.md`](spike-cmems-arctic.md) : trous de la zone objectif au 2026-09-22 et spike Copernicus Arctique avec marée (Islande, 3 km).
 - [`bench-observations.md`](bench-observations.md) : la cascade servie, SMOC et l'hybride contre les radars HF (Iroise, baie allemande, Pays basque, Gibraltar) et des courantomètres du golfe de Gascogne (2026-10-11).
 - [`map/index.html`](map/index.html) : carte interactive (ouvrir le fichier dans un navigateur).
-- `.github/workflows/archive-bsh-currents.yml` : archivage quotidien, désactivé par défaut.
+- `.github/workflows/archive-bsh-currents.yml` : archivage deux fois par jour, actif dès que la variable `HF_ARCHIVE_DATASET` est posée.
 
 ## Revue du 2026-10-11 : périmètre servi et feuille de route
 
@@ -531,10 +531,19 @@ Détail et dates de lecture dans `spike-cmems-arctic.md`, section 0.
 
 ## 10. Archivage des séries (bonus)
 
-`.github/workflows/archive-bsh-currents.yml`, désactivé par `if: false`.
+`.github/workflows/archive-bsh-currents.yml`, actif dès que la variable du
+dépôt `HF_ARCHIVE_DATASET` est posée, sauté tant qu'elle ne l'est pas.
 Deux runs par jour à 04:30 et 16:30 UTC, `archive_bsh_currents.py` en
-sparse checkout, dépôt dans un HF Dataset public nommé par la variable
-`HF_ARCHIVE_DATASET` avec un `HF_TOKEN` en écriture sur ce seul dataset.
+sparse checkout, dépôt dans le HF Dataset public que nomme cette variable,
+avec le secret `HF_ARCHIVE_TOKEN` (jeton à portée fine, écriture sur ce seul
+dataset ; pas `HF_TOKEN`, qui pousse les Spaces). Le job ne rapatrie que
+`manifest.jsonl` : un fichier déjà inscrit au manifeste n'est pas retéléchargé.
+
+Constaté le 2026-10-17 : le FTP refuse désormais `MLSD` (`500 Unknown
+command`), le script liste par `NLST` et `SIZE`. Le répertoire `Nordsee` ne
+garde que le dernier run (trois jours de prévision d'un seul run), l'Elbe en
+garde trois jours ; les deux runs quotidiens du workflow attrapent chaque run
+du BSH (publiés vers 08:00 et 20:00 UTC) avant qu'il ne soit remplacé.
 Volume mesuré sur le FTP le 2026-09-19 : 55 Mo/jour pour les huit zones
 allemandes (22 Mo/jour une fois dédoublonné par le builder), soit 8 Go/an
 brut ; 3 minutes de runner par run. Rien n'est écrit dans le dataset privé

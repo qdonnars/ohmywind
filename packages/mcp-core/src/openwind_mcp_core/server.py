@@ -62,7 +62,7 @@ from openwind_data.adapters.openmeteo import (
     OpenMeteoAdapter,
     auto_chain_from,
 )
-from openwind_data.currents.land_mask import LandMask
+from openwind_data.currents.land_mask import LandMask, load_land_mask
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
 from openwind_data.currents.narrow_pass import confidence_for_point
 from openwind_data.currents.router import CompositeMarineAdapter, compose_marine_adapter
@@ -646,7 +646,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
           "Tracé envoyé par l'assistant : le vent et la mer sont lus le long de cette ligne, tronçon par tronçon.",
           n > 0)}
         <div id="ow-detail">${detailBlock(r, false)}</div>
-        <a class="cta" id="ow-cta" href="${escapeHtml(r.url || "__WEB_BASE__/plan")}" rel="noopener">Voir le plan complet sur __WEB_HOST__ →</a>
+        <a class="cta" id="ow-cta" href="${escapeHtml(r.url || "__WEB_BASE__/plan")}" rel="noopener">Modifier le tracé ou l'heure de départ sur __WEB_HOST__ →</a>
       `;
     }
 
@@ -661,7 +661,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
                  : "Tracé envoyé par l'assistant, le même pour tous les départs.",
           !!r.legs)}
         <div id="ow-detail">${detailBlock(r, true)}</div>
-        <a class="cta" id="ow-cta" href="${escapeHtml(r.url || "__WEB_BASE__/plan")}" rel="noopener">Voir ce départ sur __WEB_HOST__ →</a>
+        <a class="cta" id="ow-cta" href="${escapeHtml(r.url || "__WEB_BASE__/plan")}" rel="noopener">Modifier ce départ ou le tracé sur __WEB_HOST__ →</a>
       ` : "";
       return `
         <h2>Comparaison de ${runs.length} départ${runs.length>1?"s":""}</h2>
@@ -683,7 +683,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
           "Les tracés envoyés par l'assistant ; la variante choisie est colorée selon le vent de ses tronçons.",
           !!r.legs)}
         <div id="ow-detail">${detailBlock(r, true)}</div>
-        <a class="cta" id="ow-cta" href="${escapeHtml(r.url || "__WEB_BASE__/plan")}" rel="noopener">Voir cette variante sur __WEB_HOST__ →</a>
+        <a class="cta" id="ow-cta" href="${escapeHtml(r.url || "__WEB_BASE__/plan")}" rel="noopener">Modifier cette variante (tracé, départ) sur __WEB_HOST__ →</a>
       ` : "";
       return `
         <h2>Comparaison de ${routes.length} variantes</h2>
@@ -1254,10 +1254,10 @@ but the underlying complexity is unchanged.
 - No coastal acceleration zones (caller adds intermediate waypoints).
 - A coarse land check only: a route whose legs run a couple of
   kilometres over land, or a waypoint inland, is refused before any
-  forecast request (Natural Earth 10 m, about 1 km, coast widened by 2 km).
-  A spit narrower than about 4 km or a leg shaving a headland passes: the
-  polyline is timed exactly as drawn, and keeping it off the coast is
-  still the caller's job. No obstacle check (shoals, marks, traffic
+  forecast request (Natural Earth 10 m, about 1 km, coast widened by 2 km;
+  water a fine current atlas resolves counts as sea). A spit narrower than
+  about 4 km or a leg shaving a headland passes: the polyline is timed
+  exactly as drawn, and keeping it off the coast is still the caller's job. No obstacle check (shoals, marks, traffic
   schemes).
 - No port/starboard polar asymmetry, no spinnaker-specific curves.
 - No hull condition modelling beyond the `efficiency` knob.
@@ -1880,8 +1880,9 @@ def build_server(
             5 MB and 51 ms of pure duplication in the Space (audit M5).
         land_mask: the coarse land mask ``plan_passage`` checks routes
             against. Defaults to ``land_mask.npz`` next to the atlases, under
-            ``MARC_ATLAS_DIR`` or else ``SHOM_C2D_DIR``, as the REST API
-            loads it; without the file the check finds nothing. A deployment
+            ``MARC_ATLAS_DIR`` or else ``SHOM_C2D_DIR``, with the water of
+            the fine atlases cleared from it, as the REST API loads it;
+            without the file the check finds nothing. A deployment
             that serves both shells passes the API's.
     """
     # ``stateless_http=True`` disables the in-memory session table that
@@ -1907,26 +1908,25 @@ def build_server(
         stateless_http=True,
         json_response=True,
     )
+    marc_dir = os.environ.get("MARC_ATLAS_DIR")
+    shom_dir = os.environ.get("SHOM_C2D_DIR")
+    # Read only when something below is built from them: a deployment that
+    # hands in both the adapter and the mask (the Space) loads nothing twice.
+    needs_registries = adapter is None or land_mask is None
+    marc = MarcAtlasRegistry.from_directory(marc_dir) if marc_dir and needs_registries else None
+    shom = ShomC2dRegistry.from_directory(shom_dir) if shom_dir and needs_registries else None
     if adapter is not None:
         fetch_adapter: MarineDataAdapter = adapter
     else:
-        marc_dir = os.environ.get("MARC_ATLAS_DIR")
-        shom_dir = os.environ.get("SHOM_C2D_DIR")
         # ``compose_marine_adapter`` owns the "which tiers can this deployment
         # actually feed" rule. It used to be written out here and nowhere on
         # the REST side, which is how the same waypoint got SHOM currents over
         # MCP and 8 km SMOC over REST (audit M2).
-        fetch_adapter = compose_marine_adapter(
-            OpenMeteoAdapter(),
-            MarcAtlasRegistry.from_directory(marc_dir) if marc_dir else None,
-            ShomC2dRegistry.from_directory(shom_dir) if shom_dir else None,
-        )
+        fetch_adapter = compose_marine_adapter(OpenMeteoAdapter(), marc, shom)
     land: LandMask = (
         land_mask
         if land_mask is not None
-        else LandMask.from_directory(
-            os.environ.get("MARC_ATLAS_DIR") or os.environ.get("SHOM_C2D_DIR")
-        )
+        else load_land_mask(marc_dir or shom_dir, marc=marc, shom=shom)
     )
 
     @server.resource(
@@ -2067,9 +2067,11 @@ def build_server(
         carte". This is a forecast: never present it as a measurement of
         what is blowing right now.
 
-        Pass a point at sea. Over land Open-Meteo still returns wind, but
-        every sea value comes back null, so the ``sea`` array is present and
-        empty of information rather than absent.
+        Pass a point at sea. Open-Meteo Marine answers from the nearest sea
+        cell: a few kilometres inland the ``sea`` values are the open coast's
+        (Guipavas, inland of Brest, gets the waves of the rade), further
+        inland they come back null, the ``sea`` array present and empty of
+        information rather than absent. Wind is always the point's own.
 
         Note: the first request after inactivity may incur ~5s of cold-start.
 
@@ -2278,7 +2280,8 @@ def build_server(
         the call refused before any forecast request, with the leg and the
         place named. Redraw it and call again; never show the user a route
         over land. The shoreline is coarse (about 1 km, the coast widened by
-        2 km so harbours stay at sea): a spit narrower than about 4 km, or a
+        2 km so harbours stay at sea, and any water a fine current atlas
+        resolves counts as sea): a spit narrower than about 4 km, or a
         leg that shaves a headland, passes the check and is timed as drawn,
         too short, too fast, and scored on conditions the boat would never
         meet.
@@ -2373,16 +2376,19 @@ def build_server(
 
         On hosts without MCP Apps support (Cursor, Le Chat, terminal), present
         a short text summary of the result (route, ETA, complexity, warnings)
-        and offer ``openwind_url`` as the "View full plan →" link.
+        and offer ``openwind_url`` as the link to adjust the route or the
+        departure on the site.
 
         ## ALWAYS include the openwind_url(s) in your text reply
 
         Even when the widget renders inline, the user wants the link spelled
-        out so they can open the full app, share it, or bookmark it. Treat
+        out: it opens this very plan in the web app, where they can drag the
+        route, move the departure or change the boat, and share or bookmark
+        it. Treat
         this as a hard requirement, not a fallback:
 
         - **Single mode**: end your reply with a Markdown link built from the
-          ``openwind_url`` field, e.g. ``[Voir le plan détaillé →](<openwind_url>)``.
+          ``openwind_url`` field, e.g. ``[Modifier le tracé ou le départ →](<openwind_url>)``.
           Always use that value verbatim, never a URL you compose yourself: it
           points at the environment this server is configured for, which is not
           always the production site.
@@ -2392,9 +2398,9 @@ def build_server(
           The widget lets the user inspect any window, but it does not
           rank them: your picks and their links still belong in the reply.
 
-        Phrase the link with intent ("voir le plan détaillé", "ouvrir cette
-        fenêtre dans l'app"), not just a bare URL: the user should know
-        what clicking does.
+        Phrase the link with intent, as what the user can do there
+        ("modifier le tracé ou le départ", "ajuster ce départ dans l'app"),
+        not just a bare URL: the user should know what clicking does.
 
         ## Args
 

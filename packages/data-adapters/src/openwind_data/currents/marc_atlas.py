@@ -45,6 +45,7 @@ from openwind_data.currents.serving_policy import (
     DEAD_HEIGHT_M2_M,
     EXCLUDED_BOXES,
     OPEN_SEA_MAX_RANK,
+    WATER_EVIDENCE_MAX_RESOLUTION_M,
     WEAK_TIDE_KT,
     WITHHELD_ATLASES,
 )
@@ -99,6 +100,10 @@ class AtlasMeta:
     # 0.2 kt for the Copernicus atlases): a point in such an atlas without a
     # cell is, most of the time, water whose tide stayed under it.
     min_speed_kt: float | None = None
+    # ``grid.origin`` of a schema 3 ``metadata.json``: ``native`` when the
+    # cells are the model's own, ``regrid`` when a lattice was interpolated
+    # over them (MARC), empty when the file does not say.
+    grid_origin: str = ""
 
     @property
     def source_label(self) -> str:
@@ -175,6 +180,7 @@ def _scan_atlas(parquet_dir: Path) -> AtlasMeta | None:
         record_end=_iso_or_none((meta.get("analysis") or {}).get("record_end")),
         excluded_bboxes=EXCLUDED_BOXES.get(meta["atlas"], ()),
         min_speed_kt=_float_or_none((meta.get("analysis") or {}).get("min_speed_kt")),
+        grid_origin=str((meta.get("grid") or {}).get("origin") or ""),
     )
 
 
@@ -522,6 +528,28 @@ class MarcAtlasRegistry:
             if atlas is not None and atlas.name not in withheld:
                 found.append(atlas)
         return cls(atlases=tuple(found))
+
+    def water_cells(
+        self, max_resolution_m: int = WATER_EVIDENCE_MAX_RESOLUTION_M
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Latitudes and longitudes of every cell of the fine native atlases.
+
+        The water the land mask must not call land (``land_mask``): only an
+        atlas on its native grid, at ``max_resolution_m`` or finer, counts.
+        Reads the two coordinate columns of each tile and nothing else.
+        """
+        lats: list[np.ndarray] = []
+        lons: list[np.ndarray] = []
+        for atlas in self.atlases:
+            if atlas.grid_origin != "native" or atlas.resolution_m > max_resolution_m:
+                continue
+            for tile in sorted(atlas.parquet_dir.glob("tile_lat=*/tile_lon=*/data.parquet")):
+                df = pl.read_parquet(tile, columns=["lat", "lon"])
+                lats.append(df["lat"].to_numpy().astype(np.float64))
+                lons.append(df["lon"].to_numpy().astype(np.float64))
+        if not lats:
+            return np.empty(0), np.empty(0)
+        return np.concatenate(lats), np.concatenate(lons)
 
     def coverage_cells(self) -> tuple[tuple[str, _Boxes], ...]:
         """Where each atlas actually holds data, as rectangles of whole tiles.

@@ -119,10 +119,13 @@ jobs:
           # The Hub's pre-receive hook rejects binary blobs that aren't in
           # Xet/LFS storage, whatever their size, and the wholesale copy above
           # takes the Space's default .gitattributes down with it. Re-declare
-          # tracking for the binaries we actually ship (the landing demo), or
-          # the push dies with "your push was rejected because it contains
-          # binary files". Written before `git add` so the filter runs.
-          printf '%s\n' '*.mp4 filter=lfs diff=lfs merge=lfs -text' > .gitattributes
+          # tracking for the binaries we ship (the landing demo and its
+          # poster), or the push dies with "your push was rejected because it
+          # contains binary files". Images count: video-poster.jpg was refused
+          # on 2026-10-21 (#488) when only *.mp4 was declared. Written before
+          # `git add` so the filter runs.
+          printf '%s filter=lfs diff=lfs merge=lfs -text\n' \
+            '*.mp4' '*.webm' '*.jpg' '*.jpeg' '*.png' '*.webp' '*.gif' > .gitattributes
           git config user.name  "$GIT_USER_NAME"
           git config user.email "$GIT_USER_EMAIL"
           git add -A

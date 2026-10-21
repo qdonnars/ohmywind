@@ -73,7 +73,8 @@ Visuals (logo, screenshots) available on request.
 - **Tidal current map**: [ohmywind.fr/methodologie/courants](/methodologie/courants)
 - **What's new (version 1.10 and earlier)**: [ohmywind.fr/a-propos/nouveautes](/a-propos/nouveautes)
 - **MCP server**: `https://mcp.ohmywind.fr/mcp`
-- **Guide to connecting AI assistants (Claude, ChatGPT, Le Chat) and demo video**: [mcp.ohmywind.fr](https://mcp.ohmywind.fr)
+- **Guide to connecting AI assistants (Claude, ChatGPT, Le Chat)**: [mcp.ohmywind.fr](https://mcp.ohmywind.fr)
+- **Demo videos**: [ohmywind.fr/youtube](https://ohmywind.fr/youtube)
 - **Other MCP clients (Cursor, VS Code, Goose…)**: [quick start](https://github.com/qdonnars/ohmywind#try-it-in-30-seconds)
 - **MCP protocol**: [modelcontextprotocol.io](https://modelcontextprotocol.io)
 - **Source code**: [github.com/qdonnars/ohmywind](https://github.com/qdonnars/ohmywind)

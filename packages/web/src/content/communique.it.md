@@ -73,7 +73,8 @@ Immagini (logo, schermate) disponibili su richiesta.
 - **Mappa delle correnti di marea**: [ohmywind.fr/methodologie/courants](/methodologie/courants)
 - **Novità (versione 1.10 e precedenti)**: [ohmywind.fr/a-propos/nouveautes](/a-propos/nouveautes)
 - **Server MCP**: `https://mcp.ohmywind.fr/mcp`
-- **Guida al collegamento con gli assistenti IA (Claude, ChatGPT, Le Chat) e video dimostrativo**: [mcp.ohmywind.fr](https://mcp.ohmywind.fr) (in inglese)
+- **Guida al collegamento con gli assistenti IA (Claude, ChatGPT, Le Chat)**: [mcp.ohmywind.fr](https://mcp.ohmywind.fr) (in inglese)
+- **Video dimostrativi**: [ohmywind.fr/youtube](https://ohmywind.fr/youtube)
 - **Altri client MCP (Cursor, VS Code, Goose…)**: [guida rapida](https://github.com/qdonnars/ohmywind#try-it-in-30-seconds) (in inglese)
 - **Protocollo MCP**: [modelcontextprotocol.io](https://modelcontextprotocol.io)
 - **Codice sorgente**: [github.com/qdonnars/ohmywind](https://github.com/qdonnars/ohmywind)

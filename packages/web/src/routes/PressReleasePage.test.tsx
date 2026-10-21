@@ -25,6 +25,7 @@ const LINKS = [
   "/presse",
   "https://play.google.com/store/apps/details?id=fr.ohmywind.app",
   "https://mcp.ohmywind.fr",
+  "https://ohmywind.fr/youtube",
   "https://github.com/qdonnars/ohmywind#try-it-in-30-seconds",
   "https://github.com/qdonnars/ohmywind",
   "https://www.parisnauticshow.com/cap-innovation/",
