@@ -4,6 +4,27 @@ Toutes les versions d'OhMyWind, de la plus récente à la plus ancienne. Le site
 
 Chaque version est aussi publiée sur la page [Releases](https://github.com/qdonnars/ohmywind/releases) du dépôt, et l'application affiche ce journal sur sa page « Quoi de neuf ». La marche à suivre pour publier une version est dans [docs/releases.md](docs/releases.md). English version: [CHANGELOG.en.md](CHANGELOG.en.md).
 
+## 1.11.0 · 2026-10-21 · Les sources de chaque point, et OhMyWind en vidéo
+
+### Nouveautés
+
+- Sur la carte des courants de marée, la fiche d'un point liste ses sources : celle qui est utilisée, celles en secours, celles qui manquent et pourquoi, avec un renvoi au registre. Au détroit de Messine, elle signale les courants publiés par l'Istituto Idrografico della Marina (#489).
+- OhMyWind a sa chaîne YouTube, à l'adresse ohmywind.fr/youtube, et la page du serveur MCP montre la vidéo de démonstration (#488).
+- Le communiqué de presse se lit en français, anglais, allemand, italien et espagnol, avec les nouveautés de l'assistant et la candidature au concours Cap Innovation du Paris Nautic Show (#490).
+
+### Corrections
+
+- Un point à terre n'affiche plus ni vagues, ni courant, ni marée : la mer la plus proche répondait jusqu'à une dizaine de kilomètres dans les terres (#482).
+- Dans les anses et les rivières que résout un atlas fin, comme l'anse de Locquirec, le courant n'est plus caché par le masque de terre (#483).
+- Dans l'assistant, la marée d'une passe que la source décrit mal, comme le détroit de Messine, est accompagnée d'un avertissement, comme dans le plan et sur la carte (#487).
+- Dans l'assistant, le lien vers ohmywind.fr dit que vous pouvez y modifier le tracé ou l'heure de départ (#484).
+- Le sommaire de la méthodologie mène directement à la page Courants de marée (#486).
+
+### Coulisses
+
+- L'archivage des prévisions de courant du BSH (baie allemande, Elbe) est prêt à tourner, pour affiner ensuite les atlas de cette zone (#485).
+- La synchronisation du serveur prend aussi en charge les images (#492).
+
 ## 1.10.0 · 2026-10-17 · Le serveur MCP répond aux questions de marins
 
 ### Nouveautés
