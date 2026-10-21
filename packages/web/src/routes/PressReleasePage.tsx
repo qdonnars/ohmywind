@@ -4,11 +4,19 @@
 import type { ComponentProps } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { PRESS_RELEASE } from "../content/press";
-import releaseBody from "../content/communique.md?raw";
-import { LANG_NAMES, useT } from "../i18n";
+import { PRESS_RELEASES } from "../content/press";
+import bodyFr from "../content/communique.md?raw";
+import bodyEn from "../content/communique.en.md?raw";
+import bodyDe from "../content/communique.de.md?raw";
+import bodyIt from "../content/communique.it.md?raw";
+import bodyEs from "../content/communique.es.md?raw";
+import { useT, type Lang } from "../i18n";
 import "./press.css";
 import "./press-release.css";
+
+// All five in this page's chunk, like the privacy page: loaded on demand,
+// and together lighter than one screenshot.
+const BODIES: Record<Lang, string> = { fr: bodyFr, en: bodyEn, de: bodyDe, it: bodyIt, es: bodyEs };
 
 /**
  * A link leaving the site opens in a new tab, like every external link of
@@ -25,12 +33,13 @@ function MarkdownLink({ node, href, ...props }: ComponentProps<"a"> & { node?: u
 /**
  * The press release, reached from `/presse`. Same theme as the press page
  * rather than the doc pages' white paper: it is the project speaking, not a
- * reference document. The release is French only, so everything under the
- * eyebrow carries `lang="fr"`, and the eyebrow names the language for a
- * reader whose interface is set to another one.
+ * reference document. Written in the interface language, so a journalist
+ * sent the link reads it in the language the browser asks for.
  */
 export function PressReleasePage() {
-  const { t } = useT();
+  const { t, lang } = useT();
+  const release = PRESS_RELEASES[lang];
+  const { highlight } = release;
 
   return (
     <div className="press-root min-h-screen">
@@ -44,19 +53,26 @@ export function PressReleasePage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-10">
-        <p className="press-eyebrow press-release-eyebrow">
-          {t("press.release.label")}
-          <span className="press-chip" lang={PRESS_RELEASE.lang}>
-            {LANG_NAMES[PRESS_RELEASE.lang]}
-          </span>
-        </p>
-        <article lang={PRESS_RELEASE.lang}>
-          <p className="press-release-dateline">{PRESS_RELEASE.dateline}</p>
-          <h1 className="press-title press-release-title">{PRESS_RELEASE.title}</h1>
-          <p className="press-release-lead">{PRESS_RELEASE.lead}</p>
+        <p className="press-eyebrow">{t("press.release.label")}</p>
+        <article>
+          <p className="press-release-dateline">{release.dateline}</p>
+          <h1 className="press-title press-release-title">{release.title}</h1>
+          <p className="press-release-lead">{release.lead}</p>
+          {highlight && (
+            <aside className="press-release-highlight" aria-labelledby="press-release-highlight-title">
+              <p className="press-release-highlight-badge">{highlight.badge}</p>
+              <h2 id="press-release-highlight-title" className="press-release-highlight-title">
+                {highlight.title}
+              </h2>
+              <p className="press-release-highlight-body">{highlight.body}</p>
+              <a href={highlight.link.href} target="_blank" rel="noreferrer">
+                {highlight.link.text}
+              </a>
+            </aside>
+          )}
           <div className="prose-press">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: MarkdownLink }}>
-              {releaseBody}
+              {BODIES[lang]}
             </ReactMarkdown>
           </div>
         </article>
