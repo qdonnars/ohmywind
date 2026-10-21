@@ -2991,6 +2991,59 @@
      ]
     ]
    }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "iim_tavole_messina",
+    "name": "Istituto Idrografico della Marina, Tavole di Marea (détroit de Messine)",
+    "provider": "Istituto Idrografico della Marina (IT)",
+    "zone": "Détroit de Messine",
+    "status": "blocked",
+    "kind": "station_points",
+    "resolution_m": null,
+    "access": "publication annuelle payante",
+    "licence": "Mention de copyright IIM : toute reproduction ou adaptation, même partielle, y compris les élaborations numériques, est interdite sans autorisation écrite préalable de l'Istituto Idrografico della Marina",
+    "licence_url": "https://www.marina.difesa.it/noi-siamo-la-marina/pilastro-logistico/scientifici/idrografico/Documents/disciplinare_tecnico_2016/2_II_3176.pdf",
+    "licence_read_at": "2026-10-21",
+    "derivative_redistribution": "no",
+    "effort": "M",
+    "roadmap_step": null,
+    "notes": "La référence du détroit : la partie VI des Tavole di Marea donne des tables de calcul rapide du courant, que les pilotes de Messine et correntidellostretto.it déclinent en dix zones de Punta Pezzo à Ganzirri, au pas de 30 min, jusqu'à 4 kt et plus. Le 2026-10-21, la grille Copernicus MED 4,2 km tombait à l'heure près sur les renverses mais lisait 12 à 55 % de la vitesse des pilotes. Signalé par un plaisancier de Sicile.",
+    "acquisition": "Autorisation écrite de l'Istituto Idrografico della Marina (Gênes) à demander ; relais possibles : les pilotes du détroit de Messine, des plaisanciers locaux.",
+    "update_plan": "Non intégrable sans cette autorisation. Avec elle : prédicteur propre au détroit, calé sur les tables de l'année, en tête de la cascade.",
+    "access_kind": "paid",
+    "automation": "none",
+    "update_cadence": "yearly",
+    "licence_class": "other"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       15.48,
+       38.03
+      ],
+      [
+       15.72,
+       38.03
+      ],
+      [
+       15.72,
+       38.31
+      ],
+      [
+       15.48,
+       38.31
+      ],
+      [
+       15.48,
+       38.03
+      ]
+     ]
+    ]
+   }
   }
  ]
 }

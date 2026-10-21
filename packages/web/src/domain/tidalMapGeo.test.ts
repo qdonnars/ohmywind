@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { describe, expect, it } from "vitest";
-import type { FeatureCollection, Geometry, Point } from "geojson";
+import type { Feature, FeatureCollection, Geometry, Point } from "geojson";
 import {
   cascadeAt,
   classifyAnswer,
@@ -12,6 +12,7 @@ import {
   kmBetween,
   labelNamesAtlas,
   nearestPass,
+  sourcesAt,
   pointInGeometry,
   precisionClass,
   statusAt,
@@ -196,5 +197,65 @@ describe("the unknown answer", () => {
     expect(classifyAnswer({ covered: false, unknown: { zone: "x", reason: "later" } }).unknown?.reason).toBe("managed");
     // Plain uncovered water is still the global model.
     expect(classifyAnswer({ covered: false }).kind).toBe("smoc");
+  });
+});
+
+describe("sourcesAt", () => {
+  const box = (w: number, s: number, e: number, n: number): Geometry => ({ type: "Polygon", coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] });
+  type Src = { id: string; status: string; resolution_m: number | null; hide_in_table?: boolean; atlases?: string[] };
+  const src = (id: string, status: string, resolution_m: number | null, geometry: Geometry, hide = false, atlases?: string[]): Feature<Geometry, Src> => ({
+    type: "Feature",
+    geometry,
+    properties: { id, status, resolution_m, hide_in_table: hide, atlases },
+  });
+  // The Strait of Messina: the Mediterranean grid used, the global current
+  // underneath, a model to clarify, the Italian tables blocked by licence.
+  const world = box(-180, -85, 180, 85);
+  const strait = box(15.48, 38.03, 15.72, 38.31);
+  const features = [
+    src("iim_tavole_messina", "blocked", null, strait),
+    src("cmems_global_smoc", "current", 8000, world),
+    src("fes2014_currents", "ok", 7000, world),
+    src("cmcc_sanifs", "clarify", 500, box(15, 37.5, 19, 41)),
+    src("cmems_med", "current", 4200, box(-6, 30, 37, 46), false, ["CMEMS_MED"]),
+    src("tpxo10", "blocked", 3700, world, true),
+    src("eot20", "no_currents", null, world),
+    src("cmems_ibi", "current", 2500, box(-20, 26, 5, 56), false, ["CMEMS_IBI"]),
+    src("shom_c2d", "current", 500, box(-6, 43, 3, 51.5), false, ["shom"]),
+    src("ukho", "blocked", null, box(-11, 48, 2, 61)),
+  ];
+  const live = (p: Src) => p.status;
+  it("lists the used source first, then the integrated ones, then the missing ones that would do better", () => {
+    // Messina: the 4.2 km grid in use, so a 500 m model and the tables count,
+    // a 7 km global atlas does not.
+    const rows = sourcesAt(38.25, 15.635, features, live, "cmems_med", { usedResolutionM: 4200 });
+    expect(rows.map((r) => [r.source.id, r.role])).toEqual([
+      ["cmems_med", "used"],
+      ["cmems_global_smoc", "fallback"],
+      ["cmcc_sanifs", "clarify"],
+      ["iim_tavole_messina", "blocked"],
+    ]);
+  });
+  it("lists nothing missing where a fine source answers, whatever the boxes say", () => {
+    const rows = sourcesAt(48.5, -5.0, features, live, "shom_c2d", { usedResolutionM: 500, heldBy: new Set(["shom", "CMEMS_IBI"]) });
+    expect(rows.map((r) => [r.source.id, r.role])).toEqual([
+      ["shom_c2d", "used"],
+      ["cmems_global_smoc", "fallback"],
+      ["cmems_ibi", "passed"],
+    ]);
+  });
+  it("lists an integrated source only where the server says it holds the point", () => {
+    // Off Gibraltar the Mediterranean box holds the point, the atlas does not.
+    const rows = sourcesAt(36.0, -5.4, features, live, "cmems_ibi", { usedResolutionM: 2500, heldBy: new Set(["CMEMS_IBI"]) });
+    expect(rows.find((r) => r.source.id === "cmems_med")).toBeUndefined();
+    const weak = sourcesAt(36.0, -5.4, features, live, "cmems_ibi", { usedResolutionM: 2500, heldBy: new Set(["CMEMS_IBI", "CMEMS_MED"]) });
+    expect(weak.find((r) => r.source.id === "cmems_med")?.role).toBe("passed");
+  });
+  it("makes the global current the used one when nothing else answers", () => {
+    const rows = sourcesAt(10, -30, features, live, "cmems_global_smoc", { usedResolutionM: 8000 });
+    expect(rows.map((r) => [r.source.id, r.role])).toEqual([
+      ["cmems_global_smoc", "used"],
+      ["fes2014_currents", "ok"],
+    ]);
   });
 });

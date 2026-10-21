@@ -20,19 +20,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { API_BASE } from "../api/config";
 import { formatGridSize } from "../domain/currentSource";
 import {
+  SMOC_SOURCE_ID,
   ZONE_STATUSES,
   cascadeAt,
   classifyAnswer,
   labelNamesAtlas,
   esc,
-  isGlobalExtent,
   nearestPass,
-  pointInGeometry,
   precisionClass,
-  statusAt,
+  sourcesAt,
   type CoverageAtlas,
   type PassProperties,
   type PrecisionClass,
+  type SourceRole,
   type SourceAnswer,
   type ZoneProperties,
   type ZoneStatus,
@@ -42,10 +42,8 @@ import {
   RasterGrid,
   isDeadCoastal,
   isWeakCoarse,
-  maxCurrentAt,
   rampColor,
   rampGradient,
-  weakTideAt,
   type RasterManifest,
 } from "../domain/tidalRaster";
 import { useT } from "../i18n";
@@ -167,6 +165,20 @@ const SOURCE_COLOR: Record<string, string> = {
   no_currents: "#8a8a84",
 };
 const SOURCE_ORDER = ["current", "ok", "clarify", "blocked", "no_currents"];
+/** A source's role at a clicked point, in the registry's colours: green for
+    the one the app uses, blue for the general current, grey for an
+    integrated source passed over, the licence colours for the missing ones. */
+const ROLE_COLOR: Record<SourceRole, string> = {
+  used: STATUS_COLOR.covered,
+  fallback: NEGLIGIBLE_COLOR,
+  passed: "#8a8a84",
+  ok: SOURCE_COLOR.ok,
+  clarify: SOURCE_COLOR.clarify,
+  blocked: SOURCE_COLOR.blocked,
+};
+/** "Copernicus Marine MED" for "Copernicus Marine MED (MEDSEA_...)": the
+    card keeps the name, the registry row keeps the product code. */
+const shortSourceName = (name: string) => name.replace(/\s*\([^)]*\)\s*$/, "");
 /** The precision of the server's answer, in its own neutral ramp so it is
     never read as one of the four zone statuses. */
 const PRECISION_COLOR: Record<PrecisionClass, string> = {
@@ -230,14 +242,6 @@ type Explain = {
     tidal_gap?: { zone: string; kind: string; km: number };
   };
 };
-
-const ATLAS_SOURCE_NAME: Record<string, string> = { marc: "MARC", bsh: "BSH", cmems: "Copernicus", norkyst: "NorKyst" };
-/** "MARC ATLNE", "Copernicus NWS", "BSH DB": the producer from the label, the zone from the name. */
-function atlasDisplayName(name: string, label: string): string {
-  const src = label.split("_")[0];
-  const zone = name.replace(new RegExp(`^${src}_`, "i"), "").replace(/_/g, " ");
-  return `${ATLAS_SOURCE_NAME[src] ?? src.toUpperCase()} ${zone}`;
-}
 
 /** One atlas the server says holds the point and passes on it. */
 type DeclinedAtlas = {
@@ -356,47 +360,22 @@ export function TidalSourcesMap() {
   const dataRef = useRef<Layers | null>(null);
   const gridsRef = useRef<RasterGrid[]>([]);
   const sourceLayersRef = useRef<Map<string, L.Layer>>(new Map());
+  // A source name clicked in a card: its registry row, highlighted. Read
+  // through a ref by the map's click listener, set up once.
+  const [focusedSource, setFocusedSource] = useState<string | null>(null);
+  const focusSourceRef = useRef<((id: string) => void) | null>(null);
   const [shown, setShown] = useState<Record<string, boolean>>({});
   const [sources, setSources] = useState<SourceProperties[]>([]);
   const [served, setServed] = useState<Set<string> | null>(null);
   const [servedAtlases, setServedAtlases] = useState<CoverageAtlas[]>([]);
-  // Beside the map on a wide screen, the registry starts open: ticking a row
-  // and seeing its extent is the point of the layout. Below the map on a
-  // phone it starts folded, as before.
-  const [registryOpen, setRegistryOpen] = useState(
-    () => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(min-width: 1100px)").matches,
-  );
+  // The registry starts folded on every screen: the card's source names
+  // open it on the row they name.
+  const [registryOpen, setRegistryOpen] = useState(false);
   const servedRef = useRef<Served | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
   const statusText = (s: ZoneStatus | null) => t(`config.methodo.tidal.status.${s ?? "none"}`);
   const fmtKt = (kt: number) => kt.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-  // What the card says about the tide at a point: the value of the finest
-  // served atlas under it, else the status of an uncovered strong zone.
-  const zoneBadge = (lat: number, lon: number, z: ZoneProperties | null, globalAnswers: boolean): string => {
-    const hit = maxCurrentAt(lat, lon, gridsRef.current);
-    if (hit) {
-      const text =
-        hit.kt >= 0.5
-          ? t("config.methodo.tidal.status.coveredValue", { kt: fmtKt(hit.kt), atlas: hit.entry.label })
-          : t("config.methodo.tidal.status.calmValue", { kt: fmtKt(hit.kt), atlas: hit.entry.label });
-      return badge(hit.kt >= 0.5 ? rampColor(hit.kt) : "#7fb08f", text);
-    }
-    if (z && z.status !== "covered" && z.status !== "calm") return badge(STATUS_COLOR[z.status], statusText(z.status));
-    // Only when the server itself fell back to the global model: the raster
-    // pixel and the server's nearest cell can disagree at an atlas's edge,
-    // and the card follows the server.
-    const weak = globalAnswers ? weakTideAt(lat, lon, gridsRef.current) : null;
-    if (weak) {
-      return badge(NEGLIGIBLE_COLOR, t("config.methodo.tidal.status.weakTide", { kt: fmtKt(weak.kt), atlas: weak.entry.label }));
-    }
-    const d = dataRef.current;
-    if (d && d.negligible.features.some((f) => pointInGeometry(lon, lat, f.geometry))) {
-      return esc(t("config.methodo.tidal.status.negligible"));
-    }
-    return esc(statusText(null));
-  };
-
   // Popup text for a known pass; reads the dictionary at click time so a
   // language switch after mount still lands in the right words.
   function passPopup(p: PassProperties): string {
@@ -549,42 +528,78 @@ export function TidalSourcesMap() {
       row(t("config.methodo.tidal.popup.source"), answerHtml) +
       row(t("config.methodo.tidal.popup.why"), answerLabel === "openmeteo_smoc" ? generalWhy : null) +
       row(t("config.methodo.tidal.popup.passedOver"), passedOver.length ? passedOver.join("<br>") : null) +
-      staticRows(lat, lon, answerLabel === "openmeteo_smoc") +
+      sourcesRows(lat, lon, usedSourceId(chosen?.source === "shom" ? "shom" : (chosen?.name ?? null), answerLabel === "openmeteo_smoc"), null, null) +
       `</dl>`
     );
   }
 
-  // What the static layers know about a point: the zone's status, the
-  // nearest known pass, the candidate sources of the registry, the target
-  // area. The map's own knowledge, shown under the server's answer.
-  function staticRows(lat: number, lon: number, globalAnswers: boolean): string {
+  // The sources that hold a point, one line each: the one the app uses,
+  // with its spring maximum, the integrated ones, the missing ones and why
+  // in a word. A name opens its row in the registry under the map, where the
+  // licence, the access and the plan are spelled out. Then the nearest pass
+  // and its published stream.
+  function sourcesRows(
+    lat: number,
+    lon: number,
+    usedId: string | null,
+    usedKt: number | null,
+    heldBy: ReadonlyMap<string, string> | null,
+  ): string {
     const d = dataRef.current;
-    const zone = statusAt(lon, lat, d?.status ?? null);
+    const live = (p: SourceProperties) => liveStatus(p, servedRef.current?.names ?? null);
+    const features = d?.sources.features ?? [];
+    const usedResolutionM = features.find((f) => f.properties.id === usedId)?.properties.resolution_m ?? null;
+    const held = heldBy ? new Set(heldBy.keys()) : null;
+    // Why an integrated source does not answer here, in the server's words:
+    // a finer one does, the tide is too weak to matter, dead water.
+    const passedKey = (p: SourceProperties): Parameters<typeof t>[0] => {
+      const decisions = new Set((p.atlases ?? []).map((a) => heldBy?.get(a)));
+      if (decisions.has("lower_priority")) return "config.methodo.tidal.here.passedLower";
+      if (decisions.has("weak_tide")) return "config.methodo.tidal.here.passedWeak";
+      if (decisions.has("dead_water")) return "config.methodo.tidal.here.passedDead";
+      if (decisions.has("excluded:gibraltar")) return "config.methodo.tidal.here.passedInflow";
+      return "config.methodo.tidal.here.passed";
+    };
+    const items = sourcesAt(lat, lon, features, live, usedId, { heldBy: held, usedResolutionM }).map(({ source: p, role }) => {
+      const grid = p.resolution_m ? ` · ${esc(formatGridSize(p.resolution_m))}` : "";
+      const kt = role === "used" && usedKt != null ? ` · ${esc(t("config.methodo.tidal.here.maxKt", { kt: fmtKt(usedKt) }))}` : "";
+      const label = role === "passed" ? t(passedKey(p)) : t(`config.methodo.tidal.here.${role}` as Parameters<typeof t>[0]);
+      return (
+        `<li><a href="#tidal-row-${esc(p.id)}" data-source-id="${esc(p.id)}">${esc(shortSourceName(p.name))}</a>${grid}${kt} ` +
+        badge(ROLE_COLOR[role], label) +
+        `</li>`
+      );
+    });
+    // A known pass nearby: its published spring stream, the figure to set
+    // against the grid's maximum.
     const near = nearestPass(lat, lon, d?.passes ?? null);
-    const inObjective = d?.objective.features.some((f) => pointInGeometry(lon, lat, f.geometry)) ?? false;
-    const here = (d?.sources.features ?? [])
-      .filter((f) => f.properties.status === "ok" && f.properties.kind !== "station_points" && pointInGeometry(lon, lat, f.geometry))
-      .sort((a, b) => (a.properties.resolution_m ?? 1e9) - (b.properties.resolution_m ?? 1e9));
-    const label = (f: SourceFC["features"][number]) => `${esc(f.properties.name)}${f.properties.resolution_m ? ` (${f.properties.resolution_m} m)` : ""}`;
-    // Same rule as the four colours: a worldwide source is the fallback tier,
-    // it never counts as a candidate to cover the zone.
-    const candidates = here.filter((f) => !isGlobalExtent(f.geometry)).slice(0, 3).map(label);
-    const fallback = here.filter((f) => isGlobalExtent(f.geometry)).map(label);
+    const passLabel = near ? t("config.methodo.tidal.popup.passNear", { km: near.km < 1 ? "< 1" : near.km.toFixed(0) }) : "";
+    const pass = near
+      ? t("config.methodo.tidal.popup.passNearValue", {
+          name: near.feature.properties.name,
+          kt: near.feature.properties.max_spring_kt != null ? near.feature.properties.max_spring_kt.toLocaleString(locale) : (near.feature.properties.max_spring_text ?? "?"),
+        })
+      : null;
     return (
-      row(t("config.methodo.tidal.popup.status"), zoneBadge(lat, lon, zone, globalAnswers)) +
-      row(
-        t("config.methodo.tidal.popup.pass"),
-        near
-          ? esc(t("config.methodo.tidal.popup.passValue", { name: near.feature.properties.name, kt: near.feature.properties.max_spring_text ?? "?", km: near.km.toFixed(0) }))
-          : null,
-      ) +
-      row(t("config.methodo.tidal.popup.candidates"), candidates.length ? candidates.join("<br>") : esc(t("config.methodo.tidal.popup.none"))) +
-      row(
-        t("config.methodo.tidal.popup.fallback"),
-        fallback.length ? `${fallback.join("<br>")}<br><small>${esc(t("config.methodo.tidal.popup.fallbackNote"))}</small>` : null,
-      ) +
-      row(t("config.methodo.tidal.popup.objective"), esc(t(inObjective ? "config.methodo.tidal.popup.yes" : "config.methodo.tidal.popup.no")))
+      // The list spans the card: five names with their grid and role do
+      // not fit the value column on a phone.
+      `<dt class="methodo-map-wide">${esc(t("config.methodo.tidal.popup.sourcesHere"))}</dt>` +
+      `<dd class="methodo-map-wide">${
+        items.length
+          ? `<ul class="methodo-map-here">${items.join("")}</ul><small>${esc(t("config.methodo.tidal.popup.sourcesHint"))}</small>`
+          : esc(t("config.methodo.tidal.popup.none"))
+      }</dd>` +
+      row(passLabel, pass ? esc(pass) : null)
     );
+  }
+
+  /** The registry id behind the server's answer: the entry listing the
+      atlas it used (``shom`` for SHOM), the global current when no atlas
+      answers. */
+  function usedSourceId(atlas: string | null, global: boolean): string | null {
+    if (global) return SMOC_SOURCE_ID;
+    if (!atlas) return null;
+    return dataRef.current?.sources.features.find((f) => f.properties.atlases?.includes(atlas))?.properties.id ?? null;
   }
 
   // The card for a click, from the server's own audit of the point
@@ -608,45 +623,21 @@ export function TidalSourcesMap() {
         `<dl class="methodo-map-popup-grid">${row(t("config.methodo.tidal.popup.source"), esc(t("config.methodo.tidal.popup.land")))}</dl>`
       );
     }
-    const used = e.atlases.find((x) => x.decision === "used" || x.decision === "dead_water") ?? null;
-    const decisionText = (x: ExplainAtlas): string => {
-      if (a.kind === "unknown" && a.reason !== "model_edge") return t("config.methodo.tidal.reason.unknownZone");
-      switch (x.decision) {
-        case "lower_priority":
-          return used && x.rank < used.rank ? t("config.methodo.tidal.reason.lowerRank") : t("config.methodo.tidal.reason.coarser");
-        case "weak_tide":
-          return x.max_tide_kt != null
-            ? t("config.methodo.tidal.reason.weakTide", { kt: fmtKt(x.max_tide_kt) })
-            : t("config.methodo.tidal.reason.weakTideBuild");
-        case "excluded":
-          // The Atlantic boxes keep the Mediterranean atlas in its own sea:
-          // outside the waters it was built for, not a strait to cut out.
-          if (x.box === "atlantic") return t("config.methodo.tidal.reason.outsideValidity");
-          return t("config.methodo.tidal.reason.excludedBox", {
-            box: x.box === "gibraltar" ? t("config.methodo.tidal.box.gibraltar") : (x.box ?? "?"),
-          });
-        case "outside_validity":
-          return t("config.methodo.tidal.reason.outsideValidity");
-        case "dead_water":
-          return t("config.methodo.tidal.reason.deadWater");
-        default:
-          return t("config.methodo.tidal.reason.noCell");
-      }
-    };
-    const line = (x: ExplainAtlas) => esc(`${atlasDisplayName(x.atlas, x.label)} · ${formatGridSize(x.resolution_m)} · ${decisionText(x)}`);
-    const others = e.atlases.filter((x) => a.kind === "unknown" || x !== used).map(line);
-    if (e.shom && !e.shom.covers && e.shom.nearest_km != null && e.shom.nearest_km < 20) {
-      others.unshift(esc(`SHOM · ${t("config.methodo.tidal.reason.noShomPoint")}`));
+    const used = e.atlases.find((x) => x.decision === "used") ?? null;
+    // The atlases that hold the point, used or passed over for a finer
+    // grid, a weak tide, dead water, or cut out of a strait where the tide
+    // alone erases the inflow (Gibraltar): the integrated sources worth a
+    // line. An atlas outside the sea it was built for is not.
+    const heldBy = new Map<string, string>();
+    for (const x of e.atlases) {
+      if (["used", "lower_priority", "weak_tide", "dead_water"].includes(x.decision)) heldBy.set(x.atlas, x.decision);
+      else if (x.decision === "excluded" && x.box === "gibraltar") heldBy.set(x.atlas, "excluded:gibraltar");
     }
-    if (a.kind === "shom" || a.kind === "atlas") {
-      others.push(esc(`SMOC · 8 km · ${t("config.methodo.tidal.reason.fallback")}`));
-    } else if (a.kind === "unknown") {
-      others.push(esc(`SMOC · 8 km · ${t("config.methodo.tidal.reason.unknownZone")}`));
-    }
+    if (e.shom?.covers) heldBy.set("shom", "used");
     let title = t("config.methodo.tidal.popup.title");
     let tag = "";
-    let sourceHtml: string | null = null;
     let why: string | null = null;
+    let usedId: string | null = null;
     if (a.kind === "unknown") {
       title = t("config.methodo.tidal.popup.unknownTitle");
       tag = badge(UNKNOWN_ZONE_COLOR, t("config.methodo.tidal.status.unknownZone"));
@@ -654,36 +645,21 @@ export function TidalSourcesMap() {
       why = esc(t(`explore.marineTable.unknown.${reason}`, { zone: a.zone ?? "" }));
     } else if (a.kind === "shom") {
       tag = badge(PRECISION_COLOR.fine, t("config.methodo.tidal.precision.fine"));
-      const m = e.shom?.nearest_km != null ? Math.round((e.shom.nearest_km * 1000) / 10) * 10 : null;
-      sourceHtml = `${esc(t("config.methodo.tidal.popup.shom", { distance: String(m ?? "?") }))}<br><code>${esc(a.source ?? "")}</code>`;
+      usedId = usedSourceId("shom", false);
     } else if (a.kind === "atlas") {
       const precision = precisionClass(a.resolution_m ?? null);
       tag = badge(PRECISION_COLOR[precision], t(`config.methodo.tidal.precision.${precision}`));
-      sourceHtml =
-        `${esc(t("config.methodo.tidal.popup.atlas", { size: formatGridSize(a.resolution_m ?? 0) }))}<br><code>${esc(a.source ?? "")}</code>` +
-        (a.max_tide_kt != null ? `<br>${esc(t("config.methodo.tidal.popup.springTide", { kt: fmtKt(a.max_tide_kt) }))}` : "");
+      usedId = usedSourceId(used?.atlas ?? null, false);
     } else {
       tag = badge(PRECISION_COLOR.global, t("config.methodo.tidal.precision.global"));
-      sourceHtml = `${esc(t("config.methodo.tidal.popup.smoc"))}<br><code>${esc(a.source ?? "openmeteo_smoc")}</code>`;
-      const declined = e.atlases.map(line);
-      why = declined.length ? declined.join("<br>") : esc(t("config.methodo.tidal.reason.noAtlas"));
+      usedId = usedSourceId(null, true);
     }
-    const plan = e.plan?.blind_pass
-      ? esc(t("config.methodo.tidal.plan.blindPass", { name: e.plan.blind_pass.name, km: fmtKt(e.plan.blind_pass.km) }))
-      : e.plan?.tidal_gap
-        ? e.plan.tidal_gap.zone && e.plan.tidal_gap.kind === "pass"
-          ? esc(t("config.methodo.tidal.plan.tidalGap", { zone: e.plan.tidal_gap.zone, km: fmtKt(e.plan.tidal_gap.km) }))
-          : esc(t("config.methodo.tidal.plan.tidalGapZone"))
-        : null;
     return (
       `<h3 class="methodo-map-popup-title">${esc(title)}</h3>` +
       tag +
       `<dl class="methodo-map-popup-grid">` +
-      row(t("config.methodo.tidal.popup.source"), sourceHtml) +
       row(t("config.methodo.tidal.popup.why"), why) +
-      row(t("config.methodo.tidal.popup.passedOver"), a.kind === "global" ? null : others.length ? others.join("<br>") : null) +
-      row(t("config.methodo.tidal.popup.plan"), plan) +
-      staticRows(lat, lon, a.kind === "global") +
+      sourcesRows(lat, lon, usedId, a.kind === "atlas" ? (a.max_tide_kt ?? null) : null, heldBy) +
       `</dl>`
     );
   }
@@ -704,6 +680,19 @@ export function TidalSourcesMap() {
     const settle = window.setTimeout(() => map.invalidateSize({ animate: false }), 200);
     const resizer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => map.invalidateSize({ animate: false }));
     resizer?.observe(containerRef.current);
+    // A source name in a card opens its registry row. Capture phase: a
+    // Leaflet popup stops the clicks that bubble out of it.
+    const container = containerRef.current;
+    const onSourceLink = (ev: MouseEvent) => {
+      const link = (ev.target as HTMLElement | null)?.closest<HTMLElement>("[data-source-id]");
+      const id = link?.dataset.sourceId;
+      if (!id) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      map.closePopup();
+      focusSourceRef.current?.(id);
+    };
+    container.addEventListener("click", onSourceLink, true);
     map.on("click", (e: L.LeafletMouseEvent) => {
       const popup = L.popup(popupOptions(map))
         .setLatLng(e.latlng)
@@ -784,6 +773,7 @@ export function TidalSourcesMap() {
       cancelled = true;
       window.clearTimeout(settle);
       resizer?.disconnect();
+      container.removeEventListener("click", onSourceLink, true);
       map.remove();
       mapRef.current = null;
       sourceLayersRef.current = new Map();
@@ -832,6 +822,18 @@ export function TidalSourcesMap() {
   // the button and the Android back gesture all close it.
   const stageRef = useRef<HTMLDivElement>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  focusSourceRef.current = (id: string) => {
+    setFullscreen(false);
+    setRegistryOpen(true);
+    setFocusedSource(id);
+    // After the registry has rendered open: unfold the row's details and
+    // bring it on screen.
+    window.setTimeout(() => {
+      const tr = document.getElementById(`tidal-row-${id}`);
+      tr?.querySelector("details")?.setAttribute("open", "");
+      tr?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+  };
   const closeFullscreen = useCallback(() => setFullscreen(false), []);
   useBackDismiss(fullscreen, closeFullscreen);
   useEffect(() => {
@@ -952,7 +954,11 @@ export function TidalSourcesMap() {
                   const atlasesHere = servedAtlases.filter((a) => p.atlases?.includes(a.name) || (a.source !== undefined && p.atlases?.includes(a.source)));
                   const fresh = sourceFreshness(p.update_cadence, live === "current" ? atlasesHere : []);
                   return (
-                    <tr key={p.id} className={shown[p.id] ? "is-shown" : undefined}>
+                    <tr
+                      key={p.id}
+                      id={`tidal-row-${p.id}`}
+                      className={[shown[p.id] ? "is-shown" : "", focusedSource === p.id ? "is-focused" : ""].filter(Boolean).join(" ") || undefined}
+                    >
                       <td>
                         <input
                           type="checkbox"
