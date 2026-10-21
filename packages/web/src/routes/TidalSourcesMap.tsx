@@ -541,26 +541,45 @@ export function TidalSourcesMap() {
   // in a word. A name opens its row in the registry under the map, where the
   // licence, the access and the plan are spelled out. Then the nearest pass
   // and its published stream.
-  function sourcesRows(lat: number, lon: number, usedId: string | null, usedKt: number | null, heldBy: ReadonlySet<string> | null): string {
+  function sourcesRows(
+    lat: number,
+    lon: number,
+    usedId: string | null,
+    usedKt: number | null,
+    heldBy: ReadonlyMap<string, ExplainAtlas["decision"]> | null,
+  ): string {
     const d = dataRef.current;
     const live = (p: SourceProperties) => liveStatus(p, servedRef.current?.names ?? null);
     const features = d?.sources.features ?? [];
     const usedResolutionM = features.find((f) => f.properties.id === usedId)?.properties.resolution_m ?? null;
-    const items = sourcesAt(lat, lon, features, live, usedId, { heldBy, usedResolutionM }).map(({ source: p, role }) => {
+    const held = heldBy ? new Set(heldBy.keys()) : null;
+    // Why an integrated source does not answer here, in the server's words:
+    // a finer one does, the tide is too weak to matter, dead water.
+    const passedKey = (p: SourceProperties): Parameters<typeof t>[0] => {
+      const decisions = new Set((p.atlases ?? []).map((a) => heldBy?.get(a)));
+      if (decisions.has("lower_priority")) return "config.methodo.tidal.here.passedLower";
+      if (decisions.has("weak_tide")) return "config.methodo.tidal.here.passedWeak";
+      if (decisions.has("dead_water")) return "config.methodo.tidal.here.passedDead";
+      return "config.methodo.tidal.here.passed";
+    };
+    const items = sourcesAt(lat, lon, features, live, usedId, { heldBy: held, usedResolutionM }).map(({ source: p, role }) => {
       const grid = p.resolution_m ? ` · ${esc(formatGridSize(p.resolution_m))}` : "";
       const kt = role === "used" && usedKt != null ? ` · ${esc(t("config.methodo.tidal.here.maxKt", { kt: fmtKt(usedKt) }))}` : "";
+      const label = role === "passed" ? t(passedKey(p)) : t(`config.methodo.tidal.here.${role}` as Parameters<typeof t>[0]);
       return (
         `<li><a href="#tidal-row-${esc(p.id)}" data-source-id="${esc(p.id)}">${esc(shortSourceName(p.name))}</a>${grid}${kt} ` +
-        badge(ROLE_COLOR[role], t(`config.methodo.tidal.here.${role}` as Parameters<typeof t>[0])) +
+        badge(ROLE_COLOR[role], label) +
         `</li>`
       );
     });
+    // A known pass nearby: its published spring stream, the figure to set
+    // against the grid's maximum.
     const near = nearestPass(lat, lon, d?.passes ?? null);
+    const passLabel = near ? t("config.methodo.tidal.popup.passNear", { km: near.km < 1 ? "< 1" : near.km.toFixed(0) }) : "";
     const pass = near
-      ? t("config.methodo.tidal.popup.passValue", {
+      ? t("config.methodo.tidal.popup.passNearValue", {
           name: near.feature.properties.name,
           kt: near.feature.properties.max_spring_kt != null ? near.feature.properties.max_spring_kt.toLocaleString(locale) : (near.feature.properties.max_spring_text ?? "?"),
-          km: near.km.toFixed(0),
         })
       : null;
     return (
@@ -572,7 +591,7 @@ export function TidalSourcesMap() {
           ? `<ul class="methodo-map-here">${items.join("")}</ul><small>${esc(t("config.methodo.tidal.popup.sourcesHint"))}</small>`
           : esc(t("config.methodo.tidal.popup.none"))
       }</dd>` +
-      row(t("config.methodo.tidal.popup.pass"), pass ? esc(pass) : null)
+      row(passLabel, pass ? esc(pass) : null)
     );
   }
 
@@ -609,10 +628,10 @@ export function TidalSourcesMap() {
     const used = e.atlases.find((x) => x.decision === "used") ?? null;
     // The atlases that hold the point, used or passed over for a finer
     // grid, a weak tide or dead water: the integrated sources worth a line.
-    const heldBy = new Set(
-      e.atlases.filter((x) => ["used", "lower_priority", "weak_tide", "dead_water"].includes(x.decision)).map((x) => x.atlas),
+    const heldBy = new Map(
+      e.atlases.filter((x) => ["used", "lower_priority", "weak_tide", "dead_water"].includes(x.decision)).map((x) => [x.atlas, x.decision] as const),
     );
-    if (e.shom?.covers) heldBy.add("shom");
+    if (e.shom?.covers) heldBy.set("shom", "used");
     let title = t("config.methodo.tidal.popup.title");
     let tag = "";
     let why: string | null = null;
@@ -633,20 +652,12 @@ export function TidalSourcesMap() {
       tag = badge(PRECISION_COLOR.global, t("config.methodo.tidal.precision.global"));
       usedId = usedSourceId(null, true);
     }
-    const plan = e.plan?.blind_pass
-      ? esc(t("config.methodo.tidal.plan.blindPass", { name: e.plan.blind_pass.name, km: fmtKt(e.plan.blind_pass.km) }))
-      : e.plan?.tidal_gap
-        ? e.plan.tidal_gap.zone && e.plan.tidal_gap.kind === "pass"
-          ? esc(t("config.methodo.tidal.plan.tidalGap", { zone: e.plan.tidal_gap.zone, km: fmtKt(e.plan.tidal_gap.km) }))
-          : esc(t("config.methodo.tidal.plan.tidalGapZone"))
-        : null;
     return (
       `<h3 class="methodo-map-popup-title">${esc(title)}</h3>` +
       tag +
       `<dl class="methodo-map-popup-grid">` +
       row(t("config.methodo.tidal.popup.why"), why) +
       sourcesRows(lat, lon, usedId, a.kind === "atlas" ? (a.max_tide_kt ?? null) : null, heldBy) +
-      row(t("config.methodo.tidal.popup.plan"), plan) +
       `</dl>`
     );
   }
