@@ -68,7 +68,24 @@
       margin: 1.25rem 0 2rem 50%;
       transform: translateX(-50%);
     }
-    figure.demo .hero { margin: 0; background: #15140F; }
+    figure.demo .hero { margin: 0; background: #15140F; aspect-ratio: 16 / 9; }
+    /* Nothing from YouTube loads until the reader presses play: the poster
+       is served from this origin and the player replaces it on click. */
+    a.player { position: relative; display: block; }
+    a.player img.hero { object-fit: cover; }
+    a.player .play {
+      position: absolute; inset: 50% auto auto 50%; transform: translate(-50%, -50%);
+      width: 4.5rem; height: 3.2rem; border-radius: 0.9rem;
+      background: rgba(21,20,15,0.82); transition: background 0.15s ease;
+    }
+    a.player .play::after {
+      content: ""; position: absolute; inset: 50% auto auto 54%;
+      transform: translate(-50%, -50%);
+      border-style: solid; border-width: 0.7rem 0 0.7rem 1.15rem;
+      border-color: transparent transparent transparent #FFFFFF;
+    }
+    a.player:hover .play, a.player:focus-visible .play { background: var(--accent); }
+    iframe.hero { width: 100%; border: 1px solid var(--border); }
     figure.demo figcaption {
       color: var(--faint); font-size: 0.85rem; line-height: 1.45;
       margin-top: 0.7rem; text-align: center;
@@ -119,13 +136,20 @@
     server so any compatible assistant can use it.</p>
 
   <figure class="demo">
-    <video class="hero" src="/static/demo.mp4" poster="/static/demo-poster.jpg"
-           autoplay muted loop playsinline controls preload="metadata"
-           aria-label="Screen recording: in a private chat window, the OhMyWind connector is switched on, an assistant plans a Cherbourg to St Peter Port passage through this server, and the result opens on ohmywind.fr."></video>
-    <figcaption>A real session, sped up and silent, in a private window: no
-      history, no memory, nothing set up in advance. Switch the connector on,
-      ask for a Cherbourg to St Peter Port crossing on a 40 ft cruiser, and the
-      passage opens on ohmywind.fr: 50.8 nm, 14h54, arrival 07:53.</figcaption>
+    <a class="player" href="https://www.youtube.com/watch?v=_bjDlNYJSgo"
+       data-video="_bjDlNYJSgo" target="_blank" rel="noopener"
+       aria-label="Play the demo video, in French (loads the YouTube player)">
+      <img class="hero" src="/static/video-poster.jpg" width="1280" height="720"
+           alt="Le Four ou le Fromveur ? A passage from L'Aber Wrac'h to Camaret drawn on a chart of the Iroise sea.">
+      <span class="play" aria-hidden="true"></span>
+    </a>
+    <figcaption>A real session, in French: tomorrow, L&rsquo;Aber Wrac&rsquo;h
+      to Camaret, through the Chenal du Four or the Fromveur? The assistant
+      compares both routes departure by departure and, with a gale on the way,
+      says to stay in port. Only the waiting is sped up. The YouTube player
+      loads when you press play.<br>
+      More demos on the
+      <a href="https://ohmywind.fr/youtube" target="_blank" rel="noopener">OhMyWind YouTube channel</a>.</figcaption>
   </figure>
 
   <h2>Connect it to your assistant</h2>
@@ -227,5 +251,23 @@
 
   <p class="footnote">First request after inactivity may take a few seconds
     (HF Spaces cold-start).</p>
+  <script>
+    // The poster is a plain link to the video, so it still works without
+    // script. With script, it becomes the player in place.
+    document.querySelectorAll("a.player").forEach(function (link) {
+      link.addEventListener("click", function (event) {
+        if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        var frame = document.createElement("iframe");
+        frame.className = "hero";
+        frame.src = "https://www.youtube-nocookie.com/embed/" + link.dataset.video + "?autoplay=1&rel=0";
+        frame.title = "OhMyWind demo video";
+        frame.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+        frame.allowFullscreen = true;
+        link.replaceWith(frame);
+        frame.focus();
+      });
+    });
+  </script>
 </body>
 </html>

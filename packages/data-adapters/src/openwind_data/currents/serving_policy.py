@@ -76,6 +76,14 @@ WITHHELD_ATLASES: frozenset[str] = frozenset(
     }
 )
 
+# A cell of an atlas on its native grid at this resolution or finer proves
+# water to the land mask (``land_mask.load_land_mask``): the Natural Earth
+# shoreline ends at Övelgönne, the BSH 90 m model of the Elbe runs to
+# Hamburg. Coarser native grids (Copernicus 1.5 to 4 km, BSH 926 m) draw a
+# coast of their own a cell wide, and the regridded MARC lattices extrapolate
+# inland: neither may overrule the shoreline.
+WATER_EVIDENCE_MAX_RESOLUTION_M = 250
+
 # The strait from Cape Trafalgar and Cape Spartel to Gibraltar and Ceuta,
 # where the inflow the tidal atlases cannot hold is strongest.
 GIBRALTAR: Box = (35.70, -6.10, 36.25, -5.20)

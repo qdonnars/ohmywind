@@ -8,7 +8,7 @@ OhMyWind est un planificateur de navigation à la voile open source, utilisable 
   - [Vent : cascade multi-modèles](#vent--cascade-multi-modèles)
   - [Vagues et niveau de la mer](#vagues-et-niveau-de-la-mer)
   - [Courants : produit SMOC global](#courants--produit-smoc-global)
-  - [Courants de marée](#courants-de-marée) (page dédiée)
+  - [Courants de marée](/methodologie/courants) (page dédiée)
 - [Comment on estime un passage](#comment-on-estime-un-passage)
   - [1. Choix du voilier-type](#1-choix-du-voilier-type)
   - [2. Découpage de la route](#2-découpage-de-la-route)

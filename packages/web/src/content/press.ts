@@ -36,18 +36,95 @@ export interface PressArticle {
   editions: PressEdition[];
 }
 
+/** Our own press release in one language: the head, the body being a
+    markdown file next to this one. */
+export interface PressRelease {
+  dateline: string;
+  title: string;
+  lead: string;
+  /**
+   * The one news item set apart from the body: a box under the lead on the
+   * release, a badge on the press page's card. Drop the field and both go
+   * away.
+   */
+  highlight?: { badge: string; title: string; body: string; link: { href: string; text: string } };
+}
+
+const CAP_INNOVATION = "https://www.parisnauticshow.com/cap-innovation/";
+
 /**
- * Our own press release, at `/presse/communique`. The head lives here so the
- * press page can show it as a card without loading the release's chunk; the
- * body is `communique.md`. Written in French only, hence `lang`: the card and
- * the page mark it, whatever the interface language.
+ * Our own press release, at `/presse/communique`, in each of the app's
+ * languages; the interface language picks one. The heads live here so the
+ * press page can show the release as a card without loading its chunk; the
+ * bodies are `communique.md` (French, the reference) and `communique.<lang>.md`.
+ * A change to the release goes into all five.
  */
-export const PRESS_RELEASE: { lang: Lang; dateline: string; title: string; lead: string } = {
-  lang: "fr",
-  dateline: "Marseille, octobre 2026",
-  title: "OhMyWind : l'outil gratuit qui dit aux plaisanciers à quelle heure partir",
-  lead:
-    "Né d'un projet personnel à Marseille, OhMyWind est un planificateur de navigation à la voile gratuit, sans compte et open source. Il compare les heures de départ possibles d'une navigation en croisant météo, état de la mer, courants de marée et performances du bateau. Sans campagne de lancement, il réunit déjà plus de 600 utilisateurs par jour, en France et en Allemagne.",
+export const PRESS_RELEASES: Record<Lang, PressRelease> = {
+  fr: {
+    dateline: "Marseille, octobre 2026",
+    title: "OhMyWind : l'innovation qui simplifie l'accès aux données météo et marines gratuites",
+    lead:
+      "OhMyWind simplifie l'accès des plaisanciers aux données publiques et gratuites de météo, d'état de la mer et de courants de marée. Sa nouvelle version les met à portée de conversation : on décrit sa navigation à un assistant d'intelligence artificielle (Claude, ChatGPT, Le Chat…) et il répond, carte et horaires à l'appui. Gratuit, sans compte et open source, OhMyWind fonctionne aussi sur le web et sur Android. Sans campagne de lancement, il réunit déjà plus de 600 utilisateurs par jour, en France et en Allemagne.",
+    highlight: {
+      badge: "Cap Innovation 2026",
+      title: "Candidat au concours Cap Innovation du Paris Nautic Show",
+      body:
+        "OhMyWind se présente au concours Cap Innovation du Paris Nautic Show (Le Bourget, du 25 au 29 novembre 2026), dans la catégorie Service innovant. Le service présenté : planifier une navigation en conversation avec un assistant d'intelligence artificielle, qui compare les départs, montre la route sur une carte et répond aux questions de marée.",
+      link: { href: CAP_INNOVATION, text: "Le concours Cap Innovation" },
+    },
+  },
+  en: {
+    dateline: "Marseille, October 2026",
+    title: "OhMyWind: the innovation that makes free marine weather data easy to use",
+    lead:
+      "OhMyWind makes it simple for sailors to use free public data on weather, sea state and tidal currents. Its new version puts that data within reach of a conversation: sailors describe their passage to an AI assistant (Claude, ChatGPT, Le Chat…) and it answers, with the map and the times. Free, open source and with no account needed, OhMyWind also runs on the web and on Android. With no launch campaign, it already has more than 600 users a day, in France and Germany.",
+    highlight: {
+      badge: "Cap Innovation 2026",
+      title: "Entered in the Paris Nautic Show's Cap Innovation competition",
+      body:
+        "OhMyWind is entering the Cap Innovation competition of the Paris Nautic Show (Le Bourget, 25 to 29 November 2026), in the Innovative Service category. The service entered: planning a passage in conversation with an AI assistant, which compares departures, shows the route on a map and answers tide questions.",
+      link: { href: CAP_INNOVATION, text: "The Cap Innovation competition (in French)" },
+    },
+  },
+  de: {
+    dateline: "Marseille, Oktober 2026",
+    title: "OhMyWind: die Innovation, die den Zugang zu kostenlosen Wetter- und Meeresdaten vereinfacht",
+    lead:
+      "OhMyWind vereinfacht Seglern den Zugang zu den kostenlosen öffentlichen Daten über Wetter, Seegang und Gezeitenströme. Die neue Version macht sie im Gespräch zugänglich: Man beschreibt seinen Törn einem KI-Assistenten (Claude, ChatGPT, Le Chat…), und er antwortet, mit Karte und Uhrzeiten. Kostenlos, ohne Konto und Open Source, läuft OhMyWind auch im Web und auf Android. Ohne Einführungskampagne zählt es bereits mehr als 600 Nutzer pro Tag, in Frankreich und Deutschland.",
+    highlight: {
+      badge: "Cap Innovation 2026",
+      title: "Bewerber beim Wettbewerb Cap Innovation der Paris Nautic Show",
+      body:
+        "OhMyWind bewirbt sich beim Wettbewerb Cap Innovation der Paris Nautic Show (Le Bourget, 25. bis 29. November 2026) in der Kategorie Innovativer Service. Vorgestellt wird: einen Törn im Gespräch mit einem KI-Assistenten planen, der die Abfahrten vergleicht, die Route auf einer Karte zeigt und Gezeitenfragen beantwortet.",
+      link: { href: CAP_INNOVATION, text: "Der Wettbewerb Cap Innovation (auf Französisch)" },
+    },
+  },
+  it: {
+    dateline: "Marsiglia, ottobre 2026",
+    title: "OhMyWind: l'innovazione che semplifica l'accesso ai dati meteo e marini gratuiti",
+    lead:
+      "OhMyWind semplifica ai diportisti l'accesso ai dati pubblici e gratuiti su meteo, stato del mare e correnti di marea. La nuova versione li mette a portata di conversazione: si descrive la propria navigazione a un assistente di intelligenza artificiale (Claude, ChatGPT, Le Chat…) e lui risponde, con mappa e orari. Gratuito, senza account e open source, OhMyWind funziona anche sul web e su Android. Senza campagna di lancio, conta già più di 600 utenti al giorno, in Francia e in Germania.",
+    highlight: {
+      badge: "Cap Innovation 2026",
+      title: "Candidato al concorso Cap Innovation del Paris Nautic Show",
+      body:
+        "OhMyWind partecipa al concorso Cap Innovation del Paris Nautic Show (Le Bourget, dal 25 al 29 novembre 2026), nella categoria Servizio innovativo. Il servizio presentato: pianificare una navigazione conversando con un assistente di intelligenza artificiale, che confronta le partenze, mostra la rotta su una mappa e risponde alle domande sulla marea.",
+      link: { href: CAP_INNOVATION, text: "Il concorso Cap Innovation (in francese)" },
+    },
+  },
+  es: {
+    dateline: "Marsella, octubre de 2026",
+    title: "OhMyWind: la innovación que simplifica el acceso a los datos meteorológicos y marinos gratuitos",
+    lead:
+      "OhMyWind simplifica a los navegantes el acceso a los datos públicos y gratuitos de meteorología, estado del mar y corrientes de marea. Su nueva versión los pone al alcance de una conversación: basta con describir la navegación a un asistente de inteligencia artificial (Claude, ChatGPT, Le Chat…) y responde, con el mapa y los horarios. Gratuito, sin cuenta y de código abierto, OhMyWind funciona también en la web y en Android. Sin campaña de lanzamiento, ya reúne a más de 600 usuarios al día, en Francia y Alemania.",
+    highlight: {
+      badge: "Cap Innovation 2026",
+      title: "Candidato al concurso Cap Innovation del Paris Nautic Show",
+      body:
+        "OhMyWind se presenta al concurso Cap Innovation del Paris Nautic Show (Le Bourget, del 25 al 29 de noviembre de 2026), en la categoría Servicio innovador. El servicio presentado: planificar una navegación conversando con un asistente de inteligencia artificial, que compara las salidas, muestra la ruta en un mapa y responde a las preguntas de marea.",
+      link: { href: CAP_INNOVATION, text: "El concurso Cap Innovation (en francés)" },
+    },
+  },
 };
 
 /** Newest first. Text is quoted verbatim from each outlet, do not edit. */

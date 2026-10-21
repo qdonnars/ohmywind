@@ -4,6 +4,27 @@ Every OhMyWind release, newest first. The ohmywind.fr site and the MCP server sh
 
 This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the reference. Each release is also published on the repository's [Releases](https://github.com/qdonnars/ohmywind/releases) page, and the app shows this log on its "What's new" page.
 
+## 1.11.0 · 2026-10-21 · The sources behind each point, and OhMyWind on video
+
+### New
+
+- On the tidal stream map, the card of a point lists its sources: the one in use, the fallbacks, the missing ones and why, with a link to the registry. At the Strait of Messina, it points to the streams published by the Istituto Idrografico della Marina (#489).
+- OhMyWind has a YouTube channel, at ohmywind.fr/youtube, and the MCP server page shows the demo video (#488).
+- The press release reads in French, English, German, Italian and Spanish, with the assistant's new features and the entry to the Cap Innovation contest of the Paris Nautic Show (#490).
+
+### Fixes
+
+- A point on land no longer shows waves, stream or tide: the nearest sea used to answer up to ten kilometres inland (#482).
+- In coves and rivers resolved by a fine atlas, such as the Locquirec cove, the stream is no longer hidden by the land mask (#483).
+- In the assistant, the tide at a pass that the source describes poorly, such as the Strait of Messina, comes with a warning, as in the plan and on the map (#487).
+- In the assistant, the link to ohmywind.fr says you can change the route or the departure time there (#484).
+- The methodology contents lead straight to the Tidal streams page (#486).
+
+### Behind the scenes
+
+- The archiving of the BSH stream forecasts (German Bight, Elbe) is ready to run, to refine the atlases of that area later (#485).
+- The server sync now handles images too (#492).
+
 ## 1.10.0 · 2026-10-17 · The MCP server answers sailors' questions
 
 ### New

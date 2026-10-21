@@ -1,4 +1,4 @@
-# Aucune regle de reecriture ici, et c'est voulu.
+# Aucune regle de reecriture vers index.html ici, et c'est voulu.
 #
 # Cloudflare Pages devine le type de projet a partir des fichiers presents a
 # la racine du build : sans 404.html, il bascule en mode application a page
@@ -10,3 +10,11 @@
 # qu'on attendait : Pages la canonisait et repondait 308 vers /, donc le
 # verificateur d'URL de la Play Console tombait sur l'accueil au lieu de la
 # politique de confidentialite. Ne pas la remettre.
+#
+# Seules exceptions : des redirections vers l'exterieur, qui ne touchent a
+# aucune route de l'application. Chacune doit aussi figurer dans
+# navigateFallbackDenylist (vite.config.ts), sinon le service worker sert
+# l'application a sa place.
+
+# Chaine YouTube, l'adresse a donner dans la copy et le communique.
+/youtube  https://www.youtube.com/@OhMyWind0  302

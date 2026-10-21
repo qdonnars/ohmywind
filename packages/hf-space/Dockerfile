@@ -43,9 +43,8 @@ RUN --mount=type=secret,id=HF_TOKEN,required=false \
 # two packages installed above. security.py moved into openwind_api.
 COPY app.py /app/
 
-# Landing assets (demo loop + its poster). Served from this origin by the
-# /static route: GitHub raw would hand the MP4 back as octet-stream and the
-# browser would refuse to play it.
+# Landing assets (the demo video's poster). Served from this origin by the
+# /static route, so that a visit loads nothing from YouTube until play.
 COPY static /app/static
 
 EXPOSE 7860

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { nowParisHourPrefix } from "./domain/datetime";
 import { useT } from "./i18n";
 import type { Spot, ModelForecast, MarineHourly, MetricView } from "./types";
@@ -12,6 +12,7 @@ import {
   isTidesRelevant,
   isWavesRelevant,
 } from "./api/marine";
+import { fetchIsLand, withoutSea } from "./api/land";
 import { useCustomSpots } from "./hooks/useCustomSpots";
 import { Header } from "./components/Header";
 import { NavMenu } from "./components/NavMenu";
@@ -103,6 +104,10 @@ function App() {
   }, [spot]);
   const [forecasts, setForecasts] = useState<ModelForecast[]>([]);
   const [marine, setMarine] = useState<MarineHourly | null>(null);
+  // The spot the server's land mask put on land, if it is the current one.
+  // Kept apart from `marine` so the answer can land before or after the
+  // forecast, or never, without either waiting on the other (#480).
+  const [landSpotKey, setLandSpotKey] = useState<string | null>(null);
   // Which spot the forecasts in state belong to. The loading flag is derived
   // from it at render time rather than set in the fetch effect: deriving
   // makes the skeleton part of the very commit that selects a spot, so the
@@ -131,6 +136,13 @@ function App() {
   }, []);
   useBackDismiss(spotIsLayer, clearSpot);
   const activeSpotKey = spot ? `${spot.latitude},${spot.longitude}` : null;
+  // Open-Meteo answers from the nearest sea cell however far inland the
+  // spot is: on land the card keeps the wind and drops the rest.
+  const onLand = activeSpotKey != null && landSpotKey === activeSpotKey;
+  const shownMarine = useMemo(
+    () => (onLand && marine ? withoutSea(marine) : marine),
+    [onLand, marine],
+  );
   const isLoading = activeSpotKey != null && loadedSpotKey !== activeSpotKey;
   useEffect(() => {
     if (!spot) return;
@@ -162,6 +174,17 @@ function App() {
           );
         });
       }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [spot]);
+  useEffect(() => {
+    if (!spot) return;
+    let cancelled = false;
+    const key = `${spot.latitude},${spot.longitude}`;
+    fetchIsLand(spot.latitude, spot.longitude).then((land) => {
+      if (!cancelled && land) setLandSpotKey(key);
     });
     return () => {
       cancelled = true;
@@ -226,9 +249,9 @@ function App() {
   // it meant a second render showing the irrelevant table, and the user's own
   // pick was overwritten instead of merely overridden. `view` stays what they
   // chose, so moving back to a spot with tides restores their tab.
-  const showWaves = isWavesRelevant(marine);
-  const showTides = isTidesRelevant(marine);
-  const showCurrents = isCurrentsRelevant(marine);
+  const showWaves = isWavesRelevant(shownMarine);
+  const showTides = isTidesRelevant(shownMarine);
+  const showCurrents = isCurrentsRelevant(shownMarine);
   const relevant: Record<MetricView, boolean> = {
     wind: true,
     waves: showWaves,
@@ -287,7 +310,7 @@ function App() {
           onRemoveSpot={(s) => { removeSpot(s); if (spot?.latitude === s.latitude && spot?.longitude === s.longitude) clearSpot(); }}
           onRenameSpot={(s, name) => { renameSpot(s, name); if (spot?.latitude === s.latitude && spot?.longitude === s.longitude) setSpot({ ...s, name }); }}
           forecasts={forecasts}
-          marine={marine}
+          marine={shownMarine}
           metric={effectiveView}
           selectedHour={selectedHour}
           showSeamarks={seamarks}
@@ -340,6 +363,7 @@ function App() {
                   showWaves={showWaves}
                   showTides={showTides}
                   showCurrents={showCurrents}
+                  onLand={onLand}
                 />
               </div>
               {/* Colonne flex, pour que la table qui depasse se comprime au
@@ -349,7 +373,7 @@ function App() {
                   convention sortait par le bas quand la table du vent
                   affichait quatre modeles. */}
               <div ref={dataPanelRef} className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                {effectiveView === "wind" || !marine ? (
+                {effectiveView === "wind" || !shownMarine ? (
                   <WindTable
                     forecasts={forecasts}
                     isLoading={isLoading}
@@ -358,7 +382,7 @@ function App() {
                   />
                 ) : effectiveView === "tides" ? (
                   <TideChart
-                    marine={marine}
+                    marine={shownMarine}
                     forecasts={forecasts}
                     selectedHour={selectedHour}
                     onSelectHour={setSelectedHour}
@@ -366,7 +390,7 @@ function App() {
                 ) : (
                   <MarineTable
                     metric={effectiveView}
-                    marine={marine}
+                    marine={shownMarine}
                     forecasts={forecasts}
                     selectedHour={selectedHour}
                     onSelectHour={setSelectedHour}

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useMemo } from "react";
-import { PRESS_ARTICLES, PRESS_RELEASE, type PressArticle } from "../content/press";
+import { PRESS_ARTICLES, PRESS_RELEASES, type PressArticle, type PressRelease } from "../content/press";
 import { LANG_NAMES, LOCALE_BY_LANG, rich, useT, type Lang } from "../i18n";
 import "./press.css";
 
@@ -117,10 +117,9 @@ function ArticleCard({ article, lang }: { article: PressArticle; lang: Lang }) {
 }
 
 /** Our own release, first on the page and set apart from the articles by its
-    border: the one piece a journalist comes here to take away. Title and
-    lead stay in French whatever the interface language, like an outlet's
-    words stay in the outlet's, and the chip says so. */
-function ReleaseCard() {
+    border: the one piece a journalist comes here to take away. In the
+    interface language, like the release itself. */
+function ReleaseCard({ release }: { release: PressRelease }) {
   const { t } = useT();
   const href = "/presse/communique";
   return (
@@ -128,22 +127,20 @@ function ReleaseCard() {
       <p className="press-card-meta">
         <span className="press-card-outlet">{t("press.release.label")}</span>
         <span className="press-card-sep" aria-hidden="true" />
-        <span lang={PRESS_RELEASE.lang}>{PRESS_RELEASE.dateline}</span>
+        <span>{release.dateline}</span>
+        {release.highlight && (
+          <span className="press-chip press-chip-accent">{release.highlight.badge}</span>
+        )}
       </p>
-      <h2 id="press-release-card-title" className="press-card-title" lang={PRESS_RELEASE.lang}>
-        <a href={href}>{PRESS_RELEASE.title}</a>
+      <h2 id="press-release-card-title" className="press-card-title">
+        <a href={href}>{release.title}</a>
       </h2>
-      <p className="press-release-card-lead" lang={PRESS_RELEASE.lang}>
-        {PRESS_RELEASE.lead}
-      </p>
+      <p className="press-release-card-lead">{release.lead}</p>
       <p className="press-card-actions">
-        <a className="press-card-cta" href={href} hrefLang={PRESS_RELEASE.lang}>
+        <a className="press-card-cta" href={href}>
           {t("press.release.read")}
           {ArrowIcon}
         </a>
-        <span className="press-chip" lang={PRESS_RELEASE.lang}>
-          {LANG_NAMES[PRESS_RELEASE.lang]}
-        </span>
       </p>
     </section>
   );
@@ -174,7 +171,7 @@ export function PressPage() {
         <h1 className="press-title">{t("press.title")}</h1>
         <p className="press-intro">{t("press.intro")}</p>
 
-        <ReleaseCard />
+        <ReleaseCard release={PRESS_RELEASES[lang]} />
 
         <ol className="press-list">
           {PRESS_ARTICLES.map((article) => (

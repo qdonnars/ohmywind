@@ -229,6 +229,62 @@ export function nearestPass(
   return best;
 }
 
+/** What a registry source is at a point, for the card's one-line list:
+    the one the app uses, the global fallback, an integrated source passed
+    over here, or one not integrated and why (licence compatible, to
+    clarify, blocked). */
+export type SourceRole = "used" | "fallback" | "passed" | "ok" | "clarify" | "blocked";
+
+/** The registry id of the worldwide general current, the cascade's last tier. */
+export const SMOC_SOURCE_ID = "cmems_global_smoc";
+
+const ROLE_ORDER: readonly SourceRole[] = ["used", "fallback", "passed", "ok", "clarify", "blocked"];
+
+/** The registry sources that matter at a point, with their role there: the
+    used one first, then the integrated ones, then the missing ones, finest
+    grid first within each. ``live`` is the registry status as the server
+    confirms it (``current`` for a source it serves). Registry extents are
+    rough boxes, so two rules keep the list to what bears on the point:
+
+    - ``heldBy``, the atlases the server says hold the point (passed over
+      for a finer one, a weak tide): an integrated source is listed only if
+      one of its atlases is there. ``null`` when the server could not say,
+      then the extent alone decides.
+    - ``usedResolutionM``, the grid of the source in use: a missing source
+      is listed only if it would do better, a finer grid, or tables and
+      stations where the grid in use is coarser than 1 km.
+
+    A source without currents or hidden from the registry table is left out. */
+export function sourcesAt<
+  P extends { id: string; status: string; resolution_m: number | null; hide_in_table?: boolean; atlases?: string[] },
+>(
+  lat: number,
+  lon: number,
+  features: readonly Feature<Geometry, P>[],
+  live: (p: P) => string,
+  usedId: string | null,
+  opts: { heldBy?: ReadonlySet<string> | null; usedResolutionM?: number | null } = {},
+): { source: P; role: SourceRole }[] {
+  const usedRes = opts.usedResolutionM ?? null;
+  const improves = (p: P) =>
+    usedRes == null || (p.resolution_m == null ? usedRes > 1000 : p.resolution_m < usedRes);
+  const out: { source: P; role: SourceRole }[] = [];
+  for (const f of features) {
+    const p = f.properties;
+    if (p.hide_in_table || !pointInGeometry(lon, lat, f.geometry)) continue;
+    const status = live(p);
+    let role: SourceRole | null = null;
+    if (p.id === usedId) role = "used";
+    else if (status === "current") {
+      if (p.id === SMOC_SOURCE_ID) role = "fallback";
+      else if (!opts.heldBy || p.atlases?.some((a) => opts.heldBy?.has(a))) role = "passed";
+    } else if ((status === "ok" || status === "clarify" || status === "blocked") && improves(p)) role = status;
+    if (role) out.push({ source: p, role });
+  }
+  const res = (p: P) => p.resolution_m ?? Number.POSITIVE_INFINITY;
+  return out.sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role) || res(a.source) - res(b.source));
+}
+
 /** HTML-escape for popup strings built from data files. */
 export function esc(value: unknown): string {
   return String(value ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
