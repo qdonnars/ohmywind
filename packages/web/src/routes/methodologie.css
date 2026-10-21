@@ -356,6 +356,10 @@ html.methodo-map-locked body {
 .methodo-map-table tr.is-shown td {
   background: rgba(42, 157, 92, 0.08);
 }
+/* The row a card's source link opened. */
+.methodo-map-table tr.is-focused td {
+  background: rgba(37, 99, 235, 0.12);
+}
 .methodo-map-table label {
   cursor: pointer;
   font-weight: 600;
@@ -506,6 +510,27 @@ html.methodo-map-locked body {
   margin: 0;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+/* The card's source list: one line per source, across the whole card. */
+.methodo-map-popup-grid .methodo-map-wide {
+  grid-column: 1 / -1;
+}
+.methodo-map-popup-grid dd.methodo-map-wide {
+  margin-bottom: 4px;
+}
+.methodo-map-here,
+.prose-methodo .methodo-map-here {
+  margin: 2px 0 2px;
+  padding: 0;
+  list-style: none;
+}
+.methodo-map-here li,
+.prose-methodo .methodo-map-here li {
+  margin: 2px 0;
+  overflow-wrap: normal;
+}
+.methodo-map-here .methodo-map-badge {
+  margin-left: 2px;
 }
 .methodo-map-badge {
   display: inline-block;
