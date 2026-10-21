@@ -10,7 +10,7 @@ OhMyWind is an open source sailing passage planner, usable anywhere in the world
   - [Wind: multi-model cascade](#wind-multi-model-cascade)
   - [Waves and sea level](#waves-and-sea-level)
   - [Currents: the global SMOC product](#currents-the-global-smoc-product)
-  - [Tidal currents](#tidal-currents) (page of its own)
+  - [Tidal currents](/methodologie/courants) (page of its own)
 - [How a passage is estimated](#how-a-passage-is-estimated)
   - [1. Choosing the reference boat](#1-choosing-the-reference-boat)
   - [2. Splitting the route](#2-splitting-the-route)
