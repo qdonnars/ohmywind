@@ -55,9 +55,9 @@ ALLOWED_HOSTS = [
     if h.strip()
 ]
 
-# The landing page's demo loop and its poster, copied into the image by the
-# Dockerfile. They stay with the deployment rather than inside the API
-# package: 2.5 MB of binary belongs to what ships, not to what is imported.
+# The landing page's video poster, copied into the image by the Dockerfile.
+# It stays with the deployment rather than inside the API package: binary
+# belongs to what ships, not to what is imported.
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 

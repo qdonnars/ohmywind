@@ -8,11 +8,13 @@ read once at import. It used to be a 230-line string literal in the middle of
 the request handlers, where a copy edit and a routing change lived in the same
 diff.
 
-The media it embeds (the demo loop and its poster) do not ship here: they are
-2.5 MB of binary that belongs to a deployment, not to a library, so the
-deployment points ``Settings.static_dir`` at them. Without it the page still
-serves, with a video element that finds nothing, which is the right degraded
-state for a redeployment that has not copied the assets yet.
+The demo video lives on YouTube; what the page serves itself is the poster
+the player hides behind until someone presses play, so that nothing from
+YouTube loads on a visit. The poster does not ship here: binary belongs to a
+deployment, not to a library, so the deployment points
+``Settings.static_dir`` at it. Without it the page still serves, with a
+poster that finds nothing and a link to the video that still works, which is
+the right degraded state for a redeployment that has not copied it yet.
 """
 
 from __future__ import annotations
@@ -40,15 +42,14 @@ ICON_REDIRECTS = {
     "/apple-touch-icon-precomposed.png": "https://ohmywind.fr/icon-maskable-512.png",
 }
 
-# The landing demo ships with the deployment instead of being linked out of
-# the GitHub repo the way the screenshots are: raw.githubusercontent.com
-# returns MP4s as application/octet-stream, and every response here carries
-# nosniff, so a browser would refuse to play it in a <video>. Two files means
-# an explicit allowlist rather than a StaticFiles mount, which keeps the
-# routing table readable and makes path traversal impossible by construction.
+# The video poster ships with the deployment rather than coming from
+# i.ytimg.com: fetching YouTube's thumbnail would tell Google about every
+# visit, which the click-to-load player exists to avoid. One file means an
+# explicit allowlist rather than a StaticFiles mount, which keeps the routing
+# table readable and makes path traversal impossible by construction. A new
+# poster ships under a new name: the old one sits in caches for a week.
 STATIC_ASSETS = {
-    "demo.mp4": "video/mp4",
-    "demo-poster.jpg": "image/jpeg",
+    "video-poster.jpg": "image/jpeg",
 }
 
 
