@@ -21,13 +21,14 @@ describe("PressReleasePage", () => {
     expect(title.closest("article")?.getAttribute("lang")).toBe("fr");
   });
 
-  it("points to every way in: app, Play Store, MCP tutorial and endpoint, code", () => {
+  it("points to every way in: app, Play Store, MCP tutorial and endpoint, videos, code", () => {
     render(<PressReleasePage />);
     for (const href of [
       "/plan",
       "/methodologie/courants",
       "https://play.google.com/store/apps/details?id=fr.ohmywind.app",
       "https://mcp.ohmywind.fr",
+      "https://ohmywind.fr/youtube",
       "https://github.com/qdonnars/ohmywind#try-it-in-30-seconds",
       "https://github.com/qdonnars/ohmywind",
       "mailto:contact@ohmywind.fr",

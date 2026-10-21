@@ -724,6 +724,13 @@ class TestLanding:
         # makes the loop actually start.
         assert "muted" in body
 
+    async def test_landing_links_the_youtube_channel_through_the_app_redirect(self) -> None:
+        # ohmywind.fr/youtube (public/_redirects) is the one place that knows
+        # the channel's address, so a rename is a one-line change there.
+        body = bytes(resp.body).decode() if (resp := await landing_routes.index(None)) else ""
+        assert 'href="https://ohmywind.fr/youtube"' in body
+        assert "youtube.com" not in body
+
 
 class TestStaticAssets:
     """The landing media, served from wherever the deployment put them.

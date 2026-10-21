@@ -60,7 +60,8 @@ Visuels (logo, captures d'écran) disponibles sur simple demande.
 - **Méthodologie** : [ohmywind.fr/methodologie](/methodologie)
 - **Carte des courants de marée** : [ohmywind.fr/methodologie/courants](/methodologie/courants)
 - **Serveur MCP** : `https://mcp.ohmywind.fr/mcp`
-- **Tutoriel MCP (Claude, ChatGPT, Le Chat) et vidéo de démonstration** : [mcp.ohmywind.fr](https://mcp.ohmywind.fr) (en anglais)
+- **Tutoriel MCP (Claude, ChatGPT, Le Chat)** : [mcp.ohmywind.fr](https://mcp.ohmywind.fr) (en anglais)
+- **Vidéos de démonstration** : [ohmywind.fr/youtube](https://ohmywind.fr/youtube)
 - **Autres clients MCP (Cursor, VS Code, Goose…)** : [guide de démarrage](https://github.com/qdonnars/ohmywind#try-it-in-30-seconds) (en anglais)
 - **Protocole MCP** : [modelcontextprotocol.io](https://modelcontextprotocol.io)
 - **Code source** : [github.com/qdonnars/ohmywind](https://github.com/qdonnars/ohmywind)
