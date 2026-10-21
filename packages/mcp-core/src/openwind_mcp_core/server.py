@@ -64,10 +64,10 @@ from openwind_data.adapters.openmeteo import (
 )
 from openwind_data.currents.land_mask import LandMask, load_land_mask
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
-from openwind_data.currents.narrow_pass import confidence_for_point
+from openwind_data.currents.narrow_pass import confidence_for_point, source_confidence
 from openwind_data.currents.router import CompositeMarineAdapter, compose_marine_adapter
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
-from openwind_data.currents.tidal_gaps import unresolved_pass_at
+from openwind_data.currents.tidal_gaps import unknown_pass_along
 from openwind_data.currents.unknown_zones import UNKNOWN_CURRENT_SOURCE
 from openwind_data.routing import (
     BoatPolar,
@@ -1781,7 +1781,10 @@ def _tidal_stream_view(
     if along is not None:
         out["favourable"] = _runs(times, along, lambda v: v >= CURRENT_RELEVANCE_THRESHOLD_KN)
         out["adverse"] = _runs(times, along, lambda v: v <= -CURRENT_RELEVANCE_THRESHOLD_KN)
-    gap = unresolved_pass_at(lat, lon, source)
+    # Same blind spot as a plan: a coarse source is blind to every pass on
+    # file (Messina under the 4.2 km Mediterranean atlas reads 1 kt where
+    # 5 kt run), a fine one only to the passes it was measured missing.
+    gap = unknown_pass_along(lat, lon, lat, lon, source, fine=source_confidence(source) == "high")
     if gap is not None:
         spring = f", published spring stream {gap.max_spring_kt:g} kt" if gap.max_spring_kt else ""
         out["warning"] = (
