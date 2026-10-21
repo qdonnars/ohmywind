@@ -51,6 +51,12 @@
   border-color: var(--ow-accent-line);
   box-shadow: inset 3px 0 0 var(--ow-accent);
 }
+/* The release's highlight, as a badge in the card's masthead. */
+.press-chip.press-chip-accent {
+  color: var(--ow-accent);
+  background: var(--ow-accent-soft);
+  border-color: var(--ow-accent-line);
+}
 .press-release-card-lead {
   display: -webkit-box;
   -webkit-box-orient: vertical;

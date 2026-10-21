@@ -31,10 +31,20 @@ describe("PressReleasePage", () => {
       "https://github.com/qdonnars/ohmywind#try-it-in-30-seconds",
       "https://github.com/qdonnars/ohmywind",
       "mailto:contact@ohmywind.fr",
+      "/a-propos/nouveautes",
+      "https://www.parisnauticshow.com/cap-innovation/",
     ]) {
       expect(linkTo(href)).toBeDefined();
     }
     expect(screen.getAllByText("https://mcp.ohmywind.fr/mcp").length).toBeGreaterThan(0);
+  });
+
+  it("sets the highlight apart under the lead, as its own landmark", () => {
+    render(<PressReleasePage />);
+    const highlight = PRESS_RELEASE.highlight;
+    if (!highlight) return;
+    const box = screen.getByRole("complementary", { name: highlight.title });
+    expect(box.textContent).toContain(highlight.body);
   });
 
   it("opens outbound links in a new tab and keeps in-app ones in place", () => {
@@ -47,7 +57,14 @@ describe("PressReleasePage", () => {
   });
 
   it("keeps the copy free of em-dashes and of any no-ads promise", () => {
-    const copy = [PRESS_RELEASE.title, PRESS_RELEASE.lead, releaseBody].join("\n");
+    const { highlight } = PRESS_RELEASE;
+    const copy = [
+      PRESS_RELEASE.title,
+      PRESS_RELEASE.lead,
+      highlight?.title,
+      highlight?.body,
+      releaseBody,
+    ].join("\n");
     expect(copy).not.toContain("—");
     expect(copy).not.toMatch(/sans pub/i);
   });

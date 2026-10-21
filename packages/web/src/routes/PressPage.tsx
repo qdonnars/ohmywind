@@ -129,6 +129,11 @@ function ReleaseCard() {
         <span className="press-card-outlet">{t("press.release.label")}</span>
         <span className="press-card-sep" aria-hidden="true" />
         <span lang={PRESS_RELEASE.lang}>{PRESS_RELEASE.dateline}</span>
+        {PRESS_RELEASE.highlight && (
+          <span className="press-chip press-chip-accent" lang={PRESS_RELEASE.lang}>
+            {PRESS_RELEASE.highlight.badge}
+          </span>
+        )}
       </p>
       <h2 id="press-release-card-title" className="press-card-title" lang={PRESS_RELEASE.lang}>
         <a href={href}>{PRESS_RELEASE.title}</a>

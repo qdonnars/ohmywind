@@ -31,6 +31,7 @@ function MarkdownLink({ node, href, ...props }: ComponentProps<"a"> & { node?: u
  */
 export function PressReleasePage() {
   const { t } = useT();
+  const { highlight } = PRESS_RELEASE;
 
   return (
     <div className="press-root min-h-screen">
@@ -54,6 +55,18 @@ export function PressReleasePage() {
           <p className="press-release-dateline">{PRESS_RELEASE.dateline}</p>
           <h1 className="press-title press-release-title">{PRESS_RELEASE.title}</h1>
           <p className="press-release-lead">{PRESS_RELEASE.lead}</p>
+          {highlight && (
+            <aside className="press-release-highlight" aria-labelledby="press-release-highlight-title">
+              <p className="press-release-highlight-badge">{highlight.badge}</p>
+              <h2 id="press-release-highlight-title" className="press-release-highlight-title">
+                {highlight.title}
+              </h2>
+              <p className="press-release-highlight-body">{highlight.body}</p>
+              <a href={highlight.link.href} target="_blank" rel="noreferrer">
+                {highlight.link.text}
+              </a>
+            </aside>
+          )}
           <div className="prose-press">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: MarkdownLink }}>
               {releaseBody}

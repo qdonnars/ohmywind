@@ -41,13 +41,30 @@ export interface PressArticle {
  * press page can show it as a card without loading the release's chunk; the
  * body is `communique.md`. Written in French only, hence `lang`: the card and
  * the page mark it, whatever the interface language.
+ *
+ * `highlight` is the one news item set apart from the body: a box under the
+ * lead on the release, a badge on the press page's card. Drop the field and
+ * both go away.
  */
-export const PRESS_RELEASE: { lang: Lang; dateline: string; title: string; lead: string } = {
+export const PRESS_RELEASE: {
+  lang: Lang;
+  dateline: string;
+  title: string;
+  lead: string;
+  highlight?: { badge: string; title: string; body: string; link: { href: string; text: string } };
+} = {
   lang: "fr",
   dateline: "Marseille, octobre 2026",
   title: "OhMyWind : l'outil gratuit qui dit aux plaisanciers à quelle heure partir",
   lead:
-    "Né d'un projet personnel à Marseille, OhMyWind est un planificateur de navigation à la voile gratuit, sans compte et open source. Il compare les heures de départ possibles d'une navigation en croisant météo, état de la mer, courants de marée et performances du bateau. Sans campagne de lancement, il réunit déjà plus de 600 utilisateurs par jour, en France et en Allemagne.",
+    "Né d'un projet personnel à Marseille, OhMyWind est un planificateur de navigation à la voile gratuit, sans compte et open source. Il compare les heures de départ possibles d'une navigation en croisant météo, état de la mer, courants de marée et performances du bateau, sur le web, sur Android et dans les assistants d'intelligence artificielle. Sans campagne de lancement, il réunit déjà plus de 600 utilisateurs par jour, en France et en Allemagne.",
+  highlight: {
+    badge: "Cap Innovation 2026",
+    title: "Candidat au concours Cap Innovation du Paris Nautic Show",
+    body:
+      "OhMyWind se présente au concours Cap Innovation du Paris Nautic Show (Le Bourget, du 25 au 29 novembre 2026), dans la catégorie Service innovant. Le service présenté : planifier une navigation en conversation avec un assistant d'intelligence artificielle, qui compare les départs, montre la route sur une carte et répond aux questions de marée.",
+    link: { href: "https://www.parisnauticshow.com/cap-innovation/", text: "Le concours Cap Innovation" },
+  },
 };
 
 /** Newest first. Text is quoted verbatim from each outlet, do not edit. */

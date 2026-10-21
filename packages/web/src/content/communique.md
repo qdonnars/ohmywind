@@ -10,6 +10,18 @@ L'utilisateur [trace sa route](/plan), choisit un type de bateau, et OhMyWind ca
 
 Les fenêtres se comparent d'un coup d'œil, tout comme plusieurs itinéraires pour une même traversée. La page [Comparer](/comparer) met aussi les spots favoris côte à côte, heure par heure.
 
+## Dans les assistants IA, une conversation de marin
+
+OhMyWind se branche sur les assistants d'intelligence artificielle (Claude, ChatGPT, Le Chat…) grâce au protocole ouvert [MCP](https://modelcontextprotocol.io). Le plaisancier décrit sa sortie comme il le ferait à un équipier, « demain, Marseille vers Porquerolles sur un Sun Odyssey 36, je pars quand ? », et l'assistant interroge OhMyWind pour lui répondre. La version 1.10, publiée le 17 octobre 2026, en fait un véritable outil de bord :
+
+- **Un trajet en une seule vue** : la liste des départs possibles en tête, puis la route sur une carte et le détail tronçon par tronçon du départ choisi, affichés dans la conversation sur les assistants qui le permettent, comme Claude et ChatGPT. Ailleurs, un lien ouvre le même plan sur ohmywind.fr.
+- **Les questions de marée, sans calculer de trajet** : l'heure de l'étale à l'entrée d'une passe, la force et le sens du courant, les pleines et basses mers, le coefficient.
+- **Deux options comparées en une seule demande** : par le nord ou par le sud d'une île, vers l'une ou l'autre destination, départ par départ.
+- **Des réponses à l'heure du bord** : données dans l'heure locale du plaisancier, avec le jour de la semaine, plus courtes et donc plus rapides.
+- **Une route qui coupe la terre est refusée** avant tout calcul, et l'assistant est invité à la redessiner en mer.
+
+La connexion prend une minute, sans compte OhMyWind ni clé d'API : il suffit de suivre le [tutoriel pas à pas](https://mcp.ohmywind.fr) avec l'adresse `https://mcp.ohmywind.fr/mcp`. Le détail des nouveautés est dans le [journal des versions](/a-propos/nouveautes).
+
 ## Les courants de marée, pris au sérieux
 
 Le calcul des courants de marée couvre une grande partie des eaux européennes : Manche, golfe de Gascogne, mer du Nord, baie allemande et Elbe. À chaque endroit, OhMyWind utilise l'atlas de marée le plus précis disponible, issu de producteurs publics (SHOM, Ifremer, BSH, Copernicus). Ces données ont été comparées à des mesures réelles de radars côtiers.
@@ -20,12 +32,12 @@ Là où aucune source fiable n'existe, par exemple dans certains passages étroi
 
 OhMyWind agrège les modèles météorologiques publics de référence : AROME de Météo-France (maille de 1,3 km), ICON-EU, ECMWF et GFS. L'utilisateur choisit le modèle ou laisse l'outil retenir le plus précis disponible pour sa zone. Sources, calculs et limites sont détaillés dans la [méthodologie](/methodologie).
 
-## Disponible partout, et même dans les assistants IA
+## Disponible partout
 
 - Sur le web, sans installation : [ohmywind.fr](/)
 - Sur Android, via le [Google Play Store](https://play.google.com/store/apps/details?id=fr.ohmywind.app)
 - En cinq langues : français, anglais, allemand, espagnol et italien
-- Dans les assistants d'intelligence artificielle (Claude, ChatGPT, Le Chat…) grâce au protocole ouvert [MCP](https://modelcontextprotocol.io) : il suffit de décrire sa navigation en langage naturel pour obtenir une comparaison des fenêtres de départ. La connexion prend une minute, sans compte OhMyWind ni clé d'API : il suffit de suivre le [tutoriel pas à pas](https://mcp.ohmywind.fr) avec l'adresse `https://mcp.ohmywind.fr/mcp`.
+- Dans les assistants d'intelligence artificielle compatibles MCP, comme Claude, ChatGPT ou Le Chat
 
 ## Un projet ouvert, porté par une association
 
@@ -59,11 +71,13 @@ Visuels (logo, captures d'écran) disponibles sur simple demande.
 - **Android** : [Google Play](https://play.google.com/store/apps/details?id=fr.ohmywind.app)
 - **Méthodologie** : [ohmywind.fr/methodologie](/methodologie)
 - **Carte des courants de marée** : [ohmywind.fr/methodologie/courants](/methodologie/courants)
+- **Nouveautés (version 1.10 et précédentes)** : [ohmywind.fr/a-propos/nouveautes](/a-propos/nouveautes)
 - **Serveur MCP** : `https://mcp.ohmywind.fr/mcp`
-- **Tutoriel MCP (Claude, ChatGPT, Le Chat) et vidéo de démonstration** : [mcp.ohmywind.fr](https://mcp.ohmywind.fr) (en anglais)
+- **Tutoriel de connexion aux assistants IA (Claude, ChatGPT, Le Chat) et vidéo de démonstration** : [mcp.ohmywind.fr](https://mcp.ohmywind.fr) (en anglais)
 - **Autres clients MCP (Cursor, VS Code, Goose…)** : [guide de démarrage](https://github.com/qdonnars/ohmywind#try-it-in-30-seconds) (en anglais)
 - **Protocole MCP** : [modelcontextprotocol.io](https://modelcontextprotocol.io)
 - **Code source** : [github.com/qdonnars/ohmywind](https://github.com/qdonnars/ohmywind)
+- **Cap Innovation, Paris Nautic Show 2026** : [parisnauticshow.com/cap-innovation](https://www.parisnauticshow.com/cap-innovation/)
 - **Revue de presse** : [ohmywind.fr/presse](/presse)
 - **Confidentialité** : [ohmywind.fr/confidentialite](/confidentialite)
 - **Association** : Libramer, association loi 1901
