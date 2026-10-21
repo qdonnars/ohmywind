@@ -2,9 +2,9 @@
 # every day, because the FTP keeps about three days and a harmonic atlas
 # needs a year. See docs/tidal-world/README.md, section "Archivage".
 #
-# DISABLED BY DEFAULT: no schedule is active until the `if:` guard below is
-# switched to true. Enabling it means committing to an HF Dataset as
-# destination and to the volume below.
+# Runs once the HF_ARCHIVE_DATASET repository variable is set, and only
+# then: setting it is the decision to commit to an HF Dataset as destination
+# and to the volume below. Unset, every run is skipped.
 #
 # Volume, measured on 2026-09-19 (bz2 sizes on the FTP): one day of the eight
 # German areas we care about (db, idb, nfi, ofi, AusAlt, CuxBru, BruPag,
@@ -15,9 +15,11 @@
 # 4 MB/day more. GitHub-hosted runner minutes: about 3 minutes per day.
 #
 # Destination: an HF Dataset (public, since the source is CC BY 4.0) named
-# by the HF_ARCHIVE_DATASET repository variable, written with the HF_TOKEN
-# secret (write scope on that dataset only). Nothing is written to the
-# private MARC dataset.
+# by the HF_ARCHIVE_DATASET repository variable, written with the
+# HF_ARCHIVE_TOKEN secret (a fine-grained token, write scope on that dataset
+# only). Not HF_TOKEN: that one pushes the prod and dev Spaces, and a
+# scheduled job has no business holding it. Nothing is written to the
+# private atlas dataset.
 
 name: Archive BSH currents
 
@@ -33,8 +35,7 @@ permissions:
 
 jobs:
   archive:
-    # Flip to `true` (and set the repository variable + secret) to enable.
-    if: ${{ false }}
+    if: ${{ vars.HF_ARCHIVE_DATASET != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -50,7 +51,7 @@ jobs:
 
       - name: Pull the existing manifest so we only fetch what is new
         env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
           HF_ARCHIVE_DATASET: ${{ vars.HF_ARCHIVE_DATASET }}
         run: |
           mkdir -p archive
@@ -63,8 +64,11 @@ jobs:
           du -sh archive
 
       - name: Push new files to the HF Dataset
+        # Also after a failed fetch: what did arrive must not wait for a
+        # run that may come after the FTP has dropped it.
+        if: ${{ !cancelled() }}
         env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_TOKEN: ${{ secrets.HF_ARCHIVE_TOKEN }}
           HF_ARCHIVE_DATASET: ${{ vars.HF_ARCHIVE_DATASET }}
         run: |
           # Upload only what this run fetched (the archive dir holds only

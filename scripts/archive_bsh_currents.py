@@ -63,17 +63,39 @@ class RemoteFile:
 
 
 def list_remote(ftp: FTP, areas: set[str]) -> list[RemoteFile]:
-    """Every compressed GRIB2 on the FTP whose area is wanted."""
+    """Every compressed GRIB2 on the FTP whose area is wanted.
+
+    ``NLST`` and ``SIZE``, the plainest commands there are: the server
+    answered ``MLSD`` in September and has refused it since (``500 Unknown
+    command``, checked 2026-10-17), which left the archive listing nothing.
+    """
     found: list[RemoteFile] = []
+    ftp.voidcmd("TYPE I")  # SIZE counts bytes only in binary mode
     for directory in DIRECTORIES:
         ftp.cwd(f"{FTP_ROOT}/{directory}")
-        entries: list[tuple[str, dict[str, str]]] = list(ftp.mlsd(facts=["size"]))
-        for name, facts in entries:
+        for entry in ftp.nlst():
+            name = entry.rsplit("/", 1)[-1]
             m = _NAME_RE.match(name)
             if m is None or m["area"] not in areas:
                 continue
-            found.append(RemoteFile(directory, name, int(facts.get("size", "0"))))
+            found.append(RemoteFile(directory, name, ftp.size(name) or 0))
     return sorted(found, key=lambda f: (f.directory, f.name))
+
+
+def archived(manifest: Path) -> set[tuple[str, str, int]]:
+    """``(directory, name, size)`` of every file the manifest records.
+
+    The CI job pulls the manifest alone from the dataset, not the files: a
+    file is skipped because it is listed here, not because it is on disk.
+    """
+    if not manifest.exists():
+        return set()
+    out: set[tuple[str, str, int]] = set()
+    for line in manifest.read_text().splitlines():
+        if line.strip():
+            row = json.loads(line)
+            out.add((row["directory"], row["name"], int(row["size"])))
+    return out
 
 
 def _sha256(path: Path) -> str:
@@ -128,6 +150,8 @@ def main(argv: list[str] | None = None) -> int:
     archive_dir: Path = args.archive_dir
     manifest = archive_dir / "manifest.jsonl"
 
+    known = archived(manifest)
+    errors = 0
     with FTP(FTP_HOST, timeout=120) as ftp:
         ftp.login()
         remote = list_remote(ftp, areas)
@@ -135,6 +159,9 @@ def main(argv: list[str] | None = None) -> int:
         fetched = skipped = 0
         total_bytes = 0
         for rf in remote:
+            if (rf.directory, rf.name, rf.size) in known:
+                skipped += 1
+                continue
             if args.dry_run:
                 have = (archive_dir / rf.directory / rf.name).exists()
                 print(
@@ -151,10 +178,13 @@ def main(argv: list[str] | None = None) -> int:
                 else:
                     skipped += 1
             except OSError as exc:
+                errors += 1
                 print(f"  ERROR {rf.name}: {exc}", file=sys.stderr)
     if not args.dry_run:
         print(f"fetched {fetched} ({total_bytes / 1e6:.0f} MB), already had {skipped}")
-    return 0
+    # A failed file is fetched again on the next run while the FTP still
+    # holds it; a red run is what tells someone before it is gone.
+    return 1 if errors else 0
 
 
 if __name__ == "__main__":
