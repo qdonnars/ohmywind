@@ -646,7 +646,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
           "Tracé envoyé par l'assistant : le vent et la mer sont lus le long de cette ligne, tronçon par tronçon.",
           n > 0)}
         <div id="ow-detail">${detailBlock(r, false)}</div>
-        <a class="cta" id="ow-cta" href="${escapeHtml(r.url || "__WEB_BASE__/plan")}" rel="noopener">Voir le plan complet sur __WEB_HOST__ →</a>
+        <a class="cta" id="ow-cta" href="${escapeHtml(r.url || "__WEB_BASE__/plan")}" rel="noopener">Modifier le tracé ou l'heure de départ sur __WEB_HOST__ →</a>
       `;
     }
 
@@ -661,7 +661,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
                  : "Tracé envoyé par l'assistant, le même pour tous les départs.",
           !!r.legs)}
         <div id="ow-detail">${detailBlock(r, true)}</div>
-        <a class="cta" id="ow-cta" href="${escapeHtml(r.url || "__WEB_BASE__/plan")}" rel="noopener">Voir ce départ sur __WEB_HOST__ →</a>
+        <a class="cta" id="ow-cta" href="${escapeHtml(r.url || "__WEB_BASE__/plan")}" rel="noopener">Modifier ce départ ou le tracé sur __WEB_HOST__ →</a>
       ` : "";
       return `
         <h2>Comparaison de ${runs.length} départ${runs.length>1?"s":""}</h2>
@@ -683,7 +683,7 @@ _PLAN_WIDGET_HTML = """<!doctype html>
           "Les tracés envoyés par l'assistant ; la variante choisie est colorée selon le vent de ses tronçons.",
           !!r.legs)}
         <div id="ow-detail">${detailBlock(r, true)}</div>
-        <a class="cta" id="ow-cta" href="${escapeHtml(r.url || "__WEB_BASE__/plan")}" rel="noopener">Voir cette variante sur __WEB_HOST__ →</a>
+        <a class="cta" id="ow-cta" href="${escapeHtml(r.url || "__WEB_BASE__/plan")}" rel="noopener">Modifier cette variante (tracé, départ) sur __WEB_HOST__ →</a>
       ` : "";
       return `
         <h2>Comparaison de ${routes.length} variantes</h2>
@@ -2376,16 +2376,19 @@ def build_server(
 
         On hosts without MCP Apps support (Cursor, Le Chat, terminal), present
         a short text summary of the result (route, ETA, complexity, warnings)
-        and offer ``openwind_url`` as the "View full plan →" link.
+        and offer ``openwind_url`` as the link to adjust the route or the
+        departure on the site.
 
         ## ALWAYS include the openwind_url(s) in your text reply
 
         Even when the widget renders inline, the user wants the link spelled
-        out so they can open the full app, share it, or bookmark it. Treat
+        out: it opens this very plan in the web app, where they can drag the
+        route, move the departure or change the boat, and share or bookmark
+        it. Treat
         this as a hard requirement, not a fallback:
 
         - **Single mode**: end your reply with a Markdown link built from the
-          ``openwind_url`` field, e.g. ``[Voir le plan détaillé →](<openwind_url>)``.
+          ``openwind_url`` field, e.g. ``[Modifier le tracé ou le départ →](<openwind_url>)``.
           Always use that value verbatim, never a URL you compose yourself: it
           points at the environment this server is configured for, which is not
           always the production site.
@@ -2395,9 +2398,9 @@ def build_server(
           The widget lets the user inspect any window, but it does not
           rank them: your picks and their links still belong in the reply.
 
-        Phrase the link with intent ("voir le plan détaillé", "ouvrir cette
-        fenêtre dans l'app"), not just a bare URL: the user should know
-        what clicking does.
+        Phrase the link with intent, as what the user can do there
+        ("modifier le tracé ou le départ", "ajuster ce départ dans l'app"),
+        not just a bare URL: the user should know what clicking does.
 
         ## Args
 
