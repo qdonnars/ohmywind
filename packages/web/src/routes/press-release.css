@@ -10,16 +10,6 @@
  * this sheet and press.css do not land in the order the dev server shows.
  */
 
-.press-eyebrow.press-release-eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.press-release-eyebrow .press-chip {
-  letter-spacing: normal;
-  text-transform: none;
-}
-
 .press-release-dateline {
   margin: 0 0 0.5rem;
   font-size: 0.85rem;

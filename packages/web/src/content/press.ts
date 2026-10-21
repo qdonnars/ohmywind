@@ -36,34 +36,94 @@ export interface PressArticle {
   editions: PressEdition[];
 }
 
-/**
- * Our own press release, at `/presse/communique`. The head lives here so the
- * press page can show it as a card without loading the release's chunk; the
- * body is `communique.md`. Written in French only, hence `lang`: the card and
- * the page mark it, whatever the interface language.
- *
- * `highlight` is the one news item set apart from the body: a box under the
- * lead on the release, a badge on the press page's card. Drop the field and
- * both go away.
- */
-export const PRESS_RELEASE: {
-  lang: Lang;
+/** Our own press release in one language: the head, the body being a
+    markdown file next to this one. */
+export interface PressRelease {
   dateline: string;
   title: string;
   lead: string;
+  /**
+   * The one news item set apart from the body: a box under the lead on the
+   * release, a badge on the press page's card. Drop the field and both go
+   * away.
+   */
   highlight?: { badge: string; title: string; body: string; link: { href: string; text: string } };
-} = {
-  lang: "fr",
-  dateline: "Marseille, octobre 2026",
-  title: "OhMyWind : l'outil gratuit qui dit aux plaisanciers à quelle heure partir",
-  lead:
-    "Né d'un projet personnel à Marseille, OhMyWind est un planificateur de navigation à la voile gratuit, sans compte et open source. Il compare les heures de départ possibles d'une navigation en croisant météo, état de la mer, courants de marée et performances du bateau, sur le web, sur Android et dans les assistants d'intelligence artificielle. Sans campagne de lancement, il réunit déjà plus de 600 utilisateurs par jour, en France et en Allemagne.",
-  highlight: {
-    badge: "Cap Innovation 2026",
-    title: "Candidat au concours Cap Innovation du Paris Nautic Show",
-    body:
-      "OhMyWind se présente au concours Cap Innovation du Paris Nautic Show (Le Bourget, du 25 au 29 novembre 2026), dans la catégorie Service innovant. Le service présenté : planifier une navigation en conversation avec un assistant d'intelligence artificielle, qui compare les départs, montre la route sur une carte et répond aux questions de marée.",
-    link: { href: "https://www.parisnauticshow.com/cap-innovation/", text: "Le concours Cap Innovation" },
+}
+
+const CAP_INNOVATION = "https://www.parisnauticshow.com/cap-innovation/";
+
+/**
+ * Our own press release, at `/presse/communique`, in each of the app's
+ * languages; the interface language picks one. The heads live here so the
+ * press page can show the release as a card without loading its chunk; the
+ * bodies are `communique.md` (French, the reference) and `communique.<lang>.md`.
+ * A change to the release goes into all five.
+ */
+export const PRESS_RELEASES: Record<Lang, PressRelease> = {
+  fr: {
+    dateline: "Marseille, octobre 2026",
+    title: "OhMyWind : l'outil gratuit qui dit aux plaisanciers à quelle heure partir",
+    lead:
+      "Né d'un projet personnel à Marseille, OhMyWind est un planificateur de navigation à la voile gratuit, sans compte et open source. Il compare les heures de départ possibles d'une navigation en croisant météo, état de la mer, courants de marée et performances du bateau, sur le web, sur Android et dans les assistants d'intelligence artificielle. Sans campagne de lancement, il réunit déjà plus de 600 utilisateurs par jour, en France et en Allemagne.",
+    highlight: {
+      badge: "Cap Innovation 2026",
+      title: "Candidat au concours Cap Innovation du Paris Nautic Show",
+      body:
+        "OhMyWind se présente au concours Cap Innovation du Paris Nautic Show (Le Bourget, du 25 au 29 novembre 2026), dans la catégorie Service innovant. Le service présenté : planifier une navigation en conversation avec un assistant d'intelligence artificielle, qui compare les départs, montre la route sur une carte et répond aux questions de marée.",
+      link: { href: CAP_INNOVATION, text: "Le concours Cap Innovation" },
+    },
+  },
+  en: {
+    dateline: "Marseille, October 2026",
+    title: "OhMyWind: the free tool that tells sailors what time to leave",
+    lead:
+      "Born as a personal project in Marseille, OhMyWind is a free, open-source sailing passage planner that needs no account. It compares the possible departure times for a passage by combining weather, sea state, tidal currents and boat performance, on the web, on Android and inside AI assistants. With no launch campaign, it already has more than 600 users a day, in France and Germany.",
+    highlight: {
+      badge: "Cap Innovation 2026",
+      title: "Entered in the Paris Nautic Show's Cap Innovation competition",
+      body:
+        "OhMyWind is entering the Cap Innovation competition of the Paris Nautic Show (Le Bourget, 25 to 29 November 2026), in the Innovative Service category. The service entered: planning a passage in conversation with an AI assistant, which compares departures, shows the route on a map and answers tide questions.",
+      link: { href: CAP_INNOVATION, text: "The Cap Innovation competition (in French)" },
+    },
+  },
+  de: {
+    dateline: "Marseille, Oktober 2026",
+    title: "OhMyWind: das kostenlose Werkzeug, das Seglern sagt, wann sie ablegen sollen",
+    lead:
+      "Als privates Projekt in Marseille entstanden, ist OhMyWind ein kostenloser Open-Source-Törnplaner für Segler, ganz ohne Konto. Er vergleicht die möglichen Abfahrtszeiten eines Törns anhand von Wetter, Seegang, Gezeitenströmen und Bootsleistung, im Web, auf Android und in KI-Assistenten. Ohne Einführungskampagne zählt er bereits mehr als 600 Nutzer pro Tag, in Frankreich und Deutschland.",
+    highlight: {
+      badge: "Cap Innovation 2026",
+      title: "Bewerber beim Wettbewerb Cap Innovation der Paris Nautic Show",
+      body:
+        "OhMyWind bewirbt sich beim Wettbewerb Cap Innovation der Paris Nautic Show (Le Bourget, 25. bis 29. November 2026) in der Kategorie Innovativer Service. Vorgestellt wird: einen Törn im Gespräch mit einem KI-Assistenten planen, der die Abfahrten vergleicht, die Route auf einer Karte zeigt und Gezeitenfragen beantwortet.",
+      link: { href: CAP_INNOVATION, text: "Der Wettbewerb Cap Innovation (auf Französisch)" },
+    },
+  },
+  it: {
+    dateline: "Marsiglia, ottobre 2026",
+    title: "OhMyWind: lo strumento gratuito che dice ai diportisti a che ora partire",
+    lead:
+      "Nato come progetto personale a Marsiglia, OhMyWind è un pianificatore di navigazione a vela gratuito, senza account e open source. Confronta le ore di partenza possibili di una navigazione incrociando meteo, stato del mare, correnti di marea e prestazioni della barca, sul web, su Android e negli assistenti di intelligenza artificiale. Senza campagna di lancio, conta già più di 600 utenti al giorno, in Francia e in Germania.",
+    highlight: {
+      badge: "Cap Innovation 2026",
+      title: "Candidato al concorso Cap Innovation del Paris Nautic Show",
+      body:
+        "OhMyWind partecipa al concorso Cap Innovation del Paris Nautic Show (Le Bourget, dal 25 al 29 novembre 2026), nella categoria Servizio innovativo. Il servizio presentato: pianificare una navigazione conversando con un assistente di intelligenza artificiale, che confronta le partenze, mostra la rotta su una mappa e risponde alle domande sulla marea.",
+      link: { href: CAP_INNOVATION, text: "Il concorso Cap Innovation (in francese)" },
+    },
+  },
+  es: {
+    dateline: "Marsella, octubre de 2026",
+    title: "OhMyWind: la herramienta gratuita que dice a los navegantes a qué hora salir",
+    lead:
+      "Nacido como proyecto personal en Marsella, OhMyWind es un planificador de navegación a vela gratuito, sin cuenta y de código abierto. Compara las horas de salida posibles de una navegación cruzando meteorología, estado del mar, corrientes de marea y prestaciones del barco, en la web, en Android y en los asistentes de inteligencia artificial. Sin campaña de lanzamiento, ya reúne a más de 600 usuarios al día, en Francia y Alemania.",
+    highlight: {
+      badge: "Cap Innovation 2026",
+      title: "Candidato al concurso Cap Innovation del Paris Nautic Show",
+      body:
+        "OhMyWind se presenta al concurso Cap Innovation del Paris Nautic Show (Le Bourget, del 25 al 29 de noviembre de 2026), en la categoría Servicio innovador. El servicio presentado: planificar una navegación conversando con un asistente de inteligencia artificial, que compara las salidas, muestra la ruta en un mapa y responde a las preguntas de marea.",
+      link: { href: CAP_INNOVATION, text: "El concurso Cap Innovation (en francés)" },
+    },
   },
 };
 
