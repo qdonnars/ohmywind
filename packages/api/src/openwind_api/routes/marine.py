@@ -498,6 +498,32 @@ async def api_marc_explain(request: Request) -> JSONResponse:
     return JSONResponse(payload, headers={"Cache-Control": f"public, max-age={max_age}"})
 
 
+async def api_land(request: Request) -> JSONResponse:
+    """``GET /api/v1/marine/land?lat=&lon=``: whether the point is land.
+
+    ``{"land": true}`` where the land mask the overlay and ``plan_passage``
+    use says land (more than about 2 km inland of the shoreline), ``false``
+    everywhere else, outside the mask included: like the mask, it only ever
+    says land when it is sure. The web app asks it beside its own Open-Meteo
+    Marine request, which answers from the nearest sea cell however far
+    inland the point is, and blanks waves, current and tide on ``true``.
+    Cached a day: land does not move.
+    """
+    try:
+        lat = float(request.query_params["lat"])
+        lon = float(request.query_params["lon"])
+    except (KeyError, ValueError, TypeError) as exc:
+        return error(f"missing or invalid query params (lat, lon): {exc}", "invalid_query_params")
+    try:
+        validate_point(lat, lon)
+    except ValueError as exc:
+        return error(str(exc), "waypoint_out_of_range")
+    return JSONResponse(
+        {"land": _services(request).land.is_land(lat, lon)},
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
 def _parse_points(raw: Any) -> list[tuple[float, float]]:
     """The corridor a batch asks about, in the order it was sent.
 

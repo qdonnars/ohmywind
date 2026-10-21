@@ -2067,9 +2067,11 @@ def build_server(
         carte". This is a forecast: never present it as a measurement of
         what is blowing right now.
 
-        Pass a point at sea. Over land Open-Meteo still returns wind, but
-        every sea value comes back null, so the ``sea`` array is present and
-        empty of information rather than absent.
+        Pass a point at sea. Open-Meteo Marine answers from the nearest sea
+        cell: a few kilometres inland the ``sea`` values are the open coast's
+        (Guipavas, inland of Brest, gets the waves of the rade), further
+        inland they come back null, the ``sea`` array present and empty of
+        information rather than absent. Wind is always the point's own.
 
         Note: the first request after inactivity may incur ~5s of cold-start.
 

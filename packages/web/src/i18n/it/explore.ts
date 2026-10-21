@@ -60,6 +60,7 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.pills.waves": "Onde",
   "explore.pills.tides": "Maree",
   "explore.pills.currents": "Correnti",
+  "explore.pills.onLand": "Punto a terra: niente onde, corrente o marea",
 
   // Wind table
   "explore.windTable.empty": "Nessun dato disponibile per questo punto.",
