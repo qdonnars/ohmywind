@@ -741,15 +741,24 @@ class TestLanding:
         body = bytes(resp.body).decode() if (resp := await landing_routes.index(None)) else ""
         assert "wind.fr" in body
 
-    async def test_landing_plays_the_demo_from_this_origin(self) -> None:
-        # Not from raw.githubusercontent.com: it serves MP4s as
-        # application/octet-stream, and nosniff then stops <video> playing it.
+    async def test_landing_loads_nothing_from_youtube_until_play(self) -> None:
+        # The poster comes from this origin, not i.ytimg.com, and the player
+        # is only built by the click handler: no iframe in the page as served.
         body = bytes(resp.body).decode() if (resp := await landing_routes.index(None)) else ""
-        assert 'src="/static/demo.mp4"' in body
-        assert 'poster="/static/demo-poster.jpg"' in body
-        # Autoplaying with sound is blocked by every browser; muted is what
-        # makes the loop actually start.
-        assert "muted" in body
+        assert 'src="/static/video-poster.jpg"' in body
+        assert "<iframe" not in body
+        assert "ytimg.com" not in body
+        # The player that does load on click is the cookieless one.
+        assert "https://www.youtube-nocookie.com/embed/" in body
+        # Without script, the poster is still a link to the video.
+        assert 'href="https://www.youtube.com/watch?v=_bjDlNYJSgo"' in body
+
+    async def test_landing_links_the_youtube_channel_through_the_app_redirect(self) -> None:
+        # ohmywind.fr/youtube (public/_redirects) is the one place that knows
+        # the channel's address, so a rename is a one-line change there.
+        body = bytes(resp.body).decode() if (resp := await landing_routes.index(None)) else ""
+        assert 'href="https://ohmywind.fr/youtube"' in body
+        assert "youtube.com/@" not in body
 
 
 class TestStaticAssets:
@@ -762,13 +771,15 @@ class TestStaticAssets:
 
     @pytest.fixture
     def media_dir(self, tmp_path):
-        (tmp_path / "demo.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42")
+        (tmp_path / "video-poster.jpg").write_bytes(b"\xff\xd8\xff\xe0")
         return tmp_path
 
-    async def test_serves_the_demo_with_a_video_content_type(self, media_dir) -> None:
-        resp = await landing_routes.static_asset_route(media_dir)(_FakeAssetRequest("demo.mp4"))
+    async def test_serves_the_poster_with_an_image_content_type(self, media_dir) -> None:
+        resp = await landing_routes.static_asset_route(media_dir)(
+            _FakeAssetRequest("video-poster.jpg")
+        )
         assert resp.status_code == 200
-        assert resp.media_type == "video/mp4"
+        assert resp.media_type == "image/jpeg"
         assert "max-age" in resp.headers["cache-control"]
 
     async def test_a_name_outside_the_allowlist_is_a_404(self, media_dir) -> None:
@@ -781,6 +792,6 @@ class TestStaticAssets:
 
     async def test_without_a_media_directory_it_is_a_404(self) -> None:
         # A redeployment that has not copied the assets serves the landing
-        # page with a video element that finds nothing, rather than crashing.
-        resp = await landing_routes.static_asset_route(None)(_FakeAssetRequest("demo.mp4"))
+        # page with a poster that finds nothing, rather than crashing.
+        resp = await landing_routes.static_asset_route(None)(_FakeAssetRequest("video-poster.jpg"))
         assert resp.status_code == 404

@@ -34,8 +34,8 @@ class Settings:
             the engine falls back to Open-Meteo SMOC.
         shom_c2d_dir: directory holding the SHOM Atlas C2D artefacts. Same
             lifecycle.
-        static_dir: directory holding the landing page's media (the demo loop
-            and its poster). ``None`` serves the landing without them, which
+        static_dir: directory holding the landing page's media (the demo
+            video's poster). ``None`` serves the landing without them, which
             is what a test or a bare redeployment gets. The landing HTML
             itself ships inside this package.
     """

@@ -129,6 +129,11 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         // SPA fallback so deep links (/plan, /config, ...) resolve offline.
         navigateFallback: '/index.html',
+        // Sauf les redirections de public/_redirects : ce sont des URL que
+        // seul Cloudflare sait resoudre. Servies par le SW, elles tomberaient
+        // sur la page introuvable de l'application chez tout visiteur qui l'a
+        // deja installee.
+        navigateFallbackDenylist: [/^\/youtube\/?$/],
         // Doctrine du cache runtime : le fond de carte, et rien d'autre.
         //
         // Ce qui entre au cache : les octets statiques d'OpenFreeMap. Les
