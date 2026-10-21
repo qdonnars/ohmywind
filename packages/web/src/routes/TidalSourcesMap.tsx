@@ -368,12 +368,9 @@ export function TidalSourcesMap() {
   const [sources, setSources] = useState<SourceProperties[]>([]);
   const [served, setServed] = useState<Set<string> | null>(null);
   const [servedAtlases, setServedAtlases] = useState<CoverageAtlas[]>([]);
-  // Beside the map on a wide screen, the registry starts open: ticking a row
-  // and seeing its extent is the point of the layout. Below the map on a
-  // phone it starts folded, as before.
-  const [registryOpen, setRegistryOpen] = useState(
-    () => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(min-width: 1100px)").matches,
-  );
+  // The registry starts folded on every screen: the card's source names
+  // open it on the row they name.
+  const [registryOpen, setRegistryOpen] = useState(false);
   const servedRef = useRef<Served | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
@@ -546,7 +543,7 @@ export function TidalSourcesMap() {
     lon: number,
     usedId: string | null,
     usedKt: number | null,
-    heldBy: ReadonlyMap<string, ExplainAtlas["decision"]> | null,
+    heldBy: ReadonlyMap<string, string> | null,
   ): string {
     const d = dataRef.current;
     const live = (p: SourceProperties) => liveStatus(p, servedRef.current?.names ?? null);
@@ -560,6 +557,7 @@ export function TidalSourcesMap() {
       if (decisions.has("lower_priority")) return "config.methodo.tidal.here.passedLower";
       if (decisions.has("weak_tide")) return "config.methodo.tidal.here.passedWeak";
       if (decisions.has("dead_water")) return "config.methodo.tidal.here.passedDead";
+      if (decisions.has("excluded:gibraltar")) return "config.methodo.tidal.here.passedInflow";
       return "config.methodo.tidal.here.passed";
     };
     const items = sourcesAt(lat, lon, features, live, usedId, { heldBy: held, usedResolutionM }).map(({ source: p, role }) => {
@@ -627,10 +625,14 @@ export function TidalSourcesMap() {
     }
     const used = e.atlases.find((x) => x.decision === "used") ?? null;
     // The atlases that hold the point, used or passed over for a finer
-    // grid, a weak tide or dead water: the integrated sources worth a line.
-    const heldBy = new Map(
-      e.atlases.filter((x) => ["used", "lower_priority", "weak_tide", "dead_water"].includes(x.decision)).map((x) => [x.atlas, x.decision] as const),
-    );
+    // grid, a weak tide, dead water, or cut out of a strait where the tide
+    // alone erases the inflow (Gibraltar): the integrated sources worth a
+    // line. An atlas outside the sea it was built for is not.
+    const heldBy = new Map<string, string>();
+    for (const x of e.atlases) {
+      if (["used", "lower_priority", "weak_tide", "dead_water"].includes(x.decision)) heldBy.set(x.atlas, x.decision);
+      else if (x.decision === "excluded" && x.box === "gibraltar") heldBy.set(x.atlas, "excluded:gibraltar");
+    }
     if (e.shom?.covers) heldBy.set("shom", "used");
     let title = t("config.methodo.tidal.popup.title");
     let tag = "";

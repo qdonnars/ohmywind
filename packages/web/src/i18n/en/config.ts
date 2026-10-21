@@ -264,6 +264,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.methodo.tidal.here.passedLower": "integrated, a finer source answers",
   "config.methodo.tidal.here.passedWeak": "integrated, tide too weak here",
   "config.methodo.tidal.here.passedDead": "integrated, dead water here",
+  "config.methodo.tidal.here.passedInflow": "integrated, tide only, misses the Atlantic inflow",
   "config.methodo.tidal.popup.passNear": "Pass {km} km away",
   "config.methodo.tidal.popup.passNearValue": "{name}, up to {kt} kt per the published reference",
   "config.methodo.tidal.pass.reference": "Reference",

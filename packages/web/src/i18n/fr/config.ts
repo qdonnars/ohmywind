@@ -273,6 +273,7 @@ export const config = {
   "config.methodo.tidal.here.passedLower": "intégrée, une source plus précise répond",
   "config.methodo.tidal.here.passedWeak": "intégrée, marée trop faible ici",
   "config.methodo.tidal.here.passedDead": "intégrée, eau morte ici",
+  "config.methodo.tidal.here.passedInflow": "intégrée, marée seule, sans le flux atlantique",
   "config.methodo.tidal.popup.passNear": "Passe à {km} km",
   "config.methodo.tidal.popup.passNearValue": "{name}, jusqu'à {kt} kt selon la référence publiée",
   "config.methodo.tidal.pass.reference": "Référence",

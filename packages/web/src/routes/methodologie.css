@@ -199,6 +199,14 @@
   .methodo-map-note {
     grid-column: 1 / -1;
   }
+  /* Folded, the registry is one line: the map takes the width and the
+     line sits under it. */
+  .methodo-map:has(> .methodo-map-sources:not([open])) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .methodo-map:has(> .methodo-map-sources:not([open])) .methodo-map-sources {
+    margin-top: 0.75rem;
+  }
 }
 .methodo-map-hint {
   font-size: 0.9rem;
