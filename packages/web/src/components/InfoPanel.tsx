@@ -160,7 +160,10 @@ export function InfoPanel({ whatsNewUnseen = false }: { whatsNewUnseen?: boolean
         <p className="text-sm leading-relaxed mb-3" style={{ color: "var(--ow-fg-1)" }}>
           {t("explore.infoPanel.privacy.body")}
         </p>
-        <MoreLink href="/confidentialite">{t("explore.infoPanel.privacy.link")}</MoreLink>
+        <div className="flex flex-col items-start gap-2">
+          <MoreLink href="/confidentialite">{t("explore.infoPanel.privacy.link")}</MoreLink>
+          <MoreLink href="/conditions">{t("explore.infoPanel.privacy.termsLink")}</MoreLink>
+        </div>
       </Section>
 
       {/* One sentence each and a link: the panel says what the page covers,

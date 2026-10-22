@@ -33,6 +33,7 @@ const loadMethodologieCourants = () =>
   import("./routes/MethodologiePage").then((m) => ({ default: m.MethodologieCourantsPage }));
 const loadConfidentialite = () =>
   import("./routes/ConfidentialitePage").then((m) => ({ default: m.ConfidentialitePage }));
+const loadConditions = () => import("./routes/ConditionsPage").then((m) => ({ default: m.ConditionsPage }));
 // Le journal des versions tire lui aussi react-markdown et les deux
 // CHANGELOG : meme traitement que les pages de documentation, a la demande et
 // hors precache.
@@ -124,6 +125,8 @@ export function Routes() {
       return <LazyPageBoundary key={key} load={loadMethodologieCourants} fallback={<DocFallback />} />;
     case "confidentialite":
       return <LazyPageBoundary key={key} load={loadConfidentialite} fallback={<DocFallback />} />;
+    case "conditions":
+      return <LazyPageBoundary key={key} load={loadConditions} fallback={<DocFallback />} />;
     case "about":
       return <LazyPageBoundary key={key} load={loadAbout} fallback={<AppPageFallback />} />;
     case "whats-new":

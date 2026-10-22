@@ -20,6 +20,7 @@ export type RouteName =
   | "methodologie"
   | "methodologie-courants"
   | "confidentialite"
+  | "conditions"
   | "press"
   | "about"
   | "whats-new"
@@ -38,6 +39,9 @@ const ROUTES = new Map<string, RouteName>([
   ["/methodologie", "methodologie"],
   ["/methodologie/courants", "methodologie-courants"],
   ["/confidentialite", "confidentialite"],
+  ["/conditions", "conditions"],
+  // English alias, the address a reviewer of the ChatGPT app directory types.
+  ["/terms", "conditions"],
   ["/presse", "press"],
   ["/a-propos", "about"],
   ["/a-propos/nouveautes", "whats-new"],

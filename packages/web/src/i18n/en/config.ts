@@ -324,6 +324,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.methodo.tidal.sources.propose": "Do you know an open source missing here? Write to us",
   "config.methodo.tidal.sources.proposeSubject": "Tidal current source proposal",
   "config.docs.privacy": "Privacy",
+  "config.docs.terms": "Terms of use",
 
   "config.notFound.title": "This page does not exist",
   "config.notFound.body": "The link may be incomplete, or the page has moved.",

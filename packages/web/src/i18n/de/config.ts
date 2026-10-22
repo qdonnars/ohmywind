@@ -329,6 +329,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.methodo.tidal.sources.propose": "Kennen Sie eine offene Quelle, die hier fehlt? Schreiben Sie uns",
   "config.methodo.tidal.sources.proposeSubject": "Vorschlag einer Quelle für Gezeitenströme",
   "config.docs.privacy": "Datenschutz",
+  "config.docs.terms": "Nutzungsbedingungen",
 
   "config.notFound.title": "Diese Seite gibt es nicht",
   "config.notFound.body":
