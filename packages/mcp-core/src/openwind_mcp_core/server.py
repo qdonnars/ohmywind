@@ -138,7 +138,8 @@ plan_passage call with alternatives.
 not one passage: read the days ahead at the cruising area with one \
 get_marine_forecast call, and plan only the next leg.
 - How OhMyWind computes: read_me.
-Call no tool for questions that are not about weather, sea or tide (gear, \
+Don't call OhMyWind's tools for questions that are not about weather, sea \
+or tide (gear, \
 regulations, marinas, formalities), nor for typical seasonal weather beyond \
 about 16 days (the meltem in July): answer from your own knowledge, and say \
 that no forecast reaches that far.
@@ -1993,8 +1994,9 @@ def build_server(
 
         The returned text covers: polar lookup, default efficiency 0.75,
         VMG / tacking correction, wave derate, single-pass timing,
-        compare-windows mode semantics, Mediterranean simplifications
-        (tides, currents), and what is intentionally NOT modelled in V1.
+        compare-windows mode semantics, regional defaults, wind against
+        current, short-period chop, what is intentionally not modelled, and
+        the data attributions.
         """
         return _METHODOLOGY
 
@@ -2382,13 +2384,12 @@ def build_server(
         and offer ``openwind_url`` as the link to adjust the route or the
         departure on the site.
 
-        ## ALWAYS include the openwind_url(s) in your text reply
+        ## Offer the openwind_url(s) in your text reply
 
-        Even when the widget renders inline, the user wants the link spelled
-        out: it opens this very plan in the web app, where they can drag the
+        Even when the widget renders inline, the link is useful spelled out:
+        it opens this very plan in the web app, where the user can drag the
         route, move the departure or change the boat, and share or bookmark
-        it. Treat
-        this as a hard requirement, not a fallback:
+        it.
 
         - **Single mode**: end your reply with a Markdown link built from the
           ``openwind_url`` field, e.g. ``[Modifier le tracé ou le départ →](<openwind_url>)``.
