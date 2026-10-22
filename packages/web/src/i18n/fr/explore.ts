@@ -37,6 +37,7 @@ export const explore = {
   "explore.infoPanel.privacy.body":
     "Aucun tracking, aucun compte, aucune donnée enregistrée vous concernant. Tout tourne dans votre navigateur, c'est une page de consultation pure. Les requêtes météo partent en direct vers les API publiques.",
   "explore.infoPanel.privacy.link": "Lire la politique de confidentialité",
+  "explore.infoPanel.privacy.termsLink": "Lire les conditions d'utilisation",
   "explore.infoPanel.sources.title": "Sources des données et méthodologie",
   "explore.infoPanel.sources.body":
     "D'où viennent les prévisions de vent, de vagues, de marées et de courants, comment le planificateur les combine, et comment il note la complexité d'une navigation.",

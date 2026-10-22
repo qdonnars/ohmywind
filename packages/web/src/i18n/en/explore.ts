@@ -36,6 +36,7 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.infoPanel.privacy.body":
     "No tracking, no account, no data recorded about you. Everything runs in your browser, this is a pure reading page. Weather requests go straight to the public APIs.",
   "explore.infoPanel.privacy.link": "Read the privacy policy",
+  "explore.infoPanel.privacy.termsLink": "Read the terms of use",
   "explore.infoPanel.sources.title": "Data sources and methodology",
   "explore.infoPanel.sources.body":
     "Where the wind, wave, tide and current forecasts come from, how the planner combines them, and how it rates the complexity of a passage.",

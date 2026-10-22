@@ -35,6 +35,7 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.infoPanel.privacy.body":
     "Kein Tracking, kein Konto, keine über Sie gespeicherten Daten. Alles läuft in Ihrem Browser, dies ist eine reine Leseseite. Die Wetteranfragen gehen direkt an die öffentlichen APIs.",
   "explore.infoPanel.privacy.link": "Datenschutzerklärung lesen",
+  "explore.infoPanel.privacy.termsLink": "Nutzungsbedingungen lesen",
   "explore.infoPanel.sources.title": "Datenquellen und Methodik",
   "explore.infoPanel.sources.body":
     "Woher die Vorhersagen für Wind, Wellen, Gezeiten und Strömungen stammen, wie der Planer sie kombiniert und wie er die Komplexität eines Törns bewertet.",

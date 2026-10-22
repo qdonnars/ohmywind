@@ -13,6 +13,8 @@ describe("matchRoute", () => {
     expect(matchRoute("/methodologie")).toBe("methodologie");
     expect(matchRoute("/methodologie/courants")).toBe("methodologie-courants");
     expect(matchRoute("/confidentialite")).toBe("confidentialite");
+    expect(matchRoute("/conditions")).toBe("conditions");
+    expect(matchRoute("/terms")).toBe("conditions");
     expect(matchRoute("/presse")).toBe("press");
     expect(matchRoute("/a-propos")).toBe("about");
     expect(matchRoute("/a-propos/nouveautes")).toBe("whats-new");

@@ -333,6 +333,7 @@ export const config = {
   "config.methodo.tidal.sources.propose": "Vous connaissez une source ouverte qui manque ici ? Écrivez-nous",
   "config.methodo.tidal.sources.proposeSubject": "Proposition de source de courants de marée",
   "config.docs.privacy": "Confidentialité",
+  "config.docs.terms": "Conditions d'utilisation",
 
   // Aucune route ne correspond.
   "config.notFound.title": "Cette page n'existe pas",
