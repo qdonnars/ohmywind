@@ -35,6 +35,7 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.infoPanel.privacy.body":
     "Sin rastreo, sin cuenta, sin ningún dato registrado sobre usted. Todo funciona en su navegador, es una página de pura consulta. Las peticiones meteorológicas van directamente a las API públicas.",
   "explore.infoPanel.privacy.link": "Leer la política de privacidad",
+  "explore.infoPanel.privacy.termsLink": "Leer las condiciones de uso",
   "explore.infoPanel.sources.title": "Fuentes de datos y metodología",
   "explore.infoPanel.sources.body":
     "De dónde vienen las previsiones de viento, olas, mareas y corrientes, cómo las combina el planificador y cómo valora la complejidad de una travesía.",

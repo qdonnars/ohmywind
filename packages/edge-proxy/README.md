@@ -38,6 +38,24 @@ npx wrangler deploy
 The routes in `wrangler.toml` are applied on deploy. `zone_name` must stay
 `ohmywind.fr`.
 
+## ChatGPT app directory: domain challenge
+
+Submitting the connector to the ChatGPT app directory asks to prove we own the
+MCP server's host. OpenAI hands out a token and fetches
+`https://<host>/.well-known/openai-apps-challenge`, expecting the bare token as
+plain text. The Worker answers that path itself, never the Space, from the
+`OPENAI_APPS_CHALLENGE` secret:
+
+```sh
+npx wrangler secret put OPENAI_APPS_CHALLENGE   # paste the token from the submission form
+curl -s https://mcp.ohmywind.fr/.well-known/openai-apps-challenge
+```
+
+A secret takes effect without a redeploy, and both hosts answer the same token.
+Unset, the path is a `404`. `Cache-Control: no-store`, so a new token is served
+at once. The code has to be deployed once (`npx wrangler deploy`) before the
+secret has anything to answer.
+
 ## When the origin is unreachable
 
 `fetch` throws when the Space cannot be reached at all: asleep past the Worker's

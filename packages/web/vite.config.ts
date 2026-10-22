@@ -93,6 +93,7 @@ export default defineConfig({
           'polars/**',
           '**/MethodologiePage-*',
           '**/ConfidentialitePage-*',
+          '**/ConditionsPage-*',
           // Le journal des versions (/nouveautes) suit la meme regle : une
           // page de lecture chargee a la demande, qui partage lib-*.js.
           '**/WhatsNewPage-*',

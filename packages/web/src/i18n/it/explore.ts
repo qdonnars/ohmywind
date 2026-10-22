@@ -34,6 +34,7 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.infoPanel.privacy.body":
     "Nessun tracciamento, nessun account, nessun dato registrato che la riguardi. Tutto gira nel suo browser, è una pagina di pura consultazione. Le richieste meteo partono direttamente verso le API pubbliche.",
   "explore.infoPanel.privacy.link": "Leggere l'informativa sulla privacy",
+  "explore.infoPanel.privacy.termsLink": "Leggere le condizioni d'uso",
   "explore.infoPanel.sources.title": "Fonti dei dati e metodologia",
   "explore.infoPanel.sources.body":
     "Da dove vengono le previsioni di vento, onde, maree e correnti, come il pianificatore le combina e come valuta la complessità di una traversata.",

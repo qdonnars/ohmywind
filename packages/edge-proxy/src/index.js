@@ -25,6 +25,9 @@
  *      subrequest to a non-Cloudflare origin never populates on its own;
  *   3. a `scheduled` handler can keep the free Spaces awake. It ships wired but
  *      disabled: see the commented `[triggers]` block in `wrangler.toml`.
+ *
+ * It also answers one path itself, without asking the origin: the domain
+ * challenge of the ChatGPT app directory (see OPENAI_APPS_CHALLENGE_PATH).
  */
 
 // Public hostname -> Space hostname. The only place the backend is named.
@@ -65,6 +68,14 @@ const CACHEABLE_PATHS = new Set([
   "/api/v1/marine/marc/coverage",
 ]);
 
+// Domain challenge of the ChatGPT app directory. On submission, OpenAI hands
+// out a token and fetches this path on the MCP server's host, expecting the
+// bare token as plain text. The token lives in the `OPENAI_APPS_CHALLENGE`
+// secret, not in the code: it is per submission, and a Worker secret changes
+// without a deploy. Answered here rather than by the Space because the host
+// being verified is ours, and the origin behind it is meant to be swappable.
+const OPENAI_APPS_CHALLENGE_PATH = "/.well-known/openai-apps-challenge";
+
 // Seconds we ask the caller to wait when the origin is unreachable. A cold
 // Hugging Face container takes a few seconds; a rebuild takes a minute or so.
 const UNAVAILABLE_RETRY_AFTER = 30;
@@ -80,6 +91,10 @@ export default {
         status: 404,
         headers: { "content-type": "text/plain; charset=utf-8" },
       });
+    }
+
+    if (incoming.pathname === OPENAI_APPS_CHALLENGE_PATH) {
+      return openaiAppsChallenge(request, env);
     }
 
     // Edge cache, read side. Only ever consulted for the handful of GETs
@@ -231,6 +246,32 @@ export default {
     });
   },
 };
+
+/**
+ * The ChatGPT app directory's domain challenge, answered from the secret.
+ *
+ * No secret, no file: a 404, which is what the verifier expects from a host
+ * that has not opted in, and what keeps the path from ever reaching the Space.
+ * `no-store` because a token cached at the edge or in a crawler would outlive
+ * a rotation.
+ */
+function openaiAppsChallenge(request, env) {
+  const headers = new Headers({
+    "Content-Type": "text/plain; charset=utf-8",
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+  });
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    headers.set("Allow", "GET, HEAD");
+    return new Response("Method not allowed\n", { status: 405, headers });
+  }
+  const token = (env?.OPENAI_APPS_CHALLENGE ?? "").trim();
+  if (!token) return new Response("Not found\n", { status: 404, headers });
+  return new Response(request.method === "HEAD" ? null : token, {
+    status: 200,
+    headers,
+  });
+}
 
 /**
  * Is this an error page from the platform, or an error from the app?
