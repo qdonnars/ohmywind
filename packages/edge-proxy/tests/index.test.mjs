@@ -425,6 +425,58 @@ describe("what the origin depends on, unchanged", () => {
   });
 });
 
+describe("ChatGPT app directory challenge", () => {
+  const PATH = "/.well-known/openai-apps-challenge";
+
+  test("answers the bare token as plain text, without asking the origin", async () => {
+    const { calls, ctx } = harness({ upstream: json({}) });
+    const response = await worker.fetch(
+      new Request(`${DEV}${PATH}`),
+      { OPENAI_APPS_CHALLENGE: "  tok-123\n" },
+      ctx,
+    );
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), "tok-123");
+    assert.equal(
+      response.headers.get("Content-Type"),
+      "text/plain; charset=utf-8",
+    );
+    assert.equal(response.headers.get("Cache-Control"), "no-store");
+    assert.equal(calls.upstream.length, 0);
+    assert.equal(calls.match.length, 0);
+  });
+
+  test("is a 404 while no token is configured", async () => {
+    const { calls, ctx } = harness({ upstream: json({}) });
+    const response = await worker.fetch(
+      new Request(`https://mcp.ohmywind.fr${PATH}`),
+      {},
+      ctx,
+    );
+    assert.equal(response.status, 404);
+    assert.equal(calls.upstream.length, 0);
+  });
+
+  test("HEAD has no body, other methods are refused", async () => {
+    const { ctx } = harness({ upstream: json({}) });
+    const env = { OPENAI_APPS_CHALLENGE: "tok-123" };
+    const head = await worker.fetch(
+      new Request(`${DEV}${PATH}`, { method: "HEAD" }),
+      env,
+      ctx,
+    );
+    assert.equal(head.status, 200);
+    assert.equal(await head.text(), "");
+    const post = await worker.fetch(
+      new Request(`${DEV}${PATH}`, { method: "POST" }),
+      env,
+      ctx,
+    );
+    assert.equal(post.status, 405);
+    assert.equal(post.headers.get("Allow"), "GET, HEAD");
+  });
+});
+
 describe("keep-alive ping", () => {
   test("wakes every Space, direct, when a cron eventually fires", async () => {
     const { calls, ctx } = harness({ upstream: json([]) });
