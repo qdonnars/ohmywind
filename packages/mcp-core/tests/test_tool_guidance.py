@@ -91,7 +91,7 @@ def test_server_instructions_route_questions_and_say_when_to_call_nothing() -> N
     assert server.instructions == SERVER_INSTRUCTIONS
     for tool in ("get_marine_forecast", "get_tidal_stream", "plan_passage", "read_me"):
         assert tool in SERVER_INSTRUCTIONS
-    assert "Call no tool" in SERVER_INSTRUCTIONS
+    assert "Don't call OhMyWind's tools" in SERVER_INSTRUCTIONS
     assert "alternatives" in SERVER_INSTRUCTIONS
     assert "\u2014" not in SERVER_INSTRUCTIONS
 
