@@ -24,6 +24,9 @@ short_description: Sailing passage planner for any coast, via MCP.
 
 ## Try it in 30 seconds
 
+**Claude:** add it from the [connector directory](https://claude.ai/directory/ohmywind), in one click.
+Any other MCP client:
+
 **1.** In your MCP client, add the endpoint:
 
 ```

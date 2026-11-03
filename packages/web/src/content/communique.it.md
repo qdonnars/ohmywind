@@ -8,7 +8,7 @@ OhMyWind si collega agli assistenti di intelligenza artificiale (Claude, ChatGPT
 - **Risposte nell'ora di bordo**: date nell'ora locale del diportista, con il giorno della settimana, più brevi e quindi più rapide.
 - **Una rotta che attraversa la terraferma viene rifiutata** prima di qualsiasi calcolo, e all'assistente viene chiesto di ridisegnarla in mare.
 
-Il collegamento richiede un minuto, senza account OhMyWind né chiave API: basta seguire la [guida passo passo](https://mcp.ohmywind.fr) con l'indirizzo `https://mcp.ohmywind.fr/mcp`. Tutte le modifiche sono nelle [Novità](/a-propos/nouveautes).
+Dal 3 novembre 2026 OhMyWind è presente nella [directory ufficiale dei connettori di Claude](https://claude.ai/directory/ohmywind), da cui si aggiunge con un clic. Per gli altri assistenti il collegamento richiede un minuto, senza account OhMyWind né chiave API: basta seguire la [guida passo passo](https://mcp.ohmywind.fr) con l'indirizzo `https://mcp.ohmywind.fr/mcp`. Tutte le modifiche sono nelle [Novità](/a-propos/nouveautes).
 
 ## Il giusto bisogno: quando partire, da dove passare
 
@@ -73,7 +73,8 @@ Immagini (logo, schermate) disponibili su richiesta.
 - **Mappa delle correnti di marea**: [ohmywind.fr/methodologie/courants](/methodologie/courants)
 - **Novità (versione 1.10 e precedenti)**: [ohmywind.fr/a-propos/nouveautes](/a-propos/nouveautes)
 - **Server MCP**: `https://mcp.ohmywind.fr/mcp`
-- **Guida al collegamento con gli assistenti IA (Claude, ChatGPT, Le Chat)**: [mcp.ohmywind.fr](https://mcp.ohmywind.fr) (in inglese)
+- **Claude**: [directory ufficiale dei connettori](https://claude.ai/directory/ohmywind)
+- **Guida al collegamento con gli altri assistenti IA (ChatGPT, Le Chat)**: [mcp.ohmywind.fr](https://mcp.ohmywind.fr) (in inglese)
 - **Video dimostrativi**: [ohmywind.fr/youtube](https://ohmywind.fr/youtube)
 - **Altri client MCP (Cursor, VS Code, Goose…)**: [guida rapida](https://github.com/qdonnars/ohmywind#try-it-in-30-seconds) (in inglese)
 - **Protocollo MCP**: [modelcontextprotocol.io](https://modelcontextprotocol.io)

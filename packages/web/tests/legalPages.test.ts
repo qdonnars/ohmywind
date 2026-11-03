@@ -82,6 +82,11 @@ describe("the built legal pages", () => {
     expect(html).toContain(`<html lang="${STATIC_LANG}">`);
     expect(html).toContain(`<title>${page.title}</title>`);
     expect(html).not.toContain("<title>OhMyWind</title>");
+    // The page's own description and share tags, none of the site's left.
+    const siteDescription = indexHtml.match(/<meta name="description" content="([^"]*)">/)![1];
+    expect(html).toContain(`<meta name="description" content="${page.description}">`);
+    expect(html).toContain(`<meta property="og:title" content="${page.title}">`);
+    expect(html).not.toContain(siteDescription);
     expect(html).toContain(`<link rel="canonical" href="https://ohmywind.fr${page.canonicalPath}">`);
   });
 

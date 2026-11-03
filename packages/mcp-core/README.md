@@ -21,6 +21,9 @@ uv run pytest
 
 ## Wire to Claude Desktop
 
+Claude: add it from the [connector directory](https://claude.ai/directory/ohmywind). The setup below runs
+the server from this checkout instead, over stdio.
+
 Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 or `%APPDATA%\Claude\claude_desktop_config.json` (Windows). On Linux, Claude
 Desktop is not officially supported use Claude Code (CLI) MCP config or any

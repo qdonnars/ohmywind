@@ -25,6 +25,9 @@
 
 ## Try it in 30 seconds
 
+**Claude:** add it from the [connector directory](https://claude.ai/directory/ohmywind), in one click.
+Any other MCP client:
+
 **1.** Open your MCP client and add the endpoint:
 
 ```

@@ -8,7 +8,7 @@ OhMyWind plugs into AI assistants (Claude, ChatGPT, Le Chat…) through the open
 - **Answers in ship's time**: given in the sailor's local time, with the day of the week, shorter and therefore faster.
 - **A route that crosses land is rejected** before any calculation, and the assistant is asked to redraw it at sea.
 
-Connecting takes a minute, with no OhMyWind account and no API key: just follow the [step-by-step guide](https://mcp.ohmywind.fr) with the address `https://mcp.ohmywind.fr/mcp`. The full list of changes is in the [release notes](/a-propos/nouveautes).
+Since 3 November 2026, OhMyWind has been listed in [Claude's official connector directory](https://claude.ai/directory/ohmywind), where it can be added in one click. For other assistants, connecting takes a minute, with no OhMyWind account and no API key: just follow the [step-by-step guide](https://mcp.ohmywind.fr) with the address `https://mcp.ohmywind.fr/mcp`. The full list of changes is in the [release notes](/a-propos/nouveautes).
 
 ## Just what is needed: when to leave, which way to go
 
@@ -73,7 +73,8 @@ Visuals (logo, screenshots) available on request.
 - **Tidal current map**: [ohmywind.fr/methodologie/courants](/methodologie/courants)
 - **What's new (version 1.10 and earlier)**: [ohmywind.fr/a-propos/nouveautes](/a-propos/nouveautes)
 - **MCP server**: `https://mcp.ohmywind.fr/mcp`
-- **Guide to connecting AI assistants (Claude, ChatGPT, Le Chat)**: [mcp.ohmywind.fr](https://mcp.ohmywind.fr)
+- **Claude**: [official connector directory](https://claude.ai/directory/ohmywind)
+- **Guide to connecting other AI assistants (ChatGPT, Le Chat)**: [mcp.ohmywind.fr](https://mcp.ohmywind.fr)
 - **Demo videos**: [ohmywind.fr/youtube](https://ohmywind.fr/youtube)
 - **Other MCP clients (Cursor, VS Code, Goose…)**: [quick start](https://github.com/qdonnars/ohmywind#try-it-in-30-seconds)
 - **MCP protocol**: [modelcontextprotocol.io](https://modelcontextprotocol.io)

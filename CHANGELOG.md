@@ -4,6 +4,20 @@ Toutes les versions d'OhMyWind, de la plus récente à la plus ancienne. Le site
 
 Chaque version est aussi publiée sur la page [Releases](https://github.com/qdonnars/ohmywind/releases) du dépôt, et l'application affiche ce journal sur sa page « Quoi de neuf ». La marche à suivre pour publier une version est dans [docs/releases.md](docs/releases.md). English version: [CHANGELOG.en.md](CHANGELOG.en.md).
 
+## 1.12.0 · 2026-11-03 · OhMyWind dans l'annuaire officiel de Claude
+
+### Nouveautés
+
+- OhMyWind est référencé dans l'annuaire officiel des connecteurs de Claude : la page du serveur MCP s'ouvre sur un bouton « Add to Claude », qui l'ajoute en un clic, sans compte ni réglage (#510).
+- La revue de presse accueille l'article d'Emmanuel van Deth dans Multicoques Mag et Multihulls World, et le communiqué renvoie à l'annuaire de Claude (#510).
+
+### Coulisses
+
+- Dans l'assistant, la description des outils dit ce qu'ils font et ce qu'ils renvoient, sans plus dicter la forme de la réponse (#505).
+- La politique de confidentialité et les conditions d'utilisation se lisent aussi sans JavaScript, comme les lisent les vérificateurs des annuaires d'applications (#509).
+- Le serveur MCP annonce sa propre version, celle du site, au lieu de celle de sa bibliothèque (#510).
+- La description du site dans les moteurs de recherche et les aperçus de liens ne se limite plus aux côtes françaises (#510).
+
 ## 1.11.0 · 2026-10-21 · Les sources de chaque point, et OhMyWind en vidéo
 
 ### Nouveautés

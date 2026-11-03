@@ -25,7 +25,31 @@ from pathlib import Path
 from starlette.requests import Request
 from starlette.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse
 
-LANDING_HTML = (
+# The assistants' official connector directories that list OhMyWind, one
+# entry per directory, each filling the ``{{<name>_directory_url}}`` slot of
+# the page. The URL lives here and nowhere else in the page: when another
+# directory approves the connector, its listing is one line here and one
+# button in the page.
+DIRECTORY_URLS = {
+    "claude": "https://claude.ai/directory/ohmywind",
+}
+
+
+def render_landing(template: str) -> str:
+    """The landing page with every directory slot filled.
+
+    Fails at import rather than serving a button that points at
+    ``{{...}}``: a slot without its entry is a typo, not a degraded state.
+    """
+    html = template
+    for name, url in DIRECTORY_URLS.items():
+        html = html.replace("{{" + name + "_directory_url}}", url)
+    if "{{" in html:
+        raise RuntimeError("landing.html has a {{...}} slot with no entry in DIRECTORY_URLS")
+    return html
+
+
+LANDING_HTML = render_landing(
     resources.files("openwind_api").joinpath("static/landing.html").read_text(encoding="utf-8")
 )
 

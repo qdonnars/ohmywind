@@ -8,7 +8,7 @@ OhMyWind se conecta a los asistentes de inteligencia artificial (Claude, ChatGPT
 - **Respuestas en la hora de a bordo**: dadas en la hora local del navegante, con el día de la semana, más breves y por tanto más rápidas.
 - **Una ruta que cruza tierra se rechaza** antes de cualquier cálculo, y se pide al asistente que la vuelva a trazar por mar.
 
-La conexión lleva un minuto, sin cuenta de OhMyWind ni clave de API: basta con seguir la [guía paso a paso](https://mcp.ohmywind.fr) con la dirección `https://mcp.ohmywind.fr/mcp`. Todos los cambios están en las [Novedades](/a-propos/nouveautes).
+Desde el 3 de noviembre de 2026, OhMyWind figura en el [directorio oficial de conectores de Claude](https://claude.ai/directory/ohmywind), desde donde se añade con un clic. Para los demás asistentes, la conexión lleva un minuto, sin cuenta de OhMyWind ni clave de API: basta con seguir la [guía paso a paso](https://mcp.ohmywind.fr) con la dirección `https://mcp.ohmywind.fr/mcp`. Todos los cambios están en las [Novedades](/a-propos/nouveautes).
 
 ## Lo justo y necesario: cuándo salir, por dónde pasar
 
@@ -73,7 +73,8 @@ Material gráfico (logotipo, capturas de pantalla) disponible bajo petición.
 - **Mapa de las corrientes de marea**: [ohmywind.fr/methodologie/courants](/methodologie/courants)
 - **Novedades (versión 1.10 y anteriores)**: [ohmywind.fr/a-propos/nouveautes](/a-propos/nouveautes)
 - **Servidor MCP**: `https://mcp.ohmywind.fr/mcp`
-- **Guía para conectar los asistentes de IA (Claude, ChatGPT, Le Chat)**: [mcp.ohmywind.fr](https://mcp.ohmywind.fr) (en inglés)
+- **Claude**: [directorio oficial de conectores](https://claude.ai/directory/ohmywind)
+- **Guía para conectar los demás asistentes de IA (ChatGPT, Le Chat)**: [mcp.ohmywind.fr](https://mcp.ohmywind.fr) (en inglés)
 - **Vídeos de demostración**: [ohmywind.fr/youtube](https://ohmywind.fr/youtube)
 - **Otros clientes MCP (Cursor, VS Code, Goose…)**: [guía rápida](https://github.com/qdonnars/ohmywind#try-it-in-30-seconds) (en inglés)
 - **Protocolo MCP**: [modelcontextprotocol.io](https://modelcontextprotocol.io)
