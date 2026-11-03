@@ -35,6 +35,11 @@ pattern = '"version": "(?P<version>[^"]+)"'
 [tool.hatch.build.targets.wheel]
 packages = ["src/openwind_mcp_core"]
 
+[tool.uv]
+# The version comes from ../web/package.json: without this, uv keeps the
+# installed metadata of the previous release after a bump.
+cache-keys = [{ file = "pyproject.toml" }, { file = "../web/package.json" }]
+
 [tool.uv.sources]
 openwind-data = { path = "../data-adapters", editable = true }
 

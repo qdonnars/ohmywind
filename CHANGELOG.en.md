@@ -4,7 +4,7 @@ Every OhMyWind release, newest first. The ohmywind.fr site and the MCP server sh
 
 This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the reference. Each release is also published on the repository's [Releases](https://github.com/qdonnars/ohmywind/releases) page, and the app shows this log on its "What's new" page.
 
-## 1.12.0 · Next release · OhMyWind in Claude's official directory
+## 1.12.0 · 2026-11-03 · OhMyWind in Claude's official directory
 
 ### New
 
