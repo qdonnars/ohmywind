@@ -4,6 +4,20 @@ Every OhMyWind release, newest first. The ohmywind.fr site and the MCP server sh
 
 This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the reference. Each release is also published on the repository's [Releases](https://github.com/qdonnars/ohmywind/releases) page, and the app shows this log on its "What's new" page.
 
+## 1.12.0 · Next release · OhMyWind in Claude's official directory
+
+### New
+
+- OhMyWind is listed in Claude's official connector directory: the MCP server page opens on an "Add to Claude" button that adds it in one click, with no account and nothing to set up (#510).
+- The press page adds Emmanuel van Deth's article in Multicoques Mag and Multihulls World, and the press release points to Claude's directory (#510).
+
+### Behind the scenes
+
+- In the assistant, the tool descriptions say what each tool does and returns, without dictating how the reply is written (#505).
+- The privacy policy and the terms of use can also be read without JavaScript, the way app directory checkers read them (#509).
+- The MCP server reports its own version, the site's, instead of its library's (#510).
+- The site's description in search engines and link previews is no longer limited to French coasts (#510).
+
 ## 1.11.0 · 2026-10-21 · The sources behind each point, and OhMyWind on video
 
 ### New

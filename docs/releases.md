@@ -2,10 +2,11 @@
 
 OhMyWind porte un seul numéro de version pour le site et le serveur MCP, en [semver](https://semver.org/lang/fr/) : une version par jour de mise en production, **mineure** (1.9.0) quand la promotion apporte une nouveauté visible, **corrective** (1.8.1) quand elle ne fait que corriger. L'application Android garde son propre numéro (`appVersion` dans `packages/android/twa-manifest.json`) ; quand une version en livre une, les notes le disent.
 
-Trois endroits portent la version, et un test vérifie qu'ils s'accordent :
+Quatre endroits portent la version, et des tests vérifient qu'ils s'accordent :
 
 - `CHANGELOG.md` (français, la référence) et `CHANGELOG.en.md` (traduction, servie aussi en allemand, italien et espagnol) : la page Quoi de neuf de l'application (`/a-propos/nouveautes`) les affiche, et les releases GitHub en copient les sections ;
-- `"version"` dans `packages/web/package.json`, injecté au build et affiché dans le menu et le panneau À propos ;
+- `"version"` dans `packages/web/package.json`, injecté au build et affiché dans le menu et le panneau À propos ; le serveur MCP l'annonce aussi (`serverInfo.version`), son paquet Python étant construit sous ce numéro ;
+- `"version"` dans `server.json`, la fiche du registre MCP ;
 - le tag `vX.Y.Z` sur le commit de merge de la promotion, sur `main`.
 
 ## Au fil de l'eau, sur `dev`
@@ -21,7 +22,7 @@ Les changements à venir s'écrivent en tête des deux journaux, sous une sectio
 ## À chaque promotion `dev` vers `main`
 
 1. **Dater la section**, dans la PR de promotion : `Prochaine version` devient la date de mise en production (`2026-10-18`), `Next release` aussi, et le numéro est ajusté (mineur ou correctif).
-2. **Monter la version** dans `packages/web/package.json` au même numéro, puis `npm install --package-lock-only` à la racine pour le lockfile. `npx vitest run src/content` (dans `packages/web`) vérifie que les deux journaux et `package.json` s'accordent.
+2. **Monter la version** dans `packages/web/package.json` au même numéro, puis `npm install --package-lock-only` à la racine pour le lockfile, et dans `server.json` (la fiche du registre MCP). `npx vitest run src/content` (dans `packages/web`) vérifie que les deux journaux et `package.json` s'accordent, et `uv run pytest -q tests/test_server_version.py` (dans `packages/mcp-core`) que le serveur MCP annonce cette version et que `server.json` la porte. Le serveur n'a pas de copie à monter : son paquet prend la version de `package.json` au build.
 3. **Merger la promotion** en merge commit, comme toujours.
 4. **Taguer le commit de merge** sur `main`, hors heures de bureau :
 

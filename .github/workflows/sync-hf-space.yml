@@ -8,6 +8,9 @@ on:
       - "packages/api/**"
       - "packages/mcp-core/**"
       - "packages/data-adapters/**"
+      # The release version: openwind-mcp-core builds under it, so a bump
+      # alone must redeploy for the server to report it.
+      - "packages/web/package.json"
       - ".github/workflows/sync-hf-space.yml"
   workflow_dispatch:
 
@@ -55,6 +58,8 @@ jobs:
           cp -R packages/data-adapters "$BUILD_DIR/vendor/data-adapters"
           cp -R packages/api           "$BUILD_DIR/vendor/api"
           cp -R packages/mcp-core      "$BUILD_DIR/vendor/mcp-core"
+          mkdir -p "$BUILD_DIR/vendor/web"
+          cp packages/web/package.json "$BUILD_DIR/vendor/web/package.json"
           # Strip artefacts that don't belong on the Space.
           find "$BUILD_DIR/vendor" -type d \( -name __pycache__ -o -name .pytest_cache -o -name .ruff_cache -o -name tests \) -prune -exec rm -rf {} +
           find "$BUILD_DIR/vendor" -type f -name "*.pyc" -delete

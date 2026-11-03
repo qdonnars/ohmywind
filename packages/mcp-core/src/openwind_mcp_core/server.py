@@ -44,6 +44,7 @@ import os
 import re
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta, tzinfo
+from importlib.metadata import version as distribution_version
 from typing import Annotated, Any
 
 from mcp.server.fastmcp import FastMCP
@@ -114,6 +115,13 @@ PLAN_UI_MIME = "text/html;profile=mcp-app"
 # value still on the old brand, because the sweep that renamed everything else
 # matched "OpenWind" and "openwind.fr" and this one is lowercase and bare.
 SERVER_NAME = "ohmywind"
+
+# The version clients and directories display. Left unset, the SDK reports
+# its own (``mcp`` 1.27.2 is what the directories showed). OhMyWind has one
+# version for the site and this server, bumped in packages/web/package.json
+# only (docs/releases.md); hatchling builds this package under that version,
+# so the package metadata is where it is read, never a second copy.
+SERVER_VERSION = distribution_version("openwind-mcp-core")
 
 # Sent to the client once, at initialisation, ahead of every tool
 # description. It routes a sailor's question to the cheapest tool that
@@ -1910,6 +1918,9 @@ def build_server(
         stateless_http=True,
         json_response=True,
     )
+    # FastMCP takes no ``version`` below mcp 1.28 (the pin window); the
+    # low-level server it wraps does, and fills serverInfo from it.
+    server._mcp_server.version = SERVER_VERSION
     marc_dir = os.environ.get("MARC_ATLAS_DIR")
     shom_dir = os.environ.get("SHOM_C2D_DIR")
     # Read only when something below is built from them: a deployment that

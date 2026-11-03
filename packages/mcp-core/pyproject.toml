@@ -1,6 +1,10 @@
 [project]
 name = "openwind-mcp-core"
-version = "0.1.0"
+# OhMyWind has one version for the site and this server (docs/releases.md),
+# bumped in packages/web/package.json only. Hatchling reads it from there at
+# build time, so a deployment builds this package from a checkout that has
+# packages/web/package.json next to it (the Space's Dockerfile copies it).
+dynamic = ["version"]
 description = "Cloud-agnostic FastMCP server for OhMyWind: sailing planner tools."
 license = "AGPL-3.0-or-later"
 requires-python = ">=3.12"
@@ -23,6 +27,10 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "../web/package.json"
+pattern = '"version": "(?P<version>[^"]+)"'
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/openwind_mcp_core"]

@@ -25,6 +25,10 @@
       --border: #E2DDCD;
       --accent: #1D9E75;
       --soft: #F1ECDF;
+      /* The button carries text, so it takes a darker green than --accent:
+         white on #1D9E75 is 3.4:1, under the 4.5:1 body text needs. */
+      --cta: #137A5A;
+      --on-cta: #FFFFFF;
     }
     @media (prefers-color-scheme: dark) {
       :root {
@@ -36,6 +40,8 @@
         --border: rgba(255,255,255,0.10);
         --accent: #2BBE93;
         --soft: rgba(255,255,255,0.06);
+        --cta: #2BBE93;
+        --on-cta: #15140F;
       }
     }
     * { box-sizing: border-box; }
@@ -125,6 +131,15 @@
     details.connector ol { padding: 0.85rem 1rem 1rem 2.25rem; margin: 0; }
     details.connector ol li { margin: 0.45rem 0; }
     details.connector pre { margin: 0.5rem 0; }
+    .listing { padding: 1rem 1rem 0.25rem; }
+    .listing p { margin: 0.5rem 0 0; color: var(--muted); }
+    a.cta {
+      display: inline-block; padding: 0.65rem 1.15rem; border-radius: 10px;
+      background: var(--cta); color: var(--on-cta); font-weight: 600;
+    }
+    a.cta:hover, a.cta:focus-visible { text-decoration: none; filter: brightness(1.08); }
+    .manual { padding: 0.75rem 1rem 0; margin: 0; font-weight: 600; }
+    .listing + .manual + ol { padding-top: 0.25rem; }
     .footnote { color: var(--faint); font-size: 0.85rem; margin-top: 2.5rem; }
   </style>
 </head>
@@ -155,8 +170,13 @@
   <h2>Connect it to your assistant</h2>
   <p>Pick yours below (under a minute, no install, no API key).</p>
 
-  <details class="connector">
+  <details class="connector" open>
     <summary>Claude (claude.ai)</summary>
+    <div class="listing">
+      <a class="cta" href="{{claude_directory_url}}" target="_blank" rel="noopener">Add to Claude</a>
+      <p>One click, no account, nothing to set up.</p>
+    </div>
+    <p class="manual">Or add it manually</p>
     <ol>
       <li>Open <a href="https://claude.ai/settings/connectors" target="_blank" rel="noopener">claude.ai → Settings → Connectors</a>.</li>
       <li>Scroll to the bottom and click <strong>Add custom connector</strong>.</li>
