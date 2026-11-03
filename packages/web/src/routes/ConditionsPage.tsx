@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { useT, type Lang } from "../i18n";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import conditionsFr from "../content/conditions.md?raw";
 import conditionsEn from "../content/conditions.en.md?raw";
 import conditionsDe from "../content/conditions.de.md?raw";
@@ -28,6 +29,7 @@ const CONTENT: Record<Lang, string> = {
     feuille de style. */
 export function ConditionsPage() {
   const { t, lang } = useT();
+  useDocumentTitle(`${t("config.docs.terms")} · OhMyWind`);
   return (
     <div className="conf-root min-h-screen">
       <header className="conf-header sticky top-0 z-10 border-b backdrop-blur">

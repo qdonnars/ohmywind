@@ -6,6 +6,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { legalPagesPlugin } from './plugins/legalPages'
 
 // La version du produit (site et serveur MCP) vit dans package.json, et nulle
 // part ailleurs cote web : elle est injectee au build sous __APP_VERSION__
@@ -38,6 +39,9 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    // /confidentialite, /conditions et /terms servis en HTML avec leur texte,
+    // pour les robots sans JavaScript (voir plugins/legalPages.ts).
+    legalPagesPlugin(),
     VitePWA({
       // The new worker is announced, not applied: 'autoUpdate' made the
       // plugin's client call window.location.reload() by itself the instant a
@@ -97,6 +101,13 @@ export default defineConfig({
           // Le journal des versions (/nouveautes) suit la meme regle : une
           // page de lecture chargee a la demande, qui partage lib-*.js.
           '**/WhatsNewPage-*',
+          // Leurs copies HTML aussi (plugins/legalPages.ts) : elles ne servent
+          // qu'aux robots sans JavaScript. Une fois l'application installee,
+          // navigateFallback sert index.html pour toute navigation, ces pages
+          // comprises, et le chunk de la page affiche le texte.
+          'confidentialite.html',
+          'conditions.html',
+          'terms.html',
           '**/PressReleasePage-*',
           '**/lib-*.js',
           '**/segmentation-*.svg',
