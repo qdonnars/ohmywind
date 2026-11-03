@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { useT, type Lang } from "../i18n";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import confidentialiteFr from "../content/confidentialite.md?raw";
 import confidentialiteEn from "../content/confidentialite.en.md?raw";
 import confidentialiteDe from "../content/confidentialite.de.md?raw";
@@ -28,6 +29,7 @@ const CONTENT: Record<Lang, string> = {
     méthodologie, sans les plugins math dont elle n'a pas besoin. */
 export function ConfidentialitePage() {
   const { t, lang } = useT();
+  useDocumentTitle(`${t("config.docs.privacy")} · OhMyWind`);
   return (
     <div className="conf-root min-h-screen">
       <header className="conf-header sticky top-0 z-10 border-b backdrop-blur">

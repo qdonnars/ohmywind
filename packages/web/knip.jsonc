@@ -26,7 +26,7 @@
   // is what catches a `.css` file left behind by a page that no longer
   // imports it.
   "entry": ["scripts/gen-icons.mjs"],
-  "project": ["src/**/*.{ts,tsx,css}", "scripts/*.mjs", "tests/**/*.ts"],
+  "project": ["src/**/*.{ts,tsx,css}", "scripts/*.mjs", "plugins/**/*.ts", "tests/**/*.ts"],
 
   "ignoreIssues": {
     // Named export for the tests, default export for `React.lazy` in
