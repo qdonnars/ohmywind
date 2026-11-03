@@ -29,6 +29,7 @@ from openwind_mcp_core.server import PLAN_UI_RESOURCE_URI, SERVER_NAME
 DELIBERATE_LEGACY = {
     PLAN_UI_RESOURCE_URI: "resource URI resolved by MCP Apps hosts",
     "openwind_url": "field name in the tool's structuredContent",
+    "openwind-mcp-core": "distribution name the server's version is read from",
 }
 
 

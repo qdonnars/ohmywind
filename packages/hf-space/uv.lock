@@ -586,7 +586,6 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "openwind-mcp-core"
-version = "0.1.0"
 source = { editable = "../mcp-core" }
 dependencies = [
     { name = "mcp", extra = ["cli"] },

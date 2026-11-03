@@ -12,6 +12,10 @@ WORKDIR /app
 COPY vendor/data-adapters /app/data-adapters
 COPY vendor/api /app/api
 COPY vendor/mcp-core /app/mcp-core
+# OhMyWind's version, which openwind-mcp-core takes at build time from
+# ../web/package.json (see its pyproject): the only file of the web package
+# the Space needs.
+COPY vendor/web/package.json /app/web/package.json
 
 RUN pip install /app/data-adapters /app/api /app/mcp-core "uvicorn[standard]>=0.30" \
     "huggingface_hub[hf_xet]>=0.24"
