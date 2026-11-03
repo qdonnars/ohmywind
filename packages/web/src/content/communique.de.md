@@ -8,7 +8,7 @@ OhMyWind lässt sich über das offene Protokoll [MCP](https://modelcontextprotoc
 - **Antworten in Bordzeit**: in der Ortszeit des Seglers, mit Wochentag, kürzer und damit schneller.
 - **Eine Route über Land wird abgelehnt**, bevor gerechnet wird, und der Assistent wird gebeten, sie auf See neu zu zeichnen.
 
-Die Verbindung dauert eine Minute, ohne OhMyWind-Konto und ohne API-Schlüssel: einfach der [Schritt-für-Schritt-Anleitung](https://mcp.ohmywind.fr) mit der Adresse `https://mcp.ohmywind.fr/mcp` folgen. Alle Änderungen stehen in den [Neuigkeiten](/a-propos/nouveautes).
+Seit dem 3. November 2026 ist OhMyWind im [offiziellen Konnektorenverzeichnis von Claude](https://claude.ai/directory/ohmywind) gelistet und lässt sich dort mit einem Klick hinzufügen. Für andere Assistenten dauert die Verbindung eine Minute, ohne OhMyWind-Konto und ohne API-Schlüssel: einfach der [Schritt-für-Schritt-Anleitung](https://mcp.ohmywind.fr) mit der Adresse `https://mcp.ohmywind.fr/mcp` folgen. Alle Änderungen stehen in den [Neuigkeiten](/a-propos/nouveautes).
 
 ## Das Nötige: wann los, welcher Weg
 
@@ -73,7 +73,8 @@ Bildmaterial (Logo, Bildschirmfotos) auf Anfrage.
 - **Karte der Gezeitenströme**: [ohmywind.fr/methodologie/courants](/methodologie/courants)
 - **Neuigkeiten (Version 1.10 und frühere)**: [ohmywind.fr/a-propos/nouveautes](/a-propos/nouveautes)
 - **MCP-Server**: `https://mcp.ohmywind.fr/mcp`
-- **Anleitung zur Verbindung mit KI-Assistenten (Claude, ChatGPT, Le Chat)**: [mcp.ohmywind.fr](https://mcp.ohmywind.fr) (auf Englisch)
+- **Claude**: [offizielles Konnektorenverzeichnis](https://claude.ai/directory/ohmywind)
+- **Anleitung zur Verbindung mit anderen KI-Assistenten (ChatGPT, Le Chat)**: [mcp.ohmywind.fr](https://mcp.ohmywind.fr) (auf Englisch)
 - **Demovideos**: [ohmywind.fr/youtube](https://ohmywind.fr/youtube)
 - **Andere MCP-Clients (Cursor, VS Code, Goose…)**: [Schnellstart](https://github.com/qdonnars/ohmywind#try-it-in-30-seconds) (auf Englisch)
 - **MCP-Protokoll**: [modelcontextprotocol.io](https://modelcontextprotocol.io)

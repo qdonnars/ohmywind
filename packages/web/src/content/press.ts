@@ -130,6 +130,28 @@ export const PRESS_RELEASES: Record<Lang, PressRelease> = {
 /** Newest first. Text is quoted verbatim from each outlet, do not edit. */
 export const PRESS_ARTICLES: readonly PressArticle[] = [
   {
+    outlet: "Multicoques Mag",
+    author: "Emmanuel van Deth",
+    date: "2026-10-26",
+    primary: {
+      lang: "en",
+      url: "https://www.multihulls-world.com/shopping-catamaran-trimaran/ohmywind-marine-weather-in-five-languages-and-powered-by-ai",
+      site: "multihulls-world.com",
+      // The page's headline is the bare "OhMyWind"; the line under it is the
+      // title the piece goes by, quoted as published.
+      title: "Marine Weather in Five Languages… and Powered by AI!",
+      lead:
+        "What if you could plan your next sailing trip simply by chatting with artificial intelligence? That's now possible with OhMyWind, a free, open-source sailing route planner that requires no registration, developed by Quentin Donnars, an engineer and sailing instructor, as part of the Libramer association.",
+    },
+    editions: [
+      {
+        lang: "fr",
+        url: "https://www.multicoques-mag.com/shopping-catamaran-trimaran/ohmywind-la-meteo-marine-en-cinq-langues-et-avec-lia",
+        site: "multicoques-mag.com",
+      },
+    ],
+  },
+  {
     outlet: "BOOTE",
     publisher: "Delius Klasing",
     author: "Hauke Schmidt",

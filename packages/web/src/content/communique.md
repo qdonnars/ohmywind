@@ -8,7 +8,7 @@ OhMyWind se branche sur les assistants d'intelligence artificielle (Claude, Chat
 - **Des réponses à l'heure du bord** : données dans l'heure locale du plaisancier, avec le jour de la semaine, plus courtes et donc plus rapides.
 - **Une route qui coupe la terre est refusée** avant tout calcul, et l'assistant est invité à la redessiner en mer.
 
-La connexion prend une minute, sans compte OhMyWind ni clé d'API : il suffit de suivre le [tutoriel pas à pas](https://mcp.ohmywind.fr) avec l'adresse `https://mcp.ohmywind.fr/mcp`. Le détail des nouveautés est dans le [journal des versions](/a-propos/nouveautes).
+Depuis le 3 novembre 2026, OhMyWind est référencé dans l'[annuaire officiel des connecteurs de Claude](https://claude.ai/directory/ohmywind), où il s'ajoute en un clic. Pour les autres assistants, la connexion prend une minute, sans compte OhMyWind ni clé d'API : il suffit de suivre le [tutoriel pas à pas](https://mcp.ohmywind.fr) avec l'adresse `https://mcp.ohmywind.fr/mcp`. Le détail des nouveautés est dans le [journal des versions](/a-propos/nouveautes).
 
 ## Le juste besoin : quand partir, par où passer
 
@@ -73,7 +73,8 @@ Visuels (logo, captures d'écran) disponibles sur simple demande.
 - **Carte des courants de marée** : [ohmywind.fr/methodologie/courants](/methodologie/courants)
 - **Nouveautés (version 1.10 et précédentes)** : [ohmywind.fr/a-propos/nouveautes](/a-propos/nouveautes)
 - **Serveur MCP** : `https://mcp.ohmywind.fr/mcp`
-- **Tutoriel de connexion aux assistants IA (Claude, ChatGPT, Le Chat)** : [mcp.ohmywind.fr](https://mcp.ohmywind.fr) (en anglais)
+- **Claude** : [annuaire officiel des connecteurs](https://claude.ai/directory/ohmywind)
+- **Tutoriel de connexion aux autres assistants IA (ChatGPT, Le Chat)** : [mcp.ohmywind.fr](https://mcp.ohmywind.fr) (en anglais)
 - **Vidéos de démonstration** : [ohmywind.fr/youtube](https://ohmywind.fr/youtube)
 - **Autres clients MCP (Cursor, VS Code, Goose…)** : [guide de démarrage](https://github.com/qdonnars/ohmywind#try-it-in-30-seconds) (en anglais)
 - **Protocole MCP** : [modelcontextprotocol.io](https://modelcontextprotocol.io)
