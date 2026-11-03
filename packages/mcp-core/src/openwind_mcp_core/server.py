@@ -117,10 +117,10 @@ SERVER_NAME = "ohmywind"
 
 # Sent to the client once, at initialisation, ahead of every tool
 # description. It routes a sailor's question to the cheapest tool that
-# answers it, and says when to call none: most of what a crew asks in the car
-# or at the bar needs one point forecast, a tidal stream with no request at
-# all, or nothing from this server. English for the model; it answers in the
-# user's language.
+# answers it, and says when to call none: most of what a crew asks needs one
+# point forecast, a tidal stream with no request at all, or nothing from this
+# server. It says what the tools do and how to fill them, never how to word
+# the reply: the MCP directory review holds connector text to that.
 SERVER_INSTRUCTIONS = """\
 OhMyWind answers sailors' weather, sea and tide questions on European coasts, \
 from marine forecasts and tidal atlases. Pick the tool by the question:
@@ -141,8 +141,7 @@ get_marine_forecast call, and plan only the next leg.
 Don't call OhMyWind's tools for questions that are not about weather, sea \
 or tide (gear, \
 regulations, marinas, formalities), nor for typical seasonal weather beyond \
-about 16 days (the meltem in July): answer from your own knowledge, and say \
-that no forecast reaches that far.
+about 16 days (the meltem in July): no forecast reaches that far.
 Send every time with the user's UTC offset: the answers come back in that \
 offset, so read them as the user's clock, and each departure carries its \
 weekday: check it is the day the user named. Take the coordinates of the \
@@ -152,12 +151,11 @@ same turn: the stream at a pass and the wind there, the outbound and return \
 legs. Durations are under sail alone unless you pass motor_threshold_kn and \
 motor_speed_kn: when the user must arrive by a given time (before dark) on a \
 boat with an engine, pass 4 and 5.5, a cruiser under 4 kn motors.
-Answer first in one sentence, then the few numbers that back it; the user is \
-often in a car or at the bar. These are forecasts: never present them as \
-what is blowing right now, and send real-time conditions and warnings to \
-the official sources (the CROSS bulletin on VHF, the national weather \
-service). Reliability falls with lead time: AROME up to two days, ICON-EU \
-to five, ECMWF to ten, GFS beyond; past five days give a trend, not a plan.
+The values are model forecasts, not observations of what is blowing right \
+now; real-time conditions and warnings come from the official sources (the \
+CROSS bulletin on VHF, the national weather service). Reliability falls \
+with lead time: AROME up to two days, ICON-EU to five, ECMWF to ten, GFS \
+beyond; past five days they show a trend, not a plan.
 Reuse a result already in the conversation rather than asking again for the \
 same place and dates, and for a quick question compare departures every \
 three to six hours, not every hour.
@@ -168,8 +166,8 @@ three to six hours, not every hour.
 # that a skipper may act on to decide whether to put to sea, so the caveat
 # travels with the numbers instead of living in the docs only.
 #
-# English on purpose: it is read by the model, not by the user, and the model
-# relays it in whatever language the conversation runs in. The French wording
+# English on purpose: the payload is read by the model, and the field is
+# described as a warning intended for the user, in no set language. The French wording
 # shown in the web app lives in packages/web/src/plan/SafetyNotice.tsx and the
 # English one in the README. All three say the same thing; keep them in sync.
 PASSAGE_DISCLAIMER = (
@@ -1181,8 +1179,8 @@ uses unless overridden by tool parameters.
   known pass its source cannot see (a fine atlas measured blind there, or
   any coarse source at a pass no fine source serves). The leg's ETA is
   computed without current, and a ``currents.unknown`` notice names the
-  places once per passage. Relay it: the sailor must use local tables or
-  sailing directions there. A third case has no name: dead water in a
+  places once per passage: the sailor must use local tables or sailing
+  directions there. A third case has no name: dead water in a
   coastal atlas (a river beyond the tidal model, such as the Seine above
   Tancarville, a basin, a lock), where the atlas holds a zero current; it
   is withheld the same way and raises ``currents.unknown_water`` with the
@@ -1191,7 +1189,7 @@ uses unless overridden by tool parameters.
   not from a fine source crosses a zone where tidal streams are probably
   strong (a known race within 15 km, or more than 1.5 kt reconstructed
   with no fine atlas): the value is kept but probably too weak, and the
-  notice names the places. Relay it.
+  notice names the places.
 
 - Minimum boat speed / SOG: 0.5 kn floor to avoid blow-up in extreme
   stalls or strongly opposing currents.
@@ -1404,8 +1402,8 @@ def _land_refusal(routes: list[tuple[str | None, list[Point]]], mask: LandMask) 
         + ". Redraw it at sea: keep the first and last waypoints where the user leaves "
         "and arrives (a harbour is at sea for this check) and add waypoints between "
         "them to go round the headland, peninsula or island each leg cuts, then call "
-        "plan_passage again. Never show the user a route over land, and never move the "
-        "departure or the arrival to get past this check."
+        "plan_passage again. A route over land is not one the boat can sail; never move "
+        "the departure or the arrival to get past this check."
     )
 
 
@@ -2065,12 +2063,8 @@ def build_server(
         a table: ``columns`` names the fields once, each of ``rows`` is one
         hour. Also ``openwind_url``, the OhMyWind map centred on the point.
 
-        Answer in a sentence first (the user is often in a car or at the bar),
-        then give the few numbers that back it, as a short table or a small
-        chart if your interface draws one. No widget comes with this tool:
-        the presentation is yours. Offer ``openwind_url`` as "voir sur la
-        carte". This is a forecast: never present it as a measurement of
-        what is blowing right now.
+        No widget comes with this tool. The values are a model forecast,
+        not a measurement of what is blowing right now.
 
         Pass a point at sea. Open-Meteo Marine answers from the nearest sea
         cell: a few kilometres inland the ``sea`` values are the open coast's
@@ -2180,15 +2174,13 @@ def build_server(
         the atlas does not resolve the pass, and ``openwind_url``.
 
         Outside every atlas (most of the Mediterranean, the open sea)
-        ``covered`` is false: say so, and use ``get_marine_forecast``, which
-        returns the global model's current where it matters.
+        ``covered`` is false; ``get_marine_forecast`` returns the global
+        model's current there, where it matters.
 
         Astronomical tide only: no surge, no wind-driven current. The windows
         are facts about the stream, not a recommendation: weigh them against
         the wind (``get_marine_forecast``) and the whole passage
-        (``plan_passage``). Present the answer yourself, the time to be at the
-        pass in one sentence and the few times that back it: no widget comes
-        with this tool.
+        (``plan_passage``). No widget comes with this tool.
         """
         validate_point(lat, lon)
         start_dt = datetime.fromisoformat(start)
@@ -2239,7 +2231,7 @@ def build_server(
 
         1. **Pure weather lookup at a point** ("y aura-t-il du vent à Cassis
            samedi à 14h ?", "quelles vagues dimanche au cap Sicié ?"): call
-           ``get_marine_forecast`` and answer in text. Do NOT call
+           ``get_marine_forecast``. Do NOT call
            ``plan_passage``: there's no route to plan.
 
         2. **Trajet question with a flexible date** ("Marseille → Porquerolles
@@ -2247,7 +2239,7 @@ def build_server(
            call ``plan_passage`` in **compare-windows mode**, passing
            ``latest_departure`` (e.g. earliest+48h) and ``sweep_interval_hours``
            (3 or 6 typically) so the user sees several departure scenarios
-           side-by-side. Then pick 2-3 good ones and let the user choose.
+           side-by-side.
            This is the **default** for trajet planning: same API cost as a
            single passage thanks to cache prewarm, much more value.
 
@@ -2283,8 +2275,8 @@ def build_server(
         This server runs a coarse land check before anything else: a leg
         that runs a couple of kilometres over land, or a waypoint inland, gets
         the call refused before any forecast request, with the leg and the
-        place named. Redraw it and call again; never show the user a route
-        over land. The shoreline is coarse (about 1 km, the coast widened by
+        place named. Redraw it and call again: a route over land is not one
+        the boat can sail. The shoreline is coarse (about 1 km, the coast widened by
         2 km so harbours stay at sea, and any water a fine current atlas
         resolves counts as sea): a spit narrower than about 4 km, or a
         leg that shaves a headland, passes the check and is timed as drawn,
@@ -2314,9 +2306,6 @@ def build_server(
         the complexity score silently falls back to wind only, dropping the
         axis that would have flagged a rough passage.
 
-        Name the capes you routed around in your reply ("passage au large du
-        cap Bénat"), so the user can correct a leg you drew wrong.
-
         ## Returned payload
 
         Every time comes back in the UTC offset of ``departure``: send the
@@ -2336,7 +2325,8 @@ def build_server(
         - ``route_label`` and ``alternatives[]``, only when you passed
           alternatives: each alternative has its ``label``, ``waypoints``,
           ``passage``, ``complexity`` and ``openwind_url``.
-        - ``disclaimer``: usage warning to relay (see below).
+        - ``disclaimer``: usage warning intended for the user
+          (decision-support tool, not a navigation instrument).
 
         Compare-windows mode (``latest_departure`` set):
 
@@ -2354,17 +2344,13 @@ def build_server(
         - ``route_label`` and ``alternatives[]``, only when you passed
           alternatives: each alternative has its ``label``, ``waypoints``
           and its own ``windows[]``, same departures.
-        - ``disclaimer``: usage warning to relay (see below).
+        - ``disclaimer``: usage warning intended for the user
+          (decision-support tool, not a navigation instrument).
 
-        ## ALWAYS relay the disclaimer
-
-        This tool returns an ETA and a difficulty score the user may act on to
-        decide whether to put to sea. Carry the ``disclaimer`` field into your
-        reply, once, in the user's language, phrased naturally rather than
-        quoted verbatim. Put it after the numbers, not before: it qualifies
-        them, it does not replace them. Do not drop it because the plan looks
-        easy, and do not repeat it on every follow-up turn about the same
-        passage.
+        ``openwind_url`` opens this plan in the web app, where the route,
+        departure and boat can be edited and the plan shared. It points at
+        the environment this server is configured for, so it is the one to
+        use rather than a URL composed by hand.
 
         ## How it renders
 
@@ -2379,32 +2365,8 @@ def build_server(
         sees your waypoints on that map, one more reason to keep every leg at
         sea.
 
-        On hosts without MCP Apps support (Cursor, Le Chat, terminal), present
-        a short text summary of the result (route, ETA, complexity, warnings)
-        and offer ``openwind_url`` as the link to adjust the route or the
-        departure on the site.
-
-        ## Offer the openwind_url(s) in your text reply
-
-        Even when the widget renders inline, the link is useful spelled out:
-        it opens this very plan in the web app, where the user can drag the
-        route, move the departure or change the boat, and share or bookmark
-        it.
-
-        - **Single mode**: end your reply with a Markdown link built from the
-          ``openwind_url`` field, e.g. ``[Modifier le tracé ou le départ →](<openwind_url>)``.
-          Always use that value verbatim, never a URL you compose yourself: it
-          points at the environment this server is configured for, which is not
-          always the production site.
-        - **Compare-windows mode**: list 2-4 of the most relevant windows
-          and give each its own link, e.g.
-          ``- Sam 2 mai 09h · 11h12 · ⚡2/5 · [voir →](url)``.
-          The widget lets the user inspect any window, but it does not
-          rank them: your picks and their links still belong in the reply.
-
-        Phrase the link with intent, as what the user can do there
-        ("modifier le tracé ou le départ", "ajuster ce départ dans l'app"),
-        not just a bare URL: the user should know what clicking does.
+        On hosts without MCP Apps support (Cursor, Le Chat, terminal), no
+        widget renders; the payload and ``openwind_url`` carry the plan.
 
         ## Args
 
