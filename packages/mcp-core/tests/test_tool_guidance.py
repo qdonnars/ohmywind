@@ -33,7 +33,7 @@ def test_plan_passage_makes_the_land_rule_prominent(by_name) -> None:
     description = by_name["plan_passage"].description
     assert "## Waypoints must stay in the water" in description
     assert "coarse land check" in description
-    assert "never show the user a route" in description
+    assert "Redraw it and call again" in description
 
     # Ahead of the payload docs: the caller has to read it before it matters,
     # not after it has already drawn the route.
@@ -62,21 +62,62 @@ def test_marine_forecast_warns_that_land_points_lose_sea_state(by_name) -> None:
     assert "Pass a point at sea" in description
 
 
-def test_plan_passage_tells_the_model_to_relay_the_disclaimer(by_name) -> None:
-    """A payload field the model is not told to use is a field it drops.
+def test_plan_passage_describes_the_disclaimer_as_meant_for_the_user(by_name) -> None:
+    """The field says who it is for; how the reply carries it is the host's.
 
-    The warning only reaches the user if the reply carries it, so the
-    instruction is as load-bearing as the field itself.
+    The MCP directory review holds connector text to what a tool does and
+    returns, never how to word the reply, so the description no longer tells
+    the model to relay it. It still says the warning is intended for the user,
+    in the payload docs of both modes.
     """
     description = by_name["plan_passage"].description
-    assert "## ALWAYS relay the disclaimer" in description
-    assert "``disclaimer``" in description
+    payload = description[description.index("## Returned payload") :]
+    assert payload.count("``disclaimer``: usage warning intended for the user") == 2
+    assert "not a navigation instrument" in payload
 
-    # After the numbers, not instead of them: the instruction says so, and the
-    # section sits past the payload docs so the model reads it in that order.
-    assert description.index("## Returned payload") < description.index(
-        "## ALWAYS relay the disclaimer"
-    )
+
+# Phrases that tell the model how to word or format its reply. The directory
+# review rejects them in tool descriptions, server instructions and anything
+# else the model reads from this server, payload included. Guidance on which
+# tool to call and how to fill its inputs is fine and stays.
+_REPLY_DIRECTIVES = (
+    "your reply",
+    "in the reply",
+    "answer first",
+    "answer in",
+    "answer from your own knowledge",
+    "relay",
+    "say so",
+    "present a short",
+    "present it",
+    "present them",
+    "present the answer",
+    "offer ``openwind_url``",
+    "phrase the link",
+    "phrased naturally",
+    "in the user's language",
+    "end your reply",
+    "let the user choose",
+    "car or at the bar",
+    "voir sur la carte",
+    "show the user",
+    "give a trend",
+)
+
+
+async def test_no_text_for_the_model_dictates_the_reply(by_name) -> None:
+    from openwind_mcp_core.server import SERVER_INSTRUCTIONS
+
+    read_me = await build_server(adapter=object()).call_tool("read_me", {})
+    texts = {
+        "instructions": SERVER_INSTRUCTIONS,
+        "read_me": str(read_me),
+        **{name: tool.description or "" for name, tool in by_name.items()},
+    }
+    for where, text in texts.items():
+        lowered = text.lower()
+        for phrase in _REPLY_DIRECTIVES:
+            assert phrase not in lowered, f"{where}: {phrase!r}"
 
 
 def test_server_instructions_route_questions_and_say_when_to_call_nothing() -> None:
