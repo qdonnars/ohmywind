@@ -371,8 +371,18 @@ class OpenMeteoAdapter:
             _logger.debug(
                 "forecast single-flight join: lat=%.2f lon=%.2f", key.lat_round, key.lon_round
             )
-            joined = await asyncio.shield(flight.future)
-            return _slice_bundle(joined, start_utc, end_utc)
+            try:
+                joined = await asyncio.shield(flight.future)
+            except asyncio.CancelledError:
+                # The flight's owner was cancelled (its caller timed out or
+                # went away), not us: that is no reason to fail this request.
+                # Fetch for ourselves instead. Our own cancellation, if that
+                # is what this is, still propagates.
+                task = asyncio.current_task()
+                if not flight.future.cancelled() or (task is not None and task.cancelling()):
+                    raise
+            else:
+                return _slice_bundle(joined, start_utc, end_utc)
 
         full_bundle = await self._fetch_and_cache(
             key, lat, lon, fetch_start, fetch_end, models, now
@@ -439,6 +449,11 @@ class OpenMeteoAdapter:
             # reads the cache entry that resolved it. Never neither.
             future.set_result(full_bundle)
             return full_bundle
+        except asyncio.CancelledError:
+            # Cancelled, not failed: joiners see a cancelled flight and fetch
+            # for themselves rather than inheriting someone else's timeout.
+            future.cancel()
+            raise
         except BaseException as exc:
             if not future.done():
                 future.set_exception(exc)

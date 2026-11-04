@@ -123,6 +123,7 @@ on the deployment.
 | Request body on `/api/v1/*` | 4 MiB, `413` beyond | `OPENWIND_MAX_BODY_BYTES` |
 | Request body on `/mcp` | 256 KiB, `413` beyond | `OPENWIND_MCP_MAX_BODY_BYTES` |
 | Open-Meteo calls per minute / hour / day, counted as Open-Meteo weighs them | 480 / 4 000 / 8 000 (80 % of the free tier), `503` `upstream_budget_exhausted` beyond | `OPENWIND_UPSTREAM_BUDGET_PER_MINUTE`, `_PER_HOUR`, `_PER_DAY` (`0` leaves a window unenforced); `OPENWIND_UPSTREAM_BUDGET=0` disables the budget |
+| Deadline of one MCP tool call | 90 s, then a tool error saying so (`0` disables) | `OPENWIND_MCP_TOOL_TIMEOUT_S` |
 | `forecast_cache` corridor points | 120, `422` beyond | fixed in `openwind-data` |
 | `forecast_cache` time axis | 400 hours, `422` beyond | fixed in `openwind-data` |
 | Steps per `/api/v1/marine/marc` call | 800, `422` beyond | fixed in the wrapper |
