@@ -30,6 +30,13 @@ packages = ["src/openwind_data"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Tests that read the private atlas dataset (MARC PREVIMER, SHOM C2D, under a
+# no-redistribution commitment) from MARC_ATLAS_DIR / SHOM_C2D_DIR. They skip
+# without it; `-m "not real_atlas"` leaves them out entirely, `-m real_atlas`
+# runs only them (the dedicated CI job). See tests/currents/real_atlas.py.
+markers = [
+    "real_atlas: needs the private tidal atlas dataset (MARC_ATLAS_DIR, SHOM_C2D_DIR)",
+]
 
 [tool.ruff]
 line-length = 100
