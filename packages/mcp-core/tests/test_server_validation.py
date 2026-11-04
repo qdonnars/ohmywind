@@ -148,3 +148,57 @@ class TestForecastBounds:
         assert "min_upwind_twa_deg" in message
         assert "[25, 70]" in message
         assert adapter.fetch_calls == 0
+
+
+class TestMotorBounds:
+    """The motor knobs, refused by the domain rule before any fetch.
+
+    Measured before the rule: motor_speed_kn=-5 gave duration_h=-6.37, 0
+    raised "float division by zero", 1e-6 gave 31 861 827 h.
+    """
+
+    @pytest.mark.parametrize(
+        ("threshold", "speed", "needle"),
+        [
+            (4.0, -5.0, "motor_speed_kn must be in [0.5, 30] kn, got -5.0"),
+            (4.0, 0.0, "motor_speed_kn must be in [0.5, 30] kn, got 0.0"),
+            (4.0, 1e-6, "motor_speed_kn must be in [0.5, 30] kn, got 1e-06"),
+            (4.0, 50.0, "motor_speed_kn must be in [0.5, 30] kn, got 50.0"),
+            (0.0, 5.5, "motor_threshold_kn must be in (0, 30] kn, got 0.0"),
+            (-1.0, 5.5, "motor_threshold_kn must be in (0, 30] kn, got -1.0"),
+            (30.5, 5.5, "motor_threshold_kn must be in (0, 30] kn, got 30.5"),
+            # Alone, a knob is ignored by the engine, but a bad one is still
+            # a mistake worth telling the model about.
+            (None, 0.0, "motor_speed_kn must be in [0.5, 30] kn"),
+        ],
+    )
+    async def test_out_of_range_refused_before_any_fetch(self, threshold, speed, needle) -> None:
+        adapter = StubAdapter()
+        server = build_server(adapter=adapter)
+        args = _args(motor_speed_kn=speed)
+        if threshold is not None:
+            args["motor_threshold_kn"] = threshold
+        message = await _expect_error(server, "plan_passage", args)
+        assert needle in message
+        assert adapter.fetch_calls == 0
+
+    async def test_the_bounds_themselves_plan(self) -> None:
+        server = build_server(adapter=StubAdapter())
+        for threshold, speed in ((30.0, 30.0), (15.0, 25.0), (0.1, 0.5), (4.0, 5.5)):
+            await server.call_tool(
+                "plan_passage", _args(motor_threshold_kn=threshold, motor_speed_kn=speed)
+            )
+
+    async def test_the_description_quotes_the_domain_bounds(self) -> None:
+        # One source of truth: the ranges the model reads are the ones the
+        # domain enforces.
+        from openwind_data.routing import (
+            MOTOR_SPEED_MAX_KN,
+            MOTOR_SPEED_MIN_KN,
+            MOTOR_THRESHOLD_MAX_KN,
+        )
+
+        tools = await build_server(adapter=StubAdapter()).list_tools()
+        description = next(t for t in tools if t.name == "plan_passage").description or ""
+        assert f"Range (0, {MOTOR_THRESHOLD_MAX_KN:g}]." in description
+        assert f"Range [{MOTOR_SPEED_MIN_KN:g}, {MOTOR_SPEED_MAX_KN:g}]." in description

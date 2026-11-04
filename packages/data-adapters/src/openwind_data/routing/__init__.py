@@ -4,10 +4,14 @@
 """Routing — geometry, polars, and passage time estimation."""
 
 from openwind_data.routing.archetypes import (
+    MOTOR_SPEED_MAX_KN,
+    MOTOR_SPEED_MIN_KN,
+    MOTOR_THRESHOLD_MAX_KN,
     BoatPolar,
     get_polar,
     list_archetypes,
     lookup_polar,
+    validate_motor,
 )
 from openwind_data.routing.complexity import ComplexityScore, score_complexity
 from openwind_data.routing.geometry import (
@@ -41,6 +45,9 @@ from openwind_data.routing.passage import (
 __all__ = [
     "EARTH_RADIUS_NM",
     "MAX_WAYPOINTS",
+    "MOTOR_SPEED_MAX_KN",
+    "MOTOR_SPEED_MIN_KN",
+    "MOTOR_THRESHOLD_MAX_KN",
     "BoatPolar",
     "ComplexityScore",
     "EtaPassagePlan",
@@ -66,6 +73,7 @@ __all__ = [
     "resolve_sweep_interval",
     "score_complexity",
     "segment_route",
+    "validate_motor",
     "validate_point",
     "validate_waypoints",
 ]

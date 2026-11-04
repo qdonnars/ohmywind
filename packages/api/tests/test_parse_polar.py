@@ -112,6 +112,36 @@ class TestMotorFields:
         assert polar.motor_speed_kn is None
 
 
+class TestMotorDomainBounds:
+    """The motor bounds are the domain's (``validate_motor``), the same the MCP
+    tool refuses with; REST keeps its tolerance and drops the pair instead."""
+
+    def test_the_ceiling_and_the_floor_are_accepted(self) -> None:
+        polar = parsing.parse_polar(_payload(motor_threshold_kn=30.0, motor_speed_kn=30.0))
+        assert (polar.motor_threshold_kn, polar.motor_speed_kn) == (30.0, 30.0)
+        polar = parsing.parse_polar(_payload(motor_threshold_kn=0.1, motor_speed_kn=0.5))
+        assert (polar.motor_threshold_kn, polar.motor_speed_kn) == (0.1, 0.5)
+
+    @pytest.mark.parametrize(
+        ("threshold", "speed"),
+        [
+            (4.0, 0.0),
+            (4.0, -5.0),
+            # Under the 0.5 kn floor: a 41 nm passage used to last 31 million hours.
+            (4.0, 1e-6),
+            (4.0, 0.4),
+            (0.0, 6.0),
+            (30.5, 6.0),
+            (4.0, "nan"),
+            (4.0, "fast"),
+        ],
+    )
+    def test_out_of_range_pair_dropped(self, threshold, speed) -> None:
+        polar = parsing.parse_polar(_payload(motor_threshold_kn=threshold, motor_speed_kn=speed))
+        assert polar.motor_threshold_kn is None
+        assert polar.motor_speed_kn is None
+
+
 class TestMinUpwind:
     def test_valid_value_accepted(self) -> None:
         polar = parsing.parse_polar(_payload(min_upwind_twa_deg=47.5))

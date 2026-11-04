@@ -17,6 +17,7 @@ V1 design choices:
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -138,8 +139,10 @@ def score_complexity(
     if max_hs_m is None:
         seg_hs = [s.hs_m for s in passage.segments if s.hs_m is not None]
         max_hs_m = max(seg_hs) if seg_hs else None
-    elif max_hs_m < 0:
-        raise ValueError("max_hs_m must be >= 0")
+    elif not math.isfinite(max_hs_m) or max_hs_m < 0:
+        # NaN used to pass the comparison and fail deep in the banding with
+        # "bands must end with +inf", a sentence about our tables.
+        raise ValueError(f"max_hs_m must be >= 0 and finite, got {max_hs_m}")
 
     if max_hs_m is None:
         sea_level: int | None = None

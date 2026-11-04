@@ -17,8 +17,49 @@ the grid.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from importlib.resources import files
+
+# Bounds of the motor knobs, the one place both shells read them from. The
+# ceiling is the system-wide 30 kn boat-speed ceiling, the one the polar
+# matrix, the REST polar parser and the web form (``MOTOR_MAX_KN``) already
+# use: a fast catamaran or a RIB under power is a legitimate config. The
+# motor speed has a floor too, 0.5 kn, the floor the engine already puts
+# under a stalled sail (``MIN_BOAT_SPEED_KN``, not imported: the passage
+# package imports this module): under it the arithmetic broke (0 divided a
+# leg by zero, 1e-6 kn made a 41 nm passage last 31 million hours, a
+# negative speed ran it backwards in time).
+MOTOR_THRESHOLD_MAX_KN = 30.0
+MOTOR_SPEED_MIN_KN = 0.5
+MOTOR_SPEED_MAX_KN = 30.0
+
+
+def validate_motor(threshold_kn: float | None, speed_kn: float | None) -> None:
+    """Refuse a motor knob outside its range.
+
+    ``motor_threshold_kn`` in ``(0, 30]`` kn, ``motor_speed_kn`` in
+    ``[0.5, 30]`` kn. ``None`` is "not set" and always passes, alone or
+    with the other one (either alone is ignored by the engine, see
+    :class:`BoatPolar`). NaN and infinity are refused explicitly: a plain
+    range comparison lets NaN through.
+
+    Raises:
+        ValueError: naming the parameter, its range and the value received.
+    """
+    if threshold_kn is not None and (
+        not math.isfinite(threshold_kn) or not 0.0 < threshold_kn <= MOTOR_THRESHOLD_MAX_KN
+    ):
+        raise ValueError(
+            f"motor_threshold_kn must be in (0, {MOTOR_THRESHOLD_MAX_KN:g}] kn, got {threshold_kn}"
+        )
+    if speed_kn is not None and (
+        not math.isfinite(speed_kn) or not MOTOR_SPEED_MIN_KN <= speed_kn <= MOTOR_SPEED_MAX_KN
+    ):
+        raise ValueError(
+            f"motor_speed_kn must be in [{MOTOR_SPEED_MIN_KN:g}, {MOTOR_SPEED_MAX_KN:g}] kn, "
+            f"got {speed_kn}"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +87,12 @@ class BoatPolar:
     # zone; the VMG sweep never searches under it. ``None`` = derive from the
     # grid (first TWA column with real speeds, see effective_min_upwind_twa).
     min_upwind_twa_deg: float | None = None
+
+    def __post_init__(self) -> None:
+        # Here rather than only at the boundary: ``dataclasses.replace`` is
+        # how both shells put the caller's motor on an archetype, and it goes
+        # through ``__init__``, so no engine run can see a motor out of range.
+        validate_motor(self.motor_threshold_kn, self.motor_speed_kn)
 
 
 def _load_one(name: str) -> BoatPolar:
