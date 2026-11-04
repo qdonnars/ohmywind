@@ -63,6 +63,22 @@ class UnknownZone:
 class _Zone:
     zone: UnknownZone
     rings: tuple[tuple[np.ndarray, tuple[np.ndarray, ...]], ...]
+    # The box of all outer rings, (min lon, min lat, max lon, max lat): the
+    # cascade asks for every current lookup and the engine for every leg of
+    # every departure window, nearly always far from the Rance.
+    bbox: tuple[float, float, float, float]
+
+
+def _bbox(
+    rings: tuple[tuple[np.ndarray, tuple[np.ndarray, ...]], ...],
+) -> tuple[float, float, float, float]:
+    pts = np.concatenate([outer for outer, _ in rings])
+    return (
+        float(pts[:, 0].min()),
+        float(pts[:, 1].min()),
+        float(pts[:, 0].max()),
+        float(pts[:, 1].max()),
+    )
 
 
 @lru_cache(maxsize=1)
@@ -84,13 +100,17 @@ def _load() -> tuple[_Zone, ...]:
             reason=str(props["reason"]),
             fields=frozenset(str(f) for f in props["fields"]),
         )
-        out.append(_Zone(zone, rings))
+        out.append(_Zone(zone, rings, _bbox(rings)))
     return tuple(out)
 
 
 def unknown_zone_at(lat: float, lon: float) -> UnknownZone | None:
     """The documented zone ``(lat, lon)`` falls in, or ``None``."""
     for z in _load():
+        min_lon, min_lat, max_lon, max_lat = z.bbox
+        # Outside the box is outside every ring (inclusive box, NaN fails it).
+        if not (min_lon <= lon <= max_lon and min_lat <= lat <= max_lat):
+            continue
         if any(_in_polygon(lon, lat, outer, holes) for outer, holes in z.rings):
             return z.zone
     return None
@@ -121,6 +141,16 @@ def unknown_zone_along(lat1: float, lon1: float, lat2: float, lon2: float) -> Un
     there is time spent in a stream nobody describes.
     """
     for z in _load():
+        min_lon, min_lat, max_lon, max_lat = z.bbox
+        # A leg whose box misses the zone's box has no end inside it and cuts
+        # none of its edges.
+        if (
+            max(lon1, lon2) < min_lon
+            or min(lon1, lon2) > max_lon
+            or max(lat1, lat2) < min_lat
+            or min(lat1, lat2) > max_lat
+        ):
+            continue
         for outer, holes in z.rings:
             if (
                 _in_polygon(lon1, lat1, outer, holes)
