@@ -1,8 +1,8 @@
 # Boat archetypes — V1 polars and assumptions
 
-OhMyWind ships 8 archetypes covering the bulk of French cruising fleets, from
+OhMyWind ships 9 archetypes covering the bulk of French cruising fleets, from
 small trailerable cruisers to bluewater 50-footers and a racer-cruiser, plus an
-open sail-and-oar dinghy.
+open sail-and-oar dinghy and an IMOCA 60 ocean racer.
 The LLM client is expected to map a user's commercial boat name (e.g. *"Sun
 Odyssey 32"*) onto the closest archetype using the fields exposed by
 `list_archetypes()` — there is no server-side mapping table.
@@ -19,6 +19,7 @@ Odyssey 32"*) onto the closest archetype using the fields exposed by
 | `catamaran_40ft`    | 40 ft  | catamaran | cruising       | fast-reach        | Lagoon 40, Bali 4.1, Fountaine Pajot Lucia 40          |
 | `racer_cruiser`     | 40 ft  | monohull  | racer-cruiser  | very-fast         | J/122, Pogo 12.50, Solaris 40, Grand Soleil 43         |
 | `voile_aviron_16ft` | 16 ft  | monohull  | cruising       | slow              | Vivier Ilur, Aven, Aber, Seil, Pirmil, CLC Skerry, Drascombe Lugger |
+| `imoca`          | 60 ft  | monohull  | offshore-racer | ocean-racer       | IMOCA 60 foiler, Open 60 (Vendée Globe, Route du Rhum)  |
 
 ## Polar grid
 
@@ -56,6 +57,23 @@ modelled, `motor_threshold_kn` / `motor_speed_kn` stay unset.
   range the planner documents (42 to 50 deg), shared with the catamaran. The
   issue proposed 52 deg; the gap is about 3 % of upwind VMG (2.25 vs 2.31 kn
   at 10 kn TWS, before efficiency), inside the polar's own uncertainty.
+
+## `imoca`: assumptions
+
+Foiling IMOCA 60 (18.28 m), the boat of the Vendée Globe and the Route du
+Rhum IMOCA class. No ORC certificate is published for these boats and team
+polars are proprietary, so the polar is **estimated** from public orders of
+magnitude, not copied from any team, router or game:
+
+- About 10-11 kn upwind (TWA 40-50) in 12-16 kn of wind, `min_upwind_twa_deg: 42`.
+- Reaching (TWA 90-110) peaks around 20-27 kn from 14 kn of wind upward, where
+  the foils lift the hull; light air stays displacement-like (~9 kn in 6 kn).
+- Downwind (TWA 165) is slower than the broad reach at every wind speed.
+- Grid adds a 30 kn TWS row (9 x 9); every speed stays at or under 28.5 kn so the
+  polar stays within the REST layer's 30 kn custom-polar cap (`MAX_BOAT_SPEED_KN`).
+
+The speeds are sustained race speeds rather than theoretical maxima: use
+`efficiency` 0.85-1.0 with this archetype, not the 0.75 cruising default.
 
 ## Efficiency factor (default 0.75)
 
