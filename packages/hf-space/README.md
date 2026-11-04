@@ -76,7 +76,7 @@ asks you for credentials is guessing rather than reading the server.
 
 - **Free and keyless.** Wind + sea data via [Open-Meteo](https://open-meteo.com) (CC BY 4.0).
 - **Mediterranean-tuned.** AROME 1.3 km by default, catches thermals and mistral. ICON-EU → ECMWF → GFS for longer reach.
-- **Boat-aware.** 8 archetypes from a 16 ft sail-and-oar dinghy to 50 ft cruisers, real polars, an `efficiency` parameter for trim and crew level.
+- **Boat-aware.** 9 archetypes from a 16 ft sail-and-oar dinghy to 50 ft cruisers and an IMOCA 60, real polars, an `efficiency` parameter for trim and crew level.
 - **Window-aware.** One call sweeps up to 14 days of hourly departures so the LLM can pick the calmest slot.
 - **Client-agnostic.** One HTTP MCP endpoint, no vendor lock-in. Rich [MCP Apps](https://modelcontextprotocol.io/extensions/client-matrix) widget on supporting hosts; clean deep-link fallback on the rest.
 - **Open source, AGPL.** Self-host on Fly, Modal, or your own VPS in minutes, under your own name and icons.

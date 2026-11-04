@@ -170,7 +170,7 @@ Implementation: [`packages/data-adapters/src/openwind_data/routing/passage.py`](
 
 ### Polar speed model
 
-- 8 archetypes (`cruiser_20ft`, `cruiser_25ft`, `cruiser_30ft`, `cruiser_40ft`, `cruiser_50ft`, `racer_cruiser`, `catamaran_40ft`, `voile_aviron_16ft`), each with an ORC-style polar in [`packages/data-adapters/src/openwind_data/routing/polars/`](packages/data-adapters/src/openwind_data/routing/polars/).
+- 9 archetypes (`cruiser_20ft`, `cruiser_25ft`, `cruiser_30ft`, `cruiser_40ft`, `cruiser_50ft`, `racer_cruiser`, `catamaran_40ft`, `voile_aviron_16ft`, `imoca`), each with an ORC-style polar in [`packages/data-adapters/src/openwind_data/routing/polars/`](packages/data-adapters/src/openwind_data/routing/polars/).
 - Lookup is **bilinear interpolation** in (TWS, TWA), clamped at grid edges.
 - TWA is symmetric `[0°, 180°]` only, no port/starboard distinction.
 

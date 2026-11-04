@@ -24,6 +24,7 @@ EXPECTED_ARCHETYPES = {
     "catamaran_40ft",
     "racer_cruiser",
     "voile_aviron_16ft",
+    "imoca",
 }
 
 
@@ -125,6 +126,34 @@ class TestLookupPolar:
         # ~= 4.9 kn. A little surfing on a broad reach, never planing (#445).
         dinghy = get_polar("voile_aviron_16ft")
         assert max(max(row) for row in dinghy.boat_speed_kn) <= 5.5
+
+    def test_imoca_is_the_fastest_archetype(self) -> None:
+        # An IMOCA 60 outsails every cruiser and the 40 ft racer-cruiser at
+        # every grid point: it is the ocean-racing reference of the fleet.
+        imoca = get_polar("imoca")
+        for arch in list_archetypes():
+            if arch.name == imoca.name:
+                continue
+            for tws in (6, 10, 14, 20, 25):
+                for twa in (50, 90, 135, 165):
+                    assert lookup_polar(imoca, tws, twa) > lookup_polar(arch, tws, twa), (
+                        arch.name,
+                        tws,
+                        twa,
+                    )
+
+    def test_imoca_stays_within_server_speed_cap(self) -> None:
+        # The REST layer rejects custom polars above 30 kn (MAX_BOAT_SPEED_KN):
+        # the bundled IMOCA must stay importable/editable through the same path.
+        imoca = get_polar("imoca")
+        assert max(max(row) for row in imoca.boat_speed_kn) <= 30.0
+
+    def test_imoca_peaks_reaching_in_breeze(self) -> None:
+        # Foiler shape: reaching in 20 kn is several times faster than in 6 kn,
+        # and dead downwind is slower than the broad reach.
+        imoca = get_polar("imoca")
+        assert lookup_polar(imoca, 20, 110) > 2.5 * lookup_polar(imoca, 6, 110)
+        assert lookup_polar(imoca, 20, 165) < lookup_polar(imoca, 20, 135)
 
     def test_returns_positive_speed_in_grid(self) -> None:
         for arch in list_archetypes():

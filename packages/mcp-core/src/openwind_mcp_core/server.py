@@ -1091,6 +1091,10 @@ def _archetype_lines(indent: str) -> str:
         f"{indent}``voile_aviron_16ft`` is an open sail-and-oar dinghy only; a small "
         "cabin cruiser is ``cruiser_20ft``."
     )
+    lines.append(
+        f"{indent}``imoca`` is an offshore racer (foiling IMOCA 60); its polar is an "
+        "estimate of sustained race speeds, so pass ``efficiency`` 0.85 to 1.0 with it."
+    )
     return "\n".join(lines)
 
 
@@ -1113,11 +1117,13 @@ uses unless overridden by tool parameters.
 
 ## Polar speed model
 
-- 8 ORC-style archetypes (cruiser_20ft / cruiser_25ft / cruiser_30ft /
+- 9 ORC-style archetypes (cruiser_20ft / cruiser_25ft / cruiser_30ft /
   cruiser_40ft / cruiser_50ft / racer_cruiser / catamaran_40ft /
-  voile_aviron_16ft). voile_aviron_16ft is an open sail-and-oar dinghy of
-  about 5 m (no cabin, centreboard); its polar is an estimate, pure sail,
-  oars not modelled.
+  voile_aviron_16ft / imoca). voile_aviron_16ft is an open sail-and-oar
+  dinghy of about 5 m (no cabin, centreboard); its polar is an estimate, pure
+  sail, oars not modelled. imoca is a foiling IMOCA 60 ocean racer; its
+  polar is an estimate of sustained race speeds (no public ORC certificate),
+  meant to be used with efficiency 0.85 to 1.0.
 - Lookup is bilinear interpolation in (TWS, TWA), clamped at grid edges.
 - TWA symmetric on [0, 180] only (no port/starboard distinction).
 
