@@ -85,6 +85,8 @@ export const plan: Record<keyof typeof frPlan, string> = {
     "A waypoint lies outside valid coordinates. Place it again on the map.",
   "plan.api.errors.tooManyWaypoints":
     "Too many waypoints on this route. Remove a few of them to simplify it.",
+  "plan.api.errors.routeTooLong":
+    "This route is too long to plan in one go. Split the trip into several legs and plan them one at a time.",
   "plan.api.errors.rateLimited": "Too many computations one after the other. {delay}",
   "plan.api.errors.unknownArchetype":
     "Unknown boat type. Select an archetype from the list.",

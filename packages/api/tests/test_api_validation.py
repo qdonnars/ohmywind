@@ -112,6 +112,19 @@ async def test_too_many_waypoints_returns_422() -> None:
 
 
 @pytest.mark.asyncio
+async def test_route_too_long_returns_422_with_its_own_code() -> None:
+    # 50 waypoints zigzagging across the globe: refused before the land check,
+    # the sampler or any upstream fetch (the autouse fixture is the proof).
+    route = [[45.0, 0.0 if i % 2 == 0 else 179.0] for i in range(MAX_WAYPOINTS)]
+    resp = await passage_routes.api_passage(FakeRequest(_body(waypoints=route)))
+    assert resp.status_code == 422
+    body = json.loads(bytes(resp.body))
+    assert body["code"] == "route_too_long"
+    assert body["error"].startswith("route too long: ")
+    assert "(max 1500 nm)" in body["error"]
+
+
+@pytest.mark.asyncio
 async def test_waypoint_count_at_cap_is_not_rejected_by_bounds() -> None:
     # Must fail for some *other* reason (no network here), never for the cap.
     # A live adapter on purpose: reaching the upstream is the proof that the

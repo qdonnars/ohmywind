@@ -89,6 +89,8 @@ export const plan = {
     "Un waypoint est hors des coordonnées valides. Replacez-le sur la carte.",
   "plan.api.errors.tooManyWaypoints":
     "Trop de waypoints sur cette route. Retirez-en quelques-uns pour la simplifier.",
+  "plan.api.errors.routeTooLong":
+    "Cette route est trop longue pour être planifiée d'un seul tenant. Découpez le voyage en plusieurs étapes et planifiez-les une par une.",
   "plan.api.errors.rateLimited": "Trop de calculs lancés coup sur coup. {delay}",
   "plan.api.errors.unknownArchetype":
     "Type de bateau inconnu. Sélectionnez un archétype dans la liste.",

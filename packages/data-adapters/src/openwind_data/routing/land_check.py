@@ -25,12 +25,26 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import pairwise
 
+import numpy as np
+
 from openwind_data.currents.land_mask import LandMask
-from openwind_data.routing.geometry import Point, haversine_distance, interpolate_great_circle
+from openwind_data.routing.geometry import (
+    Point,
+    haversine_distance,
+    interpolate_great_circle,
+    interpolate_great_circle_many,
+)
 
 # About 185 m: well under the mask's kilometre, so a crossing of one pixel
 # is sampled at least five times.
 STEP_NM = 0.1
+
+# How close to a pixel edge, in pixels, a vectorised sample is re-done with
+# the scalar interpolation. numpy's SIMD ``atan2`` may differ from
+# ``math.atan2`` by an ulp, about 1e-12 of a pixel here, which can move a
+# sample across an edge only when it sits on one; re-doing those few keeps
+# the verdict exactly the one the point-by-point walk gave.
+_EDGE_PIXELS = 1e-6
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,18 +82,37 @@ def land_crossings(
     for i, (a, b) in enumerate(pairwise(points)):
         length = haversine_distance(a, b)
         n = max(2, math.ceil(length / step_nm))
-        ashore = [
-            p
-            for p in (interpolate_great_circle(a, b, k / n) for k in range(1, n))
-            if mask.is_land(p.lat, p.lon)
-        ]
-        if ashore:
+        ashore = np.flatnonzero(_samples_ashore(a, b, n, mask))
+        if ashore.size:
+            first = interpolate_great_circle(a, b, int(ashore[0] + 1) / n)
             out.append(
                 LandCrossing(
                     leg=i,
-                    land_nm=round(len(ashore) * length / n, 1),
-                    lat=ashore[0].lat,
-                    lon=ashore[0].lon,
+                    land_nm=round(int(ashore.size) * length / n, 1),
+                    lat=first.lat,
+                    lon=first.lon,
                 )
             )
     return out
+
+
+def _samples_ashore(a: Point, b: Point, n: int, mask: LandMask) -> np.ndarray:
+    """Whether each of the points ``k / n`` of the leg, ``k`` from 1 to ``n - 1``, is ashore.
+
+    Vectorised: a 1 500 nm route is 15 000 samples, which the walk one point
+    at a time in Python took tens of milliseconds over, and a hostile route
+    of 50 waypoints across the globe several seconds.
+    """
+    fractions = np.arange(1, n) / n
+    lats, lons = interpolate_great_circle_many(a, b, fractions)
+    ashore = mask.is_land_many(lats, lons)
+    rows = (lats - mask.lat0) / mask.pitch_deg
+    cols = (lons - mask.lon0) / mask.pitch_deg
+    with np.errstate(invalid="ignore"):
+        on_edge = (np.abs(rows - np.round(rows)) < _EDGE_PIXELS) | (
+            np.abs(cols - np.round(cols)) < _EDGE_PIXELS
+        )
+    for k in np.flatnonzero(on_edge):
+        p = interpolate_great_circle(a, b, (int(k) + 1) / n)
+        ashore[k] = mask.is_land(p.lat, p.lon)
+    return ashore

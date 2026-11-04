@@ -339,6 +339,14 @@ class TestErrorBodies:
         assert resp.status_code == 422
         assert_golden("error_too_many_waypoints.json", resp.content)
 
+    def test_route_too_long(self, client) -> None:
+        resp = client.post(
+            "/api/v1/passage",
+            json=_passage_body(waypoints=[[43.29, 5.37], [40.7, -74.0]]),
+        )
+        assert resp.status_code == 422
+        assert_golden("error_route_too_long.json", resp.content)
+
     def test_unknown_archetype(self, client) -> None:
         resp = client.post("/api/v1/passage", json=_passage_body(archetype="galleon"))
         assert resp.status_code == 422
