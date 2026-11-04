@@ -70,6 +70,7 @@ export const config = {
   "config.boat.archetype.racerCruiser": "Racer-cruiser",
   "config.boat.archetype.catamaran40ft": "Catamaran 40 pieds",
   "config.boat.archetype.voileAviron16ft": "Voile-aviron (~5 m)",
+  "config.boat.archetype.imoca": "IMOCA 60 (course au large)",
 
   // Tuile « Essentiel ».
   "config.boat.essentials.title": "Essentiel",

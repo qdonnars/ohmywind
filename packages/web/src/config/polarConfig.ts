@@ -21,6 +21,7 @@ import cruiser25ft from "../data/polars/cruiser_25ft.json";
 import cruiser30ft from "../data/polars/cruiser_30ft.json";
 import cruiser40ft from "../data/polars/cruiser_40ft.json";
 import cruiser50ft from "../data/polars/cruiser_50ft.json";
+import imocaPolar from "../data/polars/imoca.json";
 import racerCruiser from "../data/polars/racer_cruiser.json";
 import voileAviron16ft from "../data/polars/voile_aviron_16ft.json";
 
@@ -61,6 +62,7 @@ export const BASE_POLARS: Readonly<Record<string, PolarData>> = {
   racer_cruiser: racerCruiser as PolarData,
   catamaran_40ft: catamaran40ft as PolarData,
   voile_aviron_16ft: voileAviron16ft as PolarData,
+  imoca: imocaPolar as PolarData,
 };
 
 const ARCHETYPE_LABEL_KEYS: Readonly<Record<string, Key>> = {
@@ -72,6 +74,7 @@ const ARCHETYPE_LABEL_KEYS: Readonly<Record<string, Key>> = {
   racer_cruiser: "config.boat.archetype.racerCruiser",
   catamaran_40ft: "config.boat.archetype.catamaran40ft",
   voile_aviron_16ft: "config.boat.archetype.voileAviron16ft",
+  imoca: "config.boat.archetype.imoca",
 };
 
 /**
