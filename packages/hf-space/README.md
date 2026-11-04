@@ -171,6 +171,33 @@ Re-deploying on Fly, Modal or a VPS is a different file of about this size,
 calling the same `create_app()` and `build_server()`. Freezing the MCP surface
 is dropping one argument.
 
+## Tidal atlases at build time
+
+The image pulls the tidal atlases (MARC PREVIMER, SHOM Atlas C2D, the land
+mask and the other harmonic atlases) from the private dataset
+`Qdonnars/openwind-tidal-atlas` while it builds, with the `HF_TOKEN` build
+secret (Settings, Variables and secrets, Secrets: a token with read access to
+the dataset).
+
+**The build fails when they do not come down**: no token, an expired one, the
+dataset unreachable, or a dataset without the seven MARC atlases (ATLNE,
+MANGA, FINIS, MANW, MANE, SUDBZH, AQUI), the SHOM C2D files or the land mask.
+An image without them would plan the Raz de Sein on Open-Meteo's 8 km global
+current and look healthy from outside, which is why it no longer ships.
+
+For a local build, a fork without access to the dataset or a CI smoke, pass
+the escape hatch explicitly:
+
+```
+docker build --build-arg ALLOW_MISSING_ATLASES=1 .
+```
+
+The image then builds without atlases and the server says so at startup, at
+WARNING. A server that starts without them and was not allowed to logs at
+ERROR. `REQUIRED_ATLASES` (comma-separated names, as a build argument)
+replaces the list of required harmonic atlases if the dataset's minimum ever
+changes.
+
 ## Cold-start
 
 Free CPU-basic hardware sleeps after 48 h of inactivity. First request after
