@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import logging
 import os
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -62,12 +63,13 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
 def settings_from_env() -> Settings:
-    """Read this deployment's configuration, once, at startup."""
-    return Settings(
-        marc_atlas_dir=os.environ.get("MARC_ATLAS_DIR", ""),
-        shom_c2d_dir=os.environ.get("SHOM_C2D_DIR", ""),
-        static_dir=STATIC_DIR,
-    )
+    """Read this deployment's configuration, once, at startup.
+
+    The API's own reading of the environment, with the landing media pointed
+    at this image's copy: the atlas directories and the Open-Meteo budget are
+    read the same way here as anywhere else.
+    """
+    return replace(Settings.from_env(), static_dir=STATIC_DIR)
 
 
 def build_mcp_app(adapter: Any, land_mask: Any = None) -> Any:

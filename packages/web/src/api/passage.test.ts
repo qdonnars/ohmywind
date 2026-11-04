@@ -362,6 +362,15 @@ describe("upstream_rate_limited avec fenetre", () => {
     expect(msg).toContain("3 heures environ");
   });
 
+  it("says our own budget the same way, window and wait included", () => {
+    const msg = friendlyError(
+      new ApiError("x", "upstream_budget_exhausted", 25 * 60, "hour"),
+    );
+    expect(msg).toBe(friendlyError(new ApiError("x", "upstream_rate_limited", 25 * 60, "hour")));
+    expect(msg).toContain("par heure");
+    expect(msg).toContain("pas lié à votre usage");
+  });
+
   it("keeps the vaguer sentence when no counter was named", () => {
     const msg = friendlyError(new ApiError("x", "upstream_rate_limited", null));
     expect(msg).toContain("limite temporairement");

@@ -24,6 +24,7 @@ from openwind_data.adapters.base import (
     WindPoint,
     WindSeries,
 )
+from openwind_data.adapters.budget import UpstreamBudget, request_weight
 
 # Every upstream call, at DEBUG. The line carries the host, the status and
 # the duration, and never the query string: it holds the coordinates of a
@@ -197,6 +198,12 @@ class OpenMeteoAdapter:
 
     Default model is AROME (Mediterranean focus, high-resolution capture of thermal
     and local winds).
+
+    Budget: an optional ``UpstreamBudget`` is asked before every request
+    actually sent, and refuses with ``UpstreamBudgetExhaustedError`` before
+    Open-Meteo would (see ``budget.py``). Cache hits and single-flight joins
+    never reach it. Without one, nothing is counted, which is what the tests
+    and the local stdio runner get.
     """
 
     def __init__(
@@ -205,8 +212,10 @@ class OpenMeteoAdapter:
         *,
         timeout: float = 10.0,
         http_min_interval_s: float = DEFAULT_HTTP_MIN_INTERVAL_S,
+        budget: UpstreamBudget | None = None,
     ) -> None:
         self._client = client
+        self._budget = budget
         self._timeout = timeout
         self._cache: dict[_CacheKey, _CacheEntry] = {}
         self._inflight: dict[_CacheKey, _Flight] = {}
@@ -263,8 +272,15 @@ class OpenMeteoAdapter:
     async def _get_logged(
         self, client: httpx.AsyncClient, url: str, params: dict[str, Any]
     ) -> httpx.Response:
-        """One paced GET, timed and logged. Never logs the query string."""
+        """One paced GET, timed and logged. Never logs the query string.
+
+        The budget is spent here, after the pacing and right before the
+        request leaves, so what it counts is what Open-Meteo receives: a
+        retried 429 counts twice, as it does upstream.
+        """
         await self._pace_http()
+        if self._budget is not None:
+            self._budget.spend(request_weight(params))
         started = time.perf_counter()
         host = httpx.URL(url).host
         try:
@@ -481,6 +497,14 @@ class OpenMeteoAdapter:
         except _OffCoverageError:
             return SeaSeries(points=())
         return _parse_sea(_json(resp), start, end)
+
+    def stats(self) -> dict[str, int]:
+        """The cache's size and the requests in the air, for a health check."""
+        return {
+            "entries": len(self._cache),
+            "max_entries": CACHE_MAX_ENTRIES,
+            "inflight": len(self._inflight),
+        }
 
     # ---- batched multi-coordinate prewarm --------------------------------
     # A passage samples one (lat, lon) per segment; the per-segment ``fetch``

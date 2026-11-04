@@ -121,6 +121,44 @@ class UpstreamRateLimitError(RuntimeError):
         super().__init__(f"upstream weather service rate limit reached{detail}{wait}")
 
 
+_BUDGET_WINDOW_WORD: dict[RateLimitWindow, str] = {
+    "minute": "per-minute",
+    "hour": "hourly",
+    "day": "daily",
+}
+
+
+class UpstreamBudgetExhaustedError(UpstreamRateLimitError):
+    """Raised by *our own* Open-Meteo budget, before the request is sent.
+
+    The free tier counts per IP, and the deployment's egress IP is shared by
+    every user of the service and by unrelated tenants of the same host.
+    Letting Open-Meteo refuse us is letting it refuse everyone, for up to a
+    day; refusing a little earlier ourselves keeps the address in good
+    standing. See ``openwind_data.adapters.budget``.
+
+    A subclass of ``UpstreamRateLimitError`` on purpose: everything that
+    already knows what to do with "the weather service will not answer, wait
+    this long" keeps doing it, and only the layers that want to say which of
+    the two happened (the REST ``code``) look closer. The message still opens
+    on the parent's words, which is what an older web client matches when it
+    does not know the new code, and it ends on what still works, which is
+    what a model reading it over MCP can offer the user instead.
+    """
+
+    def __init__(self, window: RateLimitWindow, retry_after_s: float) -> None:
+        super().__init__(
+            f"OhMyWind's own {_BUDGET_WINDOW_WORD[window]} share of the Open-Meteo free "
+            "quota is spent, kept below the limit so the service is never blocked for everyone",
+            retry_after_s,
+            window,
+        )
+        self.args = (
+            f"{self.args[0]}. Tidal streams (get_tidal_stream) still answer: "
+            "they make no weather request.",
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class WindPoint:
     time: datetime

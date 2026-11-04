@@ -122,6 +122,7 @@ on the deployment.
 | Rate-limit window | 60 s | `OPENWIND_RATE_LIMIT_WINDOW_S` |
 | Request body on `/api/v1/*` | 4 MiB, `413` beyond | `OPENWIND_MAX_BODY_BYTES` |
 | Request body on `/mcp` | 256 KiB, `413` beyond | `OPENWIND_MCP_MAX_BODY_BYTES` |
+| Open-Meteo calls per minute / hour / day, counted as Open-Meteo weighs them | 480 / 4 000 / 8 000 (80 % of the free tier), `503` `upstream_budget_exhausted` beyond | `OPENWIND_UPSTREAM_BUDGET_PER_MINUTE`, `_PER_HOUR`, `_PER_DAY` (`0` leaves a window unenforced); `OPENWIND_UPSTREAM_BUDGET=0` disables the budget |
 | `forecast_cache` corridor points | 120, `422` beyond | fixed in `openwind-data` |
 | `forecast_cache` time axis | 400 hours, `422` beyond | fixed in `openwind-data` |
 | Steps per `/api/v1/marine/marc` call | 800, `422` beyond | fixed in the wrapper |
@@ -142,6 +143,12 @@ kept for the clients already reading it.
 The promise runs one way only, for both fields: outside every box there is
 nothing to fetch, inside one there may still be nothing (a MARC tile is half a
 degree wide and contains land, and the SHOM cloud is scattered).
+
+The Open-Meteo budget exists because the free tier counts per IP and the
+Space's egress IP is shared: once Open-Meteo refuses it, it refuses every user
+at once, for up to a day. The server stops a little earlier on its own, and
+says how long to wait. Cache hits are free; a multi-coordinate request of N
+points counts N, as Open-Meteo counts it.
 
 The overlay endpoint has its own, wider bucket because the web app calls it
 once per corridor point, up to 60 times for one computation. Its step ceiling
