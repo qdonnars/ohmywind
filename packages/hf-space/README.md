@@ -105,6 +105,7 @@ JSON, no key and no account required.
 | `/api/v1/marine/marc/coverage` | GET | Bounding boxes of the loaded atlases, so a client can skip the calls that cannot return anything. `Cache-Control: public, max-age=86400`. |
 | `/api/v1/_client` | GET | How this deployment sees the caller, for rate-limit diagnosis. |
 | `/mcp` | POST | The MCP endpoint. Streaming transport, never compressed. |
+| `/healthz` | GET | What the process serves with: tidal atlases loaded by family, land mask, Open-Meteo budget spent, forecast cache size, CPU slots in use. `status` is `ok` or `degraded` (with `problems`), always 200. No caller data. |
 
 Responses under `/api/v1` are gzipped when the client asks for it and the body
 exceeds 1 KB. `/mcp` is deliberately excluded.
