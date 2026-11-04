@@ -464,10 +464,29 @@ class RateLimitMiddleware:
 # transport-side guard and refuses the bytes before anything reads them.
 MAX_BODY_BYTES = int(os.environ.get("OPENWIND_MAX_BODY_BYTES", str(4 * 1024 * 1024)))
 
-# Scoped to the REST surface on purpose. ``/mcp`` is left untouched: its
-# transport owns its own framing, and buffering a request body there would
-# interfere with a streaming session for no benefit.
+# The REST surface's ceiling. Decompression (below) is scoped to it too.
 DEFAULT_BODY_LIMITED_PREFIX = "/api/v1"
+
+# ``/mcp`` gets its own, much lower ceiling. It used to have none at all,
+# on the reasoning that the transport owns its framing; but the transport
+# reads the whole POST into memory and parses it as JSON before any tool
+# validates anything, exactly the 65 MB ``request.json()`` the audit
+# measured on REST, on the one surface the official connector directory
+# now sends traffic to.
+#
+# What a legitimate MCP request weighs: a JSON-RPC envelope around one tool
+# call. The largest one OhMyWind's tools accept is a ``plan_passage`` with 50
+# waypoints and two alternatives of 50 each, about 8 KB written out with
+# full-precision coordinates and labels. 256 KiB is thirty times that, and
+# keeps the worst case two orders of magnitude below the REST one. Only POST
+# bodies are concerned: the GET that opens a stream and the DELETE that
+# closes a session carry none and pass untouched, so a streaming session is
+# never buffered here.
+MCP_MAX_BODY_BYTES = int(os.environ.get("OPENWIND_MCP_MAX_BODY_BYTES", str(256 * 1024)))
+MCP_BODY_LIMITED_PREFIX = "/mcp"
+DEFAULT_EXTRA_BODY_LIMITS: tuple[tuple[str, int], ...] = (
+    (MCP_BODY_LIMITED_PREFIX, MCP_MAX_BODY_BYTES),
+)
 
 
 def body_too_large_response(max_bytes: int) -> JSONResponse:
@@ -479,9 +498,12 @@ def body_too_large_response(max_bytes: int) -> JSONResponse:
     sentence and branch on the same code.
     """
     megabytes = max_bytes / (1024 * 1024)
-    rendered = f"{megabytes:.0f}" if megabytes >= 1 else f"{megabytes:.2f}"
+    if megabytes >= 1:
+        rendered = f"{megabytes:.0f} MB"
+    else:
+        rendered = f"{max_bytes / 1024:.0f} KB"
     return JSONResponse(
-        {"error": f"request body too large (max {rendered} MB)", "code": "body_too_large"},
+        {"error": f"request body too large (max {rendered})", "code": "body_too_large"},
         status_code=413,
     )
 
@@ -503,6 +525,11 @@ class BodySizeLimitMiddleware:
     Placed inside the rate limiter so an over-sized request still counts
     against its quota: a caller hammering the endpoint with 4 MB bodies is
     exactly who the limiter is for.
+
+    One ceiling per path prefix: ``max_bytes`` under ``prefix`` (the REST
+    surface), and each ``(prefix, max_bytes)`` of ``extra_limits`` (``/mcp``
+    by default, see ``MCP_MAX_BODY_BYTES``). The first prefix that matches
+    decides.
     """
 
     _BODYLESS_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "DELETE"})
@@ -513,27 +540,36 @@ class BodySizeLimitMiddleware:
         *,
         max_bytes: int = MAX_BODY_BYTES,
         prefix: str = DEFAULT_BODY_LIMITED_PREFIX,
+        extra_limits: Iterable[tuple[str, int]] = DEFAULT_EXTRA_BODY_LIMITS,
     ) -> None:
         self.app = app
         self._max_bytes = max_bytes
         self._prefix = prefix
+        self._rules = ((prefix, max_bytes), *extra_limits)
 
     def _too_large_response(self) -> JSONResponse:
         return body_too_large_response(self._max_bytes)
 
+    def _ceiling_for(self, path: str) -> int | None:
+        for prefix, ceiling in self._rules:
+            if path.startswith(prefix):
+                return ceiling
+        return None
+
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if (
-            scope["type"] != "http"
-            or scope.get("method", "").upper() in self._BODYLESS_METHODS
-            or not scope.get("path", "").startswith(self._prefix)
-        ):
+        ceiling = (
+            None
+            if scope["type"] != "http" or scope.get("method", "").upper() in self._BODYLESS_METHODS
+            else self._ceiling_for(scope.get("path", ""))
+        )
+        if ceiling is None:
             await self.app(scope, receive, send)
             return
 
         declared = _content_length(scope)
         if declared is not None:
-            if declared > self._max_bytes:
-                await self._too_large_response()(scope, receive, send)
+            if declared > ceiling:
+                await body_too_large_response(ceiling)(scope, receive, send)
                 return
             # Announced and within budget: nothing to buffer, the transport
             # will not deliver more bytes than it declared.
@@ -551,8 +587,8 @@ class BodySizeLimitMiddleware:
                 buffered.append(message)
                 break
             total += len(message.get("body", b""))
-            if total > self._max_bytes:
-                await self._too_large_response()(scope, receive, send)
+            if total > ceiling:
+                await body_too_large_response(ceiling)(scope, receive, send)
                 return
             buffered.append(message)
             more = message.get("more_body", False)

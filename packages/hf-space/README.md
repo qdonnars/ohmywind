@@ -121,6 +121,7 @@ on the deployment.
 | Requests per IP per minute on `/api/v1/marine/marc` | 120 | `OPENWIND_MARC_RATE_LIMIT` |
 | Rate-limit window | 60 s | `OPENWIND_RATE_LIMIT_WINDOW_S` |
 | Request body on `/api/v1/*` | 4 MiB, `413` beyond | `OPENWIND_MAX_BODY_BYTES` |
+| Request body on `/mcp` | 256 KiB, `413` beyond | `OPENWIND_MCP_MAX_BODY_BYTES` |
 | `forecast_cache` corridor points | 120, `422` beyond | fixed in `openwind-data` |
 | `forecast_cache` time axis | 400 hours, `422` beyond | fixed in `openwind-data` |
 | Steps per `/api/v1/marine/marc` call | 800, `422` beyond | fixed in the wrapper |
