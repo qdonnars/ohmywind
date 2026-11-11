@@ -1,0 +1,20 @@
+# Dataset files the private direction suite opens (test_direction_real_atlas.py).
+# One path per line, relative to the root of Qdonnars/openwind-tidal-atlas, read
+# by the CI job as snapshot_download(allow_patterns=...). Regenerate with
+#   scripts/build_test_fixtures_currents.py patterns --atlas-dir <dataset copy>
+# 15 files, 143.6 MB.
+BSH_AUSALT/coverage.geojson
+BSH_AUSALT/metadata.json
+BSH_AUSALT/tile_lat=53.5/tile_lon=8.5/data.parquet
+BSH_CUXBRU/coverage.geojson
+BSH_CUXBRU/metadata.json
+BSH_CUXBRU/tile_lat=53.5/tile_lon=8.5/data.parquet
+FINIS/coverage.geojson
+FINIS/metadata.json
+FINIS/tile_lat=48.0/tile_lon=-5.0/data.parquet
+MANW/coverage.geojson
+MANW/metadata.json
+MANW/tile_lat=49.5/tile_lon=-2.0/data.parquet
+MANW/tile_lat=49.5/tile_lon=-2.5/data.parquet
+shom_c2d_points.parquet
+shom_c2d_ref_ports.json

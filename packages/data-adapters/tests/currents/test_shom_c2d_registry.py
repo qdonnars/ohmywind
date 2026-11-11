@@ -6,8 +6,8 @@
 Builds a small synthetic registry on disk (one zone, a few points, one
 reference port with realistic M2 constants), then exercises the loader,
 the spatial coverage check, and the predictor end-to-end. A separate
-opt-in test runs the full pipeline against the live archive when it's
-present under ``build/shom_c2d/``.
+opt-in test (marked ``real_atlas``) runs the full pipeline against the
+shipped artefacts when ``SHOM_C2D_DIR`` (or ``MARC_ATLAS_DIR``) points at them.
 """
 
 from __future__ import annotations
@@ -21,9 +21,7 @@ import polars as pl
 import pytest
 
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
-
-_REPO_ROOT = Path(__file__).resolve().parents[3].parent
-_LIVE_DIR = _REPO_ROOT / "build" / "shom_c2d"
+from tests.currents import real_atlas
 
 
 def _write_synthetic_registry(out: Path) -> None:
@@ -229,12 +227,9 @@ def test_predict_in_synthetic_zone_returns_finite_speeds(tmp_path: Path) -> None
     assert max(speeds) <= 1.05  # tiny slack for float arithmetic
 
 
-@pytest.mark.skipif(
-    not (_LIVE_DIR / "shom_c2d_points.parquet").exists(),
-    reason="live SHOM C2D artefacts not built (run scripts/build_shom_c2d.py)",
-)
+@pytest.mark.real_atlas
 def test_live_registry_covers_morbihan_and_misses_open_atlantic() -> None:
-    reg = ShomC2dRegistry.from_directory(_LIVE_DIR)
+    reg = ShomC2dRegistry.from_directory(real_atlas.shom_dir())
     assert reg.lats.size > 10_000  # documented ~13 290 points
     assert "PORT_NAVALO" in reg.ref_ports
     # Tascon area inside the goulet zoom — must be covered.
@@ -245,10 +240,7 @@ def test_live_registry_covers_morbihan_and_misses_open_atlantic() -> None:
     assert reg.covers(43.0, 5.5) is False
 
 
-@pytest.mark.skipif(
-    not (_LIVE_DIR / "shom_c2d_points.parquet").exists(),
-    reason="live SHOM C2D artefacts not built (run scripts/build_shom_c2d.py)",
-)
+@pytest.mark.real_atlas
 def test_live_predict_at_tascon_returns_realistic_peak() -> None:
     """The Tascon area peak in SHOM is documented around 7 kt at vives-eaux.
 
@@ -258,7 +250,7 @@ def test_live_predict_at_tascon_returns_realistic_peak() -> None:
     coefficient. This is a sanity check that the pipeline produces
     speeds in the right order of magnitude end to end.
     """
-    reg = ShomC2dRegistry.from_directory(_LIVE_DIR)
+    reg = ShomC2dRegistry.from_directory(real_atlas.shom_dir())
     t0 = datetime(2026, 5, 15, 0, 0, tzinfo=UTC)
     times = [t0 + timedelta(minutes=15 * i) for i in range(96)]  # 24 h, 15 min step
     out = reg.predict_current_series(47.5733, -2.8903, times)
