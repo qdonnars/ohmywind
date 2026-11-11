@@ -14,6 +14,7 @@
 import type { ComplexityScore, PassageReport } from "../types";
 import { haversineNm } from "../../utils/geo";
 import { fmtDurationSafe } from "../format";
+import { complexityNotice, noticeText, passageNotices } from "../notices";
 import { motorShare } from "./slots";
 
 /** One option. `passage` is null until its computation lands, and again
@@ -102,6 +103,34 @@ export function summariseTrack(passage: PassageReport, complexity: ComplexitySco
     hsMaxM: hsMax,
     motorPct: motorShare(passage),
     alerts: (passage.warnings?.length ?? 0) + (complexity?.warnings?.length ?? 0),
+  };
+}
+
+export interface TrackAlerts {
+  /** The score's warnings, each a short "what · how much · where" sentence
+      (« Mer agitée : Hs 1,1–1,4 m sur 13,8 nm »), said in full. */
+  lines: string[];
+  /** The engine's own warnings (light wind, unresolved currents…): whole
+      paragraphs, counted on the row and read in the plan. */
+  others: string[];
+  /** Whether one of the score's warnings is about the sea state, the one
+      figure of the row it bears on. */
+  sea: boolean;
+}
+
+/**
+ * What the sub-row of an option says. The score's warnings are what tells
+ * two routes apart, and each already carries its figures and its distance,
+ * so they are shown as they are; the engine's sentences run to three lines
+ * and are only counted. Nothing is invented: no figure the server did not
+ * send.
+ */
+export function trackAlerts(passage: PassageReport, complexity: ComplexityScore | null): TrackAlerts {
+  const scored = complexity?.warnings ?? [];
+  return {
+    lines: scored.map((w) => noticeText(complexityNotice(w))),
+    others: passageNotices(passage).map(noticeText),
+    sea: scored.some((w) => w.kind === "sea" || w.kind === "chop"),
   };
 }
 
