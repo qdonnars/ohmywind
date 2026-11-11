@@ -91,6 +91,47 @@ def build_mcp_app(adapter: Any, land_mask: Any = None) -> Any:
     return server.streamable_http_app()
 
 
+# The build's escape hatch (see fetch_atlases.py and the Dockerfile), kept in
+# the runtime environment by the image.
+ALLOW_MISSING_ATLASES_ENV = "ALLOW_MISSING_ATLASES"
+
+_logger = logging.getLogger(__name__)
+
+
+def report_atlases(services: Services, environ: Any = None) -> bool:
+    """Say, once at startup, whether the tidal atlases are loaded. True when they are.
+
+    The build refuses to ship without them unless told to, so a process that
+    finds none here either was built with ``ALLOW_MISSING_ATLASES=1`` (said at
+    WARNING) or lost its data some other way (said at ERROR: the deployment
+    plans every pass on Open-Meteo's 8 km current and no request can tell).
+    """
+    env = os.environ if environ is None else environ
+    missing = []
+    if not services.marc.atlases:
+        missing.append("harmonic atlases (MARC_ATLAS_DIR)")
+    if services.shom.lats.size == 0:
+        missing.append("SHOM Atlas C2D (SHOM_C2D_DIR)")
+    if not services.land.loaded:
+        missing.append("land mask")
+    if not missing:
+        _logger.info(
+            "tidal atlases loaded: %d harmonic atlas(es), %d SHOM C2D point(s), land mask",
+            len(services.marc.atlases),
+            services.shom.lats.size,
+        )
+        return True
+    allowed = str(env.get(ALLOW_MISSING_ATLASES_ENV, "")).strip().lower() in {"1", "true", "yes"}
+    _logger.log(
+        logging.WARNING if allowed else logging.ERROR,
+        "starting WITHOUT %s%s: currents fall back to Open-Meteo SMOC (8 km), which does "
+        "not resolve the narrow passes",
+        ", ".join(missing),
+        f" ({ALLOW_MISSING_ATLASES_ENV}=1)" if allowed else "",
+    )
+    return False
+
+
 def build_app() -> Any:
     """The whole deployment, assembled: REST in front, MCP mounted behind.
 
@@ -100,6 +141,7 @@ def build_app() -> Any:
     """
     settings = settings_from_env()
     services = Services.from_settings(settings)
+    report_atlases(services)
     return create_app(
         settings, mcp_app=build_mcp_app(services.marine, services.land), services=services
     )
