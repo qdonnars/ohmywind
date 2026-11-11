@@ -35,7 +35,8 @@ export interface SegmentReport {
  * dictionaries and `params` fill that entry; `message` is the server's own
  * French sentence, shown when the code is one this build does not know (an
  * older app meeting a newer server) or when an older server sent none.
- * The values are display strings or counts, never formatted again here.
+ * The values are display strings or counts; the numbers among them are
+ * written again in the reader's language (see `localiseParams`).
  */
 export interface Notice {
   code: string;

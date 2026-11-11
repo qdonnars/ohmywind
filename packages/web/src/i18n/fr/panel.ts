@@ -68,11 +68,11 @@ export const panel = {
   "panel.legs.pointOfSail.broadReach": "Largue",
   "panel.legs.pointOfSail.run": "Arrière",
   "panel.legs.pointOfSail.motor": "Moteur",
-  "panel.legs.seaFlag.windAgainstCurrent": "Vent Contre Courant",
-  "panel.legs.seaFlag.heavySea": "Grosse Mer",
+  "panel.legs.seaFlag.windAgainstCurrent": "Vent contre courant",
+  "panel.legs.seaFlag.heavySea": "Grosse mer",
   "panel.legs.seaFlag.chop": "Clapot",
-  "panel.legs.seaFlag.followingChop": "Clapot Suiveur",
-  "panel.legs.seaFlag.roughSea": "Mer Formée",
+  "panel.legs.seaFlag.followingChop": "Clapot suiveur",
+  "panel.legs.seaFlag.roughSea": "Mer formée",
 
   // ── LegDetailCard / LegExpanded ────────────────────────────────────────────
   "panel.legDetail.prevStep": "Pas précédent",

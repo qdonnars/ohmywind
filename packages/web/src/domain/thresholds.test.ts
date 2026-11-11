@@ -58,7 +58,7 @@ describe("wavesLevel", () => {
 
   it("puts the mer formée cutoff inside the agitée band", () => {
     // The chip and the cell colour have to agree: an Hs just over the cutoff
-    // is called "Mer Formée" and painted with the agitée level.
+    // is called "Mer formée" and painted with the agitée level.
     expect(wavesLevel(SEA_FORMED_HS_M + 0.01)).toBe(4);
     expect(SEA_FORMED_HS_M).toBeGreaterThan(1.0);
     expect(SEA_FORMED_HS_M).toBeLessThan(2.0);
