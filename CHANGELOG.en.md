@@ -9,14 +9,19 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 ### New
 
 - Every table of figures speaks the same language, in Explore, Plan and Compare this trip: the same hour header, the unit stated once, and a single colour scale for the wind, a softened Beaufort scale, also used on the route drawn on the map (#522).
-- In Plan, an expanded leg shows all its steps side by side (direction, wind, sea, current, speed), and a click on a column opens that step's detail (#522).
+- In Plan, an expanded leg shows all its steps side by side (hour and wind direction, wind, sea, current, speed), and a click on a column opens that step's detail, trimmed to what the table does not say: the bearing, the speed and what makes it up. On a wide panel, the detail sits beside the table (#522, #529).
 - The sea state reads with the words and thresholds of the marine bulletins, the same in the leg list, in the alerts and in the assistant: "Moderate sea" from 1.25 m of significant wave height, "Rough sea" from 2.5 m, "Very rough sea" from 4 m (#523).
+- The sea slows the boat in the passage times: a head sea clearly lengthens a passage, a following sea barely does, and each step's speed shows what the sea takes off it (#530).
+- In Compare this trip, a finished variant frames the map on every compared route and opens the list of options (#528).
 - In Explore, the wind direction flags the spread between models beyond 45°, and currents read like the sea: "Setting to" as arrows, then the speed (#522).
 - A new boat archetype, the foiling IMOCA 60, to plan an ocean race; its polar is an estimate (#513).
 
 ### Fixes
 
 - A current from the global model is no longer shown under the name of a tidal atlas where that atlas gives the water height but not the current (#524).
+- A colour follows the figure on screen: two cells that read "1.5" are no longer one yellow and one blue, and a wind shown as "15" is called fresh like any 15 (#527).
+- In the table of steps, figures no longer slide past the left of the row names when it scrolls (#529).
+- A step's direction is called "Bearing", no longer "Heading": it is the line drawn on the chart, without current or leeway, not a heading to steer (#531).
 - A route longer than 1,500 nautical miles is refused with a message that says how to split it, instead of tying up the server (#516).
 - In the assistant, a motor speed or threshold out of range is refused with the accepted range, instead of returning an absurd duration (#517).
 
