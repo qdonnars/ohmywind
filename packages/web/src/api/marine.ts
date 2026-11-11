@@ -8,6 +8,7 @@ import { API_BASE } from "./config";
 import { tidalGapForSource } from "../domain/tidalGaps";
 import { fromOverlay, unknownCurrentAt, unknownZoneAt, withhold } from "../domain/unknownCurrent";
 import { noteIfRefused } from "./openMeteoQuota";
+import { storeBounded } from "./boundedCache";
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { parisIsoToUtcMs } from "../domain/datetime";
 import {
@@ -36,6 +37,10 @@ const MARC_URL = `${API_BASE}/api/v1/marine/marc`;
 
 const cache = new Map<string, { data: MarineHourly; fetchedAt: number }>();
 const CACHE_TTL = 30 * 60 * 1000;
+// Shared by the spot page and the route corridors (see `fetchMarineCorridor`),
+// 16 to 28 KiB an entry: room for the spots of a session and a dozen
+// corridors, a few megabytes at most.
+const MARINE_CACHE_MAX = 300;
 
 interface RawHourly {
   time?: string[];
@@ -548,7 +553,7 @@ export async function fetchMarine(lat: number, lon: number): Promise<MarineHourl
     lon,
     overlay?.unknown ? withhold(merged, fromOverlay(overlay.unknown)) : await withUnknown(lat, lon, merged),
   );
-  cache.set(key, { data, fetchedAt: Date.now() });
+  storeBounded(cache, key, { data, fetchedAt: Date.now() }, CACHE_TTL, MARINE_CACHE_MAX);
   return data;
 }
 
@@ -629,7 +634,15 @@ export async function fetchMarineCorridor(
   }
   if (missing.length === 0) return out;
 
-  const coveragePromise = fetchMarcCoverage();
+  // The overlays depend on the coverage alone, not on the forecast: asked
+  // here, they travel while Open-Meteo answers instead of after it. They used
+  // to wait for it, and on a slow link the plan paid the two in a row. Never
+  // rejects: an overlay that fails is a point without one.
+  const [startIso, endIso] = marcWindow();
+  const missingPoints = missing.map((i) => coords[i]);
+  const overlaysPromise = fetchMarcCoverage()
+    .then((atlases) => fetchMarcOverlays(missingPoints, startIso, endIso, atlases))
+    .catch(() => missingPoints.map((): MarcOverlay | null => null));
   const lats = missing.map((i) => coords[i].lat).join(",");
   const lons = missing.map((i) => coords[i].lon).join(",");
   const url = `${MARINE_URL}?latitude=${lats}&longitude=${lons}&${MARINE_QUERY}`;
@@ -648,14 +661,7 @@ export async function fetchMarineCorridor(
     return out;
   }
 
-  const [startIso, endIso] = marcWindow();
-  const atlases = await coveragePromise;
-  const overlays = await fetchMarcOverlays(
-    missing.map((i) => coords[i]),
-    startIso,
-    endIso,
-    atlases,
-  );
+  const overlays = await overlaysPromise;
 
   const fetchedAt = Date.now();
   for (let k = 0; k < missing.length; k++) {
@@ -669,7 +675,7 @@ export async function fetchMarineCorridor(
     const zone = told ? fromOverlay(told) : unknownZoneAt(coords[i].lat, coords[i].lon);
     const data = zone ? withhold(merged, zone) : merged;
     const key = marineCacheKey(coords[i].lat, coords[i].lon);
-    cache.set(key, { data, fetchedAt });
+    storeBounded(cache, key, { data, fetchedAt }, CACHE_TTL, MARINE_CACHE_MAX);
     for (const idx of indicesByKey.get(key) ?? [i]) out[idx] = data;
   }
   return out;

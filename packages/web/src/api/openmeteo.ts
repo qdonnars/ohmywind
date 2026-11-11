@@ -9,6 +9,7 @@ import {
   type ModelName,
 } from "../config/modelConfig";
 import { noteIfRefused } from "./openMeteoQuota";
+import { storeBounded } from "./boundedCache";
 
 const MODEL_ENDPOINTS: Record<ModelName, { endpoint: string; extraParams?: string }> = {
   AROME: {
@@ -70,6 +71,9 @@ const PARAMS = `${HOURLY_PARAMS}&forecast_days=${DEFAULT_DAYS}`;
 
 const cache = new Map<string, { models: ModelForecast[]; fetchedAt: number }>();
 const CACHE_TTL = 30 * 60 * 1000;
+// One entry per spot looked at, 60 to 110 KiB each. Thirty covers a session
+// that goes back and forth between its spots; the rest is refetched.
+const SPOT_CACHE_MAX = 30;
 
 /**
  * Sanitize the gust series so that physically impossible values (gust < wind)
@@ -193,7 +197,9 @@ export async function fetchAllModels(
   const models = slots.filter((s): s is ModelForecast => s != null);
   // A refusal is not a forecast: caching it would pin the empty table until
   // the TTL runs out, past the moment the quota may be back.
-  if (!refused) cache.set(cacheKey, { models, fetchedAt: Date.now() });
+  if (!refused) {
+    storeBounded(cache, cacheKey, { models, fetchedAt: Date.now() }, CACHE_TTL, SPOT_CACHE_MAX);
+  }
   return models;
 }
 
@@ -205,10 +211,13 @@ export async function fetchAllModels(
 // only differ by a waypoint still reuse everything they have in common.
 const corridorCache = new Map<string, { models: ModelForecast[]; fetchedAt: number }>();
 
-// ~600 points is about ten long corridors kept warm. Beyond that we drop the
-// oldest insertions first; the Map preserves insertion order, so its own key
-// iteration is the eviction queue.
-const CORRIDOR_CACHE_MAX = 600;
+// 150 points is about seven long corridors kept warm (a route is sampled at 21
+// points at most). An entry is 60 to 110 KiB, and moving one waypoint shifts
+// every interpolated point of the corridor, so each reshaped route adds a
+// corridor's worth of new keys: at the former cap of 600 a session of route
+// edits held 40 to 60 MB. Expired entries go first, then the oldest
+// insertions (see `storeBounded`).
+const CORRIDOR_CACHE_MAX = 150;
 
 // 4 decimals is ~11 m, well under the finest model grid (AROME, 1.5 km), so
 // two keys that differ below that resolution would have returned the same
@@ -219,14 +228,7 @@ function corridorKey(coord: { lat: number; lon: number }, models: ModelName[], d
 }
 
 function storeCorridorPoint(key: string, models: ModelForecast[], fetchedAt: number): void {
-  // Delete first so a refresh moves the key back to the tail of the queue.
-  corridorCache.delete(key);
-  corridorCache.set(key, { models, fetchedAt });
-  while (corridorCache.size > CORRIDOR_CACHE_MAX) {
-    const oldest = corridorCache.keys().next();
-    if (oldest.done) break;
-    corridorCache.delete(oldest.value);
-  }
+  storeBounded(corridorCache, key, { models, fetchedAt }, CACHE_TTL, CORRIDOR_CACHE_MAX);
 }
 
 /** Test seam: drop every cached corridor point. Not used by the app. */
