@@ -167,7 +167,10 @@ export function LegDetailCard({
     }
   }
 
-  const capText = t("panel.legDetail.headingValue", {
+  // The direction of the leg as drawn on the chart, with no current, no
+  // leeway, and none of the boards of a beat: a route, not a heading to
+  // steer. The app does not navigate; the hint says so where it is read.
+  const routeText = t("panel.legDetail.routeValue", {
     deg: Math.round(view.bearing_avg_deg),
     sail: view.point_of_sail,
   });
@@ -201,8 +204,8 @@ export function LegDetailCard({
             {header.sub && <span style={{ color: "var(--ow-fg-2)" }}> · {header.sub}</span>}
           </div>
           {compact ? (
-            <div className="text-[11px]" style={{ color: "var(--ow-fg-1)" }}>
-              {t("panel.legDetail.rowHeading")} {capText}
+            <div className="text-[11px]" style={{ color: "var(--ow-fg-1)" }} title={t("panel.legDetail.routeHint")}>
+              {t("panel.legDetail.rowRoute")} {routeText}
             </div>
           ) : (
           <table className="w-full text-[11px]" style={{ borderCollapse: "collapse" }}>
@@ -217,7 +220,9 @@ export function LegDetailCard({
                 </TableRow>
               )}
               {/* Grey: not a force, and not to be mistaken for the speed. */}
-              <TableRow label={t("panel.legDetail.rowHeading")} color="var(--ow-fg-2)" plain>{capText}</TableRow>
+              <TableRow label={t("panel.legDetail.rowRoute")} color="var(--ow-fg-2)" plain>
+                <span title={t("panel.legDetail.routeHint")}>{routeText}</span>
+              </TableRow>
             </tbody>
           </table>
           )}
