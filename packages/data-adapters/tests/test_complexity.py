@@ -66,14 +66,17 @@ def _make_passage(
 
 class TestWindOnly:
     def test_calm_is_level_1(self) -> None:
-        s = score_complexity(_make_passage([5.0, 8.0, 9.9]))
+        # 9.4 kn is printed "9". It used to be 9.9, which the rationale
+        # printed "vent max 10 kn (calme)": 10 kn is "modéré".
+        s = score_complexity(_make_passage([5.0, 8.0, 9.4]))
         assert s.level == 1
         assert s.label == "facile"
         assert s.wind_label == "calme"
-        assert s.tws_max_kn == 9.9
+        assert s.tws_max_kn == 9.4
         assert s.sea_level is None
         assert "5" not in s.rationale  # uses max not min
-        assert "10 kn" in s.rationale
+        assert "9 kn" in s.rationale
+        assert score_complexity(_make_passage([9.9])).rationale == "vent max 10 kn (modéré)"
 
     def test_max_drives_level(self) -> None:
         s = score_complexity(_make_passage([5.0, 18.0, 8.0]))
@@ -81,7 +84,7 @@ class TestWindOnly:
         assert s.wind_label == "soutenu"
 
     def test_strong_wind_level_4(self) -> None:
-        s = score_complexity(_make_passage([20.0, 24.9]))
+        s = score_complexity(_make_passage([20.0, 24.4]))
         assert s.level == 4
         assert s.label == "exigeant"
 
@@ -118,13 +121,13 @@ class TestWithSea:
     @pytest.mark.parametrize(
         ("hs_m", "level", "label"),
         [
-            (0.49, 1, "plate"),
+            (0.44, 1, "plate"),
             (0.5, 2, "peu agitée"),
             (1.24, 2, "peu agitée"),
             (1.25, 3, "formée"),
-            (2.49, 3, "formée"),
+            (2.44, 3, "formée"),
             (2.5, 4, "forte"),
-            (3.99, 4, "forte"),
+            (3.94, 4, "forte"),
             (4.0, 5, "très forte"),
         ],
     )
@@ -145,6 +148,20 @@ class TestWithSea:
             s = score_complexity(_make_passage([5.0], hs_per_segment=[hs_m]))
             (w,) = [w for w in s.warnings if w.kind == "sea"]
             assert w.message.startswith(f"{name} : Hs "), hs_m
+
+    def test_bands_read_the_figures_as_printed(self) -> None:
+        # 14.6 kn is printed "15": "soutenu", and the warning says 15, not 14.
+        s = score_complexity(_make_passage([14.6]))
+        assert s.wind_level == 3
+        (w,) = s.warnings
+        assert "TWS 15 kn" in w.message
+        # 14.5 rounds half up, as the app's Math.round does.
+        assert score_complexity(_make_passage([14.5])).wind_level == 3
+        assert score_complexity(_make_passage([14.4])).wind_level == 2
+        # 2.46 m of sea reads "2.5": a "Mer forte".
+        sea = score_complexity(_make_passage([5.0], hs_per_segment=[2.46]))
+        assert sea.sea_level == 4
+        assert any(w.message.startswith("Mer forte : Hs 2.5 m") for w in sea.warnings)
 
     def test_negative_hs_rejected(self) -> None:
         with pytest.raises(ValueError, match="max_hs_m"):

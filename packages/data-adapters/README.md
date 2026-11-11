@@ -85,7 +85,9 @@ Defaults: `k=0.05`, `p=1.75`, `floor=0.5`. Justification:
   ORC eq. 6.69 (which uses linear `cos`, a near-equivalent shape at the
   cruising angles of interest).
 
-The flag `use_wave_correction: bool = False` keeps this off by default. When
-on, sea-state from the adapter (`bundle.sea`) is consumed; when sea data is
-missing, the per-segment derate falls back to `1.0` and `hs_m` is reported as
-`None`.
+The flag `use_wave_correction` is on by default since 2026-11 (it was off
+from the start, to keep the first timings stable, and no client ever turned
+it on). Sea state from the adapter (`bundle.sea`) is consumed; when sea data
+is missing, the per-segment derate falls back to `1.0` and `hs_m` is reported
+as `None`. The angle is the one the boat sails: on a tacking segment, the
+optimal VMG angle rather than the route's.

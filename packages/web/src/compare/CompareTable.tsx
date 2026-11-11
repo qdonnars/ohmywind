@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { memo, useEffect, useMemo, useRef } from "react";
-import { beaufortLevel, windLevelVar } from "../domain/thresholds";
+import { beaufortLevel, waveInk, windLevelVar } from "../domain/thresholds";
 import { nowParisHourPrefix } from "../domain/datetime";
 import { useTimezone } from "../hooks/useTimezone";
 import { getLocale, t, tn, useLang, useT } from "../i18n";
@@ -157,7 +157,7 @@ function CellImpl({ wind, wave, withWave, res, width, dense }: CellProps) {
           {wave ? (
             <Band
               bg={`var(--ow-wave-${wl})`}
-              ink={wave.hs < 1.0 ? "var(--ow-fg-0)" : "var(--ow-cell-ink)"}
+              ink={waveInk(wave.hs)}
               main={num1(wave.hs)}
               sub={wave.period != null ? `${Math.round(wave.period)}s` : undefined}
               height={add}

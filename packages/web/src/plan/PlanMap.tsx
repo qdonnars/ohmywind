@@ -64,10 +64,12 @@ function routePadding(map: L.Map): L.FitBoundsOptions {
 
 export interface PlanMapHandle {
   recenter: (lat: number, lon: number) => void;
-  /** Fit the camera to the current waypoints. Called when the computation
-      the user asked for (Calculer / Comparer) lands — never automatically on
+  /** Fit the camera to the current waypoints, and to `extra` routes when
+      given (the options of a comparison of routes, which may sail well off
+      the plan's own line). Called when the computation the user asked for
+      (Calculer / Comparer, a finished variant) lands — never automatically on
       waypoint placement, so the map stays where the user left it. */
-  fitToWaypoints: () => void;
+  fitToWaypoints: (extra?: [number, number][][]) => void;
 }
 
 interface PlanMapProps {
@@ -180,7 +182,7 @@ export function PlanMap(
     recenter(lat, lon) {
       mapRef.current?.setView([lat, lon], 12, { animate: true });
     },
-    fitToWaypoints() {
+    fitToWaypoints(extra = []) {
       const map = mapRef.current;
       if (!map) return;
       // The container may have been resized in this very frame (the mobile
@@ -188,9 +190,10 @@ export function PlanMap(
       // the ResizeObserver below only refreshes it after this callback, so
       // measure first, or the bounds are fitted to the map as it was.
       map.invalidateSize({ animate: false });
-      if (waypoints.length >= 2) {
+      const points = [...waypoints, ...extra.flat()];
+      if (points.length >= 2) {
         map.fitBounds(
-          L.latLngBounds(waypoints.map(([lat, lon]) => L.latLng(lat, lon))),
+          L.latLngBounds(points.map(([lat, lon]) => L.latLng(lat, lon))),
           routePadding(map),
         );
       } else if (waypoints.length === 1) {

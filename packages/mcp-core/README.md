@@ -105,7 +105,7 @@ The simulation engine lives in `openwind_data.routing.passage`. Defaults below a
 - **Polar lookup** 9 ORC-style archetypes (20 to 50 ft cruisers, racer-cruiser, 40 ft catamaran, 16 ft sail-and-oar dinghy, IMOCA 60 ocean racer), bilinear interpolation in (TWS, TWA), clamped at grid edges. TWA symmetric on [0°, 180°].
 - **Efficiency 0.75** by default (cruising). Override via the `efficiency` arg: `0.85` racing, `0.65` loaded family, `0.55` heavy seas / fouled hull.
 - **VMG / tacking correction** when route TWA < optimal upwind angle (~42-48°), effective speed = `polar(opt_TWA) × cos(opt_TWA − route_TWA)`. Models a sailor who tacks instead of pinching.
-- **Wave derate** opt-in via `use_wave_correction`: `max(0.5, 1 − 0.05 × Hs^1.75 × cos²(TWA/2))`. Off by default; sea state feeds warnings instead.
+- **Wave derate**: `max(0.5, 1 − 0.05 × Hs^1.75 × cos²(TWA/2))`, at the angle the boat sails (its VMG angle when tacking). A head sea slows the boat; the sea state also feeds the warnings.
 - **Single-pass timing** heuristic 6 kn → segment mid-times → real polar at each mid-time's wind. No convergence iteration.
 - **Sub-segments** routes split into ~10 nm chunks for weather sampling.
 - **Compare-windows mode** `plan_passage(latest_departure=...)` walks N hourly departures over the same route and returns one entry per window (max 14 d × 24 h = 336). The LLM picks the calmest qualitatively.

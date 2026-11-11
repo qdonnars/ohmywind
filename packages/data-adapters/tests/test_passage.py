@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import math
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -382,10 +383,34 @@ class TestWaveDerate:
 
 
 class TestEstimatePassageWaveCorrection:
-    async def test_disabled_by_default_keeps_speed_but_surfaces_hs(self) -> None:
-        # Hs is now always surfaced so callers see sea state. The flag only
-        # gates the boat-speed derate.
+    async def test_on_by_default_and_hs_always_surfaced(self) -> None:
+        # The sea slows the boat unless a caller turns the correction off;
+        # Hs is surfaced either way. A beam sea (TWD 180, course east) at
+        # 3 m costs a visible share of the speed.
         adapter = StubAdapter(tws_kn=12.0, twd_deg=180.0, hs_m=3.0)
+        wpts = [Point(43.0, 5.0), Point(43.0, 5.5)]
+        on = await estimate_passage(
+            wpts, DEPARTURE, "cruiser_40ft", adapter=adapter, segment_length_nm=20.0
+        )
+        off = await estimate_passage(
+            wpts,
+            DEPARTURE,
+            "cruiser_40ft",
+            adapter=adapter,
+            segment_length_nm=20.0,
+            use_wave_correction=False,
+        )
+        for s in on.segments:
+            assert s.wave_derate_factor < 1.0
+            assert s.hs_m == pytest.approx(3.0)
+        for s in off.segments:
+            assert s.wave_derate_factor == 1.0
+            assert s.hs_m == pytest.approx(3.0)
+        assert on.duration_h > off.duration_h
+
+    async def test_a_following_sea_barely_slows(self) -> None:
+        # Wind from the west, course east: TWA 180, the sea from behind.
+        adapter = StubAdapter(tws_kn=12.0, twd_deg=270.0, hs_m=3.0)
         report = await estimate_passage(
             [Point(43.0, 5.0), Point(43.0, 5.5)],
             DEPARTURE,
@@ -394,8 +419,66 @@ class TestEstimatePassageWaveCorrection:
             segment_length_nm=20.0,
         )
         for s in report.segments:
-            assert s.wave_derate_factor == 1.0  # no derate applied
-            assert s.hs_m == pytest.approx(3.0)  # but Hs is visible
+            assert s.wave_derate_factor == pytest.approx(1.0, abs=0.01)
+
+    async def test_a_motor_segment_reports_no_derate(self) -> None:
+        # Under engine the boat does its motoring speed whatever the sea: the
+        # segment says 1.0, not the derate its sail speed would have had.
+        polar = dataclasses.replace(
+            get_polar("cruiser_40ft"), motor_threshold_kn=20.0, motor_speed_kn=5.5
+        )
+        adapter = StubAdapter(tws_kn=12.0, twd_deg=90.0, hs_m=2.5)
+        report = await estimate_passage(
+            [Point(43.0, 5.0), Point(43.0, 5.5)],
+            DEPARTURE,
+            "cruiser_40ft",
+            adapter=adapter,
+            segment_length_nm=20.0,
+            polar_override=polar,
+        )
+        for s in report.segments:
+            assert s.motor_used
+            assert s.wave_derate_factor == 1.0
+            assert s.boat_speed_kn == pytest.approx(5.5)
+
+    async def test_a_head_sea_in_strong_wind_is_not_called_light_wind(self) -> None:
+        # 28 kn dead upwind in 3.5 m: the sea slows the boat a lot, but the
+        # wind is anything but light, and the warning says the wind.
+        adapter = StubAdapter(tws_kn=28.0, twd_deg=90.0, hs_m=3.5)
+        wpts = [Point(43.0, 5.0), Point(43.0, 5.5)]
+        off = await estimate_passage(
+            wpts,
+            DEPARTURE,
+            "cruiser_30ft",
+            adapter=adapter,
+            segment_length_nm=20.0,
+            use_wave_correction=False,
+        )
+        on = await estimate_passage(
+            wpts, DEPARTURE, "cruiser_30ft", adapter=adapter, segment_length_nm=20.0
+        )
+        # The sea takes the boat under the light-wind mark...
+        assert min(s.boat_speed_kn for s in on.segments) < LIGHT_WIND_THRESHOLD_KN
+        assert min(s.boat_speed_kn for s in off.segments) >= LIGHT_WIND_THRESHOLD_KN
+        # ...and the warning still does not call the wind light.
+        assert not any(n.code == "passage.light_wind" for n in on.notices)
+
+    async def test_tacking_meets_the_sea_at_the_angle_sailed(self) -> None:
+        # Dead upwind (TWD 90, course east, TWA 0): the boat tacks at its VMG
+        # angle and takes the sea there, not head-on. The factor is the one of
+        # the sailed angle, milder than a full head sea.
+        adapter = StubAdapter(tws_kn=12.0, twd_deg=90.0, hs_m=2.0)
+        report = await estimate_passage(
+            [Point(43.0, 5.0), Point(43.0, 5.5)],
+            DEPARTURE,
+            "cruiser_40ft",
+            adapter=adapter,
+            segment_length_nm=20.0,
+        )
+        opt_twa, _ = best_vmg_upwind(get_polar("cruiser_40ft"), 12.0)
+        for s in report.segments:
+            assert s.wave_derate_factor == pytest.approx(wave_derate(2.0, opt_twa))
+            assert s.wave_derate_factor > wave_derate(2.0, 0.0)
 
     async def test_enabled_slows_in_head_seas(self) -> None:
         # TWD=90 (wind from east), course east → TWA=0 (head seas).

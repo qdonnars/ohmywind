@@ -145,6 +145,8 @@ Three mechanisms sit behind this equation:
 2. **Angular weighting $\cos^2(\text{TWA}/2)$**. It is worth $1$ in a head sea ($\text{TWA} = 0$, maximum impact: slamming, a marked slowdown), and $0$ in a following sea ($\text{TWA} = 180\degree$, surfing possible, negligible impact).
 3. **Floor at $0.5$**. In practice, in extreme conditions the sailor shortens sail or heaves to; we do not go below 50 % of the polar speed.
 
+The angle is the one the boat sails: when tacking, its optimal VMG angle (about 45° off the wind), not the route's. The sea is taken to come from the wind's direction.
+
 Worked example: $H_s = 2\text{ m}$ hard on the wind ($\text{TWA} = 40\degree$) gives $k_{\text{waves}} = 1 - 0.05 \cdot 2^{1.75} \cdot \cos^2(20\degree) \approx 1 - 0.05 \cdot 3.36 \cdot 0.883 \approx 0.85$, about 15 % less speed.
 
 **The engine case (optional).** From the **Config** page, the user can enter two values for their boat:

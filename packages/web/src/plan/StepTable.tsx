@@ -7,11 +7,11 @@
  * The « detail » of a leg used to be one step at a time, reached with the
  * arrows of the card: to see when the wind filled in, the reader walked
  * five cards and remembered four. Here the five are one table, read like
- * the forecast tables of the explore page (direction, wind over gust on
- * its Beaufort tint, sea on its own ramp, current, speed). It is what an
- * open leg shows first, the whole of it ringed, over the card of the
- * average; a tap on a column opens that step in the card, a second tap or
- * « Tout le tronçon » returns to the whole leg.
+ * the forecast tables of the explore page (the hour with the wind's arrow,
+ * wind over gust on its Beaufort tint, sea on its own ramp, current, speed).
+ * It is what an open leg shows first, the whole of it ringed, beside or over
+ * the card of the average; a tap on a column opens that step in the card, a
+ * second tap or « ‹ Tout » in the corner returns to the whole leg.
  *
  * The units are in the row labels, once. A row that has nothing to say on
  * any step is not drawn: the sea without sea data, the current when no step
@@ -26,18 +26,32 @@ import { DirectionArrow } from "../components/DirectionArrow";
 import {
   CURRENT_RELEVANCE_THRESHOLD_KN,
   beaufortLevel,
+  waveInk,
   waveLevel,
   windSoftVar,
   windTextVar,
 } from "../domain/thresholds";
 import { fmtClock } from "../domain/datetime";
+import { ChevronIcon } from "./compare/icons";
+import { COL_PX, LABEL_MIN_PX } from "./stepTableLayout";
 import { num1 } from "./format";
 import { useT } from "../i18n";
 
-/** Width of a step's column. Five of them and the labels fit the panel;
-    past that the table scrolls sideways under its sticky labels. */
-const COL_PX = 56;
+
 const ACCENT = "var(--ow-accent)";
+
+/** The scroller runs 16 px past the panel on each side (`-mx-4 px-4`), so
+    the table reaches the screen's edge. Chrome holds a sticky cell at the
+    scroller's edge, Safari at the start of its padding, 16 px in: there the
+    figures scrolling past showed in the strip left of the labels. A solid
+    shadow as wide as the padding covers that strip wherever the label is
+    held; where it lands outside the scroller, the scroller clips it. It
+    also reaches 5 px up, over the gap between two rows, where the alert
+    marker of a cell (5 px above its fill) would show past the labels. */
+const LABEL_STICKY_STYLE = {
+  background: "var(--ow-bg-2)",
+  boxShadow: "-16px 0 0 var(--ow-bg-2), 0 -5px 0 var(--ow-bg-2), -16px -5px 0 var(--ow-bg-2)",
+} as const;
 
 /** The ends of a row of fills are rounded, the cells between are flush. */
 function endRadius(i: number, n: number): string {
@@ -91,7 +105,7 @@ function RowLabel({
       className={`sticky left-0 z-[2] self-stretch flex items-center pr-2 whitespace-nowrap ${
         strong ? "text-[11.5px] font-semibold" : "text-[10.5px]"
       } ${className}`}
-      style={{ background: "var(--ow-bg-2)", color: strong ? "var(--ow-fg-0)" : "var(--ow-fg-1)" }}
+      style={{ ...LABEL_STICKY_STYLE, color: strong ? "var(--ow-fg-0)" : "var(--ow-fg-1)" }}
     >
       {/* One inline run: as two flex items, the space between the label
           and its unit would be dropped. */}
@@ -145,13 +159,30 @@ export function StepTable({
         role="table"
         aria-label={t("plan.steps.table.label")}
         className="grid items-center w-max tabular-nums"
-        style={{ gridTemplateColumns: `minmax(52px, max-content) repeat(${n}, ${COL_PX}px)` }}
+        style={{ gridTemplateColumns: `minmax(${LABEL_MIN_PX}px, max-content) repeat(${n}, ${COL_PX}px)` }}
       >
-        {/* Start time of each step: the control that picks it. The label is
-            22 px high; its hit area runs down over the direction row, so
-            the finger gets 46 px without the table growing by a line. */}
+        {/* Start time of each step, with the arrow of its wind: the control
+            that picks it. 28 px high; its hit area runs down over the top
+            of the wind, so the finger gets 44 px without a taller line. */}
         <div role="row" className="contents">
-          <RowLabel />
+          {selected != null ? (
+            // The way back from a step, in the corner the labels leave free:
+            // a second tap on the column does it too, but nothing says so.
+            <div className="sticky left-0 z-[2] self-stretch flex items-center" style={LABEL_STICKY_STYLE}>
+              <button
+                type="button"
+                onClick={() => onSelect(null)}
+                aria-label={t("plan.steps.wholeLeg")}
+                className="-ml-1 pl-1 pr-2 min-h-[32px] inline-flex items-center gap-0.5 text-[11.5px] font-semibold whitespace-nowrap"
+                style={{ color: ACCENT }}
+              >
+                <ChevronIcon direction="left" size={10} />
+                {t("plan.steps.all")}
+              </button>
+            </div>
+          ) : (
+            <RowLabel />
+          )}
           {steps.map((s, i) => {
             const active = i === selected;
             return (
@@ -160,15 +191,15 @@ export function StepTable({
                   ref={active ? pickedRef : undefined}
                   type="button"
                   aria-pressed={active}
-                  aria-label={t("plan.steps.stepLabel", {
+                  aria-label={`${t("plan.steps.stepLabel", {
                     index: i + 1,
                     total: n,
                     time: fmtClock(s.start_time),
-                  })}
+                  })}, ${Math.round(s.twd_avg_deg)}°`}
                   onClick={pick(i)}
-                  className="relative z-[1] w-full text-[11.5px] after:absolute after:inset-x-0 after:top-0 after:-bottom-6 after:content-['']"
+                  className="relative z-[1] w-full inline-flex items-center justify-center gap-1 text-[11.5px] after:absolute after:inset-x-0 after:top-0 after:-bottom-4 after:content-['']"
                   style={{
-                    height: 22,
+                    height: 28,
                     fontWeight: active || selected == null ? 700 : 600,
                     // Whole leg: every hour reads at full strength, on one
                     // quiet line. A step picked: it alone, in accent.
@@ -179,25 +210,13 @@ export function StepTable({
                   }}
                 >
                   {fmtClock(s.start_time)}
+                  <span style={{ color: active ? ACCENT : "var(--ow-fg-2)" }}>
+                    <DirectionArrow deg={s.twd_avg_deg} from size={10} />
+                  </span>
                 </button>
               </div>
             );
           })}
-        </div>
-
-        <div role="row" className="contents">
-          <RowLabel>{t("plan.steps.table.direction")}</RowLabel>
-          {steps.map((s, i) => (
-            <div
-              key={i}
-              role="cell"
-              aria-label={`${Math.round(s.twd_avg_deg)}°`}
-              className="flex items-center justify-center"
-              style={{ height: 24, color: "var(--ow-fg-1)" }}
-            >
-              <DirectionArrow deg={s.twd_avg_deg} from size={12} />
-            </div>
-          ))}
         </div>
 
         <div role="row" className="contents">
@@ -244,7 +263,7 @@ export function StepTable({
                   style={{
                     height: 30,
                     background: hs != null ? `var(--ow-wave-${waveLevel(hs)})` : "var(--ow-bg-1)",
-                    color: hs == null ? "var(--ow-fg-2)" : hs < 1 ? "var(--ow-fg-0)" : "var(--ow-cell-ink)",
+                    color: hs == null ? "var(--ow-fg-2)" : waveInk(hs),
                     borderRadius: endRadius(i, n),
                     boxShadow: fillRing(i, "bottom"),
                   }}

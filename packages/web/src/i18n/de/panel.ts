@@ -83,8 +83,6 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.legs.alert.current": "{flag} · {speed} kn",
 
   // ── LegDetailCard / LegExpanded ────────────────────────────────────────────
-  "panel.legDetail.prevStep": "Vorheriger Abschnitt",
-  "panel.legDetail.nextStep": "Nächster Abschnitt",
   "panel.legDetail.rowWind": "Wind",
   "panel.legDetail.rowSea": "See",
   "panel.legDetail.rowCurrent": "Strom",
@@ -103,8 +101,6 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.legDetail.buildUpSea": "{value} See",
   "panel.legDetail.buildUpCurrent": "{value} Strom",
   "panel.legDetail.buildUpMotor": "{value} Motor",
-  "panel.legDetail.headerAverage": "Mittel · {duration}",
-  "panel.legDetail.headerHint": "einen Abschnitt antippen",
   "panel.legDetail.noteMotorOnStep": "unter Motor auf diesem Abschnitt",
   "panel.legDetail.noteAverage.one": "Mittel aus {count} Abschnitt",
   "panel.legDetail.noteAverage.other": "Mittel aus {count} Abschnitten",
