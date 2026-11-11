@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import math
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -419,6 +420,48 @@ class TestEstimatePassageWaveCorrection:
         )
         for s in report.segments:
             assert s.wave_derate_factor == pytest.approx(1.0, abs=0.01)
+
+    async def test_a_motor_segment_reports_no_derate(self) -> None:
+        # Under engine the boat does its motoring speed whatever the sea: the
+        # segment says 1.0, not the derate its sail speed would have had.
+        polar = dataclasses.replace(
+            get_polar("cruiser_40ft"), motor_threshold_kn=20.0, motor_speed_kn=5.5
+        )
+        adapter = StubAdapter(tws_kn=12.0, twd_deg=90.0, hs_m=2.5)
+        report = await estimate_passage(
+            [Point(43.0, 5.0), Point(43.0, 5.5)],
+            DEPARTURE,
+            "cruiser_40ft",
+            adapter=adapter,
+            segment_length_nm=20.0,
+            polar_override=polar,
+        )
+        for s in report.segments:
+            assert s.motor_used
+            assert s.wave_derate_factor == 1.0
+            assert s.boat_speed_kn == pytest.approx(5.5)
+
+    async def test_a_head_sea_in_strong_wind_is_not_called_light_wind(self) -> None:
+        # 28 kn dead upwind in 3.5 m: the sea slows the boat a lot, but the
+        # wind is anything but light, and the warning says the wind.
+        adapter = StubAdapter(tws_kn=28.0, twd_deg=90.0, hs_m=3.5)
+        wpts = [Point(43.0, 5.0), Point(43.0, 5.5)]
+        off = await estimate_passage(
+            wpts,
+            DEPARTURE,
+            "cruiser_30ft",
+            adapter=adapter,
+            segment_length_nm=20.0,
+            use_wave_correction=False,
+        )
+        on = await estimate_passage(
+            wpts, DEPARTURE, "cruiser_30ft", adapter=adapter, segment_length_nm=20.0
+        )
+        # The sea takes the boat under the light-wind mark...
+        assert min(s.boat_speed_kn for s in on.segments) < LIGHT_WIND_THRESHOLD_KN
+        assert min(s.boat_speed_kn for s in off.segments) >= LIGHT_WIND_THRESHOLD_KN
+        # ...and the warning still does not call the wind light.
+        assert not any(n.code == "passage.light_wind" for n in on.notices)
 
     async def test_tacking_meets_the_sea_at_the_angle_sailed(self) -> None:
         # Dead upwind (TWD 90, course east, TWA 0): the boat tacks at its VMG
