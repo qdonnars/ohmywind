@@ -26,6 +26,7 @@ code                         status  meaning
 ``invalid_waypoints``        422     the route did not parse
 ``too_few_waypoints``        422     fewer than 2 points
 ``too_many_waypoints``       422     more than ``MAX_WAYPOINTS``
+``route_too_long``           422     longer than ``MAX_ROUTE_NM`` along its legs
 ``too_many_points``          422     more points than one batch call may carry
 ``batch_too_large``          422     a batch's points x steps exceeds the cap
 ``waypoint_out_of_range``    422     a coordinate is not on Earth
@@ -51,6 +52,10 @@ code                         status  meaning
                                      and ``window`` (``minute``, ``hour`` or
                                      ``day``) when its reason named the
                                      counter that tripped
+``upstream_budget_exhausted`` 503    we stopped calling Open-Meteo ourselves,
+                                     before its free quota would refuse the
+                                     shared IP; ``retry_after`` and ``window``
+                                     always present
 ===========================  ======  ===========================================
 
 A caller that does not recognise a code must fall back on the status: the list
@@ -69,7 +74,11 @@ from __future__ import annotations
 import math
 
 import httpx
-from openwind_data.adapters.base import ForecastHorizonError, UpstreamRateLimitError
+from openwind_data.adapters.base import (
+    ForecastHorizonError,
+    UpstreamBudgetExhaustedError,
+    UpstreamRateLimitError,
+)
 from openwind_data.routing.passage import NoModelCoveredError
 from starlette.responses import JSONResponse
 
@@ -81,6 +90,7 @@ from starlette.responses import JSONResponse
 _VALUE_ERROR_CODES: tuple[tuple[str, str], ...] = (
     ("at least 2 waypoints required", "too_few_waypoints"),
     ("too many waypoints", "too_many_waypoints"),
+    ("route too long", "route_too_long"),
     ("out of range", "waypoint_out_of_range"),
     ("invalid waypoints", "invalid_waypoints"),
     ("must be timezone-aware", "naive_datetime"),
@@ -157,12 +167,16 @@ def engine_error_response(exc: Exception) -> JSONResponse | None:
             "upstream_timeout",
             status=503,
         )
+    if isinstance(exc, UpstreamBudgetExhaustedError):
+        return upstream_rate_limited_response(exc, code="upstream_budget_exhausted")
     if isinstance(exc, UpstreamRateLimitError):
         return upstream_rate_limited_response(exc)
     return None
 
 
-def upstream_rate_limited_response(exc: UpstreamRateLimitError) -> JSONResponse:
+def upstream_rate_limited_response(
+    exc: UpstreamRateLimitError, *, code: str = "upstream_rate_limited"
+) -> JSONResponse:
     """The 503 for a weather API that is refusing us, with the wait spelled out.
 
     Open-Meteo's free tier counts per IP on fixed clocks and sends no
@@ -174,13 +188,18 @@ def upstream_rate_limited_response(exc: UpstreamRateLimitError) -> JSONResponse:
     when the refusal named no counter, and the client falls back on its
     vaguer sentence. The header duplicates the body for the same reason the
     limiter's does: a cross-origin fetch cannot always read it.
+
+    Our own budget (``upstream_budget_exhausted``) answers in the same shape
+    under its own code: the wait and the window are the same kind of fact,
+    and a client that only knows the older code still finds the fields it
+    reads.
     """
     extra: dict[str, object] = {}
     if exc.retry_after_s is not None:
         extra["retry_after"] = max(1, math.ceil(exc.retry_after_s))
     if exc.window is not None:
         extra["window"] = exc.window
-    response = error(str(exc), "upstream_rate_limited", status=503, **extra)
+    response = error(str(exc), code, status=503, **extra)
     if "retry_after" in extra:
         response.headers["Retry-After"] = str(extra["retry_after"])
     return response

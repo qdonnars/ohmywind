@@ -127,12 +127,83 @@ def test_the_ceiling_is_configurable() -> None:
     assert b"max 2 MB" in limited._too_large_response().body
 
 
-def test_the_mcp_transport_is_left_alone(client) -> None:
-    # Buffering a request body on a streaming transport is the one way this
-    # middleware could break MCP, so it never sees that path.
+def test_a_legitimate_mcp_request_reaches_the_transport(client) -> None:
+    # The MCP ceiling is there for hostile bodies only: an ordinary tool call
+    # passes through untouched, whatever its framing.
     resp = client.post("/mcp-probe", content=b"z" * 128)
     assert resp.status_code == 200
     assert resp.text == _MCP_BODY
+
+
+def test_the_mcp_ceiling_defaults_to_256_kib() -> None:
+    assert security.MCP_MAX_BODY_BYTES == 256 * 1024
+
+
+def _plan_passage_call(n_waypoints: int, n_alternatives: int) -> bytes:
+    """The largest tools/call the MCP tools accept, written out in full."""
+    import json
+
+    def route(offset: float) -> list[dict[str, float]]:
+        return [
+            {"lat": 43.123456789 + offset + i * 0.001, "lon": 5.123456789 + i * 0.001}
+            for i in range(n_waypoints)
+        ]
+
+    arguments = {
+        "waypoints": route(0.0),
+        "departure": "2026-11-05T08:00:00+01:00",
+        "latest_departure": "2026-11-07T08:00:00+01:00",
+        "archetype": "cruiser_30ft",
+        "route_label": "Par le nord du Fromveur, au plus près",
+        "alternatives": [
+            {"label": f"Variante {k}, par le sud des Glénan", "waypoints": route(0.1 * k)}
+            for k in range(1, n_alternatives + 1)
+        ],
+    }
+    envelope = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": "plan_passage", "arguments": arguments},
+    }
+    return json.dumps(envelope).encode()
+
+
+def test_the_largest_legitimate_tool_call_fits_far_under_the_mcp_ceiling(client) -> None:
+    body = _plan_passage_call(n_waypoints=50, n_alternatives=2)
+    # Thirty times over, so a longer label or a future argument never trips it.
+    assert len(body) * 30 < security.MCP_MAX_BODY_BYTES
+    resp = client.post("/mcp", content=body, headers={"Content-Type": "application/json"})
+    assert resp.status_code == 200
+
+
+def test_an_oversized_mcp_body_is_refused_before_the_transport(client) -> None:
+    resp = client.post(
+        "/mcp",
+        content=b"{" + b" " * security.MCP_MAX_BODY_BYTES + b"}",
+        headers={"Content-Type": "application/json"},
+    )
+    assert resp.status_code == 413
+    assert resp.json() == {
+        "error": "request body too large (max 256 KB)",
+        "code": "body_too_large",
+    }
+
+
+def test_a_chunked_oversized_mcp_body_is_refused(client) -> None:
+    def chunks():
+        for _ in range(3):
+            yield b" " * (128 * 1024)
+
+    resp = client.post("/mcp", content=chunks(), headers={"Content-Type": "application/json"})
+    assert resp.status_code == 413
+
+
+def test_the_mcp_stream_and_session_end_are_never_buffered(client) -> None:
+    # The GET that opens a server stream and the DELETE that ends a session
+    # carry no body, so the ceiling never looks at them.
+    assert client.get("/mcp").status_code == 200
+    assert client.delete("/mcp").status_code == 200
 
 
 # -------------------------------------------------------------- compression

@@ -186,6 +186,11 @@ describe("error contract: code first, English text as fallback", () => {
       expect: /hors des coordonnées valides/,
     },
     { code: "too_many_waypoints", text: "too many waypoints", expect: /Trop de waypoints/ },
+    {
+      code: "route_too_long",
+      text: "route too long: 3405 nm along the waypoints (max 1500 nm)",
+      expect: /trop longue pour être planifiée/,
+    },
     { code: "unknown_archetype", text: 'unknown archetype: "yacht"', expect: /Type de bateau inconnu/ },
     { code: "invalid_datetime", text: "invalid departure", expect: /Date invalide/ },
     {
@@ -360,6 +365,15 @@ describe("upstream_rate_limited avec fenetre", () => {
     const msg = friendlyError(new ApiError("x", "upstream_rate_limited", null, "day"));
     // 00:00 UTC plus the limiter's one-minute sweep: 2 h 31, said as 3 hours.
     expect(msg).toContain("3 heures environ");
+  });
+
+  it("says our own budget the same way, window and wait included", () => {
+    const msg = friendlyError(
+      new ApiError("x", "upstream_budget_exhausted", 25 * 60, "hour"),
+    );
+    expect(msg).toBe(friendlyError(new ApiError("x", "upstream_rate_limited", 25 * 60, "hour")));
+    expect(msg).toContain("par heure");
+    expect(msg).toContain("pas lié à votre usage");
   });
 
   it("keeps the vaguer sentence when no counter was named", () => {

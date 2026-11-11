@@ -286,13 +286,21 @@ export function defaultPolarConfig(): PolarConfig {
 // derive from this single source.
 export const MOTOR_MAX_KN = 30;
 
+// Floor of the motor speed, the same value as the domain's MOTOR_SPEED_MIN_KN
+// and MIN_BOAT_SPEED_KN (packages/data-adapters/src/openwind_data/routing/
+// archetypes.py and routing/passage/constants.py): the API ignores a motor
+// slower than a becalmed boat, so the form never holds one. The threshold
+// has no floor beyond "positive".
+export const MOTOR_SPEED_MIN_KN = 0.5;
+
 // Clamp rather than drop out-of-range values: a persisted config from a
-// build with laxer input validation keeps its motor (at the cap) instead of
-// silently losing it. Non-numbers and non-positive values still mean "unset".
-function sanitizeMotorField(raw: unknown): number | undefined {
+// build with laxer input validation keeps its motor (at the cap, or at the
+// floor for the motor speed) instead of silently losing it. Non-numbers and
+// non-positive values still mean "unset".
+function sanitizeMotorField(raw: unknown, min = 0): number | undefined {
   if (typeof raw !== "number" || !Number.isFinite(raw)) return undefined;
   if (raw <= 0) return undefined;
-  return Math.min(MOTOR_MAX_KN, Math.round(raw * 10) / 10);
+  return Math.min(MOTOR_MAX_KN, Math.max(min, Math.round(raw * 10) / 10));
 }
 
 function isValidBase(x: unknown): x is string {
@@ -465,7 +473,7 @@ export function loadPolarConfig(): PolarConfig {
       minUpwindDeg: parsed.v === 3 ? sanitizeMinUpwind(parsed.minUpwindDeg) : undefined,
       overrides: sanitizeOverrides(parsed.overrides, BASE_POLARS[base]),
       motorThresholdKn: sanitizeMotorField(parsed.motorThresholdKn),
-      motorSpeedKn: sanitizeMotorField(parsed.motorSpeedKn),
+      motorSpeedKn: sanitizeMotorField(parsed.motorSpeedKn, MOTOR_SPEED_MIN_KN),
       source,
       imported,
       // Absent on pre-existing configs → true: the perso polar stays the

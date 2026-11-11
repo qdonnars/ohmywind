@@ -1,0 +1,223 @@
+{
+ "format": "ohmywind-harmonic-atlas",
+ "schema_version": 3,
+ "atlas": "GOMOFS_FUNDY",
+ "zone": "fundy",
+ "label": "NOAA GOMOFS (ROMS), fundy",
+ "rank": 1,
+ "resolution_m": 700,
+ "effective_resolution_m": 700,
+ "grid": {
+  "type": "regular_ll",
+  "dlat_deg": 0.0063,
+  "dlon_deg": 0.0089,
+  "origin": "regrid",
+  "tile_deg": 0.5,
+  "regrid": {
+   "method": "nearest_neighbour",
+   "reach_factor": 0.75,
+   "min_reach_m": 150.0,
+   "native": {
+    "type": "structured_curvilinear_c_grid",
+    "model": "ROMS",
+    "elements_in_bbox": 30739,
+    "edge_m_percentiles": {
+     "5": 700,
+     "25": 700,
+     "50": 700,
+     "75": 700,
+     "95": 700
+    },
+    "staggering": "u on u-points and v on v-points averaged onto rho points over their open faces (masked faces ignored), then rotated to east / north by ``angle``",
+    "wet_dry_source": "wetdry_mask_rho"
+   }
+  }
+ },
+ "source": {
+  "short": "gomofs",
+  "name": "NOAA NOS GOMOFS, Gulf of Maine Operational Forecast System (ROMS), hourly nowcast",
+  "provider": "NOAA National Ocean Service, CO-OPS (NOAA Open Data Dissemination)",
+  "url": "https://noaa-nos-ofs-pds.s3.amazonaws.com/gomofs/netcdf/",
+  "product": "gomofs.tHHz.YYYYMMDD.2ds.nNNN.nc",
+  "version": "ROMS/TOMS, Version 4.2, Saturday - September 19, 2026 -  1:07:51 AM",
+  "licence": {
+   "name": "US Government work, public domain (NODD open data)",
+   "url": "https://registry.opendata.aws/noaa-ofs/",
+   "read_at": "2026-09-21",
+   "evidence": "AWS Open Data registry page https://registry.opendata.aws/noaa-ofs/ (read 2026-09-21): 'NOAA data disseminated through NODD are open to the public and can be used as desired. [...] NOAA requests attribution for the use or dissemination of unaltered NOAA data. [...] If you modify NOAA data, you may not state or imply that it is original, unaltered NOAA data.'; NOAA CO-OPS disclaimer https://tidesandcurrents.noaa.gov/disclaimers.html (read 2026-09-21): 'The information on government servers are in the public domain, unless specifically annotated otherwise, and may be used freely by the public.'"
+  },
+  "attribution": "Derived from NOAA NOS GOMOFS nowcast fields (NOAA Open Data Dissemination, public domain). Harmonic constants derived by OhMyWind (changes: harmonic analysis of the hourly surface series, C-grid velocities averaged onto rho points and rotated to east / north, nearest-neighbour resampling onto a regular grid); this is not original, unaltered NOAA data and NOAA does not endorse it.",
+  "citation": "https://registry.opendata.aws/noaa-ofs/",
+  "redistribution_of_derivative": "allowed (public domain), attribution requested"
+ },
+ "variables": [
+  "u",
+  "v"
+ ],
+ "vertical": "surface",
+ "vertical_detail": "surface layer of ROMS (u_sur; s_rho -0.0167, Cs_r -5.76e-05)",
+ "datum": null,
+ "units": {
+  "u": "m s-1",
+  "v": "m s-1",
+  "phase": "degrees"
+ },
+ "phase_convention": "greenwich_utc",
+ "time_reference": "UTC",
+ "direction_convention": "going_to",
+ "constituents_h": [],
+ "constituents_u": [
+  "M2",
+  "S2",
+  "N2",
+  "K1",
+  "O1",
+  "M4",
+  "MS4",
+  "Q1",
+  "MN4",
+  "M6",
+  "2N2",
+  "L2",
+  "2MS6",
+  "K2",
+  "P1",
+  "NU2",
+  "MU2"
+ ],
+ "constituents_v": [
+  "M2",
+  "S2",
+  "N2",
+  "K1",
+  "O1",
+  "M4",
+  "MS4",
+  "Q1",
+  "MN4",
+  "M6",
+  "2N2",
+  "L2",
+  "2MS6",
+  "K2",
+  "P1",
+  "NU2",
+  "MU2"
+ ],
+ "analysis": {
+  "method": "least_squares_nodal_corrected",
+  "record_start": "2026-08-18T19:00:00+00:00",
+  "record_end": "2026-09-19T18:00:00+00:00",
+  "record_hours": 767.0,
+  "instants": 768,
+  "step_minutes": 60,
+  "rayleigh": 1.0,
+  "resolved": [
+   "M2",
+   "S2",
+   "N2",
+   "K1",
+   "O1",
+   "M4",
+   "MS4",
+   "Q1",
+   "MN4",
+   "M6",
+   "2N2",
+   "L2",
+   "2MS6"
+  ],
+  "inferred_u": [
+   {
+    "name": "K2",
+    "reference": "S2",
+    "ratio": 0.2886,
+    "lag_deg": 5.09
+   },
+   {
+    "name": "P1",
+    "reference": "K1",
+    "ratio": 0.3049,
+    "lag_deg": 4.66
+   },
+   {
+    "name": "NU2",
+    "reference": "N2",
+    "ratio": 0.2561,
+    "lag_deg": 1.33
+   },
+   {
+    "name": "MU2",
+    "reference": "M2",
+    "ratio": 0.0043,
+    "lag_deg": 77.8
+   }
+  ],
+  "inferred_v": [
+   {
+    "name": "K2",
+    "reference": "S2",
+    "ratio": 0.2933,
+    "lag_deg": 2.62
+   },
+   {
+    "name": "P1",
+    "reference": "K1",
+    "ratio": 0.3235,
+    "lag_deg": 0.45
+   },
+   {
+    "name": "NU2",
+    "reference": "N2",
+    "ratio": 0.2596,
+    "lag_deg": 1.83
+   },
+   {
+    "name": "MU2",
+    "reference": "M2",
+    "ratio": 0.0046,
+    "lag_deg": 76.04
+   }
+  ],
+  "inference_reference": "FES_GLOBAL cell (44.9375, -65.6875)",
+  "mean_is_weather": false,
+  "min_speed_kt": 0.2,
+  "sea_cells": 30739,
+  "fitted_cells": 30739,
+  "regridded_cells": 30666,
+  "dry_cells_masked": true
+ },
+ "confidence": "medium",
+ "validity_bbox": null,
+ "cells": 13,
+ "tiles": 1,
+ "bbox": [
+  44.399249999999995,
+  -67.29735,
+  45.69705000000063,
+  -63.30125000000133
+ ],
+ "request_bbox": [
+  44.4,
+  -67.3,
+  45.7,
+  -63.3
+ ],
+ "build_at": "2026-09-21T13:42:46+00:00",
+ "build_seconds": 2.2,
+ "builder": {
+  "script": "scripts/build_ofs_atlas.py",
+  "git_commit": "c5d5fcb7431656798d780ee16c5393e96abda758"
+ },
+ "test_fixture": {
+  "note": "Extract for the tidal-stream direction tests, cells copied verbatim from the built atlas.",
+  "script": "scripts/build_test_fixtures_currents.py",
+  "points": [
+   [
+    45.34,
+    -64.4
+   ]
+  ],
+  "radius_m": 1400.0
+ }
+}

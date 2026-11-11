@@ -56,6 +56,7 @@ export function formatRetryDelay(seconds: number | null): string {
  * | `too_few_waypoints` | fewer than two points |
  * | `waypoint_out_of_range` | a latitude or longitude outside its range |
  * | `too_many_waypoints` | route too long to sample |
+ * | `route_too_long` | route longer than the server's cap along its legs |
  * | `rate_limited` | our own limiter, with `retry_after` in seconds |
  * | `unknown_archetype` | boat slug absent from the catalogue |
  * | `invalid_datetime` | an unparseable date field |
@@ -63,6 +64,7 @@ export function formatRetryDelay(seconds: number | null): string {
  * | `sweep_too_large` | the sweep would produce too many windows |
  * | `upstream_timeout` | the weather service did not answer in time |
  * | `upstream_rate_limited` | the weather service is throttling *us*, with `retry_after` and `window` when it named the quota |
+ * | `upstream_budget_exhausted` | our server stopped calling the weather service itself, just before its free quota would; always with `retry_after` and `window` |
  * | `upstream_unavailable` | the edge proxy could not reach our own backend |
  * | `body_too_large` | request body over the cap |
  * | `invalid_forecast_cache` | the attached corridor did not check out |
@@ -215,6 +217,8 @@ const ERROR_COPY: Record<
   too_few_waypoints: () => t("plan.api.errors.tooFewWaypoints"),
   waypoint_out_of_range: () => t("plan.api.errors.waypointOutOfRange"),
   too_many_waypoints: () => t("plan.api.errors.tooManyWaypoints"),
+  // The cap itself (in nm) lives on the server only: the copy never quotes it.
+  route_too_long: () => t("plan.api.errors.routeTooLong"),
   // The server owns the delay: the window is configurable per environment,
   // so never hard-code one here. The previous copy promised "une minute"
   // against a 300 s window, so the user waited, retried, and got the exact
@@ -245,6 +249,13 @@ const ERROR_COPY: Record<
     const resetAt = retryAfter !== null ? now + retryAfter * 1000 : quotaResetAt(window, now);
     return openMeteoQuotaMessage("server", window, resetAt, now);
   },
+  // Notre propre budget Open-Meteo : le serveur s'arrete un peu avant le
+  // quota gratuit, partage par tous via son IP, pour qu'Open-Meteo ne le
+  // bloque jamais. Pour la personne qui lit, c'est le meme fait que le cas
+  // precedent (le quota du service meteo, pas son usage), avec toujours la
+  // fenetre et l'attente : meme phrase.
+  upstream_budget_exhausted: (retryAfter, window) =>
+    ERROR_COPY.upstream_rate_limited(retryAfter, window),
   // Emis par le proxy de bord (Worker Cloudflare), pas par le Space : le
   // backend n'a pas repondu du tout. A ne pas confondre avec les deux
   // `upstream_*` ci-dessus, ou le service amont est Open-Meteo ; ici l'amont
@@ -275,6 +286,7 @@ function matchErrorText(raw: string): string {
     return ERROR_COPY.waypoint_out_of_range(null);
   }
   if (/too many waypoints/i.test(raw)) return ERROR_COPY.too_many_waypoints(null);
+  if (/route too long/i.test(raw)) return ERROR_COPY.route_too_long(null);
   if (/rate limit exceeded/i.test(raw)) {
     // The delay suffix is appended by `toError` and is not adjacent to the
     // server's own wording ("rate limit exceeded, retry shortly"), so it is

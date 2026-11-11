@@ -105,6 +105,7 @@ JSON, no key and no account required.
 | `/api/v1/marine/marc/coverage` | GET | Bounding boxes of the loaded atlases, so a client can skip the calls that cannot return anything. `Cache-Control: public, max-age=86400`. |
 | `/api/v1/_client` | GET | How this deployment sees the caller, for rate-limit diagnosis. |
 | `/mcp` | POST | The MCP endpoint. Streaming transport, never compressed. |
+| `/healthz` | GET | What the process serves with: tidal atlases loaded by family, land mask, Open-Meteo budget spent, forecast cache size, CPU slots in use. `status` is `ok` or `degraded` (with `problems`), always 200. No caller data. |
 
 Responses under `/api/v1` are gzipped when the client asks for it and the body
 exceeds 1 KB. `/mcp` is deliberately excluded.
@@ -121,6 +122,9 @@ on the deployment.
 | Requests per IP per minute on `/api/v1/marine/marc` | 120 | `OPENWIND_MARC_RATE_LIMIT` |
 | Rate-limit window | 60 s | `OPENWIND_RATE_LIMIT_WINDOW_S` |
 | Request body on `/api/v1/*` | 4 MiB, `413` beyond | `OPENWIND_MAX_BODY_BYTES` |
+| Request body on `/mcp` | 256 KiB, `413` beyond | `OPENWIND_MCP_MAX_BODY_BYTES` |
+| Open-Meteo calls per minute / hour / day, counted as Open-Meteo weighs them | 480 / 4 000 / 8 000 (80 % of the free tier), `503` `upstream_budget_exhausted` beyond | `OPENWIND_UPSTREAM_BUDGET_PER_MINUTE`, `_PER_HOUR`, `_PER_DAY` (`0` leaves a window unenforced); `OPENWIND_UPSTREAM_BUDGET=0` disables the budget |
+| Deadline of one MCP tool call | 90 s, then a tool error saying so (`0` disables) | `OPENWIND_MCP_TOOL_TIMEOUT_S` |
 | `forecast_cache` corridor points | 120, `422` beyond | fixed in `openwind-data` |
 | `forecast_cache` time axis | 400 hours, `422` beyond | fixed in `openwind-data` |
 | Steps per `/api/v1/marine/marc` call | 800, `422` beyond | fixed in the wrapper |
@@ -141,6 +145,12 @@ kept for the clients already reading it.
 The promise runs one way only, for both fields: outside every box there is
 nothing to fetch, inside one there may still be nothing (a MARC tile is half a
 degree wide and contains land, and the SHOM cloud is scattered).
+
+The Open-Meteo budget exists because the free tier counts per IP and the
+Space's egress IP is shared: once Open-Meteo refuses it, it refuses every user
+at once, for up to a day. The server stops a little earlier on its own, and
+says how long to wait. Cache hits are free; a multi-coordinate request of N
+points counts N, as Open-Meteo counts it.
 
 The overlay endpoint has its own, wider bucket because the web app calls it
 once per corridor point, up to 60 times for one computation. Its step ceiling
@@ -170,6 +180,33 @@ tools) and `openwind-data` (the domain). None of them imports Gradio or
 Re-deploying on Fly, Modal or a VPS is a different file of about this size,
 calling the same `create_app()` and `build_server()`. Freezing the MCP surface
 is dropping one argument.
+
+## Tidal atlases at build time
+
+The image pulls the tidal atlases (MARC PREVIMER, SHOM Atlas C2D, the land
+mask and the other harmonic atlases) from the private dataset
+`Qdonnars/openwind-tidal-atlas` while it builds, with the `HF_TOKEN` build
+secret (Settings, Variables and secrets, Secrets: a token with read access to
+the dataset).
+
+**The build fails when they do not come down**: no token, an expired one, the
+dataset unreachable, or a dataset without the seven MARC atlases (ATLNE,
+MANGA, FINIS, MANW, MANE, SUDBZH, AQUI), the SHOM C2D files or the land mask.
+An image without them would plan the Raz de Sein on Open-Meteo's 8 km global
+current and look healthy from outside, which is why it no longer ships.
+
+For a local build, a fork without access to the dataset or a CI smoke, pass
+the escape hatch explicitly:
+
+```
+docker build --build-arg ALLOW_MISSING_ATLASES=1 .
+```
+
+The image then builds without atlases and the server says so at startup, at
+WARNING. A server that starts without them and was not allowed to logs at
+ERROR. `REQUIRED_ATLASES` (comma-separated names, as a build argument)
+replaces the list of required harmonic atlases if the dataset's minimum ever
+changes.
 
 ## Cold-start
 

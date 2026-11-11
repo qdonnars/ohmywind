@@ -1,0 +1,248 @@
+{
+ "format": "ohmywind-harmonic-atlas",
+ "schema_version": 3,
+ "atlas": "BSH_AUSALT",
+ "label": "Aussenelbe bis Altenbruch",
+ "rank": 3,
+ "resolution_m": 90,
+ "effective_resolution_m": 90,
+ "grid": {
+  "type": "regular_ll",
+  "dlat_deg": 0.0008330000000000837,
+  "dlon_deg": 0.0013889999999996405,
+  "origin": "native"
+ },
+ "source": {
+  "short": "bsh",
+  "name": "BSH Stroemungsvorhersagen (operational surface-current forecast)",
+  "provider": "Bundesamt fuer Seeschifffahrt und Hydrographie",
+  "url": "ftp://ftp.bsh.de/Stroemungsvorhersagen/",
+  "product": "Current_AusAlt",
+  "licence": {
+   "name": "CC BY 4.0",
+   "url": "https://creativecommons.org/licenses/by/4.0/",
+   "read_at": "2026-09-19",
+   "evidence": "ftp://ftp.bsh.de/Stroemungsvorhersagen/LICENSE.txt"
+  },
+  "attribution": "Data provided by Bundesamt fuer Seeschifffahrt und Hydrographie (BSH), CC BY 4.0. Harmonic constants derived by OhMyWind (changes: harmonic analysis of the forecast series).",
+  "citation": null,
+  "redistribution_of_derivative": "allowed with attribution"
+ },
+ "variables": [
+  "u",
+  "v"
+ ],
+ "vertical": "surface_0_5m_mean",
+ "datum": null,
+ "units": {
+  "u": "m s-1",
+  "v": "m s-1",
+  "phase": "degrees"
+ },
+ "phase_convention": "greenwich_utc",
+ "time_reference": "UTC",
+ "direction_convention": "going_to",
+ "constituents_h": [],
+ "constituents_u": [
+  "M2",
+  "K1",
+  "M4",
+  "M6",
+  "S2",
+  "N2",
+  "O1",
+  "MS4",
+  "K2",
+  "P1",
+  "Q1",
+  "MN4",
+  "2N2",
+  "MK4"
+ ],
+ "constituents_v": [
+  "M2",
+  "K1",
+  "M4",
+  "M6",
+  "S2",
+  "N2",
+  "O1",
+  "MS4",
+  "K2",
+  "P1",
+  "Q1",
+  "MN4",
+  "2N2",
+  "MK4"
+ ],
+ "analysis": {
+  "method": "least_squares_nodal_corrected",
+  "record_start": "2026-09-16T00:15:00+00:00",
+  "record_end": "2026-09-21T00:00:00+00:00",
+  "record_hours": 119.75,
+  "instants": 480,
+  "step_minutes": 15,
+  "rayleigh": 1.0,
+  "resolved": [
+   "M2",
+   "K1",
+   "M4",
+   "M6"
+  ],
+  "inferred_u": [
+   {
+    "name": "S2",
+    "reference": "M2",
+    "ratio": 0.2481,
+    "lag_deg": 72.39
+   },
+   {
+    "name": "N2",
+    "reference": "M2",
+    "ratio": 0.1351,
+    "lag_deg": 347.37
+   },
+   {
+    "name": "O1",
+    "reference": "K1",
+    "ratio": 0.6442,
+    "lag_deg": 245.15
+   },
+   {
+    "name": "MS4",
+    "reference": "M4",
+    "ratio": 0.6214,
+    "lag_deg": 67.47
+   },
+   {
+    "name": "K2",
+    "reference": "M2",
+    "ratio": 0.0601,
+    "lag_deg": 62.86
+   },
+   {
+    "name": "P1",
+    "reference": "K1",
+    "ratio": 0.3059,
+    "lag_deg": 7.63
+   },
+   {
+    "name": "Q1",
+    "reference": "K1",
+    "ratio": 0.1631,
+    "lag_deg": 158.96
+   },
+   {
+    "name": "MN4",
+    "reference": "M4",
+    "ratio": 0.3522,
+    "lag_deg": 343.97
+   },
+   {
+    "name": "2N2",
+    "reference": "M2",
+    "ratio": 0.042,
+    "lag_deg": 282.74
+   },
+   {
+    "name": "MK4",
+    "reference": "M4",
+    "ratio": 0.1819,
+    "lag_deg": 63.64
+   }
+  ],
+  "inferred_v": [
+   {
+    "name": "S2",
+    "reference": "M2",
+    "ratio": 0.2339,
+    "lag_deg": 71.32
+   },
+   {
+    "name": "N2",
+    "reference": "M2",
+    "ratio": 0.1334,
+    "lag_deg": 346.15
+   },
+   {
+    "name": "O1",
+    "reference": "K1",
+    "ratio": 0.7632,
+    "lag_deg": 244.32
+   },
+   {
+    "name": "MS4",
+    "reference": "M4",
+    "ratio": 0.583,
+    "lag_deg": 68.51
+   },
+   {
+    "name": "K2",
+    "reference": "M2",
+    "ratio": 0.0569,
+    "lag_deg": 64.09
+   },
+   {
+    "name": "P1",
+    "reference": "K1",
+    "ratio": 0.3588,
+    "lag_deg": 22.74
+   },
+   {
+    "name": "Q1",
+    "reference": "K1",
+    "ratio": 0.1883,
+    "lag_deg": 183.09
+   },
+   {
+    "name": "MN4",
+    "reference": "M4",
+    "ratio": 0.3216,
+    "lag_deg": 345.61
+   },
+   {
+    "name": "2N2",
+    "reference": "M2",
+    "ratio": 0.0428,
+    "lag_deg": 291.39
+   },
+   {
+    "name": "MK4",
+    "reference": "M4",
+    "ratio": 0.1765,
+    "lag_deg": 61.61
+   }
+  ],
+  "inference_reference": "ATLNE cell (53.9460, 8.5210)",
+  "excluded_runs": [],
+  "mean_is_weather": true
+ },
+ "cells": 13,
+ "tiles": 1,
+ "bbox": [
+  53.850309,
+  8.3061,
+  54.0394,
+  8.749191000000001
+ ],
+ "build_at": "2026-09-19T08:45:30+00:00",
+ "build_seconds": 5.9,
+ "builder": {
+  "script": "scripts/build_bsh_atlas.py",
+  "git_commit": "a6fee982a6d9e4bf4ca65f76e5ff2640d6f1f2bc"
+ },
+ "zone": "ausalt",
+ "confidence": "high",
+ "validity_bbox": null,
+ "test_fixture": {
+  "note": "Extract for the tidal-stream direction tests, cells copied verbatim from the built atlas.",
+  "script": "scripts/build_test_fixtures_currents.py",
+  "points": [
+   [
+    53.895,
+    8.69
+   ]
+  ],
+  "radius_m": 180.0
+ }
+}

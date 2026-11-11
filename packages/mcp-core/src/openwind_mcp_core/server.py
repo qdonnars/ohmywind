@@ -38,6 +38,7 @@ by design (see PR #74 for the full reasoning).
 
 from __future__ import annotations
 
+import functools
 import json
 import math
 import os
@@ -76,6 +77,7 @@ from openwind_data.routing import (
     list_archetypes,
     parse_waypoints,
     resolve_sweep_interval,
+    validate_motor,
     validate_point,
 )
 from openwind_data.routing import (
@@ -98,6 +100,7 @@ from openwind_data.views import (
     window_view,
 )
 
+from .guards import guarded, tool_timeout_from_env
 from .render import WEB_BASE, WEB_HOST, build_explore_url, build_ohmywind_url
 
 # MCP Apps UI resource URI for plan_passage. The host fetches this resource
@@ -1875,6 +1878,7 @@ def build_server(
     *,
     adapter: MarineDataAdapter | None = None,
     land_mask: LandMask | None = None,
+    tool_timeout_s: float | None = None,
 ) -> FastMCP:
     """Build a FastMCP server with all OhMyWind tools registered.
 
@@ -1900,6 +1904,9 @@ def build_server(
             the fine atlases cleared from it, as the REST API loads it;
             without the file the check finds nothing. A deployment
             that serves both shells passes the API's.
+        tool_timeout_s: the deadline of every tool call, in seconds
+            (``OPENWIND_MCP_TOOL_TIMEOUT_S``, default 90; 0 disables it). See
+            ``guards.py``.
     """
     # ``stateless_http=True`` disables the in-memory session table that
     # otherwise tracks an ``mcp-session-id`` per client across requests.
@@ -1947,6 +1954,7 @@ def build_server(
         if land_mask is not None
         else load_land_mask(marc_dir or shom_dir, marc=marc, shom=shom)
     )
+    timeout_s = tool_timeout_s if tool_timeout_s is not None else tool_timeout_from_env()
 
     @server.resource(
         PLAN_UI_RESOURCE_URI,
@@ -2043,6 +2051,7 @@ def build_server(
             openWorldHint=True,
         ),
     )
+    @functools.partial(guarded, timeout_s=timeout_s)
     async def get_marine_forecast(
         lat: float,
         lon: float,
@@ -2151,6 +2160,7 @@ def build_server(
             openWorldHint=False,
         ),
     )
+    @functools.partial(guarded, timeout_s=timeout_s)
     async def get_tidal_stream(
         lat: float,
         lon: float,
@@ -2411,11 +2421,11 @@ def build_server(
                 the simulator switches to engine power. Must be paired with
                 ``motor_speed_kn`` (either alone is ignored). Typical value
                 2 kn: sailors fire up the engine rather than crawl in light
-                wind. Leave unset for 100% sail. Range (0, 10].
+                wind. Leave unset for 100% sail. Range (0, 30].
             motor_speed_kn: optional speed under engine (knots) applied to
                 segments where the sail estimate falls under
                 ``motor_threshold_kn``. Typical 5-6 kn for a cruising boat.
-                Range (0, 12].
+                Range [0.5, 30].
             min_upwind_twa_deg: optional minimum sailable TWA (degrees)
                 overriding the archetype's own value (42-50 deg depending on
                 the boat). Pass it when you know the boat points better or
@@ -2471,6 +2481,11 @@ def build_server(
 
         if min_upwind_twa_deg is not None and not 25.0 <= min_upwind_twa_deg <= 70.0:
             raise ValueError(f"min_upwind_twa_deg must be in [25, 70], got {min_upwind_twa_deg}")
+        # The domain's bounds, refused loudly where REST drops them quietly:
+        # a web form typo is better ignored, a model's call is better
+        # corrected. motor_speed_kn=0 used to raise "float division by zero",
+        # -5 to return a negative duration, 1e-6 a passage of 31 million hours.
+        validate_motor(motor_threshold_kn, motor_speed_kn)
 
         dep = datetime.fromisoformat(departure)
         model = _resolve_model(model)
@@ -2606,6 +2621,6 @@ def build_server(
             openWorldHint=True,
         ),
         meta={"ui": {"resourceUri": PLAN_UI_RESOURCE_URI}},
-    )(plan_passage)
+    )(guarded(plan_passage, timeout_s=timeout_s))
 
     return server

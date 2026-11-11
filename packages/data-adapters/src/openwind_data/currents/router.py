@@ -37,6 +37,8 @@ Provenance is exposed on each ``SeaPoint`` via ``current_source``:
 ``source_label`` (``"marc_<atlas>_<res>m"`` for MARC, ``"<source>_<zone>_<res>m"``
 for any other atlas in the standard format) inside an atlas,
 ``"openmeteo_smoc"`` outside both, and ``"unknown"`` in a documented zone.
+The label names the source of the current: where an atlas gives a height but
+has no current cell, the current is the upstream's and keeps its label.
 """
 
 from __future__ import annotations
@@ -150,6 +152,25 @@ class CompositeMarineAdapter:
             return bundle
 
         source_label = UNKNOWN_CURRENT_SOURCE if current_dead else atlas.source_label
+        if c_series is None and not current_dead:
+            # The atlas has a height here but no current cell (a coastal cell
+            # its U/V grid masks): the current stays the upstream's, and so
+            # does its name. Under the atlas's label an 8 km global value read
+            # as a 700 m one, with the confidence that goes with it and none
+            # of the warnings a coarse source earns near a pass. Where the
+            # upstream carries no current at all (the bare series of the
+            # tidal-stream tool), the label still names the atlas the height
+            # comes from.
+            upstream_label = next(
+                (
+                    p.current_source
+                    for p in bundle.sea.points
+                    if p.current_speed_kn is not None and p.current_source
+                ),
+                None,
+            )
+            if upstream_label is not None:
+                source_label = upstream_label
         h_arr = h_series[0] if h_series is not None else None
         if c_series is not None:
             speeds_kn, dirs_to_deg, _ = c_series
