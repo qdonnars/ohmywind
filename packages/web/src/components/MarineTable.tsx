@@ -7,7 +7,7 @@ import { TimelineHeader } from "./TimelineHeader";
 import { DirectionArrow } from "./DirectionArrow";
 import { useTimezone } from "../hooks/useTimezone";
 import { nowParisHourPrefix } from "../domain/datetime";
-import { currentsLevel, tidesLevel, waveLevel, windLevelVar } from "../domain/thresholds";
+import { currentsLevel, tidesLevel, waveLevel, windLevelVar, windSoftVar, windTextVar } from "../domain/thresholds";
 import { useTimelineScroll } from "../hooks/useTimelineScroll";
 import { t, useLang, useT, type Key } from "../i18n";
 import { numFixed } from "../plan/format";
@@ -59,7 +59,7 @@ function currentGridSize(marine: MarineHourly): string {
 }
 
 // One per displayed table row. ``waves`` exposes 3 (direction/height/period),
-// ``currents`` 2 (speed/direction), ``tides`` 1. Each row decides its own
+// ``currents`` 2 (direction/speed), ``tides`` 1. Each row decides its own
 // display & colour rules; the timeline header is shared.
 type RowKind = "hs" | "wave_dir" | "wave_period" | "tide" | "current" | "current_dir";
 
@@ -104,9 +104,10 @@ function rowsForMetric(
     case "tides":
       return [{ kind: "tide", unit: tideUnit }];
     case "currents":
+      // Read like the sea: where it goes first, in arrows, then how fast.
       return [
-        { kind: "current", unit: "kn" },
         { kind: "current_dir", unit: null },
+        { kind: "current", unit: "kn" },
       ];
   }
 }
@@ -126,14 +127,15 @@ const ROW_HEIGHT: Record<RowKind, string> = {
   wave_period: "h-[26px]",
   tide: "h-[42px] lg:h-[44px]",
   current: "h-[42px] lg:h-[44px]",
-  // Unchanged by the harmonisation, which does not cover currents: arrow and
-  // bearing, as before.
-  current_dir: "h-10 lg:h-14",
+  current_dir: "h-[22px]",
 };
 
-/** The direction row of the sea opens the table body, under a hairline. */
+/** The direction row, of the sea or of the current, opens the table body
+    under a hairline. */
 function rowTopBorder(kind: RowKind): CSSProperties | undefined {
-  return kind === "wave_dir" ? { borderTop: "1px solid var(--ow-line)" } : undefined;
+  return kind === "wave_dir" || kind === "current_dir"
+    ? { borderTop: "1px solid var(--ow-line)" }
+    : undefined;
 }
 
 interface MarineCellProps {
@@ -219,14 +221,11 @@ function MarineCellImpl({
     }
     case "current_dir": {
       // current_direction is already "to": the arrow points where it goes.
+      // Arrow only, like the sea's: the bearing is in the label.
       const dir = Math.round(value);
       return td(
-        <div
-          className={`${height} flex flex-col items-center justify-center leading-none gap-[1px]`}
-          style={{ color: "var(--ow-fg-1)" }}
-        >
-          <DirectionArrow deg={value} from={false} size={14} className="lg:w-[16px] lg:h-[16px]" />
-          <span className="text-[9px] lg:text-[10px] tabular-nums leading-none opacity-70">{dir}°</span>
+        <div className={`${height} flex items-center justify-center`} style={{ color: "var(--ow-fg-1)" }}>
+          <DirectionArrow deg={value} from={false} size={12} />
         </div>,
         t("explore.marineTable.aria.currentDirection", { dir }),
       );
@@ -277,11 +276,13 @@ function MarineCellImpl({
       const level = currentsLevel(value);
       return td(
         <div
-          className={`${height} w-full flex items-center justify-center tabular-nums text-[15px] lg:text-[16px] font-bold leading-none`}
+          className={`${height} w-full flex items-center justify-center tabular-nums text-[15px] font-bold leading-none`}
           style={{
             ...fillShape(selected, firstCol, lastCol),
-            background: windLevelVar(level),
-            color: `var(--ow-cell-text-${level})`,
+            // The softened tints of the wind table, on the current's own
+            // bands: one palette, the same strength in both tables.
+            background: windSoftVar(level),
+            color: windTextVar(level),
           }}
         >
           {display}

@@ -88,17 +88,29 @@ describe("MarineTable, waves", () => {
 });
 
 describe("MarineTable, currents", () => {
-  it("says the unit in the row name, not in the cells", () => {
+  it("reads like the sea: where the current goes, then its speed", () => {
     renderTable("currents");
-    const cells = rowOf("Cour.");
-    expect(cells.map((c) => c.textContent)).toEqual(["0,4", "1,2", "2,5", "0,1", "—"]);
-    expect(screen.getAllByRole("rowheader")[0].textContent).toBe("Cour.kn");
+    const labels = screen.getAllByRole("rowheader").map((h) => h.textContent);
+    expect(labels).toEqual(["Portant vers", "Vitessekn"]);
   });
 
-  it("keeps the bearing under the arrow of the current", () => {
+  it("says the unit in the row name, not in the cells", () => {
     renderTable("currents");
-    const cells = rowOf("Dir");
-    expect(cells[0].textContent).toBe("90°");
+    const cells = rowOf("Vitesse");
+    expect(cells.map((c) => c.textContent)).toEqual(["0,4", "1,2", "2,5", "0,1", "—"]);
+  });
+
+  it("draws the direction as arrows only, the bearing in the label", () => {
+    renderTable("currents");
+    const cells = rowOf("Portant vers");
+    expect(cells[0].textContent).toBe("");
+    expect(cells[0].querySelector("svg")).not.toBeNull();
     expect(cells[0].getAttribute("aria-label")).toBe("Courant portant vers 90°");
+  });
+
+  it("paints the speed in the softened tints of the wind table", () => {
+    renderTable("currents");
+    const fill = rowOf("Vitesse")[2].firstElementChild as HTMLElement;
+    expect(fill.style.background).toContain("color-mix(in oklch, var(--ow-w-3) 78%");
   });
 });
