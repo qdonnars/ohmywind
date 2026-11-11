@@ -186,15 +186,6 @@ export function SpotMap({
     basemapRef.current?.setTheme(resolvedTheme);
   }, [resolvedTheme]);
 
-  // The hollow marker for a point being previewed but not saved.
-  useEffect(() => {
-    if (!mapRef.current) return;
-    syncPreviewMarker(mapRef.current, previewLayerRef, current, customSpots);
-    // resolvedTheme is a dependency because the marker colours are read from
-    // the theme now, and Leaflet keeps a resolved string: without it, toggling
-    // the theme would leave the markers painted in the previous palette.
-  }, [current, customSpots, resolvedTheme]);
-
   // Draw the "you are here" dot whenever a fix is known.
   useEffect(() => {
     if (!mapRef.current) return;
@@ -307,6 +298,20 @@ export function SpotMap({
     if (!mapRef.current) return;
     syncSeamarkLayer(mapRef.current, seamarkLayerRef, showSeamarks);
   }, [showSeamarks]);
+
+  // The hollow marker for a point being previewed but not saved. Declared
+  // after the effect that creates the map, and the order is load-bearing:
+  // effects run in the order they are written, so above it this one found no
+  // map on the first render and returned, and the point the app reopens on
+  // (the last one read) showed its arrows with no circle under them until
+  // the reader picked another.
+  useEffect(() => {
+    if (!mapRef.current) return;
+    syncPreviewMarker(mapRef.current, previewLayerRef, current, customSpots);
+    // resolvedTheme is a dependency because the marker colours are read from
+    // the theme now, and Leaflet keeps a resolved string: without it, toggling
+    // the theme would leave the markers painted in the previous palette.
+  }, [current, customSpots, resolvedTheme]);
 
   const syncMarkers = useCallback(() => {
     if (!mapRef.current) return;
