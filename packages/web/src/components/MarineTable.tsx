@@ -94,8 +94,8 @@ function rowsForMetric(
   switch (metric) {
     case "waves":
       // Where the sea comes from first, as the wind table opens on its
-      // direction, then the height, then the period that only speaks when
-      // it changes.
+      // direction, then the height, then the period: a number where it
+      // changes and a line over the hours it holds.
       return [
         { kind: "wave_dir", unit: null },
         { kind: "hs", unit: "m" },
@@ -138,6 +138,35 @@ function rowTopBorder(kind: RowKind): CSSProperties | undefined {
     : undefined;
 }
 
+/** Where a cell of the period row stands in its run of equal periods. */
+interface PeriodMark {
+  /** Prints the number; the other cells of the run carry its line. */
+  number: boolean;
+  joinsPrev: boolean;
+  joinsNext: boolean;
+}
+
+/** A run longer than this says its number again: on a phone eight hours are
+    on screen, and a line with no number in sight says nothing. */
+const PERIOD_REPEAT = 6;
+
+/**
+ * The period row, hour by hour: a number where the period changes, then a
+ * line over every hour it holds, so « 6 » visibly covers its six hours
+ * rather than standing alone among blanks. The number comes back every
+ * `PERIOD_REPEAT` hours of a long run.
+ */
+function periodMarks(values: (number | null)[]): PeriodMark[] {
+  const rounded = values.map((v) => (v == null ? null : Math.round(v)));
+  let run = 0;
+  return rounded.map((v, i) => {
+    const joinsPrev = v != null && i > 0 && rounded[i - 1] === v;
+    const joinsNext = v != null && rounded[i + 1] === v;
+    run = joinsPrev ? run + 1 : 0;
+    return { number: run % PERIOD_REPEAT === 0, joinsPrev, joinsNext };
+  });
+}
+
 interface MarineCellProps {
   row: RowConfig;
   marine: MarineHourly;
@@ -145,8 +174,10 @@ interface MarineCellProps {
   time: string;
   timeIdx: number | undefined;
   /** The same series one column to the left: the tide's rising/falling
-      mark, and whether the period changed and is worth printing. */
+      mark. */
   prevValue: number | null;
+  /** Set on the period row only. */
+  periodMark?: PeriodMark;
   selected: boolean;
   firstCol: boolean;
   lastCol: boolean;
@@ -171,6 +202,7 @@ function MarineCellImpl({
   time,
   timeIdx,
   prevValue,
+  periodMark,
   selected,
   firstCol,
   lastCol,
@@ -231,20 +263,30 @@ function MarineCellImpl({
       );
     }
     case "wave_period": {
-      // The period is said when it changes, a "·" otherwise: a column of
-      // 7 7 7 7 hides the hour it turns to 9. The label keeps the value
-      // for a screen reader either way.
+      // A number where the period changes, and a line over the hours it
+      // holds: a row of 7 7 7 7 hides the hour it turns to 9, and a number
+      // alone among blanks does not say how long it lasts. The picked hour
+      // always shows its number. The label keeps the value for a screen
+      // reader either way.
       const shown = Math.round(value);
-      const same = prevValue != null && Math.round(prevValue) === shown;
+      const mark = periodMark ?? { number: true, joinsPrev: false, joinsNext: false };
+      const line = (on: boolean) => (
+        <span className="flex-1 h-px" style={{ background: on ? "var(--ow-fg-3)" : "transparent" }} />
+      );
       return td(
         <div
-          className={`${height} flex items-center justify-center tabular-nums text-[11.5px] leading-none`}
-          style={{
-            color: same ? "var(--ow-fg-3)" : "var(--ow-fg-1)",
-            fontWeight: same ? 400 : 600,
-          }}
+          className={`${height} flex items-center tabular-nums text-[11.5px] font-semibold leading-none`}
+          style={{ color: "var(--ow-fg-1)" }}
         >
-          {same ? "·" : shown}
+          {mark.number || selected ? (
+            <>
+              {line(mark.joinsPrev)}
+              <span className="px-[3px]">{shown}</span>
+              {line(mark.joinsNext)}
+            </>
+          ) : (
+            line(true)
+          )}
         </div>,
         t("explore.marineTable.aria.wavePeriod", { value: String(shown) }),
       );
@@ -424,6 +466,19 @@ export function MarineTable({
   // Memoised so the identity of `row` does not defeat MarineCell's memo.
   const rows = useMemo(() => rowsForMetric(metric, marine), [metric, marine]);
 
+  // The table opens on the current hour, often hours to the right of the
+  // last change of period: the number is said there too, or the reader
+  // would open on a line and have to scroll back for what it stands for.
+  const periodRow = useMemo(() => {
+    const marks = periodMarks(
+      masterTimeline.map((t) => {
+        const idx = timeIndex.get(t);
+        return idx == null ? null : marine.wave_period_s[idx];
+      }),
+    );
+    return marks.map((m, i) => (masterTimeline[i].startsWith(nowHour) ? { ...m, number: true } : m));
+  }, [masterTimeline, timeIndex, marine, nowHour]);
+
   // One function for the whole table, not one closure per cell.
   const selectHour = useCallback((t: string) => onSelectHour(t), [onSelectHour]);
   const lastCol = masterTimeline.length - 1;
@@ -455,14 +510,7 @@ export function MarineTable({
                   {masterTimeline.map((t, i) => {
                     const idx = timeIndex.get(t);
                     const prevIdx = i > 0 ? timeIndex.get(masterTimeline[i - 1]) : undefined;
-                    // The table opens on the current hour, often hours to the
-                    // right of the last change of period: the period is said
-                    // there too, and on the picked hour, or the reader would
-                    // face a row of dots and have to scroll back for a number.
-                    const said =
-                      row.kind === "wave_period" && (t.startsWith(nowHour) || t === selectedHour);
-                    const prevValue =
-                      !said && prevIdx != null ? readValue(row.kind, marine, prevIdx) : null;
+                    const prevValue = prevIdx != null ? readValue(row.kind, marine, prevIdx) : null;
                     return (
                       <MarineCell
                         key={i}
@@ -470,6 +518,7 @@ export function MarineTable({
                         marine={marine}
                         timeIdx={idx}
                         prevValue={prevValue}
+                        periodMark={row.kind === "wave_period" ? periodRow[i] : undefined}
                         selected={t === selectedHour}
                         firstCol={i === 0}
                         lastCol={i === lastCol}

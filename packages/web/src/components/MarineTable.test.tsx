@@ -67,13 +67,24 @@ describe("MarineTable, waves", () => {
     expect(fills[2].style.color).toBe("var(--ow-cell-ink)");
   });
 
-  it("says the period only when it changes, a dot otherwise", () => {
+  it("says the period where it changes, and draws a line over the hours it holds", () => {
     renderTable("waves");
     const cells = rowOf("Période");
-    expect(cells.map((c) => c.textContent)).toEqual(["7", "·", "9", "·", "—"]);
-    expect((cells[1].firstElementChild as HTMLElement).style.color).toBe("var(--ow-fg-3)");
-    // The dot is for the eye; the value is still read aloud.
+    expect(cells.map((c) => c.textContent)).toEqual(["7", "", "9", "", "—"]);
+    const lines = (cell: HTMLElement) =>
+      [...cell.querySelectorAll<HTMLElement>("span.h-px")].map((l) => l.style.background);
+    // The 7 runs into the next hour, which is all line; the 9 starts fresh.
+    expect(lines(cells[0])).toEqual(["transparent", "var(--ow-fg-3)"]);
+    expect(lines(cells[1])).toEqual(["var(--ow-fg-3)"]);
+    expect(lines(cells[2])).toEqual(["transparent", "var(--ow-fg-3)"]);
+    // The line is for the eye; the value is still read aloud.
     expect(cells[1].getAttribute("aria-label")).toBe("Période des vagues 7 s");
+  });
+
+  it("always says the period of the picked hour, on its line", () => {
+    renderTable("waves", TIMES[1]);
+    const cells = rowOf("Période");
+    expect(cells.map((c) => c.textContent)).toEqual(["7", "7", "9", "", "—"]);
   });
 
   it("outlines the picked hour on the height and selects from any cell", () => {
