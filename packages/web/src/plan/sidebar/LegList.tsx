@@ -4,7 +4,8 @@
 import { useMemo } from "react";
 import type { AggregatedLeg } from "../aggregateLegs";
 import { aggregateLegs, buildLegSummaryCells } from "../aggregateLegs";
-import { beaufortLevel, windSoftVar, windTextVar } from "../../domain/thresholds";
+import { beaufortLevel, windSoftVar } from "../../domain/thresholds";
+import { AlertChip } from "../../components/AlertChip";
 import { LegExpanded } from "./LegExpanded";
 import type { PassageReport, SegmentReport } from "../types";
 import { planMinUpwind } from "../../config/polarConfig";
@@ -14,18 +15,21 @@ import { num1 } from "../format";
 import { useT } from "../../i18n";
 
 // ── LegList ──────────────────────────────────────────────────────────────────
-// Click-to-expand list of legs. Collapsed = one row of summary cells (durée,
-// allure, vent, mer). Expanded = the strip of the leg's steps and the card
-// with the dial, on the average or on one step (see LegExpanded).
+// Click-to-expand list of legs. Collapsed = one row of figures (durée,
+// allure, vent, mer), the units said once in the column headers, and under
+// it the leg's alert when it has one. Expanded = the leg's steps and the
+// card with the dial (see LegExpanded).
 
-function SummaryCell({ value }: { value: string | null }) {
-  if (!value) return null;
+const CELL_LINE = { borderTop: "1px solid var(--ow-line)" } as const;
+const MONO = { fontFamily: "var(--ow-font-mono)" } as const;
+
+/** The unit of a column, said once in its header: lighter than the label,
+    and neither capitalised nor spaced like it. A real space before it, not
+    a margin: a screen reader would otherwise read « Merm ». */
+function Unit({ children }: { children: string }) {
   return (
-    <span
-      className="text-xs whitespace-normal"
-      style={{ color: "var(--ow-fg-1)", lineHeight: 1.15, display: "inline-block" }}
-    >
-      {value}
+    <span className="font-medium normal-case tracking-normal" style={{ color: "var(--ow-fg-2)" }}>
+      {children}
     </span>
   );
 }
@@ -45,7 +49,6 @@ function LegRow({
   segments: SegmentReport[];
   minUpwindDeg: number;
 }) {
-  const windLevel = beaufortLevel(leg.tws_avg_kn);
   const summary = buildLegSummaryCells(leg);
 
   const handleKey = (e: React.KeyboardEvent) => {
@@ -55,19 +58,16 @@ function LegRow({
     }
   };
   const rowBg = expanded ? "var(--ow-bg-2)" : "transparent";
+  const figure = "py-2.5 px-1 align-middle text-[12.5px] font-semibold tabular-nums whitespace-nowrap";
 
-  // Each leg returns two `<tr>`s into the shared `<table>` in LegList:
-  // a summary row (badge + the four cells + chevron) and an optional expand
-  // row (the steps strip + the card).
-  // Because they're all in the same table, the colgroup defined in LegList
-  // forces every leg's chip cells to live in the same column widths, exactly
-  // the cross-row alignment a tableless flex/grid layout couldn't
-  // give us when each LegRow had its own grid container.
+  // Each leg returns up to three `<tr>`s into the shared `<table>` in
+  // LegList: the row of figures, the alert under it when the leg raises one,
+  // and the expanded content. Because they're all in the same table, every
+  // leg's figures live in the same column widths, the cross-row alignment a
+  // tableless flex/grid layout couldn't give us when each LegRow had its own
+  // grid container.
   return (
     <>
-      {/* Single-row leg: badge + 4 info cells + chevron. The speed
-          indicator was dropped and the redundant "Tronçon X" label was
-          dropped earlier: the numbered badge identifies the leg. */}
       <tr
         role="button"
         tabIndex={0}
@@ -77,39 +77,43 @@ function LegRow({
         className="cursor-pointer"
         style={{ background: rowBg }}
       >
-        <td className="py-2 pl-3 pr-2 align-middle" style={{ borderTop: "1px solid var(--ow-line)" }}>
-          {/* Leg label is "from→to" using user-waypoint indices (1-based).
-              `index` here is 0-based across legs, so leg N goes from
-              waypoint N to waypoint N+1. Distance sits under the badge so
-              the user can scan leg length without expanding. */}
-          <div className="flex flex-col items-start gap-0.5">
+        <td className="py-2.5 pl-4 pr-1 align-middle" style={CELL_LINE}>
+          {/* The leg is named "from → to" by its user waypoints (1-based),
+              beside a bar in the wind's colour: the same softened Beaufort
+              tint as the leg's steps on the map and in the bar above. The
+              distance sits under it, so leg length reads without expanding. */}
+          <div className="flex items-center gap-2">
             <span
-              className="inline-flex h-6 px-1.5 rounded-md items-center justify-center text-[10px] font-bold tabular-nums whitespace-nowrap"
-              style={{ background: windSoftVar(windLevel), color: windTextVar(windLevel), fontFamily: "var(--ow-font-mono)" }}
-            >
-              {index + 1}→{index + 2}
-            </span>
-            <span
-              className="text-[10px] tabular-nums whitespace-nowrap"
-              style={{ color: "var(--ow-fg-2)", fontFamily: "var(--ow-font-mono)" }}
-            >
-              {num1(leg.distance_nm)} nm
-            </span>
+              aria-hidden="true"
+              className="shrink-0 rounded-[2px]"
+              style={{ width: 4, height: 28, background: windSoftVar(beaufortLevel(leg.tws_avg_kn)) }}
+            />
+            <div className="tabular-nums whitespace-nowrap" style={MONO}>
+              <div className="text-[12.5px] font-bold leading-tight" style={{ color: "var(--ow-fg-0)" }}>
+                {index + 1} → {index + 2}
+              </div>
+              <div className="text-[10.5px] leading-tight mt-0.5" style={{ color: "var(--ow-fg-2)" }}>
+                {num1(leg.distance_nm)} nm
+              </div>
+            </div>
           </div>
         </td>
-        <td className="py-2 px-1 align-middle" style={{ borderTop: "1px solid var(--ow-line)" }}>
-          <SummaryCell value={summary.duration} />
+        <td className={figure} style={{ ...CELL_LINE, color: "var(--ow-fg-0)" }}>
+          {summary.duration}
         </td>
-        <td className="py-2 px-1 align-middle" style={{ borderTop: "1px solid var(--ow-line)" }}>
-          <SummaryCell value={summary.allure} />
+        <td className="py-2.5 px-1 align-middle text-xs leading-tight" style={{ ...CELL_LINE, color: "var(--ow-fg-1)" }}>
+          {summary.allure}
         </td>
-        <td className="py-2 px-1 align-middle" style={{ borderTop: "1px solid var(--ow-line)" }}>
-          <SummaryCell value={summary.wind} />
+        <td className={figure} style={{ ...CELL_LINE, color: "var(--ow-fg-0)" }}>
+          {summary.wind}
         </td>
-        <td className="py-2 px-1 align-middle" style={{ borderTop: "1px solid var(--ow-line)" }}>
-          <SummaryCell value={summary.flag} />
+        <td
+          className={figure}
+          style={{ ...CELL_LINE, color: summary.alert ? "var(--ow-warn-ink)" : "var(--ow-fg-0)" }}
+        >
+          {summary.sea ?? <span style={{ color: "var(--ow-fg-2)" }}>—</span>}
         </td>
-        <td className="py-2 pl-1 pr-3 text-right align-middle" style={{ borderTop: "1px solid var(--ow-line)" }}>
+        <td className="py-2.5 pl-1 pr-3.5 text-right align-middle" style={CELL_LINE}>
           <span
             aria-hidden="true"
             className="inline-flex"
@@ -119,12 +123,23 @@ function LegRow({
               transition: "transform 150ms ease, color 150ms ease",
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 6l5 5 5-5" />
             </svg>
           </span>
         </td>
       </tr>
+      {summary.alert && (
+        // The alert has a row of its own, under the figures it qualifies and
+        // aligned on the leg's name: in the sea column it was two words of
+        // grey text, with neither the height nor the distance. A click on it
+        // opens the leg like the row above; the keyboard has that row.
+        <tr onClick={onToggle} className="cursor-pointer" style={{ background: rowBg }}>
+          <td colSpan={6} className="pt-0 pb-2.5 pr-4" style={{ paddingLeft: 28 }}>
+            <AlertChip size="s">{summary.alert}</AlertChip>
+          </td>
+        </tr>
+      )}
       {expanded && (
         <tr style={{ background: rowBg }}>
           <td colSpan={6} className="px-4 pb-3 pt-1">
@@ -163,15 +178,19 @@ export function LegList({ passage }: { passage: PassageReport }) {
       <table className="w-full" style={{ borderCollapse: "collapse" }}>
         <thead>
           <tr
-            className="text-[9px] uppercase tracking-widest"
-            style={{ color: "var(--ow-fg-3)" }}
+            className="text-[9.5px] uppercase tracking-[0.1em]"
+            style={{ color: "var(--ow-fg-2)" }}
           >
-            <th className="py-1 pl-3 pr-2 pt-3 text-left font-semibold">{t("panel.legs.colLeg")}</th>
-            <th className="py-1 px-1 pt-3 text-left font-semibold">{t("panel.legs.colDuration")}</th>
-            <th className="py-1 px-1 pt-3 text-left font-semibold">{t("panel.legs.colPointOfSail")}</th>
-            <th className="py-1 px-1 pt-3 text-left font-semibold">{t("panel.legs.colWind")}</th>
-            <th className="py-1 px-1 pt-3 text-left font-semibold">{t("panel.legs.colSea")}</th>
-            <th className="py-1 pl-1 pr-3 pt-3" />
+            <th className="pt-3 pb-1.5 pl-4 pr-1 text-left font-semibold">{t("panel.legs.colLeg")}</th>
+            <th className="pt-3 pb-1.5 px-1 text-left font-semibold">{t("panel.legs.colDuration")}</th>
+            <th className="pt-3 pb-1.5 px-1 text-left font-semibold">{t("panel.legs.colPointOfSail")}</th>
+            <th className="pt-3 pb-1.5 px-1 text-left font-semibold whitespace-nowrap">
+              {t("panel.legs.colWind")} <Unit>kn</Unit>
+            </th>
+            <th className="pt-3 pb-1.5 px-1 text-left font-semibold whitespace-nowrap">
+              {t("panel.legs.colSea")} <Unit>m</Unit>
+            </th>
+            <th className="pt-3 pb-1.5 pl-1 pr-3.5" />
           </tr>
         </thead>
         <tbody>

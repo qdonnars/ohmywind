@@ -132,7 +132,7 @@ function arrivalDay(passage: PassageReport): string | undefined {
 // `onSegmentClick` every cell is a button: a click opens the leg the step
 // belongs to and that step in the card, the same thing the strip under an
 // open leg does, reached from the overview instead. The visible bar stays
-// 8 px thin; the button around it carries the 16 px touch height.
+// 6 px thin; the button around it carries the 16 px touch height.
 function SegmentBar({
   segments,
   legRanges,
@@ -166,7 +166,7 @@ function SegmentBar({
   };
   return (
     <div
-      className="flex gap-[1px]"
+      className="flex gap-[2px]"
       role={onSegmentClick ? "group" : "progressbar"}
       aria-label={
         onSegmentClick
@@ -179,7 +179,7 @@ function SegmentBar({
         const focused = focusedSegmentIdx === i;
         const cell = (
           <span
-            className="block h-2 rounded-sm"
+            className="block h-[6px] rounded-[3px]"
             style={{
               background: windSoftVar(beaufortLevel(seg.tws_kn)),
               outline: focused ? "2px solid var(--ow-accent)" : "none",
@@ -200,7 +200,7 @@ function SegmentBar({
             aria-label={text}
             aria-pressed={focused}
             onClick={() => onSegmentClick(i, leg)}
-            className="py-1 cursor-pointer transition-opacity hover:opacity-80"
+            className="py-[5px] cursor-pointer transition-opacity hover:opacity-80"
             style={size}
           >
             {cell}

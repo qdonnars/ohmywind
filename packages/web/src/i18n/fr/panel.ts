@@ -60,7 +60,7 @@ export const panel = {
   "panel.legs.durationHours": "{hours} h",
   "panel.legs.colDuration": "Durée",
   "panel.legs.colPointOfSail": "Allure",
-  "panel.legs.colWind": "Vent (kn)",
+  "panel.legs.colWind": "Vent",
   "panel.legs.colSea": "Mer",
   "panel.legs.pointOfSail.upwindTacking": "Près (louvoyage)",
   "panel.legs.pointOfSail.upwind": "Près",
@@ -73,6 +73,9 @@ export const panel = {
   "panel.legs.seaFlag.chop": "Clapot",
   "panel.legs.seaFlag.followingChop": "Clapot suiveur",
   "panel.legs.seaFlag.roughSea": "Mer formée",
+  // The flag as the alert under a leg says it: what, how much, where.
+  "panel.legs.alert.sea": "{flag} · Hs {range} m sur {nm} nm",
+  "panel.legs.alert.current": "{flag} · {speed} kn sur {nm} nm",
 
   // ── LegDetailCard / LegExpanded ────────────────────────────────────────────
   "panel.legDetail.prevStep": "Pas précédent",
