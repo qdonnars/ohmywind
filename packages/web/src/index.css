@@ -787,12 +787,6 @@ select,
 .ow-tbl-bg {
   background: var(--ow-bg-1);
 }
-.ow-tbl-day-th {
-  background: var(--ow-bg-1);
-  color: var(--ow-fg-0);
-  border-bottom: 1px solid var(--ow-line-2);
-  border-left: 1px solid var(--ow-line-2);
-}
 .ow-hour-cell {
   background: var(--ow-bg-1);
   color: var(--ow-fg-1);
@@ -805,21 +799,6 @@ select,
   background: var(--ow-bg-2);
   color: var(--ow-fg-2);
 }
-/* Day separator: discreet on mobile, accent stripe on desktop so the eye
-   finds the day boundary without taking extra vertical space on phones.
-   Opaque colours: the line crosses the header and every coloured cell of
-   the column, and a translucent one took each cell's tint, grey over the
-   header and a darker green over a 10 kn cell, so it read as a different
-   line on every row. */
-.ow-day-sep {
-  border-left: 1px solid var(--ow-fg-3);
-}
-@media (min-width: 1024px) {
-  .ow-day-sep {
-    border-left: 2px solid color-mix(in srgb, var(--ow-accent) 55%, var(--ow-bg-1));
-  }
-}
-
 /* ── Theme-aware search ──────────────────────────────────────── */
 .ow-search-input {
   background: color-mix(in srgb, var(--ow-bg-2) 80%, transparent);

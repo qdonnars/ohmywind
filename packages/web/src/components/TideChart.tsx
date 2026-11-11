@@ -10,15 +10,21 @@ import { nowParisHourPrefix, parisIsoToUtcMs } from "../domain/datetime";
 import { findTideExtrema } from "../domain/tideExtrema";
 import { formatHourMinute } from "../utils/format";
 import { useTimelineScroll } from "../hooks/useTimelineScroll";
+import { LG_MEDIA_QUERY, useMediaQuery } from "../hooks/useMediaQuery";
 import { useT } from "../i18n";
 import { numFixed } from "../plan/format";
 
-// Fixed cell width for the chart so the SVG aligns perfectly with the timeline
-// header. 36 px shows ~30 hours per viewport on a typical mobile (good for
-// reading tidal cycles which span ~12h). Desktop gets the same density rather
-// than wider cells — a tide chart is more legible compact than spread out.
-const CELL_W = 36;
-const STICKY_W = 56;
+// Column widths of the explore wind and sea tables (their cells are
+// `min-w-[38px] lg:min-w-[52px]`), so the hours stand at the same place when
+// the reader goes from the sea to the tide, under the same header. The curve
+// is drawn in pixels, so the table below is laid out `fixed` on exactly these
+// widths: a header word wider than its column cannot push the hours off the
+// curve.
+const CELL_W_MOBILE = 38;
+const CELL_W_DESKTOP = 52;
+// The sticky label column, the minimum the harmonised header gives its corner.
+const STICKY_W_MOBILE = 54;
+const STICKY_W_DESKTOP = 78;
 
 const SVG_HEIGHT = 110;
 const PAD_TOP = 18;
@@ -41,11 +47,14 @@ export function TideChart({
 }: TideChartProps) {
   const { t } = useT();
   const [timezoneMode] = useTimezone();
+  const isDesktop = useMediaQuery(LG_MEDIA_QUERY);
+  const CELL_W = isDesktop ? CELL_W_DESKTOP : CELL_W_MOBILE;
+  const STICKY_W = isDesktop ? STICKY_W_DESKTOP : STICKY_W_MOBILE;
 
   const masterTimeline = useMemo(() => marine.time, [marine.time]);
 
   const nowHour = nowParisHourPrefix();
-  const { scrollRef, scrolledEnd, visibleDay, dayStarts } = useTimelineScroll(
+  const { scrollRef, scrolledEnd, dayStarts } = useTimelineScroll(
     masterTimeline,
     CELL_W,
     nowHour,
@@ -115,7 +124,15 @@ export function TideChart({
     <div className="animate-fade-in flex-1 min-h-0 flex flex-col">
       <div className={`scroll-container flex-1 min-h-0 flex flex-col ${scrolledEnd ? "scrolled-end" : ""}`}>
         <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto wind-table-scroll">
-          <table className="border-collapse" role="table">
+          <table
+            className="border-collapse"
+            role="table"
+            style={{
+              tableLayout: "fixed",
+              width: STICKY_W + masterTimeline.length * CELL_W,
+              background: "var(--ow-bg-1)",
+            }}
+          >
             <colgroup>
               <col style={{ width: STICKY_W }} />
               {masterTimeline.map((_, i) => (
@@ -130,7 +147,6 @@ export function TideChart({
                 forecasts={forecasts}
                 nowHour={nowHour}
                 timezoneMode={timezoneMode}
-                visibleDay={visibleDay}
               />
             </thead>
             <tbody>
