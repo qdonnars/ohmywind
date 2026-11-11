@@ -36,7 +36,9 @@
       "gust_kn": 14.098,
       "wave_period_s": 4.229,
       "model_used": "meteofrance_arome_france",
-      "motor_used": true
+      "motor_used": true,
+      "sea_level": 2,
+      "sea_flag": "chop_short"
     },
     {
       "start": {
@@ -67,7 +69,9 @@
       "gust_kn": 10.685,
       "wave_period_s": 4.946,
       "model_used": "meteofrance_arome_france",
-      "motor_used": true
+      "motor_used": true,
+      "sea_level": 3,
+      "sea_flag": "chop_short"
     },
     {
       "start": {
@@ -98,7 +102,9 @@
       "gust_kn": 9.401,
       "wave_period_s": 5.251,
       "model_used": "meteofrance_arome_france",
-      "motor_used": true
+      "motor_used": true,
+      "sea_level": 3,
+      "sea_flag": null
     },
     {
       "start": {
@@ -129,7 +135,9 @@
       "gust_kn": 8.62,
       "wave_period_s": 5.444,
       "model_used": "meteofrance_arome_france",
-      "motor_used": true
+      "motor_used": true,
+      "sea_level": 2,
+      "sea_flag": null
     },
     {
       "start": {
@@ -160,7 +168,9 @@
       "gust_kn": 8.406,
       "wave_period_s": 5.499,
       "model_used": "meteofrance_arome_france",
-      "motor_used": true
+      "motor_used": true,
+      "sea_level": 2,
+      "sea_flag": null
     }
   ],
   "warnings": [],

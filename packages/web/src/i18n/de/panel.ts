@@ -71,6 +71,7 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.legs.pointOfSail.motor": "Unter Motor",
   "panel.legs.seaFlag.windAgainstCurrent": "Wind gegen Strom",
   "panel.legs.seaFlag.heavySea": "Schwere See",
+  "panel.legs.seaFlag.veryHeavySea": "Sehr schwere See",
   "panel.legs.seaFlag.chop": "Kabbelwasser",
   "panel.legs.seaFlag.followingChop": "Mitlaufende Kabbelsee",
   "panel.legs.seaFlag.roughSea": "Grobe See",

@@ -8,6 +8,7 @@ import re
 import pytest
 
 from openwind_data.routing.notices import FR_TEMPLATES, notice
+from openwind_data.routing.sea_state import SEA_NAMES, SEA_WARNING_LEVEL
 
 PLACEHOLDER = re.compile(r"\{(\w+)\}")
 
@@ -44,3 +45,10 @@ class TestNotice:
             "complexity.sea.4",
             "complexity.sea.5",
         }
+
+    def test_a_sea_warning_opens_with_the_name_the_sea_state_module_gives(self) -> None:
+        # One vocabulary: the warning, the leg flag and the rationale name a
+        # sea with the words of ``sea_state``, never with their own.
+        assert set(SEA_NAMES) == {SEA_WARNING_LEVEL, 4, 5}
+        for level, name in SEA_NAMES.items():
+            assert FR_TEMPLATES[f"complexity.sea.{level}"].startswith(f"{name} : "), level

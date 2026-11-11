@@ -113,7 +113,38 @@ class TestWithSea:
 
     def test_sea_label_present(self) -> None:
         s = score_complexity(_make_passage([5.0]), max_hs_m=1.5)
-        assert s.sea_label == "agitée"
+        assert s.sea_label == "formée"
+
+    @pytest.mark.parametrize(
+        ("hs_m", "level", "label"),
+        [
+            (0.49, 1, "plate"),
+            (0.5, 2, "peu agitée"),
+            (1.24, 2, "peu agitée"),
+            (1.25, 3, "formée"),
+            (2.49, 3, "formée"),
+            (2.5, 4, "grosse"),
+            (3.99, 4, "grosse"),
+            (4.0, 5, "très grosse"),
+        ],
+    )
+    def test_sea_bands_sit_on_the_douglas_edges(self, hs_m: float, level: int, label: str) -> None:
+        # 1.25, 2.5 and 4 m: the edges of the scale the marine bulletins use.
+        s = score_complexity(_make_passage([5.0]), max_hs_m=hs_m)
+        assert (s.sea_level, s.sea_label) == (level, label)
+
+    def test_a_sea_under_1_25_m_raises_no_sea_warning(self) -> None:
+        # 1.1 m of sea used to be "agitée" and warned about; it is described
+        # ("peu agitée") and left at that. A short, steep 1.1 m still warns,
+        # as chop (see TestChop).
+        s = score_complexity(_make_passage([5.0], hs_per_segment=[1.1]))
+        assert not any(w.kind == "sea" for w in s.warnings)
+
+    def test_sea_warning_names_the_sea_with_the_shared_words(self) -> None:
+        for hs_m, name in ((1.5, "Mer formée"), (3.0, "Grosse mer"), (4.5, "Très grosse mer")):
+            s = score_complexity(_make_passage([5.0], hs_per_segment=[hs_m]))
+            (w,) = [w for w in s.warnings if w.kind == "sea"]
+            assert w.message.startswith(f"{name} : Hs "), hs_m
 
     def test_negative_hs_rejected(self) -> None:
         with pytest.raises(ValueError, match="max_hs_m"):
@@ -166,7 +197,7 @@ class TestWarnings:
         s = score_complexity(_make_passage([5.0]), max_hs_m=2.5)
         sea_w = [w for w in s.warnings if w.kind == "sea"]
         assert len(sea_w) == 1
-        assert sea_w[0].level == 4  # 2.5 m falls in level 4 (2-3 m band)
+        assert sea_w[0].level == 4  # 2.5 m falls in level 4 (2.5-4 m band)
         assert "Hs 2.5 m" in sea_w[0].message
         assert "max" not in sea_w[0].message
 
@@ -181,7 +212,7 @@ class TestWarnings:
 
     def test_sea_warning_uses_per_segment_hs_when_no_override(self) -> None:
         # Three 5 nm segments, only the middle one has Hs above the level-3
-        # threshold (>=1.0 m). Sea warning should fire and report 5 nm affected.
+        # threshold (>=1.25 m). Sea warning should fire and report 5 nm affected.
         s = score_complexity(_make_passage([10.0, 10.0, 10.0], hs_per_segment=[0.4, 1.6, 0.4]))
         sea_w = [w for w in s.warnings if w.kind == "sea"]
         assert len(sea_w) == 1
@@ -190,12 +221,12 @@ class TestWarnings:
         assert "5 nm" in sea_w[0].message
 
     def test_sea_warning_reports_min_max_range(self) -> None:
-        # Three segments with Hs >= 1.0 m and varying values → range expected.
-        s = score_complexity(_make_passage([10.0, 10.0, 10.0], hs_per_segment=[1.2, 1.6, 1.9]))
+        # Three segments with Hs >= 1.25 m and varying values → range expected.
+        s = score_complexity(_make_passage([10.0, 10.0, 10.0], hs_per_segment=[1.3, 1.6, 1.9]))
         sea_w = [w for w in s.warnings if w.kind == "sea"]
         assert len(sea_w) == 1
         assert sea_w[0].affected_segments == (0, 1, 2)
-        assert "Hs 1.2-1.9 m" in sea_w[0].message
+        assert "Hs 1.3-1.9 m" in sea_w[0].message
         assert "15 nm" in sea_w[0].message
 
     def test_sea_warning_uses_full_route_when_only_max_hs_provided(self) -> None:
@@ -308,22 +339,22 @@ class TestChop:
     """
 
     def test_short_period_steep_chop_triggers_warning_and_bump(self) -> None:
-        # Hs 1.2 m at Tp 4.5 s → index = 1.2 / 20.25 ≈ 0.059, over 0.05.
-        seg = _make_segment(tws_kn=12.0, hs_m=1.2, wave_period_s=4.5)
+        # Hs 1.3 m at Tp 4.5 s → index = 1.3 / 20.25 ≈ 0.064, over 0.05.
+        seg = _make_segment(tws_kn=12.0, hs_m=1.3, wave_period_s=4.5)
         p = _make_passage([12.0])
         p = dataclasses.replace(p, segments=(seg,))
         s = score_complexity(p)
 
         assert s.chop_present is True
         assert s.wind_level == 2  # 12 kn → "modéré"
-        assert s.sea_level == 3  # Hs 1.2 m → "agitée"
+        assert s.sea_level == 3  # Hs 1.3 m → "formée"
         assert s.level == 4  # sea_level 3 + chop bump
         chop_warnings = [w for w in s.warnings if w.kind == "chop"]
         assert len(chop_warnings) == 1
         w = chop_warnings[0]
         assert w.level == 4
         assert "clapot" in w.message.lower()
-        assert "1.2" in w.message
+        assert "1.3" in w.message
         assert "clapot court" in s.rationale.lower()
 
     def test_long_period_swell_no_trigger_even_when_hs_high(self) -> None:
@@ -335,7 +366,7 @@ class TestChop:
         s = score_complexity(p)
 
         assert s.chop_present is False
-        assert s.sea_level == 3  # Hs 1.8 m sits in "agitée"
+        assert s.sea_level == 3  # Hs 1.8 m sits in "formée"
         assert s.level == 3  # no bump
         assert not any(w.kind == "chop" for w in s.warnings)
 
@@ -389,7 +420,7 @@ class TestChop:
         # Same chop conditions as the bump test, but at TWA 150° (running) —
         # sea comes from behind. We emit the warning (broaching risk) but
         # complexity stays at sea_level, no +1.
-        seg = _make_segment(tws_kn=12.0, hs_m=1.2, wave_period_s=4.5, twa_deg=150.0)
+        seg = _make_segment(tws_kn=12.0, hs_m=1.3, wave_period_s=4.5, twa_deg=150.0)
         p = _make_passage([12.0])
         p = dataclasses.replace(p, segments=(seg,))
         s = score_complexity(p)
@@ -408,8 +439,8 @@ class TestChop:
         # Two chop segments: one beam (twa 90°), one running (twa 150°). The
         # presence of even one non-running chop segment is enough to bump —
         # the boat will slam on that beam segment.
-        beam = _make_segment(tws_kn=12.0, hs_m=1.2, wave_period_s=4.5, twa_deg=90.0)
-        run = _make_segment(tws_kn=12.0, hs_m=1.2, wave_period_s=4.5, twa_deg=150.0)
+        beam = _make_segment(tws_kn=12.0, hs_m=1.3, wave_period_s=4.5, twa_deg=90.0)
+        run = _make_segment(tws_kn=12.0, hs_m=1.3, wave_period_s=4.5, twa_deg=150.0)
         p = _make_passage([12.0, 12.0])
         p = dataclasses.replace(p, segments=(beam, run))
         s = score_complexity(p)

@@ -108,7 +108,7 @@ export function summariseTrack(passage: PassageReport, complexity: ComplexitySco
 
 export interface TrackAlerts {
   /** The score's warnings, each a short "what · how much · where" sentence
-      (« Mer agitée : Hs 1,1–1,4 m sur 13,8 nm »), said in full. */
+      (« Mer formée : Hs 1,1–1,4 m sur 13,8 nm »), said in full. */
   lines: string[];
   /** The engine's own warnings (light wind, unresolved currents…): whole
       paragraphs, counted on the row and read in the plan. */
