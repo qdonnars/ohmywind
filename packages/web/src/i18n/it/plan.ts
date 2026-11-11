@@ -44,10 +44,8 @@ export const plan: Record<keyof typeof frPlan, string> = {
   // ── Steps of a leg ────────────────────────────────────────────────────────
   "plan.steps.stepLabel": "Tappa {index} di {total}, {time}",
   "plan.steps.wholeLeg": "Tutta la tratta",
-  "plan.steps.span.one": "{count} tappa · {start} → {end}",
-  "plan.steps.span.other": "{count} tappe · {start} → {end}",
+  "plan.steps.all": "Tutto",
   "plan.steps.table.label": "Tappe della tratta, ora per ora",
-  "plan.steps.table.direction": "Direzione",
 
   // ── Map ───────────────────────────────────────────────────────────────────
   "plan.map.waypoint.remove": "Eliminare questo punto",

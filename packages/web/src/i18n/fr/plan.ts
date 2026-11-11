@@ -48,10 +48,8 @@ export const plan = {
   // ── Bande des pas d'un tronçon ────────────────────────────────────────────
   "plan.steps.stepLabel": "Pas {index} sur {total}, {time}",
   "plan.steps.wholeLeg": "Tout le tronçon",
-  "plan.steps.span.one": "{count} pas · {start} → {end}",
-  "plan.steps.span.other": "{count} pas · {start} → {end}",
+  "plan.steps.all": "Tout",
   "plan.steps.table.label": "Pas du tronçon, heure par heure",
-  "plan.steps.table.direction": "Direction",
 
   // ── Carte ─────────────────────────────────────────────────────────────────
   "plan.map.waypoint.remove": "Supprimer ce point",
