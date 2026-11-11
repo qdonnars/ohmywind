@@ -47,7 +47,7 @@ export function PlanForm({ canCalculate }: { canCalculate: boolean }) {
               cursor: canCalculate ? "pointer" : "not-allowed",
             }}
           >
-            <RefreshIcon size={14} />
+            <RefreshIcon size={16} />
             {canCalculate
               ? t("panel.form.calculate")
               : t("panel.form.waypointsNeeded", { count: waypoints.length })}
