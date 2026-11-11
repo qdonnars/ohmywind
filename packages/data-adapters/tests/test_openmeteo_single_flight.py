@@ -211,3 +211,30 @@ async def test_without_an_injected_client_one_is_opened_per_call(
 
     assert len(opened) == 2
     assert all(client.is_closed for client in opened)
+
+
+@respx.mock
+async def test_a_joiner_survives_the_owner_being_cancelled(
+    forecast_marseille_arome, marine_porquerolles
+):
+    """A timed-out caller must not take the requests that joined it down too.
+
+    Since tool calls carry a deadline, the owner of a flight can be cancelled
+    while others wait on it. They used to inherit its ``CancelledError`` and
+    fail for a reason that was not theirs; they now fetch for themselves.
+    """
+    forecast = respx.get(FORECAST_URL).mock(side_effect=_slow(forecast_marseille_arome, delay=0.1))
+    respx.get(MARINE_URL).mock(side_effect=_slow(marine_porquerolles, delay=0.1))
+
+    adapter = OpenMeteoAdapter(http_min_interval_s=0)
+    owner = asyncio.ensure_future(adapter.fetch(lat=43.30, lon=5.35, start=START, end=END))
+    await asyncio.sleep(0.01)
+    joiner = asyncio.ensure_future(adapter.fetch(lat=43.30, lon=5.35, start=START, end=END))
+    await asyncio.sleep(0.01)
+    owner.cancel()
+
+    bundle = await joiner
+    assert bundle.wind_by_model["meteofrance_arome_france"].points
+    assert owner.cancelled()
+    # Answered by a request of its own: the owner's never completed.
+    assert forecast.call_count >= 1

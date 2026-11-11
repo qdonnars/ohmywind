@@ -64,6 +64,7 @@ export function formatRetryDelay(seconds: number | null): string {
  * | `sweep_too_large` | the sweep would produce too many windows |
  * | `upstream_timeout` | the weather service did not answer in time |
  * | `upstream_rate_limited` | the weather service is throttling *us*, with `retry_after` and `window` when it named the quota |
+ * | `upstream_budget_exhausted` | our server stopped calling the weather service itself, just before its free quota would; always with `retry_after` and `window` |
  * | `upstream_unavailable` | the edge proxy could not reach our own backend |
  * | `body_too_large` | request body over the cap |
  * | `invalid_forecast_cache` | the attached corridor did not check out |
@@ -248,6 +249,13 @@ const ERROR_COPY: Record<
     const resetAt = retryAfter !== null ? now + retryAfter * 1000 : quotaResetAt(window, now);
     return openMeteoQuotaMessage("server", window, resetAt, now);
   },
+  // Notre propre budget Open-Meteo : le serveur s'arrete un peu avant le
+  // quota gratuit, partage par tous via son IP, pour qu'Open-Meteo ne le
+  // bloque jamais. Pour la personne qui lit, c'est le meme fait que le cas
+  // precedent (le quota du service meteo, pas son usage), avec toujours la
+  // fenetre et l'attente : meme phrase.
+  upstream_budget_exhausted: (retryAfter, window) =>
+    ERROR_COPY.upstream_rate_limited(retryAfter, window),
   // Emis par le proxy de bord (Worker Cloudflare), pas par le Space : le
   // backend n'a pas repondu du tout. A ne pas confondre avec les deux
   // `upstream_*` ci-dessus, ou le service amont est Open-Meteo ; ici l'amont

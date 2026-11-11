@@ -23,7 +23,11 @@ from datetime import UTC, datetime, timedelta
 import httpx
 import pytest
 from fake_requests import FakeRequest
-from openwind_data.adapters.base import ForecastHorizonError, UpstreamRateLimitError
+from openwind_data.adapters.base import (
+    ForecastHorizonError,
+    UpstreamBudgetExhaustedError,
+    UpstreamRateLimitError,
+)
 from starlette.responses import PlainTextResponse
 from starlette.testclient import TestClient
 
@@ -126,6 +130,25 @@ class TestEngineFailures:
         # ``error`` is still the engine's sentence, wait included, for logs
         # and for a client predating ``window``.
         assert "resets in about 4 h" in payload["error"]
+
+    async def test_our_own_budget_says_so_with_the_wait(self, monkeypatch) -> None:
+        # Refused by this process before Open-Meteo would refuse the shared
+        # IP: its own code, the same fields as the upstream refusal, and the
+        # header for fetches that cannot read the body.
+        monkeypatch.setattr(
+            passage_routes,
+            "estimate_passage",
+            _raising(UpstreamBudgetExhaustedError("hour", 754.2)),
+        )
+        resp = await passage_routes.api_passage(FakeRequest(_body()))
+        assert resp.status_code == 503
+        payload = _payload(resp)
+        assert payload["code"] == "upstream_budget_exhausted"
+        assert payload["retry_after"] == 755
+        assert payload["window"] == "hour"
+        assert resp.headers["Retry-After"] == "755"
+        # An older client that only knows the text still reads a rate limit.
+        assert payload["error"].startswith("upstream weather service rate limit reached")
 
     async def test_sweep_too_large(self) -> None:
         # 14 days of hourly departures is the documented cap; ask for a month.
