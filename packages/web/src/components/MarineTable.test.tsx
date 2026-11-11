@@ -1,0 +1,104 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
+import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { MarineTable } from "./MarineTable";
+import type { MarineHourly } from "../types";
+
+const TIMES = ["2026-09-03T10:00", "2026-09-03T11:00", "2026-09-03T12:00", "2026-09-03T13:00", "2026-09-03T14:00"];
+
+const MARINE: MarineHourly = {
+  time: TIMES,
+  wave_height_m: [0.4, 0.8, 1.2, 2.0, null],
+  // 7.2 s prints as 7, the same as the hour before; 9 is a change; after a
+  // gap the value is said again.
+  wave_period_s: [7, 7.2, 9, 9, null],
+  wave_direction_deg: [240, 245, 250, 255, null],
+  current_speed_kn: [0.4, 1.2, 2.5, 0.1, null],
+  current_direction_to_deg: [90, 95, 100, 270, null],
+  tide_height_m: TIMES.map(() => null),
+};
+
+function rowOf(label: string): HTMLElement[] {
+  const tr = screen.getByText(label).closest("tr")!;
+  return Array.from(tr.querySelectorAll<HTMLElement>("td[role='cell']"));
+}
+
+function renderTable(metric: "waves" | "currents", selectedHour: string | null = null, onSelectHour = vi.fn()) {
+  render(
+    <MarineTable
+      metric={metric}
+      marine={MARINE}
+      forecasts={[]}
+      selectedHour={selectedHour}
+      onSelectHour={onSelectHour}
+    />,
+  );
+}
+
+describe("MarineTable, waves", () => {
+  it("reads where the sea comes from, then its height, then its period", () => {
+    renderTable("waves");
+    const labels = screen.getAllByRole("rowheader").map((h) => h.textContent);
+    expect(labels).toEqual(["Venant de", "Hauteurm", "Périodes"]);
+  });
+
+  it("draws the direction as arrows only, the bearing in the label", () => {
+    renderTable("waves");
+    const cells = rowOf("Venant de");
+    expect(cells[0].textContent).toBe("");
+    expect(cells[0].querySelector("svg")).not.toBeNull();
+    expect(cells[0].getAttribute("aria-label")).toBe("Direction des vagues, venant de 240°");
+  });
+
+  it("paints the height on the sea's own ramp, with no unit in the cell", () => {
+    renderTable("waves");
+    const fills = rowOf("Hauteur").map((c) => c.firstElementChild as HTMLElement);
+    expect(fills.slice(0, 4).map((f) => f.textContent)).toEqual(["0,4", "0,8", "1,2", "2,0"]);
+    expect(fills.slice(0, 4).map((f) => f.style.background)).toEqual([
+      "var(--ow-wave-1)",
+      "var(--ow-wave-2)",
+      "var(--ow-wave-3)",
+      "var(--ow-wave-4)",
+    ]);
+    // Light ink on the dark blues under a metre, dark ink from there.
+    expect(fills[1].style.color).toBe("var(--ow-fg-0)");
+    expect(fills[2].style.color).toBe("var(--ow-cell-ink)");
+  });
+
+  it("says the period only when it changes, a dot otherwise", () => {
+    renderTable("waves");
+    const cells = rowOf("Période");
+    expect(cells.map((c) => c.textContent)).toEqual(["7", "·", "9", "·", "—"]);
+    expect((cells[1].firstElementChild as HTMLElement).style.color).toBe("var(--ow-fg-3)");
+    // The dot is for the eye; the value is still read aloud.
+    expect(cells[1].getAttribute("aria-label")).toBe("Période des vagues 7 s");
+  });
+
+  it("outlines the picked hour on the height and selects from any cell", () => {
+    const onSelectHour = vi.fn();
+    renderTable("waves", TIMES[2], onSelectHour);
+    const fills = rowOf("Hauteur").map((c) => c.firstElementChild as HTMLElement);
+    expect(fills[2].style.boxShadow).toBe("inset 0 0 0 2px var(--ow-fg-0)");
+    expect(fills[1].style.boxShadow).toBe("");
+    fireEvent.click(rowOf("Période")[3]);
+    expect(onSelectHour).toHaveBeenLastCalledWith(TIMES[3]);
+  });
+});
+
+describe("MarineTable, currents", () => {
+  it("says the unit in the row name, not in the cells", () => {
+    renderTable("currents");
+    const cells = rowOf("Cour.");
+    expect(cells.map((c) => c.textContent)).toEqual(["0,4", "1,2", "2,5", "0,1", "—"]);
+    expect(screen.getAllByRole("rowheader")[0].textContent).toBe("Cour.kn");
+  });
+
+  it("keeps the bearing under the arrow of the current", () => {
+    renderTable("currents");
+    const cells = rowOf("Dir");
+    expect(cells[0].textContent).toBe("90°");
+    expect(cells[0].getAttribute("aria-label")).toBe("Courant portant vers 90°");
+  });
+});

@@ -87,9 +87,10 @@ export const explore = {
     "{speed} nœuds, rafales {gusts}, direction {direction}°",
 
   // Table marine
-  "explore.marineTable.row.hs": "Hs",
+  "explore.marineTable.row.hs": "Hauteur",
   "explore.marineTable.row.direction": "Dir",
-  "explore.marineTable.row.period": "T",
+  "explore.marineTable.row.waveFrom": "Venant de",
+  "explore.marineTable.row.period": "Période",
   "explore.marineTable.row.tide": "Marée",
   "explore.marineTable.row.current": "Cour.",
   "explore.marineTable.aria.hs": "Hs {value} m",
