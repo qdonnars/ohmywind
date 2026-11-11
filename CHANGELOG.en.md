@@ -4,7 +4,30 @@ Every OhMyWind release, newest first. The ohmywind.fr site and the MCP server sh
 
 This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the reference. Each release is also published on the repository's [Releases](https://github.com/qdonnars/ohmywind/releases) page, and the app shows this log on its "What's new" page.
 
-## 1.12.0 · Next release · OhMyWind in Claude's official directory
+## 1.13.0 · Next release · Harmonised tables, a faster and better protected server
+
+### New
+
+- Every table of figures speaks the same language, in Explore, Plan and Compare this trip: the same hour header, the unit stated once, and a single colour scale for the wind, a softened Beaufort scale, also used on the route drawn on the map (#522).
+- In Plan, an expanded leg shows all its steps side by side (direction, wind, sea, current, speed), and a click on a column opens that step's detail (#522).
+- In Explore, the wind direction flags the spread between models beyond 45°, and currents read like the sea: "Setting to" as arrows, then the speed (#522).
+- A new boat archetype, the foiling IMOCA 60, to plan an ocean race; its polar is an estimate (#513).
+
+### Fixes
+
+- A current from the global model is no longer shown under the name of a tidal atlas where that atlas gives the water height but not the current (#524).
+- A route longer than 1,500 nautical miles is refused with a message that says how to split it, instead of tying up the server (#516).
+- In the assistant, a motor speed or threshold out of range is refused with the accepted range, instead of returning an absurd duration (#517).
+
+### Behind the scenes
+
+- Comparing a whole week of departures takes a tenth of a second of computation instead of six on a typical route (#515).
+- The MCP server protects itself: capped request size, an Open-Meteo call budget that stops before the quota, a maximum time per tool and a status page (#518).
+- A server deployment fails when the tidal atlases are not all there, instead of silently serving the global model in the passes (#519).
+- The direction of flood and ebb is checked on every code change at reference passes of the open atlases, from the Elbe to the Bay of Fundy (#520).
+- The app keeps fewer forecasts in memory on a phone, and asks for a route's tidal currents at the same time as the sea state (#521).
+
+## 1.12.0 · 2026-11-03 · OhMyWind in Claude's official directory
 
 ### New
 
