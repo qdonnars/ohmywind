@@ -2,22 +2,26 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 /**
- * The track axis: one line per option, the same line as a slot.
+ * The track axis: one line per option, in columns like a slot.
  *
- * A track is a line too: the colour swatch stands where the hour stands,
- * then the duration and the arrival in full figures, and the distance, the
- * sea and the engine share as the grey sentence. Two or three options are
- * read in the order they were drawn, so there is no sort here. Tapping the
- * line chooses that option as the plan's route without leaving the
- * comparison, which is also what the departure axis then compares on;
- * « Ouvrir » opens it in the plan, and every option but the chosen one has
- * its trash. Under the lines, « Tracer une variante » opens the map for a
- * new option between the plan's ends; while one is being drawn, the list
- * gives way to what the drawing needs (how many points, cancel, finish).
+ * A track is a line too: the colour swatch and the option's name, then the
+ * arrival, the duration, the distance and the highest sea, aligned under a
+ * header that says the units once. Two or three options are read in the
+ * order they were drawn, so there is no sort here. Tapping the line chooses
+ * that option as the plan's route without leaving the comparison, which is
+ * also what the departure axis then compares on. Under the figures, a
+ * sub-row says the option's alerts on the left and holds its two actions on
+ * the right: « Voir sur la carte » opens it in the plan, and every option
+ * but the plan's own can be removed. Under the lines, « Tracer une
+ * variante » opens the map for a new option between the plan's ends; while
+ * one is being drawn, the list gives way to what the drawing needs (how many
+ * points, cancel, finish).
  */
 
+import type { CSSProperties } from "react";
 import { usePlan } from "../session/planContext";
 import { StalePlaceholder } from "../sidebar/parts";
+import { AlertChip } from "../../components/AlertChip";
 import { fmtDurationSafe, num1 } from "../format";
 import { fmtClock } from "../../domain/datetime";
 import { useT } from "../../i18n";
@@ -25,28 +29,64 @@ import {
   isVariantComplete,
   planAsTrack,
   summariseTrack,
+  trackAlerts,
   trackColorToken,
   MAX_TRACKS,
   type Track,
 } from "./tracks";
 import { waypointsEqual } from "../lastSimulation";
 import { ChevronIcon } from "./icons";
+import { ColumnHeader, ColumnLabel, DurationPill } from "./rowParts";
 
 const MONO = { fontFamily: "var(--ow-font-mono)" } as const;
 
+/** Option · arrival · duration · distance · highest sea. The name takes
+    what the figures leave. */
+const TRACK_GRID: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0,1fr) 48px 62px 40px 56px",
+  columnGap: 6,
+};
+
+const SWATCH_W = 14;
+const SWATCH_GAP = 8;
+/** The row's side padding: the sub-row's text lines up under the name. */
+const ROW_PAD = 16;
+
+/** The plan's own option: the app's one mark for "selected", a 3 px accent
+    rule on the left over the soft accent fill. */
+const PLAN_ROW: CSSProperties = {
+  background: "var(--ow-accent-soft)",
+  boxShadow: "inset 3px 0 0 var(--ow-accent)",
+};
+
+/** The option's colour on the map, as a short stroke of the line itself. */
 function Swatch({ index }: { index: number }) {
   return (
     <span
       aria-hidden="true"
-      className="shrink-0 self-center rounded-sm"
-      style={{ width: 16, height: 3, background: `var(${trackColorToken(index)})` }}
+      className="shrink-0 self-center rounded-[2px]"
+      style={{ width: SWATCH_W, height: 4, background: `var(${trackColorToken(index)})` }}
     />
   );
 }
 
-function Dot() {
-  return <span aria-hidden="true" style={{ color: "var(--ow-fg-3)" }}>·</span>;
+function TrackColumns() {
+  const { t } = useT();
+  return (
+    <ColumnHeader grid={TRACK_GRID} className="px-4 pt-2 pb-1.5">
+      <ColumnLabel>{t("panel.compare.col.option")}</ColumnLabel>
+      <ColumnLabel>{t("panel.compare.col.arrival")}</ColumnLabel>
+      <ColumnLabel>{t("panel.compare.col.duration")}</ColumnLabel>
+      <ColumnLabel unit="nm">{t("panel.compare.col.distance")}</ColumnLabel>
+      <ColumnLabel unit="m">{t("panel.compare.col.seaMax")}</ColumnLabel>
+    </ColumnHeader>
+  );
 }
+
+/** A real button of the sub-row: text-sized, but a 32 px target. */
+const SUB_BUTTON =
+  "shrink-0 inline-flex items-center gap-0.5 min-h-8 px-2 rounded-md text-[11px] transition-colors enabled:hover:bg-[var(--ow-bg-2)] disabled:opacity-40 disabled:cursor-default";
 
 function TrackRow({
   track,
@@ -77,14 +117,48 @@ function TrackRow({
   const { t, tn } = useT();
   const name = t("panel.tracks.option", { n: index + 1 });
   const summary = track.passage ? summariseTrack(track.passage, track.complexity) : null;
+  const alerts = track.passage ? trackAlerts(track.passage, track.complexity) : null;
   const usable = summary !== null;
-  const iconButton = "shrink-0 flex items-center justify-center rounded-md transition-colors enabled:hover:bg-[var(--ow-bg-2)] disabled:opacity-40";
+  const inPlan = t("panel.tracks.row.inPlan");
+  const arrival = summary ? fmtClock(summary.arrival) : "—";
+  const duration = summary ? fmtDurationSafe(summary.durationH) : "—";
+  const distance = summary ? num1(summary.distanceNm) : "—";
+  const seaMax = summary && summary.hsMaxM !== null ? num1(summary.hsMaxM) : "—";
+  // An engine that never ran says nothing a sailing passage does not.
+  const motorText =
+    summary && summary.motorPct !== null && summary.motorPct > 0
+      ? t("panel.compare.row.motor", { pct: summary.motorPct })
+      : null;
+  const alertsText = summary && summary.alerts > 0 ? tn("panel.compare.row.alerts", summary.alerts) : null;
+  const select = t("panel.tracks.row.select", { n: index + 1 });
+  // The columns are spans without headers of their own: the name says each
+  // figure with its word and its unit.
+  const label = summary
+    ? [
+        t("panel.tracks.row.aria", {
+          option: selected ? `${name}, ${inPlan}` : name,
+          arrival,
+          duration,
+          distance,
+          sea: seaMax,
+        }),
+        alertsText,
+        motorText,
+      ]
+        .filter(Boolean)
+        .join(", ") + `. ${select}`
+    : `${name} · ${select}`;
+  const hasStatus =
+    (alerts !== null && (alerts.lines.length > 0 || alerts.others.length > 0)) ||
+    motorText !== null ||
+    (!summary && (computing || track.error !== null));
   return (
     <div
-      className="flex items-stretch"
       style={{
         borderTop: "1px solid var(--ow-line)",
-        background: highlighted ? "var(--ow-accent-soft)" : "transparent",
+        // Pointing at another option draws it full on the map: the row says
+        // which, in the hover grey, and the accent stays the plan's.
+        ...(selected ? PLAN_ROW : highlighted ? { background: "var(--ow-bg-2)" } : null),
       }}
       onMouseEnter={() => onPoint(true)}
       onMouseLeave={() => onPoint(false)}
@@ -94,99 +168,95 @@ function TrackRow({
         onClick={onSelect}
         disabled={!usable}
         aria-pressed={selected}
-        aria-label={`${name} · ${t("panel.tracks.row.select", { n: index + 1 })}`}
-        title={t("panel.tracks.row.select", { n: index + 1 })}
+        aria-label={label}
+        title={select}
         onFocus={() => onPoint(true)}
         onBlur={() => onPoint(false)}
-        className="flex-1 min-w-0 text-left flex flex-col gap-1 pl-4 pr-2 pt-2.5 pb-2.5 disabled:cursor-default"
+        className="block w-full text-left px-4 pt-2.5 pb-1 disabled:cursor-default"
       >
-        <span className="flex items-baseline gap-2">
-          <Swatch index={index} />
-          <span className="w-[62px] shrink-0 text-[12.5px] font-semibold" style={{ color: "var(--ow-fg-0)" }}>
-            {name}
-          </span>
-          <span className="w-[52px] shrink-0 text-base font-bold tabular-nums tracking-tight" style={{ ...MONO, color: "var(--ow-fg-0)" }}>
-            {summary ? fmtDurationSafe(summary.durationH) : "—"}
-          </span>
-          <span className="text-xs tabular-nums" style={{ ...MONO, color: "var(--ow-fg-2)" }}>
-            → {summary ? fmtClock(summary.arrival) : "—"}
-          </span>
-          <span className="ml-auto flex items-center gap-2">
-            {selected && (
-              <span className="text-[9.5px] font-bold uppercase tracking-wider" style={{ color: "var(--ow-accent)" }}>
-                {t("panel.compare.row.fromPlan")}
-              </span>
-            )}
-            {summary && summary.alerts > 0 && (
-              <span
-                title={tn("panel.compare.row.alerts", summary.alerts)}
-                className="flex items-center gap-0.5 text-[10.5px] font-bold tabular-nums"
-                style={{ ...MONO, color: "var(--ow-warn-ink)" }}
-              >
-                <span className="text-[10px]">⚠</span>{summary.alerts}
-              </span>
-            )}
-          </span>
-        </span>
-        <span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[11px]" style={{ color: "var(--ow-fg-2)" }}>
-          {summary ? (
-            <>
-              <span className="tabular-nums" style={MONO}>{num1(summary.distanceNm)} nm</span>
-              {summary.hsAvgM !== null && summary.hsMaxM !== null && (
-                <>
-                  <Dot />
-                  <span className="tabular-nums" style={MONO}>
-                    {t("panel.tracks.row.sea", { avg: num1(summary.hsAvgM), max: num1(summary.hsMaxM) })}
-                  </span>
-                </>
+        <span className="items-center" style={TRACK_GRID}>
+          <span className="flex items-center min-w-0" style={{ gap: SWATCH_GAP }}>
+            <Swatch index={index} />
+            <span className="flex flex-col min-w-0">
+              <span className="truncate text-[12.5px] font-semibold" style={{ color: "var(--ow-fg-0)" }}>{name}</span>
+              {selected && (
+                <span className="truncate text-[10px] font-semibold" style={{ color: "var(--ow-accent)" }}>{inPlan}</span>
               )}
-              {summary.motorPct !== null && (
-                <>
-                  <Dot />
-                  <span className="tabular-nums" style={MONO}>{t("panel.compare.row.motor", { pct: summary.motorPct })}</span>
-                </>
-              )}
-            </>
-          ) : computing ? (
-            <span>{t("panel.tracks.row.computing")}</span>
-          ) : track.error ? (
-            <span style={{ color: "var(--ow-warn-ink)" }}>{track.error}</span>
-          ) : (
-            <span>—</span>
-          )}
+            </span>
+          </span>
+          <span className="text-[13px] font-bold tabular-nums whitespace-nowrap" style={{ color: "var(--ow-fg-0)" }}>
+            {arrival}
+          </span>
+          <DurationPill>{duration}</DurationPill>
+          <span className="text-xs font-semibold tabular-nums whitespace-nowrap" style={{ color: "var(--ow-fg-0)" }}>
+            {distance}
+          </span>
+          <span
+            className="text-xs font-semibold tabular-nums whitespace-nowrap"
+            style={{ color: alerts?.sea ? "var(--ow-warn-ink)" : "var(--ow-fg-0)" }}
+          >
+            {seaMax}
+          </span>
         </span>
       </button>
-      <div className="shrink-0 flex items-center gap-0.5 pr-2">
-        {removable && (
+      {/* Outside the row's button: a button holds no other. The status
+          takes the line and pushes the actions under it when both do not
+          fit, rather than squeezing an alert into a column of words. */}
+      <div
+        className="flex flex-wrap items-center gap-x-2.5 pb-1"
+        style={{ paddingLeft: ROW_PAD + SWATCH_W + SWATCH_GAP, paddingRight: ROW_PAD - 8 }}
+      >
+        {hasStatus && (
+          <div className="flex-[1_1_160px] min-w-0 flex flex-wrap items-center gap-x-2.5 gap-y-1 py-1">
+            {summary && alerts ? (
+              <>
+                {alerts.lines.map((line, i) => <AlertChip key={i} size="s">{line}</AlertChip>)}
+                {alerts.others.length > 0 && (
+                  <span className="inline-flex max-w-full" title={alerts.others.join("\n")}>
+                    <AlertChip size="s">
+                      {alerts.lines.length > 0
+                        ? tn("panel.tracks.row.moreAlerts", alerts.others.length)
+                        : tn("panel.compare.row.alerts", alerts.others.length)}
+                    </AlertChip>
+                  </span>
+                )}
+                {motorText && (
+                  <span className="text-[10.5px] tabular-nums" style={{ color: "var(--ow-fg-2)" }}>{motorText}</span>
+                )}
+              </>
+            ) : computing ? (
+              <span className="text-[10.5px]" style={{ color: "var(--ow-fg-2)" }}>{t("panel.tracks.row.computing")}</span>
+            ) : (
+              <span className="text-[10.5px]" style={{ color: "var(--ow-warn-ink)" }}>{track.error}</span>
+            )}
+          </div>
+        )}
+        <div className="ml-auto flex items-center">
+          {removable && (
+            <button
+              type="button"
+              onClick={onRemove}
+              aria-label={t("panel.tracks.row.remove", { n: index + 1 })}
+              title={t("panel.tracks.row.remove", { n: index + 1 })}
+              className={SUB_BUTTON}
+              style={{ color: "var(--ow-fg-2)" }}
+            >
+              {t("panel.tracks.row.removeShort")}
+            </button>
+          )}
           <button
             type="button"
-            onClick={onRemove}
-            aria-label={t("panel.tracks.row.remove", { n: index + 1 })}
-            title={t("panel.tracks.row.remove", { n: index + 1 })}
-            className={iconButton}
-            style={{ width: 32, height: 32, color: "var(--ow-fg-2)" }}
+            onClick={onOpen}
+            disabled={!usable}
+            aria-label={`${name} · ${t("panel.tracks.row.open")}`}
+            title={t("panel.tracks.row.open")}
+            className={`${SUB_BUTTON} font-semibold`}
+            style={{ color: "var(--ow-accent)" }}
           >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M2.5 4h11" />
-              <path d="M6 4V2.5h4V4" />
-              <path d="M3.5 4l.9 9.2a1 1 0 0 0 1 .8h5.2a1 1 0 0 0 1-.8L12.5 4" />
-              <path d="M6.5 6.5v5" />
-              <path d="M9.5 6.5v5" />
-            </svg>
+            {t("panel.tracks.row.openShort")}
+            <ChevronIcon direction="right" size={9} />
           </button>
-        )}
-        <button
-          type="button"
-          onClick={onOpen}
-          disabled={!usable}
-          aria-label={`${name} · ${t("panel.tracks.row.open")}`}
-          title={t("panel.tracks.row.open")}
-          className="shrink-0 flex items-center gap-0.5 rounded-full pl-2.5 pr-1.5 py-1 text-[11px] font-semibold transition-colors enabled:hover:bg-[var(--ow-bg-3)] disabled:opacity-40"
-          style={{ background: "var(--ow-bg-2)", border: "1px solid var(--ow-line)", color: "var(--ow-fg-0)" }}
-        >
-          {t("panel.tracks.row.openShort")}
-          <ChevronIcon direction="right" size={10} />
-        </button>
+        </div>
       </div>
     </div>
   );
@@ -284,6 +354,7 @@ export function TrackList() {
   return (
     <div>
       <div style={{ borderTop: "1px solid var(--ow-line)" }}>
+        <TrackColumns />
         {options.map((track) => (
           <TrackRow
             key={track.id}
@@ -300,23 +371,23 @@ export function TrackList() {
           />
         ))}
       </div>
-      <div className="px-4 pt-2.5 pb-3 space-y-1.5" style={{ borderTop: "1px solid var(--ow-line)" }}>
+      <div className="px-4 pt-2.5 pb-3.5 space-y-1.5" style={{ borderTop: "1px solid var(--ow-line)" }}>
+        {/* Dashed: a place for an option that does not exist yet. */}
         <button
           type="button"
           onClick={actions.startVariant}
           disabled={!canDraw}
-          className="w-full rounded-lg px-3 py-2.5 text-[12.5px] font-medium transition-colors enabled:hover:bg-[var(--ow-bg-3)]"
+          className="w-full rounded-lg px-3 py-[9px] text-[12.5px] font-medium transition-colors enabled:hover:bg-[var(--ow-bg-2)]"
           style={{
-            background: "var(--ow-bg-2)",
             color: canDraw ? "var(--ow-fg-1)" : "var(--ow-fg-3)",
-            border: "1px solid var(--ow-line)",
+            border: "1px dashed var(--ow-line-2)",
             cursor: canDraw ? "pointer" : "not-allowed",
           }}
         >
           + {t("panel.compare.tracksDraw")}
         </button>
         {options.length >= MAX_TRACKS && (
-          <p className="text-[10.5px] text-center" style={{ color: "var(--ow-fg-3)" }}>{t("panel.tracks.max")}</p>
+          <p className="text-[10.5px] text-center" style={{ color: "var(--ow-fg-2)" }}>{t("panel.tracks.max")}</p>
         )}
       </div>
     </div>

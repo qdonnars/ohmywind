@@ -411,6 +411,101 @@ describe("the comparison", () => {
     expect(screen.queryByRole("button", { name: /Ouvrir ce créneau/ })).toBeNull();
   });
 
+  it("lists the plan's route as option 1, in the plan, with its alerts said in full", async () => {
+    const scored: ComplexityScore = {
+      ...complexity(),
+      warnings: [
+        {
+          kind: "sea",
+          level: 3,
+          message: "Mer agitée : Hs 1.1-1.4 m sur 13.8 nm",
+          affected_segments: [0],
+          code: "complexity.sea.3",
+          params: { hs_range: "1.1-1.4", nm: "13.8" },
+        },
+      ],
+    };
+    const value = mount({ mode: "compare", compareAxis: "tracks", passage: passage(), complexity: scored });
+    // The header, the units once.
+    for (const head of ["Option", "Arrivée", "Durée", "Dist.", "Mer max"]) {
+      expect(screen.getAllByText(head).length).toBeGreaterThanOrEqual(1);
+    }
+    expect(screen.getByText("nm")).toBeTruthy();
+    // The plan's own option: named, marked, with the accent rule.
+    expect(screen.getByText("Option 1")).toBeTruthy();
+    expect(screen.getByText("dans le plan")).toBeTruthy();
+    const row = screen.getByRole("button", { name: /Choisir l'option 1 pour le plan/ });
+    expect(row.getAttribute("aria-pressed")).toBe("true");
+    expect(row.parentElement!.style.boxShadow).toContain("var(--ow-accent)");
+    const name = row.getAttribute("aria-label") ?? "";
+    expect(name).toContain(`Option 1, dans le plan, arrivée ${fmtClock(passage().arrival_time)}, durée 10h, 55,0 nm, mer max 0,6 m`);
+    expect(name).toContain("2 alertes");
+    // Figures without units; the sea in the warning ink, the alert behind it.
+    expect(screen.getByText("55,0")).toBeTruthy();
+    expect(screen.getByText("0,6").style.color).toBe("var(--ow-warn-ink)");
+    // What, how much, where, from the server's own figures; the engine's
+    // sentence is counted on top.
+    expect(screen.getByText("Mer agitée : Hs 1,1–1,4 m sur 13,8 nm")).toBeTruthy();
+    expect(screen.getByText("+1 alerte")).toBeTruthy();
+    // No removal of the plan's own route; seeing it opens it in the plan.
+    expect(screen.queryByRole("button", { name: /Supprimer/ })).toBeNull();
+    expect(screen.queryByText("sélectionné")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Option 1 · Ouvrir cet itinéraire dans le plan" }));
+    expect(value.actions.openTrack).toHaveBeenCalledWith("plan");
+    // The dashed door to a new option.
+    await userEvent.click(screen.getByRole("button", { name: "+ Tracer une variante" }));
+    expect(value.actions.startVariant).toHaveBeenCalledTimes(1);
+  });
+
+  it("chooses, removes, points at and opens a variant from its row", async () => {
+    const variantWaypoints: [number, number][] = [MARSEILLE, MID, PORQUEROLLES];
+    const tracks = [
+      { id: "plan", waypoints: [MARSEILLE, PORQUEROLLES] as [number, number][], createdAt: "", passage: passage(), complexity: complexity(), error: null },
+      { id: "v1", waypoints: variantWaypoints, createdAt: "", passage: { ...passage(), warnings: [] }, complexity: complexity(), error: null },
+    ];
+    const value = mount({ mode: "compare", compareAxis: "tracks", tracks, passage: passage(), complexity: complexity() });
+    const row = screen.getByRole("button", { name: /Choisir l'option 2 pour le plan/ });
+    expect(row.getAttribute("aria-pressed")).toBe("false");
+    expect(row.parentElement!.style.boxShadow).toBe("");
+    // Only the plan's option says « dans le plan ».
+    expect(screen.getAllByText("dans le plan")).toHaveLength(1);
+    // No alert, no engine: nothing under the figures but the actions.
+    expect(screen.getAllByText(/alerte/)).toHaveLength(1);
+    await userEvent.click(row);
+    expect(value.actions.selectTrack).toHaveBeenCalledWith("v1");
+    await userEvent.hover(row);
+    expect(value.actions.highlightTrack).toHaveBeenCalledWith("v1");
+    await userEvent.click(screen.getByRole("button", { name: "Supprimer l'option 2" }));
+    expect(value.actions.removeTrack).toHaveBeenCalledWith("v1");
+    await userEvent.click(screen.getByRole("button", { name: "Option 2 · Ouvrir cet itinéraire dans le plan" }));
+    expect(value.actions.openTrack).toHaveBeenCalledWith("v1");
+  });
+
+  it("keeps the computing and the failed states of an option on its sub-row", () => {
+    const tracks = [
+      { id: "plan", waypoints: [MARSEILLE, PORQUEROLLES] as [number, number][], createdAt: "", passage: passage(), complexity: complexity(), error: null },
+      { id: "v1", waypoints: [MARSEILLE, MID, PORQUEROLLES] as [number, number][], createdAt: "", passage: null, complexity: null, error: null },
+      { id: "v2", waypoints: [MARSEILLE, [43.1, 5.6], PORQUEROLLES] as [number, number][], createdAt: "", passage: null, complexity: null, error: "Le serveur météo est indisponible." },
+    ];
+    mount({
+      mode: "compare",
+      compareAxis: "tracks",
+      tracks,
+      passage: passage(),
+      complexity: complexity(),
+      trackRequests: { v1: { id: 3, editSeq: 0 } },
+    });
+    expect(screen.getByText("calcul en cours…")).toBeTruthy();
+    expect(screen.getByText("Le serveur météo est indisponible.")).toBeTruthy();
+    // Nothing to choose nor to open until a passage lands; removal stays.
+    expect((screen.getByRole("button", { name: /Choisir l'option 2/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Option 3 · Ouvrir cet itinéraire dans le plan" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "Supprimer l'option 3" })).toBeTruthy();
+    // Three options: the door to a fourth is closed, and says why.
+    expect((screen.getByRole("button", { name: "+ Tracer une variante" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText("Trois options au plus.")).toBeTruthy();
+  });
+
   it("keeps a way back over the map while a slot is open in the plan", async () => {
     const value = mountWith(<ReturnBanner />, { returnTo: "slots", windows: [aWindow()], passage: passage(), complexity: complexity() });
     await userEvent.click(screen.getByRole("button", { name: "Revenir à la comparaison" }));
