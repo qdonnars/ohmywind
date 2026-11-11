@@ -27,6 +27,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from openwind_api.access import AccessLogMiddleware
 from openwind_api.routes.archetypes import api_archetypes, api_client_debug
+from openwind_api.routes.health import healthz
 from openwind_api.routes.landing import ICON_REDIRECTS, icon_redirect, index, static_asset_route
 from openwind_api.routes.marine import (
     api_land,
@@ -148,6 +149,7 @@ def create_app(
     # below is a ``Mount``, and Starlette takes both as ``BaseRoute``.
     routes: list[BaseRoute] = [
         Route("/", index),
+        Route("/healthz", healthz, methods=["GET"]),
         *[Route(path, icon_redirect, methods=["GET"]) for path in ICON_REDIRECTS],
         Route("/static/{asset}", static_asset_route(settings.static_dir), methods=["GET"]),
         Route("/api/v1/archetypes", api_archetypes, methods=["GET"]),

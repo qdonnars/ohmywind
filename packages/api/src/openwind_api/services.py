@@ -35,6 +35,7 @@ from dataclasses import dataclass, field
 
 import httpx
 from openwind_data.adapters.base import MarineDataAdapter
+from openwind_data.adapters.budget import UpstreamBudget
 from openwind_data.adapters.openmeteo import OpenMeteoAdapter
 from openwind_data.currents.land_mask import LandMask, load_land_mask
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
@@ -71,6 +72,11 @@ class Services:
     with a ``forecast_cache`` still read from that instead: the browser
     already sampled the corridor, and the point of that payload is to keep the
     upstream load off the single deployment IP.
+
+    ``weather`` is that Open-Meteo adapter, unwrapped, and ``budget`` the
+    counter it spends from: both kept by name for the health route, which
+    reports the cache size and the budget without reaching through the
+    cascade. ``None`` on a ``Services`` built by hand in a test.
     """
 
     marc: MarcAtlasRegistry
@@ -81,6 +87,8 @@ class Services:
     # to the atlases (``land_mask.npz``), with the water of the fine atlases
     # cleared from it; empty when the dataset lacks it.
     land: LandMask = field(default_factory=LandMask.empty)
+    weather: OpenMeteoAdapter | None = None
+    budget: UpstreamBudget | None = None
 
     @classmethod
     def from_settings(cls, settings: Settings) -> Services:
@@ -95,12 +103,16 @@ class Services:
         # the same adapter to an MCP server before any loop exists. The
         # lifespan closes it.
         http = httpx.AsyncClient(timeout=UPSTREAM_TIMEOUT_S, limits=_POOL_LIMITS)
+        budget = settings.upstream_budget()
+        weather = OpenMeteoAdapter(http, budget=budget)
         return cls(
             marc=marc,
             shom=shom,
             http=http,
-            marine=compose_marine_adapter(OpenMeteoAdapter(http), marc, shom),
+            marine=compose_marine_adapter(weather, marc, shom),
             land=land,
+            weather=weather,
+            budget=budget,
         )
 
     async def aclose(self) -> None:
