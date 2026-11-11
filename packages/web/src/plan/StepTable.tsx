@@ -40,6 +40,19 @@ import { useT } from "../i18n";
 
 const ACCENT = "var(--ow-accent)";
 
+/** The scroller runs 16 px past the panel on each side (`-mx-4 px-4`), so
+    the table reaches the screen's edge. Chrome holds a sticky cell at the
+    scroller's edge, Safari at the start of its padding, 16 px in: there the
+    figures scrolling past showed in the strip left of the labels. A solid
+    shadow as wide as the padding covers that strip wherever the label is
+    held; where it lands outside the scroller, the scroller clips it. It
+    also reaches 5 px up, over the gap between two rows, where the alert
+    marker of a cell (5 px above its fill) would show past the labels. */
+const LABEL_STICKY_STYLE = {
+  background: "var(--ow-bg-2)",
+  boxShadow: "-16px 0 0 var(--ow-bg-2), 0 -5px 0 var(--ow-bg-2), -16px -5px 0 var(--ow-bg-2)",
+} as const;
+
 /** The ends of a row of fills are rounded, the cells between are flush. */
 function endRadius(i: number, n: number): string {
   if (n === 1) return "7px";
@@ -92,7 +105,7 @@ function RowLabel({
       className={`sticky left-0 z-[2] self-stretch flex items-center pr-2 whitespace-nowrap ${
         strong ? "text-[11.5px] font-semibold" : "text-[10.5px]"
       } ${className}`}
-      style={{ background: "var(--ow-bg-2)", color: strong ? "var(--ow-fg-0)" : "var(--ow-fg-1)" }}
+      style={{ ...LABEL_STICKY_STYLE, color: strong ? "var(--ow-fg-0)" : "var(--ow-fg-1)" }}
     >
       {/* One inline run: as two flex items, the space between the label
           and its unit would be dropped. */}
@@ -155,7 +168,7 @@ export function StepTable({
           {selected != null ? (
             // The way back from a step, in the corner the labels leave free:
             // a second tap on the column does it too, but nothing says so.
-            <div className="sticky left-0 z-[2] self-stretch flex items-center" style={{ background: "var(--ow-bg-2)" }}>
+            <div className="sticky left-0 z-[2] self-stretch flex items-center" style={LABEL_STICKY_STYLE}>
               <button
                 type="button"
                 onClick={() => onSelect(null)}
