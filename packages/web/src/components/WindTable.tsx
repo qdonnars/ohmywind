@@ -171,7 +171,7 @@ export function WindTable({
   }, [forecasts]);
 
   const nowHour = nowParisHourPrefix();
-  const { scrollRef, scrolledEnd, visibleDay } = useTimelineScroll(
+  const { scrollRef, scrolledEnd } = useTimelineScroll(
     masterTimeline,
     CELL_W,
     nowHour,
@@ -215,7 +215,6 @@ export function WindTable({
           <table className="border-collapse" role="table" style={{ background: "var(--ow-bg-1)" }}>
             <thead className="sticky top-0 z-20">
               <TimelineHeader
-                variant="harmonised"
                 cornerLabel={t("explore.windTable.unit")}
                 times={masterTimeline}
                 selectedHour={selectedHour}
@@ -223,7 +222,6 @@ export function WindTable({
                 forecasts={forecasts}
                 nowHour={nowHour}
                 timezoneMode={timezoneMode}
-                visibleDay={visibleDay}
               />
             </thead>
             <tbody>

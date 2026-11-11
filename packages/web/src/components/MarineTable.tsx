@@ -459,7 +459,7 @@ export function MarineTable({
   }, [marine.time]);
 
   const nowHour = nowParisHourPrefix();
-  const { scrollRef, scrolledEnd, visibleDay } = useTimelineScroll(
+  const { scrollRef, scrolledEnd } = useTimelineScroll(
     masterTimeline,
     CELL_W,
     nowHour,
@@ -494,14 +494,12 @@ export function MarineTable({
           <table className="border-collapse" role="table" style={{ background: "var(--ow-bg-1)" }}>
             <thead className="sticky top-0 z-20">
               <TimelineHeader
-                variant="harmonised"
                 times={masterTimeline}
                 selectedHour={selectedHour}
                 onSelectHour={onSelectHour}
                 forecasts={forecasts}
                 nowHour={nowHour}
                 timezoneMode={timezoneMode}
-                visibleDay={visibleDay}
               />
             </thead>
             <tbody>
