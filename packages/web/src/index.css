@@ -934,7 +934,21 @@ select,
   background: linear-gradient(var(--ow-warn-soft), var(--ow-warn-soft)), var(--ow-surface-pop);
   border-color: var(--ow-warn-line);
   box-shadow: var(--ow-shadow-2);
+  font-family: var(--ow-font-ui);
   white-space: nowrap;
+}
+/* The tooltip that carries it on the plan map is bare: the chip is the
+   whole of it. Doubled with .leaflet-tooltip because leaflet.css is emitted
+   after this file in the production bundle. */
+.leaflet-tooltip.ow-map-alert {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  pointer-events: none;
+}
+.leaflet-tooltip.ow-map-alert::before {
+  display: none;
 }
 .ow-cell-alert {
   position: absolute;
