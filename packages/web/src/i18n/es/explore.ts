@@ -71,6 +71,11 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.windTable.fallbackTitle":
     "{description} (mostrado en lugar de {model}, que no cubre este punto).",
   "explore.windTable.fallbackBadge": "fallback desde {model}",
+  "explore.windTable.unit": "nudos",
+  "explore.windTable.direction": "Dirección",
+  "explore.windTable.meanDirection": "Dirección media de los modelos, desde {dir}°",
+  "explore.windTable.spread": "Modelos en desacuerdo: {deg}° de diferencia",
+  "explore.timeline.now": "Ahora",
 
   // Wind cell
   "explore.windCell.aria.speed": "{speed} nudos",

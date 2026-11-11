@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { formatHour } from "../utils/format";
 import type { ModelForecast } from "../types";
 import type { TimezoneMode } from "../hooks/useTimezone";
-
+import { useT } from "../i18n";
 
 interface TimelineHeaderProps {
   times: string[];
@@ -19,6 +19,17 @@ interface TimelineHeaderProps {
   /** Width of the sticky first column, which the tables under this header
       have to match. 56 px fits a model name; a spot name needs more. */
   firstColumnPx?: number;
+  /**
+   * "harmonised" is the header of the explore wind and sea tables: day tag in
+   * capitals over the first column of each day, plain hours, « Maint. » in
+   * accent on the current hour, the picked hour in bold. "legacy" is kept for
+   * the tide chart, whose curve is drawn on fixed 36 px columns that the
+   * wider harmonised cells would no longer line up with.
+   */
+  variant?: "legacy" | "harmonised";
+  /** Harmonised only: the word in the top-left corner, the unit the whole
+      table is read in (« nœuds »), said once there instead of in every cell. */
+  cornerLabel?: string;
 }
 
 function wmoIcon(code: number | null, isDay: boolean): string {
@@ -125,6 +136,14 @@ function buildColumns(
   });
 }
 
+/** The day tag of the harmonised header, « JEU. 3 »: the weekday keeps its
+    abbreviation dot, as a column header in capitals. */
+function formatDayTag(isoDate: string): string {
+  const d = new Date(isoDate + "T12:00:00Z");
+  const [weekday, dayNum] = stickyFormatters();
+  return `${weekday.format(d)} ${dayNum.format(d)}`.toLocaleUpperCase(getLocale());
+}
+
 /** Consecutive columns grouped by day, for the desktop-only day-label row. */
 interface DayGroup {
   dayIso: string;
@@ -158,12 +177,27 @@ export function TimelineHeader({
   timezoneMode,
   visibleDay,
   firstColumnPx = 56,
+  variant = "legacy",
+  cornerLabel,
 }: TimelineHeaderProps) {
   const columns = useMemo(
     () => buildColumns(times, forecasts, timezoneMode),
     [times, forecasts, timezoneMode],
   );
   const dayGroups = useMemo(() => buildDayGroups(times), [times]);
+
+  if (variant === "harmonised") {
+    return (
+      <HarmonisedRows
+        columns={columns}
+        dayGroups={dayGroups}
+        selectedHour={selectedHour}
+        onSelectHour={onSelectHour}
+        nowHour={nowHour}
+        cornerLabel={cornerLabel}
+      />
+    );
+  }
 
   const [weekday, dayNum] = formatStickyDay(visibleDay);
 
@@ -263,6 +297,115 @@ export function TimelineHeader({
               {col.hourLabel}
               {isNow && (
                 <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-accent" />
+              )}
+            </th>
+          );
+        })}
+      </tr>
+    </>
+  );
+}
+
+interface HarmonisedRowsProps {
+  columns: Column[];
+  dayGroups: DayGroup[];
+  selectedHour: string | null;
+  onSelectHour: (time: string) => void;
+  nowHour: string;
+  cornerLabel?: string;
+}
+
+/**
+ * The header of the explore tables after the harmonisation: one state, one
+ * mark. The current hour is named rather than filled (« Maint. » in accent),
+ * the picked hour is the only bold black one, and the column outline below
+ * belongs to the table, not to the header. The day tag rides over the first
+ * column of its day on every screen size, sticky like the desktop label it
+ * replaces, so the phone no longer needs a day badge in the corner.
+ */
+function HarmonisedRows({
+  columns,
+  dayGroups,
+  selectedHour,
+  onSelectHour,
+  nowHour,
+  cornerLabel,
+}: HarmonisedRowsProps) {
+  const { t } = useT();
+  return (
+    <>
+      <tr>
+        <td
+          rowSpan={3}
+          className="sticky left-0 z-30 pl-2 pr-2 pb-1 align-bottom text-left whitespace-nowrap min-w-[54px] lg:min-w-[78px] text-[10px] leading-none"
+          style={{ background: "var(--ow-bg-1)", color: "var(--ow-fg-2)" }}
+        >
+          {cornerLabel}
+        </td>
+        {dayGroups.map((g) => (
+          <td
+            key={g.dayIso}
+            colSpan={g.count}
+            className="px-0 pt-1 pb-[3px]"
+            style={{
+              background: "var(--ow-bg-1)",
+              position: "sticky",
+              // Same anchoring as the legacy day row: the measured width of
+              // the sticky label column (useTimelineScroll).
+              left: "var(--ow-sticky-col, 54px)",
+              zIndex: 19,
+            }}
+          >
+            <div
+              className="whitespace-nowrap text-[9.5px] font-bold leading-none"
+              style={{ color: "var(--ow-fg-1)", letterSpacing: "0.08em" }}
+            >
+              {formatDayTag(g.dayIso)}
+            </div>
+          </td>
+        ))}
+      </tr>
+      <tr>
+        {columns.map((col, i) => (
+          <td
+            key={i}
+            className="text-center p-0 ow-tbl-bg cursor-pointer leading-none"
+            style={{ fontSize: "13px", lineHeight: "20px" }}
+            onClick={() => onSelectHour(col.time)}
+          >
+            {col.icon}
+          </td>
+        ))}
+      </tr>
+      <tr>
+        {columns.map((col, i) => {
+          const isNow = col.time.startsWith(nowHour);
+          const isSelected = col.time === selectedHour;
+          return (
+            <th
+              key={i}
+              scope="col"
+              aria-current={isNow ? "time" : undefined}
+              className="ow-hour-cell px-0 pt-[2px] pb-1 cursor-pointer whitespace-nowrap tabular-nums text-[11px] lg:text-[12px] leading-none"
+              style={{
+                fontWeight: isSelected || isNow ? 700 : 500,
+                color: isSelected
+                  ? "var(--ow-fg-0)"
+                  : isNow
+                    ? "var(--ow-accent)"
+                    : "var(--ow-fg-2)",
+              }}
+              onClick={() => onSelectHour(col.time)}
+            >
+              {isNow ? (
+                <>
+                  {t("explore.timeline.now")}
+                  {/* The word replaces the hour on screen; a screen reader
+                      still hears which hour it is. */}
+                  <span className="sr-only"> {col.hourLabel}</span>
+                </>
+              ) : (
+                col.hourLabel
               )}
             </th>
           );

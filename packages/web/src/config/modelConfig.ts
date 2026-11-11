@@ -80,6 +80,10 @@ interface PersistedConfig {
 
 export interface ModelMeta {
   label: string;
+  /** What the explore wind table prints on a phone, where the label column
+      is 54 px: the label without the qualifier that only tells the variant
+      apart. Left out where the qualifier is the name (ICON D2, UKMO UK). */
+  shortLabel?: string;
   resolutionKm: number;
   horizonHours: number;
   // Copy, not data: the three of them are dictionary keys, translated where
@@ -95,6 +99,7 @@ export interface ModelMeta {
 export const MODEL_META: Record<ModelName, ModelMeta> = {
   AROME: {
     label: "AROME HD",
+    shortLabel: "AROME",
     provider: "config.models.provider.meteoFrance",
     resolutionKm: 1.5,
     horizonHours: 51,
@@ -104,6 +109,7 @@ export const MODEL_META: Record<ModelName, ModelMeta> = {
   },
   ARPEGE_EU: {
     label: "ARPEGE EU",
+    shortLabel: "ARPEGE",
     provider: "config.models.provider.meteoFrance",
     resolutionKm: 10,
     horizonHours: 96,
@@ -122,6 +128,7 @@ export const MODEL_META: Record<ModelName, ModelMeta> = {
   },
   ICON: {
     label: "ICON-EU",
+    shortLabel: "ICON",
     provider: "config.models.provider.dwd",
     resolutionKm: 7,
     horizonHours: 120,
@@ -158,6 +165,7 @@ export const MODEL_META: Record<ModelName, ModelMeta> = {
   },
   ECMWF_AIFS: {
     label: "ECMWF AIFS",
+    shortLabel: "AIFS",
     provider: "config.models.provider.ecmwf",
     resolutionKm: 25,
     horizonHours: 240,
@@ -176,6 +184,7 @@ export const MODEL_META: Record<ModelName, ModelMeta> = {
   },
   UKMO: {
     label: "UKMO Global",
+    shortLabel: "UKMO",
     provider: "config.models.provider.metOffice",
     resolutionKm: 10,
     horizonHours: 168,
@@ -203,6 +212,7 @@ export const MODEL_META: Record<ModelName, ModelMeta> = {
   },
   DMI_HARMONIE: {
     label: "DMI Harmonie",
+    shortLabel: "DMI",
     provider: "config.models.provider.dmi",
     resolutionKm: 2,
     horizonHours: 60,
@@ -212,6 +222,7 @@ export const MODEL_META: Record<ModelName, ModelMeta> = {
   },
   METNO_NORDIC: {
     label: "METNO Nordic",
+    shortLabel: "METNO",
     provider: "config.models.provider.metNorway",
     resolutionKm: 1,
     horizonHours: 60,

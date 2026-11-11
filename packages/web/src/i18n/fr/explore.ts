@@ -73,6 +73,11 @@ export const explore = {
   "explore.windTable.fallbackTitle":
     "{description} (affiché à la place de {model}, qui ne couvre pas ce point).",
   "explore.windTable.fallbackBadge": "fallback depuis {model}",
+  "explore.windTable.unit": "nœuds",
+  "explore.windTable.direction": "Direction",
+  "explore.windTable.meanDirection": "Direction moyenne des modèles, venant de {dir}°",
+  "explore.windTable.spread": "Modèles en désaccord : écart {deg}°",
+  "explore.timeline.now": "Maint.",
 
   // Cellule de vent
   "explore.windCell.aria.speed": "{speed} nœuds",

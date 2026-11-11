@@ -83,6 +83,23 @@ export function directionSpreadDeg(directions: number[]): number {
   return 360 - widest;
 }
 
+/** Mean of directions on the circle, so 350° and 10° average to 0° and
+    not to 180°. Null when there is nothing to average, or when the
+    directions cancel out (0° and 180°). */
+export function circularMean(degrees: readonly number[]): number | null {
+  if (degrees.length === 0) return null;
+  let x = 0;
+  let y = 0;
+  for (const d of degrees) {
+    const r = (d * Math.PI) / 180;
+    x += Math.cos(r);
+    y += Math.sin(r);
+  }
+  if (Math.abs(x) < 1e-9 && Math.abs(y) < 1e-9) return null;
+  const deg = (Math.atan2(y, x) * 180) / Math.PI;
+  return (Math.round(deg) + 360) % 360;
+}
+
 // ── Sea state ────────────────────────────────────────────────────────────────
 
 /**
