@@ -123,16 +123,16 @@ export function legDurationLabel(leg: AggregatedLeg): string {
 // AND a material current speed (>= 1.5 kn), mirroring the server cutoff.
 //
 // Clapot ("steepness" Hs/Tp² > 0.05 with Hs >= 0.8 m) takes precedence over
-// the generic "Mer Formée" label because it carries a sharper meaning for the
+// the generic "Mer formée" label because it carries a sharper meaning for the
 // sailor — short steep wind sea, not just heavy seas. Long-period swell at
-// the same Hs (e.g. Hs 1.8 m at Tp 11 s) keeps the "Mer Formée" label since
+// the same Hs (e.g. Hs 1.8 m at Tp 11 s) keeps the "Mer formée" label since
 // it isn't clapot. Thresholds match the server-side ComplexityWarning kind=
 // "chop".
 export interface LegSummaryCells {
   duration: string;
   allure: string;
   wind: string;
-  // Single optional flag cell — covers either sea state (Mer Formée / Grosse
+  // Single optional flag cell — covers either sea state (Mer formée / Grosse
   // Mer / Clapot) or wind-against-current. When both fire on a leg, current
   // wins because it's the rarer and more decision-shaping signal. Null =
   // empty cell, kept in the grid so columns line up vertically across rows.
@@ -147,8 +147,8 @@ export function buildLegSummaryCells(leg: AggregatedLeg): LegSummaryCells {
   const tMin = Math.round(leg.tws_min);
   const tMax = Math.round(leg.tws_max);
   // NBSP between the number and "kn" so the wind chip stays on one line when
-  // SummaryCell renders with width:min-content. Multi-word labels (Mer Formée,
-  // Vent Contre Courant) still break at their normal spaces. Spelled as an
+  // SummaryCell renders with width:min-content. Multi-word labels (Mer formée,
+  // Vent contre courant) still break at their normal spaces. Spelled as an
   // escape: a raw NBSP is invisible in review and reads as a stray space, so
   // no-irregular-whitespace rejects it.
   const wind = tMin === tMax ? `${tMin}\u00a0kn` : `${tMin}–${tMax}\u00a0kn`;
@@ -180,7 +180,7 @@ export function buildLegSummaryCells(leg: AggregatedLeg): LegSummaryCells {
     // Short allure ("Près" / "Travers" / "Largue" / "Arrière", or the
     // "Près (louvoyage)" qualifier) — SummaryCell renders at width:min-content
     // and breaks on spaces, so the two-word form wraps inside the column
-    // rather than widening it, like "Mer Formée" already does. The one-word
+    // rather than widening it, like "Mer formée" already does. The one-word
     // forms match the WindowsTable ALLURE column copy.
     allure: leg.point_of_sail,
     wind,

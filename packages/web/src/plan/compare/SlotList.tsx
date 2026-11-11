@@ -19,7 +19,7 @@
 import { Fragment, useMemo, useState } from "react";
 import type { PassageWindow } from "../types";
 import { usePlan } from "../session/planContext";
-import { Warn } from "../PlanStates";
+import { AlertChip } from "../../components/AlertChip";
 import { noticeText } from "../notices";
 import { StalePlaceholder } from "../sidebar/parts";
 import { fmtDurationSafe, numFixed } from "../format";
@@ -265,8 +265,8 @@ export function SlotList() {
     <div>
       <SortRow value={sort} onChange={setSort} count={tn("panel.compare.slots", windows.length)} />
       {metaWarnings.length > 0 && (
-        <div className="px-4 pb-2.5 space-y-1.5">
-          {metaWarnings.map((n, i) => <Warn key={i}>{noticeText(n)}</Warn>)}
+        <div className="px-4 pb-2.5 flex flex-col items-start gap-1.5">
+          {metaWarnings.map((n, i) => <AlertChip key={i}>{noticeText(n)}</AlertChip>)}
         </div>
       )}
       <div style={{ borderTop: "1px solid var(--ow-line)" }}>

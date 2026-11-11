@@ -182,16 +182,16 @@ function makeLeg(overrides: Partial<AggregatedLeg> = {}): AggregatedLeg {
 
 describe("buildLegSummaryCells.flag", () => {
   it("flags Clapot when Hs/Tp² > 0.05 and Hs >= 0.8 m", () => {
-    // Hs 1.2 m at Tp 4.5 s → index ≈ 0.059, in "Mer Formée" Hs range but
+    // Hs 1.2 m at Tp 4.5 s → index ≈ 0.059, in "Mer formée" Hs range but
     // labelled Clapot because the period is short and steep.
     const flag = buildLegSummaryCells(makeLeg({ hs_avg_m: 1.2, tp_avg_s: 4.5 })).flag;
     expect(flag).toBe("Clapot");
   });
 
-  it("keeps Mer Formée label for long-period swell at the same Hs", () => {
+  it("keeps Mer formée label for long-period swell at the same Hs", () => {
     // Hs 1.8 m at Tp 11 s → index ≈ 0.0149, comfortable long swell.
     const flag = buildLegSummaryCells(makeLeg({ hs_avg_m: 1.8, tp_avg_s: 11 })).flag;
-    expect(flag).toBe("Mer Formée");
+    expect(flag).toBe("Mer formée");
   });
 
   it("does not flag Clapot when Hs is below the 0.8 m floor", () => {
@@ -200,23 +200,23 @@ describe("buildLegSummaryCells.flag", () => {
     expect(flag).toBeNull();
   });
 
-  it("Grosse Mer overrides Clapot when Hs > 2.5 m", () => {
-    // Hs 2.8 m at Tp 5 s → both Clapot (steep) and Grosse Mer apply; the
+  it("Grosse mer overrides Clapot when Hs > 2.5 m", () => {
+    // Hs 2.8 m at Tp 5 s → both Clapot (steep) and Grosse mer apply; the
     // bigger-picture label wins.
     const flag = buildLegSummaryCells(makeLeg({ hs_avg_m: 2.8, tp_avg_s: 5 })).flag;
-    expect(flag).toBe("Grosse Mer");
+    expect(flag).toBe("Grosse mer");
   });
 
-  it("labels Clapot Suiveur when sea_direction is arrière", () => {
+  it("labels Clapot suiveur when sea_direction is arrière", () => {
     // Same chop conditions, but running with the sea — broaching / gybe
     // risks remain, but no slamming, hence the distinct label.
     const flag = buildLegSummaryCells(
       makeLeg({ hs_avg_m: 1.2, tp_avg_s: 4.5, sea_direction: "arrière" }),
     ).flag;
-    expect(flag).toBe("Clapot Suiveur");
+    expect(flag).toBe("Clapot suiveur");
   });
 
-  it("Vent Contre Courant overrides Clapot", () => {
+  it("Vent contre courant overrides Clapot", () => {
     // WAC already implies mer hachée — it wins as the more decision-shaping
     // signal.
     const flag = buildLegSummaryCells(
@@ -227,7 +227,7 @@ describe("buildLegSummaryCells.flag", () => {
         current_speed_kn: 2.0,
       }),
     ).flag;
-    expect(flag).toBe("Vent Contre Courant");
+    expect(flag).toBe("Vent contre courant");
   });
 });
 

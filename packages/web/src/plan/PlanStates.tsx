@@ -276,30 +276,6 @@ export function StatBand({ passage }: { passage: PassageReport }) {
   );
 }
 
-// ── Warn ──────────────────────────────────────────────────────────────────────
-// Single-line warning row matching the design's "Warn" component (alert icon
-// + soft warn background).
-
-export function Warn({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[11px] leading-tight"
-      style={{
-        background: "var(--ow-warn-soft)",
-        border: "1px solid var(--ow-warn-line)",
-        color: "var(--ow-fg-1)",
-      }}
-    >
-      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="var(--ow-warn)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-        <path d="M8 2 14 13H2z" />
-        <path d="M8 7v3" />
-        <circle cx="8" cy="12" r="0.5" fill="var(--ow-warn)" />
-      </svg>
-      <span>{children}</span>
-    </div>
-  );
-}
-
 // ── RecapButton ───────────────────────────────────────────────────────────────
 // Compact summary of the active form (departure time / archetype) with a
 // "Modifier" affordance. Click toggles the inline editor below. `trailing`
