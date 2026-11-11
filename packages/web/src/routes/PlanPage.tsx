@@ -4,6 +4,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback, useImperativeHandle, type Ref } from "react";
 import { parsePlanUrl } from "../plan/parseUrl";
 import { PlanMap, type PlanMapHandle } from "../plan/PlanMap";
+import { WindScaleLegend } from "../plan/WindScaleLegend";
 import { DRAWER_HANDLE_REACH_PX, UNDO_MS } from "../domain/gestures";
 import { PlanSidebar } from "../plan/PlanSidebar";
 import { fetchArchetypes } from "../api/passage";
@@ -678,6 +679,13 @@ export function PlanPage() {
               the menu owns the top left and the locate button plus its
               error bubble own the bottom right. */}
           <SeamarkButton enabled={seamarks} onToggle={toggleSeamarks} className="top-3 right-3" />
+          {/* Scale of the track's tints, once a passage is drawn. Wide
+              screens only: on a phone the map is a strip above the drawer,
+              and the scale would sit on the route it explains. Bottom left,
+              the one corner nothing else owns. */}
+          {isDesktop && planMode === "single" && !drawing && passage && !isStale && (
+            <WindScaleLegend className="bottom-4 left-3" />
+          )}
           {/* Way back to the comparison a slot was opened from, while it is
               still open behind the plan. */}
           <ReturnBanner />

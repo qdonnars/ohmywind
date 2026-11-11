@@ -56,6 +56,7 @@ export const plan: Record<keyof typeof frPlan, string> = {
   "plan.map.waypoint.remove": "Remove this waypoint",
   "plan.map.waypoint.removed": "Waypoint {n} removed",
   "plan.map.waypoint.undo": "Undo",
+  "plan.map.windScale": "Wind scale of the track, in knots: {bounds}",
 
   // ── Comparison window validation ──────────────────────────────────────────
   "plan.sweep.errors.missingWindow": "Enter a departure window.",

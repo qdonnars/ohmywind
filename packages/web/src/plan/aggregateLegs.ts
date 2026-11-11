@@ -143,6 +143,9 @@ export interface LegSummaryCells {
   /** The flag as the alert under the row says it: what, how much, where
       (« Mer formée · Hs 1,1–1,4 m sur 13,8 nm »). Null without a flag. */
   alert: string | null;
+  /** The same without the distance, for the map, where the chip sits on
+      the leg it is about (« Mer formée · 1,1–1,4 m »). */
+  alertShort: string | null;
 }
 
 // Build the leg summary as a fixed set of named cells so LegRow can render
@@ -161,10 +164,13 @@ export function buildLegSummaryCells(leg: AggregatedLeg): LegSummaryCells {
 
   let flag: string | null = null;
   let alert: string | null = null;
+  let alertShort: string | null = null;
   const nm = num1(leg.distance_nm);
   if (leg.current_relative === "contraire" && (leg.current_speed_kn ?? 0) >= 1.5) {
     flag = t("panel.legs.seaFlag.windAgainstCurrent");
-    alert = t("panel.legs.alert.current", { flag, speed: num1(leg.current_speed_kn ?? 0), nm });
+    const speed = num1(leg.current_speed_kn ?? 0);
+    alert = t("panel.legs.alert.current", { flag, speed, nm });
+    alertShort = `${flag} · ${speed} kn`;
   } else if (leg.hs_avg_m != null) {
     if (leg.hs_avg_m > 2.5) flag = t("panel.legs.seaFlag.heavySea");
     else if (chopIndex != null && chopIndex > 0.05 && leg.hs_avg_m >= 0.8) {
@@ -177,7 +183,10 @@ export function buildLegSummaryCells(leg: AggregatedLeg): LegSummaryCells {
           : t("panel.legs.seaFlag.chop");
     }
     else if (leg.hs_avg_m > SEA_FORMED_HS_M) flag = t("panel.legs.seaFlag.roughSea");
-    if (flag && sea) alert = t("panel.legs.alert.sea", { flag, range: sea, nm });
+    if (flag && sea) {
+      alert = t("panel.legs.alert.sea", { flag, range: sea, nm });
+      alertShort = `${flag} · ${sea} m`;
+    }
   }
 
   return {
@@ -190,6 +199,7 @@ export function buildLegSummaryCells(leg: AggregatedLeg): LegSummaryCells {
     sea,
     flag,
     alert,
+    alertShort,
   };
 }
 

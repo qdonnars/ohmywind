@@ -82,8 +82,12 @@ function RowLabel({
       } ${className}`}
       style={{ background: "var(--ow-bg-2)", color: strong ? "var(--ow-fg-0)" : "var(--ow-fg-1)" }}
     >
-      {children}
-      {unit && <>{" "}<Unit>{unit}</Unit></>}
+      {/* One inline run: as two flex items, the space between the label
+          and its unit would be dropped. */}
+      <span>
+        {children}
+        {unit && <>{" "}<Unit>{unit}</Unit></>}
+      </span>
     </div>
   );
 }

@@ -31,6 +31,11 @@ export function beaufortLevel(knots: number): number {
   return i === -1 ? 8 : i;
 }
 
+/** Lower bound in knots of a Beaufort level: what a scale prints under it. */
+export function beaufortLowerBoundKn(level: number): number {
+  return level <= 0 ? 0 : BEAUFORT_MAX_KN[Math.min(level, BEAUFORT_MAX_KN.length) - 1];
+}
+
 /** Name of the `design/tokens.css` custom property painting a Beaufort level. */
 export function windLevelToken(level: number): string {
   return `--ow-w-${level}`;
