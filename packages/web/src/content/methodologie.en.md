@@ -181,7 +181,7 @@ and the total duration of the passage is the sum of the durations of the sub-seg
 The complexity of a passage is read on **two independent axes**:
 
 - **Wind**: maximum TWS over the segments, classified into 5 bands from "calm" to "very strong".
-- **Sea**: maximum **Hs** (significant wave height, that is, the mean of the highest third of the waves observed over a given window), classified into 5 bands on the edges of the Douglas scale used by marine bulletins: flat (under 0.5 m), slight (0.5 to 1.25 m), rough (1.25 to 2.5 m), heavy (2.5 to 4 m), very heavy (4 m and over). From "rough" up, the sea raises a warning. The words are those used on board: for the last three bands, a bulletin says "moderate", "rough" and "very rough".
+- **Sea**: maximum **Hs** (significant wave height, that is, the mean of the highest third of the waves observed over a given window), classified into 5 bands on the edges of the Douglas scale used by marine bulletins: flat (under 0.5 m), slight (0.5 to 1.25 m), moderate (1.25 to 2.5 m), rough (2.5 to 4 m), very rough (4 m and over), the words of the bulletins. From "moderate" up, the sea raises a warning.
 
 The level of the passage is `max(wind_level, sea_level)`. No magic average, no composite score. It is the harder axis that dictates the difficulty.
 

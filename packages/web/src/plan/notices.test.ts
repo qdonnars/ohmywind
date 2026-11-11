@@ -143,7 +143,7 @@ describe("alertsOf", () => {
       }),
     );
     expect(alerts).toEqual([
-      { kind: "sea", message: "Grobe See: Hs 1,2–1,9 m auf 15 nm" },
+      { kind: "sea", message: "Mäßig bewegte See: Hs 1,2–1,9 m auf 15 nm" },
       { kind: "sea", message: "Mitlaufende Kabbelsee: Hs 0,9 m bei Tp 4 s auf 8 nm" },
       { kind: "wind", message: "schwacher Wind: Mindestgeschwindigkeit 2,6 kn, sehr langsame Passage" },
     ]);

@@ -16,9 +16,10 @@ scorer builds the passage's score and warnings from the same two functions,
 and a client only translates the codes.
 
 Band edges are those of the Douglas scale the marine bulletins use (1.25,
-2.5 and 4 m). The words are the sailors' own rather than the bulletin's
-("formée" for the bulletin's "agitée", "grosse" for its "forte"): a product
-decision, one vocabulary from the leg list to the MCP answer.
+2.5 and 4 m), and so are the words, with one exception: level 3 is "formée",
+the sailors' word, where the bulletin says "agitée". A product decision, one
+vocabulary from the leg list to the MCP answer. The other languages of the
+web app use their own bulletins' terms (see the web dictionaries).
 """
 
 from __future__ import annotations
@@ -39,20 +40,19 @@ SEA_BANDS: tuple[tuple[float, int, str], ...] = (
     (0.5, 1, "plate"),
     (1.25, 2, "peu agitée"),
     (2.5, 3, "formée"),
-    (4.0, 4, "grosse"),
-    (float("inf"), 5, "très grosse"),
+    (4.0, 4, "forte"),
+    (float("inf"), 5, "très forte"),
 )
 
 # Lowest level that is worth a warning: under it the sea is only described.
 SEA_WARNING_LEVEL = 3
 
 # The name of a sea worth a warning, as a warning opens with it and as a leg
-# is flagged with it. The word order is not derivable from the adjective
-# ("mer formée" but "grosse mer"), hence a table.
+# is flagged with it.
 SEA_NAMES: dict[int, str] = {
     3: "Mer formée",
-    4: "Grosse mer",
-    5: "Très grosse mer",
+    4: "Mer forte",
+    5: "Mer très forte",
 }
 
 SeaFlag = Literal["wind_against_current", "chop_short", "chop_following"]
