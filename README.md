@@ -178,7 +178,7 @@ Implementation: [`packages/data-adapters/src/openwind_data/routing/passage.py`](
 
 - **Efficiency factor (default 0.75).** ORC polars are theoretical maxima. Real cruising loses ~25% (sail trim, comfort margins, helmsman, untracked currents). Override per call: `0.85` racing, `0.75` cruising, `0.65` loaded family cruising, `0.55` heavy seas / fouled hull.
 - **VMG / tacking correction.** When the route's TWA is below the boat's optimal upwind angle (typically ~42-48°), the simulator assumes the sailor tacks. Effective speed toward destination is `polar(optimal_TWA) × cos(optimal_TWA − route_TWA)`. At dead upwind this reduces to `polar(opt) × cos(opt) ≈ polar / √2`; at TWA=20° with opt=45° the reduction is only `cos(25°) ≈ 0.91`.
-- **Wave derate (opt-in).** `max(0.5, 1 − 0.05 × Hs^1.75 × cos²(TWA/2))`. Disabled by default; sea state feeds the warning bar rather than slowing the boat.
+- **Wave derate.** `max(0.5, 1 − 0.05 × Hs^1.75 × cos²(TWA/2))`, at the angle the boat sails (its VMG angle when tacking). A head sea slows the boat, a following sea barely does; the sea state also feeds the warnings.
 - **Minimum boat speed.** 0.5 kn floor, prevents division blow-up in extreme stalls.
 
 ### Timing

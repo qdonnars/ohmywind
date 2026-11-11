@@ -143,9 +143,10 @@ and `packages/mcp-core/tests` compare bytes on both sides.
   inside the temporal correlation length).
 - **Efficiency 0.75.** ORC polars are theoretical maxima; cruisers lose ~25%
   to trim, comfort, helm, and mean sea state. Override per-call if needed.
-- **Wave derate off by default.** `use_wave_correction=False` keeps V1 timings
-  stable. Flip on when sea data is in the bundle. See data-adapters
-  `README.md` "References" for the formula sources.
+- **Wave derate on.** `use_wave_correction` defaults to True since 2026-11
+  (off until then to keep the first timings stable). The angle is the one
+  sailed, the VMG angle when tacking. See data-adapters `README.md`
+  "References" for the formula sources.
 - **No mapping table.** Sun Odyssey 32 → cruiser_30ft is *the LLM's job*,
   using the `examples` and `length_ft` fields from `list_boat_archetypes`.
 
