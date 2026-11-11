@@ -123,9 +123,9 @@ class TestWithSea:
             (1.24, 2, "peu agitée"),
             (1.25, 3, "formée"),
             (2.49, 3, "formée"),
-            (2.5, 4, "grosse"),
-            (3.99, 4, "grosse"),
-            (4.0, 5, "très grosse"),
+            (2.5, 4, "forte"),
+            (3.99, 4, "forte"),
+            (4.0, 5, "très forte"),
         ],
     )
     def test_sea_bands_sit_on_the_douglas_edges(self, hs_m: float, level: int, label: str) -> None:
@@ -141,7 +141,7 @@ class TestWithSea:
         assert not any(w.kind == "sea" for w in s.warnings)
 
     def test_sea_warning_names_the_sea_with_the_shared_words(self) -> None:
-        for hs_m, name in ((1.5, "Mer formée"), (3.0, "Grosse mer"), (4.5, "Très grosse mer")):
+        for hs_m, name in ((1.5, "Mer formée"), (3.0, "Mer forte"), (4.5, "Mer très forte")):
             s = score_complexity(_make_passage([5.0], hs_per_segment=[hs_m]))
             (w,) = [w for w in s.warnings if w.kind == "sea"]
             assert w.message.startswith(f"{name} : Hs "), hs_m

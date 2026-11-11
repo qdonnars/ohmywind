@@ -69,11 +69,11 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.legs.pointOfSail.run": "Popa",
   "panel.legs.pointOfSail.motor": "A motor",
   "panel.legs.seaFlag.windAgainstCurrent": "Viento contra corriente",
-  "panel.legs.seaFlag.heavySea": "Mar muy gruesa",
-  "panel.legs.seaFlag.veryHeavySea": "Mar arbolada",
+  "panel.legs.seaFlag.heavySea": "Fuerte marejada",
+  "panel.legs.seaFlag.veryHeavySea": "Mar gruesa",
   "panel.legs.seaFlag.chop": "Mar corta",
   "panel.legs.seaFlag.followingChop": "Mar corta de popa",
-  "panel.legs.seaFlag.roughSea": "Mar gruesa",
+  "panel.legs.seaFlag.roughSea": "Marejada",
   // What an orange wind figure stands for, said to a screen reader.
   "panel.legs.windFlag": "Viento fresco",
   // The alerts that keep a chip under a leg: the flag and the one number

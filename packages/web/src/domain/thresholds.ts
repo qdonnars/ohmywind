@@ -115,8 +115,8 @@ export function circularMean(degrees: readonly number[]): number | null {
 
 /**
  * Sea level, on the server's 1 to 5 scale, from which a leg's sea figure is
- * inked as a warning and named (« Mer formée », « Grosse mer », « Très
- * grosse mer »). The level itself comes with each segment (`sea_level`): the
+ * inked as a warning and named (« Mer formée », « Mer forte », « Mer très
+ * forte »). The level itself comes with each segment (`sea_level`): the
  * bands, 1.25, 2.5 and 4 m, are the server's and are not written here.
  */
 export const SEA_WARNING_LEVEL = 3;

@@ -141,7 +141,7 @@ export function legDurationLabel(leg: AggregatedLeg): string {
 // ranges, plus what the server flagged on the leg.
 // The units are not in the cells: the column headers say them once.
 //
-// The sea is not judged here. Its level (formée, grosse, très grosse) and
+// The sea is not judged here. Its level (formée, forte, très forte) and
 // its flags (wind against current, chop, following chop) come stamped on
 // each segment by the server, the same decision its own warnings and the MCP
 // answer are built from; this function only words them. The wind threshold
@@ -157,10 +157,10 @@ export interface LegSummaryCells {
       under the threshold. A number says "strong wind" by itself once it is
       orange: no sentence repeats it. Kept as words for a screen reader. */
   windNote: string | null;
-  /** The same for the sea figure (« Mer formée », « Grosse mer »). */
+  /** The same for the sea figure (« Mer formée », « Mer forte »). */
   seaNote: string | null;
-  // Single optional flag — covers either sea state (Mer formée / Grosse
-  // mer / Clapot) or wind-against-current. When both fire on a leg, current
+  // Single optional flag — covers either sea state (Mer formée / Mer
+  // forte / Clapot) or wind-against-current. When both fire on a leg, current
   // wins because it's the rarer and more decision-shaping signal. This is
   // what the leg card writes under its figures.
   flag: string | null;
