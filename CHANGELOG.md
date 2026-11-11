@@ -9,14 +9,19 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 ### Nouveautés
 
 - Tous les tableaux de chiffres parlent la même langue, dans Explorer, Planifier et Comparer ce trajet : le même en-tête d'heures, l'unité dite une fois, et une seule échelle de couleurs pour le vent, en Beaufort adouci, reprise sur le tracé de la route (#522).
-- Dans Planifier, un tronçon déplié montre tous ses pas côte à côte (direction, vent, mer, courant, vitesse), et un clic sur une colonne ouvre le détail du pas (#522).
+- Dans Planifier, un tronçon déplié montre tous ses pas côte à côte (heure et direction du vent, vent, mer, courant, vitesse), et un clic sur une colonne ouvre le détail du pas, réduit à ce que le tableau ne dit pas : la route, la vitesse et ce qui la compose. Sur un panneau large, le détail se place à côté du tableau (#522, #529).
 - L'état de la mer se lit avec les mots et les seuils des bulletins marine, les mêmes dans la liste des tronçons, dans les alertes et dans l'assistant : « Mer formée » dès 1,25 m de houle significative, « Mer forte » dès 2,5 m, « Mer très forte » dès 4 m (#523).
+- La mer ralentit le bateau dans le calcul des durées : une mer formée de face allonge nettement un passage, une mer arrière presque pas, et la vitesse de chaque pas montre ce que la mer lui retire (#530).
+- Dans Comparer ce trajet, une variante terminée recadre la carte sur toutes les routes comparées et ouvre la liste des options (#528).
 - Dans Explorer, la direction du vent signale l'écart entre modèles au-delà de 45°, et les courants se lisent comme la mer : « Portant vers » en flèches, puis la vitesse (#522).
 - Un nouvel archétype de bateau, l'IMOCA 60 à foils, pour planifier une transat de course ; sa polaire est une estimation (#513).
 
 ### Corrections
 
 - Un courant du modèle global n'est plus présenté sous le nom d'un atlas de marée, là où cet atlas donne la hauteur d'eau mais pas le courant (#524).
+- Une couleur suit le chiffre affiché : deux cases qui affichent « 1,5 » ne sont plus l'une jaune et l'autre bleue, et un vent affiché « 15 » est qualifié de soutenu comme tout 15 (#527).
+- Dans le tableau des pas, les chiffres ne passent plus à gauche des noms de lignes quand on le fait défiler (#529).
+- La direction d'un pas se dit « Route » et non plus « Cap » : c'est la ligne tracée sur la carte, sans courant ni dérive, pas un cap à barrer (#531).
 - Une route de plus de 1 500 milles est refusée avec un message qui dit comment la découper, au lieu d'occuper le serveur (#516).
 - Dans l'assistant, une vitesse ou un seuil de moteur hors bornes est refusé avec la plage acceptée, au lieu de donner une durée absurde (#517).
 
