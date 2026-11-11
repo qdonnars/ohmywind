@@ -57,24 +57,34 @@ interface BandProps {
   height: number;
   dense: boolean;
   arrow: number | null;
+  /** The secondary figure under the main one rather than beside it: an
+      hour's column is too narrow for the arrow, the figure and a gust on
+      one line, and the end of the line was cut off. */
+  stacked?: boolean;
 }
 
-function Band({ bg, ink, main, sub, height, dense, arrow }: BandProps) {
+function Band({ bg, ink, main, sub, height, dense, arrow, stacked = false }: BandProps) {
   const mainSize = main.length > 4 ? (dense ? 10.5 : 12) : dense ? 12 : 13.5;
+  const subEl = sub && (
+    <span className="leading-none" style={{ fontSize: dense ? 8.5 : 9.5, opacity: 0.8 }}>
+      {sub}
+    </span>
+  );
   return (
     <div
-      className="flex items-center justify-center gap-[3px] tabular-nums whitespace-nowrap overflow-hidden"
+      className={`flex items-center justify-center tabular-nums whitespace-nowrap overflow-hidden ${
+        stacked ? "flex-col gap-[2px]" : "gap-[3px]"
+      }`}
       style={{ height, background: bg, color: ink, fontFamily: "var(--ow-font-mono)" }}
     >
-      {arrow != null && <Arrow dir={arrow} size={dense ? 10 : 12} color={ink} />}
-      <span className="font-bold leading-none" style={{ fontSize: mainSize, letterSpacing: "-0.02em" }}>
-        {main}
-      </span>
-      {sub && (
-        <span className="leading-none" style={{ fontSize: dense ? 8.5 : 9.5, opacity: 0.8 }}>
-          {sub}
+      <span className="inline-flex items-center gap-[3px]">
+        {arrow != null && <Arrow dir={arrow} size={dense ? 10 : 12} color={ink} />}
+        <span className="font-bold leading-none" style={{ fontSize: mainSize, letterSpacing: "-0.02em" }}>
+          {main}
         </span>
-      )}
+        {!stacked && subEl}
+      </span>
+      {stacked && subEl}
     </div>
   );
 }
@@ -131,6 +141,10 @@ function CellImpl({ wind, wave, withWave, res, width, dense }: CellProps) {
 
   const level = wind ? beaufortLevel(wind.mid) : 0;
   const wl = wave ? waveLevel(wave.hs) : 0;
+  // An hour's column holds one figure per line: the gust goes under the
+  // wind, like in the explore tables, and the sea keeps its height and
+  // direction only (its period stays in the cell's accessible name).
+  const narrow = res === 1;
   return (
     <div
       role="cell"
@@ -143,10 +157,11 @@ function CellImpl({ wind, wave, withWave, res, width, dense }: CellProps) {
           bg={windLevelVar(level)}
           ink={`var(--ow-cell-text-${level})`}
           main={windLabel(wind, res)}
-          sub={wind.gust != null ? `(${wind.gust})` : undefined}
+          sub={wind.gust != null ? `↑${wind.gust}` : undefined}
           height={windHeight}
           dense={dense}
           arrow={wind.dir}
+          stacked={narrow}
         />
       ) : (
         <div style={{ height: windHeight, background: "var(--ow-bg-2)" }} />
@@ -159,7 +174,7 @@ function CellImpl({ wind, wave, withWave, res, width, dense }: CellProps) {
               bg={`var(--ow-wave-${wl})`}
               ink={waveInk(wave.hs)}
               main={num1(wave.hs)}
-              sub={wave.period != null ? `${Math.round(wave.period)}s` : undefined}
+              sub={!narrow && wave.period != null ? `${Math.round(wave.period)}s` : undefined}
               height={add}
               dense={dense}
               arrow={wave.dir}
