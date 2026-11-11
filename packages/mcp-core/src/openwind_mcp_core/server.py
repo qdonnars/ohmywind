@@ -76,6 +76,7 @@ from openwind_data.routing import (
     list_archetypes,
     parse_waypoints,
     resolve_sweep_interval,
+    validate_motor,
     validate_point,
 )
 from openwind_data.routing import (
@@ -2411,11 +2412,11 @@ def build_server(
                 the simulator switches to engine power. Must be paired with
                 ``motor_speed_kn`` (either alone is ignored). Typical value
                 2 kn: sailors fire up the engine rather than crawl in light
-                wind. Leave unset for 100% sail. Range (0, 10].
+                wind. Leave unset for 100% sail. Range (0, 30].
             motor_speed_kn: optional speed under engine (knots) applied to
                 segments where the sail estimate falls under
                 ``motor_threshold_kn``. Typical 5-6 kn for a cruising boat.
-                Range (0, 12].
+                Range [0.5, 30].
             min_upwind_twa_deg: optional minimum sailable TWA (degrees)
                 overriding the archetype's own value (42-50 deg depending on
                 the boat). Pass it when you know the boat points better or
@@ -2471,6 +2472,11 @@ def build_server(
 
         if min_upwind_twa_deg is not None and not 25.0 <= min_upwind_twa_deg <= 70.0:
             raise ValueError(f"min_upwind_twa_deg must be in [25, 70], got {min_upwind_twa_deg}")
+        # The domain's bounds, refused loudly where REST drops them quietly:
+        # a web form typo is better ignored, a model's call is better
+        # corrected. motor_speed_kn=0 used to raise "float division by zero",
+        # -5 to return a negative duration, 1e-6 a passage of 31 million hours.
+        validate_motor(motor_threshold_kn, motor_speed_kn)
 
         dep = datetime.fromisoformat(departure)
         model = _resolve_model(model)

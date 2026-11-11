@@ -7,6 +7,7 @@ import {
   COEFF_DEFAULT,
   DEFAULT_BASE,
   MOTOR_MAX_KN,
+  MOTOR_SPEED_MIN_KN,
   SERVER_DEFAULT_EFFICIENCY,
   SPI_MAX_TWS_DEFAULT,
   SPI_MAX_TWS_MAX,
@@ -182,6 +183,16 @@ describe("persistence", () => {
     const loaded = loadPolarConfig();
     expect(loaded.motorThresholdKn).toBe(15);
     expect(loaded.motorSpeedKn).toBe(MOTOR_MAX_KN);
+  });
+
+  it("raises a persisted motor speed under the floor to the floor instead of dropping it", () => {
+    // The API ignores a motor slower than MOTOR_SPEED_MIN_KN (the domain's
+    // MIN_BOAT_SPEED_KN): keeping 0.2 would show a motor the simulation drops.
+    savePolarConfig({ ...defaultPolarConfig(), motorThresholdKn: 0.2, motorSpeedKn: 0.2 });
+    const loaded = loadPolarConfig();
+    expect(loaded.motorSpeedKn).toBe(MOTOR_SPEED_MIN_KN);
+    // The threshold has no floor: 0.2 kn stays 0.2 kn.
+    expect(loaded.motorThresholdKn).toBe(0.2);
   });
 
   it("still drops non-positive or non-numeric motor values", () => {

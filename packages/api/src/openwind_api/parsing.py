@@ -27,7 +27,7 @@ from itertools import pairwise
 from typing import Any
 
 from openwind_data.adapters.cache_backed import CacheBackedAdapter
-from openwind_data.routing.archetypes import BoatPolar
+from openwind_data.routing.archetypes import BoatPolar, validate_motor
 from openwind_data.routing.geometry import Point, parse_waypoints
 
 from openwind_api.errors import RequestError, code_for_value_error
@@ -49,8 +49,9 @@ MODEL_NAME_MAP: dict[str, str] = {
     "GFS": "gfs_seamless",
 }
 
-# The polar matrix ceiling, and the same value as the web's MOTOR_MAX_KN.
-# Keep the three aligned or the web will show a motor the simulation silently
+# The polar matrix ceiling, the same value as the web's MOTOR_MAX_KN and as
+# the domain's motor bounds (``MOTOR_THRESHOLD_MAX_KN``, ``MOTOR_SPEED_MAX_KN``).
+# Keep them aligned or the web will show a motor the simulation silently
 # ignores.
 MAX_BOAT_SPEED_KN = 30.0
 
@@ -235,8 +236,15 @@ def parse_polar(raw: Any) -> BoatPolar | None:
     # Optional motor config. Both fields must be set together; either alone
     # is dropped silently so a half-filled web form never silently changes
     # the simulation (matches the frontend / backend "both or neither" rule).
-    motor_threshold = parse_optional_kn(raw.get("motor_threshold_kn"), max_kn=MAX_BOAT_SPEED_KN)
-    motor_speed = parse_optional_kn(raw.get("motor_speed_kn"), max_kn=MAX_BOAT_SPEED_KN)
+    # The rule is the domain's (``validate_motor``), the tolerance is this
+    # shell's: out of range is dropped here, refused by the MCP tool.
+    motor_threshold = optional_float(raw.get("motor_threshold_kn"))
+    motor_speed = optional_float(raw.get("motor_speed_kn"))
+    try:
+        validate_motor(motor_threshold, motor_speed)
+    except ValueError:
+        motor_threshold = None
+        motor_speed = None
     if motor_threshold is None or motor_speed is None:
         motor_threshold = None
         motor_speed = None
@@ -267,19 +275,16 @@ def parse_polar(raw: Any) -> BoatPolar | None:
     )
 
 
-def parse_optional_kn(raw: Any, *, max_kn: float) -> float | None:
-    """Coerce a numeric field to a positive bounded float, or None.
+def optional_float(raw: Any) -> float | None:
+    """Coerce an optional numeric field to a float, or None.
 
-    Tolerant: any non-number, NaN, ``<= 0``, or ``> max_kn`` becomes None
-    rather than raising. The motor config is opt-in UX so we'd rather drop
-    a malformed value than 422 the whole passage.
+    Tolerant: any non-number becomes None rather than raising. The motor
+    config is opt-in UX so we'd rather drop a malformed value than 422 the
+    whole passage; its range is checked by the domain (``validate_motor``).
     """
     if raw is None:
         return None
     try:
-        v = float(raw)
+        return float(raw)
     except (TypeError, ValueError):
         return None
-    if not math.isfinite(v) or v <= 0 or v > max_kn:
-        return None
-    return v
