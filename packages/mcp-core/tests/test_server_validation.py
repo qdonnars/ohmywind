@@ -76,6 +76,34 @@ class TestPlanPassageBounds:
         message = await _expect_error(server, "plan_passage", _args(waypoints=route))
         assert "too many waypoints" in message
 
+    async def test_route_too_long_refused_before_any_fetch(self) -> None:
+        # The audit's zigzag: 50 waypoints between 0 E and 179 E. Refused by
+        # the shared validation, with the length and the way out in the
+        # message, before the land check walks it and before any forecast.
+        adapter = StubAdapter()
+        server = build_server(adapter=adapter)
+        route = [{"lat": 45.0, "lon": 0.0 if i % 2 == 0 else 179.0} for i in range(MAX_WAYPOINTS)]
+        message = await _expect_error(server, "plan_passage", _args(waypoints=route))
+        assert "route too long" in message and "(max 1500 nm)" in message
+        assert "split a longer trip into legs" in message
+        assert adapter.fetch_calls == 0
+
+    async def test_an_alternative_too_long_is_refused_too(self) -> None:
+        server = build_server(adapter=StubAdapter())
+        message = await _expect_error(
+            server,
+            "plan_passage",
+            _args(
+                alternatives=[
+                    {
+                        "label": "Par New York",
+                        "waypoints": [{"lat": 43.0, "lon": 6.2}, {"lat": 40.7, "lon": -74.0}],
+                    }
+                ]
+            ),
+        )
+        assert "route too long" in message
+
     async def test_malformed_waypoint_refused(self) -> None:
         server = build_server(adapter=StubAdapter())
         message = await _expect_error(

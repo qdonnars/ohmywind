@@ -12,6 +12,7 @@ from openwind_data.routing.archetypes import (
 from openwind_data.routing.complexity import ComplexityScore, score_complexity
 from openwind_data.routing.geometry import (
     EARTH_RADIUS_NM,
+    MAX_ROUTE_NM,
     MAX_WAYPOINTS,
     Point,
     Segment,
@@ -40,6 +41,7 @@ from openwind_data.routing.passage import (
 
 __all__ = [
     "EARTH_RADIUS_NM",
+    "MAX_ROUTE_NM",
     "MAX_WAYPOINTS",
     "BoatPolar",
     "ComplexityScore",

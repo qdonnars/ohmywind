@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from itertools import pairwise
 from typing import Any
 
+import numpy as np
+
 EARTH_RADIUS_NM = 3440.065
 
 # Upper bound on route complexity accepted at the public boundary. Well above
@@ -23,6 +25,17 @@ EARTH_RADIUS_NM = 3440.065
 # but low enough that a hostile caller cannot inflate the corridor sampling
 # fan-out. The sweep fan-out is bounded separately by ``MAX_SWEEP_WINDOWS``.
 MAX_WAYPOINTS = 50
+
+# Upper bound on the length of a route, summed along its legs. The product
+# plans passages along European coasts: the longest single trips it is
+# asked for run Brest to Lisbon (about 640 nm), Marseille to Gibraltar (690),
+# Marseille to Athens through Messina (980), Brest to Las Palmas (1 320).
+# Past 1 500 nm a cruiser at 6 kn is at sea for more than ten days, beyond
+# what a forecast says anything useful about, and such a trip is planned leg
+# by leg. Without it, 50 waypoints zigzagging across the globe were a
+# 500 000 nm route the land check walked for seconds and the sampler cut
+# into thousands of segments.
+MAX_ROUTE_NM = 1500.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,8 +65,9 @@ def validate_waypoints(points: list[Point]) -> None:
     much later as an opaque upstream error.
 
     Raises:
-        ValueError: fewer than 2 points, more than ``MAX_WAYPOINTS``, or any
-            coordinate non-finite or outside [-90, 90] / [-180, 180].
+        ValueError: fewer than 2 points, more than ``MAX_WAYPOINTS``, any
+            coordinate non-finite or outside [-90, 90] / [-180, 180], or a
+            route longer than ``MAX_ROUTE_NM`` along its legs.
     """
     if len(points) < 2:
         raise ValueError("at least 2 waypoints required")
@@ -64,6 +78,12 @@ def validate_waypoints(points: list[Point]) -> None:
             raise ValueError(f"waypoint {i}: lat={p.lat} out of range [-90, 90]")
         if not math.isfinite(p.lon) or not -180.0 <= p.lon <= 180.0:
             raise ValueError(f"waypoint {i}: lon={p.lon} out of range [-180, 180]")
+    length_nm = sum(haversine_distance(a, b) for a, b in pairwise(points))
+    if length_nm > MAX_ROUTE_NM:
+        raise ValueError(
+            f"route too long: {length_nm:.0f} nm along the waypoints (max {MAX_ROUTE_NM:.0f} nm). "
+            "Plan one passage of a few days at most, and split a longer trip into legs."
+        )
 
 
 def parse_waypoints(raw: Any) -> list[Point]:
@@ -149,6 +169,35 @@ def interpolate_great_circle(a: Point, b: Point, fraction: float) -> Point:
     lat = math.atan2(z, math.sqrt(x * x + y * y))
     lon = math.atan2(y, x)
     return Point(lat=math.degrees(lat), lon=math.degrees(lon))
+
+
+def interpolate_great_circle_many(
+    a: Point, b: Point, fractions: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """:func:`interpolate_great_circle` for many fractions at once, as ``(lats, lons)``.
+
+    The same formula, operation for operation, so the arithmetic rounds the
+    same way; only the per-element ``sin`` and ``atan2`` come from numpy,
+    whose SIMD builds may differ from ``math`` by an ulp. A caller that turns
+    the coordinates into a verdict on a grid must re-check the samples that
+    land within an ulp of a cell edge with the scalar function, as
+    :func:`~openwind_data.routing.land_check.land_crossings` does.
+    """
+    f = np.asarray(fractions, dtype=float)
+    delta = _angular_distance_rad(a, b)
+    if delta < 1e-12:
+        return np.full(f.shape, a.lat), np.full(f.shape, a.lon)
+    lat1, lon1 = math.radians(a.lat), math.radians(a.lon)
+    lat2, lon2 = math.radians(b.lat), math.radians(b.lon)
+    sin_delta = math.sin(delta)
+    a_coef = np.sin((1.0 - f) * delta) / sin_delta
+    b_coef = np.sin(f * delta) / sin_delta
+    x = a_coef * math.cos(lat1) * math.cos(lon1) + b_coef * math.cos(lat2) * math.cos(lon2)
+    y = a_coef * math.cos(lat1) * math.sin(lon1) + b_coef * math.cos(lat2) * math.sin(lon2)
+    z = a_coef * math.sin(lat1) + b_coef * math.sin(lat2)
+    lat = np.arctan2(z, np.sqrt(x * x + y * y))
+    lon = np.arctan2(y, x)
+    return np.degrees(lat), np.degrees(lon)
 
 
 def midpoint(a: Point, b: Point) -> Point:

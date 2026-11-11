@@ -26,6 +26,7 @@ code                         status  meaning
 ``invalid_waypoints``        422     the route did not parse
 ``too_few_waypoints``        422     fewer than 2 points
 ``too_many_waypoints``       422     more than ``MAX_WAYPOINTS``
+``route_too_long``           422     longer than ``MAX_ROUTE_NM`` along its legs
 ``too_many_points``          422     more points than one batch call may carry
 ``batch_too_large``          422     a batch's points x steps exceeds the cap
 ``waypoint_out_of_range``    422     a coordinate is not on Earth
@@ -81,6 +82,7 @@ from starlette.responses import JSONResponse
 _VALUE_ERROR_CODES: tuple[tuple[str, str], ...] = (
     ("at least 2 waypoints required", "too_few_waypoints"),
     ("too many waypoints", "too_many_waypoints"),
+    ("route too long", "route_too_long"),
     ("out of range", "waypoint_out_of_range"),
     ("invalid waypoints", "invalid_waypoints"),
     ("must be timezone-aware", "naive_datetime"),

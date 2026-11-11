@@ -186,6 +186,11 @@ describe("error contract: code first, English text as fallback", () => {
       expect: /hors des coordonnées valides/,
     },
     { code: "too_many_waypoints", text: "too many waypoints", expect: /Trop de waypoints/ },
+    {
+      code: "route_too_long",
+      text: "route too long: 3405 nm along the waypoints (max 1500 nm)",
+      expect: /trop longue pour être planifiée/,
+    },
     { code: "unknown_archetype", text: 'unknown archetype: "yacht"', expect: /Type de bateau inconnu/ },
     { code: "invalid_datetime", text: "invalid departure", expect: /Date invalide/ },
     {
