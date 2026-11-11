@@ -68,3 +68,11 @@ export function numFixed(n: number, digits: number): string {
 export function num1(n: number): string {
   return numFixed(n, 1);
 }
+
+/** "12–14", "1,1–1,4": a range in the active language, collapsed to one
+    value when its two ends read the same at that precision. */
+export function numRange(min: number, max: number, digits: number): string {
+  const a = numFixed(min, digits);
+  const b = numFixed(max, digits);
+  return a === b ? a : `${a}–${b}`;
+}

@@ -246,7 +246,7 @@ describe("PlanSidebar views", () => {
     expect(screen.getByRole("button", { name: "Recalculer" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Nouveau plan" })).toBeTruthy();
     // One row per leg, opening the build-up on click.
-    expect(screen.getByRole("button", { name: /^1→2/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^1 → 2/ })).toBeTruthy();
     expect(screen.getByText(/Données fraîches au/)).toBeTruthy();
     // The two doors, after everything else.
     await userEvent.click(screen.getByRole("button", { name: "D'autres départs" }));
@@ -259,14 +259,14 @@ describe("PlanSidebar views", () => {
   it("hides the legs, the alerts and the doors behind a recompute prompt once the route moved", () => {
     mount({ passage: passage(), complexity: complexity(), isStale: true });
     expect(screen.getByText(/Itinéraire modifié/)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /^1→2/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^1 → 2/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /alerte/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "D'autres départs" })).toBeNull();
   });
 
   it("opens a leg through the session, not through local state", async () => {
     const value = mount({ passage: passage(), complexity: complexity() });
-    await userEvent.click(screen.getByRole("button", { name: /^1→2/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^1 → 2/ }));
     expect(value.actions.selectLeg).toHaveBeenCalledWith(0);
   });
 
@@ -421,6 +421,9 @@ describe("open leg", () => {
     const value = mount({ passage: twoStepPassage(), complexity: complexity(), selectedLegIdx: 0 });
     expect(screen.getByText(/Moyenne · /)).toBeTruthy();
     expect(screen.getByText("moyenne de 2 pas")).toBeTruthy();
+    // The row gives the leg's sea as a range, its unit in the column header.
+    expect(screen.getByText("0,6–1,5")).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Mer m" })).toBeTruthy();
     // The flag of step 2 reaches the average, where the leg's own mean sea
     // (1,06 m) would not have raised it.
     expect(screen.getByText("⚠ Mer formée")).toBeTruthy();

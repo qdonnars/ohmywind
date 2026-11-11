@@ -59,7 +59,7 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.legs.durationHours": "{hours} h",
   "panel.legs.colDuration": "Duration",
   "panel.legs.colPointOfSail": "Point of sail",
-  "panel.legs.colWind": "Wind (kn)",
+  "panel.legs.colWind": "Wind",
   "panel.legs.colSea": "Sea",
   "panel.legs.pointOfSail.upwindTacking": "Upwind (tacking)",
   "panel.legs.pointOfSail.upwind": "Upwind",
@@ -72,6 +72,9 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.legs.seaFlag.chop": "Chop",
   "panel.legs.seaFlag.followingChop": "Following chop",
   "panel.legs.seaFlag.roughSea": "Rough sea",
+  // The flag as the alert under a leg says it: what, how much, where.
+  "panel.legs.alert.sea": "{flag} · Hs {range} m over {nm} nm",
+  "panel.legs.alert.current": "{flag} · {speed} kn over {nm} nm",
 
   // ── LegDetailCard / LegExpanded ────────────────────────────────────────────
   "panel.legDetail.prevStep": "Previous step",
