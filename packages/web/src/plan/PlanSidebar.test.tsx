@@ -447,11 +447,11 @@ describe("the comparison", () => {
     // sentence is counted on top.
     expect(screen.getByText("Mer agitée : Hs 1,1–1,4 m sur 13,8 nm")).toBeTruthy();
     expect(screen.getByText("+1 alerte")).toBeTruthy();
-    // No removal of the plan's own route; seeing it opens it in the plan.
+    // No removal of the plan's own route, and no second button beside the
+    // row: the row itself is what one taps.
     expect(screen.queryByRole("button", { name: /Supprimer/ })).toBeNull();
     expect(screen.queryByText("sélectionné")).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "Option 1 · Ouvrir cet itinéraire dans le plan" }));
-    expect(value.actions.openTrack).toHaveBeenCalledWith("plan");
+    expect(screen.queryByText(/Voir sur la carte/)).toBeNull();
     // The dashed door to a new option.
     await userEvent.click(screen.getByRole("button", { name: "+ Tracer une variante" }));
     expect(value.actions.startVariant).toHaveBeenCalledTimes(1);
@@ -477,8 +477,6 @@ describe("the comparison", () => {
     expect(value.actions.highlightTrack).toHaveBeenCalledWith("v1");
     await userEvent.click(screen.getByRole("button", { name: "Supprimer l'option 2" }));
     expect(value.actions.removeTrack).toHaveBeenCalledWith("v1");
-    await userEvent.click(screen.getByRole("button", { name: "Option 2 · Ouvrir cet itinéraire dans le plan" }));
-    expect(value.actions.openTrack).toHaveBeenCalledWith("v1");
   });
 
   it("keeps the computing and the failed states of an option on its sub-row", () => {
@@ -497,9 +495,8 @@ describe("the comparison", () => {
     });
     expect(screen.getByText("calcul en cours…")).toBeTruthy();
     expect(screen.getByText("Le serveur météo est indisponible.")).toBeTruthy();
-    // Nothing to choose nor to open until a passage lands; removal stays.
+    // Nothing to choose until a passage lands; removal stays.
     expect((screen.getByRole("button", { name: /Choisir l'option 2/ }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole("button", { name: "Option 3 · Ouvrir cet itinéraire dans le plan" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole("button", { name: "Supprimer l'option 3" })).toBeTruthy();
     // Three options: the door to a fourth is closed, and says why.
     expect((screen.getByRole("button", { name: "+ Tracer une variante" }) as HTMLButtonElement).disabled).toBe(true);
@@ -554,6 +551,31 @@ const twoStepPassage = (): PassageReport => {
   };
 };
 
+describe("leg alerts", () => {
+  const withSegment = (over: Partial<PassageReport["segments"][number]>): PassageReport => {
+    const base = passage();
+    return { ...base, segments: [{ ...base.segments[0], ...over }] };
+  };
+
+  it("says a sustained wind and a formed sea by their figures, with no chip", () => {
+    mount({ passage: withSegment({ tws_kn: 18, hs_m: 1.6, wave_period_s: 9 }), complexity: complexity() });
+    const wind = screen.getByText("18").closest("td") as HTMLElement;
+    expect(wind.style.color).toBe("var(--ow-warn-ink)");
+    expect(wind.textContent).toBe("18, Vent soutenu");
+    const sea = screen.getByText("1,6").closest("td") as HTMLElement;
+    expect(sea.style.color).toBe("var(--ow-warn-ink)");
+    expect(sea.textContent).toBe("1,6, Mer formée");
+    expect(document.querySelector(".ow-alert-chip")).toBeNull();
+  });
+
+  it("keeps a chip for a chop, which no figure says", () => {
+    mount({ passage: withSegment({ tws_kn: 9, hs_m: 0.9, wave_period_s: 4 }), complexity: complexity() });
+    expect(screen.getByText("Clapot suiveur · période 4 s")).toBeTruthy();
+    // 0,9 m is under the formed-sea mark: the figure stays plain.
+    expect((screen.getByText("0,9").closest("td") as HTMLElement).style.color).toBe("var(--ow-fg-0)");
+  });
+});
+
 describe("open leg", () => {
   it("opens on the whole leg: every step in the table, the average in the card", async () => {
     const value = mount({ passage: twoStepPassage(), complexity: complexity(), selectedLegIdx: 0 });
@@ -606,8 +628,9 @@ describe("open leg", () => {
     expect(within(table).getByRole("rowheader", { name: "Mer m" })).toBeTruthy();
     expect(within(table).getByText("↑18")).toBeTruthy();
     expect(within(table).getByText("1,5")).toBeTruthy();
-    // The formed sea of step 2 is a marker on its cell, not a tint.
-    expect(within(table).getByRole("img", { name: "Mer formée · Hs 1,5 m sur 28,0 nm" })).toBeTruthy();
+    // The formed sea of step 2 is the tint of its cell: no marker, which is
+    // kept for what a figure cannot say (a chop, a wind against the current).
+    expect(within(table).queryByRole("img")).toBeNull();
     // No current on this passage: no current row.
     expect(within(table).queryByRole("rowheader", { name: "Courant kn" })).toBeNull();
     // The card under the table is the picked step's, and only its column

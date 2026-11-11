@@ -2,7 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import type { SegmentReport } from "./types";
-import { CURRENT_RELEVANCE_THRESHOLD_KN, SEA_FORMED_HS_M } from "../domain/thresholds";
+import {
+  CURRENT_RELEVANCE_THRESHOLD_KN,
+  SEA_FORMED_HS_M,
+  WIND_SUSTAINED_TWS_KN,
+} from "../domain/thresholds";
 import { COEFF_DEFAULT } from "../config/polarConfig";
 import { t } from "../i18n";
 import { num1, numRange } from "./format";
@@ -136,16 +140,24 @@ export interface LegSummaryCells {
   wind: string;
   /** "0,4–0,6", the Hs range in metres; null without sea data. */
   sea: string | null;
+  /** What the wind figure is inked as a warning for (« Vent soutenu »), null
+      under the threshold. A number says "strong wind" by itself once it is
+      orange: no sentence repeats it. Kept as words for a screen reader. */
+  windNote: string | null;
+  /** The same for the sea figure (« Mer formée », « Grosse mer »). */
+  seaNote: string | null;
   // Single optional flag — covers either sea state (Mer formée / Grosse
   // mer / Clapot) or wind-against-current. When both fire on a leg, current
-  // wins because it's the rarer and more decision-shaping signal.
+  // wins because it's the rarer and more decision-shaping signal. This is
+  // what the leg card writes under its figures.
   flag: string | null;
-  /** The flag as the alert under the row says it: what, how much, where
-      (« Mer formée · Hs 1,1–1,4 m sur 13,8 nm »). Null without a flag. */
+  /** The alert that keeps a chip, under the row and on the map: only what no
+      figure of the row can say by its colour, a chop (a height and a period
+      together) or a wind against the current. It adds the one number the row
+      does not show: « Clapot suiveur · période 4 s », « Vent contre courant ·
+      1,8 kn ». Null for a leg whose only flag is the strength of its wind or
+      the height of its sea. */
   alert: string | null;
-  /** The same without the distance, for the map, where the chip sits on
-      the leg it is about (« Mer formée · 1,1–1,4 m »). */
-  alertShort: string | null;
 }
 
 // Build the leg summary as a fixed set of named cells so LegRow can render
@@ -164,13 +176,9 @@ export function buildLegSummaryCells(leg: AggregatedLeg): LegSummaryCells {
 
   let flag: string | null = null;
   let alert: string | null = null;
-  let alertShort: string | null = null;
-  const nm = num1(leg.distance_nm);
   if (leg.current_relative === "contraire" && (leg.current_speed_kn ?? 0) >= 1.5) {
     flag = t("panel.legs.seaFlag.windAgainstCurrent");
-    const speed = num1(leg.current_speed_kn ?? 0);
-    alert = t("panel.legs.alert.current", { flag, speed, nm });
-    alertShort = `${flag} · ${speed} kn`;
+    alert = t("panel.legs.alert.current", { flag, speed: num1(leg.current_speed_kn ?? 0) });
   } else if (leg.hs_avg_m != null) {
     if (leg.hs_avg_m > 2.5) flag = t("panel.legs.seaFlag.heavySea");
     else if (chopIndex != null && chopIndex > 0.05 && leg.hs_avg_m >= 0.8) {
@@ -181,13 +189,19 @@ export function buildLegSummaryCells(leg: AggregatedLeg): LegSummaryCells {
         leg.sea_direction === "arrière"
           ? t("panel.legs.seaFlag.followingChop")
           : t("panel.legs.seaFlag.chop");
+      alert = t("panel.legs.alert.chop", { flag, period: Math.round(leg.tp_avg_s as number) });
     }
     else if (leg.hs_avg_m > SEA_FORMED_HS_M) flag = t("panel.legs.seaFlag.roughSea");
-    if (flag && sea) {
-      alert = t("panel.legs.alert.sea", { flag, range: sea, nm });
-      alertShort = `${flag} · ${sea} m`;
-    }
   }
+
+  // The strength of the wind and the height of the sea are said by their own
+  // figures, inked as a warning. Compared as displayed: a 14,6 kn that the
+  // row prints « 15 » is orange like any other 15.
+  const windNote =
+    Math.round(leg.tws_max) >= WIND_SUSTAINED_TWS_KN ? t("panel.legs.windFlag") : null;
+  let seaNote: string | null = null;
+  if (leg.hs_avg_m != null && leg.hs_avg_m > 2.5) seaNote = t("panel.legs.seaFlag.heavySea");
+  else if (leg.hs_avg_m != null && leg.hs_avg_m > SEA_FORMED_HS_M) seaNote = t("panel.legs.seaFlag.roughSea");
 
   return {
     duration: legDurationLabel(leg),
@@ -197,9 +211,10 @@ export function buildLegSummaryCells(leg: AggregatedLeg): LegSummaryCells {
     allure: leg.point_of_sail,
     wind,
     sea,
+    windNote,
+    seaNote,
     flag,
     alert,
-    alertShort,
   };
 }
 

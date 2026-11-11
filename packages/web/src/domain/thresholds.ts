@@ -31,6 +31,15 @@ export function beaufortLevel(knots: number): number {
   return i === -1 ? 8 : i;
 }
 
+/**
+ * True wind speed, in knots, from which a leg's wind figure is inked as a
+ * warning. Mirror of the lower bound of the `soutenu` band of the
+ * server-side complexity scorer (`_WIND_BANDS`), which is where the MCP
+ * starts raising a wind warning: the figure in the list and the sentence in
+ * the alerts turn on together.
+ */
+export const WIND_SUSTAINED_TWS_KN = 15;
+
 /** Lower bound in knots of a Beaufort level: what a scale prints under it. */
 export function beaufortLowerBoundKn(level: number): number {
   return level <= 0 ? 0 : BEAUFORT_MAX_KN[Math.min(level, BEAUFORT_MAX_KN.length) - 1];

@@ -73,9 +73,12 @@ export const panel = {
   "panel.legs.seaFlag.chop": "Clapot",
   "panel.legs.seaFlag.followingChop": "Clapot suiveur",
   "panel.legs.seaFlag.roughSea": "Mer formée",
-  // The flag as the alert under a leg says it: what, how much, where.
-  "panel.legs.alert.sea": "{flag} · Hs {range} m sur {nm} nm",
-  "panel.legs.alert.current": "{flag} · {speed} kn sur {nm} nm",
+  // What an orange wind figure stands for, said to a screen reader.
+  "panel.legs.windFlag": "Vent soutenu",
+  // The alerts that keep a chip under a leg: the flag and the one number
+  // the row does not show.
+  "panel.legs.alert.chop": "{flag} · période {period} s",
+  "panel.legs.alert.current": "{flag} · {speed} kn",
 
   // ── LegDetailCard / LegExpanded ────────────────────────────────────────────
   "panel.legDetail.prevStep": "Pas précédent",
@@ -166,7 +169,6 @@ export const panel = {
   "panel.tracks.drawing.points.other": "{count} points posés",
   "panel.tracks.drawing.hint": "Touchez la carte pour poser un point entre le départ et l'arrivée du plan.",
   "panel.tracks.drawing.finish": "Terminer et comparer",
-  "panel.tracks.row.open": "Ouvrir cet itinéraire dans le plan",
   "panel.tracks.row.computing": "calcul en cours…",
   "panel.tracks.stale": "Départ ou bateau modifié. Recalculez pour comparer les itinéraires.",
   "panel.tracks.departure.title": "Départ, commun à tous les itinéraires",
@@ -189,7 +191,6 @@ export const panel = {
   "panel.results.alertKind.sea": "mer",
   "panel.results.alertKind.current": "courant",
   "panel.results.alertKind.other": "autre",
-  "panel.tracks.row.openShort": "Voir sur la carte",
   "panel.window.every": "Toutes les",
   "panel.window.adjustDates": "Ajuster les dates",
   "panel.hint.title": "L'interface évolue",

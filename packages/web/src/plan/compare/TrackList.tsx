@@ -35,7 +35,6 @@ import {
   type Track,
 } from "./tracks";
 import { waypointsEqual } from "../lastSimulation";
-import { ChevronIcon } from "./icons";
 import { ColumnHeader, ColumnLabel, DurationPill } from "./rowParts";
 
 const MONO = { fontFamily: "var(--ow-font-mono)" } as const;
@@ -96,7 +95,6 @@ function TrackRow({
   computing,
   removable,
   onSelect,
-  onOpen,
   onRemove,
   onPoint,
 }: {
@@ -110,7 +108,6 @@ function TrackRow({
   computing: boolean;
   removable: boolean;
   onSelect: () => void;
-  onOpen: () => void;
   onRemove: () => void;
   onPoint: (on: boolean) => void;
 }) {
@@ -200,8 +197,11 @@ function TrackRow({
         </span>
       </button>
       {/* Outside the row's button: a button holds no other. The status
-          takes the line and pushes the actions under it when both do not
-          fit, rather than squeezing an alert into a column of words. */}
+          takes the line and pushes the removal under it when both do not
+          fit, rather than squeezing an alert into a column of words. No
+          line at all for an option with nothing to say and nothing to
+          remove. */}
+      {(hasStatus || removable) && (
       <div
         className="flex flex-wrap items-center gap-x-2.5 pb-1"
         style={{ paddingLeft: ROW_PAD + SWATCH_W + SWATCH_GAP, paddingRight: ROW_PAD - 8 }}
@@ -231,33 +231,20 @@ function TrackRow({
             )}
           </div>
         )}
-        <div className="ml-auto flex items-center">
-          {removable && (
-            <button
-              type="button"
-              onClick={onRemove}
-              aria-label={t("panel.tracks.row.remove", { n: index + 1 })}
-              title={t("panel.tracks.row.remove", { n: index + 1 })}
-              className={SUB_BUTTON}
-              style={{ color: "var(--ow-fg-2)" }}
-            >
-              {t("panel.tracks.row.removeShort")}
-            </button>
-          )}
+        {removable && (
           <button
             type="button"
-            onClick={onOpen}
-            disabled={!usable}
-            aria-label={`${name} · ${t("panel.tracks.row.open")}`}
-            title={t("panel.tracks.row.open")}
-            className={`${SUB_BUTTON} font-semibold`}
-            style={{ color: "var(--ow-accent)" }}
+            onClick={onRemove}
+            aria-label={t("panel.tracks.row.remove", { n: index + 1 })}
+            title={t("panel.tracks.row.remove", { n: index + 1 })}
+            className={`${SUB_BUTTON} ml-auto`}
+            style={{ color: "var(--ow-fg-2)" }}
           >
-            {t("panel.tracks.row.openShort")}
-            <ChevronIcon direction="right" size={9} />
+            {t("panel.tracks.row.removeShort")}
           </button>
-        </div>
+        )}
       </div>
+      )}
     </div>
   );
 }
@@ -365,7 +352,6 @@ export function TrackList() {
             computing={track.id in trackRequests}
             removable={track.id !== selectedId && tracks.length > 0}
             onSelect={() => actions.selectTrack(track.id)}
-            onOpen={() => actions.openTrack(track.id)}
             onRemove={() => actions.removeTrack(track.id)}
             onPoint={(on) => actions.highlightTrack(on ? track.id : null)}
           />

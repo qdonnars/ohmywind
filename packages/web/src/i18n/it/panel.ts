@@ -73,9 +73,12 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.legs.seaFlag.chop": "Mare corto",
   "panel.legs.seaFlag.followingChop": "Mare corto di poppa",
   "panel.legs.seaFlag.roughSea": "Mare formato",
-  // The flag as the alert under a leg says it: what, how much, where.
-  "panel.legs.alert.sea": "{flag} · Hs {range} m su {nm} nm",
-  "panel.legs.alert.current": "{flag} · {speed} kn su {nm} nm",
+  // What an orange wind figure stands for, said to a screen reader.
+  "panel.legs.windFlag": "Vento teso",
+  // The alerts that keep a chip under a leg: the flag and the one number
+  // the row does not show.
+  "panel.legs.alert.chop": "{flag} · periodo {period} s",
+  "panel.legs.alert.current": "{flag} · {speed} kn",
 
   // ── LegDetailCard / LegExpanded ────────────────────────────────────────────
   "panel.legDetail.prevStep": "Tappa precedente",
@@ -166,7 +169,6 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.tracks.drawing.points.other": "{count} punti posizionati",
   "panel.tracks.drawing.hint": "Tocchi la mappa per posizionare un punto tra la partenza e l'arrivo del piano.",
   "panel.tracks.drawing.finish": "Terminare e confrontare",
-  "panel.tracks.row.open": "Aprire questa rotta nel piano",
   "panel.tracks.row.computing": "calcolo in corso…",
   "panel.tracks.stale": "Partenza o barca modificata. Ricalcoli per confrontare le rotte.",
   "panel.tracks.departure.title": "Partenza, comune a tutte le rotte",
@@ -189,7 +191,6 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.results.alertKind.sea": "mare",
   "panel.results.alertKind.current": "corrente",
   "panel.results.alertKind.other": "altro",
-  "panel.tracks.row.openShort": "Vedere sulla mappa",
   "panel.window.every": "Ogni",
   "panel.window.adjustDates": "Regolare le date",
   "panel.hint.title": "L'interfaccia si evolve",
