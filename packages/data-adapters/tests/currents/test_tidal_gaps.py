@@ -139,3 +139,116 @@ def test_unresolved_pass_along_a_leg_measures_the_closest_point(monkeypatch) -> 
         tidal_gaps.unresolved_pass_along(67.2281, 14.0, 67.2281, 14.58, "norkyst_lofoten_800m")
         is not None
     )
+
+
+def _in_mask_plain(lon: float, lat: float) -> bool:
+    """The loop the box prefilter replaced: every ring, in file order."""
+    return any(_in_polygon(lon, lat, o, h) for o, h in tidal_gaps._load().rings)
+
+
+def test_box_prefilter_gives_the_plain_loop_answer() -> None:
+    # Points on, just inside and just outside the vertices of the largest
+    # ring (the German Bight, holes included), points on its box edges, and a
+    # spread over the European target area: the prefilter must never change
+    # a verdict, only skip rings that could not hold the point.
+    gaps = tidal_gaps._load()
+    widest = max(
+        range(len(gaps.rings)), key=lambda i: len(gaps.rings[i][0]) + len(gaps.rings[i][1])
+    )
+    outer = gaps.rings[widest][0]
+    rng = np.random.default_rng(20261104)
+    points = [(float(x), float(y)) for x, y in outer[::8]]
+    points += [
+        (float(x) + dx, float(y) + dy)
+        for x, y in outer[::16]
+        for dx, dy in rng.normal(0, 0.02, (2, 2))
+    ]
+    min_lon, min_lat, max_lon, max_lat = gaps.ring_bbox[widest]
+    points += [
+        (min_lon, (min_lat + max_lat) / 2),
+        (max_lon, min_lat),
+        ((min_lon + max_lon) / 2, max_lat),
+    ]
+    points += [
+        (float(x), float(y))
+        for x, y in zip(rng.uniform(-12, 30, 60), rng.uniform(35, 72, 60), strict=True)
+    ]
+    hits = 0
+    for lon, lat in points:
+        expected = _in_mask_plain(lon, lat)
+        assert tidal_gaps._in_mask(gaps, lon, lat) == expected, (lon, lat)
+        hits += expected
+    assert 0 < hits < len(points)
+
+
+def test_answers_are_remembered_per_snapshot(monkeypatch) -> None:
+    first = tidal_gap_at(53.15, 2.85)
+    assert first is not None and first.kind == "mask"
+    calls = 0
+    real = tidal_gaps._tidal_gap
+
+    def counting(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(tidal_gaps, "_tidal_gap", counting)
+    assert tidal_gap_at(53.15, 2.85) is first
+    assert calls == 0
+    # Another radius is another question.
+    tidal_gap_at(53.15, 2.85, pass_radius_km=1.0)
+    assert calls == 1
+    # A swapped snapshot starts with an empty memo, so a test that patches
+    # ``_load`` never reads the answers of the real one.
+    _with_passes(monkeypatch, ())
+    assert tidal_gap_at(53.15, 2.85) is None
+
+
+async def test_a_week_long_sweep_ray_casts_each_leg_once(monkeypatch) -> None:
+    # The 2026-11 audit: a 168 h sweep re-ran the point-in-polygon test of
+    # every leg against the 567 mask rings for every departure window, 97 %
+    # of the CPU of a sweep (Marseille to Porquerolles 6 s, the Iroise 14 s,
+    # on the one event loop of the server). Lowestoft to IJmuiden runs in
+    # the mask the whole way, with a current from the global model, so every
+    # leg asks. With the box prefilter and the memo a leg is ray-cast against
+    # the few rings whose box holds it, once per request; before, the count
+    # was windows x legs x rings scanned (about 200 000 here).
+    from datetime import UTC, datetime, timedelta
+
+    from openwind_data.routing.geometry import Point
+    from openwind_data.routing.passage import estimate_passage_windows
+    from openwind_data.testing import DeterministicMarineAdapter
+
+    calls = 0
+    real = tidal_gaps._in_ring
+
+    def counting(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(tidal_gaps, "_in_ring", counting)
+    # A fresh snapshot, so the memo of an earlier test does not hide the cost.
+    tidal_gaps._load.cache_clear()
+    try:
+        start = datetime(2026, 5, 14, 0, 0, tzinfo=UTC)
+        reports = await estimate_passage_windows(
+            [Point(52.4, 2.1), Point(52.9, 4.1)],
+            start,
+            start + timedelta(hours=167),
+            "cruiser_30ft",
+            adapter=DeterministicMarineAdapter(),
+        )
+    finally:
+        tidal_gaps._load.cache_clear()
+    assert len(reports) == 168
+    legs = len(reports[0].segments)
+    assert all(
+        any(
+            n.code == "currents.tidal_gap" and "zone > 1,5 kt" in n.params["zones"]
+            for n in r.notices
+        )
+        for r in reports
+    )
+    # A leg midpoint sits in at most a handful of ring boxes (outer + holes).
+    assert calls <= 20 * legs, calls

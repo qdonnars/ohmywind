@@ -29,7 +29,7 @@ numpy only, loaded once, no runtime dependency on the atlases.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from importlib import resources
 
@@ -43,6 +43,11 @@ DEFAULT_PASS_RADIUS_KM = 15.0
 # 0.3 kt closer in, so within 3 km the atlas value must not read as fine.
 DEFAULT_UNRESOLVED_RADIUS_KM = 3.0
 _KM_PER_DEG = 111.0
+# How many answers of :func:`tidal_gap_at` one snapshot remembers. A sweep
+# asks the same leg midpoints once per departure window (168 windows for a
+# week at 1 h), so a few hundred keys serve a whole request; the bound only
+# keeps a long-lived server from growing without limit.
+_MEMO_MAX = 4096
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +75,27 @@ class _Gaps:
     passes: tuple[_Pass, ...]
     pass_lat: np.ndarray
     pass_lon: np.ndarray
+    # Derived, never passed: the box of each outer ring as (min lon, min lat,
+    # max lon, max lat), one row per polygon, so a point is tested against
+    # the few rings whose box holds it instead of every one of them.
+    ring_bbox: np.ndarray = field(init=False, repr=False, compare=False)
+    # The answers of :func:`tidal_gap_at` for this snapshot, by exact
+    # ``(lat, lon, pass_radius_km)``. Kept on the snapshot, not in a module
+    # cache, so a test that swaps ``_load`` never reads another one's answers.
+    memo: dict[tuple[float, float, float], TidalGap | None] = field(
+        init=False, repr=False, compare=False
+    )
+
+    def __post_init__(self) -> None:
+        bbox = np.array(
+            [
+                (outer[:, 0].min(), outer[:, 1].min(), outer[:, 0].max(), outer[:, 1].max())
+                for outer, _ in self.rings
+            ],
+            dtype=float,
+        ).reshape(-1, 4)
+        object.__setattr__(self, "ring_bbox", bbox)
+        object.__setattr__(self, "memo", {})
 
 
 def _polygons(geometry: dict) -> list[list[list[list[float]]]]:
@@ -129,6 +155,20 @@ def _in_polygon(lon: float, lat: float, outer: np.ndarray, holes: tuple[np.ndarr
     return _in_ring(lon, lat, outer) and not any(_in_ring(lon, lat, h) for h in holes)
 
 
+def _in_mask(gaps: _Gaps, lon: float, lat: float) -> bool:
+    """Whether the point falls in one of the mask polygons.
+
+    Only the rings whose box holds the point are ray-cast. The box is
+    inclusive, and a point outside it cannot be inside the ring: a
+    horizontal ray from a point left of the box crosses the closed ring an
+    even number of times, one right of it or above or below crosses none.
+    So the answer is the one the plain loop over every ring gave.
+    """
+    b = gaps.ring_bbox
+    near = np.flatnonzero((b[:, 0] <= lon) & (lon <= b[:, 2]) & (b[:, 1] <= lat) & (lat <= b[:, 3]))
+    return any(_in_polygon(lon, lat, *gaps.rings[int(i)]) for i in near)
+
+
 def _pass_distances_km(gaps: _Gaps, lat: float, lon: float) -> np.ndarray:
     return np.hypot(
         (gaps.pass_lat - lat) * _KM_PER_DEG,
@@ -144,17 +184,33 @@ def tidal_gap_at(
     A known pass within ``pass_radius_km`` wins over the mask, because it
     carries a name and a published current the notice can quote; the mask
     answers with a generic zone otherwise.
+
+    Answers are remembered per snapshot (see ``_Gaps.memo``): the engine asks
+    for every leg of every departure window of a sweep, the same midpoints
+    over and over, and a :class:`TidalGap` is immutable.
     """
     gaps = _load()
+    key = (lat, lon, pass_radius_km)
+    try:
+        return gaps.memo[key]
+    except KeyError:
+        pass
+    hit = _tidal_gap(gaps, lat, lon, pass_radius_km)
+    if len(gaps.memo) >= _MEMO_MAX:
+        gaps.memo.clear()
+    gaps.memo[key] = hit
+    return hit
+
+
+def _tidal_gap(gaps: _Gaps, lat: float, lon: float, pass_radius_km: float) -> TidalGap | None:
     if gaps.passes:
         d = _pass_distances_km(gaps, lat, lon)
         i = int(np.argmin(d))
         if d[i] <= pass_radius_km:
             p = gaps.passes[i]
             return TidalGap(p.name, p.max_spring_kt, "pass", float(d[i]))
-    for outer, holes in gaps.rings:
-        if _in_polygon(lon, lat, outer, holes):
-            return TidalGap("zone > 1,5 kt", None, "mask", 0.0)
+    if _in_mask(gaps, lon, lat):
+        return TidalGap("zone > 1,5 kt", None, "mask", 0.0)
     return None
 
 
