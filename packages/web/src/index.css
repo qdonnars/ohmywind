@@ -894,3 +894,60 @@ select,
   border-color: var(--ow-accent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--ow-accent) 30%, transparent);
 }
+
+/* ── Alert chip ──────────────────────────────────────────────────
+   components/AlertChip.tsx, and the same chip drawn on the plan map from an
+   HTML string. Wraps, never truncates: the icon keeps its place on the
+   first line. */
+.ow-alert-chip {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  max-width: 100%;
+  padding: 5px 9px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: var(--ow-warn-soft);
+  color: var(--ow-warn-ink);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: normal;
+  text-align: left;
+}
+.ow-alert-chip__icon {
+  display: flex;
+  flex-shrink: 0;
+  margin-top: 2.5px;
+}
+.ow-alert-chip--s {
+  gap: 4px;
+  padding: 2px 6px;
+  font-size: 10.5px;
+}
+.ow-alert-chip--s .ow-alert-chip__icon {
+  margin-top: 2px;
+}
+/* Over the map the soft fill alone would let the sea through: it sits on
+   the popover surface, with a line and a shadow to lift it off the track. */
+.ow-alert-chip--map {
+  background: linear-gradient(var(--ow-warn-soft), var(--ow-warn-soft)), var(--ow-surface-pop);
+  border-color: var(--ow-warn-line);
+  box-shadow: var(--ow-shadow-2);
+  white-space: nowrap;
+}
+.ow-cell-alert {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  z-index: 1;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--ow-bg-0);
+  border: 1.5px solid var(--ow-warn-ink);
+  color: var(--ow-warn-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

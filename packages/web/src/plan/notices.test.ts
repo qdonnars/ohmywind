@@ -4,7 +4,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { setLang } from "../i18n";
 import { alertsOf } from "./sidebar/alerts";
-import { noticeText, passageNotices } from "./notices";
+import { localiseParams, noticeText, passageNotices } from "./notices";
 import type { ComplexityScore, PassageReport } from "./types";
 
 const LIGHT_WIND = {
@@ -50,7 +50,7 @@ describe("noticeText", () => {
   });
 
   it("says a coded warning in the active language, with the server's values", async () => {
-    expect(noticeText(LIGHT_WIND)).toBe("vent faible : vitesse mini 2.6 kn, passage très lent");
+    expect(noticeText(LIGHT_WIND)).toBe("vent faible : vitesse mini 2,6 kn, passage très lent");
     await setLang("en");
     expect(noticeText(LIGHT_WIND)).toBe("light wind: minimum speed 2.6 kn, a very slow passage");
   });
@@ -60,6 +60,43 @@ describe("noticeText", () => {
     const newer = { code: "passage.something_new", params: {}, message: "phrase du serveur" };
     expect(noticeText(newer)).toBe("phrase du serveur");
     expect(noticeText({ code: "", params: {}, message: "sans code" })).toBe("sans code");
+  });
+});
+
+describe("localiseParams", () => {
+  afterEach(async () => {
+    await setLang("fr");
+  });
+
+  it("writes the server's numbers with the separator of the language", async () => {
+    expect(localiseParams({ min_speed_kn: "1.9" })).toEqual({ min_speed_kn: "1,9" });
+    await setLang("en");
+    expect(localiseParams({ min_speed_kn: "1.9" })).toEqual({ min_speed_kn: "1.9" });
+  });
+
+  it("writes each bound of a range, joined by an en dash", async () => {
+    expect(localiseParams({ hs_range: "1.1-1.4", tws_range: "25-30", nm: "14" })).toEqual({
+      hs_range: "1,1–1,4",
+      tws_range: "25–30",
+      nm: "14",
+    });
+    await setLang("en");
+    expect(localiseParams({ hs_range: "1.1-1.4" })).toEqual({ hs_range: "1.1–1.4" });
+  });
+
+  it("keeps the decimals the server chose", () => {
+    expect(localiseParams({ hs_range: "1.0-2.0" })).toEqual({ hs_range: "1,0–2,0" });
+  });
+
+  it("leaves counts, names and dates alone", () => {
+    const params = {
+      count: 3,
+      zones: "Raz de Sein, Fromveur",
+      model: "meteofrance_arome_france_hd",
+      target_eta: "2026-09-18T12:00:00+00:00",
+      others: "icon-eu",
+    };
+    expect(localiseParams(params)).toEqual(params);
   });
 });
 
@@ -106,9 +143,9 @@ describe("alertsOf", () => {
       }),
     );
     expect(alerts).toEqual([
-      { kind: "sea", message: "Grobe See: Hs 1.2-1.9 m auf 15 nm" },
-      { kind: "sea", message: "Mitlaufende Kabbelsee: Hs 0.9 m bei Tp 4 s auf 8 nm" },
-      { kind: "wind", message: "schwacher Wind: Mindestgeschwindigkeit 2.6 kn, sehr langsame Passage" },
+      { kind: "sea", message: "Grobe See: Hs 1,2–1,9 m auf 15 nm" },
+      { kind: "sea", message: "Mitlaufende Kabbelsee: Hs 0,9 m bei Tp 4 s auf 8 nm" },
+      { kind: "wind", message: "schwacher Wind: Mindestgeschwindigkeit 2,6 kn, sehr langsame Passage" },
     ]);
   });
 

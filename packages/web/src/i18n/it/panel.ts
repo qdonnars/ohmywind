@@ -68,11 +68,11 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.legs.pointOfSail.broadReach": "Lasco",
   "panel.legs.pointOfSail.run": "Poppa",
   "panel.legs.pointOfSail.motor": "A motore",
-  "panel.legs.seaFlag.windAgainstCurrent": "Vento Contro Corrente",
-  "panel.legs.seaFlag.heavySea": "Mare Grosso",
-  "panel.legs.seaFlag.chop": "Mare Corto",
-  "panel.legs.seaFlag.followingChop": "Mare Corto di Poppa",
-  "panel.legs.seaFlag.roughSea": "Mare Formato",
+  "panel.legs.seaFlag.windAgainstCurrent": "Vento contro corrente",
+  "panel.legs.seaFlag.heavySea": "Mare grosso",
+  "panel.legs.seaFlag.chop": "Mare corto",
+  "panel.legs.seaFlag.followingChop": "Mare corto di poppa",
+  "panel.legs.seaFlag.roughSea": "Mare formato",
 
   // ── LegDetailCard / LegExpanded ────────────────────────────────────────────
   "panel.legDetail.prevStep": "Tappa precedente",
