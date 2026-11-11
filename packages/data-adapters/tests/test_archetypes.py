@@ -4,15 +4,19 @@
 from __future__ import annotations
 
 import dataclasses
+import math
+import re
 
 import pytest
 
 from openwind_data.routing.archetypes import (
+    MOTOR_SPEED_MIN_KN,
     _bracket,
     effective_min_upwind_twa,
     get_polar,
     list_archetypes,
     lookup_polar,
+    validate_motor,
 )
 
 EXPECTED_ARCHETYPES = {
@@ -194,3 +198,57 @@ class TestEffectiveMinUpwindTwa:
         matrix = tuple((0.0, *row) for row in base.boat_speed_kn)
         p = dataclasses.replace(base, min_upwind_twa_deg=None, twa_deg=twa, boat_speed_kn=matrix)
         assert effective_min_upwind_twa(p) == base.twa_deg[0]
+
+
+class TestMotorBounds:
+    """``validate_motor``: the motor knobs' one rule, read by REST and MCP alike."""
+
+    @pytest.mark.parametrize(
+        ("threshold", "speed"),
+        [
+            (None, None),
+            (2.0, 5.5),
+            (15.0, 25.0),
+            (30.0, 30.0),
+            (0.1, 0.5),
+            (3.0, None),
+            (None, 6.0),
+        ],
+    )
+    def test_in_range_or_unset_passes(self, threshold, speed) -> None:
+        validate_motor(threshold, speed)
+
+    @pytest.mark.parametrize(
+        ("threshold", "speed", "needle"),
+        [
+            (4.0, -5.0, "motor_speed_kn must be in [0.5, 30] kn, got -5.0"),
+            (4.0, 0.0, "motor_speed_kn"),
+            (4.0, 1e-6, "motor_speed_kn"),
+            (4.0, 0.49, "motor_speed_kn"),
+            (4.0, 30.01, "motor_speed_kn"),
+            (4.0, math.nan, "motor_speed_kn"),
+            (4.0, math.inf, "motor_speed_kn"),
+            (0.0, 5.0, "motor_threshold_kn must be in (0, 30] kn, got 0.0"),
+            (-2.0, 5.0, "motor_threshold_kn"),
+            (30.01, 5.0, "motor_threshold_kn"),
+            (math.nan, 5.0, "motor_threshold_kn"),
+        ],
+    )
+    def test_out_of_range_refused(self, threshold, speed, needle) -> None:
+        with pytest.raises(ValueError, match=re.escape(needle)):
+            validate_motor(threshold, speed)
+
+    def test_a_polar_cannot_carry_a_motor_out_of_range(self) -> None:
+        # ``dataclasses.replace`` is how both shells put a motor on an
+        # archetype; it runs ``__init__``, so the engine never sees one.
+        base = get_polar("cruiser_30ft")
+        assert dataclasses.replace(base, motor_threshold_kn=4.0, motor_speed_kn=5.5)
+        with pytest.raises(ValueError, match="motor_speed_kn"):
+            dataclasses.replace(base, motor_threshold_kn=4.0, motor_speed_kn=0.0)
+
+    def test_the_speed_floor_is_the_engine_floor(self) -> None:
+        # Kept as a literal in archetypes (the passage package imports it);
+        # this is what keeps the two from drifting apart.
+        from openwind_data.routing.passage import MIN_BOAT_SPEED_KN
+
+        assert MOTOR_SPEED_MIN_KN == MIN_BOAT_SPEED_KN

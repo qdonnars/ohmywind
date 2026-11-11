@@ -118,6 +118,9 @@ class TestWithSea:
     def test_negative_hs_rejected(self) -> None:
         with pytest.raises(ValueError, match="max_hs_m"):
             score_complexity(_make_passage([5.0]), max_hs_m=-0.1)
+        for bad in (float("nan"), float("inf")):
+            with pytest.raises(ValueError, match=r"max_hs_m must be >= 0 and finite"):
+                score_complexity(_make_passage([5.0]), max_hs_m=bad)
 
 
 class TestWarnings:

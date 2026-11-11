@@ -10,6 +10,7 @@ import {
   COEFF_MIN,
   COEFF_STEP,
   MOTOR_MAX_KN,
+  MOTOR_SPEED_MIN_KN,
   isImportedActive,
   type PolarConfig,
 } from "../config/polarConfig";
@@ -57,7 +58,10 @@ export function BoatEssentials({ config, onChange }: BoatEssentialsProps) {
       return;
     }
     setMotorClamped(false);
-    onChange({ ...config, [field]: Math.round(num * 10) / 10 });
+    const rounded = Math.round(num * 10) / 10;
+    // Same floor as a persisted config: the API ignores a slower engine.
+    const floor = field === "motorSpeedKn" ? MOTOR_SPEED_MIN_KN : 0;
+    onChange({ ...config, [field]: Math.max(floor, rounded) });
   }
 
   const motorThreshold = config.motorThresholdKn;
@@ -143,7 +147,7 @@ export function BoatEssentials({ config, onChange }: BoatEssentialsProps) {
               type="number"
               inputMode="decimal"
               step="0.1"
-              min="0.1"
+              min={MOTOR_SPEED_MIN_KN}
               max={MOTOR_MAX_KN}
               placeholder={t("config.boat.motor.speedPlaceholder")}
               value={config.motorSpeedKn ?? ""}
