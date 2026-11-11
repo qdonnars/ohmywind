@@ -7,9 +7,10 @@
  * One block per server sampling point, wide in proportion to its distance
  * and painted in the same wind bands as the bar under the totals, so a leg
  * whose average reads "6–9 kn" shows at a glance which of its steps carried
- * the 9. Tapping a block opens that step in the card below; tapping it again
- * returns to the average. The toggle on the right says the same thing in
- * words, for readers who would not think of tapping a coloured bar.
+ * the 9. It is the average's view of the steps: tapping a block opens that
+ * step in the hour by hour view, where the table replaces the strip (see
+ * StepTable). The toggle on the right says the same thing in words, for
+ * readers who would not think of tapping a coloured bar.
  */
 
 import type { AggregatedLeg } from "./aggregateLegs";
@@ -17,7 +18,7 @@ import { beaufortLevel, windSoftVar } from "../domain/thresholds";
 import { fmtClock } from "../domain/datetime";
 import { useT } from "../i18n";
 
-type View = "average" | "detail";
+export type LegView = "average" | "detail";
 
 /** A block's floor, so a short step stays a target. Never more than an equal
     share of the strip, though: at 22 px apiece a leg of ten steps was wider
@@ -28,7 +29,7 @@ function stepMinWidth(n: number): string {
   return `min(22px, calc((100% - ${(n - 1) * 4}px) / ${n}))`;
 }
 
-function ViewToggle({ value, onChange }: { value: View; onChange: (v: View) => void }) {
+export function ViewToggle({ value, onChange }: { value: LegView; onChange: (v: LegView) => void }) {
   const { t } = useT();
   return (
     <div

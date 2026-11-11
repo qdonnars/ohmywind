@@ -46,7 +46,11 @@ export const plan: Record<keyof typeof frPlan, string> = {
   "plan.steps.stepLabel": "Step {index} of {total}, {time}",
   "plan.steps.viewToggle.label": "Leg display",
   "plan.steps.viewToggle.average": "Average",
-  "plan.steps.viewToggle.detail": "Detail",
+  "plan.steps.viewToggle.detail": "Hourly",
+  "plan.steps.span.one": "{count} step · {start} → {end}",
+  "plan.steps.span.other": "{count} steps · {start} → {end}",
+  "plan.steps.table.label": "Steps of the leg, hour by hour",
+  "plan.steps.table.direction": "Direction",
 
   // ── Map ───────────────────────────────────────────────────────────────────
   "plan.map.waypoint.remove": "Remove this waypoint",
