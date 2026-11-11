@@ -333,10 +333,15 @@ export function resolveInitialSession(input: InitialSessionInput): InitialSessio
     // from this very cache, and when the cached one has expired the user is
     // looking at their last plan with a fresh slider under it, which is the
     // starting point for the recomputation they are about to ask for.
+    const restored = restoreFrom(seedCache, {});
+    // A cache that kept the route but none of its results (they predate a
+    // server change the app depends on, see `hasSeaVerdict`) is a route to
+    // compute, not a plan to show empty.
+    const nothingRestored = restored.passage == null && restored.windows == null;
     return {
       ...base,
-      ...restoreFrom(seedCache, {}),
-      mount: { rewriteUrl: true, fetch: false },
+      ...restored,
+      mount: { rewriteUrl: true, fetch: nothingRestored },
     };
   }
 

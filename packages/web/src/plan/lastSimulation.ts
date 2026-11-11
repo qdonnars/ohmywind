@@ -134,6 +134,18 @@ function isPassageReport(v: unknown): v is PassageReport {
   );
 }
 
+/**
+ * True when the server that computed this passage also decided its sea state:
+ * every segment then carries a `sea_level` key (null where there is no sea
+ * data). The app no longer judges a wave height itself, so a passage cached
+ * from before that server would come back with its formed sea unmarked and
+ * its chop unflagged. Such a result is not restored: the route, the boat and
+ * the departure are, and the planner computes it again.
+ */
+function hasSeaVerdict(passage: PassageReport): boolean {
+  return passage.segments.every((s) => isRecord(s) && "sea_level" in s);
+}
+
 function isComplexityScore(v: unknown): v is ComplexityScore {
   if (!isRecord(v)) return false;
   return typeof v.level === "number" && typeof v.label === "string";
@@ -154,6 +166,7 @@ function parseSingle(v: unknown): LastSimulation["single"] {
   if (!isRecord(v)) return undefined;
   if (typeof v.departure !== "string" || v.departure === "") return undefined;
   if (!isPassageReport(v.passage)) return undefined;
+  if (!hasSeaVerdict(v.passage)) return undefined;
   if (!isComplexityScore(v.complexity)) return undefined;
   if (typeof v.forecastUpdatedAt !== "string") return undefined;
   return {
@@ -179,7 +192,17 @@ function parseCompare(v: unknown): LastSimulation["compare"] {
     sweepLatest: v.sweepLatest,
     sweepIntervalHours: v.sweepIntervalHours,
     sweepTargetEta: typeof v.sweepTargetEta === "string" ? v.sweepTargetEta : undefined,
-    windows: v.windows,
+    // The table reads the server's sentences and stays as it is. The detail
+    // of a window computed before the server decided the sea state is
+    // dropped: opening that window fetches it again, the fallback that
+    // already serves a window stripped to fit the storage budget.
+    windows: v.windows.map((w) => {
+      if (!isPassageReport(w.passage) || hasSeaVerdict(w.passage)) return w;
+      const row = { ...w };
+      delete row.passage;
+      delete row.complexity_full;
+      return row;
+    }),
     // Warnings are decoration: a bad list is emptied, not a reason to lose the
     // table it annotates.
     metaWarnings: readMetaWarnings(v.metaWarnings),

@@ -19,7 +19,7 @@ const passage = (): PassageReport => ({
   distance_nm: 55,
   efficiency: 0.75,
   model: "meteofrance_arome_france_hd",
-  segments: [{ distance_nm: 55 }] as unknown as PassageReport["segments"],
+  segments: [{ distance_nm: 55, sea_level: 1 }] as unknown as PassageReport["segments"],
   warnings: [],
 });
 
@@ -135,6 +135,64 @@ describe("parseLastSimulation", () => {
     expect(parsed?.waypoints).toHaveLength(2);
   });
 
+  it("drops a result computed before the server decided the sea state, keeps the route", () => {
+    // No `sea_level` key on the segments: an older server. The app no longer
+    // judges a wave height itself, so that plan would come back with its
+    // formed sea unmarked; it is computed again instead.
+    const old = full({
+      single: {
+        departure: "2026-09-03T08:00",
+        passage: {
+          ...passage(),
+          segments: [{ distance_nm: 55, hs_m: 2.6 }] as unknown as PassageReport["segments"],
+        },
+        complexity: complexity(),
+        forecastUpdatedAt: "2026-09-02T06:00:00Z",
+      },
+    });
+    const parsed = parseLastSimulation(JSON.stringify(old));
+    expect(parsed?.single).toBeUndefined();
+    expect(parsed?.waypoints).toHaveLength(2);
+    // A segment without sea data still carries the key, as null: kept.
+    const noSea = full({
+      single: {
+        ...full().single!,
+        passage: {
+          ...passage(),
+          segments: [{ distance_nm: 55, sea_level: null }] as unknown as PassageReport["segments"],
+        },
+      },
+    });
+    expect(parseLastSimulation(JSON.stringify(noSea))?.single).toBeDefined();
+  });
+
+  it("keeps the rows of an older sweep and drops only their detail", () => {
+    const sweep = (segments: unknown[]): LastSimulation["compare"] => ({
+      sweepEarliest: "2026-09-03T08:00",
+      sweepLatest: "2026-09-05T08:00",
+      sweepIntervalHours: 3,
+      windows: [
+        {
+          ...window_(0),
+          passage: { ...passage(), segments: segments as PassageReport["segments"] },
+          complexity_full: complexity(),
+        },
+      ],
+      metaWarnings: [],
+      forecastUpdatedAt: "2026-09-02T06:00:00Z",
+    });
+    const old = parseLastSimulation(JSON.stringify(full({ compare: sweep([{ distance_nm: 55 }]) })));
+    expect(old?.compare?.windows).toHaveLength(1);
+    expect(old?.compare?.windows[0].departure).toBe(window_(0).departure);
+    // Opening that window fetches it again.
+    expect(old?.compare?.windows[0].passage).toBeUndefined();
+    expect(old?.compare?.windows[0].complexity_full).toBeUndefined();
+    const current = parseLastSimulation(
+      JSON.stringify(full({ compare: sweep([{ distance_nm: 55, sea_level: 2 }]) })),
+    );
+    expect(current?.compare?.windows[0].passage).toBeDefined();
+  });
+
   it("drops a corrupted compare block without touching the single one", () => {
     const broken = full({
       compare: {
@@ -242,6 +300,7 @@ describe("saveLastSimulation size budget", () => {
         ...passage(),
         segments: Array.from({ length: 400 }, () => ({
           note: "x".repeat(40),
+          sea_level: null,
         })) as unknown as PassageReport["segments"],
       },
       complexity_full: complexity(),
