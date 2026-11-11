@@ -221,8 +221,8 @@ describe("buildLegSummaryCells figures", () => {
       buildLegSummaryCells(makeLeg({ hs_avg_m: 3.2, hs_min_m: 3.2, hs_max_m: 3.2, sea_level })).seaNote;
     expect(named(2)).toBeNull();
     expect(named(3)).toBe("Mer formée");
-    expect(named(4)).toBe("Grosse mer");
-    expect(named(5)).toBe("Très grosse mer");
+    expect(named(4)).toBe("Mer forte");
+    expect(named(5)).toBe("Mer très forte");
     // An older server stamps no level: nothing is flagged, whatever the
     // height. The app does not bin a wave height itself any more.
     expect(named(null)).toBeNull();
@@ -301,13 +301,13 @@ describe("buildLegSummaryCells.flag", () => {
     expect(flag).toBeNull();
   });
 
-  it("Grosse mer overrides Clapot from level 4", () => {
+  it("Mer forte overrides Clapot from level 4", () => {
     // Both apply; the bigger-picture label wins on the card, the chop keeps
     // its alert.
     const cells = buildLegSummaryCells(
       makeLeg({ hs_avg_m: 2.8, tp_avg_s: 5, sea_level: 4, sea_flag: "chop_short", sea_flag_tp_s: [5, 5] }),
     );
-    expect(cells.flag).toBe("Grosse mer");
+    expect(cells.flag).toBe("Mer forte");
     expect(cells.alert).toBe("Clapot · période 5 s");
   });
 

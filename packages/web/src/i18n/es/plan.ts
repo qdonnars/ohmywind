@@ -126,9 +126,9 @@ export const plan: Record<keyof typeof frPlan, string> = {
   "plan.notice.complexity.wind.3": "Viento fresco: TWS {tws_range} kn en {nm} nm",
   "plan.notice.complexity.wind.4": "Viento fuerte: TWS {tws_range} kn en {nm} nm",
   "plan.notice.complexity.wind.5": "Viento muy fuerte: TWS {tws_range} kn en {nm} nm",
-  "plan.notice.complexity.sea.3": "Mar gruesa: Hs {hs_range} m en {nm} nm",
-  "plan.notice.complexity.sea.4": "Mar muy gruesa: Hs {hs_range} m en {nm} nm",
-  "plan.notice.complexity.sea.5": "Mar arbolada: Hs {hs_range} m en {nm} nm",
+  "plan.notice.complexity.sea.3": "Marejada: Hs {hs_range} m en {nm} nm",
+  "plan.notice.complexity.sea.4": "Fuerte marejada: Hs {hs_range} m en {nm} nm",
+  "plan.notice.complexity.sea.5": "Mar gruesa: Hs {hs_range} m en {nm} nm",
   "plan.notice.complexity.current":
     "Viento contra corriente: corriente contraria de {current_range} kt en {nm} nm, mar corta probable",
   "plan.notice.complexity.chop_short":

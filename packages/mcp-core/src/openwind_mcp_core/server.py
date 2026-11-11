@@ -1242,10 +1242,10 @@ picks qualitatively (no server-side ranking).
 The sea is binned on the significant wave height Hs, on the edges of the
 Douglas scale the marine bulletins use: level 1 under 0.5 m ("plate"),
 2 under 1.25 m ("peu agitee"), 3 under 2.5 m ("formee"), 4 under 4 m
-("grosse"), 5 from 4 m ("tres grosse"). From level 3 the sea raises a
-warning ("Mer formee", "Grosse mer", "Tres grosse mer"). The words are
-the sailors' own; for levels 3 to 5 a bulletin says "agitee", "forte"
-and "tres forte".
+("forte"), 5 from 4 m ("tres forte"). From level 3 the sea raises a
+warning ("Mer formee", "Mer forte", "Mer tres forte"). The words are
+the bulletin's, except level 3: "formee", the sailors' word, where a
+bulletin says "agitee".
 
 Every segment carries the verdict: ``sea_level`` (1 to 5, null without
 sea data) and ``sea_flag`` ("wind_against_current", "chop_short",

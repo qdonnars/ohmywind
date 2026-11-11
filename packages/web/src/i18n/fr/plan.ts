@@ -131,8 +131,8 @@ export const plan = {
   "plan.notice.complexity.wind.4": "Vent fort : TWS {tws_range} kn sur {nm} nm",
   "plan.notice.complexity.wind.5": "Vent très fort : TWS {tws_range} kn sur {nm} nm",
   "plan.notice.complexity.sea.3": "Mer formée : Hs {hs_range} m sur {nm} nm",
-  "plan.notice.complexity.sea.4": "Grosse mer : Hs {hs_range} m sur {nm} nm",
-  "plan.notice.complexity.sea.5": "Très grosse mer : Hs {hs_range} m sur {nm} nm",
+  "plan.notice.complexity.sea.4": "Mer forte : Hs {hs_range} m sur {nm} nm",
+  "plan.notice.complexity.sea.5": "Mer très forte : Hs {hs_range} m sur {nm} nm",
   "plan.notice.complexity.current":
     "Vent contre courant : courant {current_range} kt opposé sur {nm} nm, mer hachée probable",
   "plan.notice.complexity.chop_short":

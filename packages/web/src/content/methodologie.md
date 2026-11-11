@@ -179,7 +179,7 @@ et la durée totale du passage est la somme des durées des sous-segments.
 La complexité d'un passage est lue sur **deux axes indépendants** :
 
 - **Vent** : TWS maximum sur les segments, classé en 5 paliers de "calme" à "très fort".
-- **Mer** : **Hs** (hauteur significative, soit la moyenne du tiers supérieur des vagues observées sur une fenêtre donnée) maximum, classée en 5 paliers aux seuils de l'échelle de Douglas des bulletins marine : plate (moins de 0,5 m), peu agitée (0,5 à 1,25 m), formée (1,25 à 2,5 m), grosse (2,5 à 4 m), très grosse (4 m et plus). À partir de "formée", la mer fait l'objet d'un avertissement. Les mots sont ceux du bord : pour ces trois derniers paliers, le bulletin dit "agitée", "forte" et "très forte".
+- **Mer** : **Hs** (hauteur significative, soit la moyenne du tiers supérieur des vagues observées sur une fenêtre donnée) maximum, classée en 5 paliers aux seuils de l'échelle de Douglas des bulletins marine : plate (moins de 0,5 m), peu agitée (0,5 à 1,25 m), formée (1,25 à 2,5 m), forte (2,5 à 4 m), très forte (4 m et plus). À partir de "formée", la mer fait l'objet d'un avertissement. Ce sont les mots du bulletin, sauf "formée", le mot du bord, là où le bulletin dit "agitée".
 
 Le niveau du passage est `max(niveau_vent, niveau_mer)`. Pas de moyenne magique, pas de score composite. C'est l'axe le plus dur qui dicte la difficulté.
 
