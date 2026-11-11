@@ -13,6 +13,8 @@ import { useOpenMeteoQuota } from "../hooks/useOpenMeteoQuota";
 import { openMeteoQuotaMessage } from "../api/openMeteoQuota";
 import { MODEL_META, type ModelName } from "../config/modelConfig";
 import { useT, t as translate } from "../i18n";
+import { circularMean, directionSpreadDeg, MODEL_DIRECTION_SPREAD_DEG } from "../domain/thresholds";
+import { DirectionArrow } from "./DirectionArrow";
 
 function modelStep(name: string): number {
   const meta = MODEL_META[name as ModelName];
@@ -23,15 +25,20 @@ function modelLabel(name: string): string {
   return MODEL_META[name as ModelName]?.label ?? name;
 }
 
+function modelShortLabel(name: string): string {
+  const meta = MODEL_META[name as ModelName];
+  return meta?.shortLabel ?? meta?.label ?? name;
+}
+
 function modelDescription(name: string): string {
   const meta = MODEL_META[name as ModelName];
   if (!meta) return name;
   return `${meta.label} (${meta.nativeStepHours}h) . ${translate(meta.provider)}`;
 }
 
-// Nominal cell width, the fallback useTimelineScroll uses before the table
-// is laid out; once it is, the hook measures the real columns (#413).
-const CELL_W = 36;
+// Nominal cell width (a phone's), the fallback useTimelineScroll uses before
+// the table is laid out; once it is, the hook measures the real columns (#413).
+const CELL_W = 38;
 
 function autoResolution(forecasts: ModelForecast[]): number {
   let finest = 6;
@@ -63,6 +70,41 @@ function buildTimeIndex(times: string[]): Map<string, number> {
   const map = new Map<string, number>();
   times.forEach((t, i) => map.set(t, i));
   return map;
+}
+
+/** What the direction row prints for one hour. */
+interface HourDirection {
+  /** Circular mean of the models' directions, null when none has one. */
+  mean: number | null;
+  /** Smallest arc covering them all, in whole degrees. */
+  spread: number;
+  /** Past `MODEL_DIRECTION_SPREAD_DEG`: one arrow would lie, so the row
+      prints the spread and each model cell draws its own arrow. */
+  disagree: boolean;
+}
+
+/**
+ * The direction of every hour, read once from the models that have a wind
+ * at that hour, the very values their cells print. Only models with a speed
+ * count: a model whose step skips the hour has no say in it.
+ */
+function hourDirections(
+  timeline: string[],
+  forecasts: ModelForecast[],
+  indexes: Map<string, number>[],
+): HourDirection[] {
+  return timeline.map((time) => {
+    const dirs: number[] = [];
+    forecasts.forEach((f, m) => {
+      const idx = indexes[m].get(time);
+      if (idx == null) return;
+      const speed = f.hourly.wind_speed_10m[idx];
+      const dir = f.hourly.wind_direction_10m[idx];
+      if (speed != null && dir != null) dirs.push(dir);
+    });
+    const spread = Math.round(directionSpreadDeg(dirs));
+    return { mean: circularMean(dirs), spread, disagree: spread > MODEL_DIRECTION_SPREAD_DEG };
+  });
 }
 
 function SkeletonTable() {
@@ -129,10 +171,19 @@ export function WindTable({
   }, [forecasts]);
 
   const nowHour = nowParisHourPrefix();
-  const { scrollRef, scrolledEnd, visibleDay, dayStarts } = useTimelineScroll(
+  const { scrollRef, scrolledEnd, visibleDay } = useTimelineScroll(
     masterTimeline,
     CELL_W,
     nowHour,
+  );
+
+  const indexes = useMemo(
+    () => forecasts.map((f) => buildTimeIndex(f.hourly.time)),
+    [forecasts],
+  );
+  const directions = useMemo(
+    () => hourDirections(masterTimeline, forecasts, indexes),
+    [masterTimeline, forecasts, indexes],
   );
 
   // One function for the whole table, not one closure per cell.
@@ -145,6 +196,9 @@ export function WindTable({
   if (forecasts.length === 0) {
     return <EmptyForecast />;
   }
+
+  const lastCol = masterTimeline.length - 1;
+  const lastRow = forecasts.length - 1;
 
   return (
     // Same shape as MarineTable and TideChart: a flex column all the way down
@@ -159,6 +213,8 @@ export function WindTable({
           <table className="border-collapse" role="table">
             <thead className="sticky top-0 z-20">
               <TimelineHeader
+                variant="harmonised"
+                cornerLabel={t("explore.windTable.unit")}
                 times={masterTimeline}
                 selectedHour={selectedHour}
                 onSelectHour={onSelectHour}
@@ -169,43 +225,89 @@ export function WindTable({
               />
             </thead>
             <tbody>
-              {forecasts.map((forecast) => {
-                const timeIndex = buildTimeIndex(forecast.hourly.time);
-                return (
-                  <tr key={forecast.modelName} className={forecasts.indexOf(forecast) % 2 === 1 ? "model-row-alt" : ""}>
+              {/* One direction for the whole table while the models agree:
+                  it does not change from model to model, so it is said once,
+                  above them (« ce qui ne change pas se tait »). */}
+              <tr>
+                <td
+                  className="sticky left-0 z-10 pl-2 pr-2 h-[22px] text-left whitespace-nowrap text-[10px] leading-none border-t"
+                  style={{ background: "var(--ow-bg-1)", color: "var(--ow-fg-2)", borderTopColor: "var(--ow-line)" }}
+                  role="rowheader"
+                >
+                  {t("explore.windTable.direction")}
+                </td>
+                {masterTimeline.map((time, i) => {
+                  const d = directions[i];
+                  const label = d.disagree
+                    ? t("explore.windTable.spread", { deg: d.spread })
+                    : d.mean != null
+                      ? t("explore.windTable.meanDirection", { dir: d.mean })
+                      : undefined;
+                  return (
                     <td
-                      className="sticky left-0 z-10 px-2 py-1 whitespace-nowrap border-r min-w-[56px]"
-                      style={{ background: 'var(--ow-bg-1)', borderColor: 'var(--ow-line-2)' }}
+                      key={i}
+                      role="cell"
+                      aria-label={label}
+                      className="p-0 h-[22px] align-middle cursor-pointer border-t"
+                      style={{ borderTopColor: "var(--ow-line)", color: "var(--ow-fg-1)" }}
+                      onClick={() => selectHour(time)}
+                    >
+                      {d.disagree ? (
+                        <div
+                          title={label}
+                          className="mx-[1px] h-[18px] flex items-center justify-center rounded-[4px] border border-dashed text-[10px] font-bold tabular-nums leading-none"
+                          style={{ borderColor: "var(--ow-line-2)", color: "var(--ow-fg-0)" }}
+                          aria-hidden="true"
+                        >
+                          Δ{d.spread}°
+                        </div>
+                      ) : (
+                        d.mean != null && (
+                          <div className="flex justify-center">
+                            <DirectionArrow deg={d.mean} from size={11} className="lg:w-[12px] lg:h-[12px]" />
+                          </div>
+                        )
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+              {forecasts.map((forecast, row) => {
+                const timeIndex = indexes[row];
+                return (
+                  <tr key={forecast.modelName}>
+                    <td
+                      className="sticky left-0 z-10 pl-2 pr-2 pt-[2px] text-left whitespace-nowrap leading-none"
+                      style={{ background: "var(--ow-bg-1)", color: "var(--ow-fg-0)" }}
                       role="rowheader"
                     >
-                      <div className="flex flex-col items-center leading-none gap-[2px]">
-                        <span
-                          className="text-[11px] lg:text-[12px] font-bold tracking-wide flex items-center gap-[2px]"
-                          style={{ color: 'var(--ow-fg-0)' }}
-                          title={
-                            forecast.fellBackFrom
-                              ? t("explore.windTable.fallbackTitle", {
-                                  description: modelDescription(forecast.modelName),
-                                  model: modelLabel(forecast.fellBackFrom),
-                                })
-                              : modelDescription(forecast.modelName)
-                          }
-                        >
-                          {modelLabel(forecast.modelName)}
-                          {forecast.fellBackFrom && (
-                            <span
-                              aria-label={t("explore.windTable.fallbackBadge", {
+                      <span
+                        className="text-[10.5px] lg:text-[12px] font-semibold inline-flex items-center gap-[2px]"
+                        title={
+                          forecast.fellBackFrom
+                            ? t("explore.windTable.fallbackTitle", {
+                                description: modelDescription(forecast.modelName),
                                 model: modelLabel(forecast.fellBackFrom),
-                              })}
-                              className="text-[9px] font-normal opacity-60"
-                              style={{ color: 'var(--ow-fg-2)' }}
-                            >
-                              ↳
-                            </span>
-                          )}
-                        </span>
-                        <span className="text-[8px] font-medium" style={{ color: 'var(--ow-fg-2)' }}>kn</span>
-                      </div>
+                              })
+                            : modelDescription(forecast.modelName)
+                        }
+                      >
+                        {/* A phone has 54 px for the names: the variant
+                            qualifier goes (« AROME », « ICON »). */}
+                        <span className="lg:hidden">{modelShortLabel(forecast.modelName)}</span>
+                        <span className="hidden lg:inline">{modelLabel(forecast.modelName)}</span>
+                        {forecast.fellBackFrom && (
+                          <span
+                            aria-label={t("explore.windTable.fallbackBadge", {
+                              model: modelLabel(forecast.fellBackFrom),
+                            })}
+                            className="text-[9px] font-normal opacity-60"
+                            style={{ color: "var(--ow-fg-2)" }}
+                          >
+                            ↳
+                          </span>
+                        )}
+                      </span>
                     </td>
                     {masterTimeline.map((t, i) => {
                       const idx = timeIndex.get(t);
@@ -219,8 +321,11 @@ export function WindTable({
                           gusts={gusts}
                           direction={direction}
                           selected={t === selectedHour}
-                          isNow={t.startsWith(nowHour)}
-                          isDayStart={dayStarts.has(t) && i > 0}
+                          showDirection={directions[i].disagree}
+                          firstRow={row === 0}
+                          lastRow={row === lastRow}
+                          firstCol={i === 0}
+                          lastCol={i === lastCol}
                           time={t}
                           onSelect={selectHour}
                         />
