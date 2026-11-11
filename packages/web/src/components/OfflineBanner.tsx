@@ -30,7 +30,7 @@ export function OfflineBanner() {
       style={{
         background: "var(--ow-warn-soft)",
         border: "1px solid var(--ow-warn-line)",
-        color: "var(--ow-warn)",
+        color: "var(--ow-warn-ink)",
       }}
     >
       <span

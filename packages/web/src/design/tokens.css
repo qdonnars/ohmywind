@@ -123,18 +123,14 @@
   --ow-cell-text-7: #fff5f5;
   --ow-cell-text-8: #fff5f5;
 
-  /* Complexity colors — 5 paliers */
-  --ow-c-1: #2dc97a;
-  --ow-c-2: #8fcc30;
-  --ow-c-3: #e8c432;
-  --ow-c-4: #e87a18;
-  --ow-c-5: #e84118;
-
   /* Semantic */
   --ow-err: #f87171;
   --ow-err-soft: rgba(248, 113, 113, 0.12);
   --ow-err-line: rgba(248, 113, 113, 0.25);
   --ow-warn: #fbbf24;
+  /* The warning as ink: text and icons. --ow-warn itself stays the fill and
+     stroke colour. The same amber here; the light theme is where they part. */
+  --ow-warn-ink: #fbbf24;
   --ow-warn-soft: rgba(251, 191, 36, 0.12);
   --ow-warn-line: rgba(251, 191, 36, 0.25);
   --ow-ok: #34d399;
@@ -175,6 +171,10 @@
   --ow-route-a: #2dd4bf;
   --ow-route-b: #8B7BF5;
   --ow-route-c: #E0729B;
+
+  /* The casing under the passage's track: a wider line of the map's own
+     depth, so a pale Beaufort tint still reads as a line over a pale sea. */
+  --ow-route-casing: #060B17;
 }
 
 [data-theme="light"] {
@@ -186,6 +186,8 @@
   --ow-fg-0: #0d1117;
   --ow-fg-1: #3a4250;
   --ow-fg-2: #6b7280;
+  /* 2.5:1 on white: strokes, separators and disabled controls only. Anything
+     meant to be read (a column header, a unit, a legend) takes --ow-fg-2. */
   --ow-fg-3: #9ca3af;
 
   /* Darker teal for light theme — #2dd4bf has 1.7:1 contrast on white, unusable */
@@ -243,7 +245,7 @@
   --ow-map-land-0: #e8ede0;
   --ow-map-land-1: #dfe5d4;
 
-  /* Radius, typography, and wind/complexity colors are identical to dark */
+  /* Radius and typography are identical to dark */
   --ow-r-sm: 4px;
   --ow-r-md: 8px;
   --ow-r-lg: 12px;
@@ -275,20 +277,16 @@
   --ow-cell-text-7: #fff5f5;
   --ow-cell-text-8: #fff5f5;
 
-  /* Complexity colors — identical */
-  --ow-c-1: #2dc97a;
-  --ow-c-2: #8fcc30;
-  --ow-c-3: #e8c432;
-  --ow-c-4: #e87a18;
-  --ow-c-5: #e84118;
-
   /* Semantic */
   --ow-err: #f87171;
   --ow-err-soft: rgba(248, 113, 113, 0.12);
   --ow-err-line: rgba(248, 113, 113, 0.25);
   --ow-warn: #fbbf24;
-  --ow-warn-soft: rgba(251, 191, 36, 0.12);
-  --ow-warn-line: rgba(251, 191, 36, 0.25);
+  /* #fbbf24 has 1.7:1 on white: fine as a fill, unreadable as text. The ink
+     is a dark amber that clears 4.5:1 on the panel and on the soft fill. */
+  --ow-warn-ink: #9a5b00;
+  --ow-warn-soft: rgba(251, 191, 36, 0.16);
+  --ow-warn-line: rgba(154, 91, 0, 0.35);
   --ow-ok: #0e9f8f;
   --ow-ok-soft: rgba(14, 159, 143, 0.12);
   --ow-ok-line: rgba(14, 159, 143, 0.40);
@@ -301,4 +299,6 @@
   --ow-route-a: #0f766e;
   --ow-route-b: #5B4BD6;
   --ow-route-c: #B8476F;
+
+  --ow-route-casing: #ffffff;
 }

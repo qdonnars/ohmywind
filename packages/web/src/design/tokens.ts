@@ -22,3 +22,13 @@ export function readToken(name: string): string {
   if (typeof document === "undefined") return "";
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
+
+/**
+ * A CSS value with every `var(--token)` in it resolved, for the same two
+ * call sites: `color-mix(in oklch, var(--ow-w-3) 78%, var(--ow-bg-0))` comes
+ * back with the two colours written out, which a presentation attribute and
+ * a canvas both take.
+ */
+export function resolveTokens(value: string): string {
+  return value.replace(/var\((--[\w-]+)\)/g, (_, name: string) => readToken(name));
+}

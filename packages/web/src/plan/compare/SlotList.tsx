@@ -179,7 +179,7 @@ function SlotRow({
             <span
               title={tn("panel.compare.row.alerts", alerts)}
               className="flex items-center gap-0.5 text-[10.5px] font-bold tabular-nums"
-              style={{ ...MONO, color: "var(--ow-warn)" }}
+              style={{ ...MONO, color: "var(--ow-warn-ink)" }}
             >
               <span className="text-[10px]">⚠</span>{alerts}
             </span>

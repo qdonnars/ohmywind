@@ -843,7 +843,7 @@ select,
   color: var(--ow-fg-0);
 }
 .ow-search-input::placeholder {
-  color: var(--ow-fg-3);
+  color: var(--ow-fg-2);
 }
 .ow-search-input:focus {
   outline: none;
