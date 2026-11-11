@@ -24,6 +24,7 @@ web app use their own bulletins' terms (see the web dictionaries).
 
 from __future__ import annotations
 
+import math
 from typing import Literal
 
 from openwind_data.adapters.base import (
@@ -58,12 +59,30 @@ SEA_NAMES: dict[int, str] = {
 SeaFlag = Literal["wind_against_current", "chop_short", "chop_following"]
 
 
+def as_printed(value: float, digits: int) -> float:
+    """``value`` rounded the way a reader sees it, half up, to ``digits``.
+
+    Bands are read on the printed figure, not the raw forecast: a warning
+    says "Hs 1.2 m" and a table cell "1,2", so a 1.249 m sea that the bands
+    put above an edge the printed figure is under (or the reverse) shows the
+    reader one number and two verdicts. Half up, like the web app's
+    ``Math.round``, rather than Python's ``round``, which rounds half to even.
+    """
+    scale = 10**digits
+    return math.floor(value * scale + 0.5) / scale
+
+
 def sea_level(hs_m: float | None) -> int | None:
-    """Level 1 to 5 of a significant wave height, ``None`` without one."""
+    """Level 1 to 5 of a significant wave height, ``None`` without one.
+
+    Read on the height to the tenth of a metre, as it is printed: 2.46 m
+    reads "2.5" and is a "Mer forte".
+    """
     if hs_m is None:
         return None
+    shown = as_printed(hs_m, 1)
     for upper, level, _ in SEA_BANDS:
-        if hs_m < upper:
+        if shown < upper:
             return level
     raise AssertionError("bands must end with +inf")  # pragma: no cover
 

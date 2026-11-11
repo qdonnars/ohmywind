@@ -7,7 +7,7 @@ import { TimelineHeader } from "./TimelineHeader";
 import { DirectionArrow } from "./DirectionArrow";
 import { useTimezone } from "../hooks/useTimezone";
 import { nowParisHourPrefix } from "../domain/datetime";
-import { currentsLevel, tidesLevel, waveLevel, windLevelVar, windSoftVar, windTextVar } from "../domain/thresholds";
+import { currentsLevel, tidesLevel, waveInk, waveLevel, windLevelVar, windSoftVar, windTextVar } from "../domain/thresholds";
 import { useTimelineScroll } from "../hooks/useTimelineScroll";
 import { t, useLang, useT, type Key } from "../i18n";
 import { numFixed } from "../plan/format";
@@ -306,7 +306,7 @@ function MarineCellImpl({
             ...fillShape(selected, firstCol, lastCol),
             background: `var(--ow-wave-${waveLevel(value)})`,
             // The ramp is dark under a metre and light from there.
-            color: value < 1 ? "var(--ow-fg-0)" : "var(--ow-cell-ink)",
+            color: waveInk(value),
           }}
         >
           {display}
