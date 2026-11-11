@@ -443,6 +443,15 @@ describe("resolveInitialSession: restoring results from the cache (path B)", () 
     expect(s.mount).toEqual({ rewriteUrl: true, fetch: true });
   });
 
+  it("computes a cached route whose results could not be restored", () => {
+    // What a cache from before the server decided the sea state reads as:
+    // the route and the boat, no result (see `parseLastSimulation`).
+    const s = resolve({ cache: cache({ single: undefined }) });
+    expect(s.waypoints).toHaveLength(2);
+    expect(s.passage).toBeNull();
+    expect(s.mount).toEqual({ rewriteUrl: true, fetch: true });
+  });
+
   it("does not require the departure to match, unlike path A", () => {
     const s = resolve({
       cache: cache({ single: { ...cache().single!, departure: PAST } }),
