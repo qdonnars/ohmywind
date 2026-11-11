@@ -32,8 +32,21 @@ RUN pip install /app/data-adapters /app/api /app/mcp-core "uvicorn[standard]>=0.
 # Runtime reads MARC subdirs via MARC_ATLAS_DIR and the SHOM Parquet+JSON via
 # SHOM_C2D_DIR; both point at the same shared directory because the layout
 # inside the dataset places SHOM artefacts at root next to the per-atlas MARC
-# subdirs. The fetch script falls back gracefully (empty dir, runtime uses
-# Open-Meteo SMOC only) when the secret is absent.
+# subdirs.
+#
+# The build FAILS when the atlases do not come down (no secret, an expired
+# token, the dataset unreachable or incomplete): an image without them plans
+# the coast on Open-Meteo's 8 km global current and looks healthy from
+# outside. ALLOW_MISSING_ATLASES=1 is the explicit escape hatch for a local
+# build or a fork without access to the dataset:
+#   docker build --build-arg ALLOW_MISSING_ATLASES=1 .
+# It is kept in the runtime environment too, where the server logs at ERROR
+# when it starts without atlases it was not allowed to miss. The secret mount
+# stays required=false so that the escape hatch works without a secret; the
+# script, not the mount, is what refuses a build that has none.
+ARG ALLOW_MISSING_ATLASES=0
+ARG REQUIRED_ATLASES=""
+ENV ALLOW_MISSING_ATLASES=${ALLOW_MISSING_ATLASES}
 ENV HF_DATASET_ID=Qdonnars/openwind-tidal-atlas
 ENV ATLAS_DATA_DIR=/app/data/atlas
 ENV MARC_ATLAS_DIR=/app/data/atlas
