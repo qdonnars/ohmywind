@@ -50,7 +50,11 @@ export const plan = {
   "plan.steps.stepLabel": "Pas {index} sur {total}, {time}",
   "plan.steps.viewToggle.label": "Affichage du tronçon",
   "plan.steps.viewToggle.average": "Moyenne",
-  "plan.steps.viewToggle.detail": "Détail",
+  "plan.steps.viewToggle.detail": "Par heure",
+  "plan.steps.span.one": "{count} pas · {start} → {end}",
+  "plan.steps.span.other": "{count} pas · {start} → {end}",
+  "plan.steps.table.label": "Pas du tronçon, heure par heure",
+  "plan.steps.table.direction": "Direction",
 
   // ── Carte ─────────────────────────────────────────────────────────────────
   "plan.map.waypoint.remove": "Supprimer ce point",

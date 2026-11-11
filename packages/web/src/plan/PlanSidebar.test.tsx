@@ -10,7 +10,7 @@
  * for something the context does not carry fails here rather than at runtime.
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PlanSidebar } from "./PlanSidebar";
 import { ReturnBanner } from "./ReturnBanner";
@@ -433,11 +433,52 @@ describe("open leg", () => {
     expect(screen.getByText("6–9 (18) kn")).toBeTruthy();
     expect(screen.getAllByRole("button", { name: /^Pas \d sur 2/ })).toHaveLength(2);
 
-    await userEvent.click(screen.getByRole("button", { name: "Détail" }));
+    // On the average the steps are the strip, not the table.
+    expect(screen.queryByRole("table", { name: "Pas du tronçon, heure par heure" })).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "Par heure" }));
     expect(value.actions.selectStep).toHaveBeenCalledWith(0);
   });
 
-  it("walks the steps with the arrows and the strip", async () => {
+  it("lays the steps side by side hour by hour, and opens the one picked", async () => {
+    const value = mount({
+      passage: twoStepPassage(),
+      complexity: complexity(),
+      selectedLegIdx: 0,
+      selectedStepIdx: 0,
+    });
+    const table = screen.getByRole("table", { name: "Pas du tronçon, heure par heure" });
+    // The table replaces the strip: one column per step, headed by its hour.
+    expect(screen.queryByRole("group", { name: "Pas de calcul du tronçon" })).toBeNull();
+    const heads = within(table).getAllByRole("button", { name: /^Pas \d sur 2/ });
+    expect(heads.map((h) => h.textContent)).toEqual([
+      fmtClock("2026-09-10T08:00:00+02:00"),
+      fmtClock("2026-09-10T13:00:00+02:00"),
+    ]);
+    expect(heads.map((h) => h.getAttribute("aria-pressed"))).toEqual(["true", "false"]);
+    expect(screen.getByText(`2 pas · ${fmtClock("2026-09-10T08:00:00+02:00")} → ${fmtClock("2026-09-10T18:00:00+02:00")}`)).toBeTruthy();
+    // Each row says its unit once, and the cells carry bare figures: the
+    // wind over its gust, the sea, the speed.
+    expect(within(table).getByRole("rowheader", { name: "Vent kn" })).toBeTruthy();
+    expect(within(table).getByRole("rowheader", { name: "Mer m" })).toBeTruthy();
+    expect(within(table).getByText("↑18")).toBeTruthy();
+    expect(within(table).getByText("1,5")).toBeTruthy();
+    // The formed sea of step 2 is a marker on its cell, not a tint.
+    expect(within(table).getByRole("img", { name: "Mer formée · Hs 1,5 m sur 28,0 nm" })).toBeTruthy();
+    // No current on this passage: no current row.
+    expect(within(table).queryByRole("rowheader", { name: "Courant kn" })).toBeNull();
+    // The card under the table is the picked step's.
+    expect(screen.getByText(/1\/2$/)).toBeTruthy();
+
+    await userEvent.click(heads[1]);
+    expect(value.actions.selectStep).toHaveBeenCalledWith(1);
+
+    // Back to the average: no step is open any more.
+    await userEvent.click(screen.getByRole("button", { name: "Moyenne" }));
+    expect(value.actions.selectStep).toHaveBeenCalledWith(null);
+  });
+
+  it("walks the steps with the arrows of the card, the table following", async () => {
     const value = mount({
       passage: twoStepPassage(),
       complexity: complexity(),
@@ -458,9 +499,8 @@ describe("open leg", () => {
     await userEvent.click(screen.getByRole("button", { name: "Pas précédent" }));
     expect(value.actions.selectStep).toHaveBeenCalledWith(0);
 
-    // Tapping the open block returns to the average.
-    await userEvent.click(screen.getByRole("button", { name: /^Pas 2 sur 2/ }));
-    expect(value.actions.selectStep).toHaveBeenCalledWith(null);
+    // The table marks the same step as the card.
+    expect(screen.getByRole("button", { name: /^Pas 2 sur 2/ }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("opens a step from the bar under the totals, and closes it from there too", async () => {
@@ -485,11 +525,12 @@ describe("open leg", () => {
     expect(open.actions.selectLeg).not.toHaveBeenCalled();
   });
 
-  it("shows a single-step leg as the step itself: no average, no strip, no arrows", () => {
+  it("shows a single-step leg as the step itself: no average, no strip, no table, no arrows", () => {
     mount({ passage: passage(), complexity: complexity(), selectedLegIdx: 0 });
     expect(screen.queryByText(/Moyenne/)).toBeNull();
     expect(screen.getByText(`${fmtClock("2026-09-10T08:00:00+02:00")} → ${fmtClock("2026-09-10T18:00:00+02:00")}`)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Détail" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Par heure" })).toBeNull();
+    expect(screen.queryByRole("table", { name: "Pas du tronçon, heure par heure" })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Pas / })).toBeNull();
   });
 });
