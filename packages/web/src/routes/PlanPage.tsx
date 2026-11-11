@@ -446,6 +446,7 @@ export function PlanPage() {
     selectedStepIdx,
     actionTaken,
     isStale,
+    trackRequests,
   } = state;
 
   // While a variant is being drawn, the map's markers are the variant's
@@ -512,11 +513,21 @@ export function PlanPage() {
   // between two filled modes, so the drawer re-fits on the view it switched
   // to. Gated on isLoading because the filled view (and its anchor) only
   // exists once loading ends.
+  //
+  // On the route axis the results are the options, and they land when the
+  // last of their computations does (a finished variant, a recomputation):
+  // the drawer then opens on the list, as it opens on a plan.
+  const tracksPending = Object.keys(trackRequests).length > 0;
   const resultsFitKey = useMemo(() => {
     if (isLoading) return null;
-    const filled = planMode === "compare" ? !!windows && windows.length > 0 : !!passage;
+    const filled =
+      planMode === "single"
+        ? !!passage
+        : compareAxis === "tracks"
+          ? !drawing && !tracksPending && tracks.length > 0
+          : !!windows && windows.length > 0;
     return filled ? {} : null;
-  }, [passage, windows, planMode, isLoading]);
+  }, [passage, windows, planMode, isLoading, compareAxis, drawing, tracksPending, tracks]);
 
   // The short steps of the mobile drawer, fitted to what they hold rather
   // than to a fixed slot: nothing drawn yet, a route with nothing asked yet,
@@ -579,14 +590,30 @@ export function PlanPage() {
     actions.computeWindows();
   }, [actions]);
 
+  // The route axis has no single button to hook: a variant finished in the
+  // panel and a « Calculer » on stale options both start route computations.
+  // Their start is the request, so the camera frames the options when they
+  // have all come back.
+  const wasPendingRef = useRef(tracksPending);
+  useEffect(() => {
+    if (tracksPending && !wasPendingRef.current) frameOnResultsRef.current = true;
+    wasPendingRef.current = tracksPending;
+  }, [tracksPending]);
+
   useEffect(() => {
     if (resultsFitKey == null || !frameOnResultsRef.current) return;
     frameOnResultsRef.current = false;
     // One frame later, like the drawer's own fit: the two run in the order
     // they were scheduled, the drawer's first, so the map is measured at the
     // height the drawer settled on.
-    const raf = requestAnimationFrame(() => mapRef.current?.fitToWaypoints());
+    // On the route axis, every option is in the frame: a variant may sail
+    // well off the plan's line, and the point is to see them side by side.
+    const extra = tracksAxis ? overlays.map((o) => o.waypoints) : [];
+    const raf = requestAnimationFrame(() => mapRef.current?.fitToWaypoints(extra));
     return () => cancelAnimationFrame(raf);
+    // Keyed on the results only: an overlay change (a highlight) must not
+    // move the camera.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resultsFitKey]);
 
   if (initial.urlError !== null) {
