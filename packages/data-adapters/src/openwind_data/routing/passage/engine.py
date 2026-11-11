@@ -38,6 +38,7 @@ from openwind_data.routing.passage.sampling import (
     _closest_wind_point,
     _sample_route,
 )
+from openwind_data.routing.sea_state import sea_flag, sea_level
 
 
 def _segment_report(
@@ -137,6 +138,15 @@ def _segment_report(
         wave_period_s=tp_s,
         model_used=model,
         motor_used=motor_used,
+        sea_level=sea_level(hs_m),
+        sea_flag=sea_flag(
+            twd_deg=wp.direction_deg,
+            twa_deg=twa,
+            hs_m=hs_m,
+            wave_period_s=tp_s,
+            current_speed_kn=cur_kn,
+            current_direction_to_deg=cur_to,
+        ),
     )
 
 

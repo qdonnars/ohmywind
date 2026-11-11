@@ -172,6 +172,10 @@ function makeLeg(overrides: Partial<AggregatedLeg> = {}): AggregatedLeg {
     hs_max_m: null,
     tp_avg_s: null,
     sea_direction: null,
+    sea_level: null,
+    sea_flag: null,
+    sea_flag_tp_s: null,
+    sea_flag_current_kn: null,
     current_speed_kn: null,
     current_direction_to_deg: null,
     current_relative: null,
@@ -205,13 +209,23 @@ describe("buildLegSummaryCells figures", () => {
 
   it("says a formed sea by its figure, with no alert of its own", () => {
     const cells = buildLegSummaryCells(
-      makeLeg({ distance_nm: 13.8, hs_avg_m: 1.3, hs_min_m: 1.1, hs_max_m: 1.4, tp_avg_s: 9 }),
+      makeLeg({ distance_nm: 13.8, hs_avg_m: 1.3, hs_min_m: 1.1, hs_max_m: 1.4, tp_avg_s: 9, sea_level: 3 }),
     );
     expect(cells.flag).toBe("Mer formée");
     expect(cells.seaNote).toBe("Mer formée");
     expect(cells.alert).toBeNull();
-    expect(buildLegSummaryCells(makeLeg({ hs_avg_m: 2.8, tp_avg_s: 9 })).seaNote).toBe("Grosse mer");
-    expect(buildLegSummaryCells(makeLeg({ hs_avg_m: 1.2, tp_avg_s: 9 })).seaNote).toBeNull();
+  });
+
+  it("names the sea from the server's level, never from the height", () => {
+    const named = (sea_level: number | null) =>
+      buildLegSummaryCells(makeLeg({ hs_avg_m: 3.2, hs_min_m: 3.2, hs_max_m: 3.2, sea_level })).seaNote;
+    expect(named(2)).toBeNull();
+    expect(named(3)).toBe("Mer formée");
+    expect(named(4)).toBe("Grosse mer");
+    expect(named(5)).toBe("Très grosse mer");
+    // An older server stamps no level: nothing is flagged, whatever the
+    // height. The app does not bin a wave height itself any more.
+    expect(named(null)).toBeNull();
   });
 
   it("says a sustained wind by its figure, from the server's own threshold", () => {
@@ -224,70 +238,133 @@ describe("buildLegSummaryCells figures", () => {
   });
 
   it("keeps an alert for a chop, with the period the row does not show", () => {
-    // Hs 1,3 m at Tp 4 s: steep, and formed too. Both are said, each its way.
+    // Steep, and formed too. Both are said, each its way.
     const cells = buildLegSummaryCells(
-      makeLeg({ hs_avg_m: 1.3, hs_min_m: 1.3, hs_max_m: 1.3, tp_avg_s: 4.2, sea_direction: "arrière" }),
+      makeLeg({
+        hs_avg_m: 1.3,
+        hs_min_m: 1.3,
+        hs_max_m: 1.3,
+        tp_avg_s: 4.2,
+        sea_level: 3,
+        sea_flag: "chop_following",
+        sea_flag_tp_s: [4.2, 4.2],
+      }),
     );
     expect(cells.alert).toBe("Clapot suiveur · période 4 s");
     expect(cells.seaNote).toBe("Mer formée");
   });
 
+  it("gives the periods of the flagged steps as a range when they differ", () => {
+    const cells = buildLegSummaryCells(
+      makeLeg({ hs_avg_m: 1.0, sea_level: 2, sea_flag: "chop_short", sea_flag_tp_s: [3.8, 4.6] }),
+    );
+    expect(cells.alert).toBe("Clapot · période 4–5 s");
+    expect(cells.seaNote).toBeNull();
+  });
+
   it("keeps an alert for a wind against the current, with the current's speed", () => {
     const cells = buildLegSummaryCells(
-      makeLeg({ distance_nm: 8, current_relative: "contraire", current_speed_kn: 1.8, current_delta_kn: -1.6 }),
+      makeLeg({ distance_nm: 8, sea_flag: "wind_against_current", sea_flag_current_kn: 1.8 }),
     );
     expect(cells.alert).toBe("Vent contre courant · 1,8 kn");
+  });
+
+  it("does not call a current on the nose a wind against the current", () => {
+    // The app used to flag any contrary current of 1,5 kn or more, whatever
+    // the wind. It is the wind that breaks the sea, and the server that says so.
+    const cells = buildLegSummaryCells(
+      makeLeg({ current_relative: "contraire", current_speed_kn: 2.4, current_delta_kn: -2.2 }),
+    );
+    expect(cells.alert).toBeNull();
+    expect(cells.flag).toBeNull();
   });
 });
 
 describe("buildLegSummaryCells.flag", () => {
-  it("flags Clapot when Hs/Tp² > 0.05 and Hs >= 0.8 m", () => {
-    // Hs 1.2 m at Tp 4.5 s → index ≈ 0.059, in "Mer formée" Hs range but
-    // labelled Clapot because the period is short and steep.
-    const flag = buildLegSummaryCells(makeLeg({ hs_avg_m: 1.2, tp_avg_s: 4.5 })).flag;
+  it("flags Clapot on the server's word", () => {
+    const flag = buildLegSummaryCells(
+      makeLeg({ hs_avg_m: 1.2, tp_avg_s: 4.5, sea_level: 2, sea_flag: "chop_short", sea_flag_tp_s: [4.5, 4.5] }),
+    ).flag;
     expect(flag).toBe("Clapot");
   });
 
   it("keeps Mer formée label for long-period swell at the same Hs", () => {
-    // Hs 1.8 m at Tp 11 s → index ≈ 0.0149, comfortable long swell.
-    const flag = buildLegSummaryCells(makeLeg({ hs_avg_m: 1.8, tp_avg_s: 11 })).flag;
+    // Hs 1.8 m at Tp 11 s: the server flags no chop, the level alone speaks.
+    const flag = buildLegSummaryCells(makeLeg({ hs_avg_m: 1.8, tp_avg_s: 11, sea_level: 3 })).flag;
     expect(flag).toBe("Mer formée");
   });
 
-  it("does not flag Clapot when Hs is below the 0.8 m floor", () => {
-    // Hs 0.4 m at Tp 2 s → mathematically index 0.1 but harmless ripples.
-    const flag = buildLegSummaryCells(makeLeg({ hs_avg_m: 0.4, tp_avg_s: 2 })).flag;
+  it("does not flag a steep sea the server did not flag", () => {
+    // Hs 0.4 m at Tp 2 s is steep on paper and harmless ripples at sea. The
+    // floor is the server's; nothing is measured again here.
+    const flag = buildLegSummaryCells(makeLeg({ hs_avg_m: 0.4, tp_avg_s: 2, sea_level: 1 })).flag;
     expect(flag).toBeNull();
   });
 
-  it("Grosse mer overrides Clapot when Hs > 2.5 m", () => {
-    // Hs 2.8 m at Tp 5 s → both Clapot (steep) and Grosse mer apply; the
-    // bigger-picture label wins.
-    const flag = buildLegSummaryCells(makeLeg({ hs_avg_m: 2.8, tp_avg_s: 5 })).flag;
-    expect(flag).toBe("Grosse mer");
+  it("Grosse mer overrides Clapot from level 4", () => {
+    // Both apply; the bigger-picture label wins on the card, the chop keeps
+    // its alert.
+    const cells = buildLegSummaryCells(
+      makeLeg({ hs_avg_m: 2.8, tp_avg_s: 5, sea_level: 4, sea_flag: "chop_short", sea_flag_tp_s: [5, 5] }),
+    );
+    expect(cells.flag).toBe("Grosse mer");
+    expect(cells.alert).toBe("Clapot · période 5 s");
   });
 
-  it("labels Clapot suiveur when sea_direction is arrière", () => {
-    // Same chop conditions, but running with the sea — broaching / gybe
-    // risks remain, but no slamming, hence the distinct label.
+  it("labels Clapot suiveur when the server says the chop follows", () => {
+    // Running with the sea: broaching and gybe risks remain, but no
+    // slamming, hence the distinct label.
     const flag = buildLegSummaryCells(
-      makeLeg({ hs_avg_m: 1.2, tp_avg_s: 4.5, sea_direction: "arrière" }),
+      makeLeg({ hs_avg_m: 1.2, tp_avg_s: 4.5, sea_level: 2, sea_flag: "chop_following", sea_flag_tp_s: [4.5, 4.5] }),
     ).flag;
     expect(flag).toBe("Clapot suiveur");
   });
 
-  it("Vent contre courant overrides Clapot", () => {
-    // WAC already implies mer hachée — it wins as the more decision-shaping
-    // signal.
+  it("Vent contre courant overrides a formed sea", () => {
     const flag = buildLegSummaryCells(
-      makeLeg({
-        hs_avg_m: 1.2,
-        tp_avg_s: 4.5,
-        current_relative: "contraire",
-        current_speed_kn: 2.0,
-      }),
+      makeLeg({ hs_avg_m: 1.6, sea_level: 3, sea_flag: "wind_against_current", sea_flag_current_kn: 2.0 }),
     ).flag;
     expect(flag).toBe("Vent contre courant");
+  });
+});
+
+describe("the server's sea verdict, carried from the segments to the leg", () => {
+  const waypoints: [number, number][] = [[43.0, 5.0], [43.1, 5.1]];
+  const leg = (segments: SegmentReport[]) => aggregateLegs(segments, waypoints, 0.75, 45)[0];
+
+  it("takes the highest level: one formed step makes a formed leg", () => {
+    const l = leg([seg({ hs_m: 0.9, sea_level: 2 }), seg({ hs_m: 1.4, sea_level: 3 }), seg({ hs_m: 1.0, sea_level: 2 })]);
+    expect(l.sea_level).toBe(3);
+    // The mean height, 1,1 m, would not have said so.
+    expect(buildLegSummaryCells(l).seaNote).toBe("Mer formée");
+  });
+
+  it("has no level when the server stamped none", () => {
+    expect(leg([seg({ hs_m: 1.6 }), seg({ hs_m: 1.7 })]).sea_level).toBeNull();
+  });
+
+  it("puts wind against current first, with its strongest current", () => {
+    const l = leg([
+      seg({ sea_flag: "chop_short", wave_period_s: 4 }),
+      seg({ sea_flag: "wind_against_current", current_speed_kn: 1.7 }),
+      seg({ sea_flag: "wind_against_current", current_speed_kn: 2.3 }),
+    ]);
+    expect(l.sea_flag).toBe("wind_against_current");
+    expect(l.sea_flag_current_kn).toBe(2.3);
+    expect(l.sea_flag_tp_s).toBeNull();
+  });
+
+  it("calls the chop following only when every chop of the leg follows", () => {
+    const mixed = leg([
+      seg({ sea_flag: "chop_following", wave_period_s: 4.4 }),
+      seg({ sea_flag: "chop_short", wave_period_s: 3.9 }),
+      seg({ sea_flag: null, wave_period_s: 7 }),
+    ]);
+    expect(mixed.sea_flag).toBe("chop_short");
+    // The periods of the flagged steps only, not the calm one's.
+    expect(mixed.sea_flag_tp_s).toEqual([3.9, 4.4]);
+    const following = leg([seg({ sea_flag: "chop_following", wave_period_s: 5 }), seg({})]);
+    expect(following.sea_flag).toBe("chop_following");
   });
 });
 
@@ -410,7 +487,7 @@ describe("labels follow the active language", () => {
   it("names the point of sail and the sea flag in English too", async () => {
     await setLang("en");
     expect(legAtTwa(60, 45).point_of_sail).toBe(t("panel.legs.pointOfSail.beamReach"));
-    expect(buildLegSummaryCells(makeLeg({ hs_avg_m: 1.8, tp_avg_s: 11 })).flag).toBe(
+    expect(buildLegSummaryCells(makeLeg({ hs_avg_m: 1.8, tp_avg_s: 11, sea_level: 3 })).flag).toBe(
       t("panel.legs.seaFlag.roughSea"),
     );
   });

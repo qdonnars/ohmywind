@@ -62,6 +62,15 @@ class SegmentReport:
     # display; ``boat_speed_kn`` reflects the motor speed (no efficiency or
     # wave derate applied — under power, those don't apply).
     motor_used: bool = False
+    # The state of the sea on this segment, decided once by
+    # ``routing.sea_state`` so that no client decides it again: the level 1
+    # to 5 of ``hs_m`` (3 and above is worth a warning; ``None`` without sea
+    # data) and what makes it worse than its height says
+    # (``"wind_against_current"``, ``"chop_short"``, ``"chop_following"``,
+    # else ``None``). Last, so the recorded field order of older payloads
+    # survives.
+    sea_level: int | None = None
+    sea_flag: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

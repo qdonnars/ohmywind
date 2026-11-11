@@ -1237,6 +1237,21 @@ picks qualitatively (no server-side ranking).
 - Atlantic: tidal range exceeds 10 m on the Manche; tidal currents
   exceed 5 kt in narrow passes, so these become first-class signals.
 
+## Sea state
+
+The sea is binned on the significant wave height Hs, on the edges of the
+Douglas scale the marine bulletins use: level 1 under 0.5 m ("plate"),
+2 under 1.25 m ("peu agitee"), 3 under 2.5 m ("formee"), 4 under 4 m
+("grosse"), 5 from 4 m ("tres grosse"). From level 3 the sea raises a
+warning ("Mer formee", "Grosse mer", "Tres grosse mer"). The words are
+the sailors' own; for levels 3 to 5 a bulletin says "agitee", "forte"
+and "tres forte".
+
+Every segment carries the verdict: ``sea_level`` (1 to 5, null without
+sea data) and ``sea_flag`` ("wind_against_current", "chop_short",
+"chop_following" or null, see below). Read them rather than deciding
+again from Hs and the period.
+
 ## Wind-against-current
 
 When current >= 1.5 kt and the wind setting (twd + 180 deg) is opposed
@@ -2332,7 +2347,8 @@ def build_server(
         Single mode:
 
         - ``passage``: per-segment timing report (distance_nm, duration_h,
-          model used, segments[] with TWS/TWA/boat_speed/Hs, warnings).
+          model used, segments[] with TWS/TWA/boat_speed/Hs and the sea
+          state decided per segment, ``sea_level`` and ``sea_flag``, warnings).
         - ``complexity``: 1-5 difficulty score with wind/sea breakdown and a
           human-readable rationale.
         - ``openwind_url``: deep-link to ohmywind.fr/plan that renders the

@@ -418,7 +418,7 @@ describe("the comparison", () => {
         {
           kind: "sea",
           level: 3,
-          message: "Mer agitée : Hs 1.1-1.4 m sur 13.8 nm",
+          message: "Mer formée : Hs 1.1-1.4 m sur 13.8 nm",
           affected_segments: [0],
           code: "complexity.sea.3",
           params: { hs_range: "1.1-1.4", nm: "13.8" },
@@ -445,7 +445,7 @@ describe("the comparison", () => {
     expect(screen.getByText("0,6").style.color).toBe("var(--ow-warn-ink)");
     // What, how much, where, from the server's own figures; the engine's
     // sentence is counted on top.
-    expect(screen.getByText("Mer agitée : Hs 1,1–1,4 m sur 13,8 nm")).toBeTruthy();
+    expect(screen.getByText("Mer formée : Hs 1,1–1,4 m sur 13,8 nm")).toBeTruthy();
     expect(screen.getByText("+1 alerte")).toBeTruthy();
     // No removal of the plan's own route, and no second button beside the
     // row: the row itself is what one taps.
@@ -546,6 +546,7 @@ const twoStepPassage = (): PassageReport => {
         gust_kn: 18,
         hs_m: 1.5,
         wave_period_s: 8,
+        sea_level: 3,
       },
     ],
   };
@@ -558,7 +559,7 @@ describe("leg alerts", () => {
   };
 
   it("says a sustained wind and a formed sea by their figures, with no chip", () => {
-    mount({ passage: withSegment({ tws_kn: 18, hs_m: 1.6, wave_period_s: 9 }), complexity: complexity() });
+    mount({ passage: withSegment({ tws_kn: 18, hs_m: 1.6, wave_period_s: 9, sea_level: 3 }), complexity: complexity() });
     const wind = screen.getByText("18").closest("td") as HTMLElement;
     expect(wind.style.color).toBe("var(--ow-warn-ink)");
     expect(wind.textContent).toBe("18, Vent soutenu");
@@ -569,10 +570,21 @@ describe("leg alerts", () => {
   });
 
   it("keeps a chip for a chop, which no figure says", () => {
-    mount({ passage: withSegment({ tws_kn: 9, hs_m: 0.9, wave_period_s: 4 }), complexity: complexity() });
+    mount({
+      passage: withSegment({ tws_kn: 9, hs_m: 0.9, wave_period_s: 4, sea_level: 2, sea_flag: "chop_following" }),
+      complexity: complexity(),
+    });
     expect(screen.getByText("Clapot suiveur · période 4 s")).toBeTruthy();
-    // 0,9 m is under the formed-sea mark: the figure stays plain.
+    // The server puts 0,9 m under the formed-sea mark: the figure stays plain.
     expect((screen.getByText("0,9").closest("td") as HTMLElement).style.color).toBe("var(--ow-fg-0)");
+  });
+
+  it("flags nothing the server did not flag", () => {
+    // The same sea from a server that stamps no verdict (an older one): the
+    // app does not judge a height or a period itself.
+    mount({ passage: withSegment({ tws_kn: 9, hs_m: 1.6, wave_period_s: 4 }), complexity: complexity() });
+    expect((screen.getByText("1,6").closest("td") as HTMLElement).style.color).toBe("var(--ow-fg-0)");
+    expect(document.querySelector(".ow-alert-chip")).toBeNull();
   });
 });
 

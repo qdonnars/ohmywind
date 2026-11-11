@@ -70,6 +70,7 @@ export const panel = {
   "panel.legs.pointOfSail.motor": "Moteur",
   "panel.legs.seaFlag.windAgainstCurrent": "Vent contre courant",
   "panel.legs.seaFlag.heavySea": "Grosse mer",
+  "panel.legs.seaFlag.veryHeavySea": "Très grosse mer",
   "panel.legs.seaFlag.chop": "Clapot",
   "panel.legs.seaFlag.followingChop": "Clapot suiveur",
   "panel.legs.seaFlag.roughSea": "Mer formée",
