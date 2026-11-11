@@ -555,7 +555,7 @@ const twoStepPassage = (): PassageReport => {
 };
 
 describe("open leg", () => {
-  it("shows the average of the steps, and offers the detail", async () => {
+  it("opens on the whole leg: every step in the table, the average in the card", async () => {
     const value = mount({ passage: twoStepPassage(), complexity: complexity(), selectedLegIdx: 0 });
     expect(screen.getByText(/Moyenne · /)).toBeTruthy();
     expect(screen.getByText("moyenne de 2 pas")).toBeTruthy();
@@ -569,16 +569,23 @@ describe("open leg", () => {
     expect(screen.queryByText(/polaire/)).toBeNull();
     // The wind range the average hides, and no gust in it: 18 sits on step 2.
     expect(screen.getByText("6–9 (18) kn")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: /^Pas \d sur 2/ })).toHaveLength(2);
 
-    // On the average the steps are the strip, not the table.
-    expect(screen.queryByRole("table", { name: "Pas du tronçon, heure par heure" })).toBeNull();
+    // The steps are there from the start, none picked, and there is no
+    // choice of view to make first.
+    const table = screen.getByRole("table", { name: "Pas du tronçon, heure par heure" });
+    const heads = within(table).getAllByRole("button", { name: /^Pas \d sur 2/ });
+    expect(heads.map((h) => h.getAttribute("aria-pressed"))).toEqual(["false", "false"]);
+    expect(screen.queryByRole("button", { name: "Moyenne" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Tout le tronçon" })).toBeNull();
+    // The whole leg is what the card reads, so the whole row is ringed.
+    const wind = within(table).getByText("↑18").parentElement as HTMLElement;
+    expect(wind.style.boxShadow).toContain("var(--ow-accent)");
 
-    await userEvent.click(screen.getByRole("button", { name: "Par heure" }));
-    expect(value.actions.selectStep).toHaveBeenCalledWith(0);
+    await userEvent.click(heads[1]);
+    expect(value.actions.selectStep).toHaveBeenCalledWith(1);
   });
 
-  it("lays the steps side by side hour by hour, and opens the one picked", async () => {
+  it("opens the step picked in the table, and returns to the whole leg", async () => {
     const value = mount({
       passage: twoStepPassage(),
       complexity: complexity(),
@@ -586,8 +593,6 @@ describe("open leg", () => {
       selectedStepIdx: 0,
     });
     const table = screen.getByRole("table", { name: "Pas du tronçon, heure par heure" });
-    // The table replaces the strip: one column per step, headed by its hour.
-    expect(screen.queryByRole("group", { name: "Pas de calcul du tronçon" })).toBeNull();
     const heads = within(table).getAllByRole("button", { name: /^Pas \d sur 2/ });
     expect(heads.map((h) => h.textContent)).toEqual([
       fmtClock("2026-09-10T08:00:00+02:00"),
@@ -605,15 +610,20 @@ describe("open leg", () => {
     expect(within(table).getByRole("img", { name: "Mer formée · Hs 1,5 m sur 28,0 nm" })).toBeTruthy();
     // No current on this passage: no current row.
     expect(within(table).queryByRole("rowheader", { name: "Courant kn" })).toBeNull();
-    // The card under the table is the picked step's.
+    // The card under the table is the picked step's, and only its column
+    // is ringed.
     expect(screen.getByText(/1\/2$/)).toBeTruthy();
+    expect((within(table).getByText("↑18").parentElement as HTMLElement).style.boxShadow).toBe("none");
 
     await userEvent.click(heads[1]);
     expect(value.actions.selectStep).toHaveBeenCalledWith(1);
 
-    // Back to the average: no step is open any more.
-    await userEvent.click(screen.getByRole("button", { name: "Moyenne" }));
-    expect(value.actions.selectStep).toHaveBeenCalledWith(null);
+    // Back to the whole leg, in words or by a second tap on the column.
+    await userEvent.click(screen.getByRole("button", { name: "Tout le tronçon" }));
+    expect(value.actions.selectStep).toHaveBeenLastCalledWith(null);
+    await userEvent.click(heads[1]);
+    await userEvent.click(heads[0]);
+    expect(value.actions.selectStep).toHaveBeenLastCalledWith(null);
   });
 
   it("walks the steps with the arrows of the card, the table following", async () => {
@@ -663,11 +673,11 @@ describe("open leg", () => {
     expect(open.actions.selectLeg).not.toHaveBeenCalled();
   });
 
-  it("shows a single-step leg as the step itself: no average, no strip, no table, no arrows", () => {
+  it("shows a single-step leg as the step itself: no average, no table, no arrows", () => {
     mount({ passage: passage(), complexity: complexity(), selectedLegIdx: 0 });
     expect(screen.queryByText(/Moyenne/)).toBeNull();
     expect(screen.getByText(`${fmtClock("2026-09-10T08:00:00+02:00")} → ${fmtClock("2026-09-10T18:00:00+02:00")}`)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Par heure" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Tout le tronçon" })).toBeNull();
     expect(screen.queryByRole("table", { name: "Pas du tronçon, heure par heure" })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Pas / })).toBeNull();
   });

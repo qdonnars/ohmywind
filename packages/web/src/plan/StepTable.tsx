@@ -8,8 +8,10 @@
  * arrows of the card: to see when the wind filled in, the reader walked
  * five cards and remembered four. Here the five are one table, read like
  * the forecast tables of the explore page (direction, wind over gust on
- * its Beaufort tint, sea on its own ramp, current, speed), and a tap on a
- * column opens that step in the card below.
+ * its Beaufort tint, sea on its own ramp, current, speed). It is what an
+ * open leg shows first, the whole of it ringed, over the card of the
+ * average; a tap on a column opens that step in the card, a second tap or
+ * « Tout le tronçon » returns to the whole leg.
  *
  * The units are in the row labels, once. A row that has nothing to say on
  * any step is not drawn: the sea without sea data, the current when no step
@@ -50,6 +52,15 @@ function endRadius(i: number, n: number): string {
 function ring(edge: "top" | "bottom"): string {
   const cap = edge === "top" ? "inset 0 2px 0" : "inset 0 -2px 0";
   return `inset 2px 0 0 ${ACCENT}, inset -2px 0 0 ${ACCENT}, ${cap} ${ACCENT}`;
+}
+
+/** With no step picked the card below reads the whole leg, and so does the
+    ring: each fill is outlined from end to end. */
+function ringRow(i: number, n: number): string {
+  const edges = [`inset 0 2px 0 ${ACCENT}`, `inset 0 -2px 0 ${ACCENT}`];
+  if (i === 0) edges.push(`inset 2px 0 0 ${ACCENT}`);
+  if (i === n - 1) edges.push(`inset -2px 0 0 ${ACCENT}`);
+  return edges.join(", ");
 }
 
 function Unit({ children }: { children: string }) {
@@ -98,9 +109,9 @@ export function StepTable({
   onSelect,
 }: {
   steps: AggregatedLeg[];
-  /** Index of the step open in the card below. */
-  selected: number;
-  onSelect: (index: number) => void;
+  /** Index of the step open in the card below, null for the whole leg. */
+  selected: number | null;
+  onSelect: (index: number | null) => void;
 }) {
   const { t } = useT();
   const n = steps.length;
@@ -121,7 +132,10 @@ export function StepTable({
     pickedRef.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }, [selected]);
 
-  const pick = (i: number) => () => onSelect(i);
+  // A tap on the picked step lets go of it: back to the whole leg.
+  const pick = (i: number) => () => onSelect(i === selected ? null : i);
+  const fillRing = (i: number, edge: "top" | "bottom"): string =>
+    selected == null ? ringRow(i, n) : i === selected ? ring(edge) : "none";
 
   return (
     // `contain: inline-size`: the table sits in a cell of the legs table,
@@ -156,9 +170,13 @@ export function StepTable({
                   className="relative z-[1] w-full text-[11.5px] after:absolute after:inset-x-0 after:top-0 after:-bottom-6 after:content-['']"
                   style={{
                     height: 22,
-                    fontWeight: active ? 700 : 600,
-                    color: active ? ACCENT : "var(--ow-fg-1)",
-                    borderBottom: `2px solid ${active ? ACCENT : "transparent"}`,
+                    fontWeight: active || selected == null ? 700 : 600,
+                    // Whole leg: every hour reads at full strength, on one
+                    // quiet line. A step picked: it alone, in accent.
+                    color: active ? ACCENT : selected == null ? "var(--ow-fg-0)" : "var(--ow-fg-2)",
+                    borderBottom: `2px solid ${
+                      active ? ACCENT : selected == null ? "var(--ow-accent-line)" : "transparent"
+                    }`,
                   }}
                 >
                   {fmtClock(s.start_time)}
@@ -198,7 +216,7 @@ export function StepTable({
                   background: windSoftVar(level),
                   color: windTextVar(level),
                   borderRadius: endRadius(i, n),
-                  boxShadow: i === selected ? ring("top") : "none",
+                  boxShadow: fillRing(i, "top"),
                 }}
               >
                 <span className="text-[15px] font-bold">{Math.round(s.tws_avg_kn)}</span>
@@ -229,7 +247,7 @@ export function StepTable({
                     background: hs != null ? `var(--ow-wave-${waveLevel(hs)})` : "var(--ow-bg-1)",
                     color: hs == null ? "var(--ow-fg-2)" : hs < 1 ? "var(--ow-fg-0)" : "var(--ow-cell-ink)",
                     borderRadius: endRadius(i, n),
-                    boxShadow: i === selected ? ring("bottom") : "none",
+                    boxShadow: fillRing(i, "bottom"),
                   }}
                 >
                   {hs != null ? num1(hs) : "—"}
