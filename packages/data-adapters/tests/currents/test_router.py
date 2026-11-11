@@ -168,6 +168,62 @@ async def test_inside_marc_overrides_currents(fixture_atlas: Path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_atlas_height_without_current_keeps_the_upstream_label(
+    fixture_atlas: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An atlas cell with a height and no current: the current is still the
+    global model's, and must say so. Under the atlas's label it read as a
+    250 m value, rated "high", and the leg lost its coarse-source warnings."""
+    reg = MarcAtlasRegistry.from_directory(fixture_atlas)
+    monkeypatch.setattr(MarcAtlasRegistry, "predict_current_series", lambda *a, **k: None)
+    bundle = _make_bundle(48.355, -4.795)
+    composite = CompositeMarineAdapter(upstream=_MockUpstream(bundle), marc=reg)
+    out = await composite.fetch(48.355, -4.795, bundle.start, bundle.end)
+    for p in out.sea.points:
+        assert p.current_source == "openmeteo_smoc"
+        assert p.current_speed_kn == 0.2
+        assert p.current_direction_to_deg == 180.0
+    # The height is the atlas's all the same: the upstream's was a flat 0.0.
+    assert any(p.tide_height_m != 0.0 for p in out.sea.points)
+
+
+def test_atlas_height_alone_is_named_after_the_atlas(
+    fixture_atlas: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The tidal-stream tool hands over a bare series, with no current to
+    name: the height it gets back comes from the atlas, and the label says
+    which. Without it the tool answers that no atlas covers the point."""
+    reg = MarcAtlasRegistry.from_directory(fixture_atlas)
+    monkeypatch.setattr(MarcAtlasRegistry, "predict_current_series", lambda *a, **k: None)
+    full = _make_bundle(48.355, -4.795)
+    bare = ForecastBundle(
+        lat=full.lat,
+        lon=full.lon,
+        start=full.start,
+        end=full.end,
+        sea=SeaSeries(
+            points=tuple(
+                SeaPoint(
+                    time=p.time,
+                    wave_height_m=None,
+                    wave_period_s=None,
+                    wave_direction_deg=None,
+                    wind_wave_height_m=None,
+                    swell_wave_height_m=None,
+                )
+                for p in full.sea.points
+            )
+        ),
+    )
+    composite = CompositeMarineAdapter(upstream=_MockUpstream(full), marc=reg)
+    out = composite.apply_atlases(bare, 48.355, -4.795)
+    for p in out.sea.points:
+        assert p.current_source == "marc_finis_250m"
+        assert p.current_speed_kn is None
+        assert p.tide_height_m is not None
+
+
+@pytest.mark.asyncio
 async def test_passes_models_through(fixture_atlas: Path) -> None:
     reg = MarcAtlasRegistry.from_directory(fixture_atlas)
     bundle = _make_bundle(48.355, -4.795)
