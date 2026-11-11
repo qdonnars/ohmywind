@@ -20,6 +20,7 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 
 - A current from the global model is no longer shown under the name of a tidal atlas where that atlas gives the water height but not the current (#524).
 - A colour follows the figure on screen: two cells that read "1.5" are no longer one yellow and one blue, and a wind shown as "15" is called fresh like any 15 (#527).
+- In Compare my spots, at a one-hour step, a cell is readable again: the gust goes under the speed and the sea keeps its height and direction, nothing cut off.
 - In the table of steps, figures no longer slide past the left of the row names when it scrolls (#529).
 - A step's direction is called "Bearing", no longer "Heading": it is the line drawn on the chart, without current or leeway, not a heading to steer (#531).
 - A route longer than 1,500 nautical miles is refused with a message that says how to split it, instead of tying up the server (#516).
