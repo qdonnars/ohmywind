@@ -600,7 +600,10 @@ describe("open leg", () => {
     // the sea, the current of each step) it does not repeat.
     expect(screen.queryByText("6–9 (18) kn")).toBeNull();
     expect(screen.queryByText(/⚠ Mer formée/)).toBeNull();
-    expect(screen.getByText(/^Cap /)).toBeTruthy();
+    // The direction of the leg on the chart, said as a route, not a heading
+    // to steer, with a hint that it ignores current and leeway.
+    const route = screen.getByText(/^Route /);
+    expect(route.getAttribute("title")).toMatch(/pas un cap à barrer/);
     // No build-up on the average.
     expect(screen.queryByText(/polaire/)).toBeNull();
     // No arrows to walk the steps: the table is how a step is picked.
