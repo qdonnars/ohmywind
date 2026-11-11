@@ -20,6 +20,7 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 
 - Un courant du modèle global n'est plus présenté sous le nom d'un atlas de marée, là où cet atlas donne la hauteur d'eau mais pas le courant (#524).
 - Une couleur suit le chiffre affiché : deux cases qui affichent « 1,5 » ne sont plus l'une jaune et l'autre bleue, et un vent affiché « 15 » est qualifié de soutenu comme tout 15 (#527).
+- Dans Comparer mes spots, au pas d'une heure, une case redevient lisible : la rafale passe sous la vitesse et la mer garde sa hauteur et sa direction, sans rien de coupé.
 - Dans le tableau des pas, les chiffres ne passent plus à gauche des noms de lignes quand on le fait défiler (#529).
 - La direction d'un pas se dit « Route » et non plus « Cap » : c'est la ligne tracée sur la carte, sans courant ni dérive, pas un cap à barrer (#531).
 - Une route de plus de 1 500 milles est refusée avec un message qui dit comment la découper, au lieu d'occuper le serveur (#516).
