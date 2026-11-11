@@ -1,0 +1,182 @@
+{
+ "format": "ohmywind-harmonic-atlas",
+ "schema_version": 3,
+ "atlas": "NORKYST_TRONDELAG",
+ "zone": "trondelag",
+ "label": "NorKyst800 (MET Norway), trondelag",
+ "rank": 1,
+ "resolution_m": 800,
+ "effective_resolution_m": 800,
+ "grid": {
+  "type": "regular_ll",
+  "dlat_deg": 0.0072,
+  "dlon_deg": 0.0165,
+  "origin": "regrid",
+  "tile_deg": 0.5,
+  "regrid": {
+   "method": "nearest_neighbour",
+   "max_distance_m": 700.0,
+   "native": {
+    "type": "polar_stereographic",
+    "spacing_m": 800,
+    "index_window": {
+     "Y": [
+      372,
+      938
+     ],
+     "X": [
+      904,
+      1466
+     ]
+    },
+    "shape": [
+     566,
+     562
+    ]
+   }
+  }
+ },
+ "source": {
+  "short": "norkyst",
+  "name": "MET Norway NorKyst v3 800 m (ROMS), hourly best-estimate aggregation",
+  "provider": "Norwegian Meteorological Institute (MET Norway)",
+  "url": "https://thredds.met.no/thredds/dodsC/fou-hi/norkystv3_800m_m00_be",
+  "product": "fou-hi/norkystv3_800m_m00_be",
+  "version": "v3",
+  "licence": {
+   "name": "CC BY 4.0 (and NLOD)",
+   "url": "https://www.met.no/en/free-meteorological-data/Licensing-and-crediting",
+   "read_at": "2026-09-21",
+   "evidence": "global attribute license of the THREDDS aggregation fou-hi/norkystv3_800m_m00_be: https://spdx.org/licenses/CC-BY-4.0 (CC-BY-4.0); MET Norway licensing page: NLOD + CC BY 4.0, credit MET Norway; catalog rights note: CC BY 3.0"
+  },
+  "attribution": "Data from the Norwegian Meteorological Institute (MET Norway), NorKyst v3 800 m, CC BY 4.0. Harmonic constants derived by OhMyWind (changes: harmonic analysis of the hourly surface series, nearest-neighbour resampling onto a regular grid).",
+  "citation": "https://thredds.met.no/thredds/catalog/fou-hi/norkystv3.xml",
+  "redistribution_of_derivative": "allowed with attribution"
+ },
+ "variables": [
+  "u",
+  "v"
+ ],
+ "vertical": "surface",
+ "vertical_detail": "z-level 0.0 m of the ZDEPTHS hourly output",
+ "datum": null,
+ "units": {
+  "u": "m s-1",
+  "v": "m s-1",
+  "phase": "degrees"
+ },
+ "phase_convention": "greenwich_utc",
+ "time_reference": "UTC",
+ "direction_convention": "going_to",
+ "constituents_h": [],
+ "constituents_u": [
+  "M2",
+  "S2",
+  "N2",
+  "K1",
+  "O1",
+  "M4",
+  "MS4",
+  "K2",
+  "P1",
+  "Q1",
+  "MN4",
+  "M6",
+  "2N2",
+  "NU2",
+  "MU2",
+  "L2",
+  "2MS6",
+  "MK4"
+ ],
+ "constituents_v": [
+  "M2",
+  "S2",
+  "N2",
+  "K1",
+  "O1",
+  "M4",
+  "MS4",
+  "K2",
+  "P1",
+  "Q1",
+  "MN4",
+  "M6",
+  "2N2",
+  "NU2",
+  "MU2",
+  "L2",
+  "2MS6",
+  "MK4"
+ ],
+ "analysis": {
+  "method": "least_squares_nodal_corrected",
+  "record_start": "2025-09-19T00:00:00+00:00",
+  "record_end": "2026-09-19T23:00:00+00:00",
+  "record_hours": 8783.0,
+  "instants": 8784,
+  "step_minutes": 60,
+  "rayleigh": 1.0,
+  "resolved": [
+   "M2",
+   "S2",
+   "N2",
+   "K1",
+   "O1",
+   "M4",
+   "MS4",
+   "K2",
+   "P1",
+   "Q1",
+   "MN4",
+   "M6",
+   "2N2",
+   "NU2",
+   "MU2",
+   "L2",
+   "2MS6",
+   "MK4"
+  ],
+  "inferred_u": [],
+  "inferred_v": [],
+  "inference_reference": "none",
+  "mean_is_weather": false,
+  "min_speed_kt": 0.2,
+  "sea_cells": 185560,
+  "fitted_cells": 185560,
+  "regridded_cells": 122357
+ },
+ "confidence": "medium",
+ "validity_bbox": null,
+ "cells": 12,
+ "tiles": 1,
+ "bbox": [
+  62.499599999999994,
+  5.007750000000001,
+  65.49479999999892,
+  11.98724999999989
+ ],
+ "request_bbox": [
+  62.5,
+  5.0,
+  65.5,
+  12.0
+ ],
+ "build_at": "2026-09-21T20:35:48+00:00",
+ "build_seconds": 114.9,
+ "builder": {
+  "script": "scripts/build_norkyst_atlas.py",
+  "git_commit": "caf1b3585cb3ff3899f6358eb5531ce2a11f4aa2"
+ },
+ "test_fixture": {
+  "note": "Extract for the tidal-stream direction tests, cells copied verbatim from the built atlas.",
+  "script": "scripts/build_test_fixtures_currents.py",
+  "points": [
+   [
+    63.6228,
+    9.7845
+   ]
+  ],
+  "radius_m": 1600.0
+ }
+}

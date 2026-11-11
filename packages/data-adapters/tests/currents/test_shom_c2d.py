@@ -3,11 +3,12 @@
 
 """Tests for the SHOM Atlas C2D ASCII parser.
 
-The real C2D distribution is large (~6 MB extracted) and held outside the
-test tree under ``build/c2d/``. We use a small synthetic fixture for
-roundtrip parsing checks, and an opt-in test (skipped if the real archive
-is absent) that smoke-checks the live parse against the user-provided
-``MORBIHAN_558`` file.
+The real C2D distribution is large (~6 MB extracted) and may not be
+redistributed. We use a small synthetic fixture for roundtrip parsing
+checks, and an opt-in test (marked ``real_atlas``, skipped unless
+``C2D_DONNEES`` points at the archive's ``DONNEES`` directory, the variable
+``scripts/build_shom_c2d.py`` reads) that smoke-checks the live parse
+against the ``MORBIHAN_558`` file.
 """
 
 from __future__ import annotations
@@ -22,8 +23,7 @@ from openwind_data.currents.shom_c2d import (
     _split_packed_ints,
     parse_c2d_file,
 )
-
-_REPO_ROOT = Path(__file__).resolve().parents[3].parent
+from tests.currents import real_atlas
 
 
 def test_parse_lat_lon_token_north_west() -> None:
@@ -121,13 +121,7 @@ def test_speed_kn_at_interpolates_between_coefs(tmp_path: Path) -> None:
     assert p.speed_kn_at(0, 70) == pytest.approx(0.6, rel=1e-6)
 
 
-_LIVE_C2D = _REPO_ROOT / "build" / "c2d" / "C2D" / "CD_COURANTS2D" / "DONNEES"
-
-
-@pytest.mark.skipif(
-    not (_LIVE_C2D / "558" / "MORBIHAN_558").exists(),
-    reason="live SHOM C2D archive not present (extract C2D.7z to build/c2d/)",
-)
+@pytest.mark.real_atlas
 def test_live_morbihan_zone_parses_cleanly() -> None:
     """Smoke test against the user-provided live archive.
 
@@ -137,7 +131,8 @@ def test_live_morbihan_zone_parses_cleanly() -> None:
     edge of this zone and the file's interpolated grid under-resolves it
     by design — this is the very reason narrow_pass is needed).
     """
-    zone = parse_c2d_file(_LIVE_C2D / "558" / "MORBIHAN_558", atlas_id=558)
+    donnees = real_atlas.c2d_archive_dir("558/MORBIHAN_558")
+    zone = parse_c2d_file(donnees / "558" / "MORBIHAN_558", atlas_id=558)
     assert zone.atlas_id == 558
     assert zone.name == "MORBIHAN"
     assert zone.ref_port.lower().startswith("port-navalo")

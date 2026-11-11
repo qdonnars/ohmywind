@@ -40,9 +40,7 @@ from openwind_data.currents.shom_c2d_registry import (
     ShomC2dRegistry,
     _RefPortMeta,
 )
-
-_REPO_ROOT = Path(__file__).resolve().parents[3].parent
-_LIVE_DIR = _REPO_ROOT / "build" / "shom_c2d"
+from tests.currents import real_atlas
 
 # In the synthetic zone written below, and in the live Morbihan cartouche.
 SYNTHETIC_POINT = (47.50, -2.90)
@@ -264,15 +262,12 @@ def test_the_tide_coefficient_is_unchanged(registry) -> None:
         assert registry.tide_coefficient(t) == round(_reference_coefficient(registry, port, t))
 
 
-@pytest.mark.skipif(
-    not (_LIVE_DIR / "shom_c2d_points.parquet").exists(),
-    reason="live SHOM C2D artefacts not built (run scripts/build_shom_c2d.py)",
-)
+@pytest.mark.real_atlas
 def test_live_artefacts_thirty_days_hourly() -> None:
     """The same check on the shipped 13 k-point cloud, at a real reference port.
 
     The synthetic fixture proves the arithmetic; this proves it on the
     constants and the series that actually reach a skipper.
     """
-    registry = ShomC2dRegistry.from_directory(_LIVE_DIR)
+    registry = ShomC2dRegistry.from_directory(real_atlas.shom_dir())
     _assert_identical(registry, TASCON, [T0 + timedelta(hours=h) for h in range(721)])
