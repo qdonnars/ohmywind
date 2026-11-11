@@ -104,6 +104,13 @@ export const explore = {
   "explore.marineTable.aria.current": "Courant {value} kn",
 
   // Légende sous le tableau des courants : la source et le chiffre qui la qualifie
+  // The one line of a currents warning; the sentences below are what it
+  // unfolds into.
+  "explore.marineTable.caveat.tidalGapPass": "Courants probablement faux ici · {zone} · maille de {size}",
+  "explore.marineTable.caveat.tidalGapZone": "Courants probablement faux ici · maille de {size}",
+  "explore.marineTable.caveat.unknownAt": "Courant inconnu ici · {zone}",
+  "explore.marineTable.caveat.unknown": "Courant inconnu ici",
+  "explore.marineTable.caveat.method": "Comment les courants sont calculés",
   "explore.marineTable.tidalGap.pass": "Attention : les courants annoncés ici sont probablement faux. {zone} est une zone de fort courant de marée et le calcul ne dispose ici que d'une maille de {size}, qui ne la voit pas. Nous travaillons à élargir la couverture, mais les données ne sont pas toutes en libre accès.",
   "explore.marineTable.tidalGap.zone": "Attention : les courants annoncés ici sont probablement faux. Le courant de marée y dépasse 1,5 kt et le calcul ne dispose ici que d'une maille de {size}, qui ne le voit pas. Nous travaillons à élargir la couverture, mais les données ne sont pas toutes en libre accès.",
   "explore.marineTable.unknown.managed": "Courant inconnu ici ({zone}) : un ouvrage y règle les courants et le niveau, pas la marée, et aucune de nos sources ne le décrit. Plutôt qu'un chiffre faux, nous n'affichons rien. Consultez l'exploitant de l'ouvrage et les instructions nautiques.",
