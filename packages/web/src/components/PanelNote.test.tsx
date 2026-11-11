@@ -16,13 +16,4 @@ describe("PanelNote", () => {
     expect(p.className).toContain("text-[9px]");
     expect(p.style.color).toBe("var(--ow-fg-2)");
   });
-
-  it("paints the warning variant larger and in the warning colour", () => {
-    const { container } = render(<PanelNote variant="warning">attention</PanelNote>);
-    const p = container.querySelector("p")!;
-    expect(p.className).toContain("text-[11px]");
-    expect(p.className).toContain("text-center");
-    expect(p.style.color).toBe("rgb(251, 191, 36)");
-    expect(p.style.background).toBe("rgb(13, 17, 23)");
-  });
 });

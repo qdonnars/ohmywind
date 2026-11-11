@@ -103,6 +103,13 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.marineTable.aria.current": "Current {value} kn",
 
   // Caption under the currents table: the source and the one number that qualifies it
+  // The one line of a currents warning; the sentences below are what it
+  // unfolds into.
+  "explore.marineTable.caveat.tidalGapPass": "Currents probably wrong here · {zone} · {size} grid",
+  "explore.marineTable.caveat.tidalGapZone": "Currents probably wrong here · {size} grid",
+  "explore.marineTable.caveat.unknownAt": "Current unknown here · {zone}",
+  "explore.marineTable.caveat.unknown": "Current unknown here",
+  "explore.marineTable.caveat.method": "How the currents are computed",
   "explore.marineTable.tidalGap.pass": "Warning: the currents shown here are probably wrong. {zone} is a strong tidal-stream area and the calculation only has a {size} grid here, which cannot see it. We are working to extend our coverage, but not all the data is open.",
   "explore.marineTable.tidalGap.zone": "Warning: the currents shown here are probably wrong. The tidal stream exceeds 1.5 kt here and the calculation only has a {size} grid, which cannot see it. We are working to extend our coverage, but not all the data is open.",
   "explore.marineTable.unknown.managed": "Current unknown here ({zone}): an engineering work sets the streams and the water level, not the tide, and none of our sources describes it. Rather than a wrong figure, we show nothing. Check with the operator of the work and the sailing directions.",
