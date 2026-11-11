@@ -484,6 +484,37 @@ describe("fetchMarineCorridor", () => {
     expect(calls.marc).toEqual([]);
   });
 
+  it("asks MARC while Open-Meteo is still answering, not once it has", async () => {
+    // The overlays depend on the coverage alone. They used to wait for the
+    // forecast, so on a slow link a plan paid the two requests in a row.
+    const calls = stubFetch({ status: 200, body: { atlases: [MED_BOX] } }, 2);
+    const answer = globalThis.fetch as unknown as (
+      input: string,
+      init?: RequestInit,
+    ) => Promise<Response>;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.stubGlobal("fetch", async (input: string, init?: RequestInit) => {
+      // Open-Meteo is held back; everything under /marine/marc answers.
+      if (!String(input).includes("/marine/marc")) await held;
+      return answer(input, init);
+    });
+
+    const pending = fetchMarineCorridor([
+      { lat: 48.3, lon: -4.5 },
+      { lat: 48.4, lon: -4.6 },
+    ]);
+    await vi.waitFor(() => expect(calls.batch).toHaveLength(1));
+    expect(calls.marine).toEqual([]);
+
+    release();
+    const out = await pending;
+    expect(calls.marine).toHaveLength(1);
+    expect(out.every((p) => p !== null)).toBe(true);
+  });
+
   it("asks every point when the coverage endpoint is missing, but in one batch", async () => {
     // A Space deployed before the coverage route exists answers 404, so every
     // point is a candidate again. That is one batch, not one call per point.
