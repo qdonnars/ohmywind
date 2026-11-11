@@ -44,10 +44,8 @@ export const plan: Record<keyof typeof frPlan, string> = {
   // ── Steps of a leg ────────────────────────────────────────────────────────
   "plan.steps.stepLabel": "Abschnitt {index} von {total}, {time}",
   "plan.steps.wholeLeg": "Ganze Teilstrecke",
-  "plan.steps.span.one": "{count} Abschnitt · {start} → {end}",
-  "plan.steps.span.other": "{count} Abschnitte · {start} → {end}",
+  "plan.steps.all": "Gesamt",
   "plan.steps.table.label": "Abschnitte der Teilstrecke, Stunde für Stunde",
-  "plan.steps.table.direction": "Richtung",
 
   // ── Map ───────────────────────────────────────────────────────────────────
   "plan.map.waypoint.remove": "Diesen Wegpunkt entfernen",

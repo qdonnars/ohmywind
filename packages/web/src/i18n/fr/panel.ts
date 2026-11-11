@@ -82,8 +82,6 @@ export const panel = {
   "panel.legs.alert.current": "{flag} · {speed} kn",
 
   // ── LegDetailCard / LegExpanded ────────────────────────────────────────────
-  "panel.legDetail.prevStep": "Pas précédent",
-  "panel.legDetail.nextStep": "Pas suivant",
   "panel.legDetail.rowWind": "Vent",
   "panel.legDetail.rowSea": "Mer",
   "panel.legDetail.rowCurrent": "Courant",
@@ -102,8 +100,6 @@ export const panel = {
   "panel.legDetail.buildUpSea": "{value} mer",
   "panel.legDetail.buildUpCurrent": "{value} courant",
   "panel.legDetail.buildUpMotor": "{value} moteur",
-  "panel.legDetail.headerAverage": "Moyenne · {duration}",
-  "panel.legDetail.headerHint": "touchez un pas",
   "panel.legDetail.noteMotorOnStep": "au moteur sur ce pas",
   "panel.legDetail.noteAverage.one": "moyenne de {count} pas",
   "panel.legDetail.noteAverage.other": "moyenne de {count} pas",
