@@ -33,10 +33,10 @@ export function Warnings({ alerts }: { alerts: Alert[] }) {
         aria-expanded={open}
         className="w-full flex items-center gap-2 px-4 py-2 text-left"
       >
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--ow-warn)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--ow-warn-ink)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
           <path d="M8 2 14 13H2z" />
           <path d="M8 7v3" />
-          <circle cx="8" cy="12" r="0.5" fill="var(--ow-warn)" />
+          <circle cx="8" cy="12" r="0.5" fill="var(--ow-warn-ink)" />
         </svg>
         <span className="min-w-0 truncate text-[11px]" style={{ color: "var(--ow-fg-1)" }}>
           <span className="font-semibold">{tn("panel.compare.row.alerts", alerts.length)}</span>

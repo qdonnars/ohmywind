@@ -132,7 +132,7 @@ export function InfoPanel({ whatsNewUnseen = false }: { whatsNewUnseen?: boolean
             height="14"
             viewBox="0 0 16 16"
             fill="none"
-            stroke="var(--ow-warn)"
+            stroke="var(--ow-warn-ink)"
             strokeWidth="1.6"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -141,7 +141,7 @@ export function InfoPanel({ whatsNewUnseen = false }: { whatsNewUnseen?: boolean
           >
             <path d="M8 2 14 13H2z" />
             <path d="M8 7v3" />
-            <circle cx="8" cy="12" r="0.5" fill="var(--ow-warn)" />
+            <circle cx="8" cy="12" r="0.5" fill="var(--ow-warn-ink)" />
           </svg>
           {t("explore.infoPanel.disclaimer.title")}
         </h3>

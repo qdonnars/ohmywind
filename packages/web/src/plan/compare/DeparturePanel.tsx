@@ -80,7 +80,7 @@ function DeparturePanel({
         {t("panel.tracks.departure.note")}
       </p>
       <div className="flex items-center gap-2">
-        <span className="flex-1 text-[10.5px] leading-snug" style={{ color: "var(--ow-fg-3)" }}>
+        <span className="flex-1 text-[10.5px] leading-snug" style={{ color: "var(--ow-fg-2)" }}>
           {tn("panel.tracks.departure.recompute", count)}
         </span>
         <button

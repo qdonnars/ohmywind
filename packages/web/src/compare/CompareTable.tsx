@@ -122,7 +122,7 @@ function CellImpl({ wind, wave, withWave, res, width, dense }: CellProps) {
       <div
         role="cell"
         className="shrink-0 rounded-[5px] flex items-center justify-center text-xs"
-        style={{ width, height: total, background: "var(--ow-bg-2)", color: "var(--ow-fg-3)" }}
+        style={{ width, height: total, background: "var(--ow-bg-2)", color: "var(--ow-fg-2)" }}
       >
         —
       </div>

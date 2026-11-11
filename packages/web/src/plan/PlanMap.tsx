@@ -6,8 +6,8 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useTheme } from "../design/useTheme";
 import type { SegmentReport } from "./types";
-import { cxLevel, cxLevelToken } from "../domain/thresholds";
-import { readToken } from "../design/tokens";
+import { beaufortLevel, windSoftVar } from "../domain/thresholds";
+import { readToken, resolveTokens } from "../design/tokens";
 import { haversineNm, fmtNm } from "../utils/geo";
 import { fmtDepthM } from "./format";
 import type { UserPosition } from "../hooks/useGeolocation";
@@ -750,7 +750,7 @@ export function PlanMap(
     drawSegLabels(map, []);
 
     segments.forEach((seg) => {
-      const color = readToken(cxLevelToken(cxLevel(seg.tws_kn)));
+      const color = resolveTokens(windSoftVar(beaufortLevel(seg.tws_kn)));
       const line = L.polyline(
         [L.latLng(seg.start.lat, seg.start.lon), L.latLng(seg.end.lat, seg.end.lon)],
         { color, weight: 6, opacity: 0.9, interactive: false }
@@ -890,7 +890,7 @@ export function PlanMap(
       interactive: false,
     });
     const step = L.polyline(path, {
-      color: readToken(cxLevelToken(cxLevel(seg.tws_kn))),
+      color: resolveTokens(windSoftVar(beaufortLevel(seg.tws_kn))),
       weight: 8,
       opacity: 1,
       lineCap: "round",

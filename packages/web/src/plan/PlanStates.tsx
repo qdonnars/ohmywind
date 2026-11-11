@@ -5,7 +5,7 @@
 // focused on state wiring while these components stay design-only.
 
 import type { PassageReport, SegmentReport } from "./types";
-import { cxLevel, cxLevelVar } from "../domain/thresholds";
+import { beaufortLevel, windSoftVar } from "../domain/thresholds";
 import { fmtDurationSafe, num1 } from "./format";
 import { capitalise, fmtClock, fmtDay, parisDayDelta } from "../domain/datetime";
 import { useT } from "../i18n";
@@ -88,7 +88,7 @@ function HeroCell({
   size?: "md" | "lg";
 }) {
   const color =
-    tone === "warn" ? "var(--ow-warn)" :
+    tone === "warn" ? "var(--ow-warn-ink)" :
     tone === "accent" ? "var(--ow-accent)" :
     "var(--ow-fg-0)";
   const large = size === "lg";
@@ -181,7 +181,7 @@ function SegmentBar({
           <span
             className="block h-2 rounded-sm"
             style={{
-              background: cxLevelVar(cxLevel(seg.tws_kn)),
+              background: windSoftVar(beaufortLevel(seg.tws_kn)),
               outline: focused ? "2px solid var(--ow-accent)" : "none",
               outlineOffset: 1,
             }}
@@ -241,12 +241,6 @@ export function HeroStats({
         focusedSegmentIdx={focusedSegmentIdx}
         onSegmentClick={onSegmentClick}
       />
-      <div
-        className="flex justify-between mt-1 text-[9px] tabular-nums"
-        style={{ color: "var(--ow-fg-2)", fontFamily: "var(--ow-font-mono)" }}
-      >
-        <span>&lt;10 · 10–15 · 15–20 · 20–25 · &gt;25 kn</span>
-      </div>
     </div>
   );
 }
