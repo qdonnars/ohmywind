@@ -19,12 +19,12 @@
 import { useEffect, useRef } from "react";
 import type { AggregatedLeg } from "./aggregateLegs";
 import { buildLegSummaryCells } from "./aggregateLegs";
-import { waveLevel } from "../compare/data";
 import { CellAlert } from "../components/AlertChip";
-import { FlowArrow } from "../components/FlowArrow";
+import { DirectionArrow } from "../components/DirectionArrow";
 import {
   CURRENT_RELEVANCE_THRESHOLD_KN,
   beaufortLevel,
+  waveLevel,
   windSoftVar,
   windTextVar,
 } from "../domain/thresholds";
@@ -176,9 +176,9 @@ export function StepTable({
               role="cell"
               aria-label={`${Math.round(s.twd_avg_deg)}°`}
               className="flex items-center justify-center"
-              style={{ height: 24 }}
+              style={{ height: 24, color: "var(--ow-fg-1)" }}
             >
-              <FlowArrow toDeg={s.twd_avg_deg + 180} />
+              <DirectionArrow deg={s.twd_avg_deg} from size={12} />
             </div>
           ))}
         </div>
@@ -255,7 +255,7 @@ export function StepTable({
                   title={speed == null && s.current_unknown ? t("panel.legDetail.currentUnknown") : undefined}
                 >
                   {shown && s.current_direction_to_deg != null && (
-                    <FlowArrow toDeg={s.current_direction_to_deg} size={10} color="var(--ow-current)" />
+                    <DirectionArrow deg={s.current_direction_to_deg} from={false} size={10} />
                   )}
                   {speed != null ? num1(speed) : s.current_unknown ? "?" : "·"}
                 </div>
