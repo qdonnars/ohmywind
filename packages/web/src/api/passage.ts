@@ -56,6 +56,7 @@ export function formatRetryDelay(seconds: number | null): string {
  * | `too_few_waypoints` | fewer than two points |
  * | `waypoint_out_of_range` | a latitude or longitude outside its range |
  * | `too_many_waypoints` | route too long to sample |
+ * | `route_too_long` | route longer than the server's cap along its legs |
  * | `rate_limited` | our own limiter, with `retry_after` in seconds |
  * | `unknown_archetype` | boat slug absent from the catalogue |
  * | `invalid_datetime` | an unparseable date field |
@@ -215,6 +216,8 @@ const ERROR_COPY: Record<
   too_few_waypoints: () => t("plan.api.errors.tooFewWaypoints"),
   waypoint_out_of_range: () => t("plan.api.errors.waypointOutOfRange"),
   too_many_waypoints: () => t("plan.api.errors.tooManyWaypoints"),
+  // The cap itself (in nm) lives on the server only: the copy never quotes it.
+  route_too_long: () => t("plan.api.errors.routeTooLong"),
   // The server owns the delay: the window is configurable per environment,
   // so never hard-code one here. The previous copy promised "une minute"
   // against a 300 s window, so the user waited, retried, and got the exact
@@ -275,6 +278,7 @@ function matchErrorText(raw: string): string {
     return ERROR_COPY.waypoint_out_of_range(null);
   }
   if (/too many waypoints/i.test(raw)) return ERROR_COPY.too_many_waypoints(null);
+  if (/route too long/i.test(raw)) return ERROR_COPY.route_too_long(null);
   if (/rate limit exceeded/i.test(raw)) {
     // The delay suffix is appended by `toError` and is not adjacent to the
     // server's own wording ("rate limit exceeded, retry shortly"), so it is

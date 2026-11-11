@@ -5,12 +5,21 @@
 
 from __future__ import annotations
 
+import math
+import time
+from itertools import pairwise
+
 import numpy as np
 import pytest
 
 from openwind_data.currents.land_mask import LandMask
-from openwind_data.routing.geometry import Point
-from openwind_data.routing.land_check import land_crossings, waypoints_ashore
+from openwind_data.routing.geometry import Point, haversine_distance, interpolate_great_circle
+from openwind_data.routing.land_check import (
+    STEP_NM,
+    LandCrossing,
+    land_crossings,
+    waypoints_ashore,
+)
 
 PITCH = 0.01
 
@@ -55,3 +64,71 @@ def test_an_empty_mask_finds_nothing() -> None:
     route = [Point(47.5, -4.9), Point(47.5, -4.1)]
     assert land_crossings(route, LandMask.empty()) == []
     assert waypoints_ashore(route, LandMask.empty()) == []
+
+
+def _walk_point_by_point(route: list[Point], mask: LandMask, step_nm: float = STEP_NM) -> list:
+    """The walk ``land_crossings`` did before it was vectorised, kept as the reference."""
+    out = []
+    for i, (a, b) in enumerate(pairwise(route)):
+        length = haversine_distance(a, b)
+        n = max(2, math.ceil(length / step_nm))
+        ashore = [
+            p
+            for p in (interpolate_great_circle(a, b, k / n) for k in range(1, n))
+            if mask.is_land(p.lat, p.lon)
+        ]
+        if ashore:
+            out.append(
+                LandCrossing(i, round(len(ashore) * length / n, 1), ashore[0].lat, ashore[0].lon)
+            )
+    return out
+
+
+def test_vectorised_walk_finds_what_the_point_by_point_walk_found(mask: LandMask) -> None:
+    # Random legs over and around the island, plus legs laid exactly on pixel
+    # edges (47.5 N, 4.6 W are edges of the 0.01 degree grid), where an ulp
+    # of difference between numpy and math could flip a verdict.
+    rng = np.random.default_rng(7)
+    routes = [
+        [Point(float(a), float(b)), Point(float(c), float(d))]
+        for a, b, c, d in zip(
+            rng.uniform(47.0, 48.0, 150),
+            rng.uniform(-5.0, -4.0, 150),
+            rng.uniform(47.0, 48.0, 150),
+            rng.uniform(-5.0, -4.0, 150),
+            strict=True,
+        )
+    ]
+    routes += [
+        [Point(47.5, -4.9), Point(47.5, -4.1)],
+        [Point(47.2, -4.6), Point(47.8, -4.6)],
+        [Point(47.4, -4.6), Point(47.6, -4.4)],
+        [Point(47.3, -4.9), Point(47.5, -4.9), Point(47.5, -4.1), Point(47.7, -4.1)],
+    ]
+    found = 0
+    for route in routes:
+        expected = _walk_point_by_point(route, mask)
+        assert land_crossings(route, mask) == expected, route
+        found += bool(expected)
+    assert 0 < found < len(routes)
+
+
+def test_is_land_many_agrees_with_is_land(mask: LandMask) -> None:
+    rng = np.random.default_rng(11)
+    lats = np.concatenate([rng.uniform(46.5, 48.5, 2000), [47.4, 47.6, 46.99, 48.0, 47.5]])
+    lons = np.concatenate([rng.uniform(-5.5, -3.5, 2000), [-4.6, -4.4, -4.5, -4.5, -5.0]])
+    many = mask.is_land_many(lats, lons)
+    assert many.tolist() == [mask.is_land(a, o) for a, o in zip(lats, lons, strict=True)]
+    assert many.any() and not many.all()
+    assert not LandMask.empty().is_land_many(lats, lons).any()
+
+
+def test_a_leg_across_the_world_is_walked_quickly(mask: LandMask) -> None:
+    # The audit's zigzag, 0 E to 179 E and back: 49 legs of 7 600 nm, 3.7
+    # million samples. Point by point it took 4.5 to 8 s; vectorised, well
+    # under a second. The route length cap refuses it upstream anyway, this
+    # pins the walk itself.
+    zigzag = [Point(45.0, 0.0 if i % 2 == 0 else 179.0) for i in range(50)]
+    t = time.perf_counter()
+    land_crossings(zigzag, mask)
+    assert time.perf_counter() - t < 3.0

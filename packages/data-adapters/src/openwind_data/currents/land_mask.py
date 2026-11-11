@@ -120,6 +120,27 @@ class LandMask:
         byte = self.bits[row, col >> 3]
         return bool((byte >> (7 - (col & 7))) & 1)
 
+    def is_land_many(self, lats: np.ndarray, lons: np.ndarray) -> np.ndarray:
+        """:meth:`is_land` for arrays of points, as a boolean array of their shape.
+
+        The same pixel arithmetic, vectorised: a point outside the bitmap, or
+        a NaN, is sea; an empty mask is sea everywhere.
+        """
+        lats = np.asarray(lats, dtype=np.float64)
+        lons = np.asarray(lons, dtype=np.float64)
+        out = np.zeros(lats.shape, dtype=bool)
+        if self.bits is None:
+            return out
+        with np.errstate(invalid="ignore"):
+            rows_f = np.floor((lats - self.lat0) / self.pitch_deg)
+            cols_f = np.floor((lons - self.lon0) / self.pitch_deg)
+            inside = (rows_f >= 0) & (rows_f < self.n_lat) & (cols_f >= 0) & (cols_f < self.n_lon)
+        rows = rows_f[inside].astype(np.int64)
+        cols = cols_f[inside].astype(np.int64)
+        byte = self.bits[rows, cols >> 3]
+        out[inside] = ((byte >> (7 - (cols & 7)).astype(np.uint8)) & 1).astype(bool)
+        return out
+
 
 def pack(land: np.ndarray, lat0: float, lon0: float, pitch_deg: float, source: str) -> dict:
     """The arrays ``np.savez_compressed`` writes for a boolean ``land[n_lat, n_lon]``

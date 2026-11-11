@@ -16,6 +16,8 @@ import math
 import pytest
 
 from openwind_data.routing.geometry import (
+    EARTH_RADIUS_NM,
+    MAX_ROUTE_NM,
     MAX_WAYPOINTS,
     Point,
     validate_point,
@@ -31,7 +33,10 @@ def test_valid_route_passes() -> None:
 
 
 def test_extremes_are_inclusive() -> None:
-    validate_waypoints([Point(-90.0, -180.0), Point(90.0, 180.0)])
+    # Each pair shares a pole, so the route has no length: the test is about
+    # the coordinate bounds, not about the length cap (pole to pole is 10 800 nm).
+    validate_waypoints([Point(-90.0, -180.0), Point(-90.0, 180.0)])
+    validate_waypoints([Point(90.0, 180.0), Point(90.0, -180.0)])
 
 
 def test_single_waypoint_rejected() -> None:
@@ -81,6 +86,37 @@ def test_waypoint_count_capped() -> None:
 
 def test_waypoint_count_at_cap_allowed() -> None:
     validate_waypoints([Point(43.0 + i * 0.001, 5.0) for i in range(MAX_WAYPOINTS)])
+
+
+def test_route_length_capped() -> None:
+    # The 2026-11 audit: 50 waypoints zigzagging between 0 E and 179 E, a
+    # 500 000 nm route the land check walked for 8 s, synchronously.
+    zigzag = [Point(45.0, 0.0 if i % 2 == 0 else 179.0) for i in range(MAX_WAYPOINTS)]
+    with pytest.raises(
+        ValueError, match=r"^route too long: \d+ nm along the waypoints \(max 1500 nm\)"
+    ):
+        validate_waypoints(zigzag)
+    # One leg is enough: Marseille to New York.
+    with pytest.raises(ValueError, match="route too long"):
+        validate_waypoints([MARSEILLE, Point(40.7, -74.0)])
+
+
+def test_long_european_passages_stay_under_the_cap() -> None:
+    # The longest single trips the product is asked for: Brest to Las Palmas
+    # by Cape Finisterre (about 1 320 nm), Marseille to Athens through Messina
+    # (about 980 nm). Neither may be refused.
+    validate_waypoints([Point(48.35, -4.6), Point(43.1, -9.4), Point(28.1, -15.4)])
+    validate_waypoints(
+        [MARSEILLE, Point(41.0, 9.6), Point(38.2, 15.6), Point(36.8, 22.0), Point(37.9, 23.6)]
+    )
+
+
+def test_route_length_at_cap_allowed() -> None:
+    # Due south along a meridian, so the length is exact: a hair under the cap.
+    deg = (MAX_ROUTE_NM - 0.01) / EARTH_RADIUS_NM * 180.0 / math.pi
+    validate_waypoints([Point(60.0, 0.0), Point(60.0 - deg, 0.0)])
+    with pytest.raises(ValueError, match="route too long"):
+        validate_waypoints([Point(60.0, 0.0), Point(60.0 - deg - 0.01, 0.0)])
 
 
 def test_validate_point_accepts_and_rejects() -> None:

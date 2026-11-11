@@ -90,6 +90,8 @@ export const plan: Record<keyof typeof frPlan, string> = {
     "Un waypoint está fuera de las coordenadas válidas. Vuelva a situarlo en el mapa.",
   "plan.api.errors.tooManyWaypoints":
     "Demasiados waypoints en esta ruta. Quite algunos para simplificarla.",
+  "plan.api.errors.routeTooLong":
+    "Esta ruta es demasiado larga para planificarla de una sola vez. Divida el viaje en varias etapas y planifíquelas una a una.",
   "plan.api.errors.rateLimited": "Demasiados cálculos lanzados uno tras otro. {delay}",
   "plan.api.errors.unknownArchetype":
     "Tipo de barco desconocido. Seleccione un tipo de barco de la lista.",
