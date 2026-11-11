@@ -46,7 +46,7 @@ export function ContextRow({
     >
       <span className="shrink-0 flex" style={{ color: "var(--ow-accent)" }}>{icon}</span>
       <span className="min-w-0 flex-1 flex items-baseline gap-1.5 text-[11.5px]">
-        <span className="shrink-0" style={{ color: "var(--ow-fg-3)" }}>{label}</span>
+        <span className="shrink-0" style={{ color: "var(--ow-fg-2)" }}>{label}</span>
         <span
           className="truncate font-semibold tabular-nums"
           style={{ color: "var(--ow-fg-0)", fontFamily: "var(--ow-font-mono)" }}

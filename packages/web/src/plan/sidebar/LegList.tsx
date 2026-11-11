@@ -4,7 +4,7 @@
 import { useMemo } from "react";
 import type { AggregatedLeg } from "../aggregateLegs";
 import { aggregateLegs, buildLegSummaryCells } from "../aggregateLegs";
-import { cxLevel, cxLevelVar } from "../../domain/thresholds";
+import { beaufortLevel, windSoftVar, windTextVar } from "../../domain/thresholds";
 import { LegExpanded } from "./LegExpanded";
 import type { PassageReport, SegmentReport } from "../types";
 import { planMinUpwind } from "../../config/polarConfig";
@@ -45,7 +45,7 @@ function LegRow({
   segments: SegmentReport[];
   minUpwindDeg: number;
 }) {
-  const cx = cxLevel((leg.tws_min + leg.tws_max) / 2);
+  const windLevel = beaufortLevel(leg.tws_avg_kn);
   const summary = buildLegSummaryCells(leg);
 
   const handleKey = (e: React.KeyboardEvent) => {
@@ -85,7 +85,7 @@ function LegRow({
           <div className="flex flex-col items-start gap-0.5">
             <span
               className="inline-flex h-6 px-1.5 rounded-md items-center justify-center text-[10px] font-bold tabular-nums whitespace-nowrap"
-              style={{ background: cxLevelVar(cx), color: "var(--ow-cell-ink)", fontFamily: "var(--ow-font-mono)" }}
+              style={{ background: windSoftVar(windLevel), color: windTextVar(windLevel), fontFamily: "var(--ow-font-mono)" }}
             >
               {index + 1}→{index + 2}
             </span>

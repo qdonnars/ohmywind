@@ -225,7 +225,7 @@ export function LegDetailCard({
             </span>
           )}
           {header.hint && (
-            <span className="ml-1.5 text-[10px] whitespace-nowrap" style={{ color: "var(--ow-fg-3)" }}>
+            <span className="ml-1.5 text-[10px] whitespace-nowrap" style={{ color: "var(--ow-fg-2)" }}>
               {header.hint}
             </span>
           )}

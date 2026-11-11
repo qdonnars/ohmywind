@@ -13,7 +13,7 @@
  */
 
 import type { AggregatedLeg } from "./aggregateLegs";
-import { cxLevel, cxLevelVar } from "../domain/thresholds";
+import { beaufortLevel, windSoftVar } from "../domain/thresholds";
 import { fmtClock } from "../domain/datetime";
 import { useT } from "../i18n";
 
@@ -101,7 +101,7 @@ export function StepStrip({
                   flex: `${Math.max(step.distance_nm, 0.01)} 1 0`,
                   minWidth: stepMinWidth(n),
                   height: 26,
-                  background: cxLevelVar(cxLevel(step.tws_avg_kn)),
+                  background: windSoftVar(beaufortLevel(step.tws_avg_kn)),
                   opacity: dimmed ? 0.4 : 1,
                   outline: active ? "2px solid var(--ow-accent)" : "none",
                   outlineOffset: 1,

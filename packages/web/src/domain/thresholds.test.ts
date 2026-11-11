@@ -5,14 +5,15 @@ import { describe, expect, it } from "vitest";
 import {
   beaufortLevel,
   currentsLevel,
-  cxLevel,
-  cxLevelToken,
-  cxLevelVar,
+  directionSpreadDeg,
+  MODEL_DIRECTION_SPREAD_DEG,
   SEA_FORMED_HS_M,
   tidesLevel,
   wavesLevel,
   windLevelToken,
   windLevelVar,
+  windSoftVar,
+  windTextVar,
 } from "./thresholds";
 
 describe("beaufortLevel", () => {
@@ -94,20 +95,47 @@ describe("tidesLevel", () => {
   });
 });
 
-describe("cxLevel", () => {
-  it("maps the per-segment true wind onto five levels", () => {
-    expect(cxLevel(5)).toBe(1);
-    expect(cxLevel(10)).toBe(2);
-    expect(cxLevel(15)).toBe(3);
-    expect(cxLevel(20)).toBe(4);
-    expect(cxLevel(25)).toBe(5);
-    expect(cxLevel(60)).toBe(5);
+describe("windSoftVar", () => {
+  it("leaves a calm whole", () => {
+    expect(windSoftVar(0)).toBe("color-mix(in oklch, var(--ow-w-0) 100%, var(--ow-bg-0))");
   });
 
-  it("names the token of every level it can return", () => {
-    for (let level = 1; level <= 5; level++) {
-      expect(cxLevelToken(level)).toBe(`--ow-c-${level}`);
-      expect(cxLevelVar(level)).toBe(`var(--ow-c-${level})`);
+  it("softens every other level to 78 % over the page background", () => {
+    for (let level = 1; level <= 8; level++) {
+      expect(windSoftVar(level)).toBe(
+        `color-mix(in oklch, var(--ow-w-${level}) 78%, var(--ow-bg-0))`,
+      );
     }
+  });
+
+  it("names the ink of every level", () => {
+    for (let level = 0; level <= 8; level++) {
+      expect(windTextVar(level)).toBe(`var(--ow-cell-text-${level})`);
+    }
+  });
+});
+
+describe("directionSpreadDeg", () => {
+  it("measures the arc across north, not around the compass", () => {
+    expect(directionSpreadDeg([350, 10])).toBe(20);
+    expect(directionSpreadDeg([10, 350])).toBe(20);
+  });
+
+  it("covers every model, not only the two extremes of the list", () => {
+    expect(directionSpreadDeg([300, 340, 265, 10])).toBe(105);
+  });
+
+  it("is nothing for one direction or for directions that agree", () => {
+    expect(directionSpreadDeg([])).toBe(0);
+    expect(directionSpreadDeg([123])).toBe(0);
+    expect(directionSpreadDeg([200, 200, 200])).toBe(0);
+  });
+
+  it("takes directions outside 0-360", () => {
+    expect(directionSpreadDeg([-10, 370])).toBe(20);
+  });
+
+  it("puts the disagreement threshold at 45 degrees", () => {
+    expect(MODEL_DIRECTION_SPREAD_DEG).toBe(45);
   });
 });

@@ -17,6 +17,6 @@
  */
 export const FORCE_COLORS = {
   wind: "var(--ow-fg-0)",
-  waves: "var(--ow-warn)",
+  waves: "var(--ow-warn-ink)",
   current: "var(--ow-current)",
 } as const;

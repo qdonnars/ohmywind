@@ -178,7 +178,7 @@
 .polar-motor-warn {
   font-size: 11.5px;
   line-height: 1.5;
-  color: var(--ow-warn);
+  color: var(--ow-warn-ink);
   margin: 0;
 }
 .polar-tuning-toggle {
