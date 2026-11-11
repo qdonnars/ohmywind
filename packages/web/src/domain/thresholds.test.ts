@@ -8,7 +8,6 @@ import {
   currentsLevel,
   directionSpreadDeg,
   MODEL_DIRECTION_SPREAD_DEG,
-  SEA_FORMED_HS_M,
   tidesLevel,
   waveLevel,
   windLevelToken,
@@ -62,9 +61,10 @@ describe("waveLevel", () => {
   });
 
   it("paints a mer formée past the dark blues", () => {
-    // From a metre the ramp turns light and the ink dark: a sea that earns the
-    // chip never sits on the calm blues.
-    expect(waveLevel(SEA_FORMED_HS_M)).toBeGreaterThanOrEqual(3);
+    // From a metre the ramp turns light and the ink dark: at 1,25 m, where
+    // the server starts calling a sea « formée », it never sits on the calm
+    // blues.
+    expect(waveLevel(1.25)).toBeGreaterThanOrEqual(3);
   });
 });
 

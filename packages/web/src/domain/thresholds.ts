@@ -8,8 +8,10 @@
  * ladder appeared as a table of steps and again as a bare array of maxima in
  * `utils/colors.ts`; the sea, current and tide bands sat inline in
  * `MarineTable.tsx`; the "mer formée" cutoff was written 1.25 in both
- * `aggregateLegs.ts` and the sidebar's leg list. A band edited in one copy and
- * not the other shows up as a cell coloured one way and captioned another.
+ * `aggregateLegs.ts` and the sidebar's leg list, and 1 m on the server. A
+ * band edited in one copy and not the other shows up as a cell coloured one
+ * way and captioned another. The state of the sea of a passage has since
+ * left this module altogether: the server decides it per segment.
  *
  * Colours are deliberately *not* here. The palettes live in `design/tokens.css`
  * as `--ow-w-0..8` (wind) and `--ow-wave-0..5` (sea), which is what makes
@@ -112,11 +114,12 @@ export function circularMean(degrees: readonly number[]): number | null {
 // ── Sea state ────────────────────────────────────────────────────────────────
 
 /**
- * Significant wave height, in metres, above which a leg is called "mer formée".
- * Matches the `agitée` band edge of the server-side complexity scorer, so the
- * chip on a leg and the warning the MCP surfaces agree.
+ * Sea level, on the server's 1 to 5 scale, from which a leg's sea figure is
+ * inked as a warning and named (« Mer formée », « Grosse mer », « Très
+ * grosse mer »). The level itself comes with each segment (`sea_level`): the
+ * bands, 1.25, 2.5 and 4 m, are the server's and are not written here.
  */
-export const SEA_FORMED_HS_M = 1.25;
+export const SEA_WARNING_LEVEL = 3;
 
 /**
  * Step of the sea's own ramp, `--ow-wave-0..5`, for a significant wave height

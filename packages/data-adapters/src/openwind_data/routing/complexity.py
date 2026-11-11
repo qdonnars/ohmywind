@@ -21,15 +21,9 @@ import math
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from openwind_data.adapters.base import (
-    CHOP_FOLLOWING_TWA_DEG,
-    CHOP_HS_FLOOR_M,
-    CHOP_INDEX_THRESHOLD,
-    WIND_AGAINST_CURRENT_OPPOSITION_DEG,
-    WIND_AGAINST_CURRENT_WARNING_THRESHOLD_KN,
-)
 from openwind_data.routing.notices import notice
-from openwind_data.routing.passage import PassageReport
+from openwind_data.routing.passage import PassageReport, SegmentReport
+from openwind_data.routing.sea_state import SEA_BANDS, SEA_WARNING_LEVEL, SeaFlag, sea_flag
 
 # (upper_bound_exclusive, level, label). Last bucket has math.inf.
 _WIND_BANDS: tuple[tuple[float, int, str], ...] = (
@@ -40,13 +34,8 @@ _WIND_BANDS: tuple[tuple[float, int, str], ...] = (
     (float("inf"), 5, "très fort"),
 )
 
-_SEA_BANDS: tuple[tuple[float, int, str], ...] = (
-    (0.5, 1, "plate"),
-    (1.0, 2, "belle"),
-    (2.0, 3, "agitée"),
-    (3.0, 4, "forte"),
-    (float("inf"), 5, "très forte"),
-)
+# The sea's bands, words and flags live in ``routing.sea_state``, which the
+# passage engine reads too: a segment and the passage's score cannot disagree.
 
 _LEVEL_LABELS: dict[int, str] = {
     1: "facile",
@@ -72,6 +61,23 @@ def _lower_bound(level: int, bands: tuple[tuple[float, int, str], ...]) -> float
             return prev
         prev = upper
     return 0.0  # pragma: no cover
+
+
+def _segment_sea_flag(s: SegmentReport) -> SeaFlag | None:
+    """The sea flag of a segment, from its raw values.
+
+    Recomputed rather than read from ``s.sea_flag``: a report built by hand
+    (a test, a caller of this module alone) carries the values but not the
+    engine's stamp, and the two come from the same function anyway.
+    """
+    return sea_flag(
+        twd_deg=s.twd_deg,
+        twa_deg=s.twa_deg,
+        hs_m=s.hs_m,
+        wave_period_s=s.wave_period_s,
+        current_speed_kn=s.current_speed_kn,
+        current_direction_to_deg=s.current_direction_to_deg,
+    )
 
 
 def _compact_range(values: list[float], decimals: int) -> str:
@@ -150,7 +156,7 @@ def score_complexity(
         level = wind_level
         rationale = f"vent max {tws_max:.0f} kn ({wind_label})"
     else:
-        sea_level, sea_label = _classify(max_hs_m, _SEA_BANDS)
+        sea_level, sea_label = _classify(max_hs_m, SEA_BANDS)
         level = max(wind_level, sea_level)
         rationale = (
             f"vent max {tws_max:.0f} kn ({wind_label}), mer max Hs={max_hs_m:.1f} m ({sea_label})"
@@ -173,8 +179,8 @@ def score_complexity(
                 params=n.params,
             )
         )
-    if sea_level is not None and sea_level >= 3 and max_hs_m is not None:
-        threshold = _lower_bound(sea_level, _SEA_BANDS)
+    if sea_level is not None and sea_level >= SEA_WARNING_LEVEL and max_hs_m is not None:
+        threshold = _lower_bound(sea_level, SEA_BANDS)
         affected_sea = tuple(
             i for i, s in enumerate(passage.segments) if s.hs_m is not None and s.hs_m >= threshold
         )
@@ -202,56 +208,33 @@ def score_complexity(
             )
         )
 
-    # Wind-against-current detection: a segment triggers when current ≥ 1.5 kt
-    # AND wind_to (twd + 180) is opposed to current_to by ≥ 120°. Mediterranean
-    # legs almost never qualify; Atlantic tidal passes (Goulet de Brest, Raz de
-    # Sein) routinely do. Triggers a +1 bump on the overall level (cap 5) plus
-    # an explicit warning so the LLM/UI can flag the chop, mirroring nautical
-    # practice. The bump is shared with the chop detector below — both flag
-    # broken/uncomfortable sea and only contribute +1 in total.
-    wac_indices: list[int] = []
-    wac_currents: list[float] = []
-    for i, s in enumerate(passage.segments):
-        if s.current_speed_kn is None or s.current_direction_to_deg is None:
-            continue
-        if s.current_speed_kn < WIND_AGAINST_CURRENT_WARNING_THRESHOLD_KN:
-            continue
-        wind_to = (s.twd_deg + 180.0) % 360.0
-        delta = abs(((wind_to - s.current_direction_to_deg + 540.0) % 360.0) - 180.0)
-        if delta >= WIND_AGAINST_CURRENT_OPPOSITION_DEG:
-            wac_indices.append(i)
-            wac_currents.append(s.current_speed_kn)
-
+    # Wind against current and chop, segment by segment, from the one
+    # function the engine stamps each segment with (``sea_state.sea_flag``).
+    # Wind against current: a current of 1.5 kt or more opposed to the wind.
+    # Mediterranean legs almost never qualify; Atlantic tidal passes (Goulet
+    # de Brest, Raz de Sein) routinely do. Chop: a short, steep wind sea. A
+    # segment already flagged for wind against current is not flagged for
+    # chop as well: both say "broken sea", one warning is enough. Either
+    # bumps the overall level by one (cap 5), once in total.
+    flags = [_segment_sea_flag(s) for s in passage.segments]
+    wac_indices = [i for i, f in enumerate(flags) if f == "wind_against_current"]
+    # A flagged segment has a current, a height and a period: the filters
+    # only tell the type checker so.
+    wac_currents = [
+        cur for i in wac_indices if (cur := passage.segments[i].current_speed_kn) is not None
+    ]
     wind_against_current = bool(wac_indices)
 
-    # Chop detection: short-period steep wind sea ("clapot"). Index = Hs/Tp²
-    # is a steepness proxy. We exclude segments already flagged by WAC since
-    # the WAC warning ("mer hachée probable") already covers chop on those
-    # legs — no need to fire two warnings for the same phenomenon.
-    chop_indices: list[int] = []
-    chop_hs: list[float] = []
-    chop_tp: list[float] = []
-    wac_index_set = set(wac_indices)
-    for i, s in enumerate(passage.segments):
-        if i in wac_index_set:
-            continue
-        if s.hs_m is None or s.wave_period_s is None:
-            continue
-        if s.hs_m < CHOP_HS_FLOOR_M or s.wave_period_s <= 0:
-            continue
-        if s.hs_m / (s.wave_period_s**2) > CHOP_INDEX_THRESHOLD:
-            chop_indices.append(i)
-            chop_hs.append(s.hs_m)
-            chop_tp.append(s.wave_period_s)
+    chop_indices = [i for i, f in enumerate(flags) if f in ("chop_short", "chop_following")]
+    chop_hs = [hs for i in chop_indices if (hs := passage.segments[i].hs_m) is not None]
+    chop_tp = [tp for i in chop_indices if (tp := passage.segments[i].wave_period_s) is not None]
 
     chop_present = bool(chop_indices)
     # Following chop (sea from behind) is much less penalising — emit the
     # warning so the sailor sees it but skip the bump when *every* chop
     # segment is on a running angle. A single bow-on or beam segment in the
     # set still bumps, because that's where slamming happens.
-    chop_following_only = chop_present and all(
-        abs(passage.segments[i].twa_deg) >= CHOP_FOLLOWING_TWA_DEG for i in chop_indices
-    )
+    chop_following_only = chop_present and all(flags[i] == "chop_following" for i in chop_indices)
     chop_contributes_bump = chop_present and not chop_following_only
 
     # Single +1 bump shared by WAC and chop — both describe broken/uncomfortable

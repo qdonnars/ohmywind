@@ -28,7 +28,17 @@ export interface SegmentReport {
   gust_kn?: number | null;
   wave_period_s?: number | null;
   motor_used?: boolean;
+  /** The state of the sea on this segment, as the server decided it: the
+      level 1 to 5 of `hs_m` (3 and above is worth a warning), null without
+      sea data. The app never bins a wave height into a level itself.
+      Absent from an older server, and then nothing is flagged. */
+  sea_level?: number | null;
+  /** What makes the sea worse than its height says, decided by the server
+      too. Absent from an older server. */
+  sea_flag?: SeaFlag | null;
 }
+
+export type SeaFlag = "wind_against_current" | "chop_short" | "chop_following";
 
 /**
  * A warning as the server codes it. `plan.notice.<code>` is its key in the

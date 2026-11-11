@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import type { SegmentReport } from "./types";
+import type { SeaFlag, SegmentReport } from "./types";
 import {
   CURRENT_RELEVANCE_THRESHOLD_KN,
-  SEA_FORMED_HS_M,
+  SEA_WARNING_LEVEL,
   WIND_SUSTAINED_TWS_KN,
 } from "../domain/thresholds";
 import { COEFF_DEFAULT } from "../config/polarConfig";
@@ -58,6 +58,25 @@ export interface AggregatedLeg {
   // "arrière", or null if Hs is null. Approximated from TWA (Med swell mostly
   // tracks wind in the absence of distant ocean swell).
   sea_direction: "face" | "travers" | "arrière" | null;
+  // The state of the sea as the server decided it, segment by segment (see
+  // `SegmentReport.sea_level` and `sea_flag`), carried up to the leg. Nothing
+  // here bins a wave height or measures a steepness again: the leg list, the
+  // step table, the map and the MCP answer read one decision.
+  //
+  // Highest level, 1 to 5, among the leg's segments: one hour of formed sea
+  // makes a formed leg, as it makes a formed passage in the server's score.
+  // Null when the server stamped none (no sea data, or an older server).
+  sea_level: number | null;
+  // The leg's flag: wind against current if any segment has it, else short
+  // chop if any, else following chop (every chop of the leg comes from
+  // behind), the rule of the server's own warning.
+  sea_flag: SeaFlag | null;
+  // Shortest and longest wave period among the segments flagged for chop,
+  // null when the leg's flag is not a chop.
+  sea_flag_tp_s: [number, number] | null;
+  // Strongest current among the segments flagged for wind against current,
+  // null when the leg's flag is something else.
+  sea_flag_current_kn: number | null;
 
   // ── Current ───────────────────────────────────────────────────────────────
   current_speed_kn: number | null;
@@ -119,20 +138,14 @@ export function legDurationLabel(leg: AggregatedLeg): string {
 }
 
 // Build the leg summary as named cells: duration, allure, wind and sea
-// ranges, plus the one qualifier the current/wave thresholds may raise.
+// ranges, plus what the server flagged on the leg.
 // The units are not in the cells: the column headers say them once.
 //
-// Sea/wind thresholds match the server-side complexity scorer (Météo-France
-// classification) so the summary stays coherent with the warnings the LLM
-// surfaces in MCP. Wind-against-current requires both an opposing direction
-// AND a material current speed (>= 1.5 kn), mirroring the server cutoff.
-//
-// Clapot ("steepness" Hs/Tp² > 0.05 with Hs >= 0.8 m) takes precedence over
-// the generic "Mer formée" label because it carries a sharper meaning for the
-// sailor — short steep wind sea, not just heavy seas. Long-period swell at
-// the same Hs (e.g. Hs 1.8 m at Tp 11 s) keeps the "Mer formée" label since
-// it isn't clapot. Thresholds match the server-side ComplexityWarning kind=
-// "chop".
+// The sea is not judged here. Its level (formée, grosse, très grosse) and
+// its flags (wind against current, chop, following chop) come stamped on
+// each segment by the server, the same decision its own warnings and the MCP
+// answer are built from; this function only words them. The wind threshold
+// is still a mirror of the server's (see `WIND_SUSTAINED_TWS_KN`).
 export interface LegSummaryCells {
   duration: string;
   allure: string;
@@ -169,29 +182,29 @@ export function buildLegSummaryCells(leg: AggregatedLeg): LegSummaryCells {
   const sea =
     leg.hs_min_m != null && leg.hs_max_m != null ? numRange(leg.hs_min_m, leg.hs_max_m, 1) : null;
 
-  const chopIndex =
-    leg.hs_avg_m != null && leg.tp_avg_s != null && leg.tp_avg_s > 0
-      ? leg.hs_avg_m / (leg.tp_avg_s * leg.tp_avg_s)
-      : null;
+  const seaName = seaLevelName(leg.sea_level);
 
+  // One flag for the leg card, the rarest signal first: a wind against the
+  // current, then a sea of level 4 or more (it says more than the chop it
+  // may also be), then a chop, then a formed sea.
   let flag: string | null = null;
   let alert: string | null = null;
-  if (leg.current_relative === "contraire" && (leg.current_speed_kn ?? 0) >= 1.5) {
+  if (leg.sea_flag === "wind_against_current") {
     flag = t("panel.legs.seaFlag.windAgainstCurrent");
-    alert = t("panel.legs.alert.current", { flag, speed: num1(leg.current_speed_kn ?? 0) });
-  } else if (leg.hs_avg_m != null) {
-    if (leg.hs_avg_m > 2.5) flag = t("panel.legs.seaFlag.heavySea");
-    else if (chopIndex != null && chopIndex > 0.05 && leg.hs_avg_m >= 0.8) {
-      // Following sea (TWA >= 120°): the chop is uncomfortable but doesn't
-      // bump complexity server-side either. We rename the chip rather than
-      // hide it because broaching / accidental gybe risks remain.
-      flag =
-        leg.sea_direction === "arrière"
-          ? t("panel.legs.seaFlag.followingChop")
-          : t("panel.legs.seaFlag.chop");
-      alert = t("panel.legs.alert.chop", { flag, period: Math.round(leg.tp_avg_s as number) });
-    }
-    else if (leg.hs_avg_m > SEA_FORMED_HS_M) flag = t("panel.legs.seaFlag.roughSea");
+    alert = t("panel.legs.alert.current", { flag, speed: num1(leg.sea_flag_current_kn ?? 0) });
+  } else if (leg.sea_flag != null) {
+    // Following chop: uncomfortable, but it does not bump the complexity
+    // server-side either. Named rather than hidden, because broaching and
+    // accidental gybe risks remain.
+    const chop =
+      leg.sea_flag === "chop_following"
+        ? t("panel.legs.seaFlag.followingChop")
+        : t("panel.legs.seaFlag.chop");
+    const [tpMin, tpMax] = leg.sea_flag_tp_s ?? [0, 0];
+    alert = t("panel.legs.alert.chop", { flag: chop, period: numRange(tpMin, tpMax, 0) });
+    flag = (leg.sea_level ?? 0) > SEA_WARNING_LEVEL ? seaName : chop;
+  } else {
+    flag = seaName;
   }
 
   // The strength of the wind and the height of the sea are said by their own
@@ -199,9 +212,7 @@ export function buildLegSummaryCells(leg: AggregatedLeg): LegSummaryCells {
   // row prints « 15 » is orange like any other 15.
   const windNote =
     Math.round(leg.tws_max) >= WIND_SUSTAINED_TWS_KN ? t("panel.legs.windFlag") : null;
-  let seaNote: string | null = null;
-  if (leg.hs_avg_m != null && leg.hs_avg_m > 2.5) seaNote = t("panel.legs.seaFlag.heavySea");
-  else if (leg.hs_avg_m != null && leg.hs_avg_m > SEA_FORMED_HS_M) seaNote = t("panel.legs.seaFlag.roughSea");
+  const seaNote = seaName;
 
   return {
     duration: legDurationLabel(leg),
@@ -216,6 +227,16 @@ export function buildLegSummaryCells(leg: AggregatedLeg): LegSummaryCells {
     flag,
     alert,
   };
+}
+
+/** The name of a sea worth a warning, from the server's level; null under
+    `SEA_WARNING_LEVEL` and without a level. A level past the scale reads as
+    its top. */
+function seaLevelName(level: number | null): string | null {
+  if (level == null || level < SEA_WARNING_LEVEL) return null;
+  if (level === 3) return t("panel.legs.seaFlag.roughSea");
+  if (level === 4) return t("panel.legs.seaFlag.heavySea");
+  return t("panel.legs.seaFlag.veryHeavySea");
 }
 
 // Inclusive-exclusive segment ranges per user-waypoint leg. Shared between
@@ -349,6 +370,28 @@ function aggregateSegments(
     ? tpSegs.reduce((s, seg) => s + (seg.wave_period_s as number) * seg.distance_nm, 0) / tpTotalDist
     : null;
 
+  // The server's verdict on the sea, carried up from the segments.
+  const levels = segs.map((s) => s.sea_level).filter((v): v is number => v != null);
+  const sea_level = levels.length > 0 ? Math.max(...levels) : null;
+  const flagged = (flag: SeaFlag) => segs.filter((s) => s.sea_flag === flag);
+  const wac = flagged("wind_against_current");
+  const chop = [...flagged("chop_short"), ...flagged("chop_following")];
+  const sea_flag: SeaFlag | null =
+    wac.length > 0
+      ? "wind_against_current"
+      : flagged("chop_short").length > 0
+        ? "chop_short"
+        : chop.length > 0
+          ? "chop_following"
+          : null;
+  const chopPeriods = chop.map((s) => s.wave_period_s).filter((v): v is number => v != null);
+  const sea_flag_tp_s: [number, number] | null =
+    sea_flag != null && sea_flag !== "wind_against_current" && chopPeriods.length > 0
+      ? [Math.min(...chopPeriods), Math.max(...chopPeriods)]
+      : null;
+  const wacSpeeds = wac.map((s) => s.current_speed_kn).filter((v): v is number => v != null);
+  const sea_flag_current_kn = wacSpeeds.length > 0 ? Math.max(...wacSpeeds) : null;
+
   // Motor share. Distance-weighted so a single short motor segment in an
   // otherwise sail-driven leg doesn't flip the whole label. Threshold > 0.5
   // matches the product decision (majoritaire); under that, the leg keeps
@@ -384,6 +427,10 @@ function aggregateSegments(
     hs_max_m,
     tp_avg_s,
     sea_direction: hs_avg_m == null ? null : twaToSeaDirection(twa_avg_deg),
+    sea_level,
+    sea_flag,
+    sea_flag_tp_s,
+    sea_flag_current_kn,
     current_speed_kn,
     current_direction_to_deg,
     current_relative,

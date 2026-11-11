@@ -76,6 +76,24 @@ describe("dictionnaires", () => {
     expect(flags(fr).length).toBeGreaterThan(0);
   });
 
+  it("une mer porte le même nom sur un tronçon et dans une alerte", () => {
+    // Un seul vocabulaire par langue : l'alerte du serveur (« Mer formée :
+    // Hs … ») s'ouvre sur le mot qui marque le tronçon, pour chaque palier.
+    const names = { 3: "roughSea", 4: "heavySea", 5: "veryHeavySea" } as const;
+    for (const [lang, d] of [["fr", fr], ...TRANSLATIONS] as const) {
+      const dict = d as Record<string, string>;
+      for (const [level, key] of Object.entries(names)) {
+        const name = dict[`panel.legs.seaFlag.${key}`];
+        expect(name, `${lang} ${key}`).toBeTruthy();
+        expect(
+          dict[`plan.notice.complexity.sea.${level}`].startsWith(`${name}:`) ||
+            dict[`plan.notice.complexity.sea.${level}`].startsWith(`${name} :`),
+          `${lang} sea.${level}`,
+        ).toBe(true);
+      }
+    }
+  });
+
   it("une clé au pluriel a ses deux formes", () => {
     for (const k of Object.keys(fr)) {
       if (k.endsWith(".one")) expect(fr).toHaveProperty(k.replace(/\.one$/, ".other"));

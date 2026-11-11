@@ -87,7 +87,7 @@ describe("reading the options", () => {
       wind_level: 2,
       wind_label: "Modéré",
       sea_level: 3,
-      sea_label: "Agitée",
+      sea_label: "Formée",
       tws_max_kn: 14,
       hs_max_m: 1.4,
       rationale: "",
@@ -95,7 +95,7 @@ describe("reading the options", () => {
         {
           kind: "sea",
           level: 3,
-          message: "Mer agitée : Hs 1.1-1.4 m sur 13.8 nm",
+          message: "Mer formée : Hs 1.1-1.4 m sur 13.8 nm",
           affected_segments: [1],
           code: "complexity.sea.3",
           params: { hs_range: "1.1-1.4", nm: "13.8" },
@@ -104,7 +104,7 @@ describe("reading the options", () => {
     };
     const a = trackAlerts({ ...passage([segment(20, 1.4)]), warnings: ["vent faible : passage très lent"] }, score);
     // The server's figures, in the reader's decimals: none invented.
-    expect(a.lines).toEqual(["Mer agitée : Hs 1,1–1,4 m sur 13,8 nm"]);
+    expect(a.lines).toEqual(["Mer formée : Hs 1,1–1,4 m sur 13,8 nm"]);
     expect(a.others).toEqual(["vent faible : passage très lent"]);
     expect(a.sea).toBe(true);
     // A wind warning does not paint the sea.

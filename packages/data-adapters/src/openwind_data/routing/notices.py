@@ -24,8 +24,11 @@ from dataclasses import dataclass
 from typing import Any
 
 # One French template per code. The wind and sea bands carry their level in
-# the code rather than in a parameter: the label ("soutenu", "agitée") is a
-# word to translate, not a value to interpolate.
+# the code rather than in a parameter: the label ("soutenu", "formée") is a
+# word to translate, not a value to interpolate. The sea's names are those of
+# ``routing.sea_state.SEA_NAMES``, the one place that names a sea; they are
+# written out here because the web app's parity test reads this dict as text,
+# and ``test_notices.py`` holds the two together.
 FR_TEMPLATES: dict[str, str] = {
     "passage.long_route": (
         "trajet long ({route_nm} nm) : {points} points météo échantillonnés "
@@ -56,9 +59,9 @@ FR_TEMPLATES: dict[str, str] = {
     "complexity.wind.3": "Vent soutenu : TWS {tws_range} kn sur {nm} nm",
     "complexity.wind.4": "Vent fort : TWS {tws_range} kn sur {nm} nm",
     "complexity.wind.5": "Vent très fort : TWS {tws_range} kn sur {nm} nm",
-    "complexity.sea.3": "Mer agitée : Hs {hs_range} m sur {nm} nm",
-    "complexity.sea.4": "Mer forte : Hs {hs_range} m sur {nm} nm",
-    "complexity.sea.5": "Mer très forte : Hs {hs_range} m sur {nm} nm",
+    "complexity.sea.3": "Mer formée : Hs {hs_range} m sur {nm} nm",
+    "complexity.sea.4": "Grosse mer : Hs {hs_range} m sur {nm} nm",
+    "complexity.sea.5": "Très grosse mer : Hs {hs_range} m sur {nm} nm",
     "complexity.current": (
         "Vent contre courant : courant {current_range} kt opposé sur {nm} nm, mer hachée probable"
     ),
