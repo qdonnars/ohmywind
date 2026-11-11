@@ -88,11 +88,11 @@ export const explore = {
 
   // Table marine
   "explore.marineTable.row.hs": "Hauteur",
-  "explore.marineTable.row.direction": "Dir",
+  "explore.marineTable.row.direction": "Portant vers",
   "explore.marineTable.row.waveFrom": "Venant de",
   "explore.marineTable.row.period": "Période",
   "explore.marineTable.row.tide": "Marée",
-  "explore.marineTable.row.current": "Cour.",
+  "explore.marineTable.row.current": "Vitesse",
   "explore.marineTable.aria.hs": "Hs {value} m",
   "explore.marineTable.aria.hsFrom": "Hs {value} m, venant de {dir}°",
   "explore.marineTable.aria.waveDirection": "Direction des vagues, venant de {dir}°",
