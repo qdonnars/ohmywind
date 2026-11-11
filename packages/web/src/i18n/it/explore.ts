@@ -70,6 +70,11 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.windTable.fallbackTitle":
     "{description} (visualizzato al posto di {model}, che non copre questo punto).",
   "explore.windTable.fallbackBadge": "fallback da {model}",
+  "explore.windTable.unit": "nodi",
+  "explore.windTable.direction": "Direzione",
+  "explore.windTable.meanDirection": "Direzione media dei modelli, da {dir}°",
+  "explore.windTable.spread": "Modelli in disaccordo: scarto di {deg}°",
+  "explore.timeline.now": "Ora",
 
   // Wind cell
   "explore.windCell.aria.speed": "{speed} nodi",
@@ -79,11 +84,12 @@ export const explore: Record<keyof typeof frExplore, string> = {
     "{speed} nodi, raffiche {gusts}, direzione {direction}°",
 
   // Marine table
-  "explore.marineTable.row.hs": "Hs",
-  "explore.marineTable.row.direction": "Dir",
-  "explore.marineTable.row.period": "T",
+  "explore.marineTable.row.hs": "Altezza",
+  "explore.marineTable.row.direction": "Verso",
+  "explore.marineTable.row.waveFrom": "Provenienza",
+  "explore.marineTable.row.period": "Periodo",
   "explore.marineTable.row.tide": "Marea",
-  "explore.marineTable.row.current": "Corr.",
+  "explore.marineTable.row.current": "Velocità",
   "explore.marineTable.aria.hs": "Hs {value} m",
   "explore.marineTable.aria.hsFrom": "Hs {value} m, proveniente da {dir}°",
   "explore.marineTable.aria.waveDirection": "Direzione delle onde, proveniente da {dir}°",
@@ -95,6 +101,13 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.marineTable.aria.current": "Corrente {value} kn",
 
   // Nota sotto la tabella delle correnti: la fonte e il numero che la qualifica
+  // The one line of a currents warning; the sentences below are what it
+  // unfolds into.
+  "explore.marineTable.caveat.tidalGapPass": "Correnti probabilmente sbagliate qui · {zone} · maglia di {size}",
+  "explore.marineTable.caveat.tidalGapZone": "Correnti probabilmente sbagliate qui · maglia di {size}",
+  "explore.marineTable.caveat.unknownAt": "Corrente sconosciuta qui · {zone}",
+  "explore.marineTable.caveat.unknown": "Corrente sconosciuta qui",
+  "explore.marineTable.caveat.method": "Come sono calcolate le correnti",
   "explore.marineTable.tidalGap.pass": "Attenzione: le correnti indicate qui sono probabilmente sbagliate. {zone} è una zona di forte corrente di marea e il calcolo dispone qui solo di una maglia di {size}, che non la vede. Stiamo lavorando per estendere la copertura, ma non tutti i dati sono in libero accesso.",
   "explore.marineTable.tidalGap.zone": "Attenzione: le correnti indicate qui sono probabilmente sbagliate. La corrente di marea supera qui 1,5 kn e il calcolo dispone solo di una maglia di {size}, che non la vede. Stiamo lavorando per estendere la copertura, ma non tutti i dati sono in libero accesso.",
   "explore.marineTable.unknown.managed": "Corrente sconosciuta qui ({zone}): un'opera regola le correnti e il livello, non la marea, e nessuna delle nostre fonti la descrive. Piuttosto che un numero sbagliato, non mostriamo nulla. Consultate il gestore dell'opera e il portolano.",

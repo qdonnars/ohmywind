@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { formatHour } from "../utils/format";
 import type { ModelForecast } from "../types";
 import type { TimezoneMode } from "../hooks/useTimezone";
-
+import { useT } from "../i18n";
 
 interface TimelineHeaderProps {
   times: string[];
@@ -15,10 +15,9 @@ interface TimelineHeaderProps {
   forecasts: ModelForecast[];
   nowHour: string;
   timezoneMode: TimezoneMode;
-  visibleDay: string; // ISO date "2025-04-26" of leftmost visible day
-  /** Width of the sticky first column, which the tables under this header
-      have to match. 56 px fits a model name; a spot name needs more. */
-  firstColumnPx?: number;
+  /** The word in the top-left corner, the unit the whole
+      table is read in (« nœuds »), said once there instead of in every cell. */
+  cornerLabel?: string;
 }
 
 function wmoIcon(code: number | null, isDay: boolean): string {
@@ -55,15 +54,6 @@ function stickyFormatters(): [Intl.DateTimeFormat, Intl.DateTimeFormat] {
   return pair;
 }
 
-function formatStickyDay(isoDate: string): [string, string] {
-  if (!isoDate) return ["", ""];
-  const d = new Date(isoDate + "T12:00:00Z");
-  const [weekday, dayNum] = stickyFormatters();
-  // French short weekdays carry a trailing dot ("jeu."): the sticky label is
-  // a tag, not a sentence, so it goes.
-  return [weekday.format(d).toUpperCase().replace(/\.$/, ""), dayNum.format(d)];
-}
-
 /** Everything a column needs, resolved once per timeline instead of per render.
  *
  * The two lookups this replaces were the expensive part: `weatherCode` and
@@ -75,7 +65,6 @@ interface Column {
   time: string;
   icon: string;
   hourLabel: string;
-  isDayStart: boolean;
 }
 
 function buildColumns(
@@ -111,26 +100,25 @@ function buildColumns(
     return hour >= 7 && hour < 21;
   };
 
-  let prevDay = "";
-  return times.map((t, i) => {
-    const day = t.slice(0, 10);
-    const isDayStart = day !== prevDay && i > 0;
-    prevDay = day;
-    return {
-      time: t,
-      icon: wmoIcon(weatherCode(t), isDayHour(t)),
-      hourLabel: formatHour(t, timezoneMode),
-      isDayStart,
-    };
-  });
+  return times.map((t) => ({
+    time: t,
+    icon: wmoIcon(weatherCode(t), isDayHour(t)),
+    hourLabel: formatHour(t, timezoneMode),
+  }));
 }
 
-/** Consecutive columns grouped by day, for the desktop-only day-label row. */
+/** The day tag of the header, « JEU. 3 »: the weekday keeps its
+    abbreviation dot, as a column header in capitals. */
+function formatDayTag(isoDate: string): string {
+  const d = new Date(isoDate + "T12:00:00Z");
+  const [weekday, dayNum] = stickyFormatters();
+  return `${weekday.format(d)} ${dayNum.format(d)}`.toLocaleUpperCase(getLocale());
+}
+
+/** Consecutive columns grouped by day, for the day tags. */
 interface DayGroup {
   dayIso: string;
   count: number;
-  weekday: string;
-  dayNum: string;
 }
 
 function buildDayGroups(times: string[]): DayGroup[] {
@@ -139,8 +127,7 @@ function buildDayGroups(times: string[]): DayGroup[] {
   for (const t of times) {
     const day = t.slice(0, 10);
     if (day !== curDay) {
-      const [weekday, dayNum] = formatStickyDay(day);
-      groups.push({ dayIso: day, count: 1, weekday, dayNum });
+      groups.push({ dayIso: day, count: 1 });
       curDay = day;
     } else {
       groups[groups.length - 1].count++;
@@ -149,6 +136,14 @@ function buildDayGroups(times: string[]): DayGroup[] {
   return groups;
 }
 
+/**
+ * The hours header of the three explore views (wind, sea and currents,
+ * tide): one state, one mark. The current hour is named rather than filled
+ * (« Maint. » in accent), the picked hour is the only bold black one, and
+ * the column outline below belongs to the table, not to the header. The day
+ * tag rides over the first column of its day on every screen size, sticky,
+ * so the phone needs no day badge in the corner.
+ */
 export function TimelineHeader({
   times,
   selectedHour,
@@ -156,113 +151,89 @@ export function TimelineHeader({
   forecasts,
   nowHour,
   timezoneMode,
-  visibleDay,
-  firstColumnPx = 56,
+  cornerLabel,
 }: TimelineHeaderProps) {
   const columns = useMemo(
     () => buildColumns(times, forecasts, timezoneMode),
     [times, forecasts, timezoneMode],
   );
   const dayGroups = useMemo(() => buildDayGroups(times), [times]);
-
-  const [weekday, dayNum] = formatStickyDay(visibleDay);
-
+  const { t } = useT();
   return (
     <>
-      {/* Row 0: per-day labels — desktop only, so mobile keeps its compact layout.
-          Each label cell is sticky-left so the leftmost day stays glued to the
-          left edge of the scroll viewport until the next day's cell crosses it. */}
-      <tr className="hidden lg:table-row">
+      <tr>
         <td
-          className="sticky left-0 z-30 border-r border-b"
-          style={{ minWidth: firstColumnPx, background: 'var(--ow-bg-1)', borderColor: 'var(--ow-line-2)' }}
-        />
-        {dayGroups.map((g, gi) => (
+          rowSpan={3}
+          className="sticky left-0 z-30 pl-2 pr-2 pb-1 align-bottom text-left whitespace-nowrap min-w-[54px] lg:min-w-[78px] text-[10px] leading-none"
+          style={{ background: "var(--ow-bg-1)", color: "var(--ow-fg-2)" }}
+        >
+          {cornerLabel}
+        </td>
+        {dayGroups.map((g) => (
           <td
             key={g.dayIso}
             colSpan={g.count}
-            className={`py-1 border-b ${gi > 0 ? 'ow-day-sep' : ''}`}
+            className="px-0 pt-1 pb-[3px]"
             style={{
-              background: 'var(--ow-bg-1)',
-              // The bottom border only: a full borderColor here would also
-              // repaint the day separator's left border (.ow-day-sep).
-              borderBottomColor: 'var(--ow-line-2)',
-              position: 'sticky',
+              background: "var(--ow-bg-1)",
+              position: "sticky",
               // The measured width of the sticky label column
-              // (useTimelineScroll): the model names make it wider than the
-              // nominal 56 px, and the label slid under it (« N 12 »).
-              left: `var(--ow-sticky-col, ${firstColumnPx}px)`,
+              // (useTimelineScroll): the row labels make it wider than its
+              // minimum, and the tag would slide under it.
+              left: "var(--ow-sticky-col, 54px)",
               zIndex: 19,
             }}
           >
-            <div className="pl-2 whitespace-nowrap">
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--ow-accent)' }}>
-                {g.weekday}
-              </span>
-              <span className="ml-1 text-[11px] font-bold tabular-nums" style={{ color: 'var(--ow-fg-0)' }}>
-                {g.dayNum}
-              </span>
+            <div
+              className="whitespace-nowrap text-[9.5px] font-bold leading-none"
+              style={{ color: "var(--ow-fg-1)", letterSpacing: "0.08em" }}
+            >
+              {formatDayTag(g.dayIso)}
             </div>
           </td>
         ))}
       </tr>
-
-      {/* Row 1: weather icons — sticky left spans both rows. The day badge here
-          is shown on mobile only; on desktop the per-day labels in Row 0 (sticky-left)
-          replace it so the date isn't written twice. */}
       <tr>
-        <td
-          rowSpan={2}
-          className="sticky left-0 z-20 px-2 border-r border-b"
-          style={{ minWidth: firstColumnPx, background: 'var(--ow-bg-1)', borderColor: 'var(--ow-line-2)' }}
-        >
-          <div className="lg:hidden flex flex-col items-center justify-center h-full leading-none gap-[2px]">
-            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--ow-accent)' }}>
-              {weekday}
-            </span>
-            <span className="text-[14px] font-bold tabular-nums" style={{ color: 'var(--ow-fg-0)' }}>
-              {dayNum}
-            </span>
-          </div>
-        </td>
         {columns.map((col, i) => (
           <td
             key={i}
-            className={`text-center p-0 ow-tbl-bg cursor-pointer leading-none ${col.isDayStart ? 'ow-day-sep' : ''}`}
-            style={{
-              fontSize: "13px",
-              lineHeight: "20px",
-            }}
+            className="text-center p-0 ow-tbl-bg cursor-pointer leading-none"
+            style={{ fontSize: "13px", lineHeight: "20px" }}
             onClick={() => onSelectHour(col.time)}
           >
             {col.icon}
           </td>
         ))}
       </tr>
-
-      {/* Row 2: hour numbers — no sticky left (spanned by row above) */}
       <tr>
         {columns.map((col, i) => {
           const isNow = col.time.startsWith(nowHour);
+          const isSelected = col.time === selectedHour;
           return (
             <th
               key={i}
               scope="col"
-              className={`text-[10px] lg:text-xs font-semibold py-1 cursor-pointer transition-colors relative border-b ${col.isDayStart ? 'ow-day-sep' : ''} ${
-                col.time === selectedHour
-                  ? "text-on-accent bg-accent-strong"
-                  : isNow
-                  ? "text-on-accent-muted bg-accent-deep/70 font-bold"
-                  : "ow-hour-cell"
-              }`}
+              aria-current={isNow ? "time" : undefined}
+              className="ow-hour-cell px-0 pt-[2px] pb-1 cursor-pointer whitespace-nowrap tabular-nums text-[11px] lg:text-[12px] leading-none"
               style={{
-                borderBottomColor: 'var(--ow-line-2)',
+                fontWeight: isSelected || isNow ? 700 : 500,
+                color: isSelected
+                  ? "var(--ow-fg-0)"
+                  : isNow
+                    ? "var(--ow-accent)"
+                    : "var(--ow-fg-2)",
               }}
               onClick={() => onSelectHour(col.time)}
             >
-              {col.hourLabel}
-              {isNow && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-accent" />
+              {isNow ? (
+                <>
+                  {t("explore.timeline.now")}
+                  {/* The word replaces the hour on screen; a screen reader
+                      still hears which hour it is. */}
+                  <span className="sr-only"> {col.hourLabel}</span>
+                </>
+              ) : (
+                col.hourLabel
               )}
             </th>
           );

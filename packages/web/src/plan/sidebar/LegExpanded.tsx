@@ -2,17 +2,20 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 /**
- * What an open leg shows under its row: the strip of its steps, then the
- * card, on the average by default and on one step when the reader picks one.
+ * What an open leg shows under its row: every step side by side in a table,
+ * then the card, on the whole leg by default and on one step when the
+ * reader picks a column.
  *
  * The average is a distance-weighted mean of the steps, and it used to be the
  * only thing on screen. A row saying "6–9 kn" over a dial drawing one arrow
  * at 7 kn left the reader guessing where the 9 came from and why the current
  * counted against when half the steps had it along. The steps are the
- * answer, and the arrows walk them in order: average, then step 1 to N.
+ * answer, so they are there from the start, above the average they make up.
+ * There was a toggle between the two views; it asked for a choice before
+ * showing anything, and the table needs none.
  *
  * A leg with a single step has nothing to average and nothing to walk: the
- * card shows the step itself, with no strip and no arrows.
+ * card shows the step itself, with no table and no arrows.
  *
  * Which step is open lives in the session (`selectedStepIdx`), because the
  * map draws it too.
@@ -22,10 +25,11 @@ import { useEffect, useMemo, useRef } from "react";
 import type { AggregatedLeg } from "../aggregateLegs";
 import { aggregateSteps, buildLegSummaryCells, legDurationLabel, legSpread } from "../aggregateLegs";
 import { LegDetailCard, type LegDetailHeader, type LegDetailNote } from "../LegDetailCard";
-import { StepStrip } from "../StepStrip";
+import { StepTable } from "../StepTable";
 import { num1 } from "../format";
 import { fmtClock } from "../../domain/datetime";
 import type { SegmentReport } from "../types";
+import { ChevronIcon } from "../compare/icons";
 import { usePlan } from "../session/planContext";
 import { t, tn, useT } from "../../i18n";
 
@@ -50,8 +54,8 @@ function stepNotes(step: AggregatedLeg): LegDetailNote[] {
 
 /** The flags raised on any step, each once, so a formed sea or a wind
     against the current on one step out of five still shows on the average,
-    where the mean alone would have smoothed it away. No counts: the strip
-    and the steps are there for that, the note only reminds that this is a
+    where the mean alone would have smoothed it away. No counts: the table
+    of the steps is there for that, the note only reminds that this is a
     mean. */
 function averageNotes(steps: AggregatedLeg[]): LegDetailNote[] {
   const seen = new Map<string, LegDetailNote>();
@@ -140,7 +144,32 @@ export function LegExpanded({
 
   return (
     <div ref={rootRef} className="space-y-2.5">
-      {n > 1 && <StepStrip steps={steps} selected={selected} onSelect={select} />}
+      {n > 1 && (
+        <>
+          <div className="flex items-center gap-2" style={{ minHeight: 24 }}>
+            <span className="min-w-0 text-[11px] tabular-nums" style={{ color: "var(--ow-fg-1)" }}>
+              {tn("plan.steps.span", n, {
+                start: fmtClock(steps[0].start_time),
+                end: fmtClock(steps[n - 1].end_time),
+              })}
+            </span>
+            {selected != null && (
+              // The way back from a step, said in words beside the table: a
+              // second tap on the column does it too, but nothing says so.
+              <button
+                type="button"
+                onClick={() => select(null)}
+                className="ml-auto -my-1.5 min-h-[32px] pl-2 inline-flex items-center gap-1 text-[11.5px] font-semibold whitespace-nowrap"
+                style={{ color: "var(--ow-accent)" }}
+              >
+                <ChevronIcon direction="left" size={10} />
+                {t("plan.steps.wholeLeg")}
+              </button>
+            )}
+          </div>
+          <StepTable steps={steps} selected={selected} onSelect={select} />
+        </>
+      )}
       <LegDetailCard
         view={view}
         spread={n > 1 && selected == null ? spread : null}

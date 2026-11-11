@@ -46,16 +46,18 @@ export const plan = {
   "plan.timeAnchor.arrival.sub": "Quand partir au plus tard ?",
 
   // ── Bande des pas d'un tronçon ────────────────────────────────────────────
-  "plan.steps.groupLabel": "Pas de calcul du tronçon",
   "plan.steps.stepLabel": "Pas {index} sur {total}, {time}",
-  "plan.steps.viewToggle.label": "Affichage du tronçon",
-  "plan.steps.viewToggle.average": "Moyenne",
-  "plan.steps.viewToggle.detail": "Détail",
+  "plan.steps.wholeLeg": "Tout le tronçon",
+  "plan.steps.span.one": "{count} pas · {start} → {end}",
+  "plan.steps.span.other": "{count} pas · {start} → {end}",
+  "plan.steps.table.label": "Pas du tronçon, heure par heure",
+  "plan.steps.table.direction": "Direction",
 
   // ── Carte ─────────────────────────────────────────────────────────────────
   "plan.map.waypoint.remove": "Supprimer ce point",
   "plan.map.waypoint.removed": "Point {n} retiré",
   "plan.map.waypoint.undo": "Annuler",
+  "plan.map.windScale": "Échelle du vent du tracé, en nœuds : {bounds}",
 
   // ── Validation de la fenêtre de comparaison ───────────────────────────────
   "plan.sweep.errors.missingWindow": "Renseignez une fenêtre de départ.",

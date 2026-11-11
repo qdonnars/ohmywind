@@ -42,16 +42,18 @@ export const plan: Record<keyof typeof frPlan, string> = {
   "plan.timeAnchor.arrival.sub": "Wann spätestens ablegen?",
 
   // ── Steps of a leg ────────────────────────────────────────────────────────
-  "plan.steps.groupLabel": "Rechenabschnitte der Teilstrecke",
   "plan.steps.stepLabel": "Abschnitt {index} von {total}, {time}",
-  "plan.steps.viewToggle.label": "Anzeige der Teilstrecke",
-  "plan.steps.viewToggle.average": "Mittel",
-  "plan.steps.viewToggle.detail": "Detail",
+  "plan.steps.wholeLeg": "Ganze Teilstrecke",
+  "plan.steps.span.one": "{count} Abschnitt · {start} → {end}",
+  "plan.steps.span.other": "{count} Abschnitte · {start} → {end}",
+  "plan.steps.table.label": "Abschnitte der Teilstrecke, Stunde für Stunde",
+  "plan.steps.table.direction": "Richtung",
 
   // ── Map ───────────────────────────────────────────────────────────────────
   "plan.map.waypoint.remove": "Diesen Wegpunkt entfernen",
   "plan.map.waypoint.removed": "Wegpunkt {n} entfernt",
   "plan.map.waypoint.undo": "Rückgängig",
+  "plan.map.windScale": "Windskala der Route, in Knoten: {bounds}",
 
   // ── Comparison window validation ──────────────────────────────────────────
   "plan.sweep.errors.missingWindow": "Geben Sie ein Abfahrtsfenster an.",

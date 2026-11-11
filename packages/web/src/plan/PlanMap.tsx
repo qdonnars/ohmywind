@@ -6,8 +6,8 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useTheme } from "../design/useTheme";
 import type { SegmentReport } from "./types";
-import { cxLevel, cxLevelToken } from "../domain/thresholds";
-import { readToken } from "../design/tokens";
+import { beaufortLevel, windSoftVar } from "../domain/thresholds";
+import { readToken, resolveTokens } from "../design/tokens";
 import { haversineNm, fmtNm } from "../utils/geo";
 import { fmtDepthM } from "./format";
 import type { UserPosition } from "../hooks/useGeolocation";
@@ -81,7 +81,7 @@ interface PlanMapProps {
   /** Inclusive-exclusive range of segment indices to highlight (selected leg). */
   highlightedSegmentRange?: [number, number] | null;
   /** Index into `segments` of the step open in the panel, drawn over the leg
-      highlight as a segment in the colour of its block in the strip. */
+      highlight as a segment in the colour of its column in the table. */
   focusedSegmentIdx?: number | null;
   /** Optional hint for the initial view when there are no waypoints yet
       (typically propagated from the home spot via `?center=lat,lon`). */
@@ -116,6 +116,11 @@ interface PlanMapProps {
       A plain prop since React 19: `forwardRef` is no longer needed to
       receive one. */
   ref?: Ref<PlanMapHandle>;
+}
+
+/** Text on its way into the HTML string of a Leaflet tooltip. */
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
 }
 
 function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon {
@@ -350,7 +355,9 @@ export function PlanMap(
 
     // Re-evaluate the segment labels on zoom: the screen-length auto-hide
     // threshold means legs appear/disappear as the scale changes.
-    const onZoomEnd = () => drawSegLabels(map, livePositionsRef.current);
+    const onZoomEnd = () => {
+      drawSegLabels(map, livePositionsRef.current);
+    };
     map.on("zoomend", onZoomEnd);
 
     // Report the settled viewport for the search proximity bias.
@@ -749,11 +756,32 @@ export function PlanMap(
     // the on-map tracing labels to keep the colored segments uncluttered.
     drawSegLabels(map, []);
 
+    // The track is the softened Beaufort tint of each step, the same scale
+    // as the tables, laid on a wider casing of the map's own depth: a pale
+    // green over a pale sea is otherwise a line the eye loses. No arrow on
+    // it, of wind or of heading: the waypoints are numbered.
+    if (segments.length > 0) {
+      const casing = L.polyline(
+        [
+          L.latLng(segments[0].start.lat, segments[0].start.lon),
+          ...segments.map((seg) => L.latLng(seg.end.lat, seg.end.lon)),
+        ],
+        {
+          color: readToken("--ow-route-casing"),
+          weight: 10,
+          opacity: 1,
+          lineCap: "round",
+          lineJoin: "round",
+          interactive: false,
+        },
+      ).addTo(map);
+      polylinesRef.current.push(casing);
+    }
     segments.forEach((seg) => {
-      const color = readToken(cxLevelToken(cxLevel(seg.tws_kn)));
+      const color = resolveTokens(windSoftVar(beaufortLevel(seg.tws_kn)));
       const line = L.polyline(
         [L.latLng(seg.start.lat, seg.start.lon), L.latLng(seg.end.lat, seg.end.lon)],
-        { color, weight: 6, opacity: 0.9, interactive: false }
+        { color, weight: 6, opacity: 1, lineCap: "round", interactive: false }
       ).addTo(map);
       polylinesRef.current.push(line);
     });
@@ -771,7 +799,8 @@ export function PlanMap(
       ];
       addHitLine(path, () => legIdx);
     });
-  }, [waypoints, segments, isStale, hideBaseRoute]);
+    // resolvedTheme: the track's tints are read from the theme.
+  }, [waypoints, segments, isStale, hideBaseRoute, resolvedTheme]);
 
   // The options of the comparison, each in its colour, with a pill at the
   // middle of the line saying which one it is and how long it takes. Not
@@ -801,7 +830,7 @@ export function PlanMap(
       );
       if (o.label) {
         const [la, lo] = midpointAlong(o.waypoints);
-        const text = o.label.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
+        const text = escapeHtml(o.label);
         layers.push(
           L.tooltip({ permanent: true, direction: "center", className: "ow-route-label", opacity: o.dim ? 0.55 : 1 })
             .setLatLng([la, lo])
@@ -814,7 +843,7 @@ export function PlanMap(
 
   // Selected-leg highlight overlay, drawn on top of the colored segments in
   // the brand accent so it pops against the wind palette. Small ticks mark
-  // the boundaries between the leg's steps, so the strip in the panel and
+  // the boundaries between the leg's steps, so the table in the panel and
   // the line on the map cut the leg in the same places. Not interactive:
   // it sits above the hit lines, and Leaflet hands a click on an inert
   // layer to the map, which appended a waypoint at the end of the route.
@@ -863,8 +892,8 @@ export function PlanMap(
   }, [highlightedSegmentRange, segments, resolvedTheme]);
 
   // The step open in the panel: its own segment drawn over the leg
-  // highlight, in the wind band of that step so it matches the block the
-  // user tapped in the strip, with a white casing so it reads as a piece
+  // highlight, in the wind band of that step so it matches the column the
+  // user tapped in the table, with a white casing so it reads as a piece
   // laid on the line rather than a change of the line's colour. Declared
   // after the highlight effect so that, when both redraw in one commit, the
   // step ends up above the leg.
@@ -890,7 +919,7 @@ export function PlanMap(
       interactive: false,
     });
     const step = L.polyline(path, {
-      color: readToken(cxLevelToken(cxLevel(seg.tws_kn))),
+      color: resolveTokens(windSoftVar(beaufortLevel(seg.tws_kn))),
       weight: 8,
       opacity: 1,
       lineCap: "round",

@@ -14,6 +14,7 @@
  */
 
 import type { MarineHourly, ModelForecast, Spot } from "../types";
+import { circularMean } from "../domain/thresholds";
 
 export interface CompareRow {
   spot: Spot;
@@ -128,21 +129,9 @@ export function buildTimeIndex(times: readonly string[] | undefined): Map<string
   return map;
 }
 
-/** Mean of directions on the circle, so 350° and 10° average to 0° and
-    not to 180°. Null when there is nothing to average. */
-export function circularMean(degrees: readonly number[]): number | null {
-  if (degrees.length === 0) return null;
-  let x = 0;
-  let y = 0;
-  for (const d of degrees) {
-    const r = (d * Math.PI) / 180;
-    x += Math.cos(r);
-    y += Math.sin(r);
-  }
-  if (Math.abs(x) < 1e-9 && Math.abs(y) < 1e-9) return null;
-  const deg = (Math.atan2(y, x) * 180) / Math.PI;
-  return (Math.round(deg) + 360) % 360;
-}
+// Moved to the domain so the explore wind table averages its models'
+// directions the same way; re-exported for the readers of this module.
+export { circularMean };
 
 export interface WindAgg {
   /** Slowest and fastest hour of the column, in knots, rounded. */
@@ -237,15 +226,9 @@ export function windLabel(agg: WindAgg, res: Resolution): string {
   return res === 1 || agg.lo === agg.hi ? String(agg.mid) : `${agg.lo}–${agg.hi}`;
 }
 
-/** The sea's own colour ramp, six steps on the design's thresholds. */
-export function waveLevel(hs: number): 0 | 1 | 2 | 3 | 4 | 5 {
-  if (hs < 0.3) return 0;
-  if (hs < 0.6) return 1;
-  if (hs < 1.0) return 2;
-  if (hs < 1.5) return 3;
-  if (hs < 2.5) return 4;
-  return 5;
-}
+// The sea's own colour ramp moved to the domain, where the explore sea table
+// reads it too; re-exported for the readers of this module.
+export { waveLevel } from "../domain/thresholds";
 
 /**
  * One series out of a chain of models, read in the order given.

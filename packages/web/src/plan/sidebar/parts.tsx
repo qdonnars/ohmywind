@@ -9,7 +9,11 @@ import { useT } from "../../i18n";
 /** Circular-arrow glyph of the recompute controls. */
 export function RefreshIcon({ size }: { size: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    // The box is wider than the drawing and centred on it: the arc is a
+    // circle of radius 7 that reaches y = -0.3 and x = 0.9 before its
+    // stroke, so in a 0 0 16 16 box the top and the left of the round
+    // stroke were cut off.
+    <svg width={size} height={size} viewBox="-1.3 -2.3 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M13.5 2.5A7 7 0 1 0 14.5 9" /><path d="M14 1v4h-4" />
     </svg>
   );
@@ -41,7 +45,7 @@ export function RecomputeButton({
       className="shrink-0 flex items-center justify-center rounded-lg transition-all"
       style={{ width: 38, height: 34, ...style }}
     >
-      <RefreshIcon size={13} />
+      <RefreshIcon size={15} />
     </button>
   );
 }

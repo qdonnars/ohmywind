@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useState } from "react";
-import { Warn } from "../PlanStates";
+import { AlertChip, AlertIcon } from "../../components/AlertChip";
 import { ChevronIcon } from "../compare/icons";
 import { useT, type Key } from "../../i18n";
 import type { Alert, AlertKind } from "./alerts";
@@ -33,11 +33,9 @@ export function Warnings({ alerts }: { alerts: Alert[] }) {
         aria-expanded={open}
         className="w-full flex items-center gap-2 px-4 py-2 text-left"
       >
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--ow-warn)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
-          <path d="M8 2 14 13H2z" />
-          <path d="M8 7v3" />
-          <circle cx="8" cy="12" r="0.5" fill="var(--ow-warn)" />
-        </svg>
+        <span className="shrink-0 flex" style={{ color: "var(--ow-warn-ink)" }}>
+          <AlertIcon size={12} />
+        </span>
         <span className="min-w-0 truncate text-[11px]" style={{ color: "var(--ow-fg-1)" }}>
           <span className="font-semibold">{tn("panel.compare.row.alerts", alerts.length)}</span>
           <span style={{ color: "var(--ow-fg-3)" }}> · </span>
@@ -48,8 +46,8 @@ export function Warnings({ alerts }: { alerts: Alert[] }) {
         </span>
       </button>
       {open && (
-        <div className="px-4 pb-2.5 space-y-1.5">
-          {alerts.map((a, i) => <Warn key={i}>{a.message}</Warn>)}
+        <div className="px-4 pb-2.5 flex flex-col items-start gap-1.5">
+          {alerts.map((a, i) => <AlertChip key={i}>{a.message}</AlertChip>)}
         </div>
       )}
     </div>

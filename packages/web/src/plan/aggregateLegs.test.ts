@@ -168,6 +168,7 @@ function makeLeg(overrides: Partial<AggregatedLeg> = {}): AggregatedLeg {
     target_speed_kn: 4.5,
     efficiency: 0.75,
     hs_avg_m: null,
+    hs_min_m: null,
     hs_max_m: null,
     tp_avg_s: null,
     sea_direction: null,
@@ -180,18 +181,77 @@ function makeLeg(overrides: Partial<AggregatedLeg> = {}): AggregatedLeg {
   };
 }
 
+describe("buildLegSummaryCells figures", () => {
+  it("writes the wind and the sea as ranges, the unit left to the column header", () => {
+    const cells = buildLegSummaryCells(
+      makeLeg({ tws_min: 6.2, tws_max: 8.8, hs_avg_m: 0.5, hs_min_m: 0.4, hs_max_m: 0.6 }),
+    );
+    expect(cells.wind).toBe("6–9");
+    expect(cells.sea).toBe("0,4–0,6");
+    expect(cells.alert).toBeNull();
+  });
+
+  it("collapses a range whose two ends read the same", () => {
+    const cells = buildLegSummaryCells(
+      makeLeg({ tws_min: 12.1, tws_max: 12.4, hs_avg_m: 0.52, hs_min_m: 0.51, hs_max_m: 0.54 }),
+    );
+    expect(cells.wind).toBe("12");
+    expect(cells.sea).toBe("0,5");
+  });
+
+  it("has no sea figure without sea data", () => {
+    expect(buildLegSummaryCells(makeLeg()).sea).toBeNull();
+  });
+
+  it("says a formed sea by its figure, with no alert of its own", () => {
+    const cells = buildLegSummaryCells(
+      makeLeg({ distance_nm: 13.8, hs_avg_m: 1.3, hs_min_m: 1.1, hs_max_m: 1.4, tp_avg_s: 9 }),
+    );
+    expect(cells.flag).toBe("Mer formée");
+    expect(cells.seaNote).toBe("Mer formée");
+    expect(cells.alert).toBeNull();
+    expect(buildLegSummaryCells(makeLeg({ hs_avg_m: 2.8, tp_avg_s: 9 })).seaNote).toBe("Grosse mer");
+    expect(buildLegSummaryCells(makeLeg({ hs_avg_m: 1.2, tp_avg_s: 9 })).seaNote).toBeNull();
+  });
+
+  it("says a sustained wind by its figure, from the server's own threshold", () => {
+    expect(buildLegSummaryCells(makeLeg({ tws_min: 8, tws_max: 14.4 })).windNote).toBeNull();
+    // 14,6 kn is printed « 15 »: orange like any other 15.
+    expect(buildLegSummaryCells(makeLeg({ tws_min: 8, tws_max: 14.6 })).windNote).toBe("Vent soutenu");
+    const strong = buildLegSummaryCells(makeLeg({ tws_min: 13, tws_max: 24 }));
+    expect(strong.windNote).toBe("Vent soutenu");
+    expect(strong.alert).toBeNull();
+  });
+
+  it("keeps an alert for a chop, with the period the row does not show", () => {
+    // Hs 1,3 m at Tp 4 s: steep, and formed too. Both are said, each its way.
+    const cells = buildLegSummaryCells(
+      makeLeg({ hs_avg_m: 1.3, hs_min_m: 1.3, hs_max_m: 1.3, tp_avg_s: 4.2, sea_direction: "arrière" }),
+    );
+    expect(cells.alert).toBe("Clapot suiveur · période 4 s");
+    expect(cells.seaNote).toBe("Mer formée");
+  });
+
+  it("keeps an alert for a wind against the current, with the current's speed", () => {
+    const cells = buildLegSummaryCells(
+      makeLeg({ distance_nm: 8, current_relative: "contraire", current_speed_kn: 1.8, current_delta_kn: -1.6 }),
+    );
+    expect(cells.alert).toBe("Vent contre courant · 1,8 kn");
+  });
+});
+
 describe("buildLegSummaryCells.flag", () => {
   it("flags Clapot when Hs/Tp² > 0.05 and Hs >= 0.8 m", () => {
-    // Hs 1.2 m at Tp 4.5 s → index ≈ 0.059, in "Mer Formée" Hs range but
+    // Hs 1.2 m at Tp 4.5 s → index ≈ 0.059, in "Mer formée" Hs range but
     // labelled Clapot because the period is short and steep.
     const flag = buildLegSummaryCells(makeLeg({ hs_avg_m: 1.2, tp_avg_s: 4.5 })).flag;
     expect(flag).toBe("Clapot");
   });
 
-  it("keeps Mer Formée label for long-period swell at the same Hs", () => {
+  it("keeps Mer formée label for long-period swell at the same Hs", () => {
     // Hs 1.8 m at Tp 11 s → index ≈ 0.0149, comfortable long swell.
     const flag = buildLegSummaryCells(makeLeg({ hs_avg_m: 1.8, tp_avg_s: 11 })).flag;
-    expect(flag).toBe("Mer Formée");
+    expect(flag).toBe("Mer formée");
   });
 
   it("does not flag Clapot when Hs is below the 0.8 m floor", () => {
@@ -200,23 +260,23 @@ describe("buildLegSummaryCells.flag", () => {
     expect(flag).toBeNull();
   });
 
-  it("Grosse Mer overrides Clapot when Hs > 2.5 m", () => {
-    // Hs 2.8 m at Tp 5 s → both Clapot (steep) and Grosse Mer apply; the
+  it("Grosse mer overrides Clapot when Hs > 2.5 m", () => {
+    // Hs 2.8 m at Tp 5 s → both Clapot (steep) and Grosse mer apply; the
     // bigger-picture label wins.
     const flag = buildLegSummaryCells(makeLeg({ hs_avg_m: 2.8, tp_avg_s: 5 })).flag;
-    expect(flag).toBe("Grosse Mer");
+    expect(flag).toBe("Grosse mer");
   });
 
-  it("labels Clapot Suiveur when sea_direction is arrière", () => {
+  it("labels Clapot suiveur when sea_direction is arrière", () => {
     // Same chop conditions, but running with the sea — broaching / gybe
     // risks remain, but no slamming, hence the distinct label.
     const flag = buildLegSummaryCells(
       makeLeg({ hs_avg_m: 1.2, tp_avg_s: 4.5, sea_direction: "arrière" }),
     ).flag;
-    expect(flag).toBe("Clapot Suiveur");
+    expect(flag).toBe("Clapot suiveur");
   });
 
-  it("Vent Contre Courant overrides Clapot", () => {
+  it("Vent contre courant overrides Clapot", () => {
     // WAC already implies mer hachée — it wins as the more decision-shaping
     // signal.
     const flag = buildLegSummaryCells(
@@ -227,7 +287,7 @@ describe("buildLegSummaryCells.flag", () => {
         current_speed_kn: 2.0,
       }),
     ).flag;
-    expect(flag).toBe("Vent Contre Courant");
+    expect(flag).toBe("Vent contre courant");
   });
 });
 

@@ -150,7 +150,7 @@ function AdjustDates() {
             <DateField id="ow-window-to" label={t("panel.window.to")} value={latest} min={min} max={max} onChange={setLatest} />
           </div>
           {!validation.ok && validation.message && (
-            <p className="text-[11px]" style={{ color: "var(--ow-warn)" }}>{validation.message}</p>
+            <p className="text-[11px]" style={{ color: "var(--ow-warn-ink)" }}>{validation.message}</p>
           )}
           <div className="flex justify-end">
             <button

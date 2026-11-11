@@ -42,16 +42,18 @@ export const plan: Record<keyof typeof frPlan, string> = {
   "plan.timeAnchor.arrival.sub": "Quando partire al più tardi?",
 
   // ── Steps of a leg ────────────────────────────────────────────────────────
-  "plan.steps.groupLabel": "Tappe di calcolo della tratta",
   "plan.steps.stepLabel": "Tappa {index} di {total}, {time}",
-  "plan.steps.viewToggle.label": "Visualizzazione della tratta",
-  "plan.steps.viewToggle.average": "Media",
-  "plan.steps.viewToggle.detail": "Dettaglio",
+  "plan.steps.wholeLeg": "Tutta la tratta",
+  "plan.steps.span.one": "{count} tappa · {start} → {end}",
+  "plan.steps.span.other": "{count} tappe · {start} → {end}",
+  "plan.steps.table.label": "Tappe della tratta, ora per ora",
+  "plan.steps.table.direction": "Direzione",
 
   // ── Map ───────────────────────────────────────────────────────────────────
   "plan.map.waypoint.remove": "Eliminare questo punto",
   "plan.map.waypoint.removed": "Punto {n} eliminato",
   "plan.map.waypoint.undo": "Annulla",
+  "plan.map.windScale": "Scala del vento del tracciato, in nodi: {bounds}",
 
   // ── Comparison window validation ──────────────────────────────────────────
   "plan.sweep.errors.missingWindow": "Indicare una finestra di partenza.",

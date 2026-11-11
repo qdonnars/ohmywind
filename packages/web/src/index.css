@@ -380,22 +380,6 @@ select,
   animation: fadeInUp 0.35s ease-out;
 }
 
-/* Model row alternating bg for visual separation */
-/* Exclude first-child (sticky model name column) to preserve position: sticky */
-.model-row-alt td:not(:first-child) {
-  position: relative;
-}
-.model-row-alt td:not(:first-child)::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--ow-line);
-  pointer-events: none;
-}
-.model-row-alt td:first-child {
-  background: var(--ow-bg-1);
-}
-
 /* Cell press feedback */
 .wind-cell {
   transition: transform 0.1s ease, filter 0.1s ease;
@@ -803,12 +787,6 @@ select,
 .ow-tbl-bg {
   background: var(--ow-bg-1);
 }
-.ow-tbl-day-th {
-  background: var(--ow-bg-1);
-  color: var(--ow-fg-0);
-  border-bottom: 1px solid var(--ow-line-2);
-  border-left: 1px solid var(--ow-line-2);
-}
 .ow-hour-cell {
   background: var(--ow-bg-1);
   color: var(--ow-fg-1);
@@ -821,21 +799,6 @@ select,
   background: var(--ow-bg-2);
   color: var(--ow-fg-2);
 }
-/* Day separator: discreet on mobile, accent stripe on desktop so the eye
-   finds the day boundary without taking extra vertical space on phones.
-   Opaque colours: the line crosses the header and every coloured cell of
-   the column, and a translucent one took each cell's tint, grey over the
-   header and a darker green over a 10 kn cell, so it read as a different
-   line on every row. */
-.ow-day-sep {
-  border-left: 1px solid var(--ow-fg-3);
-}
-@media (min-width: 1024px) {
-  .ow-day-sep {
-    border-left: 2px solid color-mix(in srgb, var(--ow-accent) 55%, var(--ow-bg-1));
-  }
-}
-
 /* ── Theme-aware search ──────────────────────────────────────── */
 .ow-search-input {
   background: color-mix(in srgb, var(--ow-bg-2) 80%, transparent);
@@ -843,7 +806,7 @@ select,
   color: var(--ow-fg-0);
 }
 .ow-search-input::placeholder {
-  color: var(--ow-fg-3);
+  color: var(--ow-fg-2);
 }
 .ow-search-input:focus {
   outline: none;
@@ -893,4 +856,53 @@ select,
 .ow-modal-input:focus {
   border-color: var(--ow-accent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--ow-accent) 30%, transparent);
+}
+
+/* ── Alert chip ──────────────────────────────────────────────────
+   components/AlertChip.tsx, and the same chip drawn on the plan map from an
+   HTML string. Wraps, never truncates: the icon keeps its place on the
+   first line. */
+.ow-alert-chip {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  max-width: 100%;
+  padding: 5px 9px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: var(--ow-warn-soft);
+  color: var(--ow-warn-ink);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: normal;
+  text-align: left;
+}
+.ow-alert-chip__icon {
+  display: flex;
+  flex-shrink: 0;
+  margin-top: 2.5px;
+}
+.ow-alert-chip--s {
+  gap: 4px;
+  padding: 2px 6px;
+  font-size: 10.5px;
+}
+.ow-alert-chip--s .ow-alert-chip__icon {
+  margin-top: 2px;
+}
+.ow-cell-alert {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  z-index: 1;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--ow-bg-0);
+  border: 1.5px solid var(--ow-warn-ink);
+  color: var(--ow-warn-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }

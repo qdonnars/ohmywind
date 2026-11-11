@@ -12,7 +12,7 @@
  * not the other shows up as a cell coloured one way and captioned another.
  *
  * Colours are deliberately *not* here. The palettes live in `design/tokens.css`
- * as `--ow-w-0..8` (wind) and `--ow-c-1..5` (complexity), which is what makes
+ * as `--ow-w-0..8` (wind) and `--ow-wave-0..5` (sea), which is what makes
  * them theme-aware; this module only maps a value to a level, and hands back
  * the name of the CSS variable that level paints with.
  */
@@ -31,6 +31,20 @@ export function beaufortLevel(knots: number): number {
   return i === -1 ? 8 : i;
 }
 
+/**
+ * True wind speed, in knots, from which a leg's wind figure is inked as a
+ * warning. Mirror of the lower bound of the `soutenu` band of the
+ * server-side complexity scorer (`_WIND_BANDS`), which is where the MCP
+ * starts raising a wind warning: the figure in the list and the sentence in
+ * the alerts turn on together.
+ */
+export const WIND_SUSTAINED_TWS_KN = 15;
+
+/** Lower bound in knots of a Beaufort level: what a scale prints under it. */
+export function beaufortLowerBoundKn(level: number): number {
+  return level <= 0 ? 0 : BEAUFORT_MAX_KN[Math.min(level, BEAUFORT_MAX_KN.length) - 1];
+}
+
 /** Name of the `design/tokens.css` custom property painting a Beaufort level. */
 export function windLevelToken(level: number): string {
   return `--ow-w-${level}`;
@@ -39,6 +53,60 @@ export function windLevelToken(level: number): string {
 /** The same, ready to drop into a CSS value. */
 export function windLevelVar(level: number): string {
   return `var(${windLevelToken(level)})`;
+}
+
+/**
+ * Softened Beaufort fill: 78 % of the level's colour, 22 % of the page
+ * background; level 0 stays whole. It is the one wind scale of every table,
+ * bar and track, so a 13 kn step is the same green on the map, in the leg
+ * list and in the explore table. Text set on it takes `--ow-cell-text-N`.
+ */
+export function windSoftVar(level: number): string {
+  const pct = level === 0 ? 100 : 78;
+  return `color-mix(in oklch, var(${windLevelToken(level)}) ${pct}%, var(--ow-bg-0))`;
+}
+
+/** Name of the custom property inking a softened Beaufort fill. */
+export function windTextVar(level: number): string {
+  return `var(--ow-cell-text-${level})`;
+}
+
+/**
+ * Spread, in degrees, between the models' wind directions above which they
+ * are said to disagree: the explore table then prints the spread in place of
+ * the one arrow, and gives each model its own.
+ */
+export const MODEL_DIRECTION_SPREAD_DEG = 45;
+
+/**
+ * Smallest arc, in degrees, that covers every direction: 350° and 10° are
+ * 20° apart, not 340°. 0 for fewer than two directions.
+ */
+export function directionSpreadDeg(directions: number[]): number {
+  if (directions.length < 2) return 0;
+  const sorted = directions.map((d) => ((d % 360) + 360) % 360).sort((a, b) => a - b);
+  // The arc that covers them all is the full circle minus the widest gap
+  // between two neighbours, the gap across north included.
+  let widest = sorted[0] + 360 - sorted[sorted.length - 1];
+  for (let i = 1; i < sorted.length; i++) widest = Math.max(widest, sorted[i] - sorted[i - 1]);
+  return 360 - widest;
+}
+
+/** Mean of directions on the circle, so 350° and 10° average to 0° and
+    not to 180°. Null when there is nothing to average, or when the
+    directions cancel out (0° and 180°). */
+export function circularMean(degrees: readonly number[]): number | null {
+  if (degrees.length === 0) return null;
+  let x = 0;
+  let y = 0;
+  for (const d of degrees) {
+    const r = (d * Math.PI) / 180;
+    x += Math.cos(r);
+    y += Math.sin(r);
+  }
+  if (Math.abs(x) < 1e-9 && Math.abs(y) < 1e-9) return null;
+  const deg = (Math.atan2(y, x) * 180) / Math.PI;
+  return (Math.round(deg) + 360) % 360;
 }
 
 // ── Sea state ────────────────────────────────────────────────────────────────
@@ -51,16 +119,20 @@ export function windLevelVar(level: number): string {
 export const SEA_FORMED_HS_M = 1.25;
 
 /**
- * Hs band, mapped onto the wind palette so one colour scale reads across the
- * whole table. Aligned with packages/data-adapters/.../complexity._SEA_BANDS:
- * plate < 0.5, belle < 1, agitée < 2, forte < 3, très forte beyond.
+ * Step of the sea's own ramp, `--ow-wave-0..5`, for a significant wave height
+ * in metres. The sea no longer borrows the wind's colours: two quantities
+ * painted on one scale read as one. Shared by the explore sea table and the
+ * comparison page, so a 1.2 m sea is the same blue on both. Text set on it is
+ * `--ow-fg-0` under a metre and `--ow-cell-ink` from there, where the ramp
+ * turns light.
  */
-export function wavesLevel(hs: number): number {
-  if (hs < 0.5) return 1;
+export function waveLevel(hs: number): 0 | 1 | 2 | 3 | 4 | 5 {
+  if (hs < 0.3) return 0;
+  if (hs < 0.6) return 1;
   if (hs < 1.0) return 2;
-  if (hs < 2.0) return 4;
-  if (hs < 3.0) return 6;
-  return 8;
+  if (hs < 1.5) return 3;
+  if (hs < 2.5) return 4;
+  return 5;
 }
 
 // ── Currents ─────────────────────────────────────────────────────────────────
@@ -116,24 +188,3 @@ export function tidesLevel(absM: number): number {
 // Wave period is informational (chop versus swell) rather than a hazard axis:
 // a 4 s period at 0.6 m Hs is benign wind chop, not danger. Its row is left
 // uncoloured on purpose, so it has no band here.
-
-// ── Passage complexity ───────────────────────────────────────────────────────
-
-/** Complexity level 1-5 derived from the per-segment true wind speed. */
-export function cxLevel(tws_kn: number): 1 | 2 | 3 | 4 | 5 {
-  if (tws_kn < 10) return 1;
-  if (tws_kn < 15) return 2;
-  if (tws_kn < 20) return 3;
-  if (tws_kn < 25) return 4;
-  return 5;
-}
-
-/** Name of the `design/tokens.css` custom property painting a complexity level. */
-export function cxLevelToken(level: number): string {
-  return `--ow-c-${level}`;
-}
-
-/** The same, ready to drop into a CSS value. */
-export function cxLevelVar(level: number): string {
-  return `var(${cxLevelToken(level)})`;
-}

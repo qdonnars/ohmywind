@@ -60,6 +60,22 @@ describe("dictionnaires", () => {
     }
   });
 
+  it("les drapeaux de mer sont en casse de phrase, hors allemand", () => {
+    // « Mer formée », pas « Mer Formée » : une majuscule initiale et c'est
+    // tout. L'allemand garde celle de ses noms (« Grobe See »).
+    const flags = (d: Record<string, string>) =>
+      Object.entries(d).filter(([k]) => k.startsWith("panel.legs.seaFlag."));
+    for (const [lang, d] of [["fr", fr], ...TRANSLATIONS] as const) {
+      if (lang === "de") continue;
+      for (const [k, v] of flags(d)) {
+        const [first, ...rest] = v.split(" ");
+        expect(first[0], k).toBe(first[0].toUpperCase());
+        for (const word of rest) expect(word, `${lang} ${k}`).toBe(word.toLowerCase());
+      }
+    }
+    expect(flags(fr).length).toBeGreaterThan(0);
+  });
+
   it("une clé au pluriel a ses deux formes", () => {
     for (const k of Object.keys(fr)) {
       if (k.endsWith(".one")) expect(fr).toHaveProperty(k.replace(/\.one$/, ".other"));

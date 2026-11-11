@@ -5,7 +5,7 @@
 // focused on state wiring while these components stay design-only.
 
 import type { PassageReport, SegmentReport } from "./types";
-import { cxLevel, cxLevelVar } from "../domain/thresholds";
+import { beaufortLevel, windSoftVar } from "../domain/thresholds";
 import { fmtDurationSafe, num1 } from "./format";
 import { capitalise, fmtClock, fmtDay, parisDayDelta } from "../domain/datetime";
 import { useT } from "../i18n";
@@ -88,7 +88,7 @@ function HeroCell({
   size?: "md" | "lg";
 }) {
   const color =
-    tone === "warn" ? "var(--ow-warn)" :
+    tone === "warn" ? "var(--ow-warn-ink)" :
     tone === "accent" ? "var(--ow-accent)" :
     "var(--ow-fg-0)";
   const large = size === "lg";
@@ -130,9 +130,9 @@ function arrivalDay(passage: PassageReport): string | undefined {
 
 // One cell per server step, wide in proportion to its distance. With
 // `onSegmentClick` every cell is a button: a click opens the leg the step
-// belongs to and that step in the card, the same thing the strip under an
+// belongs to and that step in the card, the same thing the table under an
 // open leg does, reached from the overview instead. The visible bar stays
-// 8 px thin; the button around it carries the 16 px touch height.
+// 6 px thin; the button around it carries the 16 px touch height.
 function SegmentBar({
   segments,
   legRanges,
@@ -166,7 +166,7 @@ function SegmentBar({
   };
   return (
     <div
-      className="flex gap-[1px]"
+      className="flex gap-[2px]"
       role={onSegmentClick ? "group" : "progressbar"}
       aria-label={
         onSegmentClick
@@ -179,9 +179,9 @@ function SegmentBar({
         const focused = focusedSegmentIdx === i;
         const cell = (
           <span
-            className="block h-2 rounded-sm"
+            className="block h-[6px] rounded-[3px]"
             style={{
-              background: cxLevelVar(cxLevel(seg.tws_kn)),
+              background: windSoftVar(beaufortLevel(seg.tws_kn)),
               outline: focused ? "2px solid var(--ow-accent)" : "none",
               outlineOffset: 1,
             }}
@@ -200,7 +200,7 @@ function SegmentBar({
             aria-label={text}
             aria-pressed={focused}
             onClick={() => onSegmentClick(i, leg)}
-            className="py-1 cursor-pointer transition-opacity hover:opacity-80"
+            className="py-[5px] cursor-pointer transition-opacity hover:opacity-80"
             style={size}
           >
             {cell}
@@ -241,12 +241,6 @@ export function HeroStats({
         focusedSegmentIdx={focusedSegmentIdx}
         onSegmentClick={onSegmentClick}
       />
-      <div
-        className="flex justify-between mt-1 text-[9px] tabular-nums"
-        style={{ color: "var(--ow-fg-2)", fontFamily: "var(--ow-font-mono)" }}
-      >
-        <span>&lt;10 · 10–15 · 15–20 · 20–25 · &gt;25 kn</span>
-      </div>
     </div>
   );
 }
@@ -278,30 +272,6 @@ export function StatBand({ passage }: { passage: PassageReport }) {
           note={arrivalDay(passage)}
         />
       </div>
-    </div>
-  );
-}
-
-// ── Warn ──────────────────────────────────────────────────────────────────────
-// Single-line warning row matching the design's "Warn" component (alert icon
-// + soft warn background).
-
-export function Warn({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[11px] leading-tight"
-      style={{
-        background: "var(--ow-warn-soft)",
-        border: "1px solid var(--ow-warn-line)",
-        color: "var(--ow-fg-1)",
-      }}
-    >
-      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="var(--ow-warn)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-        <path d="M8 2 14 13H2z" />
-        <path d="M8 7v3" />
-        <circle cx="8" cy="12" r="0.5" fill="var(--ow-warn)" />
-      </svg>
-      <span>{children}</span>
     </div>
   );
 }

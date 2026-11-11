@@ -10,7 +10,7 @@
  * for something the context does not carry fails here rather than at runtime.
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PlanSidebar } from "./PlanSidebar";
 import { ReturnBanner } from "./ReturnBanner";
@@ -246,7 +246,7 @@ describe("PlanSidebar views", () => {
     expect(screen.getByRole("button", { name: "Recalculer" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Nouveau plan" })).toBeTruthy();
     // One row per leg, opening the build-up on click.
-    expect(screen.getByRole("button", { name: /^1→2/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^1 → 2/ })).toBeTruthy();
     expect(screen.getByText(/Données fraîches au/)).toBeTruthy();
     // The two doors, after everything else.
     await userEvent.click(screen.getByRole("button", { name: "D'autres départs" }));
@@ -259,14 +259,14 @@ describe("PlanSidebar views", () => {
   it("hides the legs, the alerts and the doors behind a recompute prompt once the route moved", () => {
     mount({ passage: passage(), complexity: complexity(), isStale: true });
     expect(screen.getByText(/Itinéraire modifié/)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /^1→2/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^1 → 2/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /alerte/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "D'autres départs" })).toBeNull();
   });
 
   it("opens a leg through the session, not through local state", async () => {
     const value = mount({ passage: passage(), complexity: complexity() });
-    await userEvent.click(screen.getByRole("button", { name: /^1→2/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^1 → 2/ }));
     expect(value.actions.selectLeg).toHaveBeenCalledWith(0);
   });
 
@@ -286,23 +286,66 @@ describe("the comparison", () => {
     expect(screen.getByText("D'autres départs")).toBeTruthy();
     expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.getAllByText("1 créneau").length).toBeGreaterThanOrEqual(1);
-    // The line: hour, duration, arrival, then the conditions as a sentence.
+    // The column header carries the words and the units, once.
+    for (const head of ["Départ", "Arrivée", "Durée", "Allure", "Vent", "Mer"]) {
+      expect(screen.getAllByText(head).length).toBeGreaterThanOrEqual(1);
+    }
+    expect(screen.getByText("kn")).toBeTruthy();
+    expect(screen.getByText("m")).toBeTruthy();
+    // The day, as the formatter writes it (the capitals are the stylesheet's).
+    expect(screen.getByText(fmtDay(aWindow().departure))).toBeTruthy();
+    // The line: aligned figures, no unit in the cells.
     expect(screen.getByText("10h")).toBeTruthy();
-    expect(screen.getByText("vent 8–14 kn")).toBeTruthy();
-    expect(screen.getByText("mer 0,3–0,8 m")).toBeTruthy();
+    expect(screen.getByText("Largue")).toBeTruthy();
+    expect(screen.getByText("8–14")).toBeTruthy();
+    expect(screen.getByText("0,3–0,8")).toBeTruthy();
+    expect(screen.queryByText("vent 8–14 kn")).toBeNull();
     // No complexity index on the line.
     expect(screen.queryByText("⚡")).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: /Ouvrir ce créneau dans le plan/ }));
+    // The button still says every figure in words.
+    const row = screen.getByRole("button", { name: /Ouvrir ce créneau dans le plan/ });
+    const name = row.getAttribute("aria-label") ?? "";
+    expect(name).toContain(`Départ ${fmtClock(aWindow().departure)}, arrivée ${fmtClock(aWindow().arrival)}, durée 10h`);
+    expect(name).toContain("Largue, vent 8–14 kn, mer 0,3–0,8 m");
+    await userEvent.click(row);
     expect(value.actions.selectWindow).toHaveBeenCalled();
   });
 
-  it("marks the plan's own departure as chosen, and counts the alerts", () => {
+  it("marks the plan's own departure with the accent rule, not a label", () => {
     // The slot is an instant, the plan's departure a naive local time: built
     // from the same local value so the match holds on a UTC runner too.
-    const w = { ...aWindow(), departure: toTzAware("2026-09-11T06:00"), warnings: ["a", "b"] };
-    mount({ mode: "compare", windows: [w], departure: "2026-09-11T06:00" });
-    expect(screen.getByText("sélectionné")).toBeTruthy();
-    expect(screen.getByTitle("2 alertes")).toBeTruthy();
+    const mine = { ...aWindow(), departure: toTzAware("2026-09-11T06:00") };
+    const other = { ...aWindow(), departure: toTzAware("2026-09-11T09:00") };
+    mount({ mode: "compare", windows: [mine, other], departure: "2026-09-11T06:00" });
+    const [first, second] = screen.getAllByRole("button", { name: /Ouvrir ce créneau dans le plan/ });
+    expect(first.getAttribute("aria-current")).toBe("true");
+    expect(first.style.boxShadow).toContain("var(--ow-accent)");
+    expect(first.style.background).toContain("var(--ow-accent-soft)");
+    expect(second.getAttribute("aria-current")).toBeNull();
+    expect(second.style.boxShadow).toBe("");
+    expect(screen.queryByText("sélectionné")).toBeNull();
+  });
+
+  it("counts the alerts and the engine share on the sub-line", () => {
+    const motorPassage = passage();
+    motorPassage.segments = [
+      { ...motorPassage.segments[0], distance_nm: 46, motor_used: false },
+      { ...motorPassage.segments[0], distance_nm: 4, motor_used: true },
+    ];
+    const w = { ...aWindow(), warnings: ["a", "b"], passage: motorPassage };
+    mount({ mode: "compare", windows: [w] });
+    expect(screen.getByText("2 alertes")).toBeTruthy();
+    expect(screen.getByText("moteur 8 %")).toBeTruthy();
+    const row = screen.getByRole("button", { name: /Ouvrir ce créneau dans le plan/ });
+    expect(row.getAttribute("aria-label")).toContain("2 alertes, moteur 8 %");
+  });
+
+  it("leaves the sub-line out of a slot with no alert and no engine", () => {
+    const sailing = passage();
+    sailing.segments = [{ ...sailing.segments[0], motor_used: false }];
+    mount({ mode: "compare", windows: [{ ...aWindow(), passage: sailing }] });
+    expect(screen.queryByText(/alerte/)).toBeNull();
+    expect(screen.queryByText(/moteur/)).toBeNull();
   });
 
   it("goes back to the plan from the head", async () => {
@@ -368,6 +411,98 @@ describe("the comparison", () => {
     expect(screen.queryByRole("button", { name: /Ouvrir ce créneau/ })).toBeNull();
   });
 
+  it("lists the plan's route as option 1, in the plan, with its alerts said in full", async () => {
+    const scored: ComplexityScore = {
+      ...complexity(),
+      warnings: [
+        {
+          kind: "sea",
+          level: 3,
+          message: "Mer agitée : Hs 1.1-1.4 m sur 13.8 nm",
+          affected_segments: [0],
+          code: "complexity.sea.3",
+          params: { hs_range: "1.1-1.4", nm: "13.8" },
+        },
+      ],
+    };
+    const value = mount({ mode: "compare", compareAxis: "tracks", passage: passage(), complexity: scored });
+    // The header, the units once.
+    for (const head of ["Option", "Arrivée", "Durée", "Dist.", "Mer max"]) {
+      expect(screen.getAllByText(head).length).toBeGreaterThanOrEqual(1);
+    }
+    expect(screen.getByText("nm")).toBeTruthy();
+    // The plan's own option: named, marked, with the accent rule.
+    expect(screen.getByText("Option 1")).toBeTruthy();
+    expect(screen.getByText("dans le plan")).toBeTruthy();
+    const row = screen.getByRole("button", { name: /Choisir l'option 1 pour le plan/ });
+    expect(row.getAttribute("aria-pressed")).toBe("true");
+    expect(row.parentElement!.style.boxShadow).toContain("var(--ow-accent)");
+    const name = row.getAttribute("aria-label") ?? "";
+    expect(name).toContain(`Option 1, dans le plan, arrivée ${fmtClock(passage().arrival_time)}, durée 10h, 55,0 nm, mer max 0,6 m`);
+    expect(name).toContain("2 alertes");
+    // Figures without units; the sea in the warning ink, the alert behind it.
+    expect(screen.getByText("55,0")).toBeTruthy();
+    expect(screen.getByText("0,6").style.color).toBe("var(--ow-warn-ink)");
+    // What, how much, where, from the server's own figures; the engine's
+    // sentence is counted on top.
+    expect(screen.getByText("Mer agitée : Hs 1,1–1,4 m sur 13,8 nm")).toBeTruthy();
+    expect(screen.getByText("+1 alerte")).toBeTruthy();
+    // No removal of the plan's own route, and no second button beside the
+    // row: the row itself is what one taps.
+    expect(screen.queryByRole("button", { name: /Supprimer/ })).toBeNull();
+    expect(screen.queryByText("sélectionné")).toBeNull();
+    expect(screen.queryByText(/Voir sur la carte/)).toBeNull();
+    // The dashed door to a new option.
+    await userEvent.click(screen.getByRole("button", { name: "+ Tracer une variante" }));
+    expect(value.actions.startVariant).toHaveBeenCalledTimes(1);
+  });
+
+  it("chooses, removes, points at and opens a variant from its row", async () => {
+    const variantWaypoints: [number, number][] = [MARSEILLE, MID, PORQUEROLLES];
+    const tracks = [
+      { id: "plan", waypoints: [MARSEILLE, PORQUEROLLES] as [number, number][], createdAt: "", passage: passage(), complexity: complexity(), error: null },
+      { id: "v1", waypoints: variantWaypoints, createdAt: "", passage: { ...passage(), warnings: [] }, complexity: complexity(), error: null },
+    ];
+    const value = mount({ mode: "compare", compareAxis: "tracks", tracks, passage: passage(), complexity: complexity() });
+    const row = screen.getByRole("button", { name: /Choisir l'option 2 pour le plan/ });
+    expect(row.getAttribute("aria-pressed")).toBe("false");
+    expect(row.parentElement!.style.boxShadow).toBe("");
+    // Only the plan's option says « dans le plan ».
+    expect(screen.getAllByText("dans le plan")).toHaveLength(1);
+    // No alert, no engine: nothing under the figures but the actions.
+    expect(screen.getAllByText(/alerte/)).toHaveLength(1);
+    await userEvent.click(row);
+    expect(value.actions.selectTrack).toHaveBeenCalledWith("v1");
+    await userEvent.hover(row);
+    expect(value.actions.highlightTrack).toHaveBeenCalledWith("v1");
+    await userEvent.click(screen.getByRole("button", { name: "Supprimer l'option 2" }));
+    expect(value.actions.removeTrack).toHaveBeenCalledWith("v1");
+  });
+
+  it("keeps the computing and the failed states of an option on its sub-row", () => {
+    const tracks = [
+      { id: "plan", waypoints: [MARSEILLE, PORQUEROLLES] as [number, number][], createdAt: "", passage: passage(), complexity: complexity(), error: null },
+      { id: "v1", waypoints: [MARSEILLE, MID, PORQUEROLLES] as [number, number][], createdAt: "", passage: null, complexity: null, error: null },
+      { id: "v2", waypoints: [MARSEILLE, [43.1, 5.6], PORQUEROLLES] as [number, number][], createdAt: "", passage: null, complexity: null, error: "Le serveur météo est indisponible." },
+    ];
+    mount({
+      mode: "compare",
+      compareAxis: "tracks",
+      tracks,
+      passage: passage(),
+      complexity: complexity(),
+      trackRequests: { v1: { id: 3, editSeq: 0 } },
+    });
+    expect(screen.getByText("calcul en cours…")).toBeTruthy();
+    expect(screen.getByText("Le serveur météo est indisponible.")).toBeTruthy();
+    // Nothing to choose until a passage lands; removal stays.
+    expect((screen.getByRole("button", { name: /Choisir l'option 2/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "Supprimer l'option 3" })).toBeTruthy();
+    // Three options: the door to a fourth is closed, and says why.
+    expect((screen.getByRole("button", { name: "+ Tracer une variante" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText("Trois options au plus.")).toBeTruthy();
+  });
+
   it("keeps a way back over the map while a slot is open in the plan", async () => {
     const value = mountWith(<ReturnBanner />, { returnTo: "slots", windows: [aWindow()], passage: passage(), complexity: complexity() });
     await userEvent.click(screen.getByRole("button", { name: "Revenir à la comparaison" }));
@@ -416,25 +551,105 @@ const twoStepPassage = (): PassageReport => {
   };
 };
 
+describe("leg alerts", () => {
+  const withSegment = (over: Partial<PassageReport["segments"][number]>): PassageReport => {
+    const base = passage();
+    return { ...base, segments: [{ ...base.segments[0], ...over }] };
+  };
+
+  it("says a sustained wind and a formed sea by their figures, with no chip", () => {
+    mount({ passage: withSegment({ tws_kn: 18, hs_m: 1.6, wave_period_s: 9 }), complexity: complexity() });
+    const wind = screen.getByText("18").closest("td") as HTMLElement;
+    expect(wind.style.color).toBe("var(--ow-warn-ink)");
+    expect(wind.textContent).toBe("18, Vent soutenu");
+    const sea = screen.getByText("1,6").closest("td") as HTMLElement;
+    expect(sea.style.color).toBe("var(--ow-warn-ink)");
+    expect(sea.textContent).toBe("1,6, Mer formée");
+    expect(document.querySelector(".ow-alert-chip")).toBeNull();
+  });
+
+  it("keeps a chip for a chop, which no figure says", () => {
+    mount({ passage: withSegment({ tws_kn: 9, hs_m: 0.9, wave_period_s: 4 }), complexity: complexity() });
+    expect(screen.getByText("Clapot suiveur · période 4 s")).toBeTruthy();
+    // 0,9 m is under the formed-sea mark: the figure stays plain.
+    expect((screen.getByText("0,9").closest("td") as HTMLElement).style.color).toBe("var(--ow-fg-0)");
+  });
+});
+
 describe("open leg", () => {
-  it("shows the average of the steps, and offers the detail", async () => {
+  it("opens on the whole leg: every step in the table, the average in the card", async () => {
     const value = mount({ passage: twoStepPassage(), complexity: complexity(), selectedLegIdx: 0 });
     expect(screen.getByText(/Moyenne · /)).toBeTruthy();
     expect(screen.getByText("moyenne de 2 pas")).toBeTruthy();
+    // The row gives the leg's sea as a range, its unit in the column header.
+    expect(screen.getByText("0,6–1,5")).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Mer m" })).toBeTruthy();
     // The flag of step 2 reaches the average, where the leg's own mean sea
     // (1,06 m) would not have raised it.
-    expect(screen.getByText("⚠ Mer Formée")).toBeTruthy();
+    expect(screen.getByText("⚠ Mer formée")).toBeTruthy();
     // No build-up on the average.
     expect(screen.queryByText(/polaire/)).toBeNull();
     // The wind range the average hides, and no gust in it: 18 sits on step 2.
     expect(screen.getByText("6–9 (18) kn")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: /^Pas \d sur 2/ })).toHaveLength(2);
 
-    await userEvent.click(screen.getByRole("button", { name: "Détail" }));
-    expect(value.actions.selectStep).toHaveBeenCalledWith(0);
+    // The steps are there from the start, none picked, and there is no
+    // choice of view to make first.
+    const table = screen.getByRole("table", { name: "Pas du tronçon, heure par heure" });
+    const heads = within(table).getAllByRole("button", { name: /^Pas \d sur 2/ });
+    expect(heads.map((h) => h.getAttribute("aria-pressed"))).toEqual(["false", "false"]);
+    expect(screen.queryByRole("button", { name: "Moyenne" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Tout le tronçon" })).toBeNull();
+    // The whole leg is what the card reads, so the whole row is ringed.
+    const wind = within(table).getByText("↑18").parentElement as HTMLElement;
+    expect(wind.style.boxShadow).toContain("var(--ow-accent)");
+
+    await userEvent.click(heads[1]);
+    expect(value.actions.selectStep).toHaveBeenCalledWith(1);
   });
 
-  it("walks the steps with the arrows and the strip", async () => {
+  it("opens the step picked in the table, and returns to the whole leg", async () => {
+    const value = mount({
+      passage: twoStepPassage(),
+      complexity: complexity(),
+      selectedLegIdx: 0,
+      selectedStepIdx: 0,
+    });
+    const table = screen.getByRole("table", { name: "Pas du tronçon, heure par heure" });
+    const heads = within(table).getAllByRole("button", { name: /^Pas \d sur 2/ });
+    expect(heads.map((h) => h.textContent)).toEqual([
+      fmtClock("2026-09-10T08:00:00+02:00"),
+      fmtClock("2026-09-10T13:00:00+02:00"),
+    ]);
+    expect(heads.map((h) => h.getAttribute("aria-pressed"))).toEqual(["true", "false"]);
+    expect(screen.getByText(`2 pas · ${fmtClock("2026-09-10T08:00:00+02:00")} → ${fmtClock("2026-09-10T18:00:00+02:00")}`)).toBeTruthy();
+    // Each row says its unit once, and the cells carry bare figures: the
+    // wind over its gust, the sea, the speed.
+    expect(within(table).getByRole("rowheader", { name: "Vent kn" })).toBeTruthy();
+    expect(within(table).getByRole("rowheader", { name: "Mer m" })).toBeTruthy();
+    expect(within(table).getByText("↑18")).toBeTruthy();
+    expect(within(table).getByText("1,5")).toBeTruthy();
+    // The formed sea of step 2 is the tint of its cell: no marker, which is
+    // kept for what a figure cannot say (a chop, a wind against the current).
+    expect(within(table).queryByRole("img")).toBeNull();
+    // No current on this passage: no current row.
+    expect(within(table).queryByRole("rowheader", { name: "Courant kn" })).toBeNull();
+    // The card under the table is the picked step's, and only its column
+    // is ringed.
+    expect(screen.getByText(/1\/2$/)).toBeTruthy();
+    expect((within(table).getByText("↑18").parentElement as HTMLElement).style.boxShadow).toBe("none");
+
+    await userEvent.click(heads[1]);
+    expect(value.actions.selectStep).toHaveBeenCalledWith(1);
+
+    // Back to the whole leg, in words or by a second tap on the column.
+    await userEvent.click(screen.getByRole("button", { name: "Tout le tronçon" }));
+    expect(value.actions.selectStep).toHaveBeenLastCalledWith(null);
+    await userEvent.click(heads[1]);
+    await userEvent.click(heads[0]);
+    expect(value.actions.selectStep).toHaveBeenLastCalledWith(null);
+  });
+
+  it("walks the steps with the arrows of the card, the table following", async () => {
     const value = mount({
       passage: twoStepPassage(),
       complexity: complexity(),
@@ -448,16 +663,15 @@ describe("open leg", () => {
     expect(screen.getByText("9 (18) kn")).toBeTruthy();
     // On a step, the build-up and the step's own flag.
     expect(screen.getByText(/polaire/)).toBeTruthy();
-    expect(screen.getByText(/^⚠ Mer Formée$/)).toBeTruthy();
+    expect(screen.getByText(/^⚠ Mer formée$/)).toBeTruthy();
     // Last step: no next.
     expect((screen.getByRole("button", { name: "Pas suivant" }) as HTMLButtonElement).disabled).toBe(true);
 
     await userEvent.click(screen.getByRole("button", { name: "Pas précédent" }));
     expect(value.actions.selectStep).toHaveBeenCalledWith(0);
 
-    // Tapping the open block returns to the average.
-    await userEvent.click(screen.getByRole("button", { name: /^Pas 2 sur 2/ }));
-    expect(value.actions.selectStep).toHaveBeenCalledWith(null);
+    // The table marks the same step as the card.
+    expect(screen.getByRole("button", { name: /^Pas 2 sur 2/ }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("opens a step from the bar under the totals, and closes it from there too", async () => {
@@ -482,11 +696,12 @@ describe("open leg", () => {
     expect(open.actions.selectLeg).not.toHaveBeenCalled();
   });
 
-  it("shows a single-step leg as the step itself: no average, no strip, no arrows", () => {
+  it("shows a single-step leg as the step itself: no average, no table, no arrows", () => {
     mount({ passage: passage(), complexity: complexity(), selectedLegIdx: 0 });
     expect(screen.queryByText(/Moyenne/)).toBeNull();
     expect(screen.getByText(`${fmtClock("2026-09-10T08:00:00+02:00")} → ${fmtClock("2026-09-10T18:00:00+02:00")}`)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Détail" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Tout le tronçon" })).toBeNull();
+    expect(screen.queryByRole("table", { name: "Pas du tronçon, heure par heure" })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Pas / })).toBeNull();
   });
 });
