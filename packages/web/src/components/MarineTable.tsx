@@ -432,7 +432,9 @@ export function MarineTable({
     <div className="animate-fade-in flex-1 min-h-0 flex flex-col">
       <div className={`scroll-container flex-1 min-h-0 flex flex-col ${scrolledEnd ? "scrolled-end" : ""}`}>
         <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto wind-table-scroll">
-          <table className="border-collapse" role="table">
+          {/* The panel floats over the map with no fill of its own: the
+              table is what hides it, gaps between the rows included. */}
+          <table className="border-collapse" role="table" style={{ background: "var(--ow-bg-1)" }}>
             <thead className="sticky top-0 z-20">
               <TimelineHeader
                 variant="harmonised"
@@ -452,7 +454,14 @@ export function MarineTable({
                   {masterTimeline.map((t, i) => {
                     const idx = timeIndex.get(t);
                     const prevIdx = i > 0 ? timeIndex.get(masterTimeline[i - 1]) : undefined;
-                    const prevValue = prevIdx != null ? readValue(row.kind, marine, prevIdx) : null;
+                    // The table opens on the current hour, often hours to the
+                    // right of the last change of period: the period is said
+                    // there too, and on the picked hour, or the reader would
+                    // face a row of dots and have to scroll back for a number.
+                    const said =
+                      row.kind === "wave_period" && (t.startsWith(nowHour) || t === selectedHour);
+                    const prevValue =
+                      !said && prevIdx != null ? readValue(row.kind, marine, prevIdx) : null;
                     return (
                       <MarineCell
                         key={i}

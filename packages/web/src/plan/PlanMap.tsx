@@ -34,7 +34,7 @@ import {
 const SEG_LABEL_MIN_PX = 90;
 /** Same idea for a leg's alert, which is a wider chip: under this length on
     screen the leg does not carry it, and the leg list still does. */
-const ALERT_LABEL_MIN_PX = 150;
+const ALERT_LABEL_MIN_PX = 120;
 
 /** Where the × badge sits relative to the centre of the disc, in px: the
     CSS puts a 22 px badge at top -10 / right -10 of a 28 px disc, so its
