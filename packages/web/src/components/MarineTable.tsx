@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { memo, useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo, type CSSProperties, type ReactNode } from "react";
 import type { MarineHourly, ModelForecast, MetricView } from "../types";
 import { TimelineHeader } from "./TimelineHeader";
+import { DirectionArrow } from "./DirectionArrow";
 import { useTimezone } from "../hooks/useTimezone";
 import { nowParisHourPrefix } from "../domain/datetime";
-import { currentsLevel, tidesLevel, wavesLevel, windLevelVar } from "../domain/thresholds";
+import { currentsLevel, tidesLevel, waveLevel, windLevelVar } from "../domain/thresholds";
 import { useTimelineScroll } from "../hooks/useTimelineScroll";
 import { t, useLang, useT, type Key } from "../i18n";
 import { numFixed } from "../plan/format";
@@ -57,26 +58,33 @@ function currentGridSize(marine: MarineHourly): string {
   return src.kind === "marc" ? formatGridSize(src.resolutionM) : "8 km";
 }
 
-// One per displayed table row. ``waves`` exposes 3 (height/direction/period),
+// One per displayed table row. ``waves`` exposes 3 (direction/height/period),
 // ``currents`` 2 (speed/direction), ``tides`` 1. Each row decides its own
 // display & colour rules; the timeline header is shared.
 type RowKind = "hs" | "wave_dir" | "wave_period" | "tide" | "current" | "current_dir";
 
 interface RowConfig {
   kind: RowKind;
-  unit: string;
+  /** Said once, after the row's name, never in its cells. Null where the
+      cells carry their own sign (degrees). */
+  unit: string | null;
 }
 
 /** Row header per kind. The kind stays the data; the wording is looked up at
     render time, so a row is never stored in one language. */
 const ROW_LABEL: Record<RowKind, Key> = {
   hs: "explore.marineTable.row.hs",
-  wave_dir: "explore.marineTable.row.direction",
+  wave_dir: "explore.marineTable.row.waveFrom",
   wave_period: "explore.marineTable.row.period",
   tide: "explore.marineTable.row.tide",
   current: "explore.marineTable.row.current",
   current_dir: "explore.marineTable.row.direction",
 };
+
+/** Rows painted with a colour ramp: the quantity the view is about. The
+    picked hour is outlined on them, and their name is set in the bolder
+    style; the rows around them are context and read quieter. */
+const FILLED: ReadonlySet<RowKind> = new Set<RowKind>(["hs", "tide", "current"]);
 
 function rowsForMetric(
   metric: MarineMetric,
@@ -85,9 +93,12 @@ function rowsForMetric(
   const tideUnit = marine.tide_height_zh_m != null ? "m ZH" : "m";
   switch (metric) {
     case "waves":
+      // Where the sea comes from first, as the wind table opens on its
+      // direction, then the height, then the period that only speaks when
+      // it changes.
       return [
+        { kind: "wave_dir", unit: null },
         { kind: "hs", unit: "m" },
-        { kind: "wave_dir", unit: "°" },
         { kind: "wave_period", unit: "s" },
       ];
     case "tides":
@@ -95,12 +106,35 @@ function rowsForMetric(
     case "currents":
       return [
         { kind: "current", unit: "kn" },
-        { kind: "current_dir", unit: "°" },
+        { kind: "current_dir", unit: null },
       ];
   }
 }
 
-const CELL_W = 36;
+// Nominal cell width (a phone's), the fallback useTimelineScroll uses before
+// the table is laid out.
+const CELL_W = 38;
+
+// The fill lives on an inner block rather than on the <td>: a collapsed table
+// ignores border-radius on its cells. Same geometry as the wind table.
+const TD_CLASS = "wind-cell p-0 align-middle cursor-pointer min-w-[38px] lg:min-w-[52px]";
+
+/** Height of a row's cells, the filled one standing out. */
+const ROW_HEIGHT: Record<RowKind, string> = {
+  wave_dir: "h-[22px]",
+  hs: "h-[42px] lg:h-[44px]",
+  wave_period: "h-[26px]",
+  tide: "h-[42px] lg:h-[44px]",
+  current: "h-[42px] lg:h-[44px]",
+  // Unchanged by the harmonisation, which does not cover currents: arrow and
+  // bearing, as before.
+  current_dir: "h-10 lg:h-14",
+};
+
+/** The direction row of the sea opens the table body, under a hairline. */
+function rowTopBorder(kind: RowKind): CSSProperties | undefined {
+  return kind === "wave_dir" ? { borderTop: "1px solid var(--ow-line)" } : undefined;
+}
 
 interface MarineCellProps {
   row: RowConfig;
@@ -108,37 +142,25 @@ interface MarineCellProps {
   /** The hour this cell reads, handed back to `onSelect`. */
   time: string;
   timeIdx: number | undefined;
-  // Previous tide value at this position; powers the rising/falling indicator.
-  prevTide: number | null;
+  /** The same series one column to the left: the tide's rising/falling
+      mark, and whether the period changed and is worth printing. */
+  prevValue: number | null;
   selected: boolean;
-  isNow: boolean;
-  isDayStart: boolean;
+  firstCol: boolean;
+  lastCol: boolean;
   /** Takes the hour rather than closing over it, so the parent can pass one
       stable function for the whole table instead of one closure per cell.
       Without that, `memo` below would miss on every render. */
   onSelect: (time: string) => void;
 }
 
-function NullCell({
-  nowBorder,
-  daySepClass,
-  selectedStyle,
-  onSelect,
-}: {
-  nowBorder: string;
-  daySepClass: string;
-  selectedStyle: string;
-  onSelect: () => void;
-}) {
-  return (
-    <td
-      role="cell"
-      className={`wind-cell ow-null-cell min-w-[32px] lg:min-w-[56px] h-10 lg:h-14 text-center text-xs align-middle cursor-pointer ${nowBorder} ${daySepClass} ${selectedStyle}`}
-      onClick={onSelect}
-    >
-      —
-    </td>
-  );
+/** Rounded at the two ends of a filled row; the picked hour outlined. */
+function fillShape(selected: boolean, firstCol: boolean, lastCol: boolean): CSSProperties {
+  const r = 7;
+  return {
+    borderRadius: `${firstCol ? r : 0}px ${lastCol ? r : 0}px ${lastCol ? r : 0}px ${firstCol ? r : 0}px`,
+    boxShadow: selected ? "inset 0 0 0 2px var(--ow-fg-0)" : undefined,
+  };
 }
 
 function MarineCellImpl({
@@ -146,254 +168,184 @@ function MarineCellImpl({
   marine,
   time,
   timeIdx,
-  prevTide,
+  prevValue,
   selected,
-  isNow,
-  isDayStart,
+  firstCol,
+  lastCol,
   onSelect,
 }: MarineCellProps) {
   // Subscribes the cell to the language, so a switch relabels every cell.
   useLang();
-  const nowBorder = isNow ? "border-l-2 border-l-accent" : "";
-  const daySepClass = !isNow && isDayStart ? "ow-day-sep" : "";
-  const selectedStyle = selected ? "ring-2 ring-accent/70 ring-inset bg-accent/10" : "";
   const select = () => onSelect(time);
+  const height = ROW_HEIGHT[row.kind];
+  const filled = FILLED.has(row.kind);
+  const td = (content: ReactNode, aria?: string) => (
+    <td
+      role="cell"
+      className={TD_CLASS}
+      style={rowTopBorder(row.kind)}
+      onClick={select}
+      aria-label={aria}
+    >
+      {content}
+    </td>
+  );
 
-  if (timeIdx == null) {
-    return (
-      <NullCell
-        nowBorder={nowBorder}
-        daySepClass={daySepClass}
-        selectedStyle={selectedStyle}
-        onSelect={select}
-      />
+  const value = timeIdx == null ? null : readValue(row.kind, marine, timeIdx);
+  if (value == null) {
+    // A filled row keeps its band, in grey; a context row just says nothing.
+    return td(
+      <div
+        className={`${height} w-full flex items-center justify-center text-xs ${filled ? "ow-null-cell" : ""}`}
+        style={filled ? fillShape(selected, firstCol, lastCol) : { color: "var(--ow-fg-2)" }}
+      >
+        —
+      </div>,
     );
   }
 
-  let value: number | null = null;
-  let secondary: number | null = null; // wave_dir for Hs aria, current_dir, etc.
-  let level = 0;
-  let display = "—";
-  let aria = "";
-  let trend = 0; // tides only
-  let arrowDeg: number | null = null; // rotation in degrees for arrow rendering
-  // For "from" conventions (wind & wave direction), an arrow showing where the
-  // wave is going is direction + 180. For "to" (current), no offset.
-  let arrowFlip = 0;
-  let renderArrow = false;
-  let degText: string | null = null;
-
   switch (row.kind) {
-    case "hs": {
-      value = marine.wave_height_m[timeIdx];
-      secondary = marine.wave_direction_deg[timeIdx];
-      if (value != null) {
-        level = wavesLevel(value);
-        display = numFixed(value, 1);
-        aria =
-          secondary != null
-            ? t("explore.marineTable.aria.hsFrom", {
-                value: display,
-                dir: Math.round(secondary),
-              })
-            : t("explore.marineTable.aria.hs", { value: display });
-      }
-      break;
-    }
     case "wave_dir": {
-      // wave_direction is "from" (Open-Meteo convention, mirror of wind).
-      const dir = marine.wave_direction_deg[timeIdx];
-      if (dir != null) {
-        value = dir; // sentinel: non-null means we have data to render
-        arrowDeg = dir;
-        arrowFlip = 180;
-        renderArrow = true;
-        degText = `${Math.round(dir)}°`;
-        aria = t("explore.marineTable.aria.waveDirection", { dir: Math.round(dir) });
-      }
-      // Direction has no intensity ramp; level stays 0 → neutral cell.
-      break;
+      // wave_direction is "from" (Open-Meteo convention, mirror of wind):
+      // the arrow points where the sea goes. Arrow only, the bearing is in
+      // the label.
+      const dir = Math.round(value);
+      return td(
+        <div className={`${height} flex items-center justify-center`} style={{ color: "var(--ow-fg-1)" }}>
+          <DirectionArrow deg={value} from size={12} />
+        </div>,
+        t("explore.marineTable.aria.waveDirection", { dir }),
+      );
     }
     case "current_dir": {
-      // current_direction is already "to" — arrow points where the current goes.
-      const dir = marine.current_direction_to_deg[timeIdx];
-      if (dir != null) {
-        value = dir;
-        arrowDeg = dir;
-        arrowFlip = 0;
-        renderArrow = true;
-        degText = `${Math.round(dir)}°`;
-        aria = t("explore.marineTable.aria.currentDirection", { dir: Math.round(dir) });
-      }
-      break;
+      // current_direction is already "to": the arrow points where it goes.
+      const dir = Math.round(value);
+      return td(
+        <div
+          className={`${height} flex flex-col items-center justify-center leading-none gap-[1px]`}
+          style={{ color: "var(--ow-fg-1)" }}
+        >
+          <DirectionArrow deg={value} from={false} size={14} className="lg:w-[16px] lg:h-[16px]" />
+          <span className="text-[9px] lg:text-[10px] tabular-nums leading-none opacity-70">{dir}°</span>
+        </div>,
+        t("explore.marineTable.aria.currentDirection", { dir }),
+      );
     }
     case "wave_period": {
-      value = marine.wave_period_s[timeIdx];
-      if (value != null) {
-        display = value.toFixed(0);
-        aria = t("explore.marineTable.aria.wavePeriod", { value: display });
-        // No level — period is informational, see periodLevel comment.
-      }
-      break;
+      // The period is said when it changes, a "·" otherwise: a column of
+      // 7 7 7 7 hides the hour it turns to 9. The label keeps the value
+      // for a screen reader either way.
+      const shown = Math.round(value);
+      const same = prevValue != null && Math.round(prevValue) === shown;
+      return td(
+        <div
+          className={`${height} flex items-center justify-center tabular-nums text-[11.5px] leading-none`}
+          style={{
+            color: same ? "var(--ow-fg-3)" : "var(--ow-fg-1)",
+            fontWeight: same ? 400 : 600,
+          }}
+        >
+          {same ? "·" : shown}
+        </div>,
+        t("explore.marineTable.aria.wavePeriod", { value: String(shown) }),
+      );
+    }
+    case "hs": {
+      const display = numFixed(value, 1);
+      const dir = timeIdx != null ? marine.wave_direction_deg[timeIdx] : null;
+      const aria =
+        dir != null
+          ? t("explore.marineTable.aria.hsFrom", { value: display, dir: Math.round(dir) })
+          : t("explore.marineTable.aria.hs", { value: display });
+      return td(
+        <div
+          className={`${height} w-full flex items-center justify-center tabular-nums text-[15px] font-bold leading-none`}
+          style={{
+            ...fillShape(selected, firstCol, lastCol),
+            background: `var(--ow-wave-${waveLevel(value)})`,
+            // The ramp is dark under a metre and light from there.
+            color: value < 1 ? "var(--ow-fg-0)" : "var(--ow-cell-ink)",
+          }}
+        >
+          {display}
+        </div>,
+        aria,
+      );
+    }
+    case "current": {
+      const display = numFixed(value, 1);
+      const level = currentsLevel(value);
+      return td(
+        <div
+          className={`${height} w-full flex items-center justify-center tabular-nums text-[15px] lg:text-[16px] font-bold leading-none`}
+          style={{
+            ...fillShape(selected, firstCol, lastCol),
+            background: windLevelVar(level),
+            color: `var(--ow-cell-text-${level})`,
+          }}
+        >
+          {display}
+        </div>,
+        t("explore.marineTable.aria.current", { value: display }),
+      );
     }
     case "tide": {
       // Prefer the ZH (chart-datum) series when MARC covers — always ≥ 0,
       // matches what nautical charts display. Fall back to MSL elsewhere.
-      const zh = marine.tide_height_zh_m;
-      const useZh = zh != null;
-      const series = useZh ? zh : marine.tide_height_m;
-      value = series[timeIdx];
-      if (value != null) {
-        level = tidesLevel(Math.abs(value));
-        display = useZh
-          ? numFixed(value, 1)
-          : (value >= 0 ? "+" : "") + numFixed(value, 1);
-        if (prevTide != null) {
-          const delta = value - prevTide;
-          if (delta > 0.01) trend = 1;
-          else if (delta < -0.01) trend = -1;
-        }
-        const tideKey =
-          trend > 0
-            ? "explore.marineTable.aria.tideRising"
-            : trend < 0
-              ? "explore.marineTable.aria.tideFalling"
-              : "explore.marineTable.aria.tide";
-        aria = t(tideKey, { value: display, unit: useZh ? "m ZH" : "m" });
+      const useZh = marine.tide_height_zh_m != null;
+      const display = useZh ? numFixed(value, 1) : (value >= 0 ? "+" : "") + numFixed(value, 1);
+      let trend = 0;
+      if (prevValue != null) {
+        const delta = value - prevValue;
+        if (delta > 0.01) trend = 1;
+        else if (delta < -0.01) trend = -1;
       }
-      break;
+      const tideKey =
+        trend > 0
+          ? "explore.marineTable.aria.tideRising"
+          : trend < 0
+            ? "explore.marineTable.aria.tideFalling"
+            : "explore.marineTable.aria.tide";
+      const level = tidesLevel(Math.abs(value));
+      return td(
+        <div
+          className={`${height} w-full flex flex-col items-center justify-center leading-none gap-[2px]`}
+          style={{
+            ...fillShape(selected, firstCol, lastCol),
+            background: windLevelVar(level),
+            color: `var(--ow-cell-text-${level})`,
+          }}
+        >
+          <span className="text-[15px] lg:text-[16px] font-bold tabular-nums leading-none">{display}</span>
+          {trend !== 0 && (
+            <span className="text-[10px] lg:text-[11px] font-bold leading-none opacity-80" aria-hidden>
+              {trend > 0 ? "↑" : "↓"}
+            </span>
+          )}
+        </div>,
+        t(tideKey, { value: display, unit: useZh ? "m ZH" : "m" }),
+      );
     }
-    case "current": {
-      // Speed only — direction lives on its own row (current_dir) so users
-      // get the same Hs/Dir split as waves.
-      value = marine.current_speed_kn[timeIdx];
-      if (value != null) {
-        level = currentsLevel(value);
-        display = numFixed(value, 1);
-        aria = t("explore.marineTable.aria.current", { value: display });
-      }
-      break;
-    }
   }
-  // secondary is assigned per row kind above but only read by the arrow branch;
-  // touched here so noUnusedLocals stays on for the rest of the file.
-  void secondary;
+}
 
-  if (value == null) {
-    return (
-      <NullCell
-        nowBorder={nowBorder}
-        daySepClass={daySepClass}
-        selectedStyle={selectedStyle}
-        onSelect={select}
-      />
-    );
+/** The number a row reads at one hour, null when the source has none. */
+function readValue(kind: RowKind, marine: MarineHourly, i: number): number | null {
+  switch (kind) {
+    case "hs":
+      return marine.wave_height_m[i];
+    case "wave_dir":
+      return marine.wave_direction_deg[i];
+    case "wave_period":
+      return marine.wave_period_s[i];
+    case "current":
+      return marine.current_speed_kn[i];
+    case "current_dir":
+      return marine.current_direction_to_deg[i];
+    case "tide":
+      // The series the cell shows: ZH when MARC covers, MSL otherwise.
+      return (marine.tide_height_zh_m ?? marine.tide_height_m)[i];
   }
-
-  // Direction-only cell: neutral background, render only the arrow + degree.
-  if (row.kind === "wave_dir" || row.kind === "current_dir") {
-    return (
-      <td
-        role="cell"
-        className={`wind-cell min-w-[32px] lg:min-w-[56px] h-10 lg:h-14 text-center align-middle p-0 cursor-pointer ${nowBorder} ${daySepClass} ${selectedStyle}`}
-        style={{ background: "var(--ow-bg-1)", color: "var(--ow-fg-1)" }}
-        onClick={select}
-        aria-label={aria}
-      >
-        <div className="flex flex-col items-center justify-center leading-none gap-[1px]">
-          {renderArrow && arrowDeg != null && (
-            <svg
-              width="14"
-              height="14"
-              className="lg:w-[16px] lg:h-[16px] shrink-0"
-              viewBox="0 0 16 16"
-              style={{
-                transform: `rotate(${arrowDeg + arrowFlip}deg)`,
-                transition: "transform 0.3s ease",
-              }}
-            >
-              <polygon points="8,1 13,15 8,10 3,15" fill="currentColor" />
-            </svg>
-          )}
-          {degText && (
-            <span
-              className="text-[9px] lg:text-[10px] tabular-nums leading-none opacity-70"
-            >
-              {degText}
-            </span>
-          )}
-        </div>
-      </td>
-    );
-  }
-
-  // Period: neutral background like direction. The number is the signal.
-  if (row.kind === "wave_period") {
-    return (
-      <td
-        role="cell"
-        className={`wind-cell min-w-[32px] lg:min-w-[56px] h-10 lg:h-14 text-center align-middle p-0 cursor-pointer ${nowBorder} ${daySepClass} ${selectedStyle}`}
-        style={{ background: "var(--ow-bg-1)", color: "var(--ow-fg-1)" }}
-        onClick={select}
-        aria-label={aria}
-      >
-        <div className="flex flex-col items-center justify-center leading-none">
-          <span className="text-[15px] lg:text-[16px] font-bold tabular-nums leading-none">
-            {display}
-            <span className="hidden lg:inline ml-0.5 text-[10px] font-medium opacity-60">
-              {row.unit}
-            </span>
-          </span>
-        </div>
-      </td>
-    );
-  }
-
-  const bg = windLevelVar(level);
-  const color = `var(--ow-cell-text-${level})`;
-
-  return (
-    <td
-      role="cell"
-      className={`wind-cell min-w-[32px] lg:min-w-[56px] h-10 lg:h-14 text-center align-middle p-0 cursor-pointer ${nowBorder} ${daySepClass} ${selectedStyle}`}
-      style={{ backgroundColor: bg, color }}
-      onClick={select}
-      aria-label={aria}
-    >
-      <div className="flex flex-col items-center justify-center leading-none gap-[2px]">
-        <div className="flex items-center gap-0.5">
-          {renderArrow && arrowDeg != null && (
-            <svg
-              width="11"
-              height="11"
-              className="lg:w-[14px] lg:h-[14px] shrink-0"
-              viewBox="0 0 16 16"
-              style={{
-                transform: `rotate(${arrowDeg + arrowFlip}deg)`,
-                transition: "transform 0.3s ease",
-              }}
-            >
-              <polygon points="8,1 13,15 8,10 3,15" fill="currentColor" />
-            </svg>
-          )}
-          <span className="text-[15px] lg:text-[16px] font-bold tabular-nums leading-none">
-            {display}
-            <span className="hidden lg:inline ml-0.5 text-[10px] font-medium opacity-60">
-              {row.unit}
-            </span>
-          </span>
-        </div>
-        {row.kind === "tide" && trend !== 0 && (
-          <span
-            className="text-[10px] lg:text-[11px] font-bold leading-none opacity-80"
-            aria-hidden
-          >
-            {trend > 0 ? "↑" : "↓"}
-          </span>
-        )}
-      </div>
-    </td>
-  );
 }
 
 /**
@@ -403,6 +355,32 @@ function MarineCellImpl({
  * shallow comparison holds.
  */
 const MarineCell = memo(MarineCellImpl);
+
+/** A row's name, with its unit said once, quieter, after it. */
+function RowLabel({ row }: { row: RowConfig }) {
+  const { t } = useT();
+  const filled = FILLED.has(row.kind);
+  return (
+    <td
+      className="sticky left-0 z-10 pl-2 pr-2 text-left whitespace-nowrap leading-none"
+      style={{
+        background: "var(--ow-bg-1)",
+        color: filled ? "var(--ow-fg-0)" : "var(--ow-fg-2)",
+        ...rowTopBorder(row.kind),
+      }}
+      role="rowheader"
+    >
+      <span className={filled ? "text-[10.5px] lg:text-[12px] font-semibold" : "text-[10px]"}>
+        {t(ROW_LABEL[row.kind])}
+        {row.unit && (
+          <span className="font-medium ml-[3px]" style={{ color: "var(--ow-fg-2)" }}>
+            {row.unit}
+          </span>
+        )}
+      </span>
+    </td>
+  );
+}
 
 interface MarineTableProps {
   metric: MarineMetric;
@@ -437,20 +415,17 @@ export function MarineTable({
   }, [marine.time]);
 
   const nowHour = nowParisHourPrefix();
-  const { scrollRef, scrolledEnd, visibleDay, dayStarts } = useTimelineScroll(
+  const { scrollRef, scrolledEnd, visibleDay } = useTimelineScroll(
     masterTimeline,
     CELL_W,
     nowHour,
   );
   // Memoised so the identity of `row` does not defeat MarineCell's memo.
   const rows = useMemo(() => rowsForMetric(metric, marine), [metric, marine]);
-  // The series powering the rising/falling indicator follows the same source
-  // as the displayed cell (ZH when MARC covers, MSL otherwise). Linear shift
-  // doesn't change the sign of deltas, but we keep the references consistent.
-  const tideSeries = marine.tide_height_zh_m ?? marine.tide_height_m;
 
   // One function for the whole table, not one closure per cell.
   const selectHour = useCallback((t: string) => onSelectHour(t), [onSelectHour]);
+  const lastCol = masterTimeline.length - 1;
 
   return (
     // Flex column down to the scroller, no percentage height: see WindTable.
@@ -460,6 +435,7 @@ export function MarineTable({
           <table className="border-collapse" role="table">
             <thead className="sticky top-0 z-20">
               <TimelineHeader
+                variant="harmonised"
                 times={masterTimeline}
                 selectedHour={selectedHour}
                 onSelectHour={onSelectHour}
@@ -470,49 +446,23 @@ export function MarineTable({
               />
             </thead>
             <tbody>
-              {rows.map((row, ri) => (
-                <tr key={row.kind} className={ri % 2 === 1 ? "model-row-alt" : ""}>
-                  <td
-                    className="sticky left-0 z-10 px-2 py-1 whitespace-nowrap border-r min-w-[56px]"
-                    style={{
-                      background: "var(--ow-bg-1)",
-                      borderColor: "var(--ow-line-2)",
-                    }}
-                    role="rowheader"
-                  >
-                    <div className="flex flex-col items-center leading-none gap-[2px]">
-                      <span
-                        className="text-[11px] lg:text-[12px] font-bold tracking-wide"
-                        style={{ color: "var(--ow-fg-0)" }}
-                      >
-                        {t(ROW_LABEL[row.kind])}
-                      </span>
-                      <span
-                        className="text-[8px] font-medium"
-                        style={{ color: "var(--ow-fg-2)" }}
-                      >
-                        {row.unit}
-                      </span>
-                    </div>
-                  </td>
+              {rows.map((row) => (
+                <tr key={row.kind}>
+                  <RowLabel row={row} />
                   {masterTimeline.map((t, i) => {
                     const idx = timeIndex.get(t);
-                    const prevT = i > 0 ? masterTimeline[i - 1] : null;
-                    const prevIdx = prevT != null ? timeIndex.get(prevT) : undefined;
-                    const prevTide =
-                      row.kind === "tide" && prevIdx != null
-                        ? tideSeries[prevIdx]
-                        : null;
+                    const prevIdx = i > 0 ? timeIndex.get(masterTimeline[i - 1]) : undefined;
+                    const prevValue = prevIdx != null ? readValue(row.kind, marine, prevIdx) : null;
                     return (
                       <MarineCell
                         key={i}
                         row={row}
                         marine={marine}
                         timeIdx={idx}
-                        prevTide={prevTide}
+                        prevValue={prevValue}
                         selected={t === selectedHour}
-                        isNow={t.startsWith(nowHour)}
-                        isDayStart={dayStarts.has(t) && i > 0}
+                        firstCol={i === 0}
+                        lastCol={i === lastCol}
                         time={t}
                         onSelect={selectHour}
                       />

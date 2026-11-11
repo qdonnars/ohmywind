@@ -10,7 +10,7 @@ import {
   MODEL_DIRECTION_SPREAD_DEG,
   SEA_FORMED_HS_M,
   tidesLevel,
-  wavesLevel,
+  waveLevel,
   windLevelToken,
   windLevelVar,
   windSoftVar,
@@ -54,22 +54,17 @@ describe("beaufortLevel", () => {
   });
 });
 
-describe("wavesLevel", () => {
-  it("follows the server sea bands", () => {
-    // plate < 0.5, belle < 1, agitée < 2, forte < 3, très forte beyond.
-    expect(wavesLevel(0.3)).toBe(1);
-    expect(wavesLevel(0.5)).toBe(2);
-    expect(wavesLevel(1.0)).toBe(4);
-    expect(wavesLevel(2.0)).toBe(6);
-    expect(wavesLevel(3.0)).toBe(8);
+describe("waveLevel", () => {
+  it("steps on the sea ramp's thresholds", () => {
+    expect([0.1, 0.4, 0.8, 1.2, 2, 3].map(waveLevel)).toEqual([0, 1, 2, 3, 4, 5]);
+    // The edge belongs to the step above.
+    expect([0.3, 0.6, 1.0, 1.5, 2.5].map(waveLevel)).toEqual([1, 2, 3, 4, 5]);
   });
 
-  it("puts the mer formée cutoff inside the agitée band", () => {
-    // The chip and the cell colour have to agree: an Hs just over the cutoff
-    // is called "Mer formée" and painted with the agitée level.
-    expect(wavesLevel(SEA_FORMED_HS_M + 0.01)).toBe(4);
-    expect(SEA_FORMED_HS_M).toBeGreaterThan(1.0);
-    expect(SEA_FORMED_HS_M).toBeLessThan(2.0);
+  it("paints a mer formée past the dark blues", () => {
+    // From a metre the ramp turns light and the ink dark: a sea that earns the
+    // chip never sits on the calm blues.
+    expect(waveLevel(SEA_FORMED_HS_M)).toBeGreaterThanOrEqual(3);
   });
 });
 
