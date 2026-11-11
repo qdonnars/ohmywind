@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MarineTable } from "./MarineTable";
 import type { MarineHourly } from "../types";
 
@@ -123,5 +123,39 @@ describe("MarineTable, currents", () => {
     renderTable("currents");
     const fill = rowOf("Vitesse")[2].firstElementChild as HTMLElement;
     expect(fill.style.background).toContain("color-mix(in oklch, var(--ow-w-3) 78%");
+  });
+});
+
+describe("MarineTable, currents warning", () => {
+  const withGap: MarineHourly = { ...MARINE, tidal_gap: { zone: "Raz de Sein", kind: "pass", max_spring_kt: 6 } };
+
+  function renderCurrents(marine: MarineHourly) {
+    render(<MarineTable metric="currents" marine={marine} forecasts={[]} selectedHour={null} onSelectHour={vi.fn()} />);
+  }
+
+  it("says the warning on one line, and the full sentence only once unfolded", () => {
+    renderCurrents(withGap);
+    const line = screen.getByRole("button", { name: /^Courants probablement faux ici · Raz de Sein · maille de / });
+    expect(line.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByText(/zone de fort courant de marée/)).toBeNull();
+
+    fireEvent.click(line);
+    expect(line.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText(/Raz de Sein est une zone de fort courant de marée/)).toBeTruthy();
+    const link = screen.getByRole("link", { name: "Comment les courants sont calculés" });
+    expect(link.getAttribute("href")).toBe("/methodologie/courants");
+  });
+
+  it("names the place of an unknown current, and no place at the edge of the model", () => {
+    renderCurrents({ ...MARINE, current_unknown: { reason: "unresolved", zone: "Saltstraumen", fields: ["current"] } });
+    expect(screen.getByRole("button", { name: "Courant inconnu ici · Saltstraumen" })).toBeTruthy();
+    cleanup();
+    renderCurrents({ ...MARINE, current_unknown: { reason: "model_edge", zone: "", fields: ["current"] } });
+    expect(screen.getByRole("button", { name: "Courant inconnu ici" })).toBeTruthy();
+  });
+
+  it("keeps the small print of the source when there is nothing to warn about", () => {
+    renderCurrents(MARINE);
+    expect(screen.queryByRole("button", { name: /probablement faux|inconnu/ })).toBeNull();
   });
 });

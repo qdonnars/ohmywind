@@ -13,6 +13,7 @@ import { t, useLang, useT, type Key } from "../i18n";
 import { numFixed } from "../plan/format";
 import { describeCurrentSource, formatGridSize, shomDistanceM } from "../domain/currentSource";
 import { PanelNote } from "./PanelNote";
+import { CurrentCaveat } from "./CurrentCaveat";
 
 type MarineMetric = Exclude<MetricView, "wind">;
 
@@ -534,17 +535,31 @@ export function MarineTable({
         </div>
       </div>
       {metric === "currents" && marine.current_unknown && (
-        <PanelNote variant="warning">
+        <CurrentCaveat
+          headline={
+            // The model-edge sentence names no place: it is the water itself
+            // the model does not describe.
+            marine.current_unknown.reason !== "model_edge" && marine.current_unknown.zone
+              ? t("explore.marineTable.caveat.unknownAt", { zone: marine.current_unknown.zone })
+              : t("explore.marineTable.caveat.unknown")
+          }
+        >
           {t(UNKNOWN_NOTE[marine.current_unknown.reason], { zone: marine.current_unknown.zone })}
-        </PanelNote>
+        </CurrentCaveat>
       )}
       {metric === "currents" && !marine.current_unknown && !marine.tidal_gap && <PanelNote>{currentSourceNote(marine)}</PanelNote>}
       {metric === "currents" && !marine.current_unknown && marine.tidal_gap && (
-        <PanelNote variant="warning">
+        <CurrentCaveat
+          headline={
+            marine.tidal_gap.kind === "pass"
+              ? t("explore.marineTable.caveat.tidalGapPass", { zone: marine.tidal_gap.zone, size: currentGridSize(marine) })
+              : t("explore.marineTable.caveat.tidalGapZone", { size: currentGridSize(marine) })
+          }
+        >
           {marine.tidal_gap.kind === "pass"
             ? t("explore.marineTable.tidalGap.pass", { zone: marine.tidal_gap.zone, size: currentGridSize(marine) })
             : t("explore.marineTable.tidalGap.zone", { size: currentGridSize(marine) })}
-        </PanelNote>
+        </CurrentCaveat>
       )}
     </div>
   );

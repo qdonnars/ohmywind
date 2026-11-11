@@ -102,6 +102,13 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.marineTable.aria.current": "Strom {value} kn",
 
   // Hinweis unter der Stromtabelle: die Quelle und die eine Zahl, die sie einordnet
+  // The one line of a currents warning; the sentences below are what it
+  // unfolds into.
+  "explore.marineTable.caveat.tidalGapPass": "Strömungen hier wahrscheinlich falsch · {zone} · Gitter von {size}",
+  "explore.marineTable.caveat.tidalGapZone": "Strömungen hier wahrscheinlich falsch · Gitter von {size}",
+  "explore.marineTable.caveat.unknownAt": "Strömung hier unbekannt · {zone}",
+  "explore.marineTable.caveat.unknown": "Strömung hier unbekannt",
+  "explore.marineTable.caveat.method": "Wie die Strömungen berechnet werden",
   "explore.marineTable.tidalGap.pass": "Achtung: Die hier angezeigten Strömungen sind wahrscheinlich falsch. {zone} ist ein Gebiet mit starkem Gezeitenstrom, und die Berechnung verfügt hier nur über ein Gitter von {size}, das ihn nicht auflöst. Wir arbeiten daran, unsere Abdeckung zu erweitern, aber nicht alle Daten sind frei zugänglich.",
   "explore.marineTable.tidalGap.zone": "Achtung: Die hier angezeigten Strömungen sind wahrscheinlich falsch. Der Gezeitenstrom übersteigt hier 1,5 kn, und die Berechnung verfügt nur über ein Gitter von {size}, das ihn nicht auflöst. Wir arbeiten daran, unsere Abdeckung zu erweitern, aber nicht alle Daten sind frei zugänglich.",
   "explore.marineTable.unknown.managed": "Strömung hier unbekannt ({zone}): Ein Bauwerk regelt hier Strömung und Wasserstand, nicht die Gezeiten, und keine unserer Quellen beschreibt es. Statt einer falschen Zahl zeigen wir nichts an. Wenden Sie sich an den Betreiber des Bauwerks und ziehen Sie das Seehandbuch zu Rate.",
