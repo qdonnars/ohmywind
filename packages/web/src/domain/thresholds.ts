@@ -110,16 +110,20 @@ export function circularMean(degrees: readonly number[]): number | null {
 export const SEA_FORMED_HS_M = 1.25;
 
 /**
- * Hs band, mapped onto the wind palette so one colour scale reads across the
- * whole table. Aligned with packages/data-adapters/.../complexity._SEA_BANDS:
- * plate < 0.5, belle < 1, agitée < 2, forte < 3, très forte beyond.
+ * Step of the sea's own ramp, `--ow-wave-0..5`, for a significant wave height
+ * in metres. The sea no longer borrows the wind's colours: two quantities
+ * painted on one scale read as one. Shared by the explore sea table and the
+ * comparison page, so a 1.2 m sea is the same blue on both. Text set on it is
+ * `--ow-fg-0` under a metre and `--ow-cell-ink` from there, where the ramp
+ * turns light.
  */
-export function wavesLevel(hs: number): number {
-  if (hs < 0.5) return 1;
+export function waveLevel(hs: number): 0 | 1 | 2 | 3 | 4 | 5 {
+  if (hs < 0.3) return 0;
+  if (hs < 0.6) return 1;
   if (hs < 1.0) return 2;
-  if (hs < 2.0) return 4;
-  if (hs < 3.0) return 6;
-  return 8;
+  if (hs < 1.5) return 3;
+  if (hs < 2.5) return 4;
+  return 5;
 }
 
 // ── Currents ─────────────────────────────────────────────────────────────────

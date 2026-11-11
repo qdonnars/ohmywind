@@ -85,9 +85,10 @@ export const explore: Record<keyof typeof frExplore, string> = {
     "{speed} nudos, rachas {gusts}, dirección {direction}°",
 
   // Marine table
-  "explore.marineTable.row.hs": "Hs",
+  "explore.marineTable.row.hs": "Altura",
   "explore.marineTable.row.direction": "Dir",
-  "explore.marineTable.row.period": "T",
+  "explore.marineTable.row.waveFrom": "Procedencia",
+  "explore.marineTable.row.period": "Periodo",
   "explore.marineTable.row.tide": "Marea",
   "explore.marineTable.row.current": "Corr.",
   "explore.marineTable.aria.hs": "Hs {value} m",

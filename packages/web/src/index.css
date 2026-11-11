@@ -380,22 +380,6 @@ select,
   animation: fadeInUp 0.35s ease-out;
 }
 
-/* Model row alternating bg for visual separation */
-/* Exclude first-child (sticky model name column) to preserve position: sticky */
-.model-row-alt td:not(:first-child) {
-  position: relative;
-}
-.model-row-alt td:not(:first-child)::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--ow-line);
-  pointer-events: none;
-}
-.model-row-alt td:first-child {
-  background: var(--ow-bg-1);
-}
-
 /* Cell press feedback */
 .wind-cell {
   transition: transform 0.1s ease, filter 0.1s ease;

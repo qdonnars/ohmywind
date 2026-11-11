@@ -226,15 +226,9 @@ export function windLabel(agg: WindAgg, res: Resolution): string {
   return res === 1 || agg.lo === agg.hi ? String(agg.mid) : `${agg.lo}–${agg.hi}`;
 }
 
-/** The sea's own colour ramp, six steps on the design's thresholds. */
-export function waveLevel(hs: number): 0 | 1 | 2 | 3 | 4 | 5 {
-  if (hs < 0.3) return 0;
-  if (hs < 0.6) return 1;
-  if (hs < 1.0) return 2;
-  if (hs < 1.5) return 3;
-  if (hs < 2.5) return 4;
-  return 5;
-}
+// The sea's own colour ramp moved to the domain, where the explore sea table
+// reads it too; re-exported for the readers of this module.
+export { waveLevel } from "../domain/thresholds";
 
 /**
  * One series out of a chain of models, read in the order given.
