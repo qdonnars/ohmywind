@@ -74,9 +74,12 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.legs.seaFlag.chop": "Kabbelwasser",
   "panel.legs.seaFlag.followingChop": "Mitlaufende Kabbelsee",
   "panel.legs.seaFlag.roughSea": "Grobe See",
-  // The flag as the alert under a leg says it: what, how much, where.
-  "panel.legs.alert.sea": "{flag} · Hs {range} m auf {nm} nm",
-  "panel.legs.alert.current": "{flag} · {speed} kn auf {nm} nm",
+  // What an orange wind figure stands for, said to a screen reader.
+  "panel.legs.windFlag": "Frischer Wind",
+  // The alerts that keep a chip under a leg: the flag and the one number
+  // the row does not show.
+  "panel.legs.alert.chop": "{flag} · Periode {period} s",
+  "panel.legs.alert.current": "{flag} · {speed} kn",
 
   // ── LegDetailCard / LegExpanded ────────────────────────────────────────────
   "panel.legDetail.prevStep": "Vorheriger Abschnitt",
@@ -167,7 +170,6 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.tracks.drawing.points.other": "{count} Punkte gesetzt",
   "panel.tracks.drawing.hint": "Tippen Sie auf die Karte, um einen Punkt zwischen Abfahrt und Ankunft des Plans zu setzen.",
   "panel.tracks.drawing.finish": "Abschließen und vergleichen",
-  "panel.tracks.row.open": "Diese Route im Plan öffnen",
   "panel.tracks.row.computing": "wird berechnet…",
   "panel.tracks.stale": "Abfahrt oder Boot geändert. Neu berechnen, um die Routen zu vergleichen.",
   "panel.tracks.departure.title": "Abfahrt, für alle Routen gleich",
@@ -190,7 +192,6 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.results.alertKind.sea": "See",
   "panel.results.alertKind.current": "Strömung",
   "panel.results.alertKind.other": "Sonstiges",
-  "panel.tracks.row.openShort": "Auf der Karte ansehen",
   "panel.window.every": "Alle",
   "panel.window.adjustDates": "Daten anpassen",
   "panel.hint.title": "Die Oberfläche entwickelt sich",

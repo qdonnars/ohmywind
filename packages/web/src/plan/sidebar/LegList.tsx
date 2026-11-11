@@ -16,8 +16,10 @@ import { useT } from "../../i18n";
 
 // ── LegList ──────────────────────────────────────────────────────────────────
 // Click-to-expand list of legs. Collapsed = one row of figures (durée,
-// allure, vent, mer), the units said once in the column headers, and under
-// it the leg's alert when it has one. Expanded = the leg's steps and the
+// allure, vent, mer), the units said once in the column headers. A strong
+// wind or a formed sea is said by its own figure, inked as a warning; only
+// what no figure can say (a chop, a wind against the current) gets a chip
+// under the row. Expanded = the leg's steps and the
 // card with the dial (see LegExpanded).
 
 const CELL_LINE = { borderTop: "1px solid var(--ow-line)" } as const;
@@ -104,14 +106,23 @@ function LegRow({
         <td className="py-2.5 px-1 align-middle text-xs leading-tight" style={{ ...CELL_LINE, color: "var(--ow-fg-1)" }}>
           {summary.allure}
         </td>
-        <td className={figure} style={{ ...CELL_LINE, color: "var(--ow-fg-0)" }}>
+        <td
+          className={figure}
+          title={summary.windNote ?? undefined}
+          style={{ ...CELL_LINE, color: summary.windNote ? "var(--ow-warn-ink)" : "var(--ow-fg-0)" }}
+        >
           {summary.wind}
+          {/* The colour is the alert for the eye; a screen reader gets the
+              words. */}
+          {summary.windNote && <span className="sr-only">, {summary.windNote}</span>}
         </td>
         <td
           className={figure}
-          style={{ ...CELL_LINE, color: summary.alert ? "var(--ow-warn-ink)" : "var(--ow-fg-0)" }}
+          title={summary.seaNote ?? undefined}
+          style={{ ...CELL_LINE, color: summary.seaNote ? "var(--ow-warn-ink)" : "var(--ow-fg-0)" }}
         >
           {summary.sea ?? <span style={{ color: "var(--ow-fg-2)" }}>—</span>}
+          {summary.seaNote && <span className="sr-only">, {summary.seaNote}</span>}
         </td>
         <td className="py-2.5 pl-1 pr-3.5 text-right align-middle" style={CELL_LINE}>
           <span
@@ -131,9 +142,8 @@ function LegRow({
       </tr>
       {summary.alert && (
         // The alert has a row of its own, under the figures it qualifies and
-        // aligned on the leg's name: in the sea column it was two words of
-        // grey text, with neither the height nor the distance. A click on it
-        // opens the leg like the row above; the keyboard has that row.
+        // aligned on the leg's name. A click on it opens the leg like the
+        // row above; the keyboard has that row.
         <tr onClick={onToggle} className="cursor-pointer" style={{ background: rowBg }}>
           <td colSpan={6} className="pt-0 pb-2.5 pr-4" style={{ paddingLeft: 28 }}>
             <AlertChip size="s">{summary.alert}</AlertChip>

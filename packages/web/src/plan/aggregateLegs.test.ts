@@ -203,21 +203,40 @@ describe("buildLegSummaryCells figures", () => {
     expect(buildLegSummaryCells(makeLeg()).sea).toBeNull();
   });
 
-  it("says a sea flag with its height and the distance it holds over", () => {
+  it("says a formed sea by its figure, with no alert of its own", () => {
     const cells = buildLegSummaryCells(
       makeLeg({ distance_nm: 13.8, hs_avg_m: 1.3, hs_min_m: 1.1, hs_max_m: 1.4, tp_avg_s: 9 }),
     );
     expect(cells.flag).toBe("Mer formée");
-    expect(cells.alert).toBe("Mer formée · Hs 1,1–1,4 m sur 13,8 nm");
-    expect(cells.alertShort).toBe("Mer formée · 1,1–1,4 m");
+    expect(cells.seaNote).toBe("Mer formée");
+    expect(cells.alert).toBeNull();
+    expect(buildLegSummaryCells(makeLeg({ hs_avg_m: 2.8, tp_avg_s: 9 })).seaNote).toBe("Grosse mer");
+    expect(buildLegSummaryCells(makeLeg({ hs_avg_m: 1.2, tp_avg_s: 9 })).seaNote).toBeNull();
   });
 
-  it("says a wind against the current with the current's speed", () => {
+  it("says a sustained wind by its figure, from the server's own threshold", () => {
+    expect(buildLegSummaryCells(makeLeg({ tws_min: 8, tws_max: 14.4 })).windNote).toBeNull();
+    // 14,6 kn is printed « 15 »: orange like any other 15.
+    expect(buildLegSummaryCells(makeLeg({ tws_min: 8, tws_max: 14.6 })).windNote).toBe("Vent soutenu");
+    const strong = buildLegSummaryCells(makeLeg({ tws_min: 13, tws_max: 24 }));
+    expect(strong.windNote).toBe("Vent soutenu");
+    expect(strong.alert).toBeNull();
+  });
+
+  it("keeps an alert for a chop, with the period the row does not show", () => {
+    // Hs 1,3 m at Tp 4 s: steep, and formed too. Both are said, each its way.
+    const cells = buildLegSummaryCells(
+      makeLeg({ hs_avg_m: 1.3, hs_min_m: 1.3, hs_max_m: 1.3, tp_avg_s: 4.2, sea_direction: "arrière" }),
+    );
+    expect(cells.alert).toBe("Clapot suiveur · période 4 s");
+    expect(cells.seaNote).toBe("Mer formée");
+  });
+
+  it("keeps an alert for a wind against the current, with the current's speed", () => {
     const cells = buildLegSummaryCells(
       makeLeg({ distance_nm: 8, current_relative: "contraire", current_speed_kn: 1.8, current_delta_kn: -1.6 }),
     );
-    expect(cells.alert).toBe("Vent contre courant · 1,8 kn sur 8,0 nm");
-    expect(cells.alertShort).toBe("Vent contre courant · 1,8 kn");
+    expect(cells.alert).toBe("Vent contre courant · 1,8 kn");
   });
 });
 
