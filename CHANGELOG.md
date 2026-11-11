@@ -4,12 +4,13 @@ Toutes les versions d'OhMyWind, de la plus récente à la plus ancienne. Le site
 
 Chaque version est aussi publiée sur la page [Releases](https://github.com/qdonnars/ohmywind/releases) du dépôt, et l'application affiche ce journal sur sa page « Quoi de neuf ». La marche à suivre pour publier une version est dans [docs/releases.md](docs/releases.md). English version: [CHANGELOG.en.md](CHANGELOG.en.md).
 
-## 1.13.0 · Prochaine version · Des tableaux harmonisés, un serveur plus rapide et mieux protégé
+## 1.13.0 · 2026-11-11 · Des tableaux harmonisés, un serveur plus rapide et mieux protégé
 
 ### Nouveautés
 
 - Tous les tableaux de chiffres parlent la même langue, dans Explorer, Planifier et Comparer ce trajet : le même en-tête d'heures, l'unité dite une fois, et une seule échelle de couleurs pour le vent, en Beaufort adouci, reprise sur le tracé de la route (#522).
 - Dans Planifier, un tronçon déplié montre tous ses pas côte à côte (direction, vent, mer, courant, vitesse), et un clic sur une colonne ouvre le détail du pas (#522).
+- L'état de la mer se lit avec les mots et les seuils des bulletins marine, les mêmes dans la liste des tronçons, dans les alertes et dans l'assistant : « Mer formée » dès 1,25 m de houle significative, « Mer forte » dès 2,5 m, « Mer très forte » dès 4 m (#523).
 - Dans Explorer, la direction du vent signale l'écart entre modèles au-delà de 45°, et les courants se lisent comme la mer : « Portant vers » en flèches, puis la vitesse (#522).
 - Un nouvel archétype de bateau, l'IMOCA 60 à foils, pour planifier une transat de course ; sa polaire est une estimation (#513).
 
