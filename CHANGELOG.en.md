@@ -4,12 +4,13 @@ Every OhMyWind release, newest first. The ohmywind.fr site and the MCP server sh
 
 This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the reference. Each release is also published on the repository's [Releases](https://github.com/qdonnars/ohmywind/releases) page, and the app shows this log on its "What's new" page.
 
-## 1.13.0 · Next release · Harmonised tables, a faster and better protected server
+## 1.13.0 · 2026-11-11 · Harmonised tables, a faster and better protected server
 
 ### New
 
 - Every table of figures speaks the same language, in Explore, Plan and Compare this trip: the same hour header, the unit stated once, and a single colour scale for the wind, a softened Beaufort scale, also used on the route drawn on the map (#522).
 - In Plan, an expanded leg shows all its steps side by side (direction, wind, sea, current, speed), and a click on a column opens that step's detail (#522).
+- The sea state reads with the words and thresholds of the marine bulletins, the same in the leg list, in the alerts and in the assistant: "Moderate sea" from 1.25 m of significant wave height, "Rough sea" from 2.5 m, "Very rough sea" from 4 m (#523).
 - In Explore, the wind direction flags the spread between models beyond 45°, and currents read like the sea: "Setting to" as arrows, then the speed (#522).
 - A new boat archetype, the foiling IMOCA 60, to plan an ocean race; its polar is an estimate (#513).
 
