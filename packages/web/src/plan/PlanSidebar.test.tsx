@@ -286,23 +286,66 @@ describe("the comparison", () => {
     expect(screen.getByText("D'autres départs")).toBeTruthy();
     expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.getAllByText("1 créneau").length).toBeGreaterThanOrEqual(1);
-    // The line: hour, duration, arrival, then the conditions as a sentence.
+    // The column header carries the words and the units, once.
+    for (const head of ["Départ", "Arrivée", "Durée", "Allure", "Vent", "Mer"]) {
+      expect(screen.getAllByText(head).length).toBeGreaterThanOrEqual(1);
+    }
+    expect(screen.getByText("kn")).toBeTruthy();
+    expect(screen.getByText("m")).toBeTruthy();
+    // The day, as the formatter writes it (the capitals are the stylesheet's).
+    expect(screen.getByText(fmtDay(aWindow().departure))).toBeTruthy();
+    // The line: aligned figures, no unit in the cells.
     expect(screen.getByText("10h")).toBeTruthy();
-    expect(screen.getByText("vent 8–14 kn")).toBeTruthy();
-    expect(screen.getByText("mer 0,3–0,8 m")).toBeTruthy();
+    expect(screen.getByText("Largue")).toBeTruthy();
+    expect(screen.getByText("8–14")).toBeTruthy();
+    expect(screen.getByText("0,3–0,8")).toBeTruthy();
+    expect(screen.queryByText("vent 8–14 kn")).toBeNull();
     // No complexity index on the line.
     expect(screen.queryByText("⚡")).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: /Ouvrir ce créneau dans le plan/ }));
+    // The button still says every figure in words.
+    const row = screen.getByRole("button", { name: /Ouvrir ce créneau dans le plan/ });
+    const name = row.getAttribute("aria-label") ?? "";
+    expect(name).toContain(`Départ ${fmtClock(aWindow().departure)}, arrivée ${fmtClock(aWindow().arrival)}, durée 10h`);
+    expect(name).toContain("Largue, vent 8–14 kn, mer 0,3–0,8 m");
+    await userEvent.click(row);
     expect(value.actions.selectWindow).toHaveBeenCalled();
   });
 
-  it("marks the plan's own departure as chosen, and counts the alerts", () => {
+  it("marks the plan's own departure with the accent rule, not a label", () => {
     // The slot is an instant, the plan's departure a naive local time: built
     // from the same local value so the match holds on a UTC runner too.
-    const w = { ...aWindow(), departure: toTzAware("2026-09-11T06:00"), warnings: ["a", "b"] };
-    mount({ mode: "compare", windows: [w], departure: "2026-09-11T06:00" });
-    expect(screen.getByText("sélectionné")).toBeTruthy();
-    expect(screen.getByTitle("2 alertes")).toBeTruthy();
+    const mine = { ...aWindow(), departure: toTzAware("2026-09-11T06:00") };
+    const other = { ...aWindow(), departure: toTzAware("2026-09-11T09:00") };
+    mount({ mode: "compare", windows: [mine, other], departure: "2026-09-11T06:00" });
+    const [first, second] = screen.getAllByRole("button", { name: /Ouvrir ce créneau dans le plan/ });
+    expect(first.getAttribute("aria-current")).toBe("true");
+    expect(first.style.boxShadow).toContain("var(--ow-accent)");
+    expect(first.style.background).toContain("var(--ow-accent-soft)");
+    expect(second.getAttribute("aria-current")).toBeNull();
+    expect(second.style.boxShadow).toBe("");
+    expect(screen.queryByText("sélectionné")).toBeNull();
+  });
+
+  it("counts the alerts and the engine share on the sub-line", () => {
+    const motorPassage = passage();
+    motorPassage.segments = [
+      { ...motorPassage.segments[0], distance_nm: 46, motor_used: false },
+      { ...motorPassage.segments[0], distance_nm: 4, motor_used: true },
+    ];
+    const w = { ...aWindow(), warnings: ["a", "b"], passage: motorPassage };
+    mount({ mode: "compare", windows: [w] });
+    expect(screen.getByText("2 alertes")).toBeTruthy();
+    expect(screen.getByText("moteur 8 %")).toBeTruthy();
+    const row = screen.getByRole("button", { name: /Ouvrir ce créneau dans le plan/ });
+    expect(row.getAttribute("aria-label")).toContain("2 alertes, moteur 8 %");
+  });
+
+  it("leaves the sub-line out of a slot with no alert and no engine", () => {
+    const sailing = passage();
+    sailing.segments = [{ ...sailing.segments[0], motor_used: false }];
+    mount({ mode: "compare", windows: [{ ...aWindow(), passage: sailing }] });
+    expect(screen.queryByText(/alerte/)).toBeNull();
+    expect(screen.queryByText(/moteur/)).toBeNull();
   });
 
   it("goes back to the plan from the head", async () => {

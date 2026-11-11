@@ -4,26 +4,27 @@
 /**
  * The departure axis: one line per slot, grouped by day.
  *
- * A slot is a line, never a card: the hour, the duration and the arrival in
- * full figures on the first line, the conditions as a grey sentence on the
- * second, read only on the line one cares about. The date moves to a day
- * header instead of being repeated on every row, and the narrow columns
- * (« Allure », « Vent », « Mer ») that used to cut words and stack figures
- * become that sentence. No ranking and no complexity index: the five
+ * A slot is a line, never a card, and the lines are columns: departure,
+ * arrival, duration, point of sail, wind, sea, read from top to bottom with
+ * tabular figures, the units said once in the header above them. What only
+ * some slots have (alerts, an engine share) goes on a sub-line under the
+ * arrival, so the columns stay level. The date moves to a day header instead
+ * of being repeated on every row. No ranking and no complexity index: the
  * figures are aligned, and the reader judges.
  *
  * Tapping a line opens that slot in the plan; that is the way back, there is
  * no separate link.
  */
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useState, type CSSProperties } from "react";
 import type { PassageWindow } from "../types";
 import { usePlan } from "../session/planContext";
 import { AlertChip } from "../../components/AlertChip";
 import { noticeText } from "../notices";
 import { StalePlaceholder } from "../sidebar/parts";
 import { fmtDurationSafe, numFixed } from "../format";
-import { capitalise, fmtClock, fmtDay } from "../../domain/datetime";
+import { fmtClock, fmtDay } from "../../domain/datetime";
+import { beaufortLevel, windSoftVar } from "../../domain/thresholds";
 import { useT, type Key } from "../../i18n";
 import {
   alertCount,
@@ -34,8 +35,28 @@ import {
   type SlotSort,
 } from "./slots";
 import { ChevronIcon } from "./icons";
+import { ColumnHeader, ColumnLabel, DurationPill } from "./rowParts";
 
 const MONO = { fontFamily: "var(--ow-font-mono)" } as const;
+
+/** Departure · arrival · duration · point of sail · wind · sea · chevron.
+    The fixed tracks hold their widest value (« 0,4–1,4 », the duration
+    pill); the point of sail takes what is left and wraps. */
+const SLOT_GRID: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "42px 50px 62px minmax(0,1fr) 46px 46px 8px",
+  columnGap: 5,
+};
+
+/** The sub-line starts under the arrival: the departure column and its gap. */
+const SUB_LINE_INDENT = 42 + 5;
+
+/** The plan's own departure: the app's one mark for "selected", a 3 px
+    accent rule on the left over the soft accent fill. */
+const PLAN_ROW: CSSProperties = {
+  background: "var(--ow-accent-soft)",
+  boxShadow: "inset 3px 0 0 var(--ow-accent)",
+};
 
 // The server's own sail-angle buckets, keyed by the value it sends. A bucket
 // we do not know about is shown as the server spelt it.
@@ -107,26 +128,37 @@ function SortRow({
   );
 }
 
-/** The day header: what frees the « Départ » column of the table. */
+/** The day header, « JEU. 3 SEPT. »: what frees the departure column from
+    the date. The capitals are the stylesheet's, so a screen reader hears
+    the day as the formatter wrote it. */
 function DayHeader({ label, right }: { label: string; right: string }) {
   return (
     <div
-      className="flex items-center gap-2 px-4 pt-2 pb-1.5"
-      style={{ background: "var(--ow-bg-1)", borderBottom: "1px solid var(--ow-line)" }}
+      className="flex items-center gap-2 px-4 py-1.5"
+      style={{ background: "var(--ow-bg-1)", borderTop: "1px solid var(--ow-line)" }}
     >
-      <span
-        className="text-[9.5px] font-bold uppercase tracking-[0.11em]"
-        style={{ ...MONO, color: "var(--ow-fg-2)" }}
-      >
+      <span className="text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: "var(--ow-fg-1)" }}>
         {label}
       </span>
-      <span className="ml-auto text-[10px] tabular-nums" style={{ color: "var(--ow-fg-3)" }}>{right}</span>
+      <span className="ml-auto text-[10px] tabular-nums" style={{ color: "var(--ow-fg-2)" }}>{right}</span>
     </div>
   );
 }
 
-function Dot() {
-  return <span aria-hidden="true" style={{ color: "var(--ow-fg-3)" }}>·</span>;
+/** The column header over every day: the units live here, not in the cells. */
+function SlotColumns() {
+  const { t } = useT();
+  return (
+    <ColumnHeader grid={SLOT_GRID} className="px-4 pt-2.5 pb-1.5">
+      <ColumnLabel>{t("panel.compare.col.departure")}</ColumnLabel>
+      <ColumnLabel>{t("panel.compare.col.arrival")}</ColumnLabel>
+      <ColumnLabel>{t("panel.compare.col.duration")}</ColumnLabel>
+      <ColumnLabel>{t("panel.compare.col.sail")}</ColumnLabel>
+      <ColumnLabel unit="kn">{t("panel.compare.col.wind")}</ColumnLabel>
+      <ColumnLabel unit="m">{t("panel.compare.col.sea")}</ColumnLabel>
+      <span />
+    </ColumnHeader>
+  );
 }
 
 function SlotRow({
@@ -145,65 +177,77 @@ function SlotRow({
   const sail = cs.predominant_sail_angle;
   const sailText = sail ? (SAIL_KEYS[sail] ? t(SAIL_KEYS[sail]) : sail) : "—";
   const motor = motorShare(w.passage);
+  // An engine that never ran says nothing a sailing passage does not.
+  const motorText = motor !== null && motor > 0 ? t("panel.compare.row.motor", { pct: motor }) : null;
   const alerts = alertCount(w);
+  const alertsText = alerts > 0 ? tn("panel.compare.row.alerts", alerts) : null;
   const time = fmtClock(w.departure);
+  const arrival = fmtTimeSafe(w.arrival);
+  const duration = fmtDurationSafe(w.duration_h);
+  const wind = fmtRange(cs.tws_min_kn, cs.tws_max_kn, 0);
+  const sea = fmtRange(cs.hs_min_m, cs.hs_max_m, 1);
+  // The columns are spans without headers of their own: the name says each
+  // figure with its word and its unit, as the old sentence did.
+  const label = [
+    t("panel.compare.row.aria", { departure: time, arrival, duration }),
+    sailText,
+    t("panel.compare.row.wind", { range: wind }),
+    t("panel.compare.row.sea", { range: sea }),
+    alertsText,
+    motorText,
+  ]
+    .filter(Boolean)
+    .join(", ");
   return (
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`${time} · ${t("panel.compare.row.open")}`}
+      aria-label={`${label}. ${t("panel.compare.row.open")}`}
+      aria-current={active ? "true" : undefined}
       title={t("panel.compare.row.open")}
-      className="w-full text-left flex flex-col gap-1 px-4 pt-2.5 pb-2.5 transition-colors hover:bg-[var(--ow-bg-2)]"
-      style={{
-        borderTop: "1px solid var(--ow-line)",
-        background: active ? "var(--ow-accent-soft)" : "transparent",
-      }}
+      className="block w-full text-left px-4 py-[9px] transition-colors hover:bg-[var(--ow-bg-2)]"
+      style={{ borderTop: "1px solid var(--ow-line)", ...(active ? PLAN_ROW : null) }}
     >
-      <span className="flex items-baseline gap-2">
-        <span className="w-[46px] shrink-0 text-[14px] font-bold tabular-nums" style={{ ...MONO, color: "var(--ow-fg-0)" }}>
+      <span className="items-center" style={SLOT_GRID}>
+        <span className="text-[13.5px] font-bold tabular-nums whitespace-nowrap" style={{ color: "var(--ow-fg-0)" }}>
           {time}
         </span>
-        <span className="w-[52px] shrink-0 text-base font-bold tabular-nums tracking-tight" style={{ ...MONO, color: "var(--ow-fg-0)" }}>
-          {fmtDurationSafe(w.duration_h)}
+        <span className="text-xs tabular-nums whitespace-nowrap overflow-hidden" style={{ color: "var(--ow-fg-1)" }}>
+          <span className="mr-0.5" style={{ color: "var(--ow-fg-2)" }}>→</span>
+          {arrival}
         </span>
-        <span className="text-xs tabular-nums" style={{ ...MONO, color: "var(--ow-fg-2)" }}>
-          → {fmtTimeSafe(w.arrival)}
+        <DurationPill>{duration}</DurationPill>
+        <span className="min-w-0 text-xs leading-tight break-words hyphens-auto" style={{ color: "var(--ow-fg-1)" }}>
+          {sailText}
         </span>
-        <span className="ml-auto flex items-center gap-2">
-          {active && (
-            <span className="text-[9.5px] font-bold uppercase tracking-wider" style={{ color: "var(--ow-accent)" }}>
-              {t("panel.compare.row.fromPlan")}
-            </span>
-          )}
-          {alerts > 0 && (
+        <span className="flex items-center gap-[5px] text-xs font-semibold tabular-nums whitespace-nowrap" style={{ color: "var(--ow-fg-0)" }}>
+          {cs.tws_max_kn != null && (
             <span
-              title={tn("panel.compare.row.alerts", alerts)}
-              className="flex items-center gap-0.5 text-[10.5px] font-bold tabular-nums"
-              style={{ ...MONO, color: "var(--ow-warn-ink)" }}
-            >
-              <span className="text-[10px]">⚠</span>{alerts}
-            </span>
+              aria-hidden="true"
+              className="shrink-0 rounded-full"
+              style={{ width: 6, height: 6, background: windSoftVar(beaufortLevel(cs.tws_max_kn)) }}
+            />
           )}
-          <span style={{ color: "var(--ow-fg-3)" }}><ChevronIcon direction="right" /></span>
+          {wind}
+        </span>
+        <span className="text-xs font-semibold tabular-nums whitespace-nowrap" style={{ color: "var(--ow-fg-0)" }}>
+          {sea}
+        </span>
+        <span className="justify-self-end flex" style={{ color: "var(--ow-fg-3)" }}>
+          <ChevronIcon direction="right" size={12} />
         </span>
       </span>
-      <span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[11px]" style={{ color: "var(--ow-fg-2)" }}>
-        <span className="capitalize">{sailText}</span>
-        <Dot />
-        <span className="tabular-nums" style={MONO}>
-          {t("panel.compare.row.wind", { range: fmtRange(cs.tws_min_kn, cs.tws_max_kn, 0) })}
+      {(alertsText || motorText) && (
+        <span
+          className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1"
+          style={{ paddingLeft: SUB_LINE_INDENT }}
+        >
+          {alertsText && <AlertChip size="s">{alertsText}</AlertChip>}
+          {motorText && (
+            <span className="text-[10.5px] tabular-nums" style={{ color: "var(--ow-fg-2)" }}>{motorText}</span>
+          )}
         </span>
-        <Dot />
-        <span className="tabular-nums" style={MONO}>
-          {t("panel.compare.row.sea", { range: fmtRange(cs.hs_min_m, cs.hs_max_m, 1) })}
-        </span>
-        {motor !== null && (
-          <>
-            <Dot />
-            <span className="tabular-nums" style={MONO}>{t("panel.compare.row.motor", { pct: motor })}</span>
-          </>
-        )}
-      </span>
+      )}
     </button>
   );
 }
@@ -269,11 +313,12 @@ export function SlotList() {
           {metaWarnings.map((n, i) => <AlertChip key={i}>{noticeText(n)}</AlertChip>)}
         </div>
       )}
-      <div style={{ borderTop: "1px solid var(--ow-line)" }}>
+      <SlotColumns />
+      <div>
         {groups.map((g, i) => (
           <Fragment key={`${g.key}-${i}`}>
             <DayHeader
-              label={capitalise(fmtDay(g.sample))}
+              label={fmtDay(g.sample)}
               right={tn("panel.compare.slots", perDay.get(g.key) ?? g.windows.length)}
             />
             {g.windows.map((w) => (
