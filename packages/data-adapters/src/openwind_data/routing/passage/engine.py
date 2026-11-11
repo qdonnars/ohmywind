@@ -132,7 +132,9 @@ def _segment_report(
         boat_speed_kn=boat_speed,
         duration_h=seg_duration.total_seconds() / 3600.0,
         hs_m=hs_m,
-        wave_derate_factor=derate,
+        # Under engine the sea did not slow the boat (the motoring speed is
+        # taken as is): the report says so rather than the sail's derate.
+        wave_derate_factor=1.0 if motor_used else derate,
         current_speed_kn=cur_kn,
         current_direction_to_deg=cur_to,
         sog_kn=sog,
@@ -362,7 +364,12 @@ async def _estimate_with_model(
         anchor = seg_report.start_time if backward else seg_report.end_time
     reports = list(reversed(walked)) if backward else walked
 
-    min_boat_speed = min((r.boat_speed_kn for r in reports), default=float("inf"))
+    # "Light wind" is about the wind: measured on the speed the wind alone
+    # gives, before the sea's derate. Read on the derated speed, a head sea
+    # in 30 kn made the boat slow enough to be told the wind was light.
+    min_boat_speed = min(
+        (r.boat_speed_kn / r.wave_derate_factor for r in reports), default=float("inf")
+    )
     max_drift_h = max(
         (
             abs(((r.start_time + (r.end_time - r.start_time) / 2) - mid).total_seconds()) / 3600.0
