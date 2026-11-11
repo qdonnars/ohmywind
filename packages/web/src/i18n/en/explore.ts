@@ -72,6 +72,11 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.windTable.fallbackTitle":
     "{description} (shown in place of {model}, which does not cover this point).",
   "explore.windTable.fallbackBadge": "fallback from {model}",
+  "explore.windTable.unit": "knots",
+  "explore.windTable.direction": "Direction",
+  "explore.windTable.meanDirection": "Mean direction of the models, from {dir}°",
+  "explore.windTable.spread": "Models disagree: {deg}° apart",
+  "explore.timeline.now": "Now",
 
   // Wind cell
   "explore.windCell.aria.speed": "{speed} knots",

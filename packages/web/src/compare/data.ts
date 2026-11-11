@@ -14,6 +14,7 @@
  */
 
 import type { MarineHourly, ModelForecast, Spot } from "../types";
+import { circularMean } from "../domain/thresholds";
 
 export interface CompareRow {
   spot: Spot;
@@ -128,21 +129,9 @@ export function buildTimeIndex(times: readonly string[] | undefined): Map<string
   return map;
 }
 
-/** Mean of directions on the circle, so 350° and 10° average to 0° and
-    not to 180°. Null when there is nothing to average. */
-export function circularMean(degrees: readonly number[]): number | null {
-  if (degrees.length === 0) return null;
-  let x = 0;
-  let y = 0;
-  for (const d of degrees) {
-    const r = (d * Math.PI) / 180;
-    x += Math.cos(r);
-    y += Math.sin(r);
-  }
-  if (Math.abs(x) < 1e-9 && Math.abs(y) < 1e-9) return null;
-  const deg = (Math.atan2(y, x) * 180) / Math.PI;
-  return (Math.round(deg) + 360) % 360;
-}
+// Moved to the domain so the explore wind table averages its models'
+// directions the same way; re-exported for the readers of this module.
+export { circularMean };
 
 export interface WindAgg {
   /** Slowest and fastest hour of the column, in knots, rounded. */
