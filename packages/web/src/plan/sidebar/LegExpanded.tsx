@@ -2,8 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 /**
- * What an open leg shows under its row: the strip of its steps, then the
- * card, on the average by default and on one step when the reader picks one.
+ * What an open leg shows under its row. On the average, by default: the
+ * strip of its steps, then the card. Hour by hour, when the reader asks for
+ * it or picks a step: every step side by side in a table, then the card of
+ * the picked one.
  *
  * The average is a distance-weighted mean of the steps, and it used to be the
  * only thing on screen. A row saying "6–9 kn" over a dial drawing one arrow
@@ -12,7 +14,7 @@
  * answer, and the arrows walk them in order: average, then step 1 to N.
  *
  * A leg with a single step has nothing to average and nothing to walk: the
- * card shows the step itself, with no strip and no arrows.
+ * card shows the step itself, with no strip, no table and no arrows.
  *
  * Which step is open lives in the session (`selectedStepIdx`), because the
  * map draws it too.
@@ -22,7 +24,8 @@ import { useEffect, useMemo, useRef } from "react";
 import type { AggregatedLeg } from "../aggregateLegs";
 import { aggregateSteps, buildLegSummaryCells, legDurationLabel, legSpread } from "../aggregateLegs";
 import { LegDetailCard, type LegDetailHeader, type LegDetailNote } from "../LegDetailCard";
-import { StepStrip } from "../StepStrip";
+import { StepStrip, ViewToggle } from "../StepStrip";
+import { StepTable } from "../StepTable";
 import { num1 } from "../format";
 import { fmtClock } from "../../domain/datetime";
 import type { SegmentReport } from "../types";
@@ -140,7 +143,23 @@ export function LegExpanded({
 
   return (
     <div ref={rootRef} className="space-y-2.5">
-      {n > 1 && <StepStrip steps={steps} selected={selected} onSelect={select} />}
+      {n > 1 && selected == null && <StepStrip steps={steps} selected={selected} onSelect={select} />}
+      {n > 1 && selected != null && (
+        <>
+          <div className="flex items-center gap-2">
+            <span className="min-w-0 text-[11px] tabular-nums" style={{ color: "var(--ow-fg-1)" }}>
+              {tn("plan.steps.span", n, {
+                start: fmtClock(steps[0].start_time),
+                end: fmtClock(steps[n - 1].end_time),
+              })}
+            </span>
+            <span className="ml-auto">
+              <ViewToggle value="detail" onChange={(v) => select(v === "average" ? null : selected)} />
+            </span>
+          </div>
+          <StepTable steps={steps} selected={selected} onSelect={select} />
+        </>
+      )}
       <LegDetailCard
         view={view}
         spread={n > 1 && selected == null ? spread : null}
