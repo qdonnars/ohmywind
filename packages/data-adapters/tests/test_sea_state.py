@@ -40,9 +40,14 @@ class TestSeaLevel:
 
     @pytest.mark.parametrize(
         ("hs_m", "level"),
-        [(0.0, 1), (0.49, 1), (0.5, 2), (1.24, 2), (1.25, 3), (2.5, 4), (4.0, 5), (9.0, 5)],
+        [(0.0, 1), (0.44, 1), (0.5, 2), (1.24, 2), (1.25, 3), (2.5, 4), (4.0, 5), (9.0, 5)],
     )
     def test_levels(self, hs_m: float, level: int) -> None:
+        assert sea_level(hs_m) == level
+
+    @pytest.mark.parametrize(("hs_m", "level"), [(1.249, 2), (2.449, 3), (2.46, 4), (3.96, 5)])
+    def test_reads_the_height_as_printed(self, hs_m: float, level: int) -> None:
+        # 2.46 m is printed "2.5": a "Mer forte", like any 2.5.
         assert sea_level(hs_m) == level
 
     def test_every_warning_level_has_a_name_made_of_its_label(self) -> None:

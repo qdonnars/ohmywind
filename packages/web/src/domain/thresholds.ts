@@ -19,6 +19,19 @@
  * the name of the CSS variable that level paints with.
  */
 
+// ── Banding on the printed value ─────────────────────────────────────────────
+//
+// Every band below is read on the value as the app prints it, not on the
+// forecast's raw figure: a cell coloured from 1.52 m and its neighbour from
+// 1.48 m both read « 1,5 », and painting them two colours made the same
+// number look like two different seas. Wind is printed to the knot, sea,
+// current and tide to the tenth.
+
+/** A value to the tenth, as `num1` prints it. */
+function tenth(v: number): number {
+  return Math.round(v * 10) / 10;
+}
+
 // ── Wind, Beaufort ───────────────────────────────────────────────────────────
 
 /**
@@ -27,9 +40,11 @@
  */
 const BEAUFORT_MAX_KN = [4, 7, 11, 15, 19, 23, 28, 33];
 
-/** Beaufort level, 0 to 8, for a wind speed in knots. */
+/** Beaufort level, 0 to 8, for a wind speed in knots, read on the speed as
+    printed (to the knot): 14,6 kn reads « 15 » and is coloured as 15. */
 export function beaufortLevel(knots: number): number {
-  const i = BEAUFORT_MAX_KN.findIndex((max) => knots < max);
+  const shown = Math.round(knots);
+  const i = BEAUFORT_MAX_KN.findIndex((max) => shown < max);
   return i === -1 ? 8 : i;
 }
 
@@ -129,13 +144,20 @@ export const SEA_WARNING_LEVEL = 3;
  * `--ow-fg-0` under a metre and `--ow-cell-ink` from there, where the ramp
  * turns light.
  */
-export function waveLevel(hs: number): 0 | 1 | 2 | 3 | 4 | 5 {
+export function waveLevel(raw: number): 0 | 1 | 2 | 3 | 4 | 5 {
+  const hs = tenth(raw);
   if (hs < 0.3) return 0;
   if (hs < 0.6) return 1;
   if (hs < 1.0) return 2;
   if (hs < 1.5) return 3;
   if (hs < 2.5) return 4;
   return 5;
+}
+
+/** Ink on the sea ramp: dark under a metre, where the ramp is dark, light
+    from there. Read on the printed height, like the ramp itself. */
+export function waveInk(hs: number): string {
+  return tenth(hs) < 1 ? "var(--ow-fg-0)" : "var(--ow-cell-ink)";
 }
 
 // ── Currents ─────────────────────────────────────────────────────────────────
@@ -155,7 +177,8 @@ export const CURRENT_RELEVANCE_THRESHOLD_KN = 0.3;
  * spread so 1-3 kn (Atlantic coastal current) reads visibly hotter than the
  * Mediterranean baseline without reaching extreme colours.
  */
-export function currentsLevel(kn: number): number {
+export function currentsLevel(raw: number): number {
+  const kn = tenth(raw);
   if (kn < 0.3) return 0;
   if (kn < 1.0) return 1;
   if (kn < 2.0) return 2;
@@ -180,7 +203,8 @@ export const TIDE_RANGE_RELEVANCE_THRESHOLD_M = 0.5;
  * Tide band, by magnitude: the height oscillates around zero, so high water
  * and low water deserve to be equally salient. Takes an absolute value.
  */
-export function tidesLevel(absM: number): number {
+export function tidesLevel(raw: number): number {
+  const absM = tenth(raw);
   if (absM < 0.5) return 1;
   if (absM < 1.5) return 2;
   if (absM < 3.0) return 4;
