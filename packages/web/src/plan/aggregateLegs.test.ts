@@ -209,6 +209,7 @@ describe("buildLegSummaryCells figures", () => {
     );
     expect(cells.flag).toBe("Mer formée");
     expect(cells.alert).toBe("Mer formée · Hs 1,1–1,4 m sur 13,8 nm");
+    expect(cells.alertShort).toBe("Mer formée · 1,1–1,4 m");
   });
 
   it("says a wind against the current with the current's speed", () => {
@@ -216,6 +217,7 @@ describe("buildLegSummaryCells figures", () => {
       makeLeg({ distance_nm: 8, current_relative: "contraire", current_speed_kn: 1.8, current_delta_kn: -1.6 }),
     );
     expect(cells.alert).toBe("Vent contre courant · 1,8 kn sur 8,0 nm");
+    expect(cells.alertShort).toBe("Vent contre courant · 1,8 kn");
   });
 });
 

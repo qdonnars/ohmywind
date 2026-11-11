@@ -60,6 +60,7 @@ export const plan = {
   "plan.map.waypoint.remove": "Supprimer ce point",
   "plan.map.waypoint.removed": "Point {n} retiré",
   "plan.map.waypoint.undo": "Annuler",
+  "plan.map.windScale": "Échelle du vent du tracé, en nœuds : {bounds}",
 
   // ── Validation de la fenêtre de comparaison ───────────────────────────────
   "plan.sweep.errors.missingWindow": "Renseignez une fenêtre de départ.",

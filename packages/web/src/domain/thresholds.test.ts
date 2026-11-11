@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 import {
   beaufortLevel,
+  beaufortLowerBoundKn,
   currentsLevel,
   directionSpreadDeg,
   MODEL_DIRECTION_SPREAD_DEG,
@@ -36,6 +37,13 @@ describe("beaufortLevel", () => {
   it("caps a mistral and anything above at level 8", () => {
     expect(beaufortLevel(40)).toBe(8);
     expect(beaufortLevel(120)).toBe(8);
+  });
+
+  it("gives each level the knots it starts at", () => {
+    expect([0, 1, 2, 3, 4, 5, 6, 7, 8].map(beaufortLowerBoundKn)).toEqual([0, 4, 7, 11, 15, 19, 23, 28, 33]);
+    for (let level = 1; level <= 8; level++) {
+      expect(beaufortLevel(beaufortLowerBoundKn(level))).toBe(level);
+    }
   });
 
   it("names the token of every level it can return", () => {
