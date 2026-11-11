@@ -811,11 +811,12 @@ export function PlanMap(
       polylinesRef.current.push(line);
     });
 
-    // A leg's alert, on the leg: the chip of the leg list, at the middle of
-    // the line it is about. Read from the same summary as the list, so the
+    // A leg's alert, on the leg: the chip of the leg list (a chop, a wind
+    // against the current; the track's own tint says the wind), at the middle
+    // of the line it is about. Read from the same summary as the list, so the
     // two never disagree on which leg is flagged.
     for (const leg of aggregateLegs(segments, waypoints)) {
-      const text = buildLegSummaryCells(leg).alertShort;
+      const text = buildLegSummaryCells(leg).alert;
       if (!text) continue;
       const slice = segments.slice(leg.segment_range[0], leg.segment_range[1]);
       const [la, lo] = midpointAlong([

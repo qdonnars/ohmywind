@@ -115,10 +115,9 @@ export function StepTable({
 }) {
   const { t } = useT();
   const n = steps.length;
-  const flags = steps.map((s) => {
-    const cells = buildLegSummaryCells(s);
-    return cells.alert ?? cells.flag;
-  });
+  // Only the alerts no figure says by its colour (a chop, a wind against
+  // the current): the height of the sea is the tint of its cell already.
+  const flags = steps.map((s) => buildLegSummaryCells(s).alert);
   const hasSea = steps.some((s) => s.hs_avg_m != null);
   const hasCurrent = steps.some(
     (s) => (s.current_speed_kn ?? 0) >= CURRENT_RELEVANCE_THRESHOLD_KN || s.current_unknown,

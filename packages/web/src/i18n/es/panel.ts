@@ -73,9 +73,12 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.legs.seaFlag.chop": "Mar corta",
   "panel.legs.seaFlag.followingChop": "Mar corta de popa",
   "panel.legs.seaFlag.roughSea": "Mar gruesa",
-  // The flag as the alert under a leg says it: what, how much, where.
-  "panel.legs.alert.sea": "{flag} · Hs {range} m en {nm} nm",
-  "panel.legs.alert.current": "{flag} · {speed} kn en {nm} nm",
+  // What an orange wind figure stands for, said to a screen reader.
+  "panel.legs.windFlag": "Viento fresco",
+  // The alerts that keep a chip under a leg: the flag and the one number
+  // the row does not show.
+  "panel.legs.alert.chop": "{flag} · periodo {period} s",
+  "panel.legs.alert.current": "{flag} · {speed} kn",
 
   // ── LegDetailCard / LegExpanded ────────────────────────────────────────────
   "panel.legDetail.prevStep": "Paso anterior",
@@ -166,7 +169,6 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.tracks.drawing.points.other": "{count} puntos colocados",
   "panel.tracks.drawing.hint": "Toque el mapa para colocar un punto entre la salida y la llegada del plan.",
   "panel.tracks.drawing.finish": "Terminar y comparar",
-  "panel.tracks.row.open": "Abrir esta ruta en el plan",
   "panel.tracks.row.computing": "calculando…",
   "panel.tracks.stale": "Salida o barco modificados. Recalcule para comparar las rutas.",
   "panel.tracks.departure.title": "Salida, común a todas las rutas",
@@ -189,7 +191,6 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.results.alertKind.sea": "mar",
   "panel.results.alertKind.current": "corriente",
   "panel.results.alertKind.other": "otro",
-  "panel.tracks.row.openShort": "Ver en el mapa",
   "panel.window.every": "Cada",
   "panel.window.adjustDates": "Ajustar las fechas",
   "panel.hint.title": "La interfaz evoluciona",
