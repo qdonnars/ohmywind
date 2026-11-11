@@ -1146,8 +1146,9 @@ uses unless overridden by tool parameters.
   to polar(opt) * cos(opt) ~= polar / sqrt(2). At route_TWA=20 deg with
   opt=45 deg, the reduction is only cos(25 deg) ~= 0.91 (much less penalty).
 
-- Wave derate (opt-in): max(0.5, 1 - 0.05 * Hs^1.75 * cos^2(TWA/2)).
-  Off by default; sea state feeds the warning bar instead of slowing.
+- Wave derate: max(0.5, 1 - 0.05 * Hs^1.75 * cos^2(TWA/2)), at the angle
+  the boat sails (its VMG angle when tacking). A head sea slows the boat,
+  a following sea barely does; the sea state also feeds the warnings.
 
 - Currents: SOG = STW + (current projected on bearing). Projection uses
   the oceanographic "going to" convention. Cascade source priority:

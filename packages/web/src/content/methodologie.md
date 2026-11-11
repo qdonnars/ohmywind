@@ -143,6 +143,8 @@ Trois mécanismes derrière cette équation :
 2. **Pondération angulaire $\cos^2(\text{TWA}/2)$**. Vaut $1$ par mer de face ($\text{TWA} = 0$, impact maximal : tape, ralentissement franc), vaut $0$ par mer arrière ($\text{TWA} = 180\degree$, surf possible, impact négligeable).
 3. **Plancher $0{,}5$**. Dans la pratique, sous des conditions extrêmes le navigateur réduit la voilure ou se met à la cape ; on ne descend pas en dessous de 50 % de la vitesse polaire.
 
+L'angle retenu est celui que le bateau navigue : au louvoyage, c'est son angle de VMG optimal (environ 45° du vent), pas l'angle de la route. Le sens de la mer est pris égal à celui du vent.
+
 Exemple numérique : $H_s = 2\text{ m}$ au près strict ($\text{TWA} = 40\degree$) donne $k_{\text{vagues}} = 1 - 0{,}05 \cdot 2^{1{,}75} \cdot \cos^2(20\degree) \approx 1 - 0{,}05 \cdot 3{,}36 \cdot 0{,}883 \approx 0{,}85$, soit environ 15 % de vitesse en moins.
 
 **Cas du moteur (optionnel).** Depuis la page **Config**, l'utilisateur peut renseigner deux valeurs pour son bateau :

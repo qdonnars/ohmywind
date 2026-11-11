@@ -99,9 +99,13 @@ def _segment_report(
         # report says "unknown", and the notice names the place.
         cur_kn, cur_to, cur_src, cur_conf = None, None, UNKNOWN_CURRENT_SOURCE, None
 
+    # The sea is met at the angle the boat sails, not the angle of the
+    # route: tacking up a course 10° off the wind, the boat sails its
+    # optimal VMG angle, about 45°, and takes the sea there. Reading the
+    # route's angle put a dead-upwind leg in the full head sea.
     derate = 1.0
     if use_wave_correction and hs_m is not None:
-        derate = wave_derate(hs_m, twa)
+        derate = wave_derate(hs_m, max(twa, opt_twa))
     sail_speed = max(effective_polar * efficiency * derate, MIN_BOAT_SPEED_KN)
     # Motor kicks in when the user configured a threshold AND the polar
     # estimate falls below it. The check happens on the post-efficiency /

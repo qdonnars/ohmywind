@@ -72,7 +72,7 @@ async def estimate_passage_windows(
     segment_length_nm: float = 10.0,
     adapter: MarineDataAdapter | None = None,
     model: str = AUTO_MODEL,
-    use_wave_correction: bool = False,
+    use_wave_correction: bool = True,
     polar_override: BoatPolar | None = None,
     model_chain: tuple[str, ...] | None = None,
 ) -> list[PassageReport]:
