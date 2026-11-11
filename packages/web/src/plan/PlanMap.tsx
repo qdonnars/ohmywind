@@ -16,7 +16,7 @@ import { syncSeamarkLayer } from "../utils/seamarkLayer";
 import { addBasemap, BASEMAP_MAX_ZOOM, type Basemap } from "../utils/basemapLayer";
 import type { MapView } from "../utils/mapViewParams";
 import { t, useLang } from "../i18n";
-import { aggregateLegs, buildLegSummaryCells, computeLegSegmentRanges } from "./aggregateLegs";
+import { computeLegSegmentRanges } from "./aggregateLegs";
 import { closestOnPolyline, TapGuard } from "./mapGestures";
 import { midpointAlong, type RouteOverlay } from "./compare/tracks";
 import {
@@ -32,9 +32,6 @@ import {
     Below it the labels crowd the waypoint markers, so we let them fade out
     as the user zooms out. */
 const SEG_LABEL_MIN_PX = 90;
-/** Same idea for a leg's alert, which is a wider chip: under this length on
-    screen the leg does not carry it, and the leg list still does. */
-const ALERT_LABEL_MIN_PX = 120;
 
 /** Where the × badge sits relative to the centre of the disc, in px: the
     CSS puts a 22 px badge at top -10 / right -10 of a 28 px disc, so its
@@ -126,12 +123,6 @@ function escapeHtml(text: string): string {
   return text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
 }
 
-/** The triangle of `AlertIcon`, as the string a tooltip takes. */
-const ALERT_ICON_SVG =
-  '<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" ' +
-  'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-  '<path d="M8 2 14 13H2z"/><path d="M8 7v3"/><circle cx="8" cy="12" r="0.5" fill="currentColor"/></svg>';
-
 function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon {
   const xBtn = deletable
     ? `<button type="button" class="ow-wpt-x" aria-label="${t("plan.map.waypoint.remove")}">×</button>`
@@ -164,7 +155,6 @@ export function PlanMap(
   const markersRef = useRef<L.Marker[]>([]);
   const dragLineRef = useRef<L.Polyline | null>(null);
   const segLabelsRef = useRef<L.Tooltip[]>([]);
-  const alertLabelsRef = useRef<{ tip: L.Tooltip; from: L.LatLng; to: L.LatLng }[]>([]);
   const userLayerRef = useRef<L.LayerGroup | null>(null);
   const flyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onViewChangeRef = useRef(onViewChange);
@@ -243,18 +233,6 @@ export function PlanMap(
         .setContent(fmtNm(haversineNm(aLat, aLon, bLat, bLon)))
         .addTo(map);
       segLabelsRef.current.push(tip);
-    }
-  }
-
-  // Show a leg's alert only while the leg is long enough on screen to carry
-  // it: zoomed out, or on the strip of map a phone leaves above the drawer,
-  // three chips would cover the route they qualify.
-  function syncAlertLabels(map: L.Map) {
-    for (const { tip, from, to } of alertLabelsRef.current) {
-      const fits =
-        map.latLngToContainerPoint(from).distanceTo(map.latLngToContainerPoint(to)) >= ALERT_LABEL_MIN_PX;
-      if (fits && !map.hasLayer(tip)) tip.addTo(map);
-      else if (!fits && map.hasLayer(tip)) tip.remove();
     }
   }
 
@@ -379,7 +357,6 @@ export function PlanMap(
     // threshold means legs appear/disappear as the scale changes.
     const onZoomEnd = () => {
       drawSegLabels(map, livePositionsRef.current);
-      syncAlertLabels(map);
     };
     map.on("zoomend", onZoomEnd);
 
@@ -729,8 +706,6 @@ export function PlanMap(
 
     for (const p of polylinesRef.current) p.remove();
     polylinesRef.current = [];
-    for (const a of alertLabelsRef.current) a.tip.remove();
-    alertLabelsRef.current = [];
 
     if (waypoints.length < 2 || hideBaseRoute) {
       drawSegLabels(map, hideBaseRoute ? [] : waypoints);
@@ -811,32 +786,6 @@ export function PlanMap(
       polylinesRef.current.push(line);
     });
 
-    // A leg's alert, on the leg: the chip of the leg list (a chop, a wind
-    // against the current; the track's own tint says the wind), at the middle
-    // of the line it is about. Read from the same summary as the list, so the
-    // two never disagree on which leg is flagged.
-    for (const leg of aggregateLegs(segments, waypoints)) {
-      const text = buildLegSummaryCells(leg).alert;
-      if (!text) continue;
-      const slice = segments.slice(leg.segment_range[0], leg.segment_range[1]);
-      const [la, lo] = midpointAlong([
-        [slice[0].start.lat, slice[0].start.lon],
-        ...slice.map((seg): [number, number] => [seg.end.lat, seg.end.lon]),
-      ]);
-      const last = slice[slice.length - 1];
-      alertLabelsRef.current.push({
-        tip: L.tooltip({ permanent: true, direction: "top", offset: [0, -6], className: "ow-map-alert", opacity: 1 })
-          .setLatLng([la, lo])
-          .setContent(
-            `<span class="ow-alert-chip ow-alert-chip--s ow-alert-chip--map">` +
-              `<span class="ow-alert-chip__icon">${ALERT_ICON_SVG}</span><span>${escapeHtml(text)}</span></span>`,
-          ),
-        from: L.latLng(slice[0].start.lat, slice[0].start.lon),
-        to: L.latLng(last.end.lat, last.end.lon),
-      });
-    }
-    syncAlertLabels(map);
-
     // A computed leg is several segments (one per step of the passage), so
     // a segment's index is not a waypoint's: inserting "after segment 4" of
     // a three-waypoint route used to splice past the end and append. One
@@ -850,9 +799,8 @@ export function PlanMap(
       ];
       addHitLine(path, () => legIdx);
     });
-    // resolvedTheme and lang: the track's tints are read from the theme, and
-    // the alerts are sentences.
-  }, [waypoints, segments, isStale, hideBaseRoute, resolvedTheme, lang]);
+    // resolvedTheme: the track's tints are read from the theme.
+  }, [waypoints, segments, isStale, hideBaseRoute, resolvedTheme]);
 
   // The options of the comparison, each in its colour, with a pill at the
   // middle of the line saying which one it is and how long it takes. Not
