@@ -11,8 +11,14 @@
  * the average comes with a `spread` (ranges and direction arcs, what the
  * mean hides), a step comes with its raw values and its own flags.
  *
- * Everything is presentational. The choice of slice, and the arrows' wiring,
- * live in `sidebar/LegExpanded.tsx`.
+ * Under the table of the steps the card is `compact`: the table says the
+ * wind, the sea and the current of every step already, so the card keeps
+ * only what it alone says: the dial, the time and distance of the slice,
+ * the heading and point of sail, the speed over ground and how it adds up.
+ * A leg of a single step has no table, and its card keeps every row.
+ *
+ * Everything is presentational. The choice of slice lives in
+ * `sidebar/LegExpanded.tsx`, and the table of the steps is how it is made.
  */
 
 import type { AggregatedLeg, LegSpread } from "./aggregateLegs";
@@ -23,20 +29,20 @@ import { CURRENT_RELEVANCE_THRESHOLD_KN } from "../domain/thresholds";
 import { useT } from "../i18n";
 
 /** Rendered size of the dial. Leaves about 160 px for the numbers on a
-    360 px phone once the panel's and the card's paddings are taken out. */
+    360 px phone once the panel's and the card's paddings are taken out.
+    Smaller in the compact card, which has fewer lines beside it. */
 const COMPASS_PX = 140;
+const COMPASS_COMPACT_PX = 104;
 
 // Waves track wind in our Med model; the wave marker is offset by a fixed
 // 30° so the two glyphs never share a shaft, on the side away from the bow.
 const WAVE_OFFSET_DEG = 30;
 
 export interface LegDetailHeader {
-  /** "Moyenne · 22 mn" or "16:13 → 16:17". */
+  /** "Tout le tronçon · 4h40" or "16:13 → 16:17". */
   title: string;
-  /** "4 mn · 0,14 nm · 4/6". */
+  /** "moyenne de 5 pas" or "4 mn · 0,14 nm", quieter. */
   sub?: string;
-  /** "touchez un pas", the quietest text on the card. */
-  hint?: string;
 }
 
 export interface LegDetailNote {
@@ -91,53 +97,20 @@ function TableRow({
   );
 }
 
-function NavButton({
-  dir,
-  onClick,
-}: {
-  dir: "prev" | "next";
-  onClick: (() => void) | null;
-}) {
-  const { t } = useT();
-  return (
-    <button
-      type="button"
-      aria-label={dir === "prev" ? t("panel.legDetail.prevStep") : t("panel.legDetail.nextStep")}
-      onClick={onClick ?? undefined}
-      disabled={onClick === null}
-      className="shrink-0 inline-flex items-center justify-center rounded-md"
-      style={{
-        width: 32,
-        height: 32,
-        color: onClick ? "var(--ow-fg-1)" : "var(--ow-fg-3)",
-        opacity: onClick ? 1 : 0.5,
-        cursor: onClick ? "pointer" : "default",
-      }}
-    >
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        {dir === "prev" ? <path d="M10 3L5 8l5 5" /> : <path d="M6 3l5 5-5 5" />}
-      </svg>
-    </button>
-  );
-}
-
 export function LegDetailCard({
   view,
   spread,
   header,
-  onPrev,
-  onNext,
   notes,
+  compact = false,
 }: {
   view: AggregatedLeg;
   /** Ranges and arcs across the steps: set for the average, null for a step. */
   spread: LegSpread | null;
   header: LegDetailHeader;
-  /** Null renders the arrow disabled; both null and there are no arrows at
-      all (a leg with a single step has nothing to walk). */
-  onPrev: (() => void) | null;
-  onNext: (() => void) | null;
   notes: LegDetailNote[];
+  /** The table of the steps is above: no wind, sea or current rows here. */
+  compact?: boolean;
 }) {
   const { t } = useT();
   const mono = { fontFamily: "var(--ow-font-mono)" } as const;
@@ -199,8 +172,6 @@ export function LegDetailCard({
     sail: view.point_of_sail,
   });
 
-  const showNav = onPrev !== null || onNext !== null;
-
   const noteColor = (tone: LegDetailNote["tone"]): string =>
     tone === "waves" ? FORCE_COLORS.waves : tone === "current" ? FORCE_COLORS.current : "var(--ow-fg-2)";
 
@@ -209,34 +180,10 @@ export function LegDetailCard({
       className="rounded-lg overflow-hidden"
       style={{ background: "var(--ow-bg-1)", border: "1px solid var(--ow-line)" }}
     >
-      {/* Header: which slice, with the arrows that walk the steps. */}
-      <div
-        className="flex items-center gap-1 px-1"
-        style={{ borderBottom: "1px solid var(--ow-line)", paddingTop: showNav ? 4 : 8, paddingBottom: showNav ? 4 : 8 }}
-      >
-        {showNav && <NavButton dir="prev" onClick={onPrev} />}
-        <div className="flex-1 min-w-0 text-center leading-tight">
-          <span className="text-xs font-semibold tabular-nums" style={{ ...mono, color: "var(--ow-fg-0)" }}>
-            {header.title}
-          </span>
-          {header.sub && (
-            <span className="ml-1.5 text-[10px] tabular-nums whitespace-nowrap" style={{ ...mono, color: "var(--ow-fg-2)" }}>
-              {header.sub}
-            </span>
-          )}
-          {header.hint && (
-            <span className="ml-1.5 text-[10px] whitespace-nowrap" style={{ color: "var(--ow-fg-2)" }}>
-              {header.hint}
-            </span>
-          )}
-        </div>
-        {showNav && <NavButton dir="next" onClick={onNext} />}
-      </div>
-
       {/* Body: dial on the left, numbers on the right. */}
       <div className="flex items-center gap-2 px-2 py-2.5">
         <ConditionsCompass
-          size={COMPASS_PX}
+          size={compact ? COMPASS_COMPACT_PX : COMPASS_PX}
           variant={spread ? "average" : "step"}
           bearingDeg={view.bearing_avg_deg}
           windDeg={view.twd_avg_deg}
@@ -248,6 +195,16 @@ export function LegDetailCard({
         />
 
         <div className="flex-1 min-w-0 tabular-nums leading-snug" style={mono}>
+          {/* Which slice of the leg: the whole of it, or one step. */}
+          <div className="text-[11px] mb-1">
+            <span className="font-semibold" style={{ color: "var(--ow-fg-0)" }}>{header.title}</span>
+            {header.sub && <span style={{ color: "var(--ow-fg-2)" }}> · {header.sub}</span>}
+          </div>
+          {compact ? (
+            <div className="text-[11px]" style={{ color: "var(--ow-fg-1)" }}>
+              {t("panel.legDetail.rowHeading")} {capText}
+            </div>
+          ) : (
           <table className="w-full text-[11px]" style={{ borderCollapse: "collapse" }}>
             <tbody>
               <TableRow label={t("panel.legDetail.rowWind")} color={FORCE_COLORS.wind}>{windText}</TableRow>
@@ -263,18 +220,21 @@ export function LegDetailCard({
               <TableRow label={t("panel.legDetail.rowHeading")} color="var(--ow-fg-2)" plain>{capText}</TableRow>
             </tbody>
           </table>
+          )}
 
           {/* The over-ground speed and, on a step, how it adds up: the first
               term has no sign, the line reads as the sum it is. Not on the
               average: a mean of sums misled more than it explained, the
               note below sends the reader to the steps instead. */}
           <div
-            className="mt-1.5 pt-1.5 flex items-baseline gap-2"
-            style={{ borderTop: "1px solid var(--ow-line)" }}
+            className={compact ? "mt-1 flex items-baseline gap-1.5" : "mt-1.5 pt-1.5 flex items-baseline gap-2"}
+            style={compact ? undefined : { borderTop: "1px solid var(--ow-line)" }}
           >
-            <span className="shrink-0 text-[11px]" style={{ color: "var(--ow-fg-2)", width: LABEL_PX }}>
-              {t("panel.legDetail.rowSpeed")}
-            </span>
+            {!compact && (
+              <span className="shrink-0 text-[11px]" style={{ color: "var(--ow-fg-2)", width: LABEL_PX }}>
+                {t("panel.legDetail.rowSpeed")}
+              </span>
+            )}
             <span
               className="text-2xl font-bold"
               style={{ color: "var(--ow-accent)", letterSpacing: "-0.02em", lineHeight: 1 }}
@@ -286,7 +246,7 @@ export function LegDetailCard({
             </span>
           </div>
           {!spread && (
-            <div className="mt-1 text-[10px] flex flex-wrap gap-x-1.5" style={{ paddingLeft: LABEL_PX + 8 }}>
+            <div className="mt-1 text-[10px] flex flex-wrap gap-x-1.5" style={{ paddingLeft: compact ? 0 : LABEL_PX + 8 }}>
               {view.motor_used ? (
                 // Under engine neither the polar nor the sea apply: the boat
                 // does the motoring speed and only the current moves the
@@ -315,7 +275,7 @@ export function LegDetailCard({
           )}
 
           {notes.length > 0 && (
-            <div className="mt-1.5 text-[10px] leading-snug" style={{ paddingLeft: LABEL_PX + 8 }}>
+            <div className="mt-1.5 text-[10px] leading-snug" style={{ paddingLeft: compact ? 0 : LABEL_PX + 8 }}>
               {notes.map((n) => (
                 <div key={n.text} style={{ color: noteColor(n.tone) }}>
                   {n.tone === "muted" ? n.text : `⚠ ${n.text}`}
