@@ -4,6 +4,29 @@ Toutes les versions d'OhMyWind, de la plus récente à la plus ancienne. Le site
 
 Chaque version est aussi publiée sur la page [Releases](https://github.com/qdonnars/ohmywind/releases) du dépôt, et l'application affiche ce journal sur sa page « Quoi de neuf ». La marche à suivre pour publier une version est dans [docs/releases.md](docs/releases.md). English version: [CHANGELOG.en.md](CHANGELOG.en.md).
 
+## 1.13.0 · Prochaine version · Des tableaux harmonisés, un serveur plus rapide et mieux protégé
+
+### Nouveautés
+
+- Tous les tableaux de chiffres parlent la même langue, dans Explorer, Planifier et Comparer ce trajet : le même en-tête d'heures, l'unité dite une fois, et une seule échelle de couleurs pour le vent, en Beaufort adouci, reprise sur le tracé de la route (#522).
+- Dans Planifier, un tronçon déplié montre tous ses pas côte à côte (direction, vent, mer, courant, vitesse), et un clic sur une colonne ouvre le détail du pas (#522).
+- Dans Explorer, la direction du vent signale l'écart entre modèles au-delà de 45°, et les courants se lisent comme la mer : « Portant vers » en flèches, puis la vitesse (#522).
+- Un nouvel archétype de bateau, l'IMOCA 60 à foils, pour planifier une transat de course ; sa polaire est une estimation (#513).
+
+### Corrections
+
+- Un courant du modèle global n'est plus présenté sous le nom d'un atlas de marée, là où cet atlas donne la hauteur d'eau mais pas le courant (#524).
+- Une route de plus de 1 500 milles est refusée avec un message qui dit comment la découper, au lieu d'occuper le serveur (#516).
+- Dans l'assistant, une vitesse ou un seuil de moteur hors bornes est refusé avec la plage acceptée, au lieu de donner une durée absurde (#517).
+
+### Coulisses
+
+- Comparer les départs d'une semaine entière se calcule en un dixième de seconde au lieu de six sur une route type (#515).
+- Le serveur MCP se protège : taille des requêtes plafonnée, budget d'appels à Open-Meteo qui s'arrête avant le quota, délai maximal par outil et page d'état (#518).
+- Une mise en ligne du serveur échoue si les atlas de marée ne sont pas tous là, au lieu de servir en silence le modèle global dans les passes (#519).
+- Le sens du flot et du jusant est vérifié à chaque changement de code sur des passes de référence des atlas ouverts, de l'Elbe à la baie de Fundy (#520).
+- L'application garde moins de prévisions en mémoire sur téléphone, et demande les courants de marée d'une route en même temps que l'état de la mer (#521).
+
 ## 1.12.0 · 2026-11-03 · OhMyWind dans l'annuaire officiel de Claude
 
 ### Nouveautés
