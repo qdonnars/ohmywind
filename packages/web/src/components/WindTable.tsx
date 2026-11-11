@@ -210,7 +210,9 @@ export function WindTable({
     <div className="animate-fade-in flex-1 min-h-0 flex flex-col">
       <div className={`scroll-container flex-1 min-h-0 flex flex-col ${scrolledEnd ? "scrolled-end" : ""}`}>
         <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto wind-table-scroll">
-          <table className="border-collapse" role="table">
+          {/* The panel floats over the map with no fill of its own: the
+              table is what hides it, gaps between the rows included. */}
+          <table className="border-collapse" role="table" style={{ background: "var(--ow-bg-1)" }}>
             <thead className="sticky top-0 z-20">
               <TimelineHeader
                 variant="harmonised"
