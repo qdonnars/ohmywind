@@ -207,16 +207,16 @@
     }
   ],
   "warnings": [
-    "vent faible : vitesse mini 2.5 kn, passage très lent"
+    "vent faible : vitesse mini 2.7 kn, passage très lent"
   ],
   "max_sampling_drift_h": 1.9,
   "notices": [
     {
       "code": "passage.light_wind",
       "params": {
-        "min_speed_kn": "2.5"
+        "min_speed_kn": "2.7"
       },
-      "message": "vent faible : vitesse mini 2.5 kn, passage très lent"
+      "message": "vent faible : vitesse mini 2.7 kn, passage très lent"
     }
   ]
 }
