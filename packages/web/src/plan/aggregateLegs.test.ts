@@ -168,6 +168,7 @@ function makeLeg(overrides: Partial<AggregatedLeg> = {}): AggregatedLeg {
     target_speed_kn: 4.5,
     efficiency: 0.75,
     hs_avg_m: null,
+    hs_min_m: null,
     hs_max_m: null,
     tp_avg_s: null,
     sea_direction: null,
@@ -179,6 +180,44 @@ function makeLeg(overrides: Partial<AggregatedLeg> = {}): AggregatedLeg {
     ...overrides,
   };
 }
+
+describe("buildLegSummaryCells figures", () => {
+  it("writes the wind and the sea as ranges, the unit left to the column header", () => {
+    const cells = buildLegSummaryCells(
+      makeLeg({ tws_min: 6.2, tws_max: 8.8, hs_avg_m: 0.5, hs_min_m: 0.4, hs_max_m: 0.6 }),
+    );
+    expect(cells.wind).toBe("6–9");
+    expect(cells.sea).toBe("0,4–0,6");
+    expect(cells.alert).toBeNull();
+  });
+
+  it("collapses a range whose two ends read the same", () => {
+    const cells = buildLegSummaryCells(
+      makeLeg({ tws_min: 12.1, tws_max: 12.4, hs_avg_m: 0.52, hs_min_m: 0.51, hs_max_m: 0.54 }),
+    );
+    expect(cells.wind).toBe("12");
+    expect(cells.sea).toBe("0,5");
+  });
+
+  it("has no sea figure without sea data", () => {
+    expect(buildLegSummaryCells(makeLeg()).sea).toBeNull();
+  });
+
+  it("says a sea flag with its height and the distance it holds over", () => {
+    const cells = buildLegSummaryCells(
+      makeLeg({ distance_nm: 13.8, hs_avg_m: 1.3, hs_min_m: 1.1, hs_max_m: 1.4, tp_avg_s: 9 }),
+    );
+    expect(cells.flag).toBe("Mer formée");
+    expect(cells.alert).toBe("Mer formée · Hs 1,1–1,4 m sur 13,8 nm");
+  });
+
+  it("says a wind against the current with the current's speed", () => {
+    const cells = buildLegSummaryCells(
+      makeLeg({ distance_nm: 8, current_relative: "contraire", current_speed_kn: 1.8, current_delta_kn: -1.6 }),
+    );
+    expect(cells.alert).toBe("Vent contre courant · 1,8 kn sur 8,0 nm");
+  });
+});
 
 describe("buildLegSummaryCells.flag", () => {
   it("flags Clapot when Hs/Tp² > 0.05 and Hs >= 0.8 m", () => {

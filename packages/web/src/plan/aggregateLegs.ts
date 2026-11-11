@@ -5,6 +5,7 @@ import type { SegmentReport } from "./types";
 import { CURRENT_RELEVANCE_THRESHOLD_KN, SEA_FORMED_HS_M } from "../domain/thresholds";
 import { COEFF_DEFAULT } from "../config/polarConfig";
 import { t } from "../i18n";
+import { num1, numRange } from "./format";
 
 export interface AggregatedLeg {
   // ── Distances & timing (carried from the segment span) ─────────────────────
@@ -46,6 +47,7 @@ export interface AggregatedLeg {
 
   // ── Sea state ─────────────────────────────────────────────────────────────
   hs_avg_m: number | null;
+  hs_min_m: number | null;
   hs_max_m: number | null;
   tp_avg_s: number | null;
   // Where the sea hits the boat relative to its course: "face", "travers",
@@ -112,10 +114,9 @@ export function legDurationLabel(leg: AggregatedLeg): string {
   return `${h}h${m.toString().padStart(2, "0")}`;
 }
 
-// Build the leg summary as a list of standalone "cells" — duration,
-// allure, plus any qualifiers triggered by the current/wave/wind thresholds.
-// Rendered as a flex-wrap row of chips in LegRow so each cell wraps onto a
-// new line when the sidebar is narrow.
+// Build the leg summary as named cells: duration, allure, wind and sea
+// ranges, plus the one qualifier the current/wave thresholds may raise.
+// The units are not in the cells: the column headers say them once.
 //
 // Sea/wind thresholds match the server-side complexity scorer (Météo-France
 // classification) so the summary stays coherent with the warnings the LLM
@@ -131,12 +132,17 @@ export function legDurationLabel(leg: AggregatedLeg): string {
 export interface LegSummaryCells {
   duration: string;
   allure: string;
+  /** "6–9", in knots. */
   wind: string;
-  // Single optional flag cell — covers either sea state (Mer formée / Grosse
-  // Mer / Clapot) or wind-against-current. When both fire on a leg, current
-  // wins because it's the rarer and more decision-shaping signal. Null =
-  // empty cell, kept in the grid so columns line up vertically across rows.
+  /** "0,4–0,6", the Hs range in metres; null without sea data. */
+  sea: string | null;
+  // Single optional flag — covers either sea state (Mer formée / Grosse
+  // mer / Clapot) or wind-against-current. When both fire on a leg, current
+  // wins because it's the rarer and more decision-shaping signal.
   flag: string | null;
+  /** The flag as the alert under the row says it: what, how much, where
+      (« Mer formée · Hs 1,1–1,4 m sur 13,8 nm »). Null without a flag. */
+  alert: string | null;
 }
 
 // Build the leg summary as a fixed set of named cells so LegRow can render
@@ -144,14 +150,9 @@ export interface LegSummaryCells {
 // under the previous leg's duration, etc.). Returning a positional string[]
 // here used to drift on narrow viewports — the wrapping reordered cells.
 export function buildLegSummaryCells(leg: AggregatedLeg): LegSummaryCells {
-  const tMin = Math.round(leg.tws_min);
-  const tMax = Math.round(leg.tws_max);
-  // NBSP between the number and "kn" so the wind chip stays on one line when
-  // SummaryCell renders with width:min-content. Multi-word labels (Mer formée,
-  // Vent contre courant) still break at their normal spaces. Spelled as an
-  // escape: a raw NBSP is invisible in review and reads as a stray space, so
-  // no-irregular-whitespace rejects it.
-  const wind = tMin === tMax ? `${tMin}\u00a0kn` : `${tMin}–${tMax}\u00a0kn`;
+  const wind = numRange(leg.tws_min, leg.tws_max, 0);
+  const sea =
+    leg.hs_min_m != null && leg.hs_max_m != null ? numRange(leg.hs_min_m, leg.hs_max_m, 1) : null;
 
   const chopIndex =
     leg.hs_avg_m != null && leg.tp_avg_s != null && leg.tp_avg_s > 0
@@ -159,8 +160,11 @@ export function buildLegSummaryCells(leg: AggregatedLeg): LegSummaryCells {
       : null;
 
   let flag: string | null = null;
+  let alert: string | null = null;
+  const nm = num1(leg.distance_nm);
   if (leg.current_relative === "contraire" && (leg.current_speed_kn ?? 0) >= 1.5) {
     flag = t("panel.legs.seaFlag.windAgainstCurrent");
+    alert = t("panel.legs.alert.current", { flag, speed: num1(leg.current_speed_kn ?? 0), nm });
   } else if (leg.hs_avg_m != null) {
     if (leg.hs_avg_m > 2.5) flag = t("panel.legs.seaFlag.heavySea");
     else if (chopIndex != null && chopIndex > 0.05 && leg.hs_avg_m >= 0.8) {
@@ -173,18 +177,19 @@ export function buildLegSummaryCells(leg: AggregatedLeg): LegSummaryCells {
           : t("panel.legs.seaFlag.chop");
     }
     else if (leg.hs_avg_m > SEA_FORMED_HS_M) flag = t("panel.legs.seaFlag.roughSea");
+    if (flag && sea) alert = t("panel.legs.alert.sea", { flag, range: sea, nm });
   }
 
   return {
     duration: legDurationLabel(leg),
     // Short allure ("Près" / "Travers" / "Largue" / "Arrière", or the
-    // "Près (louvoyage)" qualifier) — SummaryCell renders at width:min-content
-    // and breaks on spaces, so the two-word form wraps inside the column
-    // rather than widening it, like "Mer formée" already does. The one-word
-    // forms match the WindowsTable ALLURE column copy.
+    // "Près (louvoyage)" qualifier): the two-word form wraps inside its
+    // column rather than widening it.
     allure: leg.point_of_sail,
     wind,
+    sea,
     flag,
+    alert,
   };
 }
 
@@ -311,6 +316,7 @@ function aggregateSegments(
   const hs_avg_m = hsTotalDist > 0
     ? hsSegs.reduce((s, seg) => s + (seg.hs_m as number) * seg.distance_nm, 0) / hsTotalDist
     : null;
+  const hs_min_m = hsSegs.length > 0 ? Math.min(...hsSegs.map((s) => s.hs_m as number)) : null;
   const hs_max_m = hsSegs.length > 0 ? Math.max(...hsSegs.map((s) => s.hs_m as number)) : null;
   const tpSegs = segs.filter((s) => s.wave_period_s != null);
   const tpTotalDist = tpSegs.reduce((s, seg) => s + seg.distance_nm, 0);
@@ -349,6 +355,7 @@ function aggregateSegments(
     target_speed_kn,
     efficiency,
     hs_avg_m,
+    hs_min_m,
     hs_max_m,
     tp_avg_s,
     sea_direction: hs_avg_m == null ? null : twaToSeaDirection(twa_avg_deg),
