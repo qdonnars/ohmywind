@@ -130,7 +130,7 @@ function arrivalDay(passage: PassageReport): string | undefined {
 
 // One cell per server step, wide in proportion to its distance. With
 // `onSegmentClick` every cell is a button: a click opens the leg the step
-// belongs to and that step in the card, the same thing the strip under an
+// belongs to and that step in the card, the same thing the table under an
 // open leg does, reached from the overview instead. The visible bar stays
 // 6 px thin; the button around it carries the 16 px touch height.
 function SegmentBar({

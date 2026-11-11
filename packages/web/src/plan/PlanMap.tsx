@@ -84,7 +84,7 @@ interface PlanMapProps {
   /** Inclusive-exclusive range of segment indices to highlight (selected leg). */
   highlightedSegmentRange?: [number, number] | null;
   /** Index into `segments` of the step open in the panel, drawn over the leg
-      highlight as a segment in the colour of its block in the strip. */
+      highlight as a segment in the colour of its column in the table. */
   focusedSegmentIdx?: number | null;
   /** Optional hint for the initial view when there are no waypoints yet
       (typically propagated from the home spot via `?center=lat,lon`). */
@@ -894,7 +894,7 @@ export function PlanMap(
 
   // Selected-leg highlight overlay, drawn on top of the colored segments in
   // the brand accent so it pops against the wind palette. Small ticks mark
-  // the boundaries between the leg's steps, so the strip in the panel and
+  // the boundaries between the leg's steps, so the table in the panel and
   // the line on the map cut the leg in the same places. Not interactive:
   // it sits above the hit lines, and Leaflet hands a click on an inert
   // layer to the map, which appended a waypoint at the end of the route.
@@ -943,8 +943,8 @@ export function PlanMap(
   }, [highlightedSegmentRange, segments, resolvedTheme]);
 
   // The step open in the panel: its own segment drawn over the leg
-  // highlight, in the wind band of that step so it matches the block the
-  // user tapped in the strip, with a white casing so it reads as a piece
+  // highlight, in the wind band of that step so it matches the column the
+  // user tapped in the table, with a white casing so it reads as a piece
   // laid on the line rather than a change of the line's colour. Declared
   // after the highlight effect so that, when both redraw in one commit, the
   // step ends up above the leg.

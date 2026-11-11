@@ -42,11 +42,8 @@ export const plan: Record<keyof typeof frPlan, string> = {
   "plan.timeAnchor.arrival.sub": "How late can you leave?",
 
   // ── Steps of a leg ────────────────────────────────────────────────────────
-  "plan.steps.groupLabel": "Computation steps of the leg",
   "plan.steps.stepLabel": "Step {index} of {total}, {time}",
-  "plan.steps.viewToggle.label": "Leg display",
-  "plan.steps.viewToggle.average": "Average",
-  "plan.steps.viewToggle.detail": "Hourly",
+  "plan.steps.wholeLeg": "Whole leg",
   "plan.steps.span.one": "{count} step · {start} → {end}",
   "plan.steps.span.other": "{count} steps · {start} → {end}",
   "plan.steps.table.label": "Steps of the leg, hour by hour",

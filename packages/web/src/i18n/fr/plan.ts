@@ -46,11 +46,8 @@ export const plan = {
   "plan.timeAnchor.arrival.sub": "Quand partir au plus tard ?",
 
   // ── Bande des pas d'un tronçon ────────────────────────────────────────────
-  "plan.steps.groupLabel": "Pas de calcul du tronçon",
   "plan.steps.stepLabel": "Pas {index} sur {total}, {time}",
-  "plan.steps.viewToggle.label": "Affichage du tronçon",
-  "plan.steps.viewToggle.average": "Moyenne",
-  "plan.steps.viewToggle.detail": "Par heure",
+  "plan.steps.wholeLeg": "Tout le tronçon",
   "plan.steps.span.one": "{count} pas · {start} → {end}",
   "plan.steps.span.other": "{count} pas · {start} → {end}",
   "plan.steps.table.label": "Pas du tronçon, heure par heure",
