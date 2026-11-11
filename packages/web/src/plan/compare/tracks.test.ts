@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { describe, it, expect } from "vitest";
-import type { PassageReport, SegmentReport } from "../types";
+import type { ComplexityScore, PassageReport, SegmentReport } from "../types";
 import {
   addVariantPoint,
   isVariantComplete,
@@ -11,6 +11,7 @@ import {
   routeOverlays,
   startVariant,
   summariseTrack,
+  trackAlerts,
   trackColorToken,
   type Track,
 } from "./tracks";
@@ -77,6 +78,40 @@ describe("reading the options", () => {
     expect(s.hsMaxM).toBe(2);
     expect(s.motorPct).toBe(25);
     expect(s.alerts).toBe(1);
+  });
+
+  it("says the score's warnings in full and only counts the engine's", () => {
+    const score: ComplexityScore = {
+      level: 3,
+      label: "Soutenu",
+      wind_level: 2,
+      wind_label: "Modéré",
+      sea_level: 3,
+      sea_label: "Agitée",
+      tws_max_kn: 14,
+      hs_max_m: 1.4,
+      rationale: "",
+      warnings: [
+        {
+          kind: "sea",
+          level: 3,
+          message: "Mer agitée : Hs 1.1-1.4 m sur 13.8 nm",
+          affected_segments: [1],
+          code: "complexity.sea.3",
+          params: { hs_range: "1.1-1.4", nm: "13.8" },
+        },
+      ],
+    };
+    const a = trackAlerts({ ...passage([segment(20, 1.4)]), warnings: ["vent faible : passage très lent"] }, score);
+    // The server's figures, in the reader's decimals: none invented.
+    expect(a.lines).toEqual(["Mer agitée : Hs 1,1–1,4 m sur 13,8 nm"]);
+    expect(a.others).toEqual(["vent faible : passage très lent"]);
+    expect(a.sea).toBe(true);
+    // A wind warning does not paint the sea.
+    const wind = { ...score, warnings: [{ ...score.warnings![0], kind: "wind" as const }] };
+    expect(trackAlerts(passage([segment(20, 1.4)]), wind).sea).toBe(false);
+    const none = trackAlerts({ ...passage([segment(20, 1)]), warnings: [] }, null);
+    expect(none).toEqual({ lines: [], others: [], sea: false });
   });
 
   it("colours the options by position and finds the middle of a line", () => {
