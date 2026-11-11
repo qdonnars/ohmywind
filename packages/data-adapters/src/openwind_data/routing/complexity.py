@@ -23,7 +23,14 @@ from typing import Any, Literal
 
 from openwind_data.routing.notices import notice
 from openwind_data.routing.passage import PassageReport, SegmentReport
-from openwind_data.routing.sea_state import SEA_BANDS, SEA_WARNING_LEVEL, SeaFlag, sea_flag
+from openwind_data.routing.sea_state import (
+    SEA_BANDS,
+    SEA_WARNING_LEVEL,
+    SeaFlag,
+    as_printed,
+    sea_flag,
+)
+from openwind_data.routing.sea_state import sea_level as level_of_sea
 
 # (upper_bound_exclusive, level, label). Last bucket has math.inf.
 _WIND_BANDS: tuple[tuple[float, int, str], ...] = (
@@ -88,7 +95,9 @@ def _compact_range(values: list[float], decimals: int) -> str:
     might have been steady at 25-30 kn. The range is more informative for both
     the LLM (decision-making) and the human reader.
     """
-    rounded = sorted({round(v, decimals) for v in values})
+    # Half up, like the bands (``as_printed``): Python's ``round`` would print
+    # 14.5 kn as "14" in a warning that 14.5 kn raised as "soutenu".
+    rounded = sorted({as_printed(v, decimals) for v in values})
     if len(rounded) == 1:
         return f"{rounded[0]:.{decimals}f}"
     return f"{rounded[0]:.{decimals}f}-{rounded[-1]:.{decimals}f}"
@@ -140,7 +149,10 @@ def score_complexity(
         raise ValueError("passage has no segments")
 
     tws_max = max(s.tws_kn for s in passage.segments)
-    wind_level, wind_label = _classify(tws_max, _WIND_BANDS)
+    # Both axes are binned on the figure as printed, the wind to the knot and
+    # the sea to the tenth of a metre (see ``sea_state.as_printed``): 14.6 kn
+    # reads "15" in the warning and in the app, and is "soutenu" like 15.
+    wind_level, wind_label = _classify(as_printed(tws_max, 0), _WIND_BANDS)
 
     if max_hs_m is None:
         seg_hs = [s.hs_m for s in passage.segments if s.hs_m is not None]
@@ -156,7 +168,7 @@ def score_complexity(
         level = wind_level
         rationale = f"vent max {tws_max:.0f} kn ({wind_label})"
     else:
-        sea_level, sea_label = _classify(max_hs_m, SEA_BANDS)
+        sea_level, sea_label = _classify(as_printed(max_hs_m, 1), SEA_BANDS)
         level = max(wind_level, sea_level)
         rationale = (
             f"vent max {tws_max:.0f} kn ({wind_label}), mer max Hs={max_hs_m:.1f} m ({sea_label})"
@@ -165,7 +177,9 @@ def score_complexity(
     warnings: list[ComplexityWarning] = []
     if wind_level >= 3:
         threshold = _lower_bound(wind_level, _WIND_BANDS)
-        affected = tuple(i for i, s in enumerate(passage.segments) if s.tws_kn >= threshold)
+        affected = tuple(
+            i for i, s in enumerate(passage.segments) if as_printed(s.tws_kn, 0) >= threshold
+        )
         affected_nm = sum(passage.segments[i].distance_nm for i in affected)
         tws_range = _compact_range([passage.segments[i].tws_kn for i in affected], 0)
         n = notice(f"complexity.wind.{wind_level}", tws_range=tws_range, nm=f"{affected_nm:.0f}")
@@ -180,9 +194,12 @@ def score_complexity(
             )
         )
     if sea_level is not None and sea_level >= SEA_WARNING_LEVEL and max_hs_m is not None:
-        threshold = _lower_bound(sea_level, SEA_BANDS)
+        # The segments at the passage's sea level or above, each read the way
+        # the engine stamped it (``SegmentReport.sea_level``).
         affected_sea = tuple(
-            i for i, s in enumerate(passage.segments) if s.hs_m is not None and s.hs_m >= threshold
+            i
+            for i, s in enumerate(passage.segments)
+            if (lv := level_of_sea(s.hs_m)) is not None and lv >= sea_level
         )
         # If max_hs_m came from a route-level override (no per-segment Hs on the
         # passage), default the affected span to the whole route so the warning

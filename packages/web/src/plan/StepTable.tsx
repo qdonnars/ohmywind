@@ -26,6 +26,7 @@ import { DirectionArrow } from "../components/DirectionArrow";
 import {
   CURRENT_RELEVANCE_THRESHOLD_KN,
   beaufortLevel,
+  waveInk,
   waveLevel,
   windSoftVar,
   windTextVar,
@@ -244,7 +245,7 @@ export function StepTable({
                   style={{
                     height: 30,
                     background: hs != null ? `var(--ow-wave-${waveLevel(hs)})` : "var(--ow-bg-1)",
-                    color: hs == null ? "var(--ow-fg-2)" : hs < 1 ? "var(--ow-fg-0)" : "var(--ow-cell-ink)",
+                    color: hs == null ? "var(--ow-fg-2)" : waveInk(hs),
                     borderRadius: endRadius(i, n),
                     boxShadow: fillRing(i, "bottom"),
                   }}

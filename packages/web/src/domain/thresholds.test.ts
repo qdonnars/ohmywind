@@ -9,6 +9,7 @@ import {
   directionSpreadDeg,
   MODEL_DIRECTION_SPREAD_DEG,
   tidesLevel,
+  waveInk,
   waveLevel,
   windLevelToken,
   windLevelVar,
@@ -19,7 +20,7 @@ import {
 describe("beaufortLevel", () => {
   it("puts a flat calm at level 0", () => {
     expect(beaufortLevel(0)).toBe(0);
-    expect(beaufortLevel(3.9)).toBe(0);
+    expect(beaufortLevel(3.4)).toBe(0);
   });
 
   it("steps up on each band edge", () => {
@@ -28,9 +29,16 @@ describe("beaufortLevel", () => {
       [4, 1], [7, 2], [11, 3], [15, 4], [19, 5], [23, 6], [28, 7], [33, 8],
     ];
     for (const [kn, level] of edges) {
-      expect(beaufortLevel(kn - 0.1)).toBe(level - 1);
+      expect(beaufortLevel(kn - 0.6)).toBe(level - 1);
       expect(beaufortLevel(kn)).toBe(level);
     }
+  });
+
+  it("reads the speed as printed, to the knot", () => {
+    // 3,6 kn is printed « 4 »: it takes the colour of 4.
+    expect(beaufortLevel(3.4)).toBe(0);
+    expect(beaufortLevel(3.6)).toBe(1);
+    expect(beaufortLevel(14.6)).toBe(beaufortLevel(15));
   });
 
   it("caps a mistral and anything above at level 8", () => {
@@ -68,10 +76,20 @@ describe("waveLevel", () => {
   });
 });
 
+describe("one printed number, one colour", () => {
+  it("paints two values that print alike the same", () => {
+    // 1,52 m and 1,48 m both read « 1,5 »: they were yellow and blue.
+    expect(waveLevel(1.52)).toBe(waveLevel(1.48));
+    expect(waveInk(0.96)).toBe(waveInk(1.0));
+    expect(currentsLevel(0.96)).toBe(currentsLevel(1.04));
+    expect(tidesLevel(0.46)).toBe(tidesLevel(0.5));
+  });
+});
+
 describe("currentsLevel", () => {
   it("leaves a Mediterranean drift uncoloured", () => {
     expect(currentsLevel(0.1)).toBe(0);
-    expect(currentsLevel(0.29)).toBe(0);
+    expect(currentsLevel(0.24)).toBe(0);
   });
 
   it("keeps a typical Mediterranean current on the cool end", () => {
@@ -90,7 +108,7 @@ describe("tidesLevel", () => {
   });
 
   it("steps on each band edge", () => {
-    expect(tidesLevel(0.49)).toBe(1);
+    expect(tidesLevel(0.44)).toBe(1);
     expect(tidesLevel(0.5)).toBe(2);
     expect(tidesLevel(1.5)).toBe(4);
     expect(tidesLevel(3.0)).toBe(6);
