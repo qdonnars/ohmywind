@@ -35,7 +35,7 @@ async def estimate_passage(
     adapter: MarineDataAdapter | None = None,
     model: str = DEFAULT_MODEL,
     heuristic_speed_kn: float | None = None,
-    use_wave_correction: bool = False,
+    use_wave_correction: bool = True,
     polar_override: BoatPolar | None = None,
     model_chain: tuple[str, ...] | None = None,
 ) -> PassageReport:
@@ -130,7 +130,7 @@ async def estimate_passage_for_arrival(
     adapter: MarineDataAdapter | None = None,
     model: str = AUTO_MODEL,
     heuristic_speed_kn: float | None = None,
-    use_wave_correction: bool = False,
+    use_wave_correction: bool = True,
     polar_override: BoatPolar | None = None,
     model_chain: tuple[str, ...] | None = None,
 ) -> EtaPassagePlan:
