@@ -4,7 +4,7 @@ Toutes les versions d'OhMyWind, de la plus récente à la plus ancienne. Le site
 
 Chaque version est aussi publiée sur la page [Releases](https://github.com/qdonnars/ohmywind/releases) du dépôt, et l'application affiche ce journal sur sa page « Quoi de neuf ». La marche à suivre pour publier une version est dans [docs/releases.md](docs/releases.md). English version: [CHANGELOG.en.md](CHANGELOG.en.md).
 
-## 1.12.0 · Prochaine version · OhMyWind dans l'annuaire officiel de Claude
+## 1.12.0 · 2026-11-03 · OhMyWind dans l'annuaire officiel de Claude
 
 ### Nouveautés
 
