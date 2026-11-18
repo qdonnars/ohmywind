@@ -70,6 +70,7 @@ from openwind_data.currents.narrow_pass import confidence_for_point, source_conf
 from openwind_data.currents.router import CompositeMarineAdapter, compose_marine_adapter
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
 from openwind_data.currents.tidal_gaps import unknown_pass_along
+from openwind_data.currents.tide_facts import TideCurve, curve_times, tide_reading
 from openwind_data.currents.unknown_zones import UNKNOWN_CURRENT_SOURCE
 from openwind_data.routing import (
     BoatPolar,
@@ -181,6 +182,15 @@ three to six hours, not every hour.
 # described as a warning intended for the user, in no set language. The French wording
 # shown in the web app lives in packages/web/src/plan/SafetyNotice.tsx and the
 # English one in the README. All three say the same thing; keep them in sync.
+# The route is the model's drawing, and that is where a plan most often goes
+# wrong (a detour round the wrong side of an archipelago, a waypoint on a
+# plateau of rocks). Said to the user with every plan, next to the map.
+ROUTE_NOTICE = (
+    "The route was drawn by the assistant, not by OhMyWind. Check it on the map "
+    "(headlands, islands, shoals, detours) before relying on the timings. If "
+    "anything looks wrong, ask the assistant to redraw it, or move the waypoints "
+    "yourself in OhMyWind through the plan link."
+)
 PASSAGE_DISCLAIMER = (
     "Decision-support tool, not a navigation instrument. OhMyWind does not "
     "replace the official marine forecast from the national weather service, "
@@ -347,6 +357,8 @@ _PLAN_WIDGET_HTML = """<!doctype html>
       position:relative;background:var(--sea)}
     @media (max-width:480px){.map{height:210px}}
     .mapnote{margin:.45rem 0 0;font-size:.8rem;color:var(--fg1)}
+    .routecheck{margin:0 0 .5rem;padding:.5rem .65rem;border-radius:8px;font-size:.82rem;line-height:1.35;
+      background:#F5A62322;border:1px solid #F5A62366}
     .mapcap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.25rem 1rem;
       font-size:.72rem;color:var(--fg2);margin-top:.2rem}
     .legend{display:inline-flex;flex-wrap:wrap;gap:.15rem .55rem;align-items:center}
@@ -735,6 +747,9 @@ _PLAN_WIDGET_HTML = """<!doctype html>
         ${[[1,"&lt;10"],[2,"10-15"],[3,"15-20"],[4,"20-25"],[5,"25+ kn"]].map(([l,t])=>
           `<span><i style="background:${CX_COLORS[l]}"></i>${t}</span>`).join("")}</span>` : "";
       return `<div class="mapwrap">
+        <div class="routecheck" role="note">⚠ <b>Tracé proposé par l'assistant, pas par OhMyWind.</b>
+          Vérifiez-le sur la carte : caps, îles, hauts-fonds, détours. En cas de doute, demandez-lui de le
+          corriger, ou modifiez les points vous-même sur __WEB_HOST__.</div>
         <div class="map" id="ow-map"><div class="wheelhint" aria-hidden="true">Zoom : boutons + et &minus;, ou double-clic</div></div>
         <p class="mapnote">${note}</p>
         <div class="mapcap"><span id="ow-mapcap">${pts.length} points · ${distNm.toFixed(1)} nm</span>${legend}</div>
@@ -1403,6 +1418,24 @@ async def _sweep_one_route(
         )
         if unmatched is not None:
             meta_notices.append(unmatched)
+    if reports:
+        curves = _tide_ends(
+            adapter,
+            route_pts,
+            min(r.departure_time for r in reports),
+            max(r.arrival_time for r in reports),
+        )
+        if curves != (None, None):
+            for w in windows:
+                w.update(
+                    _tide_fields(
+                        adapter,
+                        curves,
+                        datetime.fromisoformat(w["departure"]),
+                        datetime.fromisoformat(w["arrival"]),
+                        dep.tzinfo,
+                    )
+                )
     return reports, windows, effective_interval, meta_notices
 
 
@@ -1691,6 +1724,125 @@ def _turning_points(
     return out
 
 
+def _bare_bundle(lat: float, lon: float, times: list[datetime]) -> ForecastBundle:
+    """A sea series with every field empty, for the atlases to fill alone."""
+    return ForecastBundle(
+        lat=lat,
+        lon=lon,
+        start=times[0],
+        end=times[-1],
+        sea=SeaSeries(
+            points=tuple(
+                SeaPoint(
+                    time=t,
+                    wave_height_m=None,
+                    wave_period_s=None,
+                    wave_direction_deg=None,
+                    wind_wave_height_m=None,
+                    swell_wave_height_m=None,
+                )
+                for t in times
+            )
+        ),
+    )
+
+
+def _tide_curve(
+    adapter: MarineDataAdapter, lat: float, lon: float, start: datetime, end: datetime
+) -> TideCurve | None:
+    """The atlas tide curve at a point, framing ``start`` to ``end``, or None.
+
+    Same cascade as ``get_tidal_stream``, no weather request. Chart datum
+    where the MARC cell carries its ``z0_hydro_m`` and the height is MARC's;
+    around mean sea level otherwise. None outside every atlas (most of the
+    Mediterranean) and in a documented zone where no source is trusted.
+    """
+    if not isinstance(adapter, CompositeMarineAdapter):
+        return None
+    times = curve_times(start.astimezone(UTC), end.astimezone(UTC))
+    points = adapter.apply_atlases(_bare_bundle(lat, lon, times), lat, lon).sea.points
+    source = next((p.current_source for p in points if p.current_source), None)
+    if source is None or source == UNKNOWN_CURRENT_SOURCE:
+        return None
+    heights: list[float | None] = [p.tide_height_m for p in points]
+    from_marc = source.startswith("marc_")
+    if any(h is None for h in heights):
+        # SHOM C2D carries the current, not the height: MARC still has it.
+        predicted = adapter.marc.predict_height_series(lat, lon, times)
+        atlas = adapter.marc.covers(lat, lon)
+        if predicted is None or atlas is None:
+            return None
+        heights = [float(v) for v in predicted[0]]
+        source, from_marc = atlas.source_label, True
+    cell = adapter.marc.cell_at(lat, lon) if from_marc else None
+    return TideCurve.build(
+        times,
+        heights,
+        source=source,
+        z0_hydro_m=cell.z0_hydro_m if cell is not None else None,
+    )
+
+
+def _tide_ends(
+    adapter: MarineDataAdapter,
+    route: list[Point],
+    first_departure: datetime,
+    last_arrival: datetime,
+) -> tuple[TideCurve | None, TideCurve | None]:
+    """The tide curves at the route's first and last waypoints, over the whole sweep."""
+    start, end = route[0], route[-1]
+    return (
+        _tide_curve(adapter, start.lat, start.lon, first_departure, last_arrival),
+        _tide_curve(adapter, end.lat, end.lon, first_departure, last_arrival),
+    )
+
+
+def _tide_fields(
+    adapter: MarineDataAdapter,
+    curves: tuple[TideCurve | None, TideCurve | None],
+    departure: datetime,
+    arrival: datetime,
+    tz: tzinfo | None,
+) -> dict[str, Any]:
+    """``departure_tide`` and ``arrival_tide`` where an atlas covers each end.
+
+    Facts only: the height, its datum, the trend, the high and low water
+    around it and the scale of the day. Whether that is water enough for a
+    harbour is the harbour's soundings against the boat's draught, which
+    this server does not know. An end no atlas covers gets no key.
+    """
+    out: dict[str, Any] = {}
+    for key, curve, t in (
+        ("departure_tide", curves[0], departure),
+        ("arrival_tide", curves[1], arrival),
+    ):
+        if curve is None:
+            continue
+        local = t.astimezone(tz) if tz is not None else t
+        coefficient = None
+        if (
+            curve.source.startswith(("shom_c2d", "marc_"))
+            and isinstance(adapter, CompositeMarineAdapter)
+            and adapter.shom is not None
+            and adapter.shom.ref_ports
+        ):
+            coefficient = adapter.shom.tide_coefficient(t)
+        reading = tide_reading(curve, local, coefficient=coefficient)
+        if reading is not None:
+            out[key] = reading
+    return out
+
+
+def _single_tide(
+    adapter: MarineDataAdapter, route: list[Point], report: Any, tz: tzinfo | None
+) -> dict[str, Any]:
+    """The tide fields of one passage (single mode)."""
+    curves = _tide_ends(adapter, route, report.departure_time, report.arrival_time)
+    if curves == (None, None):
+        return {}
+    return _tide_fields(adapter, curves, report.departure_time, report.arrival_time, tz)
+
+
 def _tidal_stream_view(
     adapter: MarineDataAdapter,
     lat: float,
@@ -1713,26 +1865,7 @@ def _tidal_stream_view(
             "reason": "no tidal atlas is loaded on this server",
             "openwind_url": link,
         }
-    bare = ForecastBundle(
-        lat=lat,
-        lon=lon,
-        start=times[0],
-        end=times[-1],
-        sea=SeaSeries(
-            points=tuple(
-                SeaPoint(
-                    time=t,
-                    wave_height_m=None,
-                    wave_period_s=None,
-                    wave_direction_deg=None,
-                    wind_wave_height_m=None,
-                    swell_wave_height_m=None,
-                )
-                for t in times
-            )
-        ),
-    )
-    points = adapter.apply_atlases(bare, lat, lon).sea.points
+    points = adapter.apply_atlases(_bare_bundle(lat, lon, times), lat, lon).sea.points
     source = next((p.current_source for p in points if p.current_source), None)
     if source == UNKNOWN_CURRENT_SOURCE:
         return {
@@ -2344,6 +2477,14 @@ def build_server(
         ``segment_length_nm`` and total distance, not the waypoint count. When
         in doubt, add the waypoint.
 
+        Drawing a coherent route is hard for a language model: a detour round
+        the wrong side of an archipelago, a waypoint off a plateau of rocks
+        the coarse check does not see. The route is a draft:
+        ``route_notice`` is a warning intended for the user, to check it on
+        the map, then have it redrawn or move the waypoints in the web app
+        (``openwind_url`` opens the plan there, waypoints editable). A route
+        the user questions is redrawn and planned again.
+
         A waypoint that lands ashore has a second effect. Open-Meteo returns
         no sea state over land, so those samples carry a null wave height and
         the complexity score silently falls back to wind only, dropping the
@@ -2369,6 +2510,11 @@ def build_server(
         - ``route_label`` and ``alternatives[]``, only when you passed
           alternatives: each alternative has its ``label``, ``waypoints``,
           ``passage``, ``complexity`` and ``openwind_url``.
+        - ``departure_tide`` / ``arrival_tide``: the tide at the first
+          waypoint at departure and at the last one at arrival (see "Tide
+          at both ends" below), only where a tidal atlas covers that end.
+        - ``route_notice``: warning about the drawn route, intended for the
+          user (see "Waypoints must stay in the water").
         - ``disclaimer``: usage warning intended for the user
           (decision-support tool, not a navigation instrument).
 
@@ -2381,15 +2527,35 @@ def build_server(
           ``arrival``, ``duration_h``, ``distance_nm``, ``complexity`` (level
           + label + rationale), ``conditions_summary`` (tws_min/max,
           predominant sail angle, hs_min/max), ``warnings`` (the difficulty
-          first), ``openwind_url``.
+          first), ``openwind_url``, and ``departure_tide`` /
+          ``arrival_tide`` where an atlas covers that end.
         - ``meta_warnings``: notes about the whole sweep or the route ("3
           fenêtres ignorées …", a long route sampled more sparsely).
         - ``waypoints``: the route as you sent it, once for all windows.
         - ``route_label`` and ``alternatives[]``, only when you passed
           alternatives: each alternative has its ``label``, ``waypoints``
           and its own ``windows[]``, same departures.
+        - ``route_notice``: same as in single mode.
         - ``disclaimer``: usage warning intended for the user
           (decision-support tool, not a navigation instrument).
+
+        ## Tide at both ends
+
+        On a tidal coast the water at departure and arrival can decide the
+        plan as much as the wind: a drying harbour, a sill, a bar. Each tide
+        reading gives ``height_m`` in ``datum`` (``"ZH"``, chart datum, the
+        reference of chart soundings and drying heights; ``"MSL"`` around
+        mean sea level where the atlas has no chart datum, not comparable
+        with a sounding), ``trend`` (rising / falling), the ``previous`` and
+        ``next`` high or low water, ``cycle_range_m`` (range of the tide
+        running then), ``day_max_range_m`` (largest range of that day there:
+        under about 0.5 m the tide hardly matters), ``coefficient`` on French
+        coasts, and ``source``. They are facts, not a verdict: whether the
+        boat gets in depends on the harbour's soundings and its draught,
+        which this server does not know. Weigh them in the choice of the
+        departure; on a tidal coast, sweep from early morning so departures
+        that arrive with water are compared.
+        No key means no atlas at that end (most of the Mediterranean).
 
         ``openwind_url`` opens this plan in the web app, where the route,
         departure and boat can be edited and the plan shared. It points at
@@ -2579,7 +2745,11 @@ def build_server(
                 meta = (meta or {}) | {PLAN_UI_ALT_LEGS_META_KEY: alt_legs}
             body["meta_warnings"] = route_notes + list(body.get("meta_warnings") or [])
             return _tool_result(
-                _drop_notices(body | {"disclaimer": PASSAGE_DISCLAIMER}), meta, tz=dep.tzinfo
+                _drop_notices(
+                    body | {"route_notice": ROUTE_NOTICE, "disclaimer": PASSAGE_DISCLAIMER}
+                ),
+                meta,
+                tz=dep.tzinfo,
             )
 
         # --- SINGLE MODE ---
@@ -2595,10 +2765,14 @@ def build_server(
         )
         score = _score_complexity(report, max_hs_m=max_hs_m)
 
-        body = passage_envelope(report, score) | {
-            "openwind_url": build_ohmywind_url(waypoints, departure, archetype),
-            "waypoints": _route_view(pts),
-        }
+        body = (
+            passage_envelope(report, score)
+            | _single_tide(fetch_adapter, pts, report, dep.tzinfo)
+            | {
+                "openwind_url": build_ohmywind_url(waypoints, departure, archetype),
+                "waypoints": _route_view(pts),
+            }
+        )
         if alts:
             alt_entries = []
             for label, alt_pts in alts:
@@ -2616,10 +2790,14 @@ def build_server(
                 alt_entries.append(
                     {"label": label, "waypoints": alt_raw}
                     | passage_envelope(alt_report, _score_complexity(alt_report, max_hs_m=max_hs_m))
+                    | _single_tide(fetch_adapter, alt_pts, alt_report, dep.tzinfo)
                     | {"openwind_url": build_ohmywind_url(alt_raw, departure, archetype)}
                 )
             body |= {"route_label": main_label, "alternatives": alt_entries}
-        return _tool_result(_drop_notices(body | {"disclaimer": PASSAGE_DISCLAIMER}), tz=dep.tzinfo)
+        return _tool_result(
+            _drop_notices(body | {"route_notice": ROUTE_NOTICE, "disclaimer": PASSAGE_DISCLAIMER}),
+            tz=dep.tzinfo,
+        )
 
     # Registered by hand so the description can carry the archetypes: a model
     # that reads them here picks the boat without a list_boat_archetypes round
