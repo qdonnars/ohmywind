@@ -90,6 +90,11 @@ from openwind_data.routing import (
 from openwind_data.routing import (
     score_complexity as _score_complexity,
 )
+from openwind_data.routing.custom_polar import (
+    POLAR_MAX_TWA_ENTRIES,
+    POLAR_MAX_TWS_ENTRIES,
+    parse_polar,
+)
 from openwind_data.routing.geometry import Point
 from openwind_data.routing.land_check import land_crossings, waypoints_ashore
 from openwind_data.routing.notices import Notice
@@ -190,6 +195,15 @@ ROUTE_NOTICE = (
     "(headlands, islands, shoals, detours) before relying on the timings. If "
     "anything looks wrong, ask the assistant to redraw it, or move the waypoints "
     "yourself in OhMyWind through the plan link."
+)
+# Only when the caller passed ``polar``. The plan link carries an archetype
+# slug, never a grid (a polar does not fit in a URL), so the web app it opens
+# times the archetype: the model has to say so before the user shares it.
+# English for the same reason as ROUTE_NOTICE.
+POLAR_NOTICE = (
+    "Timed with the polar passed in this call. openwind_url cannot carry a "
+    "polar: it opens the plan with the archetype {archetype!r}, whose timings "
+    "differ. Tell the user before they open or share the link."
 )
 PASSAGE_DISCLAIMER = (
     "Decision-support tool, not a navigation instrument. OhMyWind does not "
@@ -2397,6 +2411,7 @@ def build_server(
         route_label: str | None = None,
         alternatives: list[dict[str, Any]] | None = None,
         inland_waterway: bool = False,
+        polar: dict[str, Any] | None = None,
     ) -> Annotated[CallToolResult, dict[str, Any]]:
         """Plan an A→B passage. Compare departure windows by default; pin a
         single departure only when the user gives an explicit time.
@@ -2515,6 +2530,8 @@ def build_server(
           at both ends" below), only where a tidal atlas covers that end.
         - ``route_notice``: warning about the drawn route, intended for the
           user (see "Waypoints must stay in the water").
+        - ``polar_notice``: only when you passed ``polar``, intended for the
+          user.
         - ``disclaimer``: usage warning intended for the user
           (decision-support tool, not a navigation instrument).
 
@@ -2535,7 +2552,7 @@ def build_server(
         - ``route_label`` and ``alternatives[]``, only when you passed
           alternatives: each alternative has its ``label``, ``waypoints``
           and its own ``windows[]``, same departures.
-        - ``route_notice``: same as in single mode.
+        - ``route_notice`` and ``polar_notice``: same as in single mode.
         - ``disclaimer``: usage warning intended for the user
           (decision-support tool, not a navigation instrument).
 
@@ -2625,6 +2642,17 @@ def build_server(
                 Rouen, the Loire to Nantes): it turns the land check off for
                 this call. Never set it to get past a refusal at sea; redraw
                 the route instead.
+            polar: optional, only when the user gives their own boat's polar
+                (a VPP or measured grid): ``{"tws_kn": [...], "twa_deg":
+                [...], "boat_speed_kn": [[...]], "min_upwind_twa_deg": 42}``,
+                one row of speeds (kn, 0 to 30) per TWS, one column per TWA
+                (deg, 0 to 180), both strictly ascending, at most
+                {polar_max} entries. It replaces the archetype's grid for
+                every route and window; still pass the closest ``archetype``.
+                ``efficiency`` still multiplies it (1.0 if the grid is what
+                the boat really makes); ``min_upwind_twa_deg`` and the motor,
+                when passed, win over the polar's own. ``openwind_url`` cannot
+                carry it: ``polar_notice`` says so, tell the user.
 
         ## Compare-windows mode (latest_departure set)
 
@@ -2662,6 +2690,13 @@ def build_server(
         except KeyError as exc:
             raise ValueError(f"unknown archetype: {exc}") from exc
 
+        # The caller's own polar, read by the same domain reader as REST and
+        # refused with REST's "invalid polar: ..." wording, before any fetch.
+        try:
+            custom_polar = parse_polar(polar, strict=True)
+        except ValueError as exc:
+            raise ValueError(f"invalid polar: {exc}") from exc
+
         if min_upwind_twa_deg is not None and not 25.0 <= min_upwind_twa_deg <= 70.0:
             raise ValueError(f"min_upwind_twa_deg must be in [25, 70], got {min_upwind_twa_deg}")
         # The domain's bounds, refused loudly where REST drops them quietly:
@@ -2680,7 +2715,8 @@ def build_server(
             if refusal is not None:
                 raise ValueError(refusal)
 
-        # Polar override: clone the archetype polar with the caller's knobs.
+        # Polar override: clone the archetype polar (or the caller's own
+        # polar) with the caller's knobs, which win over the polar's own.
         # Motor requires BOTH values (same rule as ``_apply_motor``) so a
         # half-filled call never silently changes the result.
         polar_changes: dict[str, float] = {}
@@ -2689,9 +2725,14 @@ def build_server(
             polar_changes["motor_speed_kn"] = float(motor_speed_kn)
         if min_upwind_twa_deg is not None:
             polar_changes["min_upwind_twa_deg"] = float(min_upwind_twa_deg)
+        base_polar = custom_polar if custom_polar is not None else get_polar(archetype)
         polar_override: BoatPolar | None = (
-            replace(get_polar(archetype), **polar_changes) if polar_changes else None
+            replace(base_polar, **polar_changes) if polar_changes else custom_polar
         )
+        closing: dict[str, str] = {"route_notice": ROUTE_NOTICE}
+        if custom_polar is not None:
+            closing["polar_notice"] = POLAR_NOTICE.format(archetype=archetype)
+        closing["disclaimer"] = PASSAGE_DISCLAIMER
 
         # --- SWEEP MODE ---
         if latest_departure is not None:
@@ -2745,9 +2786,7 @@ def build_server(
                 meta = (meta or {}) | {PLAN_UI_ALT_LEGS_META_KEY: alt_legs}
             body["meta_warnings"] = route_notes + list(body.get("meta_warnings") or [])
             return _tool_result(
-                _drop_notices(
-                    body | {"route_notice": ROUTE_NOTICE, "disclaimer": PASSAGE_DISCLAIMER}
-                ),
+                _drop_notices(body | closing),
                 meta,
                 tz=dep.tzinfo,
             )
@@ -2795,7 +2834,7 @@ def build_server(
                 )
             body |= {"route_label": main_label, "alternatives": alt_entries}
         return _tool_result(
-            _drop_notices(body | {"route_notice": ROUTE_NOTICE, "disclaimer": PASSAGE_DISCLAIMER}),
+            _drop_notices(body | closing),
             tz=dep.tzinfo,
         )
 
@@ -2806,7 +2845,9 @@ def build_server(
     indent = next(
         (ln[: len(ln) - len(ln.lstrip())] for ln in doc.splitlines() if "{archetypes}" in ln), ""
     )
-    plan_passage.__doc__ = doc.replace("{archetypes}", _archetype_lines(indent=indent).lstrip())
+    plan_passage.__doc__ = doc.replace(
+        "{archetypes}", _archetype_lines(indent=indent).lstrip()
+    ).replace("{polar_max}", f"{POLAR_MAX_TWS_ENTRIES} TWS x {POLAR_MAX_TWA_ENTRIES} TWA")
     server.tool(
         annotations=ToolAnnotations(
             title="Plan a passage",

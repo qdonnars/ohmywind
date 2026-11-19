@@ -34,11 +34,24 @@ from openwind_data.routing.archetypes import BoatPolar, validate_motor
 # ignores.
 MAX_BOAT_SPEED_KN = 30.0
 
+# Grid ceilings for a strict read (the MCP tool): one TWS entry per knot up to
+# 60 kn, one TWA entry per degree. The finest polar files in use (qtVlm, 1 deg
+# by 1 kn) fit; 60 x 181 speeds is about 65 KB of JSON, well under the 256 KiB
+# body cap of ``/mcp``, so a call never fails on the transport instead of here.
+POLAR_MAX_TWS_ENTRIES = 60
+POLAR_MAX_TWA_ENTRIES = 181
 
-def parse_polar(raw: Any) -> BoatPolar | None:
+
+def parse_polar(raw: Any, *, strict: bool = False) -> BoatPolar | None:
     """Build a BoatPolar from the web client's `polar` payload. Returns None
     when no payload is provided. Raises ValueError on shape mismatch / invalid
     values so the caller can surface a 422 with the original message.
+
+    ``strict`` is the MCP tool's reading, which refuses where REST tolerates:
+    a grid over ``POLAR_MAX_TWS_ENTRIES`` x ``POLAR_MAX_TWA_ENTRIES``, a value
+    that is not a finite number (``"nan"`` passes every range comparison), and
+    a motor pair out of range (REST drops it silently). The REST shell keeps
+    the lenient default, unchanged since the web app first posted polars.
     """
     if raw is None:
         return None
@@ -50,6 +63,8 @@ def parse_polar(raw: Any) -> BoatPolar | None:
         matrix = [[float(v) for v in row] for row in raw["boat_speed_kn"]]
     except (KeyError, TypeError, ValueError) as exc:
         raise ValueError(f"polar fields missing or non-numeric: {exc}") from exc
+    if strict:
+        _check_strict(tws, twa, matrix)
     if len(tws) < 2 or len(twa) < 2:
         raise ValueError("polar must have >= 2 TWS and >= 2 TWA entries")
     if any(a >= b for a, b in pairwise(tws)):
@@ -79,7 +94,9 @@ def parse_polar(raw: Any) -> BoatPolar | None:
     motor_speed = optional_float(raw.get("motor_speed_kn"))
     try:
         validate_motor(motor_threshold, motor_speed)
-    except ValueError:
+    except ValueError as exc:
+        if strict:
+            raise ValueError(f"polar {exc}") from exc
         motor_threshold = None
         motor_speed = None
     if motor_threshold is None or motor_speed is None:
@@ -110,6 +127,22 @@ def parse_polar(raw: Any) -> BoatPolar | None:
         motor_speed_kn=motor_speed,
         min_upwind_twa_deg=min_upwind,
     )
+
+
+def _check_strict(tws: list[float], twa: list[float], matrix: list[list[float]]) -> None:
+    """The strict reader's extra refusals, before any shape check."""
+    if len(tws) > POLAR_MAX_TWS_ENTRIES or len(twa) > POLAR_MAX_TWA_ENTRIES:
+        raise ValueError(
+            f"polar grid too large: {len(tws)} TWS x {len(twa)} TWA entries, at most "
+            f"{POLAR_MAX_TWS_ENTRIES} x {POLAR_MAX_TWA_ENTRIES}"
+        )
+    for name, values in (("tws_kn", tws), ("twa_deg", twa)):
+        if not all(math.isfinite(v) for v in values):
+            raise ValueError(f"polar {name} must hold finite numbers")
+    for i, row in enumerate(matrix):
+        for j, v in enumerate(row):
+            if not math.isfinite(v):
+                raise ValueError(f"polar boat_speed_kn[{i}][{j}]={v} is not a finite number")
 
 
 def optional_float(raw: Any) -> float | None:
