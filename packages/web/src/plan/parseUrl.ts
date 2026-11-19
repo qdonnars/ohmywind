@@ -123,7 +123,7 @@ export function isParsedOk(r: ParseResult): r is ParsedPlanParams {
 /** The query tail of the link settings, empty when there are none. Kept on
     every rewrite of the address bar while they apply, so the link the reader
     shares from the page is still the plan they are looking at. */
-export function linkSettingsQuery(link: LinkSettings | null | undefined): string {
+function linkSettingsQuery(link: LinkSettings | null | undefined): string {
   if (!link) return "";
   let q = "";
   if (link.motor) q += `&motor=${link.motor.thresholdKn},${link.motor.speedKn}`;
