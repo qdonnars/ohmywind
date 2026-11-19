@@ -30,6 +30,8 @@ class Case:
     coast: str = "osmplus"
     # Height of water above chart datum the route is drawn for (0 = LAT).
     water_level: float = 0.0
+    # Raster pitch in metres (a rasters file per pitch, see prepare_rasters.py).
+    pitch: int = 45
 
 
 CASES: list[Case] = [
@@ -39,6 +41,7 @@ CASES: list[Case] = [
         (43.2080, 5.4185),
         (43.2442, 5.3655),
         (43.17, 5.30, 43.27, 5.47),
+        pitch=20,
         zooms={
             "croisette": (43.198, 5.305, 43.226, 5.36),
             "arrivee": (43.232, 5.352, 43.256, 5.382),

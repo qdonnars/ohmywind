@@ -35,7 +35,8 @@ OUT = Path("/home/qdonnars/projects/open_wind/plan/spikes/auto-route-2026-11")
 QCOL = {"fine": "#1a9850", "coarse": "#f28e2b", "unknown": "#7f7f7f"}
 
 
-def load(case: Case, coast: str, *, depth: bool, pitch: int = 45) -> NavGrid:
+def load(case: Case, coast: str, *, depth: bool, pitch: int | None = None) -> NavGrid:
+    pitch = pitch or case.pitch
     z = np.load(DATA / "grids" / f"{case.key.split('_')[0]}_{pitch}m.npz")
     lat0, lon0, dlat, dlon, _n_lat, n_lon = z["meta"]
     land = np.unpackbits(z[f"land_{coast}"], axis=1)[:, : int(n_lon)].astype(bool)

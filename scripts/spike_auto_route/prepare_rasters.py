@@ -137,7 +137,11 @@ def pier_lines(path: Path):
 
     out = []
     for e in json.loads(path.read_text())["elements"]:
-        if e["type"] == "way" and e.get("geometry") and len(e["geometry"]) >= 2:
+        tags = e.get("tags", {})
+        # Pontoons and piers (man_made=pier) are left out: burnt in, the
+        # pontoons of a marina fill its basin and close the way out.
+        fixed = tags.get("man_made") in ("breakwater", "groyne") or tags.get("waterway") == "dam"
+        if fixed and e["type"] == "way" and e.get("geometry") and len(e["geometry"]) >= 2:
             out.append(shapely.LineString([(g["lon"], g["lat"]) for g in e["geometry"]]))
     return out
 
