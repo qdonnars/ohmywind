@@ -55,6 +55,13 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.results.forecastUpdated":
     "Daten aktualisiert um {time} · Open-Meteo.com (CC BY 4.0)",
 
+  // ── LinkSettingsRow ───────────────────────────────────────────────────────
+  "panel.link.lead": "Einstellungen aus dem Link",
+  "panel.link.motor":
+    "Motor mit {speed} kn, sobald das Boot unter Segeln langsamer als {threshold} kn ist",
+  "panel.link.efficiency": "Leistungsfaktor {percent} %",
+  "panel.link.useMine": "Meine Einstellungen verwenden",
+
   // ── LegList / aggregateLegs ────────────────────────────────────────────────
   "panel.legs.colLeg": "Teilstr.",
   "panel.legs.durationMinutes": "{minutes} min",

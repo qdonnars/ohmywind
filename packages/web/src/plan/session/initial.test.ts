@@ -483,3 +483,37 @@ describe("date helpers", () => {
     expect(defaultSweepLatest("2026-09-03T10:00")).toBe("2026-09-05T10:00");
   });
 });
+
+describe("resolveInitialSession: the settings a link carries (#534)", () => {
+  const route = `?wpts=${wptsParam([MARSEILLE, PORQUEROLLES])}&departure=${FUTURE}&archetype=cruiser_30ft`;
+
+  it("hands them to the session, and nothing when the link has none", () => {
+    expect(resolve({ url: parsePlanUrl(route) }).link).toBeNull();
+    expect(resolve({ url: parsePlanUrl(`${route}&motor=4,5.5&eff=0.85`) }).link).toEqual({
+      motor: { thresholdKn: 4, speedKn: 5.5 },
+      efficiency: 0.85,
+    });
+  });
+
+  it("does not restore a plan computed on the reader's own settings for a link that carries others", () => {
+    // PlanPage folds the link into the fingerprint it hands over; the cache
+    // was written under the plain one.
+    const s = resolve({
+      url: parsePlanUrl(`${route}&motor=4,5.5`),
+      cache: cache(),
+      configFingerprint: `${FINGERPRINT}|link:m4/5.5|e`,
+    });
+    expect(s.passage).toBeNull();
+    expect(s.mount.fetch).toBe(true);
+  });
+
+  it("keeps them in the address bar it rewrites from the cache", () => {
+    const s = resolve({
+      url: parsePlanUrl("?eff=0.9"),
+      cache: cache(),
+      configFingerprint: `${FINGERPRINT}|link:m|e0.9`,
+    });
+    expect(s.link).toEqual({ motor: null, efficiency: 0.9 });
+    expect(s.mount.rewriteUrl).toBe(true);
+  });
+});

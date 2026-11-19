@@ -54,6 +54,13 @@ export const panel: Record<keyof typeof frPanel, string> = {
     "Itinerario modificado. Haga clic en Recalcular para actualizar los detalles.",
   "panel.results.forecastUpdated": "Datos actualizados a las {time} · Open-Meteo.com (CC BY 4.0)",
 
+  // ── LinkSettingsRow ───────────────────────────────────────────────────────
+  "panel.link.lead": "Ajustes del enlace",
+  "panel.link.motor":
+    "motor a {speed} kn cuando a vela se va a menos de {threshold} kn",
+  "panel.link.efficiency": "coeficiente de rendimiento {percent} %",
+  "panel.link.useMine": "Usar mis ajustes",
+
   // ── LegList / aggregateLegs ────────────────────────────────────────────────
   "panel.legs.colLeg": "Tramo",
   "panel.legs.durationMinutes": "{minutes} min",

@@ -16,7 +16,19 @@ import { isLayerEntry, useBackDismiss } from "../../hooks/useBackDismiss";
 import type { PassageReport, ComplexityScore, PassageWindow } from "../types";
 import type { InitialSession } from "./initial";
 import { toTzAware } from "../../domain/datetime";
-import { usePlanSession } from "./usePlanSession";
+import {
+  currentConfigFingerprint,
+  resolveEfficiency,
+  resolveOverrides,
+  usePlanSession,
+} from "./usePlanSession";
+import {
+  BASE_POLARS,
+  defaultPolarConfig,
+  effectivePolar,
+  savePolarConfig,
+  type PolarConfig,
+} from "../../config/polarConfig";
 import { ApiError } from "../../api/passage";
 
 const fetchPassage = vi.fn();
@@ -117,6 +129,7 @@ const session = (over: Partial<InitialSession> = {}): InitialSession => ({
   isStale: false,
   actionTaken: true,
   center: null,
+  link: null,
   urlError: null,
   mount: { rewriteUrl: false, fetch: false },
   sources: { route: "url", boat: "url", departure: "url" },
@@ -551,5 +564,107 @@ describe("the comparison's history entry", () => {
     expect(window.history.state).toBeNull();
     expect(here()).toBe(planUrl);
     expect(fetchPassageWindows).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * A `/plan` link may carry the engine and the efficiency the plan was
+ * computed on (#534). They win over /config for this plan, and only in the
+ * request: the saved preferences are never touched.
+ */
+describe("the settings a link carries", () => {
+  const LINK = { motor: { thresholdKn: 4, speedKn: 5.5 }, efficiency: 0.85 };
+  const ok = () => ({
+    passage: passage(),
+    complexity: complexity(),
+    forecast_updated_at: "2026-09-09T06:00:00Z",
+  });
+
+  /** The reader's own settings: a cruising coefficient, no engine. */
+  function saveOwnSettings(over: Partial<PolarConfig> = {}): string {
+    savePolarConfig({ ...defaultPolarConfig(), coefficient: 0.6, ...over });
+    return localStorage.getItem("ow_polar_config_v1")!;
+  }
+
+  it("leaves the request on /config's settings when the link carries none", async () => {
+    saveOwnSettings();
+    fetchPassage.mockResolvedValue(ok());
+    const { result } = renderHook(() => usePlanSession(session()));
+    act(() => result.current.actions.compute());
+    await waitFor(() => expect(result.current.state.passage).not.toBeNull());
+    const body = fetchPassage.mock.calls[0][0];
+    expect(body.efficiency).toBe(0.6);
+    expect(body.overrides.polar).toBeUndefined();
+    expect(window.location.search).not.toMatch(/motor=|eff=/);
+  });
+
+  it("wins over /config, writes nothing to it, and stays in the address bar", async () => {
+    const saved = saveOwnSettings();
+    fetchPassage.mockResolvedValue(ok());
+    const { result } = renderHook(() => usePlanSession(session({ link: LINK })));
+    act(() => result.current.actions.compute());
+    await waitFor(() => expect(result.current.state.passage).not.toBeNull());
+
+    const body = fetchPassage.mock.calls[0][0];
+    expect(body.efficiency).toBe(0.85);
+    // No perso polar: the bundled polar of the boat travels, with the engine.
+    expect(body.overrides.polar.boat_speed_kn).toEqual(BASE_POLARS.cruiser_30ft.boat_speed_kn);
+    expect(body.overrides.polar.motor_threshold_kn).toBe(4);
+    expect(body.overrides.polar.motor_speed_kn).toBe(5.5);
+
+    expect(localStorage.getItem("ow_polar_config_v1")).toBe(saved);
+    expect(window.location.search).toContain("&motor=4,5.5&eff=0.85");
+    // The cached plan says what it was computed on, so a plan on the
+    // reader's own settings never restores it, nor the other way round.
+    const cached = JSON.parse(localStorage.getItem("ow_last_simulation_v1")!);
+    expect(cached.configFingerprint).toBe(currentConfigFingerprint(LINK));
+    expect(cached.configFingerprint).not.toBe(currentConfigFingerprint());
+  });
+
+  it("puts the link's engine on the reader's perso polar, and keeps theirs when the link has none", () => {
+    const cfg: PolarConfig = {
+      ...defaultPolarConfig(),
+      spi: "asymmetric",
+      motorThresholdKn: 2,
+      motorSpeedKn: 5,
+    };
+    const withEngine = resolveOverrides(LINK, "cruiser_30ft", cfg).polar!;
+    expect(withEngine.boat_speed_kn).toEqual(effectivePolar(cfg).boat_speed_kn);
+    expect(withEngine.motor_threshold_kn).toBe(4);
+    expect(withEngine.motor_speed_kn).toBe(5.5);
+
+    const effOnly = { motor: null, efficiency: 0.9 };
+    const own = resolveOverrides(effOnly, "cruiser_30ft", cfg).polar!;
+    expect(own.motor_threshold_kn).toBe(2);
+    expect(own.motor_speed_kn).toBe(5);
+    expect(resolveEfficiency(effOnly, cfg)).toBe(0.9);
+    expect(resolveEfficiency(null, cfg)).toBe(cfg.coefficient);
+  });
+
+  it("goes back to the reader's settings: parameters out of the address bar, plan recomputed", async () => {
+    const saved = saveOwnSettings();
+    fetchPassage.mockResolvedValue(ok());
+    const { result } = renderHook(() => usePlanSession(session({ link: LINK })));
+    act(() => result.current.actions.compute());
+    await waitFor(() => expect(result.current.state.passage).not.toBeNull());
+
+    act(() => result.current.actions.clearLinkSettings());
+    expect(result.current.state.link).toBeNull();
+    expect(window.location.search).not.toMatch(/motor=|eff=/);
+    expect(window.location.search).toContain("wpts=43.29000,5.37000;43.00000,6.20000");
+
+    await waitFor(() => expect(fetchPassage).toHaveBeenCalledTimes(2));
+    const body = fetchPassage.mock.calls[1][0];
+    expect(body.efficiency).toBe(0.6);
+    expect(body.overrides.polar).toBeUndefined();
+    await waitFor(() => expect(result.current.state.isStale).toBe(false));
+    expect(window.location.search).not.toMatch(/motor=|eff=/);
+    expect(localStorage.getItem("ow_polar_config_v1")).toBe(saved);
+  });
+
+  it("goes with the plan on reset", async () => {
+    const { result } = renderHook(() => usePlanSession(session({ link: LINK })));
+    act(() => result.current.actions.reset());
+    expect(result.current.state.link).toBeNull();
   });
 });
