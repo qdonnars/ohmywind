@@ -43,6 +43,7 @@ import json
 import math
 import os
 import re
+from collections.abc import Sequence
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta, tzinfo
 from importlib.metadata import version as distribution_version
@@ -90,6 +91,8 @@ from openwind_data.routing import (
 from openwind_data.routing import (
     score_complexity as _score_complexity,
 )
+from openwind_data.routing.auto_route.dispatch import RepairPool
+from openwind_data.routing.auto_route.repair import Repair, waypoints_json
 from openwind_data.routing.custom_polar import (
     POLAR_MAX_TWA_ENTRIES,
     POLAR_MAX_TWS_ENTRIES,
@@ -108,7 +111,13 @@ from openwind_data.views import (
 from pydantic import ConfigDict, Field
 
 from .guards import guarded, tool_timeout_from_env
-from .render import WEB_BASE, WEB_HOST, build_explore_url, build_ohmywind_url
+from .render import (
+    DEFAULT_EFFICIENCY,
+    WEB_BASE,
+    WEB_HOST,
+    build_explore_url,
+    build_ohmywind_url,
+)
 
 # MCP Apps UI resource URI for plan_passage. The host fetches this resource
 # and renders it in a sandboxed iframe (see ``_PLAN_WIDGET_HTML`` for why it
@@ -177,6 +186,10 @@ beyond; past five days they show a trend, not a plan.
 Reuse a result already in the conversation rather than asking again for the \
 same place and dates, and for a quick question compare departures every \
 three to six hours, not every hour.
+End every answer that gives a passage plan with one sentence asking the user \
+to study the route on the map before relying on the timings: the route is a \
+draft, drawn by an assistant and, when the plan carries route_changes, \
+adjusted by an automatic router, and both are weak at drawing a route.
 """
 
 # Usage warning attached to every plan_passage payload, single mode and
@@ -251,6 +264,41 @@ class PolarGrid(TypedDict):
             "per TWA: transpose such a table."
         ),
     ]
+
+
+# Prototype (route repair): once the server has moved an end or retraced a
+# leg, the route has two authors and the notice names both. Neither reads a
+# chart, so the user is told to study the route, not to trust either.
+ROUTE_NOTICE_ADJUSTED = (
+    "The route was drawn by the assistant, then adjusted by OhMyWind's automatic "
+    "router (see route_changes). Both are weak at this: neither reads a chart "
+    "(depths, rocks, restricted areas), and either can go round the wrong side "
+    "of an island or end in the wrong harbour. Study it on the map (headlands, "
+    "islands, shoals, detours) before relying on the timings. If anything looks "
+    "wrong, ask the assistant to redraw it, or move the waypoints yourself in "
+    "OhMyWind through the plan link."
+)
+
+
+def _route_notice(route_changes: list[str]) -> str:
+    return ROUTE_NOTICE_ADJUSTED if route_changes else ROUTE_NOTICE
+
+
+# Last keys of every plan, so the last thing the model reads before it writes
+# is what its answer must end with.
+END_ANSWER_WITH = (
+    "One sentence, in the user's language, asking the user to study the route "
+    "on the map before relying on the timings (the substance of route_notice)."
+)
+
+
+def _closing(route_changes: list[str], polar_notice: str | None = None) -> dict[str, str]:
+    return {
+        "route_notice": _route_notice(route_changes),
+        **({"polar_notice": polar_notice} if polar_notice else {}),
+        "disclaimer": PASSAGE_DISCLAIMER,
+        "end_your_answer_with": END_ANSWER_WITH,
+    }
 
 
 PASSAGE_DISCLAIMER = (
@@ -1396,29 +1444,45 @@ https://github.com/qdonnars/ohmywind/blob/main/TRADEMARK.md
 
 
 def _window_with_link(
-    report: Any, score: Any, waypoints_raw: list[dict[str, float]]
+    report: Any,
+    score: Any,
+    waypoints_raw: list[dict[str, float]],
+    *,
+    efficiency: float = DEFAULT_EFFICIENCY,
+    motor_threshold_kn: float | None = None,
+    motor_speed_kn: float | None = None,
 ) -> dict[str, Any]:
     """A sweep row, plus the deep-link only this shell can build.
 
     Appended after the shared fields rather than woven in: the key order is
-    what the goldens record, on both shells.
+    what the goldens record, on both shells. The link carries the engine
+    settings the window was computed with, so the site recomputes this one.
     """
     window = window_view(report, score)
     window["openwind_url"] = build_ohmywind_url(
-        waypoints_raw, window["departure"], report.archetype
+        waypoints_raw,
+        window["departure"],
+        report.archetype,
+        motor_threshold_kn=motor_threshold_kn,
+        motor_speed_kn=motor_speed_kn,
+        efficiency=efficiency,
     )
     return window
 
 
-def _route_view(points: list[Any]) -> list[dict[str, float]]:
+def _route_view(points: list[Any], added: Sequence[int] = ()) -> list[dict[str, Any]]:
     """The route as the model sent it, for the widget's map.
 
     The segments already carry coordinates, but they are the 10 nm
     subdivisions of the route; the map marks the model's own waypoints, the
     points a user would correct. Once per payload, never per sweep window:
-    every window sails the same line.
+    every window sails the same line. A waypoint the server added when it
+    retraced a leg over land carries ``"by_server": true``.
     """
-    return [{"lat": p.lat, "lon": p.lon} for p in points]
+    return [
+        {"lat": p.lat, "lon": p.lon} | ({"by_server": True} if i in added else {})
+        for i, p in enumerate(points)
+    ]
 
 
 async def _sweep_one_route(
@@ -1436,6 +1500,8 @@ async def _sweep_one_route(
     polar_override: BoatPolar | None,
     max_hs_m: float | None,
     target_eta: str | None,
+    motor_threshold_kn: float | None = None,
+    motor_speed_kn: float | None = None,
 ) -> tuple[list[Any], list[dict[str, Any]], int, list[Notice]]:
     """One route's compare-windows sweep: reports, window rows, interval, notices.
 
@@ -1455,7 +1521,15 @@ async def _sweep_one_route(
         polar_override=polar_override,
     )
     windows = [
-        _window_with_link(r, _score_complexity(r, max_hs_m=max_hs_m), route_raw) for r in reports
+        _window_with_link(
+            r,
+            _score_complexity(r, max_hs_m=max_hs_m),
+            route_raw,
+            efficiency=efficiency,
+            motor_threshold_kn=motor_threshold_kn,
+            motor_speed_kn=motor_speed_kn,
+        )
+        for r in reports
     ]
     meta_notices: list[Notice] = []
     # The engine widens the interval when windows x segments would blow the
@@ -1533,6 +1607,55 @@ def _land_refusal(routes: list[tuple[str | None, list[Point]]], mask: LandMask) 
         "plan_passage again. A route over land is not one the boat can sail; never move "
         "the departure or the arrival to get past this check."
     )
+
+
+def _land_gate(
+    routes: list[tuple[str | None, list[Point]]],
+    land: LandMask,
+    repairs: Sequence[Repair | None],
+    mode: str,
+) -> tuple[list[list[Point]], list[list[int]], list[str]]:
+    """The routes to plan, the server's waypoints in each and what it changed.
+
+    ``repairs`` holds, route by route, what ``RepairPool.repair`` returned
+    (None where no fine shoreline grid holds the route, and for every route
+    in ``off`` mode). ``mode`` is ``OPENWIND_ROUTE_REPAIR``. ``off``: a route
+    the coarse mask puts over land is refused (``_land_refusal``).
+    ``compute``: a repaired route is planned in place of the one sent. ``suggest``: repaired the same way, but a
+    route with a leg retraced is refused with the repaired waypoints, for the
+    caller to send back. A route no fine grid holds is checked as in ``off``.
+    Raises ValueError on a refusal.
+    """
+    out: list[list[Point]] = []
+    added: list[list[int]] = []
+    changes: list[str] = []
+    refusals: list[str] = []
+    coarse: list[tuple[str | None, list[Point]]] = []
+    for (label, pts), rep in zip(routes, repairs, strict=True):
+        prefix = f'Route "{label}": ' if label else ""
+        if rep is None:
+            coarse.append((label, pts))
+            out.append(pts)
+            added.append([])
+        elif rep.refusal:
+            refusals.append(prefix + rep.refusal)
+        elif mode == "suggest" and rep.retraced:
+            refusals.append(
+                prefix
+                + "This route crosses land, so no forecast was requested. "
+                + " ".join(rep.changes)
+                + " Send this route as waypoints to plan it: "
+                + waypoints_json(rep.points)
+                + "."
+            )
+        else:
+            out.append(rep.points)
+            added.append(rep.added)
+            changes += [prefix + c for c in rep.changes]
+    refusal = _land_refusal(coarse, land) if coarse else None
+    if refusal or refusals:
+        raise ValueError(" ".join([*refusals, *([refusal] if refusal else [])]))
+    return out, added, changes
 
 
 def _parse_alternatives(raw: Any) -> list[tuple[str, list[Point]]]:
@@ -2166,6 +2289,16 @@ def build_server(
         else load_land_mask(marc_dir or shom_dir, marc=marc, shom=shom)
     )
     timeout_s = tool_timeout_s if tool_timeout_s is not None else tool_timeout_from_env()
+    # Prototype (route repair): off unless OPENWIND_ROUTE_REPAIR says compute
+    # or suggest, with the fine shoreline grids under OPENWIND_ROUTE_GRIDS_DIR.
+    repair_mode = os.environ.get("OPENWIND_ROUTE_REPAIR", "off")
+    # The repair is a second of search: it runs in a worker process, never
+    # on the event loop the other requests share.
+    repair_pool = (
+        RepairPool(os.environ.get("OPENWIND_ROUTE_GRIDS_DIR"))
+        if repair_mode in ("compute", "suggest")
+        else None
+    )
 
     @server.resource(
         PLAN_UI_RESOURCE_URI,
@@ -2446,7 +2579,7 @@ def build_server(
         waypoints: list[dict[str, float]],
         departure: str,
         archetype: str | None = None,
-        efficiency: float = 0.75,
+        efficiency: float = DEFAULT_EFFICIENCY,
         segment_length_nm: float = 10.0,
         model: str = AUTO_MODEL,
         max_hs_m: float | None = None,
@@ -2547,6 +2680,12 @@ def build_server(
         the map, then have it redrawn or move the waypoints in the web app
         (``openwind_url`` opens the plan there, waypoints editable). A route
         the user questions is redrawn and planned again.
+
+        End every answer that gives a plan with one sentence telling the
+        user to study the route on the map before relying on the timings:
+        it was drawn by an assistant and, when ``route_changes`` is present,
+        adjusted by an automatic router, and both are weak at drawing a
+        route. Say it even when the plan looks fine.
 
         A waypoint that lands ashore has a second effect. Open-Meteo returns
         no sea state over land, so those samples carry a null wave height and
@@ -2773,11 +2912,17 @@ def build_server(
         model = _resolve_model(model)
         alts = _parse_alternatives(alternatives)
         main_label = (route_label or "Variante A").strip()[:40]
+        main_added: list[int] = []
+        alts_added: list[list[int]] = [[] for _ in alts]
+        route_changes: list[str] = []
         if not inland_waterway:
             routes: list[tuple[str | None, list[Point]]] = [(main_label if alts else None, pts)]
-            refusal = _land_refusal(routes + [(label, p) for label, p in alts], land)
-            if refusal is not None:
-                raise ValueError(refusal)
+            routes += [(label, p) for label, p in alts]
+            repairs = [await repair_pool.repair(p) if repair_pool else None for _, p in routes]
+            fixed, added, route_changes = _land_gate(routes, land, repairs, repair_mode)
+            pts, main_added, alts_added = fixed[0], added[0], added[1:]
+            alts = [(label, p) for (label, _), p in zip(alts, fixed[1:], strict=True)]
+        changed = {"route_changes": route_changes} if route_changes else {}
 
         # Polar override: clone the archetype polar (or the caller's own
         # polar) with the caller's knobs, which win over the polar's own.
@@ -2793,14 +2938,14 @@ def build_server(
         polar_override: BoatPolar | None = (
             replace(base_polar, **polar_changes) if polar_changes else custom_polar
         )
-        closing: dict[str, str] = {"route_notice": ROUTE_NOTICE}
+        polar_notice = None
         if custom_polar is not None:
-            closing["polar_notice"] = (
+            polar_notice = (
                 POLAR_NOTICE.format(archetype=named_archetype)
                 if named_archetype is not None
                 else POLAR_NOTICE_NO_ARCHETYPE
             )
-        closing["disclaimer"] = PASSAGE_DISCLAIMER
+        closing = changed | _closing(route_changes, polar_notice)
 
         # --- SWEEP MODE ---
         if latest_departure is not None:
@@ -2821,29 +2966,33 @@ def build_server(
                     polar_override=polar_override,
                     max_hs_m=max_hs_m,
                     target_eta=target_eta,
+                    motor_threshold_kn=motor_threshold_kn,
+                    motor_speed_kn=motor_speed_kn,
                 )
 
-            reports, windows, effective_interval, meta_notices = await sweep_route(pts, waypoints)
+            reports, windows, effective_interval, meta_notices = await sweep_route(
+                pts, _route_view(pts)
+            )
             body = sweep_view(
                 earliest=dep,
                 latest=latest_dep,
                 interval_hours=effective_interval,
                 windows=windows,
                 meta_notices=meta_notices,
-            ) | {"waypoints": _route_view(pts)}
+            ) | {"waypoints": _route_view(pts, main_added)}
             route_notes: list[str] = []
             body["windows"] = _model_windows(body["windows"], route_notes, dep.tzinfo)
             meta = _legs_meta(reports, windows)
             if alts:
                 alt_entries, alt_legs = [], []
-                for label, alt_pts in alts:
+                for (label, alt_pts), alt_added in zip(alts, alts_added, strict=True):
                     alt_reports, alt_windows, _, _ = await sweep_route(
                         alt_pts, _route_view(alt_pts)
                     )
                     alt_entries.append(
                         {
                             "label": label,
-                            "waypoints": _route_view(alt_pts),
+                            "waypoints": _route_view(alt_pts, alt_added),
                             "windows": _model_windows(alt_windows, route_notes, dep.tzinfo),
                         }
                     )
@@ -2872,17 +3021,26 @@ def build_server(
         )
         score = _score_complexity(report, max_hs_m=max_hs_m)
 
+        # The settings this plan was computed with, carried by every link so
+        # the site recomputes the same plan (issue #534).
+        link_settings: dict[str, Any] = {
+            "motor_threshold_kn": motor_threshold_kn,
+            "motor_speed_kn": motor_speed_kn,
+            "efficiency": efficiency,
+        }
         body = (
             passage_envelope(report, score)
             | _single_tide(fetch_adapter, pts, report, dep.tzinfo)
             | {
-                "openwind_url": build_ohmywind_url(waypoints, departure, archetype),
-                "waypoints": _route_view(pts),
+                "openwind_url": build_ohmywind_url(
+                    _route_view(pts), departure, archetype, **link_settings
+                ),
+                "waypoints": _route_view(pts, main_added),
             }
         )
         if alts:
             alt_entries = []
-            for label, alt_pts in alts:
+            for (label, alt_pts), alt_added in zip(alts, alts_added, strict=True):
                 alt_report = await _estimate_passage(
                     alt_pts,
                     dep,
@@ -2895,10 +3053,14 @@ def build_server(
                 )
                 alt_raw = _route_view(alt_pts)
                 alt_entries.append(
-                    {"label": label, "waypoints": alt_raw}
+                    {"label": label, "waypoints": _route_view(alt_pts, alt_added)}
                     | passage_envelope(alt_report, _score_complexity(alt_report, max_hs_m=max_hs_m))
                     | _single_tide(fetch_adapter, alt_pts, alt_report, dep.tzinfo)
-                    | {"openwind_url": build_ohmywind_url(alt_raw, departure, archetype)}
+                    | {
+                        "openwind_url": build_ohmywind_url(
+                            alt_raw, departure, archetype, **link_settings
+                        )
+                    }
                 )
             body |= {"route_label": main_label, "alternatives": alt_entries}
         return _tool_result(

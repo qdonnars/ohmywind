@@ -365,6 +365,33 @@ describe("edge cache", () => {
     assert.equal(calls.put.length, 0);
   });
 
+  test("the landing page negotiates its language, so it is never cached", async () => {
+    const { calls, ctx } = harness({
+      upstream: new Response("<html lang=\"fr\"></html>", {
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "public, max-age=86400",
+          Vary: "Accept-Language",
+        },
+      }),
+    });
+    const response = await worker.fetch(
+      new Request(`${DEV}/`, { headers: { "Accept-Language": "fr" } }),
+      {},
+      ctx,
+    );
+    await settle(calls);
+
+    assert.equal(calls.match.length, 0);
+    assert.equal(calls.put.length, 0);
+    assert.equal(
+      calls.upstream[0].headers.get("Accept-Language"),
+      "fr",
+      "the origin sees the reader's language",
+    );
+    assert.equal(response.headers.get("Vary"), "Accept-Language");
+  });
+
   test("an uncacheable path is not consulted either", async () => {
     const { calls, ctx } = harness({ upstream: json({}) });
     await worker.fetch(new Request(`${DEV}/api/v1/_client`), {}, ctx);

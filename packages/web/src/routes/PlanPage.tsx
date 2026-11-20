@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useState, useEffect, useMemo, useRef, useCallback, useImperativeHandle, type Ref } from "react";
-import { parsePlanUrl } from "../plan/parseUrl";
+import { isParsedOk, parsePlanUrl } from "../plan/parseUrl";
 import { PlanMap, type PlanMapHandle } from "../plan/PlanMap";
 import { WindScaleLegend } from "../plan/WindScaleLegend";
 import { DRAWER_HANDLE_REACH_PX, UNDO_MS } from "../domain/gestures";
@@ -414,16 +414,19 @@ export function PlanPage() {
   // cached last simulation) have to say about the page, decided once, in one
   // pure place. `plan/session/initial.ts` carries the precedence table and the
   // freshness rules.
-  const [initial] = useState<InitialSession>(() =>
-    resolveInitialSession({
-      url: parsePlanUrl(window.location.search),
+  const [initial] = useState<InitialSession>(() => {
+    const url = parsePlanUrl(window.location.search);
+    return resolveInitialSession({
+      url,
       draft: loadPlanDraft(),
       cache: loadLastSimulation(),
       polarConfig: loadPolarConfig(),
-      configFingerprint: currentConfigFingerprint(),
+      // The link's engine and efficiency are part of the preferences the
+      // cached results must have been computed on.
+      configFingerprint: currentConfigFingerprint(isParsedOk(url) ? url.link : null),
       now: Date.now(),
-    }),
-  );
+    });
+  });
 
   // The whole domain state of the planner, plus the two computations and the
   // single effect that persists. See plan/session/reducer.ts.

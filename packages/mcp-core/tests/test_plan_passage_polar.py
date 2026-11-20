@@ -119,7 +119,9 @@ class TestTheLink:
         out = await _call(server, "plan_passage", args)
         assert _speeds(out["passage"]) == {8.0}
         # An empty slug: the web app opens the link with the boat set there.
-        assert out["openwind_url"].endswith("&archetype=")
+        # The efficiency of the call follows it, like on any plan link.
+        assert out["openwind_url"].endswith("&archetype=&eff=1")
+        assert list(out)[-3:] == ["polar_notice", "disclaimer", "end_your_answer_with"]
         assert "the boat set in the web app" in out["polar_notice"]
         assert "archetype ''" not in out["polar_notice"]
 
