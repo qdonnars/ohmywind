@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from openwind_data.currents.land_mask import LandMask
 from openwind_data.routing.auto_route import NavGrid
-from openwind_data.routing.auto_route.repair import FineLand
+from openwind_data.routing.auto_route.repair import FineLand, repair_route
 from openwind_data.routing.geometry import Point
 
 from openwind_mcp_core.server import (
@@ -39,14 +39,16 @@ def _route(g: NavGrid) -> list[Point]:
 
 
 def test_off_plans_the_route_as_drawn():
-    fine, g = _fine()
-    out, added, changes = _land_gate([(None, _route(g))], LandMask.empty(), fine, "off")
+    _, g = _fine()
+    out, added, changes = _land_gate([(None, _route(g))], LandMask.empty(), [None], "off")
     assert out == [_route(g)] and added == [[]] and changes == []
 
 
 def test_compute_plans_the_retraced_route_and_says_so():
     fine, g = _fine()
-    out, added, changes = _land_gate([(None, _route(g))], LandMask.empty(), fine, "compute")
+    out, added, changes = _land_gate(
+        [(None, _route(g))], LandMask.empty(), [repair_route(fine, _route(g))], "compute"
+    )
     assert len(out[0]) > 2 and added[0] == list(range(1, len(out[0]) - 1))
     assert "crossed land" in changes[0]
     view = _route_view(out[0], added[0])
@@ -56,7 +58,9 @@ def test_compute_plans_the_retraced_route_and_says_so():
 def test_suggest_refuses_with_waypoints_ready_to_send_back():
     fine, g = _fine()
     with pytest.raises(ValueError, match=r"Send this route as waypoints to plan it: \[\{"):
-        _land_gate([(None, _route(g))], LandMask.empty(), fine, "suggest")
+        _land_gate(
+            [(None, _route(g))], LandMask.empty(), [repair_route(fine, _route(g))], "suggest"
+        )
 
 
 def test_an_adjusted_route_names_both_authors_and_asks_for_a_check():

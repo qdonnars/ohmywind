@@ -91,7 +91,8 @@ from openwind_data.routing import (
 from openwind_data.routing import (
     score_complexity as _score_complexity,
 )
-from openwind_data.routing.auto_route.repair import FineLand, repair_route, waypoints_json
+from openwind_data.routing.auto_route.dispatch import RepairPool
+from openwind_data.routing.auto_route.repair import Repair, waypoints_json
 from openwind_data.routing.geometry import Point
 from openwind_data.routing.land_check import land_crossings, waypoints_ashore
 from openwind_data.routing.notices import Notice
@@ -1518,14 +1519,18 @@ def _land_refusal(routes: list[tuple[str | None, list[Point]]], mask: LandMask) 
 
 
 def _land_gate(
-    routes: list[tuple[str | None, list[Point]]], land: LandMask, fine: FineLand, mode: str
+    routes: list[tuple[str | None, list[Point]]],
+    land: LandMask,
+    repairs: Sequence[Repair | None],
+    mode: str,
 ) -> tuple[list[list[Point]], list[list[int]], list[str]]:
     """The routes to plan, the server's waypoints in each and what it changed.
 
-    ``mode`` is ``OPENWIND_ROUTE_REPAIR``. ``off``: a route the coarse mask
-    puts over land is refused (``_land_refusal``). ``compute``: where a fine
-    shoreline grid holds the route, it is repaired (``repair_route``) and the
-    repaired route is planned. ``suggest``: repaired the same way, but a
+    ``repairs`` holds, route by route, what ``RepairPool.repair`` returned
+    (None where no fine shoreline grid holds the route, and for every route
+    in ``off`` mode). ``mode`` is ``OPENWIND_ROUTE_REPAIR``. ``off``: a route
+    the coarse mask puts over land is refused (``_land_refusal``).
+    ``compute``: a repaired route is planned in place of the one sent. ``suggest``: repaired the same way, but a
     route with a leg retraced is refused with the repaired waypoints, for the
     caller to send back. A route no fine grid holds is checked as in ``off``.
     Raises ValueError on a refusal.
@@ -1535,9 +1540,8 @@ def _land_gate(
     changes: list[str] = []
     refusals: list[str] = []
     coarse: list[tuple[str | None, list[Point]]] = []
-    for label, pts in routes:
+    for (label, pts), rep in zip(routes, repairs, strict=True):
         prefix = f'Route "{label}": ' if label else ""
-        rep = repair_route(fine, pts) if mode in ("compute", "suggest") else None
         if rep is None:
             coarse.append((label, pts))
             out.append(pts)
@@ -2197,10 +2201,12 @@ def build_server(
     # Prototype (route repair): off unless OPENWIND_ROUTE_REPAIR says compute
     # or suggest, with the fine shoreline grids under OPENWIND_ROUTE_GRIDS_DIR.
     repair_mode = os.environ.get("OPENWIND_ROUTE_REPAIR", "off")
-    fine_land = (
-        FineLand.from_directory(os.environ.get("OPENWIND_ROUTE_GRIDS_DIR"))
+    # The repair is a second of search: it runs in a worker process, never
+    # on the event loop the other requests share.
+    repair_pool = (
+        RepairPool(os.environ.get("OPENWIND_ROUTE_GRIDS_DIR"))
         if repair_mode in ("compute", "suggest")
-        else FineLand()
+        else None
     )
 
     @server.resource(
@@ -2783,9 +2789,9 @@ def build_server(
         route_changes: list[str] = []
         if not inland_waterway:
             routes: list[tuple[str | None, list[Point]]] = [(main_label if alts else None, pts)]
-            fixed, added, route_changes = _land_gate(
-                routes + [(label, p) for label, p in alts], land, fine_land, repair_mode
-            )
+            routes += [(label, p) for label, p in alts]
+            repairs = [await repair_pool.repair(p) if repair_pool else None for _, p in routes]
+            fixed, added, route_changes = _land_gate(routes, land, repairs, repair_mode)
             pts, main_added, alts_added = fixed[0], added[0], added[1:]
             alts = [(label, p) for (label, _), p in zip(alts, fixed[1:], strict=True)]
         changed = {"route_changes": route_changes} if route_changes else {}
