@@ -20,6 +20,7 @@ describe("matchRoute", () => {
     expect(matchRoute("/a-propos/nouveautes")).toBe("whats-new");
     expect(matchRoute("/nouveautes")).toBe("whats-new");
     expect(matchRoute("/presse/communique")).toBe("press-release");
+    expect(matchRoute("/transfert")).toBe("transfer");
   });
 
   it("answers not-found for an unknown path", () => {

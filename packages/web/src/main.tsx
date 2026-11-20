@@ -9,6 +9,7 @@ import { ThemeProvider } from "./design/theme";
 import { applyInitialTheme } from "./design/initialTheme";
 import { registerServiceWorker } from "./sw";
 import { initI18n } from "./i18n";
+import { startNativeShell } from "./native";
 
 // Before the first render, so the tokens the maps read from the DOM are
 // already those of the reader's theme. See applyInitialTheme.
@@ -35,3 +36,7 @@ initI18n()
 // worker as soon as it is found, but holds it back while a route is being
 // drawn so a deploy cannot reload the page under the reader.
 registerServiceWorker();
+
+// Inside the Android or iOS app only: a no-op in the browser, and the
+// Capacitor code is a separate chunk the PWA never loads.
+startNativeShell();

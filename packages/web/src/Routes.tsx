@@ -45,6 +45,9 @@ const loadAbout = () => import("./routes/AboutPage").then((m) => ({ default: m.A
 // seuls les journalistes ouvriront : meme traitement, a la demande.
 const loadPressRelease = () =>
   import("./routes/PressReleasePage").then((m) => ({ default: m.PressReleasePage }));
+// La page de transfert ne s'ouvre que depuis l'application native, une fois
+// par installation : rien a faire payer au chunk d'entree.
+const loadTransfer = () => import("./routes/TransferPage").then((m) => ({ default: m.TransferPage }));
 
 // Les deux pages imposent un fond "papier blanc" quel que soit le theme.
 // L'attente reprend ce fond pour eviter un clignotement sombre puis clair
@@ -131,6 +134,8 @@ export function Routes() {
       return <LazyPageBoundary key={key} load={loadAbout} fallback={<AppPageFallback />} />;
     case "whats-new":
       return <LazyPageBoundary key={key} load={loadWhatsNew} fallback={<AppPageFallback />} />;
+    case "transfer":
+      return <LazyPageBoundary key={key} load={loadTransfer} fallback={<AppPageFallback />} />;
     case "not-found":
       return <NotFoundPage key={key} />;
     case "explore":
