@@ -15,6 +15,7 @@ import { DepartureSlider } from "./DepartureSlider";
 import { ArchetypeSelector } from "./ArchetypeSelector";
 import { LegList } from "./LegList";
 import { LinkSettingsRow } from "./LinkSettingsRow";
+import { RouteRepairRow } from "./RouteRepairRow";
 import { RecomputeButton, ResultsAnchor, StalePlaceholder } from "./parts";
 import { capitalise, fmtClock, fmtDay } from "../../domain/datetime";
 import { useT } from "../../i18n";
@@ -103,6 +104,9 @@ export function SingleResults({
 
       {/* The link's engine and efficiency, when this plan runs on them. */}
       <LinkSettingsRow />
+
+      {/* The route on the map is the server's repair of the one drawn. */}
+      <RouteRepairRow />
 
       {/* Total route stats (Distance / Durée / Arrivée + segment bar).
           Desktop only: on mobile the same three totals are the head of the

@@ -223,6 +223,7 @@ On sea levels:
 By design:
 
 - **No optimising router.** OhMyWind does not look for the "best route" or the "best window". It reports the raw data; the interpretation belongs to the sailor.
+- **A route repair, not a router.** In three areas (Bretagne sud and Vendée, Manche ouest and the Channel Islands, Provence from Port-Camargue to Le Lavandou), a route that crosses land is retraced at sea on an OpenStreetMap shoreline at about 45 m, and a departure or an arrival placed ashore is moved to the nearest open water. That trace avoids the land, nothing more: it reads no chart, no rocks, no depths, and the nearest open water is not always the harbour. The app says what changed and lets you go back to your own route.
 - **Not a substitute for a SHOM atlas or a paper chart** in a narrow pass. It is a tool for planning, not for pilotage.
 
 Limitations of the data that we accept:
@@ -240,6 +241,7 @@ Limitations of the data that we accept:
 | SHOM Atlas C2D                | Licence Ouverte Etalab 2.0                           | SHOM, via data.gouv.fr                                          |
 | MARC PREVIMER atlases         | Undertaking not to redistribute the raw NetCDF       | Pineau-Guillou (2013)                                           |
 | REFMAR tide gauges            | Free to use, source must be credited                 | REFMAR, dx.doi.org/10.17183/REFMAR#RONIM                        |
+| Shoreline (route repair)      | ODbL 1.0                                             | © OpenStreetMap contributors                                    |
 | OhMyWind code                 | AGPL-3.0-or-later, excluding the name and visual identity | [TRADEMARK.md](https://github.com/qdonnars/ohmywind/blob/main/TRADEMARK.md) |
 
 Academic reference for MARC: Pineau-Guillou Lucia (2013). PREVIMER, Validation des atlas de composantes harmoniques de hauteurs et courants de marée. Ifremer report, 89 pp. [archimer.ifremer.fr/doc/00157/26801](http://archimer.ifremer.fr/doc/00157/26801/)

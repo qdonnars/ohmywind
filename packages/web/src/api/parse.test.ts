@@ -89,6 +89,34 @@ describe("parsePassageResponse", () => {
   });
 });
 
+describe("repaired_route", () => {
+  const route = {
+    waypoints: [
+      { lat: 43.29, lon: 5.37 },
+      { lat: 43.2, lon: 5.3, by_server: true },
+      { lat: 43.0, lon: 6.2 },
+    ],
+    changes: [{ code: "route.leg_retraced", params: { leg: 1 }, message: "…" }],
+  };
+
+  it("is read when the server repaired the route, and absent otherwise", () => {
+    expect(parsePassageResponse(clone(single)).repaired_route).toBeUndefined();
+    const parsed = parsePassageResponse({ ...clone(single), repaired_route: route });
+    expect(parsed.repaired_route?.waypoints[1]).toEqual({ lat: 43.2, lon: 5.3, by_server: true });
+    expect(parsed.repaired_route?.changes[0].code).toBe("route.leg_retraced");
+    const swept = parseMultiWindowResponse({ ...clone(sweep), repaired_route: route });
+    expect(swept.repaired_route?.waypoints).toHaveLength(3);
+  });
+
+  it("is refused when it is not a route", () => {
+    for (const bad of [{ ...route, waypoints: [route.waypoints[0]] }, { ...route, changes: [{}] }]) {
+      expect(() => parsePassageResponse({ ...clone(single), repaired_route: bad })).toThrow(
+        ApiShapeError,
+      );
+    }
+  });
+});
+
 describe("parseMultiWindowResponse", () => {
   it("accepts the golden sweep body", () => {
     const parsed = parseMultiWindowResponse(clone(sweep));

@@ -138,4 +138,10 @@ export const plan: Record<keyof typeof frPlan, string> = {
     "{skipped} Zeitfenster ohne Wetterabdeckung übersprungen (Horizont überschritten): die restlichen {kept} werden angezeigt.",
   "plan.notice.sweep.no_window_near_eta":
     "kein Zeitfenster kommt innerhalb von ±2 h um target_eta={target_eta} an; alle {count} Zeitfenster zurückgegeben",
+  "plan.notice.route.departure_moved":
+    "Der Start lag an Land: Er wurde um {distance_m} m zum nächsten offenen Wasser verschoben.",
+  "plan.notice.route.arrival_moved":
+    "Das Ziel lag an Land: Es wurde um {distance_m} m zum nächsten offenen Wasser verschoben.",
+  "plan.notice.route.leg_retraced":
+    "Teilstrecke {leg} führte über Land: Sie wurde auf See neu gezogen, {retraced_nm} nm statt {straight_nm} nm in gerader Linie.",
 };

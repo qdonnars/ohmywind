@@ -61,6 +61,13 @@ export const panel = {
     "moteur à {speed} kn quand la voile fait moins de {threshold} kn",
   "panel.link.efficiency": "coefficient de performance {percent} %",
   "panel.link.useMine": "Revenir à mes réglages",
+  // ── RouteRepairRow ────────────────────────────────────────────────────────
+  // The server repaired a route that crossed land; the changes themselves are
+  // the plan.notice.route.* entries.
+  "panel.routeRepair.lead": "Route ajustée pour rester en mer",
+  "panel.routeRepair.check":
+    "Ce tracé automatique évite la terre, rien de plus : il ne voit ni les roches ni les hauts-fonds. Étudiez la route sur la carte avant de vous fier aux horaires.",
+  "panel.routeRepair.revert": "Revenir à mon tracé",
 
   // ── LegList / aggregateLegs ────────────────────────────────────────────────
   "panel.legs.colLeg": "Tronçon",

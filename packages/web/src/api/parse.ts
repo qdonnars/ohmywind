@@ -32,6 +32,7 @@ import type {
   PassageWindow,
   SegmentReport,
   Archetype,
+  RepairedRoute,
 } from "../plan/types";
 import { noticeFromMessage } from "../plan/notices";
 
@@ -179,12 +180,32 @@ function parseWindow(v: unknown, path: string): PassageWindow {
   return w as unknown as PassageWindow;
 }
 
+/** The repaired route, when the server planned one; at least two points. */
+function parseRepairedRoute(v: unknown, path = "repaired_route"): RepairedRoute {
+  const r = requireRecord(v, path);
+  const waypoints = requireArray(r.waypoints, `${path}.waypoints`).map((w, i) => {
+    const point = requireRecord(w, `${path}.waypoints[${i}]`);
+    const lat = requireNumber(point.lat, `${path}.waypoints[${i}].lat`);
+    const lon = requireNumber(point.lon, `${path}.waypoints[${i}].lon`);
+    return point.by_server === true ? { lat, lon, by_server: true } : { lat, lon };
+  });
+  if (waypoints.length < 2) throw new ApiShapeError(`${path}.waypoints`, "moins de deux points");
+  return { waypoints, changes: parseNotices(r.changes, `${path}.changes`) };
+}
+
+function withRepairedRoute(b: Record<string, unknown>): { repaired_route?: RepairedRoute } {
+  return b.repaired_route === undefined
+    ? {}
+    : { repaired_route: parseRepairedRoute(b.repaired_route) };
+}
+
 export function parsePassageResponse(body: unknown): PassageResponse {
   const b = requireRecord(body, "réponse");
   return {
     passage: parsePassageReport(b.passage),
     complexity: parseComplexityScore(b.complexity),
     forecast_updated_at: requireString(b.forecast_updated_at, "forecast_updated_at"),
+    ...withRepairedRoute(b),
   };
 }
 
@@ -220,6 +241,7 @@ export function parseMultiWindowResponse(body: unknown): MultiWindowResponse {
         ? parseNotices(b.meta_notices, "meta_notices")
         : metaWarnings.map(noticeFromMessage),
     forecast_updated_at: requireString(b.forecast_updated_at, "forecast_updated_at"),
+    ...withRepairedRoute(b),
   };
 }
 

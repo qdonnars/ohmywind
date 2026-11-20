@@ -141,4 +141,10 @@ export const plan: Record<keyof typeof frPlan, string> = {
     "{skipped} finestra/e ignorata/e per mancanza di copertura meteo (orizzonte superato): mostrate le {kept} restanti.",
   "plan.notice.sweep.no_window_near_eta":
     "nessuna finestra arriva entro ±2 h da target_eta={target_eta}; restituite tutte le {count} finestre",
+  "plan.notice.route.departure_moved":
+    "La partenza era a terra: è stata spostata di {distance_m} m verso l'acqua libera più vicina.",
+  "plan.notice.route.arrival_moved":
+    "L'arrivo era a terra: è stato spostato di {distance_m} m verso l'acqua libera più vicina.",
+  "plan.notice.route.leg_retraced":
+    "La tratta {leg} tagliava la terra: è stata ritracciata in mare, {retraced_nm} nm invece di {straight_nm} nm in linea retta.",
 };

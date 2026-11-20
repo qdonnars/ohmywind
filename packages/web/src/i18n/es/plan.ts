@@ -141,4 +141,10 @@ export const plan: Record<keyof typeof frPlan, string> = {
     "{skipped} franja(s) omitida(s) por falta de cobertura meteorológica (horizonte superado): se muestran las {kept} restantes.",
   "plan.notice.sweep.no_window_near_eta":
     "ninguna franja llega dentro de ±2 h de target_eta={target_eta}; se devuelven las {count} franjas",
+  "plan.notice.route.departure_moved":
+    "La salida estaba en tierra: se ha desplazado {distance_m} m hacia el agua libre más cercana.",
+  "plan.notice.route.arrival_moved":
+    "La llegada estaba en tierra: se ha desplazado {distance_m} m hacia el agua libre más cercana.",
+  "plan.notice.route.leg_retraced":
+    "El tramo {leg} cortaba la tierra: se ha vuelto a trazar en el mar, {retraced_nm} nm en lugar de {straight_nm} nm en línea recta.",
 };

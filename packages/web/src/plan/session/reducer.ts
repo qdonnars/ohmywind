@@ -36,7 +36,13 @@
  * already true, so the panel is already offering « Recalculer ».
  */
 
-import type { PassageReport, ComplexityScore, Notice, PassageWindow } from "../types";
+import type {
+  PassageReport,
+  ComplexityScore,
+  Notice,
+  PassageWindow,
+  RepairedRoute,
+} from "../types";
 import type { PlanMode, TimeAnchor } from "../ModeToggle";
 import type { CompareAxis, SweepParams } from "../compare/slots";
 import {
@@ -45,6 +51,8 @@ import {
   startVariant,
   MAX_TRACKS,
   PLAN_TRACK_ID,
+  repairedWaypoints,
+  type RouteRepair,
   type Track,
 } from "../compare/tracks";
 import { buildPlanUrl, type LinkSettings } from "../parseUrl";
@@ -116,6 +124,14 @@ export interface PlanState {
   sweepEarliest: string;
   sweepLatest: string;
   sweepIntervalHours: number;
+  /** The server repaired the route of the last computation (it crossed
+      land): the route as drawn and what changed. The route on screen is the
+      repaired one; « Revenir à mon tracé » puts this one back. Null
+      otherwise, and dropped by any edit of the route. */
+  routeRepair: RouteRepair | null;
+  /** « Revenir à mon tracé » was chosen: this route is computed as drawn,
+      never repaired, until the reader edits it. */
+  repairDeclined: boolean;
   /** Engine and efficiency the `/plan` link imposes on this plan, over the
       /config preferences, or null. Carried on every rewrite of the address
       bar until « Revenir à mes réglages » drops them. */
@@ -214,6 +230,7 @@ export type PlanAction =
       requestId: number;
       passage: PassageReport;
       complexity: ComplexityScore;
+      repairedRoute?: RepairedRoute;
     }
   | { type: "TRACK_FAILED"; trackId: string; requestId: number; error: string }
   /** A row of the track axis: that option is the plan now, the comparison
@@ -237,6 +254,8 @@ export type PlanAction =
       passage: PassageReport;
       complexity: ComplexityScore;
       forecastUpdatedAt: string;
+      /** The route the server planned instead, when it repaired it. */
+      repairedRoute?: RepairedRoute;
     }
   | {
       type: "FETCH_SUCCEEDED";
@@ -246,8 +265,12 @@ export type PlanAction =
       windows: PassageWindow[];
       metaWarnings: Notice[];
       forecastUpdatedAt: string;
+      repairedRoute?: RepairedRoute;
     }
   | { type: "FETCH_FAILED"; requestId: number; error: string }
+  /** « Revenir à mon tracé »: the route drawn comes back, to be computed as
+      drawn. The shell recomputes. */
+  | { type: "ROUTE_REPAIR_REVERTED" }
   | { type: "FETCH_RETRY_SCHEDULED"; requestId: number; at: number; attempt: number; max: number }
   | {
       type: "WINDOW_SELECTED";
@@ -292,6 +315,8 @@ export function createInitialState(initial: InitialSession): PlanState {
     sweepLatest: initial.sweepLatest,
     sweepIntervalHours: initial.sweepIntervalHours,
     link: initial.link,
+    routeRepair: null,
+    repairDeclined: false,
     passage: initial.passage,
     complexity: initial.complexity,
     windows: initial.windows,
@@ -353,6 +378,9 @@ function routeEdited(state: PlanState, waypoints: [number, number][]): PlanState
     // to go back to once it moved, and no variant shares its ends any more.
     returnTo: null,
     ...NO_TRACKS,
+    // The reader's own route now: the next computation may repair it again.
+    routeRepair: null,
+    repairDeclined: false,
     // Dropping back under two waypoints rewinds the mobile panel to its
     // compact step, so reaching two again offers the choice again. Going
     // back up does not restore it on its own: only a tap in the panel does.
@@ -374,6 +402,19 @@ function verdict(
   const pending = state.pending;
   if (pending === null || pending.id !== requestId) return "superseded";
   return pending.editSeq === state.editSeq ? "applies" : "outdated";
+}
+
+/** The route a computation was planned on, and the repair to remember: the
+    server's repaired route when it sent one, else the route on screen. */
+function plannedRoute(
+  state: PlanState,
+  repaired: RepairedRoute | undefined,
+): { waypoints: [number, number][]; routeRepair: RouteRepair | null } {
+  if (!repaired) return { waypoints: state.waypoints, routeRepair: state.routeRepair };
+  return {
+    waypoints: repairedWaypoints(repaired),
+    routeRepair: { original: state.waypoints, changes: repaired.changes },
+  };
 }
 
 export function planReducer(state: PlanState, action: PlanAction): PlanState {
@@ -564,7 +605,19 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
           t.id !== action.trackId
             ? t
             : action.type === "TRACK_COMPUTED"
-              ? { ...t, passage: action.passage, complexity: action.complexity, error: null }
+              ? {
+                  ...t,
+                  passage: action.passage,
+                  complexity: action.complexity,
+                  error: null,
+                  // The option becomes the route the server planned.
+                  ...(action.repairedRoute
+                    ? {
+                        waypoints: repairedWaypoints(action.repairedRoute),
+                        repair: { original: t.waypoints, changes: action.repairedRoute.changes },
+                      }
+                    : {}),
+                }
               : { ...t, error: action.error },
         ),
       };
@@ -581,6 +634,8 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
           variant: null,
           waypoints: track.waypoints,
           originWaypoints: track.waypoints,
+          routeRepair: track.repair ?? null,
+          repairDeclined: false,
           passage: track.passage,
           complexity: track.complexity,
           isStale: false,
@@ -618,6 +673,8 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
           ...state,
           waypoints: track.waypoints,
           originWaypoints: track.waypoints,
+          routeRepair: track.repair ?? null,
+          repairDeclined: false,
           passage: track.passage,
           complexity: track.complexity,
           isStale: false,
@@ -712,24 +769,29 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
         // arrival mode what the user typed is a target ETA, and persisting it
         // would break reload. The slider keeps showing what they typed.
         const resolved = toNaiveLocal(new Date(action.passage.departure_time));
+        // A route the server repaired is the route on screen from now on:
+        // drawn, editable, in the address bar and in the cache.
+        const { waypoints, routeRepair } = plannedRoute(state, action.repairedRoute);
         return withPersist(
           {
             ...state,
+            waypoints,
+            routeRepair,
             pending: null,
             isStale: false,
             selectedLegIdx: null,
             selectedStepIdx: null,
             // A computed route is the one the next edits will be edits of.
-            originWaypoints: state.waypoints,
+            originWaypoints: waypoints,
             passage: action.passage,
             complexity: action.complexity,
             forecastUpdatedAt: action.forecastUpdatedAt,
           },
           {
-            url: buildPlanUrl(state.waypoints, resolved, state.archetype, state.link),
+            url: buildPlanUrl(waypoints, resolved, state.archetype, state.link),
             cache: {
               kind: "single",
-              waypoints: state.waypoints,
+              waypoints,
               archetype: state.archetype,
               configFingerprint: action.configFingerprint,
               departure: resolved,
@@ -741,21 +803,30 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
         );
       }
       // Sweep. Single-mode results are deliberately left alone: the render
-      // branches gate on `mode`.
+      // branches gate on `mode`, unless the server repaired the route, which
+      // then is the plan's route too: its passage, about the route drawn,
+      // goes stale.
+      const swept = plannedRoute(state, action.repairedRoute);
       return withPersist(
         {
           ...state,
+          waypoints: swept.waypoints,
+          routeRepair: swept.routeRepair,
           pending: null,
           isStale: false,
-          originWaypoints: state.waypoints,
+          originWaypoints: swept.waypoints,
+          ...(action.repairedRoute ? { passage: null, complexity: null } : {}),
           windows: action.windows,
           metaWarnings: action.metaWarnings,
           forecastUpdatedAt: action.forecastUpdatedAt,
         },
         {
+          ...(action.repairedRoute
+            ? { url: buildPlanUrl(swept.waypoints, state.departure, state.archetype, state.link) }
+            : {}),
           cache: {
             kind: "compare",
-            waypoints: state.waypoints,
+            waypoints: swept.waypoints,
             archetype: state.archetype,
             configFingerprint: action.configFingerprint,
             sweepEarliest: state.sweepEarliest,
@@ -768,6 +839,13 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
         },
       );
     }
+
+    case "ROUTE_REPAIR_REVERTED":
+      if (state.routeRepair === null) return state;
+      return {
+        ...routeEdited(state, state.routeRepair.original),
+        repairDeclined: true,
+      };
 
     case "FETCH_FAILED": {
       const applies = verdict(state, action.requestId);
@@ -860,6 +938,8 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
           sweepIntervalHours: 3,
           // A new plan is the reader's own: the link spoke for the one discarded.
           link: null,
+          routeRepair: null,
+          repairDeclined: false,
           passage: null,
           complexity: null,
           windows: null,
