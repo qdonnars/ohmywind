@@ -175,9 +175,9 @@ Reuse a result already in the conversation rather than asking again for the \
 same place and dates, and for a quick question compare departures every \
 three to six hours, not every hour.
 End every answer that gives a passage plan with one sentence asking the user \
-to study the route on the map before relying on the timings: it was drawn by \
-an assistant and, where it crossed land, adjusted by an automatic router, and \
-both are weak at drawing a route.
+to study the route on the map before relying on the timings: the route is a \
+draft, drawn by an assistant and, when the plan carries route_changes, \
+adjusted by an automatic router, and both are weak at drawing a route.
 """
 
 # Usage warning attached to every plan_passage payload, single mode and

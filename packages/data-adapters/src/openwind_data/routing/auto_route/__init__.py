@@ -3,7 +3,8 @@
 
 """Auto-route spike (issue #540): a draft route at sea from a departure and an arrival.
 
-Isolated prototype, imported by nothing in the API or the MCP server.
+Prototype. The MCP server uses it to repair a route that crosses land
+(``repair``, ``dispatch``), only when ``OPENWIND_ROUTE_REPAIR`` asks for it.
 """
 
 from openwind_data.routing.auto_route.engine import (
