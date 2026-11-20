@@ -102,7 +102,13 @@ from openwind_data.views import (
 )
 
 from .guards import guarded, tool_timeout_from_env
-from .render import WEB_BASE, WEB_HOST, build_explore_url, build_ohmywind_url
+from .render import (
+    DEFAULT_EFFICIENCY,
+    WEB_BASE,
+    WEB_HOST,
+    build_explore_url,
+    build_ohmywind_url,
+)
 
 # MCP Apps UI resource URI for plan_passage. The host fetches this resource
 # and renders it in a sandboxed iframe (see ``_PLAN_WIDGET_HTML`` for why it
@@ -1334,16 +1340,28 @@ https://github.com/qdonnars/ohmywind/blob/main/TRADEMARK.md
 
 
 def _window_with_link(
-    report: Any, score: Any, waypoints_raw: list[dict[str, float]]
+    report: Any,
+    score: Any,
+    waypoints_raw: list[dict[str, float]],
+    *,
+    efficiency: float = DEFAULT_EFFICIENCY,
+    motor_threshold_kn: float | None = None,
+    motor_speed_kn: float | None = None,
 ) -> dict[str, Any]:
     """A sweep row, plus the deep-link only this shell can build.
 
     Appended after the shared fields rather than woven in: the key order is
-    what the goldens record, on both shells.
+    what the goldens record, on both shells. The link carries the engine
+    settings the window was computed with, so the site recomputes this one.
     """
     window = window_view(report, score)
     window["openwind_url"] = build_ohmywind_url(
-        waypoints_raw, window["departure"], report.archetype
+        waypoints_raw,
+        window["departure"],
+        report.archetype,
+        motor_threshold_kn=motor_threshold_kn,
+        motor_speed_kn=motor_speed_kn,
+        efficiency=efficiency,
     )
     return window
 
@@ -1374,6 +1392,8 @@ async def _sweep_one_route(
     polar_override: BoatPolar | None,
     max_hs_m: float | None,
     target_eta: str | None,
+    motor_threshold_kn: float | None = None,
+    motor_speed_kn: float | None = None,
 ) -> tuple[list[Any], list[dict[str, Any]], int, list[Notice]]:
     """One route's compare-windows sweep: reports, window rows, interval, notices.
 
@@ -1393,7 +1413,15 @@ async def _sweep_one_route(
         polar_override=polar_override,
     )
     windows = [
-        _window_with_link(r, _score_complexity(r, max_hs_m=max_hs_m), route_raw) for r in reports
+        _window_with_link(
+            r,
+            _score_complexity(r, max_hs_m=max_hs_m),
+            route_raw,
+            efficiency=efficiency,
+            motor_threshold_kn=motor_threshold_kn,
+            motor_speed_kn=motor_speed_kn,
+        )
+        for r in reports
     ]
     meta_notices: list[Notice] = []
     # The engine widens the interval when windows x segments would blow the
@@ -2384,7 +2412,7 @@ def build_server(
         waypoints: list[dict[str, float]],
         departure: str,
         archetype: str,
-        efficiency: float = 0.75,
+        efficiency: float = DEFAULT_EFFICIENCY,
         segment_length_nm: float = 10.0,
         model: str = AUTO_MODEL,
         max_hs_m: float | None = None,
@@ -2712,6 +2740,8 @@ def build_server(
                     polar_override=polar_override,
                     max_hs_m=max_hs_m,
                     target_eta=target_eta,
+                    motor_threshold_kn=motor_threshold_kn,
+                    motor_speed_kn=motor_speed_kn,
                 )
 
             reports, windows, effective_interval, meta_notices = await sweep_route(pts, waypoints)
@@ -2765,11 +2795,20 @@ def build_server(
         )
         score = _score_complexity(report, max_hs_m=max_hs_m)
 
+        # The settings this plan was computed with, carried by every link so
+        # the site recomputes the same plan (issue #534).
+        link_settings: dict[str, Any] = {
+            "motor_threshold_kn": motor_threshold_kn,
+            "motor_speed_kn": motor_speed_kn,
+            "efficiency": efficiency,
+        }
         body = (
             passage_envelope(report, score)
             | _single_tide(fetch_adapter, pts, report, dep.tzinfo)
             | {
-                "openwind_url": build_ohmywind_url(waypoints, departure, archetype),
+                "openwind_url": build_ohmywind_url(
+                    waypoints, departure, archetype, **link_settings
+                ),
                 "waypoints": _route_view(pts),
             }
         )
@@ -2791,7 +2830,11 @@ def build_server(
                     {"label": label, "waypoints": alt_raw}
                     | passage_envelope(alt_report, _score_complexity(alt_report, max_hs_m=max_hs_m))
                     | _single_tide(fetch_adapter, alt_pts, alt_report, dep.tzinfo)
-                    | {"openwind_url": build_ohmywind_url(alt_raw, departure, archetype)}
+                    | {
+                        "openwind_url": build_ohmywind_url(
+                            alt_raw, departure, archetype, **link_settings
+                        )
+                    }
                 )
             body |= {"route_label": main_label, "alternatives": alt_entries}
         return _tool_result(
