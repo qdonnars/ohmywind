@@ -646,7 +646,7 @@ class TestAlternatives:
         assert alt["waypoints"] == _SOUTH_OF_THE_ISLAND
         assert alt["passage"]["distance_nm"] > out["passage"]["distance_nm"]
         assert alt["openwind_url"].startswith("https://ohmywind.fr/plan?wpts=43.300,5.350;42.950")
-        assert list(out)[-1] == "disclaimer"
+        assert list(out)[-2:] == ["disclaimer", "end_your_answer_with"]
 
     async def test_sweep_gives_each_route_the_same_departures(self) -> None:
         from openwind_mcp_core.server import PLAN_UI_ALT_LEGS_META_KEY
