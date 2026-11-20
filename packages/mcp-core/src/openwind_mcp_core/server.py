@@ -91,7 +91,7 @@ from openwind_data.routing import (
 from openwind_data.routing import (
     score_complexity as _score_complexity,
 )
-from openwind_data.routing.auto_route.dispatch import RepairPool
+from openwind_data.routing.auto_route.dispatch import RepairPool, parse_repair_mode
 from openwind_data.routing.auto_route.repair import Repair, waypoints_json
 from openwind_data.routing.custom_polar import (
     POLAR_MAX_TWA_ENTRIES,
@@ -104,6 +104,7 @@ from openwind_data.routing.notices import Notice
 from openwind_data.views import (
     filter_windows_by_target_eta,
     passage_envelope,
+    route_points_view,
     sweep_view,
     widened_interval_warning,
     window_view,
@@ -1409,7 +1410,14 @@ but the underlying complexity is unchanged.
 
 - No automatic routing optimisation (LLM + human choose).
 - No coastal acceleration zones (caller adds intermediate waypoints).
-- A coarse land check only: a route whose legs run a couple of
+- A land check, fine in three areas only: where an OpenStreetMap
+  shoreline at about 45 m covers the whole route (Bretagne sud and
+  Vendée, Manche ouest and the Channel Islands, Provence from
+  Port-Camargue to Le Lavandou), an end ashore within 3 km of the sea is
+  moved to the nearest open water and a leg over land is retraced at sea
+  (``route_changes`` says so). The retrace avoids the land, nothing else:
+  it can pass close to rocks and end off the wrong side of a harbour.
+  Elsewhere the check is coarse: a route whose legs run a couple of
   kilometres over land, or a waypoint inland, is refused before any
   forecast request (Natural Earth 10 m, about 1 km, coast widened by 2 km;
   water a fine current atlas resolves counts as sea). A spit narrower than
@@ -1429,6 +1437,8 @@ but the underlying complexity is unchanged.
   Validation des atlas de composantes harmoniques de hauteurs et
   courants de maree", Rapport Ifremer, 89 p.
   http://archimer.ifremer.fr/doc/00157/26801/
+- Shoreline of the route repair: © OpenStreetMap contributors, ODbL 1.0
+  (https://www.openstreetmap.org/copyright).
 
 ## Licence and trademark
 
@@ -1471,18 +1481,16 @@ def _window_with_link(
 
 
 def _route_view(points: list[Any], added: Sequence[int] = ()) -> list[dict[str, Any]]:
-    """The route as the model sent it, for the widget's map.
+    """The route planned, for the widget's map.
 
     The segments already carry coordinates, but they are the 10 nm
     subdivisions of the route; the map marks the model's own waypoints, the
     points a user would correct. Once per payload, never per sweep window:
     every window sails the same line. A waypoint the server added when it
-    retraced a leg over land carries ``"by_server": true``.
+    retraced a leg over land carries ``"by_server": true``: the same view as
+    the REST API's ``repaired_route``, so both draw the same points.
     """
-    return [
-        {"lat": p.lat, "lon": p.lon} | ({"by_server": True} if i in added else {})
-        for i, p in enumerate(points)
-    ]
+    return route_points_view(points, added)
 
 
 async def _sweep_one_route(
@@ -2213,6 +2221,7 @@ def build_server(
     adapter: MarineDataAdapter | None = None,
     land_mask: LandMask | None = None,
     tool_timeout_s: float | None = None,
+    repair_pool: RepairPool | None = None,
 ) -> FastMCP:
     """Build a FastMCP server with all OhMyWind tools registered.
 
@@ -2241,6 +2250,12 @@ def build_server(
         tool_timeout_s: the deadline of every tool call, in seconds
             (``OPENWIND_MCP_TOOL_TIMEOUT_S``, default 90; 0 disables it). See
             ``guards.py``.
+        repair_pool: the worker that repairs a route crossing land, used
+            unless ``OPENWIND_ROUTE_REPAIR=off``. Defaults to a pool of its
+            own on ``OPENWIND_ROUTE_GRIDS_DIR``, else the grids bundled with
+            ``openwind_data``. A deployment that serves both shells passes
+            the API's, so the web app and the connector repair a route with
+            one code path, one set of grids and one worker.
     """
     # ``stateless_http=True`` disables the in-memory session table that
     # otherwise tracks an ``mcp-session-id`` per client across requests.
@@ -2289,16 +2304,16 @@ def build_server(
         else load_land_mask(marc_dir or shom_dir, marc=marc, shom=shom)
     )
     timeout_s = tool_timeout_s if tool_timeout_s is not None else tool_timeout_from_env()
-    # Prototype (route repair): off unless OPENWIND_ROUTE_REPAIR says compute
-    # or suggest, with the fine shoreline grids under OPENWIND_ROUTE_GRIDS_DIR.
-    repair_mode = os.environ.get("OPENWIND_ROUTE_REPAIR", "off")
-    # The repair is a second of search: it runs in a worker process, never
-    # on the event loop the other requests share.
-    repair_pool = (
-        RepairPool(os.environ.get("OPENWIND_ROUTE_GRIDS_DIR"))
-        if repair_mode in ("compute", "suggest")
-        else None
-    )
+    # Route repair: on by default (``compute``), ``suggest`` or ``off`` from
+    # OPENWIND_ROUTE_REPAIR, on the shoreline grids bundled with
+    # openwind_data unless OPENWIND_ROUTE_GRIDS_DIR names others. The repair
+    # is a second of search: it runs in a worker process, never on the event
+    # loop the other requests share.
+    repair_mode = parse_repair_mode(os.environ.get("OPENWIND_ROUTE_REPAIR"))
+    if repair_mode == "off":
+        repair_pool = None
+    elif repair_pool is None:
+        repair_pool = RepairPool(os.environ.get("OPENWIND_ROUTE_GRIDS_DIR"))
 
     @server.resource(
         PLAN_UI_RESOURCE_URI,
@@ -2644,18 +2659,32 @@ def build_server(
 
         ## Waypoints must stay in the water
 
-        This server runs a coarse land check before anything else: a leg
-        that runs a couple of kilometres over land, or a waypoint inland, gets
-        the call refused before any forecast request, with the leg and the
-        place named. Redraw it and call again: a route over land is not one
-        the boat can sail. The shoreline is coarse (about 1 km, the coast widened by
-        2 km so harbours stay at sea, and any water a fine current atlas
-        resolves counts as sea): a spit narrower than about 4 km, or a
-        leg that shaves a headland, passes the check and is timed as drawn,
-        too short, too fast, and scored on conditions the boat would never
-        meet.
+        The route is yours to draw, and this server checks it against the
+        land before any forecast request.
 
-        So the route is still yours to draw. Between every consecutive pair of
+        Where its fine shoreline (OpenStreetMap, about 45 m) covers the
+        whole route, which today is three areas only (Bretagne sud and
+        Vendée, Manche ouest and the Channel Islands, Provence from
+        Port-Camargue to Le Lavandou), a route over land is repaired, not
+        refused: a departure or an arrival ashore within 3 km of the sea is
+        moved to the nearest open water (not always the harbour), and a leg
+        that crosses land is retraced at sea, that leg alone. The plan is
+        computed on the repaired route, ``route_changes`` says what changed,
+        and a waypoint the server added carries ``"by_server": true``. A
+        waypoint between the ends that lies ashore is refused, as is an end
+        further inland or a leg with no passage at sea.
+
+        Elsewhere a coarse land check applies: a leg that runs a couple of
+        kilometres over land, or a waypoint inland, gets the call refused,
+        with the leg and the place named. Redraw it and call again: a route
+        over land is not one the boat can sail. That shoreline is coarse
+        (about 1 km, the coast widened by 2 km so harbours stay at sea, and
+        any water a fine current atlas resolves counts as sea): a spit
+        narrower than about 4 km, or a leg that shaves a headland, passes
+        the check and is timed as drawn, too short, too fast, and scored on
+        conditions the boat would never meet.
+
+        So draw the route at sea anyway. Between every consecutive pair of
         waypoints the straight line must stay at sea. Add intermediate
         waypoints to round anything the direct line would cut: headlands,
         peninsulas, islands, shoals.
@@ -2707,8 +2736,12 @@ def build_server(
           human-readable rationale.
         - ``openwind_url``: deep-link to ohmywind.fr/plan that renders the
           same passage in the standalone web app.
-        - ``waypoints``: the route as you sent it, which the widget draws on
-          a map.
+        - ``waypoints``: the route planned, which the widget draws on a map:
+          the one you sent, or its repair (see "Waypoints must stay in the
+          water"), where each waypoint the server added carries
+          ``"by_server": true``.
+        - ``route_changes``: only when the server repaired the route, what
+          it changed, one sentence per change.
         - ``route_label`` and ``alternatives[]``, only when you passed
           alternatives: each alternative has its ``label``, ``waypoints``,
           ``passage``, ``complexity`` and ``openwind_url``.
@@ -2735,7 +2768,8 @@ def build_server(
           ``arrival_tide`` where an atlas covers that end.
         - ``meta_warnings``: notes about the whole sweep or the route ("3
           fenêtres ignorées …", a long route sampled more sparsely).
-        - ``waypoints``: the route as you sent it, once for all windows.
+        - ``waypoints``: the route planned, once for all windows (see single
+          mode), and ``route_changes`` when the server repaired it.
         - ``route_label`` and ``alternatives[]``, only when you passed
           alternatives: each alternative has its ``label``, ``waypoints``
           and its own ``windows[]``, same departures.
@@ -2971,7 +3005,7 @@ def build_server(
                 )
 
             reports, windows, effective_interval, meta_notices = await sweep_route(
-                pts, _route_view(pts)
+                pts, _route_view(pts, main_added)
             )
             body = sweep_view(
                 earliest=dep,
@@ -2987,7 +3021,7 @@ def build_server(
                 alt_entries, alt_legs = [], []
                 for (label, alt_pts), alt_added in zip(alts, alts_added, strict=True):
                     alt_reports, alt_windows, _, _ = await sweep_route(
-                        alt_pts, _route_view(alt_pts)
+                        alt_pts, _route_view(alt_pts, alt_added)
                     )
                     alt_entries.append(
                         {
@@ -3033,7 +3067,7 @@ def build_server(
             | _single_tide(fetch_adapter, pts, report, dep.tzinfo)
             | {
                 "openwind_url": build_ohmywind_url(
-                    _route_view(pts), departure, archetype, **link_settings
+                    _route_view(pts, main_added), departure, archetype, **link_settings
                 ),
                 "waypoints": _route_view(pts, main_added),
             }
@@ -3051,7 +3085,7 @@ def build_server(
                     model=model,
                     polar_override=polar_override,
                 )
-                alt_raw = _route_view(alt_pts)
+                alt_raw = _route_view(alt_pts, alt_added)
                 alt_entries.append(
                     {"label": label, "waypoints": _route_view(alt_pts, alt_added)}
                     | passage_envelope(alt_report, _score_complexity(alt_report, max_hs_m=max_hs_m))

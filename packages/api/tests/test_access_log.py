@@ -175,7 +175,11 @@ class TestForecastCacheField:
     def test_a_plan_off_the_browser_cache_says_yes(self, client, access_lines) -> None:
         axis = hourly_axis(DEPARTURE, DEPARTURE.replace(hour=20))
         payload = browser_cache_payload([(43.29, 5.37), (43.00, 6.20)], axis)
-        resp = client.post("/api/v1/passage", json=self._body(forecast_cache=payload))
+        # The straight line cuts the coast: a repaired route is planned off
+        # the cache, so the repair is declined to keep this on the cache path.
+        resp = client.post(
+            "/api/v1/passage", json=self._body(forecast_cache=payload, repair_route=False)
+        )
         assert resp.status_code == 200
         assert _fields(access_lines()[-1])["cache"] == "yes"
 

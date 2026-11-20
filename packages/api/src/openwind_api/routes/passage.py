@@ -11,6 +11,7 @@ is the only part that differs between the two.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -28,6 +29,7 @@ from openwind_data.views import (
     filter_windows_by_target_eta,
     passage_envelope,
     passage_view,
+    repaired_route_view,
     skipped_windows_warning,
     sweep_view,
     widened_interval_warning,
@@ -80,6 +82,41 @@ def _note_forecast_cache(request: Request, parsed: PassageRequest) -> None:
     request.scope.setdefault("state", {})["forecast_cache"] = parsed.adapter is not None
 
 
+async def _repair(
+    request: Request, parsed: PassageRequest
+) -> tuple[PassageRequest, dict[str, Any]]:
+    """The request to plan, and the ``repaired_route`` key when the server repaired the route.
+
+    The same repair as the MCP server's ``plan_passage``, through the same
+    process-wide ``RepairPool`` (one worker, its cache and its load guards):
+    a departure or an arrival ashore near the sea is moved to open water,
+    a leg over land is retraced at sea, where a shoreline grid holds the
+    whole route. Everywhere else, and when the repair is refused (a waypoint
+    between the ends ashore, an end far inland, no passage at sea), turned
+    off (``repair_route: false``, ``OPENWIND_ROUTE_REPAIR=off``) or shed by
+    the pool under load, the route is planned as drawn, as it always was.
+
+    A repaired route is planned live, off the process-wide adapter: the
+    ``forecast_cache`` the browser sampled follows the route it drew, not
+    this one. The web app takes the repaired route as its own, so the next
+    computation sends a route at sea, which the pool checks in a few
+    milliseconds, and the cache applies again.
+    """
+    pool = getattr(request.app.state.services, "repair", None)
+    if pool is None or not parsed.repair:
+        return parsed, {}
+    rep = await pool.repair(parsed.waypoints)
+    if rep is None or rep.refusal or not rep.changes:
+        return parsed, {}
+    repaired = replace(
+        parsed,
+        waypoints=rep.points,
+        adapter=None,
+        model_chain=parsed.requested_model_chain,
+    )
+    return repaired, {"repaired_route": repaired_route_view(rep.points, rep.added, rep.notices)}
+
+
 async def api_passage(request: Request) -> JSONResponse:
     """Plan a passage from a departure time, or sweep a range of them.
 
@@ -90,12 +127,13 @@ async def api_passage(request: Request) -> JSONResponse:
     try:
         body = await _json_body(request)
         departure, parsed = parse_passage_request(body, timestamp_field="departure")
+        parsed, repaired = await _repair(request, parsed)
         adapter = _adapter(request, parsed)
         _note_forecast_cache(request, parsed)
         latest_raw = body.get("latest_departure")
         if latest_raw is not None:
-            return await _sweep(body, departure, parsed, latest_raw, adapter)
-        return await _single(departure, parsed, adapter)
+            return await _sweep(body, departure, parsed, latest_raw, adapter, repaired)
+        return await _single(departure, parsed, adapter, repaired)
     except RequestError as exc:
         return exc.response()
 
@@ -112,6 +150,7 @@ async def api_passage_by_eta(request: Request) -> JSONResponse:
     try:
         body = await _json_body(request)
         target_arrival, parsed = parse_passage_request(body, timestamp_field="target_arrival")
+        parsed, repaired = await _repair(request, parsed)
         adapter = _adapter(request, parsed)
         _note_forecast_cache(request, parsed)
     except RequestError as exc:
@@ -141,11 +180,15 @@ async def api_passage_by_eta(request: Request) -> JSONResponse:
             "eta": {"target_arrival": plan.target_arrival.isoformat()},
             "forecast_updated_at": datetime.now(UTC).isoformat(),
         }
+        | repaired
     )
 
 
 async def _single(
-    departure: datetime, parsed: PassageRequest, adapter: MarineDataAdapter
+    departure: datetime,
+    parsed: PassageRequest,
+    adapter: MarineDataAdapter,
+    repaired: dict[str, Any],
 ) -> JSONResponse:
     try:
         passage = await estimate_passage(
@@ -168,6 +211,7 @@ async def _single(
     return JSONResponse(
         passage_envelope(passage, complexity)
         | {"forecast_updated_at": datetime.now(UTC).isoformat()}
+        | repaired
     )
 
 
@@ -177,6 +221,7 @@ async def _sweep(
     parsed: PassageRequest,
     latest_raw: Any,
     adapter: MarineDataAdapter,
+    repaired: dict[str, Any],
 ) -> JSONResponse:
     latest_departure = parse_timestamp(latest_raw, "latest_departure")
     sweep_interval = parse_sweep_interval(body.get("sweep_interval_hours"))
@@ -250,4 +295,5 @@ async def _sweep(
             meta_notices=meta_notices,
         )
         | {"forecast_updated_at": datetime.now(UTC).isoformat()}
+        | repaired
     )

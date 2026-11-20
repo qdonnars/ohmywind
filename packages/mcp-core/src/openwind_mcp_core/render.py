@@ -23,6 +23,7 @@ from __future__ import annotations
 import logging
 import math
 import os
+from typing import Any
 from urllib.parse import quote, urlsplit
 
 from openwind_data.routing import validate_motor
@@ -84,7 +85,7 @@ def _short(x: float) -> str:
 
 
 def build_ohmywind_url(
-    waypoints: list[dict[str, float]],
+    waypoints: list[dict[str, Any]],
     departure_iso: str,
     archetype: str,
     *,
@@ -108,10 +109,20 @@ def build_ohmywind_url(
 
     Both come after the historical parameters, whose order does not change.
 
+    Waypoints are written to three decimals, five for a route the server
+    repaired (see below).
+
     Deep-links emitted before the rebrand pointed at ``openwind.fr``; those
     keep working through the 301 that fronts the old domain.
     """
-    wpts = ";".join(f"{w['lat']:.3f},{w['lon']:.3f}" for w in waypoints)
+    # Three decimals (about 100 m) for a route as the model drew it, the
+    # links' historical form. A route the server repaired (a waypoint carries
+    # ``by_server``) hugs the coast it was retraced round: rounded to 100 m a
+    # point could fall ashore and the web app would repair it again,
+    # differently. Five decimals, as the web app writes its own links, keep
+    # the route the connector planned.
+    decimals = 5 if any(w.get("by_server") for w in waypoints) else 3
+    wpts = ";".join(f"{w['lat']:.{decimals}f},{w['lon']:.{decimals}f}" for w in waypoints)
     dep = quote(departure_iso, safe="")
     url = f"{WEB_BASE}/plan?wpts={wpts}&departure={dep}&archetype={archetype}"
     if motor_threshold_kn is not None and motor_speed_kn is not None:

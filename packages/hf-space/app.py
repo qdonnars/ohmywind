@@ -72,7 +72,7 @@ def settings_from_env() -> Settings:
     return replace(Settings.from_env(), static_dir=STATIC_DIR)
 
 
-def build_mcp_app(adapter: Any, land_mask: Any = None) -> Any:
+def build_mcp_app(adapter: Any, land_mask: Any = None, repair_pool: Any = None) -> Any:
     """The FastMCP streamable-http app, with the Space's hosts allowed.
 
     The adapter is the API's ``MarineDataAdapter``, handed in rather than
@@ -81,9 +81,11 @@ def build_mcp_app(adapter: Any, land_mask: Any = None) -> Any:
     instead of two of each, and what makes a passage planned over REST and
     the same passage planned over MCP read their currents off one source.
     The land mask travels the same way: the one the tidal overlay answers
-    with is the one ``plan_passage`` checks routes against.
+    with is the one ``plan_passage`` checks routes against. So does the
+    route repair worker: the web app and the connector repair a route with
+    one pool, one cache and one queue.
     """
-    server = build_server(adapter=adapter, land_mask=land_mask)
+    server = build_server(adapter=adapter, land_mask=land_mask, repair_pool=repair_pool)
     server.settings.transport_security = TransportSecuritySettings(
         enable_dns_rebinding_protection=True,
         allowed_hosts=ALLOWED_HOSTS,
@@ -143,7 +145,9 @@ def build_app() -> Any:
     services = Services.from_settings(settings)
     report_atlases(services)
     return create_app(
-        settings, mcp_app=build_mcp_app(services.marine, services.land), services=services
+        settings,
+        mcp_app=build_mcp_app(services.marine, services.land, services.repair),
+        services=services,
     )
 
 

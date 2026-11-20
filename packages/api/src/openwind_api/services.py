@@ -41,6 +41,7 @@ from openwind_data.currents.land_mask import LandMask, load_land_mask
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry
 from openwind_data.currents.router import compose_marine_adapter
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
+from openwind_data.routing.auto_route.dispatch import RepairPool
 
 from openwind_api.settings import Settings
 
@@ -89,6 +90,11 @@ class Services:
     land: LandMask = field(default_factory=LandMask.empty)
     weather: OpenMeteoAdapter | None = None
     budget: UpstreamBudget | None = None
+    # The worker that repairs a route crossing land, None when the
+    # deployment turned the repair off. One per process: the deployment
+    # hands this one to the MCP server too, so the web app and the connector
+    # repair a route with the same code, the same grids and the same worker.
+    repair: RepairPool | None = None
 
     @classmethod
     def from_settings(cls, settings: Settings) -> Services:
@@ -113,11 +119,16 @@ class Services:
             land=land,
             weather=weather,
             budget=budget,
+            repair=(
+                RepairPool(settings.route_grids_dir) if settings.route_repair != "off" else None
+            ),
         )
 
     async def aclose(self) -> None:
-        """Release the shared connection pool. Called by the app's lifespan."""
+        """Release the shared connection pool and the repair worker. Called by the app's lifespan."""
         await self.http.aclose()
+        if self.repair is not None:
+            self.repair.close()
 
     async def warm_atlas_coverage(self) -> None:
         """Compute the MARC coverage rectangles once, in a worker thread.

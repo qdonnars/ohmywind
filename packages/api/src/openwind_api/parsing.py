@@ -81,6 +81,14 @@ class PassageRequest:
     polar_override: BoatPolar | None
     model_chain: tuple[str, ...] | None
     adapter: CacheBackedAdapter | None
+    # ``repair_route`` (default true): whether the server may repair a route
+    # that crosses land before planning it. The web app sends false for
+    # « Revenir à mon tracé ».
+    repair: bool = True
+    # The chain the ``models`` field asked for, before a ``forecast_cache``
+    # replaced it with the models it sampled: a repaired route is planned
+    # live, off the cache, on this one.
+    requested_model_chain: tuple[str, ...] | None = None
 
 
 def parse_passage_request(body: Any, *, timestamp_field: str) -> tuple[datetime, PassageRequest]:
@@ -120,6 +128,11 @@ def parse_passage_request(body: Any, *, timestamp_field: str) -> tuple[datetime,
         raise RequestError(f"invalid polar: {exc}", "invalid_polar") from exc
 
     model_chain = translate_models(body.get("models"))
+    requested_model_chain = model_chain
+
+    repair = body.get("repair_route", True)
+    if not isinstance(repair, bool):
+        raise RequestError("invalid repair_route: true or false", "invalid_repair_route")
 
     try:
         adapter = build_cache_adapter(body.get("forecast_cache"))
@@ -138,6 +151,8 @@ def parse_passage_request(body: Any, *, timestamp_field: str) -> tuple[datetime,
         polar_override=polar_override,
         model_chain=model_chain,
         adapter=adapter,
+        repair=repair,
+        requested_model_chain=requested_model_chain,
     )
 
 
