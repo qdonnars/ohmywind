@@ -59,6 +59,11 @@ export const panel: Record<keyof typeof frPanel, string> = {
     "engine at {speed} kn when sailing below {threshold} kn",
   "panel.link.efficiency": "performance coefficient {percent}%",
   "panel.link.useMine": "Use my settings",
+  // ── RouteRepairRow ────────────────────────────────────────────────────────
+  "panel.routeRepair.lead": "Route adjusted to stay at sea",
+  "panel.routeRepair.check":
+    "This automatic trace avoids the land, nothing more: it does not see rocks or shoals. Study the route on the map before relying on the timings.",
+  "panel.routeRepair.revert": "Back to my route",
 
   // ── LegList / aggregateLegs ────────────────────────────────────────────────
   "panel.legs.colLeg": "Leg",

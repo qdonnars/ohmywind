@@ -135,6 +135,7 @@ function stubActions(): PlanActions {
     setDeparture: vi.fn(),
     setTimeAnchor: vi.fn(),
     clearLinkSettings: vi.fn(),
+    revertRouteRepair: vi.fn(),
     openForm: vi.fn(),
     openCompare: vi.fn(),
     closeCompare: vi.fn(),

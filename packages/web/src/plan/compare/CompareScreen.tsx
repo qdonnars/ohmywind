@@ -21,6 +21,7 @@ import { CompareSettings } from "./CompareSettings";
 import { spanHours, windowCount } from "./slots";
 import { ChevronIcon } from "./icons";
 import { useT } from "../../i18n";
+import { RouteRepairRow } from "../sidebar/RouteRepairRow";
 
 const MONO = { fontFamily: "var(--ow-font-mono)" } as const;
 
@@ -67,6 +68,7 @@ export function CompareScreen() {
       <CompareHead />
       {/* No settings while a variant is being drawn: the map is the form. */}
       {state.variant === null && <CompareSettings />}
+      {state.compareAxis === "slots" && <RouteRepairRow />}
       {state.compareAxis === "slots" ? <SlotList /> : <TrackList />}
     </div>
   );

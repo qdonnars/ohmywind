@@ -114,7 +114,9 @@ def client():
     counter: the goldens fire more requests at ``/api/v1/passage`` than one
     bucket allows in a minute.
     """
-    return _deterministic_app(Settings())
+    # The recorded passages are of the route as drawn: the repair has its
+    # own golden below (``passage_single_repaired.json``).
+    return _deterministic_app(Settings(route_repair="off"))
 
 
 def _passage_body(**extra) -> dict:
@@ -126,6 +128,29 @@ def _passage_body(**extra) -> dict:
     }
     body.update(extra)
     return body
+
+
+class TestRepairedRoute:
+    """The route repair, on by default: what the web app reads when the route moved."""
+
+    def test_single_mode_repaired(self) -> None:
+        # The default deployment, repair on. The route is the golden's own
+        # Marseille to Porquerolles, whose straight line cuts the coast.
+        client = _deterministic_app(Settings())
+        try:
+            resp = client.post("/api/v1/passage", json=_passage_body())
+            assert resp.status_code == 200
+            body = resp.json()
+            # Both ends of the golden's route lie ashore (the quay, the
+            # island), and the line between them cuts the coast.
+            assert [c["code"] for c in body["repaired_route"]["changes"]] == [
+                "route.departure_moved",
+                "route.arrival_moved",
+                "route.leg_retraced",
+            ]
+            assert_golden("passage_single_repaired.json", resp.content)
+        finally:
+            client.app.state.services.repair.close()
 
 
 class TestPassage:

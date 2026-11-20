@@ -34,6 +34,11 @@ def test_plan_passage_makes_the_land_rule_prominent(by_name) -> None:
     assert "## Waypoints must stay in the water" in description
     assert "coarse land check" in description
     assert "Redraw it and call again" in description
+    # The repair, on by default, said where it applies and what it returns.
+    flat = " ".join(description.split())
+    assert "a route over land is repaired, not refused" in flat
+    assert "three areas only" in flat
+    assert '``"by_server": true``' in flat
 
     # Ahead of the payload docs: the caller has to read it before it matters,
     # not after it has already drawn the route.

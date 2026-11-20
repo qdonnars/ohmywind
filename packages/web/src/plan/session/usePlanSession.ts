@@ -152,6 +152,9 @@ export interface PlanActions {
   /** « Revenir à mes réglages »: drop the link's engine and efficiency and
       recompute the plan on /config's, when it had a result. */
   clearLinkSettings: () => void;
+  /** « Revenir à mon tracé »: the route as drawn comes back, and is computed
+      as drawn, never repaired, until it is edited. */
+  revertRouteRepair: () => void;
   /** The door in the plan. On the departure axis, a comparison that has no
       fresh windows to show is seeded on the plan's departure and computed
       at once, so opening it is an answer rather than a form. */
@@ -288,6 +291,9 @@ export function usePlanSession(initial: InitialSession): PlanSession {
       // Read now rather than when the reply lands: the fingerprint persisted
       // with the result has to be that of the settings it was computed on.
       link: LinkSettings | null = stateRef.current.link,
+      // Whether the server may repair a route over land. Passed explicitly by
+      // « Revenir à mon tracé », whose state `stateRef` has not caught up with.
+      repair: boolean = !stateRef.current.repairDeclined,
     ) => {
       const { requestId, signal } = startRequest("single");
       const overrides = resolveOverrides(link, archetype);
@@ -311,6 +317,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
                 overrides,
                 forecastCache,
                 signal,
+                repairRoute: repair,
               })
             : fetchPassage({
                 waypoints,
@@ -320,6 +327,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
                 overrides,
                 forecastCache,
                 signal,
+                repairRoute: repair,
               }),
         )
         .then((res) => {
@@ -332,6 +340,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
             passage: res.passage,
             complexity: res.complexity,
             forecastUpdatedAt: res.forecast_updated_at,
+            repairedRoute: res.repaired_route,
           });
         })
         .catch((error: unknown) => onFailure(requestId, error));
@@ -392,6 +401,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
             requestId,
             passage: res.passage,
             complexity: res.complexity,
+            repairedRoute: res.repaired_route,
           });
         })
         .catch((error: unknown) => {
@@ -407,8 +417,15 @@ export function usePlanSession(initial: InitialSession): PlanSession {
     [],
   );
 
-  const runSweep = useCallback((sweep?: SweepParams) => {
-    const { waypoints, archetype, link } = stateRef.current;
+  // `route` overrides the state's route and its repair flag, for the same
+  // reason as `sweep`: « Revenir à mon tracé » recomputes in the same tick.
+  const runSweep = useCallback((
+    sweep?: SweepParams,
+    route?: { waypoints: [number, number][]; repair: boolean },
+  ) => {
+    const { archetype, link } = stateRef.current;
+    const waypoints = route?.waypoints ?? stateRef.current.waypoints;
+    const repair = route?.repair ?? !stateRef.current.repairDeclined;
     const sweepEarliest = sweep?.earliest ?? stateRef.current.sweepEarliest;
     const sweepLatest = sweep?.latest ?? stateRef.current.sweepLatest;
     const sweepIntervalHours = sweep?.intervalHours ?? stateRef.current.sweepIntervalHours;
@@ -428,6 +445,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
           overrides: resolveOverrides(link, archetype),
           forecastCache,
           signal,
+          repairRoute: repair,
         }),
       )
       .then((res) => {
@@ -440,6 +458,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
           windows: res.windows,
           metaWarnings: res.meta_notices,
           forecastUpdatedAt: res.forecast_updated_at,
+          repairedRoute: res.repaired_route,
         });
       })
       .catch((error: unknown) => onFailure(requestId, error));
@@ -549,6 +568,19 @@ export function usePlanSession(initial: InitialSession): PlanSession {
         if (s.waypoints.length < 2 || s.passage === null) return;
         retryAttemptRef.current = 0;
         runSingle(s.waypoints, s.archetype, s.departure, s.timeAnchor, null);
+      },
+      revertRouteRepair: () => {
+        const s = stateRef.current;
+        if (s.routeRepair === null) return;
+        const original = s.routeRepair.original;
+        dispatch({ type: "ROUTE_REPAIR_REVERTED" });
+        retryAttemptRef.current = 0;
+        // Recomputed in the view on screen, on the route drawn, as drawn.
+        if (s.mode === "compare" && s.compareAxis === "slots") {
+          runSweep(undefined, { waypoints: original, repair: false });
+        } else {
+          runSingle(original, s.archetype, s.departure, s.timeAnchor, s.link, false);
+        }
       },
       openCompare: (axis = "slots") => {
         const s = stateRef.current;

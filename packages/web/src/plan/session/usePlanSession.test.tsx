@@ -187,6 +187,55 @@ describe("usePlanSession", () => {
     expect(cached.mode).toBe("single");
   });
 
+  it("takes the route the server repaired, and goes back to the one drawn on request", async () => {
+    const repaired = {
+      waypoints: [
+        { lat: 43.293, lon: 5.369 },
+        { lat: 43.2, lon: 5.32, by_server: true },
+        { lat: 43.0006, lon: 6.1999 },
+      ],
+      changes: [
+        { code: "route.leg_retraced", params: { leg: 1, retraced_nm: "48.9", straight_nm: "40.4" }, message: "x" },
+      ],
+    };
+    fetchPassage
+      .mockResolvedValueOnce({
+        passage: passage(),
+        complexity: complexity(),
+        forecast_updated_at: "2026-09-09T06:00:00Z",
+        repaired_route: repaired,
+      })
+      .mockResolvedValue({
+        passage: passage(),
+        complexity: complexity(),
+        forecast_updated_at: "2026-09-09T06:00:00Z",
+      });
+    const { result } = renderHook(() => usePlanSession(session()));
+
+    act(() => result.current.actions.compute());
+    await waitFor(() => expect(result.current.state.routeRepair).not.toBeNull());
+    expect(fetchPassage.mock.calls[0][0].repairRoute).toBe(true);
+    expect(result.current.state.waypoints).toHaveLength(3);
+    expect(window.location.search).toContain("wpts=43.29300,5.36900;43.20000,5.32000");
+
+    // A change of departure recomputes the repaired route, repair allowed:
+    // the server finds it at sea and leaves it as it is.
+    act(() => result.current.actions.setDeparture("2026-09-11T08:00"));
+    act(() => result.current.actions.compute());
+    await waitFor(() => expect(fetchPassage).toHaveBeenCalledTimes(2));
+    expect(fetchPassage.mock.calls[1][0].waypoints).toHaveLength(3);
+    await waitFor(() => expect(result.current.state.pending).toBeNull());
+
+    act(() => result.current.actions.revertRouteRepair());
+    await waitFor(() => expect(fetchPassage).toHaveBeenCalledTimes(3));
+    const reverted = fetchPassage.mock.calls[2][0];
+    expect(reverted.waypoints).toEqual([[43.29, 5.37], [43.0, 6.2]]);
+    expect(reverted.repairRoute).toBe(false);
+    await waitFor(() => expect(result.current.state.passage).not.toBeNull());
+    expect(result.current.state.routeRepair).toBeNull();
+    expect(window.location.search).toContain("wpts=43.29000,5.37000;43.00000,6.20000");
+  });
+
   it("hands the request an abort signal and aborts it when a newer one starts", async () => {
     const first = deferred<unknown>();
     const second = deferred<unknown>();

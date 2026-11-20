@@ -81,6 +81,18 @@ FR_TEMPLATES: dict[str, str] = {
         "aucune fenêtre n'arrive dans ±2h de target_eta={target_eta} ; "
         "toutes les {count} fenêtres retournées"
     ),
+    # What the route repair changed (``routing.auto_route.repair``), sent by
+    # the REST API with the route it planned.
+    "route.departure_moved": (
+        "Le départ était à terre : il a été déplacé de {distance_m} m vers l'eau la plus proche."
+    ),
+    "route.arrival_moved": (
+        "L'arrivée était à terre : elle a été déplacée de {distance_m} m vers l'eau la plus proche."
+    ),
+    "route.leg_retraced": (
+        "Le tronçon {leg} coupait la terre : il a été retracé en mer, {retraced_nm} nm "
+        "au lieu de {straight_nm} nm en ligne droite."
+    ),
 }
 
 

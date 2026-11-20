@@ -60,6 +60,11 @@ export const panel: Record<keyof typeof frPanel, string> = {
     "motore a {speed} kn quando a vela si fanno meno di {threshold} kn",
   "panel.link.efficiency": "coefficiente di prestazione {percent} %",
   "panel.link.useMine": "Usa le mie impostazioni",
+  // ── RouteRepairRow ────────────────────────────────────────────────────────
+  "panel.routeRepair.lead": "Rotta adattata per restare in mare",
+  "panel.routeRepair.check":
+    "Questo tracciato automatico evita la terra, niente di più: non vede né scogli né secche. Studiate la rotta sulla carta prima di fidarvi degli orari.",
+  "panel.routeRepair.revert": "Torna alla mia rotta",
 
   // ── LegList / aggregateLegs ────────────────────────────────────────────────
   "panel.legs.colLeg": "Tratta",

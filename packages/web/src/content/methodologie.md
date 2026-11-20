@@ -221,6 +221,7 @@ Côté niveaux de mer :
 Par choix de conception :
 
 - **Pas de routeur d'optimisation**. OhMyWind ne cherche pas la "meilleure route" ni la "meilleure fenêtre". Il restitue les données brutes ; l'interprétation revient au marin.
+- **Une réparation de route, pas un routage**. Dans trois zones (Bretagne sud et Vendée, Manche ouest et îles Anglo-Normandes, Provence de Port-Camargue au Lavandou), une route qui coupe la terre est retracée en mer sur un trait de côte OpenStreetMap à environ 45 m, et un départ ou une arrivée placés à terre sont ramenés à l'eau la plus proche. Ce tracé évite la terre, rien de plus : il ne lit ni carte marine, ni roches, ni profondeurs, et l'eau la plus proche n'est pas toujours le port. L'application dit ce qui a changé et permet de revenir à votre tracé.
 - **Pas un substitut à un atlas SHOM ou à une carte papier** dans une passe étroite. C'est un outil de planification, pas de pilotage.
 
 Limites assumées des données :
@@ -238,6 +239,7 @@ Limites assumées des données :
 | SHOM Atlas C2D                | Licence Ouverte Etalab 2.0                           | SHOM, via data.gouv.fr                                          |
 | Atlas MARC PREVIMER           | Engagement non-redistribution NetCDF brut            | Pineau-Guillou (2013)                                           |
 | Marégraphes REFMAR            | Libre, source obligatoire                            | REFMAR, dx.doi.org/10.17183/REFMAR#RONIM                        |
+| Trait de côte (réparation des routes) | ODbL 1.0                                       | © les contributeurs d'OpenStreetMap                            |
 | Code OhMyWind                 | AGPL-3.0-or-later, hors nom et identité visuelle     | [TRADEMARK.md](https://github.com/qdonnars/ohmywind/blob/main/TRADEMARK.md) |
 
 Référence académique pour MARC : Pineau-Guillou Lucia (2013). PREVIMER, Validation des atlas de composantes harmoniques de hauteurs et courants de marée. Rapport Ifremer, 89 p. [archimer.ifremer.fr/doc/00157/26801](http://archimer.ifremer.fr/doc/00157/26801/)

@@ -131,3 +131,22 @@ def test_a_route_at_sea_is_unchanged_and_no_grid_means_none():
     assert rep is not None and rep.points == route and rep.changes == []
     assert repair_route(fine, [Point(10.0, 10.0), Point(10.1, 10.1)]) is None
     assert repair_route(FineLand(), route) is None
+
+
+def test_marseille_to_porquerolles_on_the_bundled_grid_says_each_change_twice():
+    """The real Provence grid: each change once in English, once as a coded notice."""
+    from openwind_data.routing.auto_route.repair import BUNDLED_GRIDS_DIR
+
+    fine = FineLand.from_directory(BUNDLED_GRIDS_DIR)
+    rep = repair_route(fine, [Point(43.295, 5.361), Point(43.000, 6.242)])
+    assert rep is not None and rep.refusal is None
+    assert [n.code for n in rep.notices] == ["route.arrival_moved", "route.leg_retraced"]
+    assert len(rep.notices) == len(rep.changes)
+    moved, retraced = rep.notices
+    assert f"moved {moved.params['distance_m']} m" in rep.changes[0]
+    assert f"{retraced.params['retraced_nm']} nm instead of" in rep.changes[1]
+    assert rep.added == list(range(1, len(rep.points) - 1))
+    assert _at_sea(fine, rep.points)
+    # Sent back, the repaired route is at sea and comes back unchanged.
+    again = repair_route(fine, rep.points)
+    assert again is not None and again.points == rep.points and not again.changes
