@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later
+     SPDX-FileCopyrightText: 2026 Quentin Donnars -->
+<!-- app_name and title_activity_main come from capacitor.config.json through
+     resValue in app/build.gradle, so they follow the variant. -->
+<resources>
+    <!-- Launcher shortcuts, same wording as twa-manifest.json. -->
+    <string name="shell_shortcut_plan_short">Planifier</string>
+    <string name="shell_shortcut_plan_long">Planifier une route</string>
+    <string name="shell_shortcut_config_short">Réglages</string>
+    <string name="shell_shortcut_config_long">Réglages</string>
+</resources>

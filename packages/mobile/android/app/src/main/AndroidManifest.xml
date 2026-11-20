@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later
+     SPDX-FileCopyrightText: 2026 Quentin Donnars -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- navigator.geolocation in the WebView: Capacitor's BridgeWebChromeClient
+         requests these at runtime when the page asks for a position, and
+         grants the page coarse-only if the user picks "approximate". -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- The permissions above imply these hardware features as required, which
+         would hide the app on the Play Store from devices without them. The
+         site works without a position, so none of them is required. -->
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <uses-feature android:name="android.hardware.location.network" android:required="false" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <!-- singleTask: an intent aimed at this activity (ohmywind://import from
+             Chrome, a launcher shortcut) brings the existing task to the front
+             and finishes whatever sits above the activity in it, including
+             the Custom Tab opened by @capacitor/browser. -->
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Data hand-off from Chrome back to the shell, e.g.
+                 intent://import?v=1&n=...&d=...#Intent;scheme=ohmywind;package=<applicationId>;end
+                 The package= part keeps prod and dev from competing for it.
+                 @capacitor/app delivers the URL to the page as appUrlOpen, or
+                 through getLaunchUrl() on a cold start. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="ohmywind" android:host="import" />
+            </intent-filter>
+
+            <!-- Generated per variant by app/build.gradle (GenerateShellResources). -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shell_shortcuts" />
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"></meta-data>
+        </provider>
+    </application>
+</manifest>

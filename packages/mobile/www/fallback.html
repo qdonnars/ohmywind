@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <!-- SPDX-License-Identifier: AGPL-3.0-or-later
+         SPDX-FileCopyrightText: 2026 Quentin Donnars -->
+    <!-- Shown by the shell when the live site cannot be loaded (server.errorPath
+         in capacitor.config.ts). Everything is inline: on Android this page is
+         served from the APK at https://localhost/ and any other request to
+         that origin would go to the network, which is exactly what is down. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:"
+    />
+    <meta name="color-scheme" content="dark light" />
+    <title>OhMyWind</title>
+    <style>
+      :root {
+        --bg: #030712;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --accent: #2dd4bf;
+        --accent-fg: #030712;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f4f6fb;
+          --fg: #111827;
+          --muted: #4b5563;
+          --accent: #0f766e;
+          --accent-fg: #ffffff;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      main {
+        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        text-align: center;
+        padding: calc(2rem + env(safe-area-inset-top, 0px)) calc(1.5rem + env(safe-area-inset-right, 0px))
+          calc(2rem + env(safe-area-inset-bottom, 0px)) calc(1.5rem + env(safe-area-inset-left, 0px));
+      }
+      svg {
+        width: 72px;
+        height: 72px;
+        color: var(--accent);
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.375rem;
+        font-weight: 600;
+      }
+      p {
+        margin: 0;
+        max-width: 26rem;
+        line-height: 1.5;
+      }
+      .note {
+        color: var(--muted);
+        font-size: 0.9375rem;
+      }
+      button {
+        margin-top: 0.5rem;
+        min-height: 48px;
+        min-width: 12rem;
+        padding: 0.75rem 1.5rem;
+        border: 0;
+        border-radius: 999px;
+        background: var(--accent);
+        color: var(--accent-fg);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.6;
+      }
+      button:focus-visible {
+        outline: 3px solid var(--fg);
+        outline-offset: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d="M3 9h8a2.5 2.5 0 1 0-2.5-2.5" />
+        <path d="M3 12h14a3 3 0 1 0-3-3" />
+        <path d="M3 15h10a2.5 2.5 0 1 1-2.5 2.5" />
+      </svg>
+      <h1 id="title">Chargement impossible</h1>
+      <p id="body">OhMyWind n'a pas pu se charger. Vérifiez votre connexion puis réessayez.</p>
+      <p id="note" class="note">Le premier lancement demande une connexion internet.</p>
+      <button id="retry" type="button">Réessayer</button>
+    </main>
+    <script>
+      (function () {
+        "use strict";
+
+        var STRINGS = {
+          fr: {
+            title: "Chargement impossible",
+            body: "OhMyWind n'a pas pu se charger. Vérifiez votre connexion puis réessayez.",
+            note: "Le premier lancement demande une connexion internet.",
+            retry: "Réessayer",
+          },
+          en: {
+            title: "Could not load",
+            body: "OhMyWind could not load. Check your connection, then try again.",
+            note: "The first launch needs an internet connection.",
+            retry: "Try again",
+          },
+          de: {
+            title: "Laden nicht möglich",
+            body: "OhMyWind konnte nicht geladen werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+            note: "Der erste Start benötigt eine Internetverbindung.",
+            retry: "Erneut versuchen",
+          },
+          it: {
+            title: "Caricamento non riuscito",
+            body: "Impossibile caricare OhMyWind. Verificare la connessione e riprovare.",
+            note: "Il primo avvio richiede una connessione a internet.",
+            retry: "Riprovare",
+          },
+          es: {
+            title: "Error de carga",
+            body: "No se ha podido cargar OhMyWind. Compruebe su conexión y vuelva a intentarlo.",
+            note: "El primer inicio necesita una conexión a internet.",
+            retry: "Reintentar",
+          },
+        };
+
+        function pickLanguage() {
+          var candidates = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language]) || [];
+          for (var i = 0; i < candidates.length; i++) {
+            var code = String(candidates[i] || "").slice(0, 2).toLowerCase();
+            if (STRINGS.hasOwnProperty(code)) return code;
+          }
+          // Same fallback as the site for a language it does not speak.
+          return "en";
+        }
+
+        // The shell passes the site URL in ?to= because this page has no
+        // Capacitor bridge to ask for it. Only http(s) is accepted so the
+        // button can never be turned into a javascript: or intent: link.
+        function pickTarget() {
+          var fallback = "https://ohmywind.fr/";
+          try {
+            var raw = new URLSearchParams(window.location.search).get("to");
+            if (!raw) return fallback;
+            var url = new URL(raw);
+            if (url.protocol !== "https:" && url.protocol !== "http:") return fallback;
+            return url.href;
+          } catch (e) {
+            return fallback;
+          }
+        }
+
+        var lang = pickLanguage();
+        var t = STRINGS[lang];
+        document.documentElement.lang = lang;
+        document.getElementById("title").textContent = t.title;
+        document.getElementById("body").textContent = t.body;
+        document.getElementById("note").textContent = t.note;
+
+        var button = document.getElementById("retry");
+        button.textContent = t.retry;
+
+        var target = pickTarget();
+        var leaving = false;
+
+        function retry() {
+          if (leaving) return;
+          leaving = true;
+          button.disabled = true;
+          // replace(), not assign(): once the site loads, the back gesture must
+          // not land on this page again.
+          window.location.replace(target);
+          // If the load fails, the shell shows this page afresh. Re-enable the
+          // button anyway in case the WebView keeps us here without reloading.
+          window.setTimeout(function () {
+            leaving = false;
+            button.disabled = false;
+          }, 8000);
+        }
+
+        button.addEventListener("click", retry);
+        // Coming back online is the most common way out of this page: do not
+        // make the user look for the button.
+        window.addEventListener("online", retry);
+      })();
+    </script>
+  </body>
+</html>
