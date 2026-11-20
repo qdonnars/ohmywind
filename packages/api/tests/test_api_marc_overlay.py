@@ -24,6 +24,7 @@ import pytest
 from openwind_data.currents.land_mask import LandMask as _LandMask
 from openwind_data.currents.marc_atlas import MarcAtlasRegistry as _MarcAtlasRegistry
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry as _ShomC2dRegistry
+from starlette.requests import Request
 
 from openwind_api.routes import landing as landing_routes
 from openwind_api.routes import marine as marine_routes
@@ -729,22 +730,39 @@ class TestCoverage:
         assert resp.headers["cache-control"] == "public, max-age=86400"
 
 
+def _landing_request(lang: str) -> Request:
+    return Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/",
+            "headers": [],
+            "query_string": f"lang={lang}".encode(),
+        }
+    )
+
+
+async def _landing_body(lang: str) -> str:
+    resp = await landing_routes.index(_landing_request(lang))
+    return bytes(resp.body).decode()
+
+
+@pytest.mark.parametrize("lang", landing_routes.LANGUAGES)
 class TestLanding:
-    async def test_landing_serves_html(self) -> None:
-        resp = await landing_routes.index(None)
+    async def test_landing_serves_html(self, lang: str) -> None:
+        resp = await landing_routes.index(_landing_request(lang))
         assert resp.status_code == 200
         assert resp.media_type == "text/html"
 
-    async def test_landing_points_at_the_web_app(self) -> None:
+    async def test_landing_points_at_the_web_app(self, lang: str) -> None:
         # The Space is the MCP endpoint; the landing exists to send humans who
         # land on it to the actual planner rather than leaving them stuck.
-        body = bytes(resp.body).decode() if (resp := await landing_routes.index(None)) else ""
-        assert "wind.fr" in body
+        assert "wind.fr" in await _landing_body(lang)
 
-    async def test_landing_loads_nothing_from_youtube_until_play(self) -> None:
+    async def test_landing_loads_nothing_from_youtube_until_play(self, lang: str) -> None:
         # The poster comes from this origin, not i.ytimg.com, and the player
         # is only built by the click handler: no iframe in the page as served.
-        body = bytes(resp.body).decode() if (resp := await landing_routes.index(None)) else ""
+        body = await _landing_body(lang)
         assert 'src="/static/video-poster.jpg"' in body
         assert "<iframe" not in body
         assert "ytimg.com" not in body
@@ -753,10 +771,12 @@ class TestLanding:
         # Without script, the poster is still a link to the video.
         assert 'href="https://www.youtube.com/watch?v=_bjDlNYJSgo"' in body
 
-    async def test_landing_links_the_youtube_channel_through_the_app_redirect(self) -> None:
+    async def test_landing_links_the_youtube_channel_through_the_app_redirect(
+        self, lang: str
+    ) -> None:
         # ohmywind.fr/youtube (public/_redirects) is the one place that knows
         # the channel's address, so a rename is a one-line change there.
-        body = bytes(resp.body).decode() if (resp := await landing_routes.index(None)) else ""
+        body = await _landing_body(lang)
         assert 'href="https://ohmywind.fr/youtube"' in body
         assert "youtube.com/@" not in body
 
