@@ -14,7 +14,15 @@ from openwind_data.routing.auto_route import NavGrid
 from openwind_data.routing.auto_route.repair import FineLand
 from openwind_data.routing.geometry import Point
 
-from openwind_mcp_core.server import _land_gate, _route_view
+from openwind_mcp_core.server import (
+    ROUTE_NOTICE,
+    ROUTE_NOTICE_ADJUSTED,
+    SERVER_INSTRUCTIONS,
+    _closing,
+    _land_gate,
+    _route_notice,
+    _route_view,
+)
 
 PITCH = 0.0005
 
@@ -49,3 +57,15 @@ def test_suggest_refuses_with_waypoints_ready_to_send_back():
     fine, g = _fine()
     with pytest.raises(ValueError, match=r"Send this route as waypoints to plan it: \[\{"):
         _land_gate([(None, _route(g))], LandMask.empty(), fine, "suggest")
+
+
+def test_an_adjusted_route_names_both_authors_and_asks_for_a_check():
+    assert _route_notice([]) == ROUTE_NOTICE
+    text = _route_notice(["Leg 1 (waypoint 1 to 2) crossed land: ..."])
+    assert text == ROUTE_NOTICE_ADJUSTED
+    assert "assistant" in text and "automatic router" in text and "Study it on the map" in text
+
+
+def test_the_closing_instruction_is_the_last_thing_the_model_reads():
+    assert list(_closing([]))[-1] == "end_your_answer_with"
+    assert "study the route on the map" in " ".join(SERVER_INSTRUCTIONS.split())

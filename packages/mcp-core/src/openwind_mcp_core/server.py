@@ -173,6 +173,10 @@ beyond; past five days they show a trend, not a plan.
 Reuse a result already in the conversation rather than asking again for the \
 same place and dates, and for a quick question compare departures every \
 three to six hours, not every hour.
+End every answer that gives a passage plan with one sentence asking the user \
+to study the route on the map before relying on the timings: it was drawn by \
+an assistant and, where it crossed land, adjusted by an automatic router, and \
+both are weak at drawing a route.
 """
 
 # Usage warning attached to every plan_passage payload, single mode and
@@ -193,6 +197,40 @@ ROUTE_NOTICE = (
     "anything looks wrong, ask the assistant to redraw it, or move the waypoints "
     "yourself in OhMyWind through the plan link."
 )
+# Prototype (route repair): once the server has moved an end or retraced a
+# leg, the route has two authors and the notice names both. Neither reads a
+# chart, so the user is told to study the route, not to trust either.
+ROUTE_NOTICE_ADJUSTED = (
+    "The route was drawn by the assistant, then adjusted by OhMyWind's automatic "
+    "router (see route_changes). Both are weak at this: neither reads a chart "
+    "(depths, rocks, restricted areas), and either can go round the wrong side "
+    "of an island or end in the wrong harbour. Study it on the map (headlands, "
+    "islands, shoals, detours) before relying on the timings. If anything looks "
+    "wrong, ask the assistant to redraw it, or move the waypoints yourself in "
+    "OhMyWind through the plan link."
+)
+
+
+def _route_notice(route_changes: list[str]) -> str:
+    return ROUTE_NOTICE_ADJUSTED if route_changes else ROUTE_NOTICE
+
+
+# Last keys of every plan, so the last thing the model reads before it writes
+# is what its answer must end with.
+END_ANSWER_WITH = (
+    "One sentence, in the user's language, asking the user to study the route "
+    "on the map before relying on the timings (the substance of route_notice)."
+)
+
+
+def _closing(route_changes: list[str]) -> dict[str, str]:
+    return {
+        "route_notice": _route_notice(route_changes),
+        "disclaimer": PASSAGE_DISCLAIMER,
+        "end_your_answer_with": END_ANSWER_WITH,
+    }
+
+
 PASSAGE_DISCLAIMER = (
     "Decision-support tool, not a navigation instrument. OhMyWind does not "
     "replace the official marine forecast from the national weather service, "
@@ -2545,6 +2583,12 @@ def build_server(
         (``openwind_url`` opens the plan there, waypoints editable). A route
         the user questions is redrawn and planned again.
 
+        End every answer that gives a plan with one sentence telling the
+        user to study the route on the map before relying on the timings:
+        it was drawn by an assistant and, when ``route_changes`` is present,
+        adjusted by an automatic router, and both are weak at drawing a
+        route. Say it even when the plan looks fine.
+
         A waypoint that lands ashore has a second effect. Open-Meteo returns
         no sea state over land, so those samples carry a null wave height and
         the complexity score silently falls back to wind only, dropping the
@@ -2813,11 +2857,7 @@ def build_server(
                 meta = (meta or {}) | {PLAN_UI_ALT_LEGS_META_KEY: alt_legs}
             body["meta_warnings"] = route_notes + list(body.get("meta_warnings") or [])
             return _tool_result(
-                _drop_notices(
-                    body
-                    | changed
-                    | {"route_notice": ROUTE_NOTICE, "disclaimer": PASSAGE_DISCLAIMER}
-                ),
+                _drop_notices(body | changed | _closing(route_changes)),
                 meta,
                 tz=dep.tzinfo,
             )
@@ -2865,9 +2905,7 @@ def build_server(
                 )
             body |= {"route_label": main_label, "alternatives": alt_entries}
         return _tool_result(
-            _drop_notices(
-                body | changed | {"route_notice": ROUTE_NOTICE, "disclaimer": PASSAGE_DISCLAIMER}
-            ),
+            _drop_notices(body | changed | _closing(route_changes)),
             tz=dep.tzinfo,
         )
 
