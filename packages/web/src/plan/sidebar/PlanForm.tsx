@@ -7,6 +7,7 @@ import { ResetButton } from "./ResetButton";
 import { DepartureSlider } from "./DepartureSlider";
 import { ArchetypeSelector } from "./ArchetypeSelector";
 import { RefreshIcon } from "./parts";
+import { LinkSettingsRow } from "./LinkSettingsRow";
 import { useT } from "../../i18n";
 
 /** The inputs of the plan, before it has a result to show: when to leave
@@ -32,6 +33,8 @@ export function PlanForm({ canCalculate }: { canCalculate: boolean }) {
         </div>
 
         <ArchetypeSelector />
+
+        <LinkSettingsRow variant="card" />
 
         {/* The action, and the trash beside it: the two things one does to
             the plan as a whole, in one row. */}

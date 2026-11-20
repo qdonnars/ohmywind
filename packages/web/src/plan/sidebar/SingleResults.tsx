@@ -14,6 +14,7 @@ import { alertsOf } from "./alerts";
 import { DepartureSlider } from "./DepartureSlider";
 import { ArchetypeSelector } from "./ArchetypeSelector";
 import { LegList } from "./LegList";
+import { LinkSettingsRow } from "./LinkSettingsRow";
 import { RecomputeButton, ResultsAnchor, StalePlaceholder } from "./parts";
 import { capitalise, fmtClock, fmtDay } from "../../domain/datetime";
 import { useT } from "../../i18n";
@@ -99,6 +100,9 @@ export function SingleResults({
           <ArchetypeSelector />
         </div>
       )}
+
+      {/* The link's engine and efficiency, when this plan runs on them. */}
+      <LinkSettingsRow />
 
       {/* Total route stats (Distance / Durée / Arrivée + segment bar).
           Desktop only: on mobile the same three totals are the head of the

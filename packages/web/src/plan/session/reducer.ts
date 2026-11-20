@@ -47,7 +47,7 @@ import {
   PLAN_TRACK_ID,
   type Track,
 } from "../compare/tracks";
-import { buildPlanUrl } from "../parseUrl";
+import { buildPlanUrl, type LinkSettings } from "../parseUrl";
 import { waypointsEqual } from "../lastSimulation";
 import type { InitialSession } from "./initial";
 import { toNaiveLocal } from "../../domain/datetime";
@@ -116,6 +116,10 @@ export interface PlanState {
   sweepEarliest: string;
   sweepLatest: string;
   sweepIntervalHours: number;
+  /** Engine and efficiency the `/plan` link imposes on this plan, over the
+      /config preferences, or null. Carried on every rewrite of the address
+      bar until « Revenir à mes réglages » drops them. */
+  link: LinkSettings | null;
 
   // ── results ───────────────────────────────────────────────────────────────
   passage: PassageReport | null;
@@ -191,6 +195,9 @@ export type PlanAction =
   | { type: "PLAN_KEPT" }
   /** Mobile: the compact step gives way to the form without computing. */
   | { type: "FORM_OPENED" }
+  /** « Revenir à mes réglages »: the link's settings go, the /config ones
+      apply again. The shell recomputes. */
+  | { type: "LINK_SETTINGS_CLEARED" }
   // The variant being drawn: the plan's ends, and points between them.
   | { type: "VARIANT_STARTED" }
   | { type: "VARIANT_POINT_ADDED"; lat: number; lon: number }
@@ -268,7 +275,10 @@ export type PlanAction =
     entry when it closed, and the next back press did nothing visible. */
 export function createInitialState(initial: InitialSession): PlanState {
   const persist: PersistCommand | null = initial.mount.rewriteUrl
-    ? { seq: 1, url: buildPlanUrl(initial.waypoints, initial.departure, initial.archetype) }
+    ? {
+        seq: 1,
+        url: buildPlanUrl(initial.waypoints, initial.departure, initial.archetype, initial.link),
+      }
     : null;
   return {
     waypoints: initial.waypoints,
@@ -281,6 +291,7 @@ export function createInitialState(initial: InitialSession): PlanState {
     sweepEarliest: initial.sweepEarliest,
     sweepLatest: initial.sweepLatest,
     sweepIntervalHours: initial.sweepIntervalHours,
+    link: initial.link,
     passage: initial.passage,
     complexity: initial.complexity,
     windows: initial.windows,
@@ -441,6 +452,28 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
     case "FORM_OPENED":
       return state.actionTaken ? state : { ...state, actionTaken: true };
 
+    case "LINK_SETTINGS_CLEARED": {
+      if (state.link === null) return state;
+      // The results on screen were computed on the link's settings: stale
+      // from now on, like after a change of boat, and the windows of the
+      // comparison with them, so it cannot show them as fresh once the plan
+      // is recomputed. The address bar drops the two parameters at once,
+      // not at the next commit: a reload in between must not bring them back.
+      const departure =
+        state.passage !== null && !state.isStale
+          ? toNaiveLocal(new Date(state.passage.departure_time))
+          : state.departure;
+      return withPersist(
+        edited(state, { link: null, windows: null, metaWarnings: [] }),
+        {
+          url:
+            state.waypoints.length >= 2
+              ? buildPlanUrl(state.waypoints, departure, state.archetype, null)
+              : "/plan",
+        },
+      );
+    }
+
     case "VARIANT_STARTED":
       if (state.waypoints.length < 2 || state.tracks.length >= MAX_TRACKS) return state;
       return { ...state, variant: startVariant(state.waypoints), highlightedTrackId: null };
@@ -560,7 +593,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
           pending: null,
         },
         {
-          url: buildPlanUrl(track.waypoints, resolved, state.archetype),
+          url: buildPlanUrl(track.waypoints, resolved, state.archetype, state.link),
           cache: {
             kind: "single",
             waypoints: track.waypoints,
@@ -598,7 +631,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
           retry: null,
         },
         {
-          url: buildPlanUrl(track.waypoints, resolved, state.archetype),
+          url: buildPlanUrl(track.waypoints, resolved, state.archetype, state.link),
           cache: {
             kind: "single",
             waypoints: track.waypoints,
@@ -693,7 +726,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
             forecastUpdatedAt: action.forecastUpdatedAt,
           },
           {
-            url: buildPlanUrl(state.waypoints, resolved, state.archetype),
+            url: buildPlanUrl(state.waypoints, resolved, state.archetype, state.link),
             cache: {
               kind: "single",
               waypoints: state.waypoints,
@@ -795,7 +828,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
           complexity: action.window.complexity_full,
         },
         {
-          url: buildPlanUrl(state.waypoints, action.departure, state.archetype),
+          url: buildPlanUrl(state.waypoints, action.departure, state.archetype, state.link),
           cache: {
             kind: "single",
             waypoints: state.waypoints,
@@ -825,6 +858,8 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
           sweepEarliest: action.departure,
           sweepLatest: action.sweepLatest,
           sweepIntervalHours: 3,
+          // A new plan is the reader's own: the link spoke for the one discarded.
+          link: null,
           passage: null,
           complexity: null,
           windows: null,

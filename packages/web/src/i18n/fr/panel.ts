@@ -54,6 +54,14 @@ export const panel = {
     "Itinéraire modifié. Cliquez sur Recalculer pour mettre à jour les détails.",
   "panel.results.forecastUpdated": "Données fraîches au {time} · Open-Meteo.com (CC BY 4.0)",
 
+  // ── LinkSettingsRow ───────────────────────────────────────────────────────
+  // What a /plan link imposes on its plan (#534), over the saved settings.
+  "panel.link.lead": "Réglages du lien",
+  "panel.link.motor":
+    "moteur à {speed} kn quand la voile fait moins de {threshold} kn",
+  "panel.link.efficiency": "coefficient de performance {percent} %",
+  "panel.link.useMine": "Revenir à mes réglages",
+
   // ── LegList / aggregateLegs ────────────────────────────────────────────────
   "panel.legs.colLeg": "Tronçon",
   "panel.legs.durationMinutes": "{minutes} mn",

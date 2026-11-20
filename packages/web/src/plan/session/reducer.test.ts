@@ -88,6 +88,7 @@ const session = (over: Partial<InitialSession> = {}): InitialSession => ({
   isStale: false,
   actionTaken: true,
   center: null,
+  link: null,
   urlError: null,
   mount: { rewriteUrl: false, fetch: false },
   sources: { route: "url", boat: "url", departure: "url" },

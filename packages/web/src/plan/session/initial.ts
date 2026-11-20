@@ -30,6 +30,7 @@
  * | time anchor | draft > departure |
  * | mode | draft > cache > single |
  * | sweep range and step | draft > cache > derived from the departure |
+ * | engine and efficiency | URL (`motor`, `eff`) > /config, for this plan only |
  *
  * Three rules cut across the table:
  *
@@ -73,7 +74,7 @@
  * and it has no results, so the page opens stale and waits for « Recalculer ».
  */
 
-import type { ParseResult } from "../parseUrl";
+import type { LinkSettings, ParseResult } from "../parseUrl";
 import { isParsedOk } from "../parseUrl";
 import type { PlanDraft } from "../draft";
 import type { LastSimulation } from "../lastSimulation";
@@ -97,8 +98,9 @@ export interface InitialSessionInput {
   /** The persisted last simulation, read once. */
   cache: LastSimulation | null;
   polarConfig: PolarConfig;
-  /** `activeModels + polarFingerprint` at mount, used to reject results
-      computed under other preferences. */
+  /** `activeModels + polarFingerprint` at mount, plus the link's own
+      settings when it carries some (`currentConfigFingerprint`), used to
+      reject results computed under other preferences. */
   configFingerprint: string;
   /** Epoch ms. Injected so the freshness rules are testable. */
   now: number;
@@ -132,6 +134,9 @@ export interface InitialSession {
 
   /** Map centre hint carried by the home compass FAB. */
   center: [number, number] | null;
+  /** Engine and efficiency the link imposes on this plan, over /config. Never
+      written to /config: they live in the address bar and nowhere else. */
+  link: LinkSettings | null;
   /** Non-null when the query string could not be parsed. */
   urlError: string | null;
 
@@ -273,6 +278,7 @@ export function resolveInitialSession(input: InitialSessionInput): InitialSessio
     actionTaken:
       urlHasWaypoints || useCachedRoute || (seedDraft?.waypoints.length ?? 0) >= 2,
     center: urlOk ? url.center : null,
+    link: urlOk ? url.link : null,
     urlError: urlOk ? null : url.error,
     mount: { rewriteUrl: false, fetch: false },
     sources: { route: routeSource, boat: boatSource, departure: departureSource },

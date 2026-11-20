@@ -40,6 +40,8 @@ import {
 } from "../../api/forecastCache";
 import { activeModels, loadModelConfig } from "../../config/modelConfig";
 import {
+  BASE_POLARS,
+  defaultPolarConfig,
   effectivePolar,
   isPersoActive,
   isPolarCustomized,
@@ -47,7 +49,9 @@ import {
   planEfficiency,
   polarFingerprint,
   savePolarConfig,
+  type PolarConfig,
 } from "../../config/polarConfig";
+import type { LinkSettings } from "../parseUrl";
 import { toTzAware } from "../../domain/datetime";
 import type { PassageWindow } from "../types";
 import type { TimeAnchor } from "../ModeToggle";
@@ -70,29 +74,51 @@ import { applyCacheCommand, applyUrlWrite, resyncUrl, syncDraft } from "./persis
 // next refetch without a page reload. Polar matrix is only attached when the
 // editor deviates from the default for the active archetype. Otherwise the
 // server's bundled polar wins, saving ~kB per request.
-function resolveOverrides(): PlanOverrides {
+//
+// A link that carries an engine (#534) wins over the /config one for this
+// plan. The API only takes the engine inside the polar payload, so with no
+// perso polar active the bundled polar of the requested boat travels, as the
+// server has it, with the link's engine on it. `polarCfg` is a parameter for
+// the tests; nothing here writes it back.
+export function resolveOverrides(
+  link: LinkSettings | null,
+  archetype: string,
+  polarCfg: PolarConfig = loadPolarConfig(),
+): PlanOverrides {
   const overrides: PlanOverrides = {};
   const modelCfg = loadModelConfig();
   const models = activeModels(modelCfg);
   if (models.length > 0) overrides.models = models;
-  const polarCfg = loadPolarConfig();
-  if (isPersoActive(polarCfg)) {
-    // The custom matrix is always built on cfg.base's grid, the boat of
-    // record while the perso polar is the active pick (#220). The page's slug
-    // matches it (seeded via initialPlanBoat, re-pinned by selectPerso), so
-    // passing it here would be redundant at best and, in a cross-tab /config
-    // edit, would resurrect the mismatch. When perso is parked in favour of a
-    // stock archetype, no matrix travels: the server's bundled polar for the
-    // requested slug wins.
-    overrides.polar = effectivePolar(polarCfg);
+  const motor = link?.motor ?? null;
+  const withLinkMotor = (polar: PlanOverrides["polar"]) =>
+    polar && motor
+      ? { ...polar, motor_threshold_kn: motor.thresholdKn, motor_speed_kn: motor.speedKn }
+      : polar;
+  if (!isPersoActive(polarCfg)) {
+    if (motor && archetype in BASE_POLARS) {
+      overrides.polar = withLinkMotor(effectivePolar(defaultPolarConfig(), archetype));
+    }
+    return overrides;
   }
+  // The custom matrix is always built on cfg.base's grid, the boat of record
+  // while the perso polar is the active pick (#220). The page's slug matches
+  // it (seeded via initialPlanBoat, re-pinned by selectPerso), so passing it
+  // here would be redundant at best and, in a cross-tab /config edit, would
+  // resurrect the mismatch. When perso is parked in favour of a stock
+  // archetype, no matrix travels unless the link brings an engine (above):
+  // the server's bundled polar for the requested slug wins.
+  overrides.polar = withLinkMotor(effectivePolar(polarCfg));
   return overrides;
 }
 
-// Plan-time efficiency: the /config performance coefficient, always explicit
-// since config v3 (1.0 = race trim, 0.75 = typical cruising).
-function resolveEfficiency(): number {
-  return planEfficiency(loadPolarConfig());
+// Plan-time efficiency: the link's when it carries one, else the /config
+// performance coefficient, always explicit since config v3 (1.0 = race trim,
+// 0.75 = typical cruising).
+export function resolveEfficiency(
+  link: LinkSettings | null,
+  polarCfg: PolarConfig = loadPolarConfig(),
+): number {
+  return link?.efficiency ?? planEfficiency(polarCfg);
 }
 
 // Joint fingerprint of model + polar config. Same shape across single &
@@ -102,8 +128,13 @@ function resolveEfficiency(): number {
 /** Automatic attempts after a cold-start failure, before the error shows. */
 const MAX_COLD_START_RETRIES = 4;
 
-export function currentConfigFingerprint(): string {
-  return `${activeModels(loadModelConfig()).join(",")}|${polarFingerprint(loadPolarConfig())}`;
+export function currentConfigFingerprint(link: LinkSettings | null = null): string {
+  const base = `${activeModels(loadModelConfig()).join(",")}|${polarFingerprint(loadPolarConfig())}`;
+  // A plan computed on a link's settings is not one computed on /config's:
+  // neither may be restored for the other from the last-simulation cache.
+  if (!link) return base;
+  const motor = link.motor ? `${link.motor.thresholdKn}/${link.motor.speedKn}` : "";
+  return `${base}|link:m${motor}|e${link.efficiency ?? ""}`;
 }
 
 /** Everything `/plan` can do, as named intents rather than setters. */
@@ -118,6 +149,9 @@ export interface PlanActions {
   setTimeAnchor: (anchor: TimeAnchor) => void;
   /** Mobile: leave the compact step for the form, without computing. */
   openForm: () => void;
+  /** « Revenir à mes réglages »: drop the link's engine and efficiency and
+      recompute the plan on /config's, when it had a result. */
+  clearLinkSettings: () => void;
   /** The door in the plan. On the departure axis, a comparison that has no
       fresh windows to show is seeded on the plan's departure and computed
       at once, so opening it is an answer rather than a form. */
@@ -251,9 +285,13 @@ export function usePlanSession(initial: InitialSession): PlanSession {
       archetype: string,
       departure: string,
       anchor: TimeAnchor = "departure",
+      // Read now rather than when the reply lands: the fingerprint persisted
+      // with the result has to be that of the settings it was computed on.
+      link: LinkSettings | null = stateRef.current.link,
     ) => {
       const { requestId, signal } = startRequest("single");
-      const overrides = resolveOverrides();
+      const overrides = resolveOverrides(link, archetype);
+      const efficiency = resolveEfficiency(link);
       const departureIso = toTzAware(departure);
       const anchorMs = Date.parse(departureIso);
       // Sample the route corridor in the browser and attach it so the server
@@ -269,7 +307,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
                 waypoints,
                 targetArrival: departureIso,
                 archetype,
-                efficiency: resolveEfficiency(),
+                efficiency,
                 overrides,
                 forecastCache,
                 signal,
@@ -278,7 +316,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
                 waypoints,
                 departure: departureIso,
                 archetype,
-                efficiency: resolveEfficiency(),
+                efficiency,
                 overrides,
                 forecastCache,
                 signal,
@@ -290,7 +328,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
             type: "FETCH_SUCCEEDED",
             requestId,
             kind: "single",
-            configFingerprint: currentConfigFingerprint(),
+            configFingerprint: currentConfigFingerprint(link),
             passage: res.passage,
             complexity: res.complexity,
             forecastUpdatedAt: res.forecast_updated_at,
@@ -310,14 +348,15 @@ export function usePlanSession(initial: InitialSession): PlanSession {
     (track: { id: string; waypoints: [number, number][] }, departureOverride?: string) => {
       const s = stateRef.current;
       const departure = departureOverride ?? s.departure;
-      const { archetype, timeAnchor } = s;
+      const { archetype, timeAnchor, link } = s;
       trackAbortRef.current.get(track.id)?.abort();
       const controller = new AbortController();
       trackAbortRef.current.set(track.id, controller);
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
       dispatch({ type: "TRACK_STARTED", trackId: track.id, requestId });
-      const overrides = resolveOverrides();
+      const overrides = resolveOverrides(link, archetype);
+      const efficiency = resolveEfficiency(link);
       const departureIso = toTzAware(departure);
       const anchorMs = Date.parse(departureIso);
       const window_ =
@@ -331,7 +370,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
                 waypoints: track.waypoints,
                 targetArrival: departureIso,
                 archetype,
-                efficiency: resolveEfficiency(),
+                efficiency,
                 overrides,
                 forecastCache,
                 signal: controller.signal,
@@ -340,7 +379,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
                 waypoints: track.waypoints,
                 departure: departureIso,
                 archetype,
-                efficiency: resolveEfficiency(),
+                efficiency,
                 overrides,
                 forecastCache,
                 signal: controller.signal,
@@ -369,7 +408,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
   );
 
   const runSweep = useCallback((sweep?: SweepParams) => {
-    const { waypoints, archetype } = stateRef.current;
+    const { waypoints, archetype, link } = stateRef.current;
     const sweepEarliest = sweep?.earliest ?? stateRef.current.sweepEarliest;
     const sweepLatest = sweep?.latest ?? stateRef.current.sweepLatest;
     const sweepIntervalHours = sweep?.intervalHours ?? stateRef.current.sweepIntervalHours;
@@ -385,8 +424,8 @@ export function usePlanSession(initial: InitialSession): PlanSession {
           latest: latestIso,
           archetype,
           intervalHours: sweepIntervalHours,
-          efficiency: resolveEfficiency(),
-          overrides: resolveOverrides(),
+          efficiency: resolveEfficiency(link),
+          overrides: resolveOverrides(link, archetype),
           forecastCache,
           signal,
         }),
@@ -397,7 +436,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
           type: "FETCH_SUCCEEDED",
           requestId,
           kind: "sweep",
-          configFingerprint: currentConfigFingerprint(),
+          configFingerprint: currentConfigFingerprint(link),
           windows: res.windows,
           metaWarnings: res.meta_notices,
           forecastUpdatedAt: res.forecast_updated_at,
@@ -500,6 +539,17 @@ export function usePlanSession(initial: InitialSession): PlanSession {
       setDeparture: (value) => dispatch({ type: "DEPARTURE_CHANGED", departure: value }),
       setTimeAnchor: (anchor) => dispatch({ type: "TIME_ANCHOR_CHANGED", timeAnchor: anchor }),
       openForm: () => dispatch({ type: "FORM_OPENED" }),
+      clearLinkSettings: () => {
+        const s = stateRef.current;
+        if (s.link === null) return;
+        dispatch({ type: "LINK_SETTINGS_CLEARED" });
+        // A plan already computed is recomputed at once, so the figures on
+        // screen are never the link's under a panel that no longer says so.
+        // The settings are passed: `stateRef` only catches up after render.
+        if (s.waypoints.length < 2 || s.passage === null) return;
+        retryAttemptRef.current = 0;
+        runSingle(s.waypoints, s.archetype, s.departure, s.timeAnchor, null);
+      },
       openCompare: (axis = "slots") => {
         const s = stateRef.current;
         // Windows still describing this route are shown as they are; a
@@ -551,9 +601,17 @@ export function usePlanSession(initial: InitialSession): PlanSession {
         for (const track of stateRef.current.tracks) runTrack(track);
       },
       openTrack: (id) =>
-        dispatch({ type: "TRACK_OPENED", id, configFingerprint: currentConfigFingerprint() }),
+        dispatch({
+          type: "TRACK_OPENED",
+          id,
+          configFingerprint: currentConfigFingerprint(stateRef.current.link),
+        }),
       selectTrack: (id) =>
-        dispatch({ type: "TRACK_SELECTED", id, configFingerprint: currentConfigFingerprint() }),
+        dispatch({
+          type: "TRACK_SELECTED",
+          id,
+          configFingerprint: currentConfigFingerprint(stateRef.current.link),
+        }),
       removeTrack: (id) => {
         trackAbortRef.current.get(id)?.abort();
         trackAbortRef.current.delete(id);
@@ -587,7 +645,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
           type: "WINDOW_SELECTED",
           window,
           departure,
-          configFingerprint: currentConfigFingerprint(),
+          configFingerprint: currentConfigFingerprint(stateRef.current.link),
         });
         const s = stateRef.current;
         if (!window.passage || !window.complexity_full) {
