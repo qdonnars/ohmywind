@@ -78,6 +78,10 @@ webfont Noto Color Emoji en repli de `--ow-font-ui` avant la capture.
   Play (`fr.ohmywind.app`), version 4, correction M. Les deux sont vérifiés
   décodables sur l'aperçu rendu. À refaire si une adresse change (commande en
   tête de `build.sh`).
+- `assets/qr-multicoques-mag.svg` : QR code vers l'article de Multicoques Mag
+  (n°239, novembre-décembre 2026, en ligne le 26 octobre 2026), version 7,
+  correction M, imprimé à 17 mm. L'adresse est longue : l'aperçu PNG à 2× est
+  trop fin pour le décoder, vérifier sur un rendu à 6× (environ 230 dpi).
 - `assets/google-play-badge-fr.png` : badge officiel « Disponible sur Google
   Play », en français, tel que fourni par Google. Ne pas le modifier, garder
   sa zone de dégagement, et la mention « Google Play est une marque de Google
@@ -102,6 +106,13 @@ Le nom et le logo restent couverts par la [politique de marque](../TRADEMARK.md)
   compte, sans traqueur, open source.
 - iPhone : l'App Store est annoncé comme « à venir, avec plus de soutiens et
   d'utilisateurs », sans date.
+- Encart presse : la citation entre guillemets est le sous-titre exact de
+  l'article (« La météo marine en cinq langues… et avec l'IA ! »), sans
+  retouche. Ne rien attribuer au magazine qu'il n'a pas écrit ; le chiffre
+  d'utilisateurs qu'il rapporte vient du projet, et Cap Innovation est une
+  candidature, pas un prix.
+- Le site n'affiche plus de note de difficulté de 1 à 5, seulement des
+  alertes : ne pas la réintroduire dans la copy.
 
 ### À faire plus tard
 
