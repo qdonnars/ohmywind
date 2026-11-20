@@ -74,8 +74,14 @@ def parse_polar(raw: Any, *, strict: bool = False) -> BoatPolar | None:
     if twa[0] < 0 or twa[-1] > 180:
         raise ValueError("polar twa_deg must lie in [0, 180]")
     if len(matrix) != len(tws):
+        # The usual mistake, and a silent one on a square grid: polar tables
+        # are written with one line per TWA, the payload wants one per TWS.
+        transposed = len(matrix) == len(twa) and all(len(row) == len(tws) for row in matrix)
+        hint = (
+            "; it looks transposed (one row per TWA): swap rows and columns" if transposed else ""
+        )
         raise ValueError(
-            f"polar boat_speed_kn has {len(matrix)} rows, expected {len(tws)} (one per TWS)"
+            f"polar boat_speed_kn has {len(matrix)} rows, expected {len(tws)} (one per TWS){hint}"
         )
     for i, row in enumerate(matrix):
         if len(row) != len(twa):
@@ -85,6 +91,8 @@ def parse_polar(raw: Any, *, strict: bool = False) -> BoatPolar | None:
         for j, v in enumerate(row):
             if v < 0 or v > MAX_BOAT_SPEED_KN:
                 raise ValueError(f"polar boat_speed_kn[{i}][{j}]={v} out of range [0, 30]")
+    if strict and len(tws) == len(twa):
+        _check_not_transposed(tws, twa, matrix)
     # Optional motor config. Both fields must be set together; either alone
     # is dropped silently so a half-filled web form never silently changes
     # the simulation (matches the frontend / backend "both or neither" rule).
@@ -143,6 +151,50 @@ def _check_strict(tws: list[float], twa: list[float], matrix: list[list[float]])
         for j, v in enumerate(row):
             if not math.isfinite(v):
                 raise ValueError(f"polar boat_speed_kn[{i}][{j}]={v} is not a finite number")
+
+
+# Below this, two neighbouring speeds count as equal (kn): polar files are
+# rounded to 0.1 kn, and a flat spot is not a fall.
+_FALL_TOLERANCE_KN = 0.05
+
+
+def _check_not_transposed(tws: list[float], twa: list[float], matrix: list[list[float]]) -> None:
+    """Refuse a square grid that reads like one row per TWA.
+
+    Polar tables are written with one line per TWA; the payload wants one row
+    per TWS. Off a square grid the row count gives the mistake away. On a
+    square one nothing does, and the passage is timed with speeds read at the
+    wrong wind: Haiku 4.5 sent a 5 x 5 table the wrong way round twice in six
+    runs (bench of 2026-11-20).
+
+    The tell: a boat seldom slows down as the wind rises, and it does slow
+    down past a reach, at every wind. So a grid whose speeds fall more often
+    along the TWS axis than along the TWA axis is the other way round. Cut
+    square, the nine bundled polars count 0 to 6 falls with the wind against
+    20 to 26 towards the run: all pass, and turned over all are caught. A
+    real grid can trip this only if it loses speed in more wind more often
+    than it does off the wind, an upwind-only table with heavy-weather rows.
+    """
+
+    def falls(rows: list[list[float]]) -> int:
+        return sum(1 for row in rows for a, b in pairwise(row) if b < a - _FALL_TOLERANCE_KN)
+
+    by_twa = [list(col) for col in zip(*matrix, strict=True)]
+    # ``by_twa`` rows run along the TWS axis, ``matrix`` rows along the TWA one.
+    if falls(by_twa) <= falls(matrix):
+        return
+    j, i = next(
+        (j, i)
+        for j, col in enumerate(by_twa)
+        for i, (a, b) in enumerate(pairwise(col))
+        if b < a - _FALL_TOLERANCE_KN
+    )
+    raise ValueError(
+        f"polar boat_speed_kn looks transposed: read as sent, at TWA {twa[j]:g} deg the boat "
+        f"slows from {matrix[i][j]:g} to {matrix[i + 1][j]:g} kn when the wind rises from "
+        f"{tws[i]:g} to {tws[i + 1]:g} kn, more often than it slows towards the run. "
+        "Send one row per tws_kn entry (swap rows and columns)"
+    )
 
 
 def optional_float(raw: Any) -> float | None:

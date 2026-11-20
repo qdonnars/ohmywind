@@ -46,7 +46,7 @@ import re
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta, tzinfo
 from importlib.metadata import version as distribution_version
-from typing import Annotated, Any
+from typing import Annotated, Any, TypedDict
 
 from mcp.server.fastmcp import FastMCP
 from mcp.types import CallToolResult, TextContent, ToolAnnotations
@@ -105,6 +105,7 @@ from openwind_data.views import (
     widened_interval_warning,
     window_view,
 )
+from pydantic import ConfigDict, Field
 
 from .guards import guarded, tool_timeout_from_env
 from .render import WEB_BASE, WEB_HOST, build_explore_url, build_ohmywind_url
@@ -205,6 +206,53 @@ POLAR_NOTICE = (
     "polar: it opens the plan with the archetype {archetype!r}, whose timings "
     "differ. Tell the user before they open or share the link."
 )
+# The same, when the call named no archetype: the link carries no boat and the
+# web app falls back on the one set there (``initialPlanBoat``).
+POLAR_NOTICE_NO_ARCHETYPE = (
+    "Timed with the polar passed in this call. openwind_url cannot carry a "
+    "polar: it opens the plan with the boat set in the web app, whose timings "
+    "differ. Tell the user before they open or share the link."
+)
+
+
+# The ``polar`` argument of ``plan_passage``, typed so the tool's schema names
+# its three fields. Left as a bare object, a small model had to find the field
+# names in the prose of a 14 000-character description: Haiku 4.5 sent
+# ``speeds_kn``, ``wind_speeds`` or ``speed_kn`` before it found
+# ``boat_speed_kn``, then a matrix with one row per TWA, the way polar tables
+# are written (bench of 2026-11-20, two to three refused calls per question).
+# Extra keys stay allowed: the REST payload's optional ones
+# (``min_upwind_twa_deg``, the motor pair) are still read by ``parse_polar``,
+# they are just not advertised here, where the tool has its own arguments for
+# them. The docstring is published as the argument's description: keep it to
+# what a model needs.
+class PolarGrid(TypedDict):
+    """The boat's own polar: boat speed for each true wind speed and angle."""
+
+    __pydantic_config__ = ConfigDict(extra="allow")  # type: ignore[misc]
+
+    tws_kn: Annotated[
+        list[float],
+        Field(description="True wind speeds in knots, strictly ascending, e.g. [6, 10, 14, 20]."),
+    ]
+    twa_deg: Annotated[
+        list[float],
+        Field(
+            description="True wind angles in degrees, strictly ascending, within 0 to 180, "
+            "e.g. [45, 60, 90, 120, 150]."
+        ),
+    ]
+    boat_speed_kn: Annotated[
+        list[list[float]],
+        Field(
+            description="Boat speeds in knots, 0 to 30. One row per tws_kn entry, and in "
+            "each row one speed per twa_deg entry: boat_speed_kn[i][j] is the speed at "
+            "tws_kn[i] and twa_deg[j]. Polar tables are usually written with one line "
+            "per TWA: transpose such a table."
+        ),
+    ]
+
+
 PASSAGE_DISCLAIMER = (
     "Decision-support tool, not a navigation instrument. OhMyWind does not "
     "replace the official marine forecast from the national weather service, "
@@ -2397,7 +2445,7 @@ def build_server(
     async def plan_passage(
         waypoints: list[dict[str, float]],
         departure: str,
-        archetype: str,
+        archetype: str | None = None,
         efficiency: float = 0.75,
         segment_length_nm: float = 10.0,
         model: str = AUTO_MODEL,
@@ -2411,7 +2459,7 @@ def build_server(
         route_label: str | None = None,
         alternatives: list[dict[str, Any]] | None = None,
         inland_waterway: bool = False,
-        polar: dict[str, Any] | None = None,
+        polar: PolarGrid | None = None,
     ) -> Annotated[CallToolResult, dict[str, Any]]:
         """Plan an A→B passage. Compare departure windows by default; pin a
         single departure only when the user gives an explicit time.
@@ -2602,7 +2650,8 @@ def build_server(
                 water" above before building it.
             departure: ISO-8601 datetime, timezone-aware.
             archetype: the boat. Pick it yourself from what the user sails,
-                among these (``list_boat_archetypes`` returns the same list):
+                among these (``list_boat_archetypes`` returns the same list).
+                Required, except when you pass ``polar``:
                 {archetypes}
             efficiency: multiplier on polar speed. ``0.85`` racing, ``0.75``
                 cruising (default), ``0.65`` loaded family cruising, ``0.55``
@@ -2643,16 +2692,14 @@ def build_server(
                 this call. Never set it to get past a refusal at sea; redraw
                 the route instead.
             polar: optional, only when the user gives their own boat's polar
-                (a VPP or measured grid): ``{"tws_kn": [...], "twa_deg":
-                [...], "boat_speed_kn": [[...]], "min_upwind_twa_deg": 42}``,
-                one row of speeds (kn, 0 to 30) per TWS, one column per TWA
-                (deg, 0 to 180), both strictly ascending, at most
+                (a VPP or measured grid), never one you made up. Its three
+                fields are described on the argument itself; at most
                 {polar_max} entries. It replaces the archetype's grid for
-                every route and window; still pass the closest ``archetype``.
-                ``efficiency`` still multiplies it (1.0 if the grid is what
-                the boat really makes); ``min_upwind_twa_deg`` and the motor,
-                when passed, win over the polar's own. ``openwind_url`` cannot
-                carry it: ``polar_notice`` says so, tell the user.
+                every route and window, so ``archetype`` becomes optional:
+                pass it if the user named the boat, otherwise leave it out
+                rather than asking. ``efficiency`` still multiplies the grid
+                (1.0 if it is what the boat really makes). ``openwind_url``
+                cannot carry a polar: ``polar_notice`` says so, tell the user.
 
         ## Compare-windows mode (latest_departure set)
 
@@ -2685,10 +2732,11 @@ def build_server(
         # "unknown archetype: 'foo'" (REST's wording) rather than the bare
         # KeyError string "'foo'" that get_polar surfaces from deep inside
         # the engine.
-        try:
-            get_polar(archetype)
-        except KeyError as exc:
-            raise ValueError(f"unknown archetype: {exc}") from exc
+        if archetype is not None:
+            try:
+                get_polar(archetype)
+            except KeyError as exc:
+                raise ValueError(f"unknown archetype: {exc}") from exc
 
         # The caller's own polar, read by the same domain reader as REST and
         # refused with REST's "invalid polar: ..." wording, before any fetch.
@@ -2696,6 +2744,22 @@ def build_server(
             custom_polar = parse_polar(polar, strict=True)
         except ValueError as exc:
             raise ValueError(f"invalid polar: {exc}") from exc
+
+        # A polar stands for the boat on its own: asking for an archetype on
+        # top of it made a small model stop and question the user who had
+        # just pasted their grid (bench of 2026-11-20). Without either there
+        # is no boat to time, and the refusal lists the slugs so the next
+        # call can pick one.
+        named_archetype = archetype
+        if archetype is None:
+            if custom_polar is None:
+                raise ValueError(
+                    "archetype is required unless you pass polar; available: "
+                    f"{sorted(p.name for p in list_archetypes())}"
+                )
+            # No slug to carry: the report and the link name no boat, and the
+            # web app opens the link with the one set there.
+            archetype = ""
 
         if min_upwind_twa_deg is not None and not 25.0 <= min_upwind_twa_deg <= 70.0:
             raise ValueError(f"min_upwind_twa_deg must be in [25, 70], got {min_upwind_twa_deg}")
@@ -2731,7 +2795,11 @@ def build_server(
         )
         closing: dict[str, str] = {"route_notice": ROUTE_NOTICE}
         if custom_polar is not None:
-            closing["polar_notice"] = POLAR_NOTICE.format(archetype=archetype)
+            closing["polar_notice"] = (
+                POLAR_NOTICE.format(archetype=named_archetype)
+                if named_archetype is not None
+                else POLAR_NOTICE_NO_ARCHETYPE
+            )
         closing["disclaimer"] = PASSAGE_DISCLAIMER
 
         # --- SWEEP MODE ---
@@ -2858,5 +2926,33 @@ def build_server(
         ),
         meta={"ui": {"resourceUri": PLAN_UI_RESOURCE_URI}},
     )(guarded(plan_passage, timeout_s=timeout_s))
+    _inline_schema_refs(server, "plan_passage")
 
     return server
+
+
+def _inline_schema_refs(server: FastMCP, tool_name: str) -> None:
+    """Replace each ``$ref`` of a tool's input schema by what it points at.
+
+    A typed argument (``PolarGrid``) makes pydantic emit ``$defs`` and a
+    ``$ref``. Every client is expected to resolve them, and the weakest ones
+    are the reason the argument is typed in the first place: the published
+    schema stays flat, as it was before, so no model has to follow a pointer
+    to learn the three field names.
+    """
+    schema = server._tool_manager._tools[tool_name].parameters
+    defs = schema.pop("$defs", {})
+
+    def resolve(node: Any) -> Any:
+        if isinstance(node, dict):
+            ref = node.get("$ref")
+            if isinstance(ref, str) and ref.startswith("#/$defs/"):
+                return resolve(defs[ref.removeprefix("#/$defs/")])
+            return {k: resolve(v) for k, v in node.items()}
+        if isinstance(node, list):
+            return [resolve(v) for v in node]
+        return node
+
+    resolved = resolve(schema)
+    schema.clear()
+    schema.update(resolved)

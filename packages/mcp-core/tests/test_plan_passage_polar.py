@@ -112,6 +112,28 @@ class TestTheLink:
         assert "'cruiser_40ft'" in out["polar_notice"]
         assert "cannot carry a polar" in out["polar_notice"]
 
+    async def test_a_polar_alone_plans_and_the_link_names_no_boat(self) -> None:
+        args = _args(polar=_flat_polar(8.0), efficiency=1.0)
+        del args["archetype"]
+        server = build_server(adapter=StubAdapter())
+        out = await _call(server, "plan_passage", args)
+        assert _speeds(out["passage"]) == {8.0}
+        # An empty slug: the web app opens the link with the boat set there.
+        assert out["openwind_url"].endswith("&archetype=")
+        assert "the boat set in the web app" in out["polar_notice"]
+        assert "archetype ''" not in out["polar_notice"]
+
+    async def test_neither_a_boat_nor_a_polar_is_refused_with_the_list(self) -> None:
+        args = _args()
+        del args["archetype"]
+        adapter = StubAdapter()
+        server = build_server(adapter=adapter)
+        with pytest.raises(Exception) as excinfo:
+            await server.call_tool("plan_passage", args)
+        assert "archetype is required unless you pass polar" in str(excinfo.value)
+        assert "cruiser_30ft" in str(excinfo.value)
+        assert adapter.fetch_calls == 0
+
     async def test_no_notice_without_a_polar(self) -> None:
         server = build_server(adapter=StubAdapter())
         out = await _call(server, "plan_passage", _args())
@@ -128,7 +150,13 @@ class TestRefusedBeforeAnyFetch:
         [
             # Refused by the schema itself (an object), before the reader.
             ("12 kn everywhere", "Input should be a valid dictionary"),
-            ({"tws_kn": [6, 12], "twa_deg": [40, 90]}, "polar fields missing or non-numeric"),
+            # A missing or misnamed field too, now that the schema names them:
+            # the refusal points at the field the model has to add.
+            ({"tws_kn": [6, 12], "twa_deg": [40, 90]}, "polar.boat_speed_kn\n  Field required"),
+            (
+                {"tws_kn": [6, 12], "twa_deg": [40, 90], "speeds_kn": _rows(2, 2)},
+                "polar.boat_speed_kn\n  Field required",
+            ),
             (
                 _flat_polar(6.0) | {"tws_kn": [12, 4, 25]},
                 "invalid polar: polar tws_kn must be strictly ascending",
@@ -145,11 +173,26 @@ class TestRefusedBeforeAnyFetch:
                 _flat_polar(6.0) | {"boat_speed_kn": _rows(2, len(TWA))},
                 "polar boat_speed_kn has 2 rows, expected 3 (one per TWS)",
             ),
+            # One row per TWA, the way polar tables are written: named as such.
+            (
+                _flat_polar(6.0) | {"boat_speed_kn": _rows(len(TWA), 3)},
+                "has 6 rows, expected 3 (one per TWS); it looks transposed (one row per TWA)",
+            ),
             (
                 _flat_polar(6.0) | {"boat_speed_kn": _rows(3, 5)},
                 "polar boat_speed_kn row 0 has 5 cols, expected 6",
             ),
             (_flat_polar(31.0), "polar boat_speed_kn[0][0]=31.0 out of range [0, 30]"),
+            # A square grid sent one row per TWA: no row count to give it away,
+            # the speeds do (the boat would slow down as the wind rises).
+            (
+                {
+                    "tws_kn": [6, 12, 20],
+                    "twa_deg": [45, 90, 150],
+                    "boat_speed_kn": [[4.5, 6.0, 6.6], [5.5, 7.2, 8.0], [4.0, 6.1, 7.8]],
+                },
+                "invalid polar: polar boat_speed_kn looks transposed",
+            ),
             (
                 _flat_polar(6.0) | {"boat_speed_kn": [[6.0] * 6, [6.0] * 6, [6.0] * 5 + ["nan"]]},
                 "polar boat_speed_kn[2][5]=nan is not a finite number",
@@ -201,3 +244,20 @@ async def test_the_description_quotes_the_grid_ceiling() -> None:
     assert "{polar_max}" not in tool.description
     assert "polar" in tool.inputSchema["properties"]
     assert "polar" not in tool.inputSchema.get("required", [])
+
+
+async def test_the_schema_names_the_three_fields_flat() -> None:
+    """What a small model reads at call time: the field names and the sense
+    of the matrix, on the argument itself, with no pointer to follow."""
+    import json
+
+    tools = await build_server(adapter=StubAdapter()).list_tools()
+    schema = next(t for t in tools if t.name == "plan_passage").inputSchema
+    assert "$ref" not in json.dumps(schema)
+    assert "$defs" not in schema
+    grid = next(s for s in schema["properties"]["polar"]["anyOf"] if s.get("type") == "object")
+    assert grid["required"] == ["tws_kn", "twa_deg", "boat_speed_kn"]
+    assert set(grid["properties"]) == {"tws_kn", "twa_deg", "boat_speed_kn"}
+    assert "One row per tws_kn entry" in grid["properties"]["boat_speed_kn"]["description"]
+    # A boat is named by an archetype or by a polar: neither is required alone.
+    assert schema["required"] == ["waypoints", "departure"]
