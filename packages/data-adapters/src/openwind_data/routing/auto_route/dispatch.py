@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 _worker_fine: FineLand | None = None
 
 
-def _worker_init(grids_dir: str) -> None:
+def _worker_init(grids_dir: str | None) -> None:
     global _worker_fine
     _worker_fine = FineLand.from_directory(grids_dir)
 
