@@ -9,14 +9,20 @@ import asyncio
 import math
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from itertools import pairwise
 from pathlib import Path
 
 import numpy as np
 
-from openwind_data.routing.auto_route import NavGrid
-from openwind_data.routing.auto_route.dispatch import RepairPool
-from openwind_data.routing.auto_route.repair import FineLand, repair_route
+from openwind_data.routing.auto_route import NavGrid, dispatch
+from openwind_data.routing.auto_route.dispatch import RepairPool, parse_repair_mode
+from openwind_data.routing.auto_route.repair import (
+    BUNDLED_GRIDS_DIR,
+    FineLand,
+    Repair,
+    repair_route,
+)
 from openwind_data.routing.geometry import Point
 
 PITCH = 0.0005
@@ -71,5 +77,85 @@ async def test_no_grid_for_the_route_starts_no_worker(tmp_path):
     _write(tmp_path, _grid())
     pool = RepairPool(tmp_path)
     assert await pool.repair([Point(10.0, 10.0), Point(10.1, 10.1)]) is None
-    assert await RepairPool(None).repair([Point(47.05, -2.95), Point(47.06, -2.9)]) is None
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert await RepairPool(empty).repair([Point(47.05, -2.95), Point(47.06, -2.9)]) is None
     assert pool._pool is None
+
+
+def test_the_repair_is_on_by_default_and_can_be_turned_off():
+    assert parse_repair_mode(None) == "compute"
+    assert parse_repair_mode("") == "compute"
+    assert parse_repair_mode(" OFF ") == "off"
+    assert parse_repair_mode("suggest") == "suggest"
+    assert parse_repair_mode("nonsense") == "compute"
+
+
+def test_without_a_directory_the_pool_reads_the_bundled_grids():
+    pool = RepairPool()
+    assert pool._dir == str(BUNDLED_GRIDS_DIR)
+    assert len(pool.fine.regions) == 3
+    # Marseille to Porquerolles lies in the Provence grid, Brest to Ouessant
+    # in none (Ouessant is west of the Bretagne sud grid).
+    assert pool.fine.region_for([Point(43.295, 5.361), Point(43.0, 6.242)]) is not None
+    assert pool.fine.region_for([Point(48.38, -4.49), Point(48.46, -5.10)]) is None
+
+
+def _threaded(monkeypatch, tmp_path, work) -> RepairPool:
+    """A pool on the synthetic grid whose worker is a thread running ``work``."""
+    _write(tmp_path, _grid())
+    pool = RepairPool(tmp_path)
+    executor = ThreadPoolExecutor(max_workers=1)
+    monkeypatch.setattr(pool, "_executor", lambda: executor)
+    monkeypatch.setattr(dispatch, "_worker_repair", work)
+    return pool
+
+
+def _route() -> list[Point]:
+    g = _grid()
+    return [Point(*g.latlon(100, 20)), Point(*g.latlon(100, 280))]
+
+
+async def test_a_route_answered_once_is_answered_from_memory(monkeypatch, tmp_path):
+    calls: list[int] = []
+
+    def work(points):
+        calls.append(1)
+        return Repair(points=list(points), changes=["x"])
+
+    pool = _threaded(monkeypatch, tmp_path, work)
+    first = await pool.repair(_route())
+    # Rounded to 5 decimals: the same route sent back through JSON hits.
+    again = await pool.repair([Point(p.lat + 1e-9, p.lon) for p in _route()])
+    assert first is again and len(calls) == 1 and pool.cache_hits == 1
+
+
+async def test_a_full_queue_leaves_routes_unrepaired_and_never_fails(monkeypatch, tmp_path):
+    def work(points):
+        time.sleep(0.2)
+        return Repair(points=list(points))
+
+    pool = _threaded(monkeypatch, tmp_path, work)
+    routes = [[Point(p.lat, p.lon + k * 1e-4) for p in _route()] for k in range(10)]
+    started = time.perf_counter()
+    results = await asyncio.gather(*(pool.repair(r) for r in routes))
+    # The first MAX_PENDING are repaired one behind the other, the rest are
+    # shed at once rather than queued behind them.
+    assert sum(r is not None for r in results) == dispatch.MAX_PENDING
+    assert pool.shed == len(routes) - dispatch.MAX_PENDING
+    assert time.perf_counter() - started < 0.2 * dispatch.MAX_PENDING + 0.5
+    assert pool._pending == 0
+
+
+async def test_a_repair_too_slow_is_dropped(monkeypatch, tmp_path):
+    monkeypatch.setattr(dispatch, "TIMEOUT_S", 0.1)
+
+    def work(points):
+        time.sleep(0.5)
+        return Repair(points=list(points))
+
+    pool = _threaded(monkeypatch, tmp_path, work)
+    started = time.perf_counter()
+    assert await pool.repair(_route()) is None
+    assert time.perf_counter() - started < 0.4
+    assert pool.shed == 1

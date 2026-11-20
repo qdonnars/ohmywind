@@ -36,8 +36,19 @@ import numpy as np
 from openwind_data.routing.auto_route.engine import RouteParams, _segment_samples, suggest_route
 from openwind_data.routing.auto_route.grid import M_PER_DEG_LAT, NavGrid
 from openwind_data.routing.geometry import Point, haversine_distance
+from openwind_data.routing.notices import Notice, notice
 
 M_PER_NM = 1852.0
+
+# The shoreline grids shipped with this package: three regions (Bretagne sud
+# and Vendée, Manche ouest, Provence), derived from OpenStreetMap under the
+# ODbL (see grids/NOTICE.md). A route no region holds is never repaired.
+BUNDLED_GRIDS_DIR = Path(__file__).resolve().parent / "grids"
+
+
+def resolve_grids_dir(raw: str | Path | None) -> Path:
+    """The grids directory a deployment names (``OPENWIND_ROUTE_GRIDS_DIR``), else the bundled one."""
+    return Path(raw) if raw else BUNDLED_GRIDS_DIR
 
 
 @dataclass(frozen=True)
@@ -162,7 +173,10 @@ class RepairParams:
 class Repair:
     points: list[Point]
     added: list[int] = field(default_factory=list)  # indices of the server's waypoints
+    # What changed, in English for the MCP client (``route_changes``) and,
+    # one for one, as coded notices the web app says in its reader's language.
     changes: list[str] = field(default_factory=list)
+    notices: list[Notice] = field(default_factory=list)
     retraced: list[dict] = field(default_factory=list)  # per leg, for the bench
     refusal: str | None = None
     seconds: float = 0.0
@@ -297,6 +311,7 @@ def repair_route(
             f"The {name} was on land: moved {near[1]:.0f} m to the nearest open water, "
             f"{_fmt(near[0])}."
         )
+        out.notices.append(notice(f"route.{name}_moved", distance_m=f"{near[1]:.0f}"))
         pts[idx] = near[0]
 
     # Legs between points at sea: each one that crosses land is retraced alone.
@@ -342,6 +357,14 @@ def repair_route(
             f"sea, {new:.1f} nm instead of "
             f"{straight:.1f} nm in a straight line, through {len(path) - 2} added waypoints "
             f"(now waypoints {first + 1} to {first + len(path) - 2})."
+        )
+        out.notices.append(
+            notice(
+                "route.leg_retraced",
+                leg=i + 1,
+                retraced_nm=f"{new:.1f}",
+                straight_nm=f"{straight:.1f}",
+            )
         )
     out.points = final
     out.seconds = time.perf_counter() - t0
