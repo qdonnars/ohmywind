@@ -2,7 +2,7 @@
 
 > **Talk to your LLM. Cast off with confidence.**
 >
-> OhMyWind turns any MCP-capable assistant (Claude, Le Chat, Cursor, Goose,
+> OhMyWind turns any MCP-capable assistant (Claude, Vibe, Cursor, Goose,
 > Zed, Continue) into a sailing planner. Ask in plain language, anywhere in
 > the world: get a per-leg ETA, a 1‑5 complexity score, and a deep-link to
 > the full plan. On the French Atlantic coast it goes further, swapping the
@@ -26,6 +26,7 @@
 ## Try it in 30 seconds
 
 **Claude:** add it from the [connector directory](https://claude.ai/directory/ohmywind), in one click.
+**ChatGPT:** add it from [its ChatGPT page](https://chatgpt.com/plugins/ohmywind), in one click too.
 Any other MCP client:
 
 **1.** Open your MCP client and add the endpoint:
@@ -43,7 +44,7 @@ https://mcp.ohmywind.fr/mcp
 On hosts that support the [MCP Apps spec](https://modelcontextprotocol.io/extensions/client-matrix)
 (Claude, Claude Desktop, ChatGPT, VS Code Copilot, Goose, Postman, MCPJam) you
 also get a live, interactive widget: the [ohmywind.fr](https://ohmywind.fr)
-plan view rendered inline. On hosts that don't (Cursor, Le Chat, terminal),
+plan view rendered inline. On hosts that don't (Cursor, Vibe, terminal),
 the assistant hands you the same plan as an [ohmywind.fr](https://ohmywind.fr)
 deep-link. No account. No API key. No credit card.
 
@@ -52,7 +53,7 @@ deep-link. No account. No API key. No credit card.
 > then follow the
 > [remote-server quickstart](https://modelcontextprotocol.io/docs/develop/connect-remote-servers).
 > Claude Desktop users can start with the
-> [user quickstart](https://modelcontextprotocol.io/quickstart/user). In Le Chat,
+> [user quickstart](https://modelcontextprotocol.io/quickstart/user). In Vibe,
 > add it under **Connectors → Add connector → Custom MCP connector** and paste
 > the endpoint above.
 
@@ -97,7 +98,7 @@ Three prompts, each exercising a different tool:
 | 🌍 **Works anywhere**        | Global models (ECMWF, GFS) cover any coast. Over France, AROME 1.3 km takes over and catches thermals, mistral, tramontane. |
 | ⛵ **Boat-aware**             | Eight archetypes from a 16 ft sail-and-oar dinghy and 20 ft trailer-cruisers to bluewater 50-footers, real polars, an `efficiency` parameter for trim and crew level. |
 | 🗓️ **Window-aware**           | One call sweeps a 14-day departure range and lets your LLM pick the calmest weekend slot, no math by hand. |
-| 🔌 **Client-agnostic**        | One HTTP MCP endpoint. Works in Claude Desktop, Le Chat, Cursor, Goose, Zed, Continue, …     |
+| 🔌 **Client-agnostic**        | One HTTP MCP endpoint. Works in Claude Desktop, Vibe, Cursor, Goose, Zed, Continue, …     |
 | 🖼️ **Rich on supporting hosts** | On Claude / ChatGPT / VS Code Copilot / Goose, an interactive widget renders inline via [MCP Apps](https://modelcontextprotocol.io/extensions/client-matrix). Other hosts fall back to a clean text summary + deep-link. |
 | 🛠️ **Open source, AGPL**      | Self-host on Fly, Modal, or your own VPS: `mcp-core` is deployment-agnostic. The HF Space is one wrapper among many. Fork it under your own name and icons, see [TRADEMARK.md](TRADEMARK.md). |
 
