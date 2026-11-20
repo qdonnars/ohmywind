@@ -311,7 +311,9 @@ def _segment_samples(p0: tuple[float, float], p1: tuple[float, float], step: flo
 def _segment_cost(cost: np.ndarray, p0, p1) -> float:
     """Integrated cost of the straight segment between two pixel centres, inf if it hits a wall."""
     rs, cs = _segment_samples(p0, p1)
-    vals = cost[np.rint(rs).astype(np.int64), np.rint(cs).astype(np.int64)]
+    # floor(x + 0.5), not rint: rint rounds a sample on a pixel edge to the
+    # even side, so the pixel it picks would depend on the grid's offset.
+    vals = cost[np.floor(rs + 0.5).astype(np.int64), np.floor(cs + 0.5).astype(np.int64)]
     if np.isinf(vals).any():
         return INF
     return float(vals.mean()) * math.hypot(p1[0] - p0[0], p1[1] - p0[1])
