@@ -12,6 +12,7 @@ on:
       # alone must redeploy for the server to report it.
       - "packages/web/package.json"
       - ".github/workflows/sync-hf-space.yml"
+      - ".github/scripts/wait_for_space.py"
   workflow_dispatch:
 
 # Single source of truth = this repo. The HF Space repos are treated as mirrors;
@@ -29,10 +30,16 @@ jobs:
   sync:
     needs: ci
     runs-on: ubuntu-latest
+    # The push takes a minute; the wait for the Space to build and start
+    # (see "Wait for the Space to serve this commit") is capped at 30.
+    timeout-minutes: 45
     env:
       # Override via repo Variables → Actions if you renamed a Space.
       HF_SPACE_ID_PROD: ${{ vars.HF_SPACE_ID || 'qdonnars/openwind-mcp' }}
       HF_SPACE_ID_DEV: ${{ vars.HF_SPACE_ID_DEV || 'qdonnars/openwind-mcp-dev' }}
+      # The public address in front of each Space (the Cloudflare Worker).
+      MCP_PUBLIC_URL_PROD: ${{ vars.MCP_PUBLIC_URL || 'https://mcp.ohmywind.fr' }}
+      MCP_PUBLIC_URL_DEV: ${{ vars.MCP_PUBLIC_URL_DEV || 'https://mcp-dev.ohmywind.fr' }}
     steps:
       - name: Checkout source repo
         uses: actions/checkout@v7
@@ -42,10 +49,13 @@ jobs:
           set -euo pipefail
           if [ "${GITHUB_REF_NAME}" = "main" ]; then
             TARGET="${HF_SPACE_ID_PROD}"
+            PUBLIC_URL="${MCP_PUBLIC_URL_PROD}"
           else
             TARGET="${HF_SPACE_ID_DEV}"
+            PUBLIC_URL="${MCP_PUBLIC_URL_DEV}"
           fi
           echo "HF_SPACE_ID=${TARGET}" >> "$GITHUB_ENV"
+          echo "MCP_PUBLIC_URL=${PUBLIC_URL}" >> "$GITHUB_ENV"
           echo "Branch ${GITHUB_REF_NAME} -> Space ${TARGET}"
 
       - name: Assemble Space build context
@@ -143,3 +153,27 @@ jobs:
           SHA="${GITHUB_SHA::7}"
           git commit -m "sync: github ${SHA}"
           git push
+          # What the next step waits for the Space to serve.
+          echo "SPACE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      # The push only means the Hub took the files: the Docker build and the
+      # app's start happen afterwards, and a failure there used to leave this
+      # job green. Wait until the Space runs the commit just pushed (its
+      # runtime reports the commit it serves), then check /healthz, the
+      # landing page and an MCP initialize on the Space's own address and on
+      # the public one. No forecast is requested. Skipped when nothing was
+      # pushed. When it fails the previous build may still be serving: this
+      # warns, it does not roll back.
+      - name: Wait for the Space to serve this commit
+        if: ${{ env.SPACE_SHA != '' }}
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          set -euo pipefail
+          SPACE_HOST="$(echo "${HF_SPACE_ID}" | tr '/' '-' | tr '[:upper:]' '[:lower:]').hf.space"
+          python3 .github/scripts/wait_for_space.py \
+            --space "${HF_SPACE_ID}" \
+            --sha "${SPACE_SHA}" \
+            --timeout 1800 \
+            --url "https://${SPACE_HOST}" \
+            --url "${MCP_PUBLIC_URL}"
