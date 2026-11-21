@@ -37,6 +37,9 @@ ATTRIBUTE_KEYS = (
     "video_label",
     "video_alt",
     "video_frame_title",
+    "claude_cta",
+    "vibe_cta",
+    "chatgpt_cta",
 )
 
 # Inline markup a translation may legitimately add or drop (a quoted English
@@ -44,9 +47,13 @@ ATTRIBUTE_KEYS = (
 INLINE_TAGS = {"a", "strong", "code", "span", "br"}
 
 
-def _section(html: str, summary: str) -> str:
-    section = html[html.index(f"<summary>{summary}") :]
-    return section[: section.index("</details>")]
+def _button(html: str, name: str) -> str:
+    """The opening tag of the assistant button that reads ``name``."""
+    match = re.search(
+        rf'<a class="assistant"[^>]*>(?=<svg[^>]*><path[^>]*/></svg>{name}</a>)', html
+    )
+    assert match, name
+    return match.group(0)
 
 
 def _skeleton(html: str) -> list[str]:
@@ -63,38 +70,68 @@ def _text(html: str) -> str:
     return re.sub(r"<[^>]+>", " ", html)
 
 
-# ── The Claude directory, in every language ─────────────────────────────────
+# ── The three assistants, in every language ─────────────────────────────────
 
 
 @pytest.mark.parametrize("lang", LANGUAGES)
-def test_claude_section_opens_on_the_directory_listing(lang: str) -> None:
-    url = DIRECTORY_URLS["claude"]
-    assert url == "https://claude.ai/directory/ohmywind"
-    copy = COPY[lang]
-    claude = _section(LANDING_PAGES[lang], "Claude")
-    assert f'href="{url}"' in claude
-    assert copy["claude_cta"] in claude
-    # The button first, the manual steps underneath.
-    assert claude.index(copy["claude_cta"]) < claude.index(copy["manual"])
-    assert claude.index(copy["manual"]) < claude.index(copy["claude_step_add"])
+def test_claude_and_chatgpt_open_on_their_directory_listing(lang: str) -> None:
+    assert DIRECTORY_URLS == {
+        "claude": "https://claude.ai/directory/ohmywind",
+        "chatgpt": "https://chatgpt.com/plugins/ohmywind",
+    }
+    page, copy = LANDING_PAGES[lang], COPY[lang]
+    for name, key in (("Claude", "claude"), ("ChatGPT", "chatgpt")):
+        button = _button(page, name)
+        assert f'href="{DIRECTORY_URLS[key]}"' in button
+        assert 'target="_blank"' in button
+        # The accessible name says what the button does and holds its label.
+        assert f'aria-label="{copy[key + "_cta"]}"' in button
+        assert name in copy[key + "_cta"]
 
 
-def test_the_english_page_keeps_its_reference_wording() -> None:
-    claude = _section(LANDING_HTML, "Claude")
-    assert "Add to Claude" in claude
-    assert claude.index("Add to Claude") < claude.index("Or add it manually")
-    assert claude.index("Or add it manually") < claude.index("Add custom connector")
+@pytest.mark.parametrize("lang", LANGUAGES)
+def test_vibe_unfolds_its_steps_under_the_buttons(lang: str) -> None:
+    page, copy = LANDING_PAGES[lang], COPY[lang]
+    button = _button(page, "Vibe")
+    # A link to the steps, so they open without script; folded by default.
+    assert 'href="#vibe"' in button
+    assert 'aria-controls="vibe"' in button
+    assert 'aria-expanded="false"' in button
+    assert "Vibe" in copy["vibe_cta"]
+    steps = page[page.index('<section id="vibe"') :]
+    steps = steps[: steps.index("</section>")]
+    assert page.index('<div class="assistants">') < page.index('<section id="vibe"')
+    assert copy["vibe_step_menu"] in steps
+    assert "https://mcp.ohmywind.fr/mcp" in steps
+    assert "Le Chat" not in page
+
+
+@pytest.mark.parametrize("lang", LANGUAGES)
+def test_the_three_buttons_in_order_each_with_its_mark(lang: str) -> None:
+    page = LANDING_PAGES[lang]
+    row = page[page.index('<div class="assistants">') :]
+    row = row[: row.index("</div>")]
+    assert re.findall(r"</svg>([A-Za-z]+)</a>", row) == ["Claude", "Vibe", "ChatGPT"]
+    assert row.count("<svg") == 3
+
+
+@pytest.mark.parametrize("lang", LANGUAGES)
+def test_another_assistant_gets_the_server_address(lang: str) -> None:
+    page = LANDING_PAGES[lang]
+    after = page[page.index(COPY[lang]["other_assistant"]) :]
+    assert after.index("https://mcp.ohmywind.fr/mcp") < after.index("<h2>")
 
 
 @pytest.mark.parametrize("lang", LANGUAGES)
 def test_the_url_lives_in_one_place(lang: str) -> None:
     assert "{{" not in LANDING_PAGES[lang]
-    assert LANDING_PAGES[lang].count(DIRECTORY_URLS["claude"]) == 1
+    for url in DIRECTORY_URLS.values():
+        assert LANDING_PAGES[lang].count(url) == 1
 
 
 def test_a_slot_without_its_entry_fails_loudly() -> None:
     with pytest.raises(RuntimeError, match="DIRECTORY_URLS"):
-        render_landing('<a href="{{chatgpt_directory_url}}">Add to ChatGPT</a>')
+        render_landing('<a href="{{gemini_directory_url}}">Add to Gemini</a>')
 
 
 # ── Parity: what a translation cannot get wrong ─────────────────────────────
@@ -124,8 +161,8 @@ def test_a_missing_translation_stops_the_import(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_a_stray_translation_stops_the_import(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setitem(COPY, "it", {**COPY["it"], "chatgpt_cta": "Aggiungi a ChatGPT"})
-    with pytest.raises(RuntimeError, match=r"extra \['chatgpt_cta'\]"):
+    monkeypatch.setitem(COPY, "it", {**COPY["it"], "gemini_cta": "Aggiungi a Gemini"})
+    with pytest.raises(RuntimeError, match=r"extra \['gemini_cta'\]"):
         landing._check_parity()
 
 
