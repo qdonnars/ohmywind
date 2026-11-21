@@ -4,6 +4,17 @@ Toutes les versions d'OhMyWind, de la plus récente à la plus ancienne. Le site
 
 Chaque version est aussi publiée sur la page [Releases](https://github.com/qdonnars/ohmywind/releases) du dépôt, et l'application affiche ce journal sur sa page « Quoi de neuf ». La marche à suivre pour publier une version est dans [docs/releases.md](docs/releases.md). English version: [CHANGELOG.en.md](CHANGELOG.en.md).
 
+## 1.14.0 · 2026-11-21 · Une page pour brancher OhMyWind sur votre assistant
+
+### Nouveautés
+
+- La page mcp.ohmywind.fr s'adresse aux plaisanciers : trois questions de marin jouées sur la carte, un bouton par assistant (Claude, ChatGPT, Vibe), des exemples à copier et une foire aux questions ; la technique se replie dans « Pour les développeurs » (#549, #551, #552).
+- Cette page existe en cinq langues, choisies d'après votre navigateur, avec un sélecteur en haut de page (#544).
+
+### Coulisses
+
+- Le communiqué de presse cite l'article de Multicoques Mag, et le flyer pour les écoles de voile est à jour, avec des QR codes pour ChatGPT, Claude et les autres assistants (#550, #554).
+
 ## 1.13.0 · 2026-11-11 · Des tableaux harmonisés, un serveur plus rapide et mieux protégé
 
 ### Nouveautés

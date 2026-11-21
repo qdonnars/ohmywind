@@ -4,6 +4,17 @@ Every OhMyWind release, newest first. The ohmywind.fr site and the MCP server sh
 
 This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the reference. Each release is also published on the repository's [Releases](https://github.com/qdonnars/ohmywind/releases) page, and the app shows this log on its "What's new" page.
 
+## 1.14.0 · 2026-11-21 · A page to plug OhMyWind into your assistant
+
+### New
+
+- The mcp.ohmywind.fr page now speaks to sailors: three sailing questions played out on the map, one button per assistant (Claude, ChatGPT, Vibe), examples to copy and a FAQ; the technical part folds into "For developers" (#549, #551, #552).
+- The page comes in five languages, picked from your browser, with a selector at the top (#544).
+
+### Behind the scenes
+
+- The press release cites the Multicoques Mag article, and the flyer for sailing schools is up to date, with QR codes for ChatGPT, Claude and the other assistants (#550, #554).
+
 ## 1.13.0 · 2026-11-11 · Harmonised tables, a faster and better protected server
 
 ### New
