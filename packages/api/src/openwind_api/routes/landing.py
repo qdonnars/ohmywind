@@ -8,6 +8,23 @@ read once at import. It used to be a 230-line string literal in the middle of
 the request handlers, where a copy edit and a routing change lived in the same
 diff.
 
+It speaks the web app's five languages. The HTML is one template with a
+``{{t:<key>}}`` slot per piece of text, the words live in ``landing_copy``,
+and every language is rendered at import: a missing key, a stray key or a
+leftover slot stops the import instead of reaching a reader. Each request
+picks its language from ``?lang=`` first, then ``Accept-Language``, then
+English.
+
+It speaks to sailors rather than developers: what the server is for, why
+an assistant alone is not enough, who decides. The technical part (server
+address, source, self-hosting) is folded at the bottom.
+
+The top of the page plays three example questions over a chart: the question
+types itself, the route draws, the answer appears. That is script on top of a
+page that works without it: every question is in the markup, the one asked
+for is shown and the others are ``hidden``, and the chips are plain links to
+``?q=2`` and ``?q=3``. So each language is rendered once per question.
+
 The demo video lives on YouTube; what the page serves itself is the poster
 the player hides behind until someone presses play, so that nothing from
 YouTube loads on a visit. The poster does not ship here: binary belongs to a
@@ -19,39 +36,203 @@ the right degraded state for a redeployment that has not copied it yet.
 
 from __future__ import annotations
 
+import re
 from importlib import resources
 from pathlib import Path
 
 from starlette.requests import Request
 from starlette.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse
 
+from openwind_api.routes.landing_copy import COPY, LANGUAGE_NAMES, LINKS
+
+# The address an assistant connects to, filling every ``{{mcp_url}}`` slot:
+# Vibe's steps and the developer block, which are the only two places a
+# reader needs it.
+MCP_URL = "https://mcp.ohmywind.fr/mcp"
+
 # The assistants' official connector directories that list OhMyWind, one
 # entry per directory, each filling the ``{{<name>_directory_url}}`` slot of
 # the page. The URL lives here and nowhere else in the page: when another
-# directory approves the connector, its listing is one line here and one
-# button in the page.
+# directory approves the connector, its listing is one line here, one button
+# in the page and one ``<name>_cta`` line per language in ``landing_copy``.
 DIRECTORY_URLS = {
     "claude": "https://claude.ai/directory/ohmywind",
+    "chatgpt": "https://chatgpt.com/plugins/ohmywind",
 }
 
+# The languages of the web app, in the order the picker shows them. English
+# is the fallback: a Dutch or Portuguese sailor is likelier to read it than
+# French, which is the web app's reasoning too.
+LANGUAGES = ("en", "fr", "de", "it", "es")
+DEFAULT_LANGUAGE = "en"
 
-def render_landing(template: str) -> str:
-    """The landing page with every directory slot filled.
+# Where search engines find each language. Absolute, as hreflang requires,
+# and always the public host: the dev Space must not advertise itself as an
+# alternate of production. The picker itself uses relative links, so it
+# works on every host.
+PUBLIC_URL = "https://mcp.ohmywind.fr/"
 
-    Fails at import rather than serving a button that points at
-    ``{{...}}``: a slot without its entry is a typo, not a degraded state.
+# The example questions at the top of the page, ``?q=<n>``; the first is the
+# default.
+QUESTIONS = (1, 2, 3)
+DEFAULT_QUESTION = 1
+
+_COPY_SLOT = re.compile(r"\{\{t:([a-z0-9_]+)\}\}")
+
+
+def _check_parity() -> None:
+    """Every language carries exactly the English keys, no more, no less."""
+    if set(COPY) != set(LANGUAGES) or set(LANGUAGE_NAMES) != set(LANGUAGES):
+        raise RuntimeError("landing_copy languages differ from LANGUAGES")
+    reference = set(COPY[DEFAULT_LANGUAGE])
+    for lang in LANGUAGES:
+        keys = set(COPY[lang])
+        missing, extra = sorted(reference - keys), sorted(keys - reference)
+        if missing or extra:
+            raise RuntimeError(
+                f"landing_copy[{lang!r}] is out of step with English: "
+                f"missing {missing}, extra {extra}"
+            )
+
+
+def _alternates() -> str:
+    links = [
+        f'  <link rel="alternate" hreflang="{lang}" href="{PUBLIC_URL}?lang={lang}">'
+        for lang in LANGUAGES
+    ]
+    links.append(f'  <link rel="alternate" hreflang="x-default" href="{PUBLIC_URL}">')
+    return "\n".join(links)
+
+
+def _language_switcher(current: str, question: int = DEFAULT_QUESTION) -> str:
+    """Plain links, so the picker works without script and a shared link
+    keeps its language; the current language is not a link. A question other
+    than the first carries over to the other language.
+
+    Each entry carries the full name and the two-letter code: the page shows
+    the names on a wide screen and the codes on a phone, while a screen
+    reader always reads the name.
     """
-    html = template
+    items = []
+    keep = "" if question == DEFAULT_QUESTION else f"&amp;q={question}"
+    for lang in LANGUAGES:
+        label = (
+            f'<span class="full">{LANGUAGE_NAMES[lang]}</span>'
+            f'<span class="code" aria-hidden="true">{lang.upper()}</span>'
+        )
+        if lang == current:
+            items.append(f'<span lang="{lang}" aria-current="true">{label}</span>')
+        else:
+            items.append(
+                f'<a href="?lang={lang}{keep}" hreflang="{lang}" lang="{lang}">{label}</a>'
+            )
+    return '    <nav class="langs" aria-label="{{t:language_nav}}">' + "".join(items) + "</nav>"
+
+
+def render_landing(
+    template: str, lang: str = DEFAULT_LANGUAGE, question: int = DEFAULT_QUESTION
+) -> str:
+    """The landing page in ``lang`` showing example ``question``, every slot filled.
+
+    Fails at import rather than serving a page with a ``{{...}}`` in it: a
+    slot without its entry is a typo, not a degraded state. So does a copy
+    key the template never uses, which is a translation for nothing.
+    """
+    copy = COPY[lang]
+    html = (
+        template.replace("{{lang}}", lang)
+        .replace("{{alternates}}", _alternates())
+        .replace("{{language_switcher}}", _language_switcher(lang, question))
+        .replace("{{q}}", str(question))
+    )
+    # The question shown is the one asked for; the others wait, hidden, for
+    # the script (or a click on their chip, which reloads with ``?q=``).
+    for n in QUESTIONS:
+        html = html.replace(f"{{{{q_hidden:{n}}}}}", "" if n == question else " hidden")
+        html = html.replace(
+            f"{{{{q_current:{n}}}}}", ' aria-current="true"' if n == question else ""
+        )
+
+    used: set[str] = set()
+
+    def fill(match: re.Match[str]) -> str:
+        key = match.group(1)
+        if key not in copy:
+            raise RuntimeError(f"landing.html has a {{{{t:{key}}}}} slot with no entry in COPY")
+        used.add(key)
+        return copy[key]
+
+    html = _COPY_SLOT.sub(fill, html)
+    # Only on a full page: a fragment (a test, a new block being tried out)
+    # is not expected to use every key.
+    if "<html" in template:
+        unused = sorted(set(copy) - used)
+        if unused:
+            raise RuntimeError(f"landing_copy has keys landing.html never uses: {unused}")
     for name, url in DIRECTORY_URLS.items():
         html = html.replace("{{" + name + "_directory_url}}", url)
+    for name, url in LINKS.items():
+        html = html.replace("{{url:" + name + "}}", url)
+    html = html.replace("{{mcp_url}}", MCP_URL)
     if "{{" in html:
-        raise RuntimeError("landing.html has a {{...}} slot with no entry in DIRECTORY_URLS")
+        raise RuntimeError(
+            "landing.html has a {{...}} slot with no entry in DIRECTORY_URLS or LINKS"
+        )
     return html
 
 
-LANDING_HTML = render_landing(
+_check_parity()
+_TEMPLATE = (
     resources.files("openwind_api").joinpath("static/landing.html").read_text(encoding="utf-8")
 )
+# Rendered once per language and question at import, so a broken translation
+# stops the deployment rather than one reader's page.
+PAGES = {
+    (lang, question): render_landing(_TEMPLATE, lang, question)
+    for lang in LANGUAGES
+    for question in QUESTIONS
+}
+LANDING_PAGES = {lang: PAGES[lang, DEFAULT_QUESTION] for lang in LANGUAGES}
+LANDING_HTML = LANDING_PAGES[DEFAULT_LANGUAGE]
+
+
+def negotiate_language(accept_language: str | None) -> str:
+    """The language to serve for an ``Accept-Language`` header.
+
+    Highest quality first, the header's own order breaking ties; a regional
+    tag counts for its language (``fr-CA`` is ``fr``), ``q=0`` means "not
+    this one", and a malformed entry is skipped rather than failing the page.
+    """
+    ranked: list[tuple[float, int, str]] = []
+    for position, entry in enumerate((accept_language or "").split(",")):
+        tag, *params = (part.strip() for part in entry.split(";"))
+        quality = 1.0
+        for param in params:
+            name, _, value = param.partition("=")
+            if name.strip().lower() == "q":
+                try:
+                    quality = float(value)
+                except ValueError:
+                    quality = 0.0
+        base = tag.lower().split("-")[0]
+        if 0 < quality <= 1 and base in LANGUAGES:
+            ranked.append((-quality, position, base))
+    return min(ranked)[2] if ranked else DEFAULT_LANGUAGE
+
+
+def pick_language(request: Request) -> str:
+    """``?lang=xx`` when it names a language we serve, else the header."""
+    asked = request.query_params.get("lang", "").lower().split("-")[0]
+    if asked in LANGUAGES:
+        return asked
+    return negotiate_language(request.headers.get("accept-language"))
+
+
+def pick_question(request: Request) -> int:
+    """``?q=2`` or ``?q=3`` when asked for, else the first question."""
+    asked = request.query_params.get("q", "")
+    return int(asked) if asked in {str(n) for n in QUESTIONS} else DEFAULT_QUESTION
+
 
 # Connector pickers in chat hosts (Claude, etc.) often scrape the server
 # URL's favicon / og:image to badge the connector. Our app responded 404
@@ -68,17 +249,29 @@ ICON_REDIRECTS = {
 
 # The video poster ships with the deployment rather than coming from
 # i.ytimg.com: fetching YouTube's thumbnail would tell Google about every
-# visit, which the click-to-load player exists to avoid. One file means an
-# explicit allowlist rather than a StaticFiles mount, which keeps the routing
-# table readable and makes path traversal impossible by construction. A new
-# poster ships under a new name: the old one sits in caches for a week.
+# visit, which the click-to-load player exists to avoid. The web app's font
+# (Inter, latin subset, OFL) ships the same way, since the app's own copy has
+# a content hash in its name. A handful of files means an explicit allowlist
+# rather than a StaticFiles mount, which keeps the routing table readable and
+# makes path traversal impossible by construction. A new poster ships under a
+# new name: the old one sits in caches for a week.
 STATIC_ASSETS = {
     "video-poster.jpg": "image/jpeg",
+    "inter-latin.woff2": "font/woff2",
 }
 
 
-async def index(_request: Request) -> HTMLResponse:
-    return HTMLResponse(LANDING_HTML)
+async def index(request: Request) -> HTMLResponse:
+    lang = pick_language(request)
+    question = pick_question(request)
+    # ``Vary`` because the same URL answers in five languages: a browser or
+    # a cache that honours it keys on the header too. Cloudflare's edge cache
+    # does not, which is why the Worker in packages/edge-proxy must never put
+    # ``/`` among its CACHEABLE_PATHS.
+    return HTMLResponse(
+        PAGES[lang, question],
+        headers={"Vary": "Accept-Language", "Content-Language": lang},
+    )
 
 
 async def icon_redirect(request: Request) -> RedirectResponse:

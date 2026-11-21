@@ -25,6 +25,7 @@ short_description: Sailing passage planner for any coast, via MCP.
 ## Try it in 30 seconds
 
 **Claude:** add it from the [connector directory](https://claude.ai/directory/ohmywind), in one click.
+**ChatGPT:** add it from [its ChatGPT page](https://chatgpt.com/plugins/ohmywind), in one click too.
 Any other MCP client:
 
 **1.** In your MCP client, add the endpoint:
@@ -42,7 +43,7 @@ https://mcp.ohmywind.fr/mcp
 On hosts that support the [MCP Apps spec](https://modelcontextprotocol.io/extensions/client-matrix)
 (Claude, Claude Desktop, ChatGPT, VS Code Copilot, Goose, Postman, MCPJam) you
 also get the live [ohmywind.fr](https://ohmywind.fr) plan view rendered
-inline. On hosts that don't (Cursor, Le Chat, terminal), the assistant hands
+inline. On hosts that don't (Cursor, Vibe, terminal), the assistant hands
 you the same plan as a deep-link instead. No account. No API key. No credit
 card.
 
@@ -50,8 +51,8 @@ card.
 > [modelcontextprotocol.io/clients](https://modelcontextprotocol.io/clients),
 > then follow the
 > [remote-server quickstart](https://modelcontextprotocol.io/docs/develop/connect-remote-servers).
-> Works with Claude Desktop, Le Chat, Cursor, Goose, Zed, Continue, and any
-> other MCP-compatible host. In Le Chat, add it under **Connectors → Add
+> Works with Claude Desktop, Vibe, Cursor, Goose, Zed, Continue, and any
+> other MCP-compatible host. In Vibe, add it under **Connectors → Add
 > connector → Custom MCP connector** and paste the endpoint above.
 
 ### If your client only speaks stdio

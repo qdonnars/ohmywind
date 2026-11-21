@@ -60,7 +60,7 @@ RUN --mount=type=secret,id=HF_TOKEN,required=false \
 # two packages installed above. security.py moved into openwind_api.
 COPY app.py /app/
 
-# Landing assets (the demo video's poster). Served from this origin by the
+# Landing assets (the demo video's poster, the Inter font). Served from this origin by the
 # /static route, so that a visit loads nothing from YouTube until play.
 COPY static /app/static
 

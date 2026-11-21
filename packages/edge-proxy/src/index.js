@@ -62,6 +62,10 @@ const ALLOWED_BROWSER_ORIGINS = new Set([
 //
 // Anything else is left alone. `/mcp` is a transport, and every other
 // `/api/v1/` route is either a POST or depends on the moment it is asked.
+// `/`, the landing page, must stay out too: it answers in the reader's
+// language from `Accept-Language` (with `Vary: Accept-Language`), and
+// `caches.default` keys on the URL alone, so a cached copy would serve the
+// first visitor's language to everyone after them.
 const CACHEABLE_PATHS = new Set([
   "/api/v1/archetypes",
   "/api/v1/marine/marc",

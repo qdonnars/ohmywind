@@ -55,7 +55,7 @@ OhMyWind is a decision-support tool. It does not replace the official marine for
 
 ## In the press
 
-[Bateaux.com](https://www.boatnews.com/story/52477/ohmywind-the-open-source-project-that-aims-to-rethink-how-we-prepare-for-a-sailing-trip) (in English on boatnews.com, and in French, German, Spanish and Italian), [BOOTE](https://www.boote-magazin.de/en/equipment/technology/navigation-ohmywind-a-free-weather-planner-with-ai-functionality/), YACHT. All articles are gathered in the [press coverage](/presse).
+[Multicoques Mag](https://www.multihulls-world.com/shopping-catamaran-trimaran/ohmywind-marine-weather-in-five-languages-and-powered-by-ai) (in English as Multihulls World, and in French), [Bateaux.com](https://www.boatnews.com/story/52477/ohmywind-the-open-source-project-that-aims-to-rethink-how-we-prepare-for-a-sailing-trip) (in English on boatnews.com, and in French, German, Spanish and Italian), [BOOTE](https://www.boote-magazin.de/en/equipment/technology/navigation-ohmywind-a-free-weather-planner-with-ai-functionality/), YACHT. All articles are gathered in the [press coverage](/presse).
 
 ## Press contact
 

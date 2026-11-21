@@ -55,7 +55,7 @@ OhMyWind è uno strumento di supporto alle decisioni. Non sostituisce il bollett
 
 ## Ne hanno parlato
 
-[Bateaux.com](https://www.barchenews.it/news/52477/ohmywind-il-progetto-open-source-che-punta-a-ripensare-la-preparazione-di-una-navigazione) (in italiano su barchenews.it, e in francese, inglese, tedesco e spagnolo), [BOOTE](https://www.boote-magazin.de/en/equipment/technology/navigation-ohmywind-a-free-weather-planner-with-ai-functionality/), YACHT. Tutti gli articoli sono raccolti nella [rassegna stampa](/presse).
+[Multicoques Mag](https://www.multihulls-world.com/shopping-catamaran-trimaran/ohmywind-marine-weather-in-five-languages-and-powered-by-ai) (in inglese come Multihulls World, e in francese), [Bateaux.com](https://www.barchenews.it/news/52477/ohmywind-il-progetto-open-source-che-punta-a-ripensare-la-preparazione-di-una-navigazione) (in italiano su barchenews.it, e in francese, inglese, tedesco e spagnolo), [BOOTE](https://www.boote-magazin.de/en/equipment/technology/navigation-ohmywind-a-free-weather-planner-with-ai-functionality/), YACHT. Tutti gli articoli sono raccolti nella [rassegna stampa](/presse).
 
 ## Contatto stampa
 

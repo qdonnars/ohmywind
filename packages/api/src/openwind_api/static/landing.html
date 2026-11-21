@@ -1,277 +1,847 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{lang}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>OhMyWind MCP : talk to your LLM, cast off with confidence</title>
+  <title>{{t:title}}</title>
   <link rel="icon" type="image/svg+xml" href="https://ohmywind.fr/favicon.svg">
   <link rel="icon" type="image/png" sizes="192x192" href="https://ohmywind.fr/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="https://ohmywind.fr/icon-512.png">
   <link rel="apple-touch-icon" href="https://ohmywind.fr/icon-maskable-512.png">
-  <meta name="description" content="OhMyWind MCP. Free, keyless sailing passage planner for any coast, with high-precision tides on the French Atlantic.">
-  <meta property="og:title" content="OhMyWind MCP">
-  <meta property="og:description" content="Talk to your LLM. Cast off with confidence. Free, keyless sailing planner via MCP.">
+  <link rel="preload" href="/static/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <meta name="description" content="{{t:meta_description}}">
+  <meta property="og:title" content="OhMyWind">
+  <meta property="og:description" content="{{t:og_description}}">
   <meta property="og:image" content="https://ohmywind.fr/icon-512.png">
   <meta property="og:url" content="https://ohmywind.fr">
   <meta name="twitter:card" content="summary">
+{{alternates}}
   <style>
+    /* The web app's font, served from this origin like the video poster.
+       Without it (a deployment that has not copied it) the system stack
+       takes over and nothing else changes. */
+    @font-face {
+      font-family: "Inter";
+      font-style: normal;
+      font-weight: 400 800;
+      font-display: swap;
+      src: url("/static/inter-latin.woff2") format("woff2");
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+    /* The web app's colours (design tokens of ohmywind.fr), light and dark
+       after the reader's system. */
     :root {
       color-scheme: light dark;
-      --bg: #FAF7EE;
-      --card: #FFFFFF;
-      --text: #1A1A1A;
-      --muted: #4A4A4A;
-      --faint: #777169;
-      --border: #E2DDCD;
-      --accent: #1D9E75;
-      --soft: #F1ECDF;
-      /* The button carries text, so it takes a darker green than --accent:
-         white on #1D9E75 is 3.4:1, under the 4.5:1 body text needs. */
-      --cta: #137A5A;
-      --on-cta: #FFFFFF;
+      --bg: #f4f6fb;
+      --card: #ffffff;
+      --soft: #e8ecf3;
+      --surface-pop: rgba(255,255,255,.95);
+      --text: #0d1117;
+      --muted: #3a4250;
+      --faint: #6b7280;
+      --accent: #0f766e;
+      --accent-strong: #0f766e;
+      --accent-soft: rgba(15,118,110,.12);
+      --accent-line: rgba(15,118,110,.25);
+      --line: rgba(0,0,0,.08);
+      --line-2: rgba(0,0,0,.14);
+      --ok: #0e9f8f;
+      --warn: #9a5b00;
+      --warn-soft: rgba(251,191,36,.16);
+      --shadow-1: 0 1px 4px rgba(0,0,0,.12);
+      --shadow-2: 0 4px 16px rgba(0,0,0,.14);
+      --shadow-pop: 0 8px 32px rgba(0,0,0,.16);
+      /* The chart behind the top of the page. */
+      --map-sea-0: #c8ddf0;
+      --map-sea-1: #b0cee8;
+      --map-land: #e8ede0;
+      --map-road: #d3d9c8;
+      --map-label: #6b7280;
+      /* The app's wind colours, by Beaufort force, for the route's legs. */
+      --w-1: #a3d4b8;
+      --w-3: #2dc97a;
+      --w-5: #e87a18;
+      --w-7: #c41408;
+      --w-8: #8b1460;
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #15140F;
-        --card: rgba(255,255,255,0.04);
-        --text: #F2F2F2;
-        --muted: #B8B5AC;
-        --faint: #888780;
-        --border: rgba(255,255,255,0.10);
-        --accent: #2BBE93;
-        --soft: rgba(255,255,255,0.06);
-        --cta: #2BBE93;
-        --on-cta: #15140F;
+        --bg: #030712;
+        --card: #0d1117;
+        --soft: #161b22;
+        --surface-pop: rgba(13,17,23,.92);
+        --text: #e8eaf0;
+        --muted: #8b95a8;
+        --faint: #8b95a8;
+        --accent: #2dd4bf;
+        --accent-strong: #0d9488;
+        --accent-soft: rgba(45,212,191,.12);
+        --accent-line: rgba(45,212,191,.25);
+        --line: rgba(255,255,255,.08);
+        --line-2: rgba(255,255,255,.14);
+        --warn: #fbbf24;
+        --warn-soft: rgba(251,191,36,.12);
+        --shadow-1: 0 1px 4px rgba(0,0,0,.42);
+        --shadow-2: 0 4px 16px rgba(0,0,0,.49);
+        --shadow-pop: 0 8px 32px rgba(0,0,0,.56);
+        --map-sea-0: #0b1a2e;
+        --map-sea-1: #060b17;
+        --map-land: #0f1a2a;
+        --map-road: #1a2738;
+        --map-label: #3b4a5e;
+        --w-1: #0e7c4a;
       }
     }
-    * { box-sizing: border-box; }
-    body {
-      font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-      max-width: 44rem; margin: 0 auto; padding: 3rem 1.25rem 4rem;
-      background: var(--bg); color: var(--text);
+    /* A leg's colour: the wind colour softened toward the page, as the app
+       draws it. Declared once, so it follows the theme's --bg. */
+    :root {
+      --bf-1: color-mix(in oklch, var(--w-1) 78%, var(--bg));
+      --bf-3: color-mix(in oklch, var(--w-3) 78%, var(--bg));
+      --bf-5: color-mix(in oklch, var(--w-5) 78%, var(--bg));
+      --bf-7: color-mix(in oklch, var(--w-7) 78%, var(--bg));
+      --bf-8: color-mix(in oklch, var(--w-8) 78%, var(--bg));
     }
-    h1 { font-size: 2rem; margin: 0 0 0.5rem; letter-spacing: -0.01em; }
-    .lede { font-size: 1.15rem; color: var(--muted); margin: 0 0 2rem; line-height: 1.45; }
-    h2 { font-size: 1.15rem; margin: 2.25rem 0 0.75rem; letter-spacing: -0.005em; }
-    p { margin: 0.6rem 0; }
-    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-    code { font-size: 0.92em; background: var(--soft); padding: 0.1rem 0.35rem; border-radius: 4px; }
-    pre { background: var(--card); border: 1px solid var(--border); padding: 0.85rem 1rem;
-          border-radius: 10px; overflow-x: auto; margin: 0.75rem 0; }
-    pre code { background: none; padding: 0; font-size: 0.95em; }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 15px/1.5 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
-    .hero {
-      display: block; width: 100%; max-width: 100%; height: auto;
-      border-radius: 12px; border: 1px solid var(--border);
-      margin: 1rem 0 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    a:focus-visible, button:focus-visible, summary:focus-visible {
+      outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px;
     }
-    /* The capture is a full 1920px screen and the reading column is 44rem,
-       so the demo breaks out of the column to stay legible. Clamped against
-       the viewport so a narrow screen never gets a horizontal scrollbar. */
-    figure.demo {
-      width: min(58rem, calc(100vw - 2.5rem));
-      margin: 1.25rem 0 2rem 50%;
-      transform: translateX(-50%);
+    h1, h2, h3, p, figure, ul, ol, dl, dd { margin: 0; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { font-size: .92em; background: var(--soft); padding: .1rem .35rem; border-radius: 4px; }
+    pre { background: var(--soft); border: 1px solid var(--line-2); padding: .6rem .8rem;
+          border-radius: 10px; overflow-x: auto; margin: .5rem 0; }
+    pre code { background: none; padding: 0; }
+    svg.icon { width: 100%; height: 100%; display: block; }
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
     }
-    figure.demo .hero { margin: 0; background: #15140F; aspect-ratio: 16 / 9; }
-    /* Nothing from YouTube loads until the reader presses play: the poster
-       is served from this origin and the player replaces it on click. */
-    a.player { position: relative; display: block; }
-    a.player img.hero { object-fit: cover; }
+    /* Quotes the way each language quotes. */
+    q { quotes: "\201C" "\201D"; }
+    :lang(fr) q { quotes: "\00AB\00A0" "\00A0\00BB"; }
+    :lang(de) q { quotes: "\201E" "\201C"; }
+    :lang(it) q, :lang(es) q { quotes: "\00AB" "\00BB"; }
+
+    [hidden] { display: none !important; }
+    .logo { width: 28px; height: 28px; flex: none; display: block; }
+    .word { font-weight: 700; letter-spacing: -.02em; font-size: 18px; }
+    .word b { color: var(--accent); font-weight: 700; }
+    .arrow { width: 14px; height: 14px; flex: none; }
+    .check { width: 14px; height: 14px; flex: none; color: var(--accent); }
+
+    /* The top of the page: a chart of the coast, full width, with the
+       question, the route and the answer played over it. On a wide screen
+       the chart fills the background and fades out under the text; on a
+       tablet or a phone it sits in the flow, between the text and the
+       answer. */
+    .hero { position: relative; overflow: hidden; isolation: isolate; }
+    .hero-fade {
+      position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background:
+        linear-gradient(180deg, transparent 82%, var(--bg)),
+        linear-gradient(90deg, var(--bg) calc(50% - 358px), transparent calc(50% + 64px));
+      opacity: .94;
+    }
+    .hero-inner {
+      max-width: 1280px; margin: 0 auto; padding: 24px 48px 36px; min-height: 720px;
+      display: grid; grid-template-columns: minmax(0, 470px) minmax(0, 1fr);
+      grid-template-rows: auto 1fr auto; column-gap: 40px;
+    }
+    .hero-inner > * { position: relative; z-index: 2; }
+    .hero-inner > .hero-map {
+      position: absolute; inset: 0; z-index: 0; overflow: hidden;
+      background: linear-gradient(180deg, var(--map-sea-0), var(--map-sea-1));
+    }
+    /* The chart keeps its proportions and stays whole; the land runs on
+       past its frame, so a wide or a tall screen still sees a coast. */
+    .hero-map svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+    .hero-map .land { fill: var(--map-land); }
+    .hero-map .roads { stroke: var(--map-road); stroke-width: 1.6; fill: none; }
+    .hero-map .labels { fill: var(--map-label); font: 600 10px Inter, system-ui, sans-serif; letter-spacing: .06em; }
+    .route .leg { fill: none; stroke-width: 7; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 0; }
+    .route .pin { stroke: #fff; stroke-width: 2.5; }
+    /* Each leg in the colour of its wind, per question (knots from the
+       run: 20, 33, 37; 4, 6, 5; 30, 20, 9). */
+    .hero[data-q="1"] .leg-1 { stroke: var(--bf-5); }
+    .hero[data-q="1"] .leg-2, .hero[data-q="1"] .leg-3 { stroke: var(--bf-8); }
+    .hero[data-q="2"] .leg { stroke: var(--bf-1); }
+    .hero[data-q="3"] .leg-1 { stroke: var(--bf-7); }
+    .hero[data-q="3"] .leg-2 { stroke: var(--bf-5); }
+    .hero[data-q="3"] .leg-3 { stroke: var(--bf-3); }
+
+    header.top { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; height: 48px; }
+    header.top .brand { display: flex; align-items: center; gap: 10px; color: var(--text); }
+    nav.langs {
+      margin-left: auto; display: flex; flex-wrap: wrap; justify-content: flex-end;
+      gap: 4px 14px; font-size: 13px; color: var(--muted);
+    }
+    nav.langs a { color: var(--muted); }
+    nav.langs [aria-current] { color: var(--text); font-weight: 700; }
+    nav.langs .code { display: none; }
+    .open-app {
+      margin-left: 18px; display: inline-flex; align-items: center; gap: 6px;
+      font-size: 14px; font-weight: 600; white-space: nowrap;
+    }
+
+    .hero-text { grid-column: 1; align-self: start; margin-top: 78px; }
+    h1 { font-size: 38px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; }
+    .lede { margin: 12px 0 18px; font-size: 16.5px; line-height: 1.5; color: var(--muted); }
+    /* The three assistants, each with its maker's mark. */
+    .assistants { display: flex; flex-wrap: wrap; gap: 8px; }
+    a.assistant {
+      height: 38px; padding: 0 14px; display: inline-flex; align-items: center; gap: 8px;
+      border-radius: 10px; background: var(--surface-pop); border: 1px solid var(--line-2);
+      box-shadow: var(--shadow-1); color: var(--text); font-size: 13.5px; font-weight: 600;
+      white-space: nowrap;
+    }
+    a.assistant:hover, a.assistant:focus-visible, a.assistant[aria-expanded="true"] {
+      text-decoration: none; border-color: var(--accent);
+    }
+    /* The makers' marks: Claude and Mistral in their own orange, OpenAI in
+       the text colour, which is how each reads on a light and a dark page. */
+    a.assistant .mark { width: 16px; height: 16px; flex: none; fill: currentColor; }
+    a.assistant .mark.claude { fill: #D97757; }
+    a.assistant .mark.mistral { fill: #FA520F; }
+    /* Vibe's steps, folded under the row. Without script the Vibe button is
+       a plain link to them and :target unfolds them; with script (the page
+       then carries .js) the button folds and unfolds them in place. */
+    .steps {
+      display: none; background: var(--card); border: 1px solid var(--line-2);
+      border-radius: 12px; margin-top: 8px; font-size: 14.5px; text-align: left;
+      box-shadow: var(--shadow-2);
+    }
+    html:not(.js) .steps:target, .steps.open { display: block; }
+    .steps h3 { font-size: 15px; padding: 14px 16px 0; }
+    .steps ol { padding: 6px 16px 14px 36px; }
+    .steps li { margin: 6px 0; }
+    /* Inline rather than flex, so that on a narrow screen the arrow follows
+       the last word instead of standing apart at the right edge. */
+    .arrow-link { display: inline-block; margin-top: 16px; font-size: 14px; font-weight: 600; }
+    .arrow-link .arrow { display: inline-block; vertical-align: -2px; margin-left: 6px; }
+
+    /* The answer, on the chart. */
+    .replies { grid-column: 2; justify-self: end; align-self: start; width: 340px; margin-top: 72px; }
+    .reply {
+      padding: 16px; border-radius: 14px; background: var(--surface-pop);
+      border: 1px solid var(--line-2); box-shadow: var(--shadow-pop);
+      -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    }
+    .reply p { font-size: 14.5px; line-height: 1.5; }
+    .reply dl { display: flex; gap: 22px; margin-top: 12px; }
+    .reply dt { font-size: 11.5px; color: var(--faint); font-weight: 600; }
+    .reply dd { font-size: 19px; font-weight: 700; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+    .reply .accent dd { color: var(--accent); }
+    .alert {
+      display: inline-flex; align-items: flex-start; gap: 4px; max-width: 100%; margin-top: 10px;
+      font-size: 10.5px; font-weight: 600; line-height: 1.3; color: var(--warn);
+      padding: 2px 6px; border-radius: 6px; background: var(--warn-soft);
+    }
+    .alert svg { width: 11px; height: 11px; flex: none; margin-top: 2px; }
+
+    /* The question: three chips, then a bar that looks like an
+       assistant's input. It is not a field: the question is text, read in
+       full by a screen reader while the bar types it out. */
+    .ask { grid-column: 1 / -1; justify-self: center; align-self: end; width: 100%; max-width: 720px; margin-top: 40px; }
+    .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-bottom: 10px; }
+    a.chip {
+      font-size: 13px; font-weight: 600; padding: 7px 13px; border-radius: 99px;
+      background: var(--surface-pop); color: var(--muted); border: 1px solid var(--line-2);
+      -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    }
+    a.chip:hover { text-decoration: none; border-color: var(--accent); color: var(--text); }
+    a.chip[aria-current] { background: var(--accent-strong); color: #fff; border-color: transparent; }
+    .ask-bar {
+      display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 16px;
+      background: var(--surface-pop); border: 1px solid var(--line-2); box-shadow: var(--shadow-pop);
+      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    }
+    .ask-text { flex: 1; font-size: 16px; line-height: 1.4; min-height: 22px; text-align: left; }
+    .send {
+      width: 34px; height: 34px; border-radius: 99px; flex: none; display: flex;
+      align-items: center; justify-content: center; color: #fff; background: var(--accent-strong);
+      transition: background .2s ease;
+    }
+    .send svg { width: 16px; height: 16px; }
+
+    /* The play: the script marks the top of the page .typing while the
+       question types itself, then .drawing while the route draws, leg by
+       leg, and the answer arrives. Without script nothing is hidden. */
+    .hero.typing .route, .hero.typing .replies { visibility: hidden; }
+    .hero.typing .send { background: var(--soft); }
+    .hero.typing .ask-text:not([hidden]) .typed::after {
+      content: ""; display: inline-block; width: 2px; height: 18px; margin-left: 2px;
+      vertical-align: -3px; background: var(--accent); animation: caret 1s step-end infinite;
+    }
+    .hero.drawing .leg { animation: draw .5s ease-out both; }
+    .hero.drawing .leg-2 { animation-delay: .45s; }
+    .hero.drawing .leg-3 { animation-delay: .9s; }
+    .hero.drawing .pin { animation: appear .3s both; }
+    .hero.drawing .pin-2 { animation-delay: .45s; }
+    .hero.drawing .pin-3 { animation-delay: .9s; }
+    .hero.drawing .pin-4 { animation-delay: 1.35s; }
+    .hero.drawing .reply { animation: rise .35s 1.2s both; }
+    @keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+    @keyframes appear { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    @keyframes caret { 50% { opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) {
+      .hero.drawing .leg, .hero.drawing .pin, .hero.drawing .reply { animation: none; }
+    }
+
+    /* Below the top of the page: 1120px of content, 40px gutters. */
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 0 40px; }
+    .below { padding-top: 72px; }
+
+    /* Sections */
+    section.block { padding: 0 0 80px; }
+    .block-head { margin-bottom: 24px; }
+    h2 { font-size: 28px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; }
+    .sub { margin-top: 8px; font-size: 16px; color: var(--muted); line-height: 1.5; max-width: 52rem; }
+
+    /* Why not just ask the assistant */
+    .same-q { font-size: 14px; color: var(--muted); margin-bottom: 12px; }
+    .same-q q { color: var(--text); font-weight: 600; }
+    .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .answer {
+      border-radius: 16px; padding: 22px; background: var(--card); border: 1px solid var(--line-2);
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .answer.with { border: 2px solid var(--accent); box-shadow: var(--shadow-2); }
+    .answer-head { display: flex; align-items: center; gap: 8px; }
+    .answer-head .logo { width: 22px; height: 22px; }
+    .answer-head .avatar { width: 22px; height: 22px; color: var(--faint); }
+    .answer-head .avatar svg { width: 13px; height: 13px; }
+    .answer h3 { font-size: 17px; font-weight: 700; }
+    .answer.alone h3 { color: var(--muted); }
+    .answer-text {
+      font-size: 15px; line-height: 1.55; padding: 12px 14px; border-radius: 12px;
+      background: var(--soft); color: var(--muted);
+    }
+    .answer.with .answer-text { background: var(--accent-soft); color: var(--text); }
+    .points { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    .points li { display: flex; gap: 8px; font-size: 14.5px; line-height: 1.45; color: var(--muted); }
+    .answer.with .points li { color: var(--text); }
+    .points svg { margin-top: 3px; }
+    .points .dash { width: 14px; height: 14px; flex: none; color: var(--faint); }
+    .note { margin-top: 10px; font-size: 12.5px; color: var(--faint); }
+
+    /* You stay the skipper */
+    .pillars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+    .pillar { display: flex; gap: 14px; }
+    .pillar-icon {
+      width: 40px; height: 40px; border-radius: 10px; background: var(--accent-soft);
+      color: var(--accent); display: flex; align-items: center; justify-content: center; flex: none;
+    }
+    .pillar-icon svg { width: 20px; height: 20px; }
+    .pillar h3 { margin: 2px 0 4px; font-size: 16px; font-weight: 700; }
+    .pillar p { font-size: 14.5px; line-height: 1.5; color: var(--muted); }
+    .pillar p a, .faq-item p a { font-weight: 600; }
+
+    /* Video. Nothing from YouTube loads until the reader presses play: the
+       poster is served from this origin and the player replaces it on click. */
+    a.player {
+      position: relative; display: block; border-radius: 16px; overflow: hidden;
+      border: 1px solid var(--line); box-shadow: var(--shadow-2); background: #030712;
+    }
+    a.player img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; }
     a.player .play {
-      position: absolute; inset: 50% auto auto 50%; transform: translate(-50%, -50%);
-      width: 4.5rem; height: 3.2rem; border-radius: 0.9rem;
-      background: rgba(21,20,15,0.82); transition: background 0.15s ease;
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      width: 76px; height: 76px; border-radius: 99px; background: var(--accent-strong);
+      box-shadow: 0 8px 24px rgba(0,0,0,.35); transition: transform .15s ease;
     }
     a.player .play::after {
-      content: ""; position: absolute; inset: 50% auto auto 54%;
-      transform: translate(-50%, -50%);
-      border-style: solid; border-width: 0.7rem 0 0.7rem 1.15rem;
-      border-color: transparent transparent transparent #FFFFFF;
+      content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-38%, -50%);
+      border-style: solid; border-width: 11px 0 11px 18px;
+      border-color: transparent transparent transparent #fff;
     }
-    a.player:hover .play, a.player:focus-visible .play { background: var(--accent); }
-    iframe.hero { width: 100%; border: 1px solid var(--border); }
-    figure.demo figcaption {
-      color: var(--faint); font-size: 0.85rem; line-height: 1.45;
-      margin-top: 0.7rem; text-align: center;
+    a.player:hover .play, a.player:focus-visible .play { transform: translate(-50%, -50%) scale(1.06); }
+    iframe.video-frame {
+      display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border: 1px solid var(--line);
+      border-radius: 16px;
     }
-    .badge {
-      display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px;
-      background: var(--soft); color: var(--accent); font-size: 0.75rem;
-      font-weight: 600; letter-spacing: 0.04em; vertical-align: middle;
-      text-transform: uppercase;
+    .video-caption { margin-top: 12px; font-size: 14.5px; color: var(--muted); line-height: 1.5; }
+    .video-caption a { font-weight: 600; }
+
+    /* Copy buttons only exist where the clipboard does: the script marks the
+       page .clip when it can write to it. */
+    button.copy {
+      display: none; align-self: flex-start; font-family: inherit; font-size: 13px; font-weight: 600;
+      line-height: 1.2; color: var(--muted);
+      background: var(--card); border: 1px solid var(--line-2); border-radius: 8px;
+      padding: 6px 10px; cursor: pointer;
     }
-    blockquote {
-      margin: 0.75rem 0; padding: 0.75rem 1rem; border-left: 3px solid var(--accent);
-      background: var(--soft); border-radius: 0 8px 8px 0; color: var(--muted);
-      font-style: italic;
+    html.clip button.copy { display: inline-block; }
+    button.copy:hover { border-color: var(--accent); color: var(--text); }
+
+    /* FAQ: always open, a question and its answer side by side. */
+    .faq { border-top: 1px solid var(--line); }
+    .faq-item {
+      display: grid; grid-template-columns: 320px 1fr; gap: 24px; padding: 16px 0;
+      border-bottom: 1px solid var(--line);
     }
-    ol { padding-left: 1.25rem; line-height: 1.7; }
-    ol li { margin: 0.4rem 0; }
-    .perks { display: grid; grid-template-columns: 1fr; gap: 0.5rem; margin: 1rem 0; padding: 0; list-style: none; }
-    .perks li { padding: 0.65rem 0.9rem; background: var(--card); border: 1px solid var(--border);
-                border-radius: 8px; font-size: 0.95rem; }
-    .perks strong { color: var(--text); }
-    details.connector {
-      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
-      margin: 0.6rem 0; overflow: hidden;
+    .faq-item h3 { font-size: 16px; font-weight: 700; }
+    .faq-item p { font-size: 15px; line-height: 1.55; color: var(--muted); }
+
+    /* Without an assistant */
+    section.band { padding: 0 0 40px; }
+    .band-box {
+      display: flex; align-items: center; gap: 18px; background: var(--accent-soft);
+      border: 1px solid var(--accent-line); border-radius: 16px; padding: 24px 28px;
     }
-    details.connector summary {
-      cursor: pointer; padding: 0.85rem 1rem; font-weight: 600; list-style: none;
-      display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+    .band-box > div { flex: 1; }
+    .band-box h2 { font-size: 20px; margin-bottom: 6px; letter-spacing: -.01em; }
+    .band-box p { font-size: 15px; line-height: 1.5; color: var(--muted); }
+    a.button {
+      display: inline-flex; align-items: center; gap: 8px; height: 46px; padding: 0 20px;
+      border-radius: 12px; background: var(--accent-strong); color: #fff; font-size: 15px;
+      font-weight: 700; white-space: nowrap; box-shadow: var(--shadow-1);
     }
-    details.connector summary::-webkit-details-marker { display: none; }
-    details.connector summary::after {
-      content: "›"; color: var(--faint); font-size: 1.4rem; line-height: 1;
-      transition: transform 0.15s ease; transform-origin: center;
+    a.button:hover { text-decoration: none; filter: brightness(1.08); }
+
+    /* For developers: folded by default, native <details>. */
+    details.devs { border-radius: 14px; border: 1px solid var(--line); background: var(--card); margin-bottom: 40px; }
+    details.devs summary {
+      display: flex; align-items: center; gap: 12px; padding: 16px 18px; cursor: pointer; list-style: none;
     }
-    details.connector[open] summary::after { transform: rotate(90deg); }
-    details.connector[open] summary { border-bottom: 1px solid var(--border); }
-    details.connector ol { padding: 0.85rem 1rem 1rem 2.25rem; margin: 0; }
-    details.connector ol li { margin: 0.45rem 0; }
-    details.connector pre { margin: 0.5rem 0; }
-    .listing { padding: 1rem 1rem 0.25rem; }
-    .listing p { margin: 0.5rem 0 0; color: var(--muted); }
-    a.cta {
-      display: inline-block; padding: 0.65rem 1.15rem; border-radius: 10px;
-      background: var(--cta); color: var(--on-cta); font-weight: 600;
+    details.devs summary::-webkit-details-marker { display: none; }
+    details.devs .gear { width: 20px; height: 20px; color: var(--muted); flex: none; }
+    details.devs .summary-text { flex: 1; }
+    details.devs .summary-title { display: block; font-size: 16px; font-weight: 700; }
+    details.devs .summary-hint { display: block; font-size: 13.5px; color: var(--muted); margin-top: 2px; }
+    details.devs .chev { width: 16px; height: 16px; color: var(--muted); flex: none; transition: transform .15s ease; }
+    details.devs[open] .chev { transform: rotate(180deg); }
+    .devs-body { padding: 0 18px 20px; border-top: 1px solid var(--line); }
+    .devs-body h3 { margin: 20px 0 8px; font-size: 14px; font-weight: 700; }
+    .devs-body p { font-size: 14px; line-height: 1.55; color: var(--muted); }
+    .address {
+      display: flex; align-items: center; gap: 8px; border-radius: 10px; border: 1px solid var(--line-2);
+      background: var(--soft); padding: 8px 8px 8px 12px; margin-bottom: 8px;
     }
-    a.cta:hover, a.cta:focus-visible { text-decoration: none; filter: brightness(1.08); }
-    .manual { padding: 0.75rem 1rem 0; margin: 0; font-weight: 600; }
-    .listing + .manual + ol { padding-top: 0.25rem; }
-    .footnote { color: var(--faint); font-size: 0.85rem; margin-top: 2.5rem; }
+    /* The address wraps rather than being cut: it has to be read in full. */
+    .address code { flex: 1; min-width: 0; background: none; padding: 0; font-size: 13.5px; overflow-wrap: anywhere; }
+    .address button.copy { align-self: center; }
+
+    /* Footer */
+    footer.foot {
+      border-top: 1px solid var(--line); padding: 24px 0 32px; display: flex; align-items: center;
+      gap: 14px; font-size: 13.5px; color: var(--muted);
+    }
+    footer.foot .brand { display: flex; align-items: center; gap: 8px; color: var(--text); }
+    footer.foot .logo { width: 22px; height: 22px; }
+    footer.foot .word { font-size: 15px; }
+    footer.foot .links { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+    footer.foot .links a { color: var(--muted); }
+    footer.foot .end { margin-left: auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    footer.foot .end a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+    .status { display: inline-flex; align-items: center; gap: 6px; }
+    .status::before { content: ""; width: 8px; height: 8px; border-radius: 99px; background: var(--ok); }
+
+    /* A tablet: the top of the page stacks (text, chart, answer, question)
+       and centres, the skipper's points stack, the rest keeps its columns.
+       The design defines desktop and phone; this is the step between. */
+    @media (max-width: 960px) {
+      .hero-fade { display: none; }
+      .hero-inner {
+        display: flex; flex-direction: column; min-height: 0; padding: 16px 32px 28px; text-align: center;
+      }
+      .hero-text { margin: 48px auto 0; max-width: 620px; }
+      .assistants { justify-content: center; }
+      .hero-inner > .hero-map {
+        position: relative; inset: auto; z-index: 0; height: 360px; margin: -8px -32px 0;
+        -webkit-mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent);
+        mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent);
+      }
+      /* The chart at a fixed scale, the route centred in its band. */
+      .hero-map svg { inset: auto; width: 860px; height: 533px; left: calc(50% - 357px); top: calc(50% - 323px); }
+      .hero-map .labels { font-size: 13px; }
+      .replies { width: 100%; max-width: 560px; margin: -48px auto 0; text-align: left; }
+      .ask { margin-top: 20px; }
+      .pillars { grid-template-columns: 1fr; gap: 20px; }
+      .faq-item { grid-template-columns: 220px 1fr; }
+    }
+
+    /* A phone: one column, smaller titles, language codes. */
+    @media (max-width: 700px) {
+      .wrap { padding: 0 20px; }
+      .below { padding-top: 40px; }
+      .hero-inner { padding: 16px 20px 20px; }
+      nav.langs { gap: 4px 10px; }
+      nav.langs .full { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+      nav.langs .code { display: inline; }
+      .open-app { display: none; }
+      .hero-text { margin-top: 24px; }
+      h1 { font-size: 28px; }
+      .lede { font-size: 15px; }
+      .hero-text .arrow-link { display: none; }
+      .hero-inner > .hero-map { height: 250px; margin: -4px -20px 0; }
+      .hero-map svg { width: 580px; height: 360px; left: calc(50% - 241px); top: calc(50% - 218px); }
+      .hero-map .labels { font-size: 15px; }
+      .replies { margin-top: -36px; }
+      .ask-text { font-size: 14.5px; }
+      section.block { padding-bottom: 48px; }
+      .block-head { margin-bottom: 18px; }
+      h2 { font-size: 23px; }
+      .sub { font-size: 15px; }
+      .compare, .pillars { grid-template-columns: 1fr; }
+      .pillars { gap: 18px; }
+      .answer { padding: 18px; }
+      a.player .play { width: 60px; height: 60px; }
+      .faq-item { grid-template-columns: 1fr; gap: 6px; }
+      section.band { padding-bottom: 32px; }
+      .band-box { flex-direction: column; align-items: flex-start; padding: 20px; }
+      details.devs { margin-bottom: 32px; }
+      .address { flex-wrap: wrap; }
+      .address code { flex-basis: 100%; }
+      .address button.copy { align-self: flex-start; }
+      footer.foot { flex-direction: column; align-items: flex-start; }
+      footer.foot .end { margin-left: 0; }
+    }
   </style>
 </head>
 <body>
-  <h1>OhMyWind MCP <span class="badge">running</span></h1>
-  <p class="lede">Talk to your LLM. Cast off with confidence.<br>
-    A free, keyless, open-source sailing planner for any coast, with
-    high-precision tidal currents on the French Atlantic. Exposed as an MCP
-    server so any compatible assistant can use it.</p>
+  <!-- Shapes used more than once: the app icon, the assistant's spark, the
+       tick, the warning and the arrow. -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <symbol id="i-logo" viewBox="0 0 512 512"><rect width="512" height="512" rx="96" fill="#030712"/><g transform="translate(96 96) scale(13.3)" fill="none" stroke="#2dd4bf" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></g></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3c.6 4.6 2.4 6.4 7 7-4.6.6-6.4 2.4-7 7-.6-4.6-2.4-6.4-7-7 4.6-.6 6.4-2.4 7-7Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 16 16"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-dash" viewBox="0 0 16 16"><path d="M4 8h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2 14 13H2z"/><path d="M8 7v3"/></g><circle cx="8" cy="12" r=".6" fill="currentColor"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </svg>
 
-  <figure class="demo">
+  <main>
+  <!-- The top of the page plays an example over a chart of the coast: a
+       question types itself, the route draws, the answer appears. Every
+       question is here; the one asked for (?q=, rendered by the server) is
+       shown and the others are hidden until the script, or a chip, asks for
+       them. The answers come from a real run of 21 Nov 2026. -->
+  <div class="hero" id="hero" data-q="{{q}}">
+    <div class="hero-fade" aria-hidden="true"></div>
+    <div class="hero-inner">
+      <header class="top">
+        <span class="brand"><svg class="logo" aria-hidden="true"><use href="#i-logo"/></svg><span class="word">OhMy<b>Wind</b></span></span>
+    {{language_switcher}}
+        <a class="open-app" href="{{url:app}}">{{t:open_app}}<svg class="arrow" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+      </header>
+
+      <div class="hero-text">
+        <h1>{{t:h1}}</h1>
+        <p class="lede">{{t:lede}}</p>
+
+      <!-- One button per assistant, each with its maker's mark. An assistant
+           whose official directory lists OhMyWind opens on its listing (the URL
+           is a slot named after it, filled from DIRECTORY_URLS in landing.py).
+           Vibe has no directory yet: its button unfolds the steps under the
+           row. It is a link to #vibe, so the steps open without script too. -->
+      <div class="assistants">
+        <a class="assistant" href="{{claude_directory_url}}" target="_blank" rel="noopener"
+           aria-label="{{t:claude_cta}}"><svg class="mark claude" viewBox="0 0 24 24" aria-hidden="true"><path d="m4.7144 15.9555 4.7174-2.6471.079-.2307-.079-.1275h-.2307l-.7893-.0486-2.6956-.0729-2.3375-.0971-2.2646-.1214-.5707-.1215-.5343-.7042.0546-.3522.4797-.3218.686.0608 1.5179.1032 2.2767.1578 1.6514.0972 2.4468.255h.3886l.0546-.1579-.1336-.0971-.1032-.0972L6.973 9.8356l-2.55-1.6879-1.3356-.9714-.7225-.4918-.3643-.4614-.1578-1.0078.6557-.7225.8803.0607.2246.0607.8925.686 1.9064 1.4754 2.4893 1.8336.3643.3035.1457-.1032.0182-.0728-.164-.2733-1.3539-2.4467-1.445-2.4893-.6435-1.032-.17-.6194c-.0607-.255-.1032-.4674-.1032-.7285L6.287.1335 6.6997 0l.9957.1336.419.3642.6192 1.4147 1.0018 2.2282 1.5543 3.0296.4553.8985.2429.8318.091.255h.1579v-.1457l.1275-1.706.2368-2.0947.2307-2.6957.0789-.7589.3764-.9107.7468-.4918.5828.2793.4797.686-.0668.4433-.2853 1.8517-.5586 2.9021-.3643 1.9429h.2125l.2429-.2429.9835-1.3053 1.6514-2.0643.7286-.8196.85-.9046.5464-.4311h1.0321l.759 1.1293-.34 1.1657-1.0625 1.3478-.8804 1.1414-1.2628 1.7-.7893 1.36.0729.1093.1882-.0183 2.8535-.607 1.5421-.2794 1.8396-.3157.8318.3886.091.3946-.3278.8075-1.967.4857-2.3072.4614-3.4364.8136-.0425.0304.0486.0607 1.5482.1457.6618.0364h1.621l3.0175.2247.7892.522.4736.6376-.079.4857-1.2142.6193-1.6393-.3886-3.825-.9107-1.3113-.3279h-.1822v.1093l1.0929 1.0686 2.0035 1.8092 2.5075 2.3314.1275.5768-.3218.4554-.34-.0486-2.2039-1.6575-.85-.7468-1.9246-1.621h-.1275v.17l.4432.6496 2.3436 3.5214.1214 1.0807-.17.3521-.6071.2125-.6679-.1214-1.3721-1.9246L14.38 17.959l-1.1414-1.9428-.1397.079-.674 7.2552-.3156.3703-.7286.2793-.6071-.4614-.3218-.7468.3218-1.4753.3886-1.9246.3157-1.53.2853-1.9004.17-.6314-.0121-.0425-.1397.0182-1.4328 1.9672-2.1796 2.9446-1.7243 1.8456-.4128.164-.7164-.3704.0667-.6618.4008-.5889 2.386-3.0357 1.4389-1.882.929-1.0868-.0062-.1579h-.0546l-6.3385 4.1164-1.1293.1457-.4857-.4554.0608-.7467.2307-.2429 1.9064-1.3114Z"/></svg>Claude</a>
+        <a class="assistant" href="#vibe" aria-controls="vibe" aria-expanded="false"
+           aria-label="{{t:vibe_cta}}"><svg class="mark mistral" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.143 3.429v3.428h-3.429v3.429h-3.428V6.857H6.857V3.43H3.43v13.714H0v3.428h10.286v-3.428H6.857v-3.429h3.429v3.429h3.429v-3.429h3.428v3.429h-3.428v3.428H24v-3.428h-3.43V3.429z"/></svg>Vibe</a>
+        <a class="assistant" href="{{chatgpt_directory_url}}" target="_blank" rel="noopener"
+           aria-label="{{t:chatgpt_cta}}"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/></svg>ChatGPT</a>
+      </div>
+
+      <section id="vibe" class="steps">
+        <h3>Vibe (Mistral)</h3>
+        <ol>
+          <li>{{t:vibe_step_open}}</li>
+          <li>{{t:vibe_step_menu}}</li>
+          <li>{{t:vibe_step_name}}</li>
+          <li>{{t:vibe_step_url}}
+            <pre><code>{{mcp_url}}</code></pre></li>
+          <li>{{t:vibe_step_enable}}</li>
+          <li>{{t:vibe_step_link}}</li>
+        </ol>
+      </section>
+
+        <a class="arrow-link" href="{{url:app}}">{{t:no_assistant_link}}<svg class="arrow" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+      </div>
+
+      <!-- The coast from Marseille to Porquerolles, drawn like the app's
+           chart, and the route of the example in three legs. -->
+      <div class="hero-map" aria-hidden="true">
+        <svg viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet">
+          <path class="land" d="M-1500,-900 L2500,-900 L2500,372 L1000,372 C960,380 930,410 890,398 C850,388 820,420 775,428 C745,452 722,446 708,425 C672,416 640,446 598,428 C560,440 532,412 500,404 C460,394 432,380 392,372 C352,364 320,352 280,348 C250,336 224,344 204,326 C184,306 190,286 168,276 L120,266 C86,258 48,276 0,262 L-1500,262 Z"/>
+          <g class="land"><ellipse cx="712" cy="476" rx="26" ry="7"/><ellipse cx="770" cy="470" rx="14" ry="5"/><ellipse cx="815" cy="462" rx="18" ry="5"/><ellipse cx="120" cy="300" rx="10" ry="4"/></g>
+          <g class="roads"><path d="M150,250 C250,200 380,190 520,170 S800,160 1000,190"/><path d="M210,90 C230,160 260,230 290,268"/><path d="M290,268 C400,300 480,330 560,392"/><path d="M560,392 C640,330 720,250 860,200"/><path d="M620,170 C600,260 580,330 560,392"/></g>
+          <g class="labels"><text x="150" y="248">MARSEILLE</text><text x="290" y="268">AUBAGNE</text><text x="262" y="330">CASSIS</text><text x="340" y="360">LA CIOTAT</text><text x="455" y="380">SANARY</text><text x="560" y="395">TOULON</text><text x="720" y="400">HYÈRES</text><text x="210" y="90">AIX-EN-PROVENCE</text><text x="620" y="170">BRIGNOLES</text><text x="860" y="200">LE LUC</text></g>
+          <g class="route">
+            <path class="leg leg-1" d="M140 290L250 372" pathLength="1"/>
+            <path class="leg leg-2" d="M250 372L470 425" pathLength="1"/>
+            <path class="leg leg-3" d="M470 425L690 462" pathLength="1"/>
+            <circle class="pin pin-1" cx="140" cy="290" r="9" fill="#2dd4bf"/>
+            <circle class="pin pin-2" cx="250" cy="372" r="9" fill="#374151"/>
+            <circle class="pin pin-3" cx="470" cy="425" r="9" fill="#374151"/>
+            <circle class="pin pin-4" cx="690" cy="462" r="9" fill="#e84118"/>
+          </g>
+        </svg>
+      </div>
+
+      <!-- The answer to the question shown. A tide line (« Marée au départ
+           · à l'arrivée ») goes under the figures when an example has one;
+           not on this Mediterranean passage. -->
+      <div class="replies" aria-live="polite">
+        <div class="reply" data-for="1"{{q_hidden:1}}>
+          <p>{{t:q1_answer}}</p>
+          <dl><div><dt>{{t:stat_duration}}</dt><dd>7h45</dd></div><div class="accent"><dt>{{t:stat_arrival}}</dt><dd>15:45</dd></div></dl>
+          <span class="alert"><svg aria-hidden="true"><use href="#i-warn"/></svg><span>{{t:q1_alert}}</span></span>
+        </div>
+        <div class="reply" data-for="2"{{q_hidden:2}}>
+          <p>{{t:q2_answer}}</p>
+          <dl><div><dt>{{t:stat_best}}</dt><dd>{{t:q2_best}}</dd></div><div class="accent"><dt>{{t:stat_arrival}}</dt><dd>14:32</dd></div></dl>
+        </div>
+        <div class="reply" data-for="3"{{q_hidden:3}}>
+          <p>{{t:q3_answer}}</p>
+          <dl><div><dt>{{t:stat_duration}}</dt><dd>8h05</dd></div><div class="accent"><dt>{{t:stat_arrival}}</dt><dd>20:03</dd></div></dl>
+          <span class="alert"><svg aria-hidden="true"><use href="#i-warn"/></svg><span>{{t:q3_alert}}</span></span>
+        </div>
+      </div>
+
+      <div class="ask">
+        <div class="chips" role="group" aria-label="{{t:questions_label}}">
+          <a class="chip" href="?lang={{lang}}&amp;q=1" data-chip="1"{{q_current:1}}>{{t:q1_chip}}</a>
+          <a class="chip" href="?lang={{lang}}&amp;q=2" data-chip="2"{{q_current:2}}>{{t:q2_chip}}</a>
+          <a class="chip" href="?lang={{lang}}&amp;q=3" data-chip="3"{{q_current:3}}>{{t:q3_chip}}</a>
+        </div>
+        <div class="ask-bar">
+          <p class="ask-text" data-for="1"{{q_hidden:1}}><span class="sr-only">{{t:q1}}</span><span class="typed" aria-hidden="true">{{t:q1}}</span></p>
+          <p class="ask-text" data-for="2"{{q_hidden:2}}><span class="sr-only">{{t:q2}}</span><span class="typed" aria-hidden="true">{{t:q2}}</span></p>
+          <p class="ask-text" data-for="3"{{q_hidden:3}}><span class="sr-only">{{t:q3}}</span><span class="typed" aria-hidden="true">{{t:q3}}</span></p>
+          <span class="send" role="img" aria-label="{{t:send_label}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/></svg></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // The example plays: the question types itself (two characters every
+    // 28 ms), then the route draws leg by leg and the answer arrives. A chip
+    // plays its question in place rather than reloading the page; without
+    // script it stays a link to ?q=. A reader who asked for less motion
+    // gets each question whole, at once. Placed right after the top of the
+    // page so the first play starts before anything else loads.
+    (function () {
+      var hero = document.getElementById("hero");
+      var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      var timer;
+      function show(n) {
+        hero.setAttribute("data-q", n);
+        hero.querySelectorAll("[data-for]").forEach(function (el) {
+          el.hidden = el.getAttribute("data-for") !== n;
+        });
+        hero.querySelectorAll("a.chip").forEach(function (chip) {
+          if (chip.getAttribute("data-chip") === n) chip.setAttribute("aria-current", "true");
+          else chip.removeAttribute("aria-current");
+        });
+      }
+      function play() {
+        clearInterval(timer);
+        hero.classList.remove("typing", "drawing");
+        hero.querySelectorAll(".typed[data-text]").forEach(function (typed) {
+          typed.textContent = typed.getAttribute("data-text");
+        });
+        if (calm) return;
+        var typed = hero.querySelector(".ask-text:not([hidden]) .typed");
+        var text = typed.textContent;
+        var shown = 0;
+        typed.setAttribute("data-text", text);
+        typed.textContent = "";
+        hero.classList.add("typing");
+        timer = setInterval(function () {
+          shown += 2;
+          typed.textContent = text.slice(0, shown);
+          if (shown < text.length) return;
+          clearInterval(timer);
+          hero.classList.remove("typing");
+          void hero.offsetWidth; // restarts the animations on a replay
+          hero.classList.add("drawing");
+        }, 28);
+      }
+      hero.querySelectorAll("a.chip").forEach(function (chip) {
+        chip.addEventListener("click", function (event) {
+          if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
+          show(chip.getAttribute("data-chip"));
+          history.replaceState(null, "", chip.getAttribute("href"));
+          play();
+        });
+      });
+      play();
+    })();
+  </script>
+
+  <div class="wrap below">
+  <section class="block" aria-labelledby="video">
+    <div class="block-head">
+      <h2 id="video">{{t:video_title}}</h2>
+      <p class="sub">{{t:video_sub}}</p>
+    </div>
     <a class="player" href="https://www.youtube.com/watch?v=_bjDlNYJSgo"
        data-video="_bjDlNYJSgo" target="_blank" rel="noopener"
-       aria-label="Play the demo video, in French (loads the YouTube player)">
-      <img class="hero" src="/static/video-poster.jpg" width="1280" height="720"
-           alt="Le Four ou le Fromveur ? A passage from L'Aber Wrac'h to Camaret drawn on a chart of the Iroise sea.">
+       aria-label="{{t:video_label}}">
+      <img src="/static/video-poster.jpg" width="1280" height="720" loading="lazy"
+           alt="{{t:video_alt}}">
       <span class="play" aria-hidden="true"></span>
     </a>
-    <figcaption>A real session, in French: tomorrow, L&rsquo;Aber Wrac&rsquo;h
-      to Camaret, through the Chenal du Four or the Fromveur? The assistant
-      compares both routes departure by departure and, with a gale on the way,
-      says to stay in port. Only the waiting is sped up. The YouTube player
-      loads when you press play.<br>
-      More demos on the
-      <a href="https://ohmywind.fr/youtube" target="_blank" rel="noopener">OhMyWind YouTube channel</a>.</figcaption>
-  </figure>
+    <p class="video-caption">{{t:video_caption}} {{t:video_more}}</p>
+  </section>
 
-  <h2>Connect it to your assistant</h2>
-  <p>Pick yours below (under a minute, no install, no API key).</p>
-
-  <details class="connector" open>
-    <summary>Claude (claude.ai)</summary>
-    <div class="listing">
-      <a class="cta" href="{{claude_directory_url}}" target="_blank" rel="noopener">Add to Claude</a>
-      <p>One click, no account, nothing to set up.</p>
+  <section class="block" aria-labelledby="why">
+    <div class="block-head">
+      <h2 id="why">{{t:why_title}}</h2>
+      <p class="sub">{{t:why_sub}}</p>
     </div>
-    <p class="manual">Or add it manually</p>
-    <ol>
-      <li>Open <a href="https://claude.ai/settings/connectors" target="_blank" rel="noopener">claude.ai → Settings → Connectors</a>.</li>
-      <li>Scroll to the bottom and click <strong>Add custom connector</strong>.</li>
-      <li>Set <strong>Name</strong>: <code>OhMyWind</code>.</li>
-      <li>Paste this in <strong>Remote MCP server URL</strong>:
-        <pre><code>https://mcp.ohmywind.fr/mcp</code></pre></li>
-      <li>Click <strong>Add</strong>. In any new chat, OhMyWind shows up in the
-        <strong>Search and tools</strong> menu: toggle it on.</li>
-    </ol>
+    <p class="same-q">{{t:why_question_label}} <q>{{t:why_question}}</q></p>
+    <div class="compare">
+      <div class="answer alone">
+        <div class="answer-head"><span class="avatar" aria-hidden="true"><svg><use href="#i-spark"/></svg></span><h3>{{t:why_alone_title}}</h3></div>
+        <p class="answer-text">{{t:why_alone_answer}}</p>
+        <ul class="points">
+          <li><svg class="dash" aria-hidden="true"><use href="#i-dash"/></svg>{{t:why_alone_1}}</li>
+          <li><svg class="dash" aria-hidden="true"><use href="#i-dash"/></svg>{{t:why_alone_2}}</li>
+          <li><svg class="dash" aria-hidden="true"><use href="#i-dash"/></svg>{{t:why_alone_3}}</li>
+          <li><svg class="dash" aria-hidden="true"><use href="#i-dash"/></svg>{{t:why_alone_4}}</li>
+        </ul>
+      </div>
+      <div class="answer with">
+        <div class="answer-head"><svg class="logo" aria-hidden="true"><use href="#i-logo"/></svg><h3>{{t:why_with_title}}</h3></div>
+        <p class="answer-text">{{t:why_with_answer}}</p>
+        <ul class="points">
+          <li><svg class="check" aria-hidden="true"><use href="#i-check"/></svg>{{t:why_with_1}}</li>
+          <li><svg class="check" aria-hidden="true"><use href="#i-check"/></svg>{{t:why_with_2}}</li>
+          <li><svg class="check" aria-hidden="true"><use href="#i-check"/></svg>{{t:why_with_3}}</li>
+          <li><svg class="check" aria-hidden="true"><use href="#i-check"/></svg>{{t:why_with_4}}</li>
+        </ul>
+      </div>
+    </div>
+    <p class="note">{{t:why_note}}</p>
+  </section>
+
+  <section class="block" aria-labelledby="skipper">
+    <div class="block-head">
+      <h2 id="skipper">{{t:skipper_title}}</h2>
+      <p class="sub">{{t:skipper_sub}}</p>
+    </div>
+    <div class="pillars">
+      <div class="pillar">
+        <span class="pillar-icon" aria-hidden="true"><svg viewBox="3 1.6 18 19.4" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.6" r="1.9"/><path d="M11 6.4 6.3 19.6M13 6.4l4.7 13.2M5 16.5h3.4M15.6 16.5H19"/></svg></span>
+        <div><h3>{{t:skipper_1_title}}</h3><p>{{t:skipper_1_body}}</p></div>
+      </div>
+      <div class="pillar">
+        <span class="pillar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></span>
+        <div><h3>{{t:skipper_2_title}}</h3><p>{{t:skipper_2_body}}</p></div>
+      </div>
+      <div class="pillar">
+        <span class="pillar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M12 7v13M5 13a7 7 0 0 0 14 0M8 11h8"/></svg></span>
+        <div><h3>{{t:skipper_3_title}}</h3><p>{{t:skipper_3_body}}</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" aria-labelledby="noassist">
+    <div class="band-box">
+      <div>
+        <h2 id="noassist">{{t:noassist_title}}</h2>
+        <p>{{t:noassist_body}}</p>
+      </div>
+      <a class="button" href="{{url:app}}">{{t:noassist_cta}}<svg class="arrow" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="faq">
+    <div class="block-head"><h2 id="faq">{{t:faq_title}}</h2></div>
+    <div class="faq">
+      <div class="faq-item"><h3>{{t:faq_decide_q}}</h3><p>{{t:faq_decide_a}}</p></div>
+      <div class="faq-item"><h3>{{t:faq_reliable_q}}</h3><p>{{t:faq_reliable_a}}</p></div>
+      <div class="faq-item"><h3>{{t:faq_tides_q}}</h3><p>{{t:faq_tides_a}}</p></div>
+      <div class="faq-item"><h3>{{t:faq_windy_q}}</h3><p>{{t:faq_windy_a}}</p></div>
+      <div class="faq-item"><h3>{{t:faq_price_q}}</h3><p>{{t:faq_price_a}}</p></div>
+    </div>
+  </section>
+
+  <!-- Everything technical lives here, folded: the server address, the
+       source, self-hosting. Nothing above it names a tool or a protocol
+       feature. -->
+  <details class="devs" id="developers">
+    <summary>
+      <svg class="gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span class="summary-text"><span class="summary-title">{{t:devs_title}}</span><span class="summary-hint">{{t:devs_hint}}</span></span>
+      <svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6l5 5 5-5"/></svg>
+    </summary>
+    <div class="devs-body">
+      <h3>{{t:devs_address}}</h3>
+      <div class="address">
+        <code id="mcp-url">{{mcp_url}}</code>
+        <button class="copy" type="button" data-copy="mcp-url" data-copied="{{t:copied}}" aria-live="polite">{{t:copy}}</button>
+      </div>
+      <p>{{t:devs_other}}</p>
+      <h3>{{t:devs_source_title}}</h3>
+      <p>{{t:devs_source_body}}</p>
+    </div>
   </details>
+  </div>
+  </main>
 
-  <details class="connector">
-    <summary>Le Chat (Mistral)</summary>
-    <ol>
-      <li>Open <a href="https://chat.mistral.ai" target="_blank" rel="noopener">chat.mistral.ai</a> and sign in.</li>
-      <li>In the left sidebar, open <strong>Intelligence</strong> &rarr;
-        <strong>Connecteurs</strong> (in English:
-        <strong>Intelligence</strong> &rarr; <strong>Connectors</strong>),
-        then click <strong>Add MCP server</strong>.</li>
-      <li>Set <strong>Name</strong>: <code>OhMyWind</code> &middot; <strong>Auth</strong>: <code>None</code>.</li>
-      <li>Paste this in <strong>URL</strong>:
-        <pre><code>https://mcp.ohmywind.fr/mcp</code></pre></li>
-      <li>Save, then enable the OhMyWind toggle inside any conversation.</li>
-      <li>Le Chat doesn&rsquo;t (yet) support the MCP Apps spec, so the
-        widget won&rsquo;t render inline: the assistant will hand you
-        an <a href="https://ohmywind.fr">ohmywind.fr</a> deep-link instead.</li>
-    </ol>
-  </details>
+  <div class="wrap">
+  <footer class="foot">
+    <span class="brand"><svg class="logo" aria-hidden="true"><use href="#i-logo"/></svg><span class="word">OhMy<b>Wind</b></span></span>
+    <span class="links">
+      <a href="{{url:app}}">{{t:footer_app}}</a>
+      <a href="{{url:methodology}}">{{t:footer_method}}</a>
+      <a href="{{url:youtube}}" target="_blank" rel="noopener">{{t:footer_youtube}}</a>
+      <a href="{{url:github}}">{{t:footer_github}}</a>
+    </span>
+    <span class="end">
+      <span>{{t:footer_data}}</span>
+      <span class="status">{{t:footer_status}}</span>
+    </span>
+  </footer>
+  </div>
 
-  <details class="connector">
-    <summary>ChatGPT (OpenAI)</summary>
-    <ol>
-      <li>Requires ChatGPT <strong>Pro</strong>, Business, or Enterprise (custom connectors).</li>
-      <li>Open <a href="https://chatgpt.com/#settings/Connectors" target="_blank" rel="noopener">ChatGPT → Settings → Connectors</a>.</li>
-      <li>In <strong>Advanced</strong>, turn on <strong>Developer mode</strong>.</li>
-      <li>Back in <strong>Connectors</strong>, click <strong>Create</strong>.</li>
-      <li>Set <strong>Name</strong>: <code>OhMyWind</code> · <strong>Authentication</strong>: <code>No authentication</code>.</li>
-      <li>Paste this in <strong>MCP server URL</strong>:
-        <pre><code>https://mcp.ohmywind.fr/mcp</code></pre></li>
-      <li>Trust the connector and save. Activate it in a chat via
-        <strong>+ → Developer connectors → OhMyWind</strong>.</li>
-    </ol>
-  </details>
-
-  <h2>Then ask, in your own words</h2>
-  <blockquote>I'm leaving Marseille tomorrow morning for Porquerolles on a Sun Odyssey 36.
-    How long is the passage and how tricky is it?</blockquote>
-  <p>Your assistant calls the OhMyWind tools and answers in plain language.
-    On hosts that support the
-    <a href="https://modelcontextprotocol.io/extensions/client-matrix" target="_blank" rel="noopener">MCP Apps spec</a>
-    (Claude, Claude Desktop, ChatGPT, VS Code Copilot, Goose, Postman, MCPJam),
-    the live <a href="https://ohmywind.fr">ohmywind.fr</a> plan view also
-    renders inline as a sandboxed iframe. On hosts that don&rsquo;t (Cursor,
-    Le Chat, terminal), the assistant hands you the same plan as a deep-link
-    instead.</p>
-  <p>Or to compare a whole weekend&rsquo;s worth of departure windows in one
-    shot:</p>
-  <blockquote>Marseille &rarr; Porquerolles, same boat. Show me the
-    calmest departure between Saturday morning and Monday evening.</blockquote>
-
-  <h2>Why OhMyWind</h2>
-  <ul class="perks">
-    <li><strong>Free &amp; keyless.</strong> Wind + sea via
-      <a href="https://open-meteo.com">Open-Meteo</a> (CC BY 4.0).</li>
-    <li><strong>Mediterranean-tuned.</strong> AROME 1.3 km by default; ICON-EU &rarr; ECMWF &rarr; GFS for longer reach.</li>
-    <li><strong>Boat-aware.</strong> Eight archetypes from a 16 ft sail-and-oar dinghy to 50 ft cruisers, real polars, an <code>efficiency</code> parameter for trim and crew level.</li>
-    <li><strong>Window-aware.</strong> One call sweeps up to 14 days of hourly departures so the LLM can pick the calmest slot.</li>
-    <li><strong>Client-agnostic.</strong> One HTTP MCP endpoint. No vendor lock-in.</li>
-    <li><strong>Open source, AGPL.</strong> Self-host on Fly, Modal, your VPS.</li>
-  </ul>
-
-  <h2>Four tools</h2>
-  <p>The workhorse is <code>plan_passage</code>: one call returns timing, a
-    1-5 complexity score, and an <a href="https://ohmywind.fr">ohmywind.fr</a>
-    deep-link. It declares an MCP Apps UI resource, so supporting hosts also
-    render the live plan view in a sandboxed iframe. Pass
-    <code>latest_departure</code> and it walks every hourly window up to 14
-    days out so the LLM can compare side-by-side. The other four tools
-    (<code>list_boat_archetypes</code>,
-    <code>get_marine_forecast</code>, <code>get_tidal_stream</code>,
-    <code>read_me</code>) let the assistant pick a boat, sample the forecast
-    at a point, read the tidal stream through a pass, or explain the math
-    behind a result.</p>
-  <p>Don&rsquo;t want to wire an MCP host? You can also drive everything by
-    hand at <a href="https://ohmywind.fr/plan">ohmywind.fr/plan</a>:
-    click your route, pick a boat, slide the departure.</p>
-
-  <h2>Source</h2>
-  <p>Project site: <a href="https://ohmywind.fr">ohmywind.fr</a> &middot;
-    GitHub: <a href="https://github.com/qdonnars/ohmywind">qdonnars/ohmywind</a>
-    (AGPL-3.0).</p>
-
-  <p class="footnote">First request after inactivity may take a few seconds
-    (HF Spaces cold-start).</p>
   <script>
+    // Vibe's button folds and unfolds its steps in place. Without script it
+    // stays a link to them (see .steps in the styles).
+    document.documentElement.classList.add("js");
+    (function () {
+      var steps = document.getElementById("vibe");
+      var button = document.querySelector('a[href="#vibe"]');
+      function show(open) {
+        steps.classList.toggle("open", open);
+        button.setAttribute("aria-expanded", String(open));
+      }
+      show(location.hash === "#vibe");
+      button.addEventListener("click", function (event) {
+        event.preventDefault();
+        show(!steps.classList.contains("open"));
+      });
+    })();
+    // Copy buttons: shown only where the clipboard can be written, so a
+    // reader never meets a button that does nothing.
+    if (navigator.clipboard && window.isSecureContext) {
+      document.documentElement.classList.add("clip");
+      document.querySelectorAll("button[data-copy]").forEach(function (button) {
+        var label = button.textContent;
+        var timer;
+        button.addEventListener("click", function () {
+          var text = document.getElementById(button.dataset.copy).textContent.trim();
+          navigator.clipboard.writeText(text).then(function () {
+            button.textContent = button.dataset.copied;
+            clearTimeout(timer);
+            timer = setTimeout(function () { button.textContent = label; }, 2000);
+          });
+        });
+      });
+    }
     // The poster is a plain link to the video, so it still works without
     // script. With script, it becomes the player in place.
     document.querySelectorAll("a.player").forEach(function (link) {
@@ -279,9 +849,9 @@
         if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
         event.preventDefault();
         var frame = document.createElement("iframe");
-        frame.className = "hero";
+        frame.className = "video-frame";
         frame.src = "https://www.youtube-nocookie.com/embed/" + link.dataset.video + "?autoplay=1&rel=0";
-        frame.title = "OhMyWind demo video";
+        frame.title = "{{t:video_frame_title}}";
         frame.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
         frame.allowFullscreen = true;
         link.replaceWith(frame);
