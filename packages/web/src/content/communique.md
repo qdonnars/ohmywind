@@ -55,7 +55,7 @@ OhMyWind est un outil d'aide à la décision. Il ne remplace ni le bulletin mét
 
 ## Ils en ont parlé
 
-[Bateaux.com](https://www.bateaux.com/article/52477/ohmywind-le-projet-open-source-qui-veut-repenser-la-preparation-d-une-navigation) (et ses éditions anglaise, allemande, espagnole et italienne), [BOOTE](https://www.boote-magazin.de/ausruestung/technik/ohmywind-wetterrouting-open-source/), YACHT. Tous les articles sont réunis dans la [revue de presse](/presse).
+[Multicoques Mag](https://www.multicoques-mag.com/shopping-catamaran-trimaran/ohmywind-la-meteo-marine-en-cinq-langues-et-avec-lia) (et son édition anglaise, Multihulls World), [Bateaux.com](https://www.bateaux.com/article/52477/ohmywind-le-projet-open-source-qui-veut-repenser-la-preparation-d-une-navigation) (et ses éditions anglaise, allemande, espagnole et italienne), [BOOTE](https://www.boote-magazin.de/ausruestung/technik/ohmywind-wetterrouting-open-source/), YACHT. Tous les articles sont réunis dans la [revue de presse](/presse).
 
 ## Contact presse
 
