@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-"""Repair a drawn route that runs over land, on a fine shoreline (prototype).
+"""Repair a drawn route that runs over land, on a fine shoreline.
 
 The rules:
 
@@ -19,7 +19,14 @@ The rules:
 "At sea" for an end of the route means in water connected to the open sea,
 that is reached from the edge of a window around the point: a marina basin
 the 45 m pixels close, or an enclosed pocket, counts as land. The shoreline
-is OSM land plus breakwaters (``FineLand``), no bathymetry.
+is OSM land plus breakwaters (``FineLand``), no bathymetry: an archive of
+tiles on one world lattice (``land_tiles``), and what OSM draws as inland
+water (Sydney Harbour behind its heads, a river above its mouth) is land.
+
+The web app runs the same repair in the browser
+(``packages/web/src/plan/repair``, TypeScript). Both must return the same
+route: every step here is written so that it can be, and a corpus of routes
+guards it (``scripts/build_route_parity_corpus.py``).
 """
 
 from __future__ import annotations
@@ -33,16 +40,19 @@ from pathlib import Path
 
 import numpy as np
 
+from openwind_data.routing.auto_route import land_tiles
 from openwind_data.routing.auto_route.engine import RouteParams, _segment_samples, suggest_route
-from openwind_data.routing.auto_route.grid import M_PER_DEG_LAT, NavGrid
+from openwind_data.routing.auto_route.grid import M_PER_DEG_LAT, MercatorGrid, NavGrid
+from openwind_data.routing.auto_route.land_tiles import LandTiles
 from openwind_data.routing.geometry import Point, haversine_distance
 from openwind_data.routing.notices import Notice, notice
 
 M_PER_NM = 1852.0
 
-# The shoreline grids shipped with this package: three regions (Bretagne sud
-# and Vendée, Manche ouest, Provence), derived from OpenStreetMap under the
-# ODbL (see grids/NOTICE.md). A route no region holds is never repaired.
+# The shoreline shipped with this package: an archive of land tiles over
+# France and the coasts around it, derived from OpenStreetMap under the ODbL
+# (see grids/NOTICE.md). A deployment that puts the world's archive in a
+# directory of its own (``OPENWIND_ROUTE_GRIDS_DIR``) repairs routes there too.
 BUNDLED_GRIDS_DIR = Path(__file__).resolve().parent / "grids"
 
 
@@ -89,8 +99,12 @@ class _Region:
         r, c = self.pixel(p)
         return bool(self.land_at(np.array([r]), np.array([c]))[0])
 
-    def crop(self, center: Sequence[Point], margin_m: float) -> NavGrid:
-        """The grid over the points' box widened by ``margin_m``, clipped to the region."""
+    def crop(self, center: Sequence[Point], margin_m: float, max_px: int | None = None) -> NavGrid:
+        """The grid over the points' box widened by ``margin_m``, clipped to the region.
+
+        ``max_px`` is the world lattice's (``_World.crop``); a regional grid
+        is small enough to be searched whole.
+        """
         mlat = margin_m / M_PER_DEG_LAT
         mlon = mlat * self.dlon / self.dlat  # the pixels are square in metres
         lat_min = min(p.lat for p in center) - mlat
@@ -113,16 +127,119 @@ class _Region:
         )
 
 
-class FineLand:
-    """The fine land grids, one per region; a route is repaired when one region holds it."""
+@dataclass(frozen=True)
+class _World:
+    """An archive of land tiles on the world lattice, read as one region.
 
-    def __init__(self, regions: Sequence[_Region] = ()) -> None:
+    Pixel positions are lattice rows and columns, integers at the pixel
+    centres as in :class:`_Region`. Not handled: a route across the
+    antimeridian (its box would span the planet).
+    """
+
+    tiles: LandTiles
+
+    def contains(self, p: Point) -> bool:
+        return abs(p.lat) < land_tiles.MAX_LAT and self.tiles.covers(
+            land_tiles.row_of(p.lat), land_tiles.col_of(p.lon)
+        )
+
+    def pixel(self, p: Point) -> tuple[float, float]:
+        # To a millionth of a pixel, so that a pixel centre the engine
+        # returned is an exact integer again. floor(x + 0.5), here and in
+        # ``centre``, not ``round``: the same in every language.
+        return (
+            math.floor((land_tiles.row_of(p.lat) - 0.5) * 1e6 + 0.5) / 1e6,
+            math.floor((land_tiles.col_of(p.lon) - 0.5) * 1e6 + 0.5) / 1e6,
+        )
+
+    def centre(self, p: Point) -> Point:
+        r, c = (math.floor(x + 0.5) for x in self.pixel(p))
+        return Point(land_tiles.lat_of(r + 0.5), land_tiles.lon_of(c + 0.5))
+
+    def land_at(self, r: np.ndarray, c: np.ndarray) -> np.ndarray:
+        return self.tiles.land_at(
+            np.floor(np.asarray(r) + 0.5).astype(np.int64),
+            np.floor(np.asarray(c) + 0.5).astype(np.int64),
+        )
+
+    def is_land(self, p: Point) -> bool:
+        r, c = self.pixel(p)
+        return bool(self.land_at(np.array([r]), np.array([c]))[0])
+
+    def crop(
+        self, center: Sequence[Point], margin_m: float, max_px: int | None = None
+    ) -> MercatorGrid:
+        """The lattice over the points' box widened by ``margin_m``, clipped to the archive.
+
+        A window of more than ``max_px`` pixels is coarsened: cells of
+        ``factor`` pixels a side, land as soon as one of their pixels is, so
+        that a path through free cells is a path at sea. A long leg is then
+        searched on a coarser shoreline, with its narrow passes closed.
+        """
+        lats = [p.lat for p in center]
+        px_m = land_tiles.pixel_m(0.5 * (min(lats) + max(lats)))
+        m = margin_m / px_m
+        rows = [land_tiles.row_of(p.lat) for p in center]
+        cols = [land_tiles.col_of(p.lon) for p in center]
+        tx0, ty0, tx1, ty1 = self.tiles.coverage
+        r0 = max(ty0 * land_tiles.TILE_PX, math.floor(min(rows) - m))
+        r1 = min(ty1 * land_tiles.TILE_PX, math.ceil(max(rows) + m))
+        c0 = max(tx0 * land_tiles.TILE_PX, math.floor(min(cols) - m))
+        c1 = min(tx1 * land_tiles.TILE_PX, math.ceil(max(cols) + m))
+        f = 1
+        if max_px is not None:
+            f = max(1, math.ceil(math.sqrt((r1 - r0) * (c1 - c0) / max_px)))
+        if f > 1:
+            # Cells aligned on the lattice, whatever the window: the same
+            # leg is coarsened the same way from any route.
+            r0, c0 = r0 // f * f, c0 // f * f
+            r1, c1 = r0 + math.ceil((r1 - r0) / f) * f, c0 + math.ceil((c1 - c0) / f) * f
+        n_lat, n_lon = (r1 - r0) // f, (c1 - c0) // f
+        land: np.ndarray = self.tiles.window(r0, r1, c0, c1)
+        if f > 1:
+            land = np.asarray(land.reshape(n_lat, f, n_lon, f).any(axis=(1, 3)))
+        return MercatorGrid(
+            lat0=land_tiles.lat_of(r0),
+            lon0=land_tiles.lon_of(c0),
+            dlat=(land_tiles.lat_of(r1) - land_tiles.lat_of(r0)) / n_lat,
+            dlon=360.0 / land_tiles.WORLD_PX * f,
+            land=land,
+            coast_source="osm",
+            row0=r0,
+            col0=c0,
+            factor=f,
+            pitch=px_m * f,
+        )
+
+
+class FineLand:
+    """The fine shoreline: an archive of land tiles, and regional grids.
+
+    A route is repaired on the archive when it covers all its points, else
+    on the one regional grid that holds them all, else not at all.
+    """
+
+    def __init__(self, regions: Sequence[_Region] = (), world: _World | None = None) -> None:
         self.regions = list(regions)
+        self.world = world
 
     @classmethod
     def from_directory(cls, path: Path | str | None) -> FineLand:
+        """The archives (``*.owlt``) and regional grids (``*.npz``) of a directory.
+
+        Of several archives the one that covers the most is read: a
+        deployment that adds the world next to the one shipped here gets
+        the world.
+        """
         if not path or not Path(path).is_dir():
             return cls()
+        archives = [LandTiles(f) for f in sorted(Path(path).glob("*.owlt"))]
+
+        def tiles_covered(t: LandTiles) -> int:
+            tx0, ty0, tx1, ty1 = t.coverage
+            return (tx1 - tx0) * (ty1 - ty0)
+
+        world = _World(max(archives, key=tiles_covered)) if archives else None
         regions = []
         for f in sorted(Path(path).glob("*.npz")):
             with np.load(f) as z:
@@ -130,7 +247,7 @@ class FineLand:
                     continue
                 lat0, lon0, dlat, dlon, n_lat, n_lon = z["meta"].tolist()
                 regions.append(_Region(lat0, lon0, dlat, dlon, int(n_lat), int(n_lon), z["land"]))
-        return cls(regions)
+        return cls(regions, world)
 
     @classmethod
     def from_grid(cls, grid: NavGrid) -> FineLand:
@@ -150,20 +267,40 @@ class FineLand:
             ]
         )
 
-    def region_for(self, points: Sequence[Point]) -> _Region | None:
+    def region_for(self, points: Sequence[Point]) -> _Region | _World | None:
+        # A route across the antimeridian is left alone: its box would span
+        # the planet.
+        lons = [p.lon for p in points]
+        if (
+            self.world is not None
+            and max(lons) - min(lons) < 180.0
+            and all(self.world.contains(p) for p in points)
+        ):
+            return self.world
         return next((g for g in self.regions if all(g.contains(p) for p in points)), None)
 
 
 @dataclass(frozen=True)
 class RepairParams:
     # Furthest a departure or an arrival ashore is moved to the sea (see the
-    # bench distribution in the prototype's report).
+    # bench distribution in the repair's report, plan/spikes).
     max_snap_m: float = 3000.0
     # A retraced leg longer than this many times its straight line is refused.
     max_ratio: float = 3.0
     # Room around a leg's box for its retrace. On the bench's 307 retraced
     # legs the way round never left the box by more than 9.7 km.
     margin_m: float = 12000.0
+    # When that room holds no passage, the leg is searched once more with
+    # this many times its straight line around it. A way round is refused
+    # past ``max_ratio`` times the straight line, so it cannot leave the
+    # box by more than 1.4 times that line; 0.75 reaches round a peninsula
+    # (Saint-Malo to Le Havre past Barfleur, Brest to Saint-Malo past
+    # Bréhat) without tripling the window.
+    wide_margin_ratio: float = 0.75
+    # Pixels a search window may hold before it is coarsened (see
+    # ``_World.crop``): what bounds the time and the memory of a long leg,
+    # on a server as in a browser.
+    max_px: int = 8_000_000
     route: RouteParams = field(
         default_factory=lambda: RouteParams(use_depth=False, hard_clearance_m=0.0)
     )
@@ -182,17 +319,11 @@ class Repair:
     seconds: float = 0.0
 
 
-def nearest_sea(region: _Region, p: Point, radius_m: float) -> tuple[Point, float] | None:
-    """The open water nearest to ``p`` within ``radius_m`` and its distance in metres.
-
-    ``(p, 0.0)`` when ``p`` is already in water connected to the edge of the
-    window; None when the window holds no such water.
-    """
-    grid = region.crop([p], radius_m)
-    water = ~grid.land
+def _open_water(water: np.ndarray) -> np.ndarray:
+    """The water of a window that reaches its edge (4-connected)."""
     sea = np.zeros_like(water)
     sea[0], sea[-1], sea[:, 0], sea[:, -1] = water[0], water[-1], water[:, 0], water[:, -1]
-    while True:  # 4-connected flood from the window's edge
+    while True:
         grown = sea.copy()
         grown[1:] |= sea[:-1]
         grown[:-1] |= sea[1:]
@@ -200,8 +331,40 @@ def nearest_sea(region: _Region, p: Point, radius_m: float) -> tuple[Point, floa
         grown[:, :-1] |= sea[:, 1:]
         grown &= water
         if grown.sum() == sea.sum():
-            break
+            return sea
         sea = grown
+
+
+def _open_cell(grid: NavGrid, p: Point, radius_m: float) -> Point | None:
+    """The centre of the cell of open water nearest to ``p`` on a coarsened grid.
+
+    Open as in :func:`nearest_sea`, in a window of ``radius_m`` around
+    ``p``: a coarsened shoreline closes harbours and leaves pockets of
+    free cells behind their entrance, which lead nowhere.
+    """
+    n_lat, n_lon = grid.shape
+    r, c = grid.rc(p.lat, p.lon)
+    rad = math.ceil(radius_m / grid.pitch_m)
+    r0, r1 = max(0, r - rad), min(n_lat, r + rad + 1)
+    c0, c1 = max(0, c - rad), min(n_lon, c + rad + 1)
+    if r0 >= r1 or c0 >= c1:
+        return None
+    sea = _open_water(~grid.land[r0:r1, c0:c1])
+    rr, cc = np.nonzero(sea)
+    if rr.size == 0:
+        return None
+    k = int(np.argmin((rr + r0 - r) ** 2 + (cc + c0 - c) ** 2))
+    return Point(*grid.latlon(int(rr[k]) + r0, int(cc[k]) + c0))
+
+
+def nearest_sea(region: _Region | _World, p: Point, radius_m: float) -> tuple[Point, float] | None:
+    """The open water nearest to ``p`` within ``radius_m`` and its distance in metres.
+
+    ``(p, 0.0)`` when ``p`` is already in water connected to the edge of the
+    window; None when the window holds no such water.
+    """
+    grid = region.crop([p], radius_m)
+    sea = _open_water(~grid.land)
     r, c = grid.rc(p.lat, p.lon)
     if grid.inside(r, c) and sea[r, c]:
         return p, 0.0
@@ -214,7 +377,7 @@ def nearest_sea(region: _Region, p: Point, radius_m: float) -> tuple[Point, floa
     return (q, d) if d <= radius_m else None
 
 
-def leg_crosses_land(region: _Region, a: Point, b: Point) -> bool:
+def leg_crosses_land(region: _Region | _World, a: Point, b: Point) -> bool:
     """Whether the leg runs over land: two samples in a row on a land pixel.
 
     Sampled as the engine checks its own shortcuts (every third of a pixel,
@@ -228,14 +391,55 @@ def leg_crosses_land(region: _Region, a: Point, b: Point) -> bool:
     return bool((hit[1:] & hit[:-1]).any())
 
 
-def _retrace(region: _Region, a: Point, b: Point, rp: RepairParams) -> list[Point] | None:
-    route = suggest_route(region.crop([a, b], rp.margin_m), a, b, params=rp.route)
-    if route is None:
+def _search(
+    region: _Region | _World, a: Point, b: Point, rp: RepairParams, max_px: int | None
+) -> tuple[list[Point], int] | None:
+    """The engine's route from ``a`` to ``b`` and the factor of the grid it ran on."""
+    margins = [rp.margin_m]
+    wide = rp.wide_margin_ratio * haversine_distance(a, b) * M_PER_NM
+    if wide > rp.margin_m:
+        margins.append(wide)
+    for margin in margins:
+        grid = region.crop([a, b], margin, max_px)
+        factor = getattr(grid, "factor", 1)
+        start, end = a, b
+        if factor > 1:
+            # On a coarsened shoreline the engine leaves from open water
+            # near each end; ``_retrace`` joins the ends to it.
+            near_a = _open_cell(grid, a, 2 * rp.max_snap_m)
+            near_b = _open_cell(grid, b, 2 * rp.max_snap_m)
+            if near_a is None or near_b is None:
+                continue
+            start, end = near_a, near_b
+        route = suggest_route(grid, start, end, params=rp.route)
+        if route is not None:
+            return route.waypoints, factor
+    return None
+
+
+def _retrace(region: _Region | _World, a: Point, b: Point, rp: RepairParams) -> list[Point] | None:
+    found = _search(region, a, b, rp, rp.max_px)
+    if found is None:
         return None
-    # The engine runs from the centre of a's pixel to the centre of b's, not
+    wps, factor = found
+    if factor > 1:
+        # A coarsened shoreline closes the harbour a long leg starts from:
+        # the engine left from open water outside. Each end is joined to
+        # it on the fine shoreline.
+        if leg_crosses_land(region, a, wps[0]):
+            head = _search(region, a, wps[0], rp, None)
+            if head is None:
+                return None
+            wps = [*head[0], *wps[1:]]
+        if leg_crosses_land(region, wps[-1], b):
+            tail = _search(region, wps[-1], b, rp, None)
+            if tail is None:
+                return None
+            wps = [*wps[:-1], *tail[0]]
+    # The engine runs from the centre of a's cell to the centre of b's, not
     # from a to b: keep a centre only where the stretch from the exact point
     # would graze a corner of land.
-    path = [a, region.centre(a), *route.waypoints[1:-1], region.centre(b), b]
+    path = [a, *wps, b]
     if not leg_crosses_land(region, a, path[2]):
         path.pop(1)
     if not leg_crosses_land(region, path[-3], b):

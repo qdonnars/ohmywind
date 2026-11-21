@@ -29,7 +29,13 @@ The steps, all on one :class:`~.grid.NavGrid`:
    bathymetry can hide a rock), ``unknown`` (no depth there).
 
 No verdict: the route is a draft, a leg in doubt is flagged, never hidden.
-Spike code for issue #540, wired to nothing.
+
+The route repair runs this on a shoreline without depths, and so does its
+TypeScript twin in the web app (``packages/web/src/plan/repair/engine.ts``),
+which must find the same route: the cost grid, the search and the smoothing
+are written so that each number is the same wherever it is computed (sums
+in a set order, no ``hypot``, no pairwise ``mean``). Keep it that way; the
+parity corpus says when it is not (``scripts/build_route_parity_corpus.py``).
 """
 
 from __future__ import annotations
@@ -227,9 +233,19 @@ def _block_reduce(cost: np.ndarray, f: int) -> np.ndarray:
     n_lat, n_lon = cost.shape
     nr, nc = n_lat // f, n_lon // f
     blk = cost[: nr * f, : nc * f].reshape(nr, f, nc, f)
-    finite = ~np.isinf(blk)
-    bad = 1.0 - finite.mean(axis=(1, 3))
-    m = np.where(finite, blk, 0.0).sum(axis=(1, 3)) / np.maximum(finite.sum(axis=(1, 3)), 1)
+    # Summed pixel by pixel in a set order, in double precision: a block's
+    # mean is then the same number wherever this is computed (see the
+    # TypeScript engine of the web app, which must find the same route).
+    total = np.zeros((nr, nc), dtype=np.float64)
+    count = np.zeros((nr, nc), dtype=np.int64)
+    for i in range(f):
+        for j in range(f):
+            v = blk[:, i, :, j]
+            ok = ~np.isinf(v)
+            total += np.where(ok, v, 0.0)
+            count += ok
+    bad = 1.0 - count / (f * f)
+    m = total / np.maximum(count, 1)
     out = np.where(bad >= 0.5, np.inf, m).astype(np.float32)
     out[0, :] = out[-1, :] = out[:, 0] = out[:, -1] = np.inf
     return out
@@ -301,9 +317,16 @@ def search(
 # smoothing
 
 
+def _hypot(dr: float, dc: float) -> float:
+    """The square root of the sum of squares, each step rounded as IEEE 754
+    says: ``math.hypot`` is within one unit in the last place of it, and not
+    by the same unit in every language."""
+    return math.sqrt(dr * dr + dc * dc)
+
+
 def _segment_samples(p0: tuple[float, float], p1: tuple[float, float], step: float = 0.33):
     dr, dc = p1[0] - p0[0], p1[1] - p0[1]
-    n = max(2, math.ceil(math.hypot(dr, dc) / step) + 1)
+    n = max(2, math.ceil(_hypot(dr, dc) / step) + 1)
     t = np.linspace(0.0, 1.0, n)
     return p0[0] + t * dr, p0[1] + t * dc
 
@@ -316,14 +339,16 @@ def _segment_cost(cost: np.ndarray, p0, p1) -> float:
     vals = cost[np.floor(rs + 0.5).astype(np.int64), np.floor(cs + 0.5).astype(np.int64)]
     if np.isinf(vals).any():
         return INF
-    return float(vals.mean()) * math.hypot(p1[0] - p0[0], p1[1] - p0[1])
+    # A running sum, not ``mean``: numpy's pairwise order is its own.
+    mean = float(np.cumsum(vals, dtype=np.float64)[-1]) / len(vals)
+    return mean * _hypot(p1[0] - p0[0], p1[1] - p0[1])
 
 
 def _path_cumcost(cost: np.ndarray, pts: list[tuple[int, int]]) -> np.ndarray:
     out = np.zeros(len(pts))
     for k in range(1, len(pts)):
         (r0, c0), (r1, c1) = pts[k - 1], pts[k]
-        out[k] = out[k - 1] + math.hypot(r1 - r0, c1 - c0) * 0.5 * (
+        out[k] = out[k - 1] + _hypot(r1 - r0, c1 - c0) * 0.5 * (
             float(cost[r0, c0]) + float(cost[r1, c1])
         )
     return out
@@ -371,7 +396,7 @@ def douglas_peucker(cost: np.ndarray, pts: list[tuple[float, float]], eps_px: fl
             continue
         p0, p1 = np.array(pts[i]), np.array(pts[j])
         seg = p1 - p0
-        seg_len = float(np.hypot(*seg)) or 1e-9
+        seg_len = _hypot(float(seg[0]), float(seg[1])) or 1e-9
         mid = np.array(pts[i + 1 : j])
         dev = np.abs(seg[0] * (mid[:, 1] - p0[1]) - seg[1] * (mid[:, 0] - p0[0])) / seg_len
         k = int(np.argmax(dev)) + i + 1

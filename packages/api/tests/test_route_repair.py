@@ -25,9 +25,10 @@ from openwind_api.settings import Settings
 DEPARTURE = datetime(2026, 5, 1, 6, 0, tzinfo=UTC)
 MARSEILLE = [43.295, 5.361]
 PORQUEROLLES = [43.000, 6.242]
-# Ouessant lies west of the Bretagne sud grid: no grid holds this route.
-BREST = [48.38, -4.49]
-OUESSANT = [48.46, -5.10]
+# South of the tiles shipped with the package (France and the coasts around
+# it): nothing holds this route.
+CADIZ = [36.50, -6.30]
+GIBRALTAR = [36.10, -5.40]
 
 
 @pytest.fixture(scope="module")
@@ -92,7 +93,7 @@ def test_a_flag_that_is_not_a_boolean_is_refused(client) -> None:
 
 
 def test_where_no_grid_holds_the_route_nothing_changes(client) -> None:
-    resp = client.post("/api/v1/passage", json=_body([BREST, OUESSANT]))
+    resp = client.post("/api/v1/passage", json=_body([CADIZ, GIBRALTAR]))
     assert resp.status_code == 200
     assert "repaired_route" not in resp.json()
 

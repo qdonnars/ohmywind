@@ -72,6 +72,20 @@ const CACHEABLE_PATHS = new Set([
   "/api/v1/marine/marc/coverage",
 ]);
 
+// The land tiles of the route repair, which the web app fetches to retrace a
+// route in the browser: an index and one path per tile, all bytes of an
+// archive compiled into the image. A tile's path carries the archive's id,
+// so it never changes under its URL (`immutable`); the index is good for an
+// hour. Kept here, a tile reaches the origin once for everybody.
+const CACHEABLE_PREFIXES = ["/api/v1/land-tiles/"];
+
+function isCacheable(pathname) {
+  return (
+    CACHEABLE_PATHS.has(pathname) ||
+    CACHEABLE_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+  );
+}
+
 // Domain challenge of the ChatGPT app directory. On submission, OpenAI hands
 // out a token and fetches this path on the MCP server's host, expecting the
 // bare token as plain text. The token lives in the `OPENAI_APPS_CHALLENGE`
@@ -104,7 +118,7 @@ export default {
     // Edge cache, read side. Only ever consulted for the handful of GETs
     // listed above, so `/mcp` and every POST reach the origin as before.
     const cacheable =
-      request.method === "GET" && CACHEABLE_PATHS.has(incoming.pathname);
+      request.method === "GET" && isCacheable(incoming.pathname);
     if (cacheable) {
       const hit = await caches.default.match(request);
       if (hit) return finish(hit, request, "HIT");
