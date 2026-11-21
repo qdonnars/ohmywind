@@ -97,6 +97,12 @@ webfont Noto Color Emoji en repli de `--ow-font-ui` avant la capture.
   sa zone de dégagement, et la mention « Google Play est une marque de Google
   LLC » dans le pied.
 
+### Liens cliquables
+
+Dans le PDF, chaque QR code, l'adresse ohmywind.fr et le badge Google Play
+sont des liens vers la même adresse que le code. Chrome les garde à l'export
+(`/URI` dans le PDF) ; ils ne changent rien à l'imprimé.
+
 ### Mentions obligatoires
 
 Le pied du flyer porte la licence (AGPL-3.0), l'association porteuse
@@ -112,10 +118,10 @@ Le nom et le logo restent couverts par la [politique de marque](../TRADEMARK.md)
 - Ne jamais promettre l'absence de publicité : le projet souhaite ne pas en
   mettre, il ne s'y engage pas. Les pastilles se limitent à gratuit, sans
   compte, sans traqueur, open source.
-- iPhone : sous ohmywind.fr, « Le site classique, en attendant qu'Apple
-  valide l'app iPhone » ; à droite, « L'app arrive sur l'App Store », sans
-  date (formulations choisies le 21 novembre 2026). Pas de ligne de gratuité
-  dans l'appel : le titre et le chapeau la disent déjà.
+- Sous ohmywind.fr, une seule ligne en gris : « Le site, tout simplement,
+  que vous pouvez ajouter à votre écran d'accueil ». À droite, « Sur Apple ?
+  L'app arrive sur l'App Store », sans date. Pas de ligne de gratuité dans
+  l'appel : le titre et le chapeau la disent déjà (choix du 21 novembre 2026).
 - Le flyer parle aux gens qui paient une app météo : titre « Vous aimez payer
   votre météo ? », données publiques gratuites, association à but non
   lucratif qui les donne. « Gratuit pour de bon » est une promesse voulue ;
