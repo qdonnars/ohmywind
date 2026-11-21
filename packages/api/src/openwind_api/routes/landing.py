@@ -19,6 +19,12 @@ It speaks to sailors rather than developers: what the server is for, why
 an assistant alone is not enough, who decides. The technical part (server
 address, source, self-hosting) is folded at the bottom.
 
+The top of the page plays three example questions over a chart: the question
+types itself, the route draws, the answer appears. That is script on top of a
+page that works without it: every question is in the markup, the one asked
+for is shown and the others are ``hidden``, and the chips are plain links to
+``?q=2`` and ``?q=3``. So each language is rendered once per question.
+
 The demo video lives on YouTube; what the page serves itself is the poster
 the player hides behind until someone presses play, so that nothing from
 YouTube loads on a visit. The poster does not ship here: binary belongs to a
@@ -66,6 +72,11 @@ DEFAULT_LANGUAGE = "en"
 # works on every host.
 PUBLIC_URL = "https://mcp.ohmywind.fr/"
 
+# The example questions at the top of the page, ``?q=<n>``; the first is the
+# default.
+QUESTIONS = (1, 2, 3)
+DEFAULT_QUESTION = 1
+
 _COPY_SLOT = re.compile(r"\{\{t:([a-z0-9_]+)\}\}")
 
 
@@ -93,15 +104,17 @@ def _alternates() -> str:
     return "\n".join(links)
 
 
-def _language_switcher(current: str) -> str:
+def _language_switcher(current: str, question: int = DEFAULT_QUESTION) -> str:
     """Plain links, so the picker works without script and a shared link
-    keeps its language; the current language is not a link.
+    keeps its language; the current language is not a link. A question other
+    than the first carries over to the other language.
 
     Each entry carries the full name and the two-letter code: the page shows
     the names on a wide screen and the codes on a phone, while a screen
     reader always reads the name.
     """
     items = []
+    keep = "" if question == DEFAULT_QUESTION else f"&amp;q={question}"
     for lang in LANGUAGES:
         label = (
             f'<span class="full">{LANGUAGE_NAMES[lang]}</span>'
@@ -110,12 +123,16 @@ def _language_switcher(current: str) -> str:
         if lang == current:
             items.append(f'<span lang="{lang}" aria-current="true">{label}</span>')
         else:
-            items.append(f'<a href="?lang={lang}" hreflang="{lang}" lang="{lang}">{label}</a>')
+            items.append(
+                f'<a href="?lang={lang}{keep}" hreflang="{lang}" lang="{lang}">{label}</a>'
+            )
     return '    <nav class="langs" aria-label="{{t:language_nav}}">' + "".join(items) + "</nav>"
 
 
-def render_landing(template: str, lang: str = DEFAULT_LANGUAGE) -> str:
-    """The landing page in ``lang``, with every slot filled.
+def render_landing(
+    template: str, lang: str = DEFAULT_LANGUAGE, question: int = DEFAULT_QUESTION
+) -> str:
+    """The landing page in ``lang`` showing example ``question``, every slot filled.
 
     Fails at import rather than serving a page with a ``{{...}}`` in it: a
     slot without its entry is a typo, not a degraded state. So does a copy
@@ -125,8 +142,16 @@ def render_landing(template: str, lang: str = DEFAULT_LANGUAGE) -> str:
     html = (
         template.replace("{{lang}}", lang)
         .replace("{{alternates}}", _alternates())
-        .replace("{{language_switcher}}", _language_switcher(lang))
+        .replace("{{language_switcher}}", _language_switcher(lang, question))
+        .replace("{{q}}", str(question))
     )
+    # The question shown is the one asked for; the others wait, hidden, for
+    # the script (or a click on their chip, which reloads with ``?q=``).
+    for n in QUESTIONS:
+        html = html.replace(f"{{{{q_hidden:{n}}}}}", "" if n == question else " hidden")
+        html = html.replace(
+            f"{{{{q_current:{n}}}}}", ' aria-current="true"' if n == question else ""
+        )
 
     used: set[str] = set()
 
@@ -160,9 +185,14 @@ _check_parity()
 _TEMPLATE = (
     resources.files("openwind_api").joinpath("static/landing.html").read_text(encoding="utf-8")
 )
-# Rendered once per language at import, so a broken translation stops the
-# deployment rather than one reader's page.
-LANDING_PAGES = {lang: render_landing(_TEMPLATE, lang) for lang in LANGUAGES}
+# Rendered once per language and question at import, so a broken translation
+# stops the deployment rather than one reader's page.
+PAGES = {
+    (lang, question): render_landing(_TEMPLATE, lang, question)
+    for lang in LANGUAGES
+    for question in QUESTIONS
+}
+LANDING_PAGES = {lang: PAGES[lang, DEFAULT_QUESTION] for lang in LANGUAGES}
 LANDING_HTML = LANDING_PAGES[DEFAULT_LANGUAGE]
 
 
@@ -198,6 +228,12 @@ def pick_language(request: Request) -> str:
     return negotiate_language(request.headers.get("accept-language"))
 
 
+def pick_question(request: Request) -> int:
+    """``?q=2`` or ``?q=3`` when asked for, else the first question."""
+    asked = request.query_params.get("q", "")
+    return int(asked) if asked in {str(n) for n in QUESTIONS} else DEFAULT_QUESTION
+
+
 # Connector pickers in chat hosts (Claude, etc.) often scrape the server
 # URL's favicon / og:image to badge the connector. Our app responded 404
 # on /favicon.ico and the host fell back to HuggingFace branding. Redirect
@@ -227,12 +263,13 @@ STATIC_ASSETS = {
 
 async def index(request: Request) -> HTMLResponse:
     lang = pick_language(request)
+    question = pick_question(request)
     # ``Vary`` because the same URL answers in five languages: a browser or
     # a cache that honours it keys on the header too. Cloudflare's edge cache
     # does not, which is why the Worker in packages/edge-proxy must never put
     # ``/`` among its CACHEABLE_PATHS.
     return HTMLResponse(
-        LANDING_PAGES[lang],
+        PAGES[lang, question],
         headers={"Vary": "Accept-Language", "Content-Language": lang},
     )
 
