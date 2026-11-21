@@ -38,10 +38,11 @@ from openwind_api.routes.landing_copy import COPY, LANGUAGE_NAMES
 # The assistants' official connector directories that list OhMyWind, one
 # entry per directory, each filling the ``{{<name>_directory_url}}`` slot of
 # the page. The URL lives here and nowhere else in the page: when another
-# directory approves the connector, its listing is one line here, one block
+# directory approves the connector, its listing is one line here, one button
 # in the page and one ``<name>_cta`` line per language in ``landing_copy``.
 DIRECTORY_URLS = {
     "claude": "https://claude.ai/directory/ohmywind",
+    "chatgpt": "https://chatgpt.com/plugins/ohmywind",
 }
 
 # The languages of the web app, in the order the picker shows them. English
