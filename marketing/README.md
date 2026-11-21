@@ -84,10 +84,12 @@ webfont Noto Color Emoji en repli de `--ow-font-ui` avant la capture.
   décodables sur l'aperçu rendu. À refaire si une adresse change (commande en
   tête de `build.sh`).
 - `assets/qr-claude.svg`, `assets/qr-chatgpt.svg`, `assets/qr-mcp.svg` : les
-  trois QR de l'encart « Avec votre assistant IA », vers la fiche de
-  l'annuaire de Claude (`https://claude.ai/directory/ohmywind`), la fiche
-  ChatGPT (`https://chatgpt.com/plugins/ohmywind`) et la page du serveur MCP
-  pour les autres assistants (`https://mcp.ohmywind.fr`). Mêmes adresses que
+  trois QR de l'encart « Avec votre assistant IA », dans cet ordre (ChatGPT
+  d'abord, le plus utilisé) : la fiche ChatGPT
+  (`https://chatgpt.com/plugins/ohmywind`), la fiche de l'annuaire de Claude
+  (`https://claude.ai/directory/ohmywind`) et la page du serveur MCP pour les
+  autres assistants (`https://mcp.ohmywind.fr`). Chaque légende porte le logo
+  de l'éditeur, repris des boutons de cette page. Mêmes adresses que
   les boutons de cette page ; à refaire si l'une change. Imprimés à 16 mm,
   trop fins pour l'aperçu PNG à 2× : les vérifier sur un rendu à 4×.
 - `assets/google-play-badge-fr.png` : badge officiel « Disponible sur Google
