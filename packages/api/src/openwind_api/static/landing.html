@@ -8,222 +8,704 @@
   <link rel="icon" type="image/png" sizes="192x192" href="https://ohmywind.fr/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="https://ohmywind.fr/icon-512.png">
   <link rel="apple-touch-icon" href="https://ohmywind.fr/icon-maskable-512.png">
+  <link rel="preload" href="/static/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
   <meta name="description" content="{{t:meta_description}}">
-  <meta property="og:title" content="OhMyWind MCP">
+  <meta property="og:title" content="OhMyWind">
   <meta property="og:description" content="{{t:og_description}}">
   <meta property="og:image" content="https://ohmywind.fr/icon-512.png">
   <meta property="og:url" content="https://ohmywind.fr">
   <meta name="twitter:card" content="summary">
 {{alternates}}
   <style>
+    /* The web app's font, served from this origin like the video poster.
+       Without it (a deployment that has not copied it) the system stack
+       takes over and nothing else changes. */
+    @font-face {
+      font-family: "Inter";
+      font-style: normal;
+      font-weight: 400 800;
+      font-display: swap;
+      src: url("/static/inter-latin.woff2") format("woff2");
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+    /* The web app's colours (design tokens of ohmywind.fr), light and dark
+       after the reader's system. */
     :root {
       color-scheme: light dark;
-      --bg: #FAF7EE;
-      --card: #FFFFFF;
-      --text: #1A1A1A;
-      --muted: #4A4A4A;
-      --faint: #777169;
-      --border: #E2DDCD;
-      --accent: #1D9E75;
-      --soft: #F1ECDF;
+      --bg: #f4f6fb;
+      --card: #ffffff;
+      --soft: #e8ecf3;
+      --text: #0d1117;
+      --muted: #3a4250;
+      --faint: #6b7280;
+      --accent: #0f766e;
+      --accent-strong: #0f766e;
+      --accent-soft: rgba(15,118,110,.12);
+      --accent-line: rgba(15,118,110,.25);
+      --line: rgba(0,0,0,.08);
+      --line-2: rgba(0,0,0,.14);
+      --ok: #0e9f8f;
+      --shadow-1: 0 1px 4px rgba(0,0,0,.12);
+      --shadow-2: 0 4px 16px rgba(0,0,0,.14);
+      --shadow-pop: 0 8px 32px rgba(0,0,0,.16);
+      /* The chart in the conversation preview. */
+      --map-sea-0: #c8ddf0;
+      --map-sea-1: #b0cee8;
+      --map-land: #e8ede0;
+      --map-road: #d3d9c8;
+      --map-label: #6b7280;
+      --route-casing: #ffffff;
+      --leg-1: color-mix(in oklch, #5cbd92 78%, #f4f6fb);
+      --leg-2: color-mix(in oklch, #a3d4b8 78%, #f4f6fb);
+      --leg-3: color-mix(in oklch, #2dc97a 78%, #f4f6fb);
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #15140F;
-        --card: rgba(255,255,255,0.04);
-        --text: #F2F2F2;
-        --muted: #B8B5AC;
-        --faint: #888780;
-        --border: rgba(255,255,255,0.10);
-        --accent: #2BBE93;
-        --soft: rgba(255,255,255,0.06);
+        --bg: #030712;
+        --card: #0d1117;
+        --soft: #161b22;
+        --text: #e8eaf0;
+        --muted: #8b95a8;
+        --faint: #8b95a8;
+        --accent: #2dd4bf;
+        --accent-strong: #0d9488;
+        --accent-soft: rgba(45,212,191,.12);
+        --accent-line: rgba(45,212,191,.25);
+        --line: rgba(255,255,255,.08);
+        --line-2: rgba(255,255,255,.14);
+        --shadow-1: 0 1px 4px rgba(0,0,0,.42);
+        --shadow-2: 0 4px 16px rgba(0,0,0,.49);
+        --shadow-pop: 0 8px 32px rgba(0,0,0,.56);
+        --map-sea-0: #0b1a2e;
+        --map-sea-1: #060b17;
+        --map-land: #0f1a2a;
+        --map-road: #1a2738;
+        --map-label: #3b4a5e;
+        --route-casing: #060b17;
+        --leg-1: color-mix(in oklch, #12a35e 78%, #030712);
+        --leg-2: color-mix(in oklch, #0e7c4a 78%, #030712);
+        --leg-3: color-mix(in oklch, #2dc97a 78%, #030712);
       }
     }
     * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
     body {
-      font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-      max-width: 44rem; margin: 0 auto; padding: 3rem 1.25rem 4rem;
-      background: var(--bg); color: var(--text);
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 15px/1.5 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
     }
-    h1 { font-size: 2rem; margin: 0 0 0.5rem; letter-spacing: -0.01em; }
-    .lede { font-size: 1.15rem; color: var(--muted); margin: 0 0 2rem; line-height: 1.45; }
-    h2 { font-size: 1.15rem; margin: 2.25rem 0 0.75rem; letter-spacing: -0.005em; }
-    p { margin: 0.6rem 0; }
-    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-    code { font-size: 0.92em; background: var(--soft); padding: 0.1rem 0.35rem; border-radius: 4px; }
-    pre { background: var(--card); border: 1px solid var(--border); padding: 0.85rem 1rem;
-          border-radius: 10px; overflow-x: auto; margin: 0.75rem 0; }
-    pre code { background: none; padding: 0; font-size: 0.95em; }
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
+    a:focus-visible, button:focus-visible, summary:focus-visible {
+      outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px;
+    }
+    h1, h2, h3, p, figure, ul, ol, dl, dd { margin: 0; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code { font-size: .92em; background: var(--soft); padding: .1rem .35rem; border-radius: 4px; }
+    pre { background: var(--soft); border: 1px solid var(--line-2); padding: .6rem .8rem;
+          border-radius: 10px; overflow-x: auto; margin: .5rem 0; }
+    pre code { background: none; padding: 0; }
+    svg.icon { width: 100%; height: 100%; display: block; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 0 40px; }
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+    /* Quotes the way each language quotes. */
+    q { quotes: "\201C" "\201D"; }
+    :lang(fr) q { quotes: "\00AB\00A0" "\00A0\00BB"; }
+    :lang(de) q { quotes: "\201E" "\201C"; }
+    :lang(it) q, :lang(es) q { quotes: "\00AB" "\00BB"; }
+
+    .logo { width: 30px; height: 30px; flex: none; display: block; }
+    .word { font-weight: 700; letter-spacing: -.02em; font-size: 18px; }
+    .word b { color: var(--accent); font-weight: 700; }
+    .arrow { width: 14px; height: 14px; flex: none; }
+    .check { width: 14px; height: 14px; flex: none; color: var(--accent); }
+
+    /* Header */
+    header.top { display: flex; align-items: center; gap: 10px; height: 64px; }
+    header.top .brand { display: flex; align-items: center; gap: 10px; color: var(--text); }
+    nav.langs {
+      margin-left: auto; display: flex; flex-wrap: wrap; justify-content: flex-end;
+      gap: 4px 14px; font-size: 13px; color: var(--muted);
+    }
+    nav.langs a { color: var(--muted); }
+    nav.langs [aria-current] { color: var(--text); font-weight: 700; }
+    nav.langs .code { display: none; }
+    .open-app {
+      margin-left: 18px; display: inline-flex; align-items: center; gap: 6px;
+      font-size: 14px; font-weight: 600; white-space: nowrap;
+    }
+
+    /* Hero */
     .hero {
-      display: block; width: 100%; max-width: 100%; height: auto;
-      border-radius: 12px; border: 1px solid var(--border);
-      margin: 1rem 0 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      display: grid; grid-template-columns: 1.05fr 1fr; gap: 56px; align-items: center;
+      padding: 40px 0 72px;
     }
-    /* The capture is a full 1920px screen and the reading column is 44rem,
-       so the demo breaks out of the column to stay legible. Clamped against
-       the viewport so a narrow screen never gets a horizontal scrollbar. */
-    figure.demo {
-      width: min(58rem, calc(100vw - 2.5rem));
-      margin: 1.25rem 0 2rem 50%;
-      transform: translateX(-50%);
+    .eyebrow {
+      display: inline-block; font-size: 12.5px; font-weight: 600; color: var(--accent);
+      background: var(--accent-soft); border-radius: 99px; padding: 5px 12px; margin-bottom: 18px;
     }
-    figure.demo .hero { margin: 0; background: #15140F; aspect-ratio: 16 / 9; }
-    /* Nothing from YouTube loads until the reader presses play: the poster
-       is served from this origin and the player replaces it on click. */
-    a.player { position: relative; display: block; }
-    a.player img.hero { object-fit: cover; }
-    a.player .play {
-      position: absolute; inset: 50% auto auto 50%; transform: translate(-50%, -50%);
-      width: 4.5rem; height: 3.2rem; border-radius: 0.9rem;
-      background: rgba(21,20,15,0.82); transition: background 0.15s ease;
-    }
-    a.player .play::after {
-      content: ""; position: absolute; inset: 50% auto auto 54%;
-      transform: translate(-50%, -50%);
-      border-style: solid; border-width: 0.7rem 0 0.7rem 1.15rem;
-      border-color: transparent transparent transparent #FFFFFF;
-    }
-    a.player:hover .play, a.player:focus-visible .play { background: var(--accent); }
-    iframe.hero { width: 100%; border: 1px solid var(--border); }
-    figure.demo figcaption {
-      color: var(--faint); font-size: 0.85rem; line-height: 1.45;
-      margin-top: 0.7rem; text-align: center;
-    }
-    .badge {
-      display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px;
-      background: var(--soft); color: var(--accent); font-size: 0.75rem;
-      font-weight: 600; letter-spacing: 0.04em; vertical-align: middle;
-      text-transform: uppercase;
-    }
-    blockquote {
-      margin: 0.75rem 0; padding: 0.75rem 1rem; border-left: 3px solid var(--accent);
-      background: var(--soft); border-radius: 0 8px 8px 0; color: var(--muted);
-      font-style: italic;
-    }
-    ol { padding-left: 1.25rem; line-height: 1.7; }
-    ol li { margin: 0.4rem 0; }
-    .perks { display: grid; grid-template-columns: 1fr; gap: 0.5rem; margin: 1rem 0; padding: 0; list-style: none; }
-    .perks li { padding: 0.65rem 0.9rem; background: var(--card); border: 1px solid var(--border);
-                border-radius: 8px; font-size: 0.95rem; }
-    .perks strong { color: var(--text); }
-    /* The three assistants, side by side; stacked on a narrow phone. */
-    .assistants {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin: 1rem 0 0.6rem;
-    }
-    @media (max-width: 26rem) { .assistants { grid-template-columns: 1fr; } }
+    h1 { font-size: 46px; line-height: 1.08; font-weight: 800; letter-spacing: -.03em; }
+    .lede { margin: 18px 0 28px; font-size: 18.5px; line-height: 1.5; color: var(--muted); }
+    .add-label { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+    /* The three assistants, side by side; stacked on a phone. */
+    .assistants { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
     a.assistant {
-      display: flex; align-items: center; justify-content: center; gap: 0.6rem;
-      padding: 0.85rem 0.75rem; border-radius: 10px; font-weight: 600;
-      background: var(--card); border: 1px solid var(--border); color: var(--text);
+      height: 48px; display: flex; align-items: center; justify-content: center; gap: 10px;
+      border-radius: 12px; background: var(--card); border: 1px solid var(--line-2);
+      box-shadow: var(--shadow-1); color: var(--text); font-size: 15px; font-weight: 600;
     }
     a.assistant:hover, a.assistant:focus-visible, a.assistant[aria-expanded="true"] {
       text-decoration: none; border-color: var(--accent);
     }
     /* The makers' marks: Claude and Mistral in their own orange, OpenAI in
        the text colour, which is how each reads on a light and a dark page. */
-    a.assistant .mark { width: 1.3rem; height: 1.3rem; flex: none; fill: currentColor; }
+    a.assistant .mark { width: 18px; height: 18px; flex: none; fill: currentColor; }
     a.assistant .mark.claude { fill: #D97757; }
     a.assistant .mark.mistral { fill: #FA520F; }
     /* Vibe's steps, folded under the row. Without script the Vibe button is
        a plain link to them and :target unfolds them; with script (the page
        then carries .js) the button folds and unfolds them in place. */
     .steps {
-      display: none; background: var(--card); border: 1px solid var(--border);
-      border-radius: 10px; margin: 0.6rem 0;
+      display: none; background: var(--card); border: 1px solid var(--line-2);
+      border-radius: 12px; margin-top: 8px; font-size: 14.5px;
     }
     html:not(.js) .steps:target, .steps.open { display: block; }
-    .steps h3 { font-size: 1rem; margin: 0; padding: 0.85rem 1rem 0; }
-    .steps ol { padding: 0.5rem 1rem 1rem 2.25rem; margin: 0; }
-    .steps ol li { margin: 0.45rem 0; }
-    .steps pre { margin: 0.5rem 0; }
-    .other { color: var(--muted); margin-top: 1rem; }
-    .footnote { color: var(--faint); font-size: 0.85rem; margin-top: 2.5rem; }
-    /* The language picker: plain links, so it works without script and a
-       shared link keeps its language. The current one is not a link. */
-    nav.langs {
-      display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.25rem 0.9rem;
-      margin: -1.75rem 0 1.5rem; font-size: 0.85rem; color: var(--faint);
+    .steps h3 { font-size: 15px; padding: 14px 16px 0; }
+    .steps ol { padding: 6px 16px 14px 36px; }
+    .steps li { margin: 6px 0; }
+    .perks {
+      list-style: none; padding: 0; margin-top: 12px; display: flex; flex-wrap: wrap;
+      gap: 6px 16px; font-size: 13px; color: var(--muted);
     }
-    nav.langs [aria-current] { color: var(--text); font-weight: 600; }
+    .perks li { display: inline-flex; align-items: center; gap: 5px; }
+    /* Inline rather than flex, so that on a phone the arrow follows the
+       last word instead of standing apart at the right edge. */
+    .arrow-link { display: inline-block; margin-top: 22px; font-size: 15px; font-weight: 600; }
+    .arrow-link .arrow { display: inline-block; vertical-align: -2px; margin-left: 6px; }
+
+    /* The conversation preview */
+    .chat figcaption { font-size: 12.5px; color: var(--faint); text-align: center; margin-top: 10px; }
+    .chat-card {
+      border-radius: 18px; background: var(--card); border: 1px solid var(--line);
+      box-shadow: var(--shadow-pop); padding: 18px; display: flex; flex-direction: column; gap: 14px;
+      font-size: 14.5px; line-height: 1.5;
+    }
+    .bubble-q {
+      align-self: flex-end; max-width: 88%; background: var(--soft);
+      border-radius: 16px 16px 4px 16px; padding: 10px 14px;
+    }
+    .bubble-a { display: flex; gap: 10px; }
+    .avatar {
+      width: 28px; height: 28px; border-radius: 99px; background: var(--soft); color: var(--muted);
+      display: flex; align-items: center; justify-content: center; flex: none;
+    }
+    .avatar svg { width: 15px; height: 15px; }
+    .plan {
+      margin-left: 38px; border-radius: 12px; border: 1px solid var(--line-2);
+      overflow: hidden; background: var(--card);
+    }
+    .plan-head {
+      display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line);
+    }
+    .plan-head .logo { width: 18px; height: 18px; }
+    .plan-title { font-size: 12.5px; font-weight: 600; }
+    .plan-when { margin-left: auto; font-size: 11.5px; color: var(--faint); }
+    .plan-map {
+      position: relative; height: 150px; overflow: hidden;
+      background: linear-gradient(180deg, var(--map-sea-0), var(--map-sea-1));
+    }
+    .plan-map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .plan-map .land { fill: var(--map-land); }
+    .plan-map .roads { stroke: var(--map-road); stroke-width: 1.6; fill: none; }
+    .plan-map .labels { fill: var(--map-label); font: 600 16px Inter, system-ui, sans-serif; letter-spacing: .06em; }
+    .plan-map .casing { stroke: var(--route-casing); stroke-width: 10; stroke-linecap: round; }
+    .plan-map .leg { stroke-width: 6; stroke-linecap: round; }
+    .plan-map .leg-1 { stroke: var(--leg-1); }
+    .plan-map .leg-2 { stroke: var(--leg-2); }
+    .plan-map .leg-3 { stroke: var(--leg-3); }
+    .plan-map .pin { stroke: #fff; stroke-width: 2.5; }
+    .plan-map .pin-n { font: 800 11px Inter, system-ui, sans-serif; text-anchor: middle; fill: #fff; }
+    .plan-stats {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px 12px;
+      border-top: 1px solid var(--line);
+    }
+    .plan-stats dt { font-size: 11px; color: var(--faint); font-weight: 600; }
+    .plan-stats dd {
+      font-size: 19px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums;
+    }
+    .plan-stats .unit { font-size: 11px; font-weight: 500; color: var(--faint); margin-left: 3px; }
+    .plan-stats .arrival dd { color: var(--accent); }
+
+    /* Sections */
+    section.block { padding: 0 0 80px; }
+    .block-head { margin-bottom: 24px; }
+    h2 { font-size: 28px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; }
+    .sub { margin-top: 8px; font-size: 16px; color: var(--muted); line-height: 1.5; max-width: 52rem; }
+
+    /* Why not just ask the assistant */
+    .same-q { font-size: 14px; color: var(--muted); margin-bottom: 12px; }
+    .same-q q { color: var(--text); font-weight: 600; }
+    .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .answer {
+      border-radius: 16px; padding: 22px; background: var(--card); border: 1px solid var(--line-2);
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .answer.with { border: 2px solid var(--accent); box-shadow: var(--shadow-2); }
+    .answer-head { display: flex; align-items: center; gap: 8px; }
+    .answer-head .logo { width: 22px; height: 22px; }
+    .answer-head .avatar { width: 22px; height: 22px; color: var(--faint); }
+    .answer-head .avatar svg { width: 13px; height: 13px; }
+    .answer h3 { font-size: 17px; font-weight: 700; }
+    .answer.alone h3 { color: var(--muted); }
+    .answer-text {
+      font-size: 15px; line-height: 1.55; padding: 12px 14px; border-radius: 12px;
+      background: var(--soft); color: var(--muted);
+    }
+    .answer.with .answer-text { background: var(--accent-soft); color: var(--text); }
+    .points { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    .points li { display: flex; gap: 8px; font-size: 14.5px; line-height: 1.45; color: var(--muted); }
+    .answer.with .points li { color: var(--text); }
+    .points svg { margin-top: 3px; }
+    .points .dash { width: 14px; height: 14px; flex: none; color: var(--faint); }
+    .note { margin-top: 10px; font-size: 12.5px; color: var(--faint); }
+
+    /* You stay the skipper */
+    .pillars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+    .pillar { display: flex; gap: 14px; }
+    .pillar-icon {
+      width: 40px; height: 40px; border-radius: 10px; background: var(--accent-soft);
+      color: var(--accent); display: flex; align-items: center; justify-content: center; flex: none;
+    }
+    .pillar-icon svg { width: 20px; height: 20px; }
+    .pillar h3 { margin: 2px 0 4px; font-size: 16px; font-weight: 700; }
+    .pillar p { font-size: 14.5px; line-height: 1.5; color: var(--muted); }
+    .pillar p a, .faq-item p a { font-weight: 600; }
+
+    /* Video. Nothing from YouTube loads until the reader presses play: the
+       poster is served from this origin and the player replaces it on click. */
+    a.player {
+      position: relative; display: block; border-radius: 16px; overflow: hidden;
+      border: 1px solid var(--line); box-shadow: var(--shadow-2); background: #030712;
+    }
+    a.player img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; }
+    a.player .play {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      width: 76px; height: 76px; border-radius: 99px; background: var(--accent-strong);
+      box-shadow: 0 8px 24px rgba(0,0,0,.35); transition: transform .15s ease;
+    }
+    a.player .play::after {
+      content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-38%, -50%);
+      border-style: solid; border-width: 11px 0 11px 18px;
+      border-color: transparent transparent transparent #fff;
+    }
+    a.player:hover .play, a.player:focus-visible .play { transform: translate(-50%, -50%) scale(1.06); }
+    iframe.video-frame {
+      display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border: 1px solid var(--line);
+      border-radius: 16px;
+    }
+    .video-caption { margin-top: 12px; font-size: 14.5px; color: var(--muted); line-height: 1.5; }
+    .video-caption a { font-weight: 600; }
+
+    /* How it works */
+    .how { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .how li { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+    .num {
+      width: 32px; height: 32px; border-radius: 99px; background: var(--accent-strong); color: #fff;
+      font-weight: 700; font-size: 15px; display: inline-flex; align-items: center; justify-content: center;
+    }
+    .how h3 { margin: 14px 0 6px; font-size: 17px; font-weight: 700; }
+    .how p { font-size: 15px; line-height: 1.5; color: var(--muted); }
+
+    /* Examples */
+    .examples { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .example {
+      display: flex; flex-direction: column; gap: 12px; background: var(--card);
+      border: 1px solid var(--line); border-radius: 14px; padding: 18px;
+    }
+    .tag { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); }
+    .example p { flex: 1; font-size: 15.5px; line-height: 1.5; border-left: 3px solid var(--accent-line); padding-left: 12px; }
+    /* Copy buttons only exist where the clipboard does: the script marks the
+       page .clip when it can write to it. */
+    button.copy {
+      display: none; align-self: flex-start; font-family: inherit; font-size: 13px; font-weight: 600;
+      line-height: 1.2; color: var(--muted);
+      background: var(--card); border: 1px solid var(--line-2); border-radius: 8px;
+      padding: 6px 10px; cursor: pointer;
+    }
+    html.clip button.copy { display: inline-block; }
+    button.copy:hover { border-color: var(--accent); color: var(--text); }
+
+    /* FAQ: always open, a question and its answer side by side. */
+    .faq { border-top: 1px solid var(--line); }
+    .faq-item {
+      display: grid; grid-template-columns: 320px 1fr; gap: 24px; padding: 16px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .faq-item h3 { font-size: 16px; font-weight: 700; }
+    .faq-item p { font-size: 15px; line-height: 1.55; color: var(--muted); }
+
+    /* Without an assistant */
+    section.band { padding: 0 0 40px; }
+    .band-box {
+      display: flex; align-items: center; gap: 18px; background: var(--accent-soft);
+      border: 1px solid var(--accent-line); border-radius: 16px; padding: 24px 28px;
+    }
+    .band-box > div { flex: 1; }
+    .band-box h2 { font-size: 20px; margin-bottom: 6px; letter-spacing: -.01em; }
+    .band-box p { font-size: 15px; line-height: 1.5; color: var(--muted); }
+    a.button {
+      display: inline-flex; align-items: center; gap: 8px; height: 46px; padding: 0 20px;
+      border-radius: 12px; background: var(--accent-strong); color: #fff; font-size: 15px;
+      font-weight: 700; white-space: nowrap; box-shadow: var(--shadow-1);
+    }
+    a.button:hover { text-decoration: none; filter: brightness(1.08); }
+
+    /* For developers: folded by default, native <details>. */
+    details.devs { border-radius: 14px; border: 1px solid var(--line); background: var(--card); margin-bottom: 40px; }
+    details.devs summary {
+      display: flex; align-items: center; gap: 12px; padding: 16px 18px; cursor: pointer; list-style: none;
+    }
+    details.devs summary::-webkit-details-marker { display: none; }
+    details.devs .gear { width: 20px; height: 20px; color: var(--muted); flex: none; }
+    details.devs .summary-text { flex: 1; }
+    details.devs .summary-title { display: block; font-size: 16px; font-weight: 700; }
+    details.devs .summary-hint { display: block; font-size: 13.5px; color: var(--muted); margin-top: 2px; }
+    details.devs .chev { width: 16px; height: 16px; color: var(--muted); flex: none; transition: transform .15s ease; }
+    details.devs[open] .chev { transform: rotate(180deg); }
+    .devs-body { padding: 0 18px 20px; border-top: 1px solid var(--line); }
+    .devs-body h3 { margin: 20px 0 8px; font-size: 14px; font-weight: 700; }
+    .devs-body p { font-size: 14px; line-height: 1.55; color: var(--muted); }
+    .address {
+      display: flex; align-items: center; gap: 8px; border-radius: 10px; border: 1px solid var(--line-2);
+      background: var(--soft); padding: 8px 8px 8px 12px; margin-bottom: 8px;
+    }
+    /* The address wraps rather than being cut: it has to be read in full. */
+    .address code { flex: 1; min-width: 0; background: none; padding: 0; font-size: 13.5px; overflow-wrap: anywhere; }
+    .address button.copy { align-self: center; }
+
+    /* Footer */
+    footer.foot {
+      border-top: 1px solid var(--line); padding: 24px 0 32px; display: flex; align-items: center;
+      gap: 14px; font-size: 13.5px; color: var(--muted);
+    }
+    footer.foot .brand { display: flex; align-items: center; gap: 8px; color: var(--text); }
+    footer.foot .logo { width: 22px; height: 22px; }
+    footer.foot .word { font-size: 15px; }
+    footer.foot .links { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+    footer.foot .links a { color: var(--muted); }
+    footer.foot .end { margin-left: auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    footer.foot .end a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+    .status { display: inline-flex; align-items: center; gap: 6px; }
+    .status::before { content: ""; width: 8px; height: 8px; border-radius: 99px; background: var(--ok); }
+
+    /* A tablet: the hero and the skipper's points stack, the rest keeps its
+       columns. The design defines desktop and phone; this is the step
+       between, so a 768px screen does not squeeze three columns of prose. */
+    @media (max-width: 960px) {
+      .hero { grid-template-columns: 1fr; gap: 40px; }
+      .chat { max-width: 560px; }
+      .pillars { grid-template-columns: 1fr; gap: 20px; }
+      .faq-item { grid-template-columns: 220px 1fr; }
+    }
+
+    /* A phone: one column, smaller titles, language codes. */
+    @media (max-width: 700px) {
+      .wrap { padding: 0 20px; }
+      nav.langs { gap: 4px 10px; }
+      nav.langs .full { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+      nav.langs .code { display: inline; }
+      .open-app { display: none; }
+      .hero { grid-template-columns: 1fr; gap: 28px; padding: 20px 0 40px; }
+      h1 { font-size: 32px; }
+      .lede { font-size: 16.5px; }
+      .assistants { grid-template-columns: 1fr; }
+      .chat-card { padding: 14px; font-size: 14px; }
+      .plan { margin-left: 0; }
+      .plan-map { height: 130px; }
+      section.block { padding-bottom: 48px; }
+      .block-head { margin-bottom: 18px; }
+      h2 { font-size: 23px; }
+      .sub { font-size: 15px; }
+      .compare, .pillars, .how, .examples { grid-template-columns: 1fr; }
+      .pillars { gap: 18px; }
+      .answer { padding: 18px; }
+      a.player .play { width: 60px; height: 60px; }
+      .faq-item { grid-template-columns: 1fr; gap: 6px; }
+      section.band { padding-bottom: 32px; }
+      .band-box { flex-direction: column; align-items: flex-start; padding: 20px; }
+      details.devs { margin-bottom: 32px; }
+      .address { flex-wrap: wrap; }
+      .address code { flex-basis: 100%; }
+      .address button.copy { align-self: flex-start; }
+      footer.foot { flex-direction: column; align-items: flex-start; }
+      footer.foot .end { margin-left: 0; }
+    }
   </style>
 </head>
 <body>
-{{language_switcher}}
-  <h1>OhMyWind MCP <span class="badge">{{t:badge}}</span></h1>
-  <p class="lede">{{t:lede_tagline}}<br>
-    {{t:lede_body}}</p>
+  <!-- Shapes used more than once: the app icon, the assistant's spark, the
+       tick and the arrow. -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <symbol id="i-logo" viewBox="0 0 512 512"><rect width="512" height="512" rx="96" fill="#030712"/><g transform="translate(96 96) scale(13.3)" fill="none" stroke="#2dd4bf" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></g></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3c.6 4.6 2.4 6.4 7 7-4.6.6-6.4 2.4-7 7-.6-4.6-2.4-6.4-7-7 4.6-.6 6.4-2.4 7-7Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 16 16"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-dash" viewBox="0 0 16 16"><path d="M4 8h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </svg>
 
-  <figure class="demo">
+  <div class="wrap">
+  <header class="top">
+    <span class="brand"><svg class="logo" aria-hidden="true"><use href="#i-logo"/></svg><span class="word">OhMy<b>Wind</b></span></span>
+{{language_switcher}}
+    <a class="open-app" href="{{url:app}}">{{t:open_app}}<svg class="arrow" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+  </header>
+
+  <main>
+  <section class="hero">
+    <div>
+      <p class="eyebrow">{{t:eyebrow}}</p>
+      <h1>{{t:h1}}</h1>
+      <p class="lede">{{t:lede}}</p>
+      <p class="add-label">{{t:add_label}}</p>
+
+      <!-- One button per assistant, each with its maker's mark. An assistant
+           whose official directory lists OhMyWind opens on its listing (the URL
+           is a slot named after it, filled from DIRECTORY_URLS in landing.py).
+           Vibe has no directory yet: its button unfolds the steps under the
+           row. It is a link to #vibe, so the steps open without script too. -->
+      <div class="assistants">
+        <a class="assistant" href="{{claude_directory_url}}" target="_blank" rel="noopener"
+           aria-label="{{t:claude_cta}}"><svg class="mark claude" viewBox="0 0 24 24" aria-hidden="true"><path d="m4.7144 15.9555 4.7174-2.6471.079-.2307-.079-.1275h-.2307l-.7893-.0486-2.6956-.0729-2.3375-.0971-2.2646-.1214-.5707-.1215-.5343-.7042.0546-.3522.4797-.3218.686.0608 1.5179.1032 2.2767.1578 1.6514.0972 2.4468.255h.3886l.0546-.1579-.1336-.0971-.1032-.0972L6.973 9.8356l-2.55-1.6879-1.3356-.9714-.7225-.4918-.3643-.4614-.1578-1.0078.6557-.7225.8803.0607.2246.0607.8925.686 1.9064 1.4754 2.4893 1.8336.3643.3035.1457-.1032.0182-.0728-.164-.2733-1.3539-2.4467-1.445-2.4893-.6435-1.032-.17-.6194c-.0607-.255-.1032-.4674-.1032-.7285L6.287.1335 6.6997 0l.9957.1336.419.3642.6192 1.4147 1.0018 2.2282 1.5543 3.0296.4553.8985.2429.8318.091.255h.1579v-.1457l.1275-1.706.2368-2.0947.2307-2.6957.0789-.7589.3764-.9107.7468-.4918.5828.2793.4797.686-.0668.4433-.2853 1.8517-.5586 2.9021-.3643 1.9429h.2125l.2429-.2429.9835-1.3053 1.6514-2.0643.7286-.8196.85-.9046.5464-.4311h1.0321l.759 1.1293-.34 1.1657-1.0625 1.3478-.8804 1.1414-1.2628 1.7-.7893 1.36.0729.1093.1882-.0183 2.8535-.607 1.5421-.2794 1.8396-.3157.8318.3886.091.3946-.3278.8075-1.967.4857-2.3072.4614-3.4364.8136-.0425.0304.0486.0607 1.5482.1457.6618.0364h1.621l3.0175.2247.7892.522.4736.6376-.079.4857-1.2142.6193-1.6393-.3886-3.825-.9107-1.3113-.3279h-.1822v.1093l1.0929 1.0686 2.0035 1.8092 2.5075 2.3314.1275.5768-.3218.4554-.34-.0486-2.2039-1.6575-.85-.7468-1.9246-1.621h-.1275v.17l.4432.6496 2.3436 3.5214.1214 1.0807-.17.3521-.6071.2125-.6679-.1214-1.3721-1.9246L14.38 17.959l-1.1414-1.9428-.1397.079-.674 7.2552-.3156.3703-.7286.2793-.6071-.4614-.3218-.7468.3218-1.4753.3886-1.9246.3157-1.53.2853-1.9004.17-.6314-.0121-.0425-.1397.0182-1.4328 1.9672-2.1796 2.9446-1.7243 1.8456-.4128.164-.7164-.3704.0667-.6618.4008-.5889 2.386-3.0357 1.4389-1.882.929-1.0868-.0062-.1579h-.0546l-6.3385 4.1164-1.1293.1457-.4857-.4554.0608-.7467.2307-.2429 1.9064-1.3114Z"/></svg>Claude</a>
+        <a class="assistant" href="#vibe" aria-controls="vibe" aria-expanded="false"
+           aria-label="{{t:vibe_cta}}"><svg class="mark mistral" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.143 3.429v3.428h-3.429v3.429h-3.428V6.857H6.857V3.43H3.43v13.714H0v3.428h10.286v-3.428H6.857v-3.429h3.429v3.429h3.429v-3.429h3.428v3.429h-3.428v3.428H24v-3.428h-3.43V3.429z"/></svg>Vibe</a>
+        <a class="assistant" href="{{chatgpt_directory_url}}" target="_blank" rel="noopener"
+           aria-label="{{t:chatgpt_cta}}"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/></svg>ChatGPT</a>
+      </div>
+
+      <section id="vibe" class="steps">
+        <h3>Vibe (Mistral)</h3>
+        <ol>
+          <li>{{t:vibe_step_open}}</li>
+          <li>{{t:vibe_step_menu}}</li>
+          <li>{{t:vibe_step_name}}</li>
+          <li>{{t:vibe_step_url}}
+            <pre><code>{{mcp_url}}</code></pre></li>
+          <li>{{t:vibe_step_enable}}</li>
+          <li>{{t:vibe_step_link}}</li>
+        </ol>
+      </section>
+
+      <ul class="perks">
+        <li><svg class="check" aria-hidden="true"><use href="#i-check"/></svg>{{t:perk_minute}}</li>
+        <li><svg class="check" aria-hidden="true"><use href="#i-check"/></svg>{{t:perk_account}}</li>
+        <li><svg class="check" aria-hidden="true"><use href="#i-check"/></svg>{{t:perk_install}}</li>
+      </ul>
+      <a class="arrow-link" href="{{url:app}}">{{t:no_assistant_link}}<svg class="arrow" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+    </div>
+
+    <!-- What the reader will get: the question, the answer and the plan
+         card a host draws in the conversation. Illustrative figures. -->
+    <figure class="chat" aria-label="{{t:chat_label}}">
+      <div class="chat-card">
+        <p class="bubble-q">{{t:chat_question}}</p>
+        <div class="bubble-a">
+          <span class="avatar" aria-hidden="true"><svg><use href="#i-spark"/></svg></span>
+          <p>{{t:chat_answer}}</p>
+        </div>
+        <div class="plan">
+          <div class="plan-head">
+            <svg class="logo" aria-hidden="true"><use href="#i-logo"/></svg>
+            <span class="plan-title">{{t:chat_plan_title}}</span>
+            <span class="plan-when">{{t:chat_plan_when}}</span>
+          </div>
+          <div class="plan-map" aria-hidden="true">
+            <svg viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid slice">
+              <path class="land" d="M0,0 L1000,0 L1000,372 C960,380 930,410 890,398 C850,388 820,420 775,428 C745,452 722,446 708,425 C672,416 640,446 598,428 C560,440 532,412 500,404 C460,394 432,380 392,372 C352,364 320,352 280,348 C250,336 224,344 204,326 C184,306 190,286 168,276 L120,266 C86,258 48,276 0,262 Z"/>
+              <g class="roads"><path d="M150,250 C250,200 380,190 520,170 S800,160 1000,190"/><path d="M210,90 C230,160 260,230 290,268"/><path d="M290,268 C400,300 480,330 560,392"/><path d="M560,392 C640,330 720,250 860,200"/><path d="M620,170 C600,260 580,330 560,392"/></g>
+              <g class="labels"><text x="150" y="248">MARSEILLE</text><text x="262" y="330">CASSIS</text><text x="340" y="360">LA CIOTAT</text><text x="455" y="380">SANARY</text><text x="560" y="395">TOULON</text><text x="720" y="400">HYÈRES</text></g>
+              <g>
+                <line class="casing" x1="140" y1="290" x2="250" y2="372"/><line class="leg leg-1" x1="140" y1="290" x2="250" y2="372"/>
+                <line class="casing" x1="250" y1="372" x2="470" y2="425"/><line class="leg leg-2" x1="250" y1="372" x2="470" y2="425"/>
+                <line class="casing" x1="470" y1="425" x2="690" y2="462"/><line class="leg leg-3" x1="470" y1="425" x2="690" y2="462"/>
+                <circle class="pin" cx="140" cy="290" r="12" fill="#2dd4bf"/><text class="pin-n" x="140" y="294" style="fill:#03221d">1</text>
+                <circle class="pin" cx="250" cy="372" r="12" fill="#374151"/><text class="pin-n" x="250" y="376">2</text>
+                <circle class="pin" cx="470" cy="425" r="12" fill="#374151"/><text class="pin-n" x="470" y="429">3</text>
+                <circle class="pin" cx="690" cy="462" r="12" fill="#e84118"/><g transform="translate(684 456) scale(.5)"><path d="M5 21V4h11l-2 4 2 4H5" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></g>
+              </g>
+            </svg>
+          </div>
+          <dl class="plan-stats">
+            <div><dt>{{t:stat_distance}}</dt><dd>{{t:stat_distance_value}}<span class="unit">nm</span></dd></div>
+            <div><dt>{{t:stat_duration}}</dt><dd>6h30</dd></div>
+            <div class="arrival"><dt>{{t:stat_arrival}}</dt><dd>14:32</dd></div>
+          </dl>
+        </div>
+      </div>
+      <figcaption>{{t:chat_caption}}</figcaption>
+    </figure>
+  </section>
+
+  <section class="block" aria-labelledby="why">
+    <div class="block-head">
+      <h2 id="why">{{t:why_title}}</h2>
+      <p class="sub">{{t:why_sub}}</p>
+    </div>
+    <p class="same-q">{{t:why_question_label}} <q>{{t:why_question}}</q></p>
+    <div class="compare">
+      <div class="answer alone">
+        <div class="answer-head"><span class="avatar" aria-hidden="true"><svg><use href="#i-spark"/></svg></span><h3>{{t:why_alone_title}}</h3></div>
+        <p class="answer-text">{{t:why_alone_answer}}</p>
+        <ul class="points">
+          <li><svg class="dash" aria-hidden="true"><use href="#i-dash"/></svg>{{t:why_alone_1}}</li>
+          <li><svg class="dash" aria-hidden="true"><use href="#i-dash"/></svg>{{t:why_alone_2}}</li>
+          <li><svg class="dash" aria-hidden="true"><use href="#i-dash"/></svg>{{t:why_alone_3}}</li>
+          <li><svg class="dash" aria-hidden="true"><use href="#i-dash"/></svg>{{t:why_alone_4}}</li>
+        </ul>
+      </div>
+      <div class="answer with">
+        <div class="answer-head"><svg class="logo" aria-hidden="true"><use href="#i-logo"/></svg><h3>{{t:why_with_title}}</h3></div>
+        <p class="answer-text">{{t:why_with_answer}}</p>
+        <ul class="points">
+          <li><svg class="check" aria-hidden="true"><use href="#i-check"/></svg>{{t:why_with_1}}</li>
+          <li><svg class="check" aria-hidden="true"><use href="#i-check"/></svg>{{t:why_with_2}}</li>
+          <li><svg class="check" aria-hidden="true"><use href="#i-check"/></svg>{{t:why_with_3}}</li>
+          <li><svg class="check" aria-hidden="true"><use href="#i-check"/></svg>{{t:why_with_4}}</li>
+        </ul>
+      </div>
+    </div>
+    <p class="note">{{t:why_note}}</p>
+  </section>
+
+  <section class="block" aria-labelledby="skipper">
+    <div class="block-head">
+      <h2 id="skipper">{{t:skipper_title}}</h2>
+      <p class="sub">{{t:skipper_sub}}</p>
+    </div>
+    <div class="pillars">
+      <div class="pillar">
+        <span class="pillar-icon" aria-hidden="true"><svg viewBox="3 1.6 18 19.4" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.6" r="1.9"/><path d="M11 6.4 6.3 19.6M13 6.4l4.7 13.2M5 16.5h3.4M15.6 16.5H19"/></svg></span>
+        <div><h3>{{t:skipper_1_title}}</h3><p>{{t:skipper_1_body}}</p></div>
+      </div>
+      <div class="pillar">
+        <span class="pillar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></span>
+        <div><h3>{{t:skipper_2_title}}</h3><p>{{t:skipper_2_body}}</p></div>
+      </div>
+      <div class="pillar">
+        <span class="pillar-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M12 7v13M5 13a7 7 0 0 0 14 0M8 11h8"/></svg></span>
+        <div><h3>{{t:skipper_3_title}}</h3><p>{{t:skipper_3_body}}</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="video">
+    <div class="block-head">
+      <h2 id="video">{{t:video_title}}</h2>
+      <p class="sub">{{t:video_sub}}</p>
+    </div>
     <a class="player" href="https://www.youtube.com/watch?v=_bjDlNYJSgo"
        data-video="_bjDlNYJSgo" target="_blank" rel="noopener"
        aria-label="{{t:video_label}}">
-      <img class="hero" src="/static/video-poster.jpg" width="1280" height="720"
+      <img src="/static/video-poster.jpg" width="1280" height="720" loading="lazy"
            alt="{{t:video_alt}}">
       <span class="play" aria-hidden="true"></span>
     </a>
-    <figcaption>{{t:video_caption}}<br>
-      {{t:video_more}}</figcaption>
-  </figure>
+    <p class="video-caption">{{t:video_caption}} {{t:video_more}}</p>
+  </section>
 
-  <h2>{{t:connect_title}}</h2>
-  <p>{{t:connect_intro}}</p>
-
-  <!-- One button per assistant, each with its maker's mark. An assistant
-       whose official directory lists OhMyWind opens on its listing (the URL
-       is a slot named after it, filled from DIRECTORY_URLS in landing.py).
-       Vibe has no directory yet: its button unfolds the steps under the
-       row. It is a link to #vibe, so the steps open without script too. -->
-  <div class="assistants">
-    <a class="assistant" href="{{claude_directory_url}}" target="_blank" rel="noopener"
-       aria-label="{{t:claude_cta}}"><svg class="mark claude" viewBox="0 0 24 24" aria-hidden="true"><path d="m4.7144 15.9555 4.7174-2.6471.079-.2307-.079-.1275h-.2307l-.7893-.0486-2.6956-.0729-2.3375-.0971-2.2646-.1214-.5707-.1215-.5343-.7042.0546-.3522.4797-.3218.686.0608 1.5179.1032 2.2767.1578 1.6514.0972 2.4468.255h.3886l.0546-.1579-.1336-.0971-.1032-.0972L6.973 9.8356l-2.55-1.6879-1.3356-.9714-.7225-.4918-.3643-.4614-.1578-1.0078.6557-.7225.8803.0607.2246.0607.8925.686 1.9064 1.4754 2.4893 1.8336.3643.3035.1457-.1032.0182-.0728-.164-.2733-1.3539-2.4467-1.445-2.4893-.6435-1.032-.17-.6194c-.0607-.255-.1032-.4674-.1032-.7285L6.287.1335 6.6997 0l.9957.1336.419.3642.6192 1.4147 1.0018 2.2282 1.5543 3.0296.4553.8985.2429.8318.091.255h.1579v-.1457l.1275-1.706.2368-2.0947.2307-2.6957.0789-.7589.3764-.9107.7468-.4918.5828.2793.4797.686-.0668.4433-.2853 1.8517-.5586 2.9021-.3643 1.9429h.2125l.2429-.2429.9835-1.3053 1.6514-2.0643.7286-.8196.85-.9046.5464-.4311h1.0321l.759 1.1293-.34 1.1657-1.0625 1.3478-.8804 1.1414-1.2628 1.7-.7893 1.36.0729.1093.1882-.0183 2.8535-.607 1.5421-.2794 1.8396-.3157.8318.3886.091.3946-.3278.8075-1.967.4857-2.3072.4614-3.4364.8136-.0425.0304.0486.0607 1.5482.1457.6618.0364h1.621l3.0175.2247.7892.522.4736.6376-.079.4857-1.2142.6193-1.6393-.3886-3.825-.9107-1.3113-.3279h-.1822v.1093l1.0929 1.0686 2.0035 1.8092 2.5075 2.3314.1275.5768-.3218.4554-.34-.0486-2.2039-1.6575-.85-.7468-1.9246-1.621h-.1275v.17l.4432.6496 2.3436 3.5214.1214 1.0807-.17.3521-.6071.2125-.6679-.1214-1.3721-1.9246L14.38 17.959l-1.1414-1.9428-.1397.079-.674 7.2552-.3156.3703-.7286.2793-.6071-.4614-.3218-.7468.3218-1.4753.3886-1.9246.3157-1.53.2853-1.9004.17-.6314-.0121-.0425-.1397.0182-1.4328 1.9672-2.1796 2.9446-1.7243 1.8456-.4128.164-.7164-.3704.0667-.6618.4008-.5889 2.386-3.0357 1.4389-1.882.929-1.0868-.0062-.1579h-.0546l-6.3385 4.1164-1.1293.1457-.4857-.4554.0608-.7467.2307-.2429 1.9064-1.3114Z"/></svg>Claude</a>
-    <a class="assistant" href="#vibe" aria-controls="vibe" aria-expanded="false"
-       aria-label="{{t:vibe_cta}}"><svg class="mark mistral" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.143 3.429v3.428h-3.429v3.429h-3.428V6.857H6.857V3.43H3.43v13.714H0v3.428h10.286v-3.428H6.857v-3.429h3.429v3.429h3.429v-3.429h3.428v3.429h-3.428v3.428H24v-3.428h-3.43V3.429z"/></svg>Vibe</a>
-    <a class="assistant" href="{{chatgpt_directory_url}}" target="_blank" rel="noopener"
-       aria-label="{{t:chatgpt_cta}}"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/></svg>ChatGPT</a>
-  </div>
-
-  <section id="vibe" class="steps">
-    <h3>Vibe (Mistral)</h3>
-    <ol>
-      <li>{{t:vibe_step_open}}</li>
-      <li>{{t:vibe_step_menu}}</li>
-      <li>{{t:vibe_step_name}}</li>
-      <li>{{t:vibe_step_url}}
-        <pre><code>https://mcp.ohmywind.fr/mcp</code></pre></li>
-      <li>{{t:vibe_step_enable}}</li>
-      <li>{{t:vibe_step_apps}}</li>
+  <section class="block" aria-labelledby="how">
+    <div class="block-head"><h2 id="how">{{t:steps_title}}</h2></div>
+    <ol class="how">
+      <li><span class="num">1</span><h3>{{t:step_1_title}}</h3><p>{{t:step_1_body}}</p></li>
+      <li><span class="num">2</span><h3>{{t:step_2_title}}</h3><p>{{t:step_2_body}}</p></li>
+      <li><span class="num">3</span><h3>{{t:step_3_title}}</h3><p>{{t:step_3_body}}</p></li>
     </ol>
   </section>
 
-  <p class="other">{{t:other_assistant}}</p>
-  <pre><code>https://mcp.ohmywind.fr/mcp</code></pre>
+  <section class="block" aria-labelledby="examples">
+    <div class="block-head">
+      <h2 id="examples">{{t:examples_title}}</h2>
+      <p class="sub">{{t:examples_sub}}</p>
+    </div>
+    <div class="examples">
+      <div class="example">
+        <span class="tag">{{t:example_1_tag}}</span>
+        <p><q id="example-1">{{t:example_1}}</q></p>
+        <button class="copy" type="button" data-copy="example-1" data-copied="{{t:copied}}" aria-live="polite">{{t:copy_question}}</button>
+      </div>
+      <div class="example">
+        <span class="tag">{{t:example_2_tag}}</span>
+        <p><q id="example-2">{{t:example_2}}</q></p>
+        <button class="copy" type="button" data-copy="example-2" data-copied="{{t:copied}}" aria-live="polite">{{t:copy_question}}</button>
+      </div>
+      <div class="example">
+        <span class="tag">{{t:example_3_tag}}</span>
+        <p><q id="example-3">{{t:example_3}}</q></p>
+        <button class="copy" type="button" data-copy="example-3" data-copied="{{t:copied}}" aria-live="polite">{{t:copy_question}}</button>
+      </div>
+    </div>
+  </section>
 
-  <h2>{{t:ask_title}}</h2>
-  <blockquote>{{t:ask_example}}</blockquote>
-  <p>{{t:ask_body}}</p>
-  <p>{{t:ask_window_intro}}</p>
-  <blockquote>{{t:ask_window_example}}</blockquote>
+  <section class="block" aria-labelledby="faq">
+    <div class="block-head"><h2 id="faq">{{t:faq_title}}</h2></div>
+    <div class="faq">
+      <div class="faq-item"><h3>{{t:faq_decide_q}}</h3><p>{{t:faq_decide_a}}</p></div>
+      <div class="faq-item"><h3>{{t:faq_reliable_q}}</h3><p>{{t:faq_reliable_a}}</p></div>
+      <div class="faq-item"><h3>{{t:faq_tides_q}}</h3><p>{{t:faq_tides_a}}</p></div>
+      <div class="faq-item"><h3>{{t:faq_windy_q}}</h3><p>{{t:faq_windy_a}}</p></div>
+      <div class="faq-item"><h3>{{t:faq_price_q}}</h3><p>{{t:faq_price_a}}</p></div>
+    </div>
+  </section>
 
-  <h2>{{t:why_title}}</h2>
-  <ul class="perks">
-    <li>{{t:perk_free}}</li>
-    <li>{{t:perk_models}}</li>
-    <li>{{t:perk_boats}}</li>
-    <li>{{t:perk_windows}}</li>
-    <li>{{t:perk_clients}}</li>
-    <li>{{t:perk_open_source}}</li>
-  </ul>
+  <section class="band" aria-labelledby="noassist">
+    <div class="band-box">
+      <div>
+        <h2 id="noassist">{{t:noassist_title}}</h2>
+        <p>{{t:noassist_body}}</p>
+      </div>
+      <a class="button" href="{{url:app}}">{{t:noassist_cta}}<svg class="arrow" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+    </div>
+  </section>
 
-  <h2>{{t:tools_title}}</h2>
-  <p>{{t:tools_body}}</p>
-  <p>{{t:tools_by_hand}}</p>
+  <!-- Everything technical lives here, folded: the server address, the
+       source, self-hosting. Nothing above it names a tool or a protocol
+       feature. -->
+  <details class="devs" id="developers">
+    <summary>
+      <svg class="gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span class="summary-text"><span class="summary-title">{{t:devs_title}}</span><span class="summary-hint">{{t:devs_hint}}</span></span>
+      <svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6l5 5 5-5"/></svg>
+    </summary>
+    <div class="devs-body">
+      <h3>{{t:devs_address}}</h3>
+      <div class="address">
+        <code id="mcp-url">{{mcp_url}}</code>
+        <button class="copy" type="button" data-copy="mcp-url" data-copied="{{t:copied}}" aria-live="polite">{{t:copy}}</button>
+      </div>
+      <p>{{t:devs_other}}</p>
+      <h3>{{t:devs_source_title}}</h3>
+      <p>{{t:devs_source_body}}</p>
+    </div>
+  </details>
+  </main>
 
-  <h2>{{t:source_title}}</h2>
-  <p>{{t:source_body}}</p>
+  <footer class="foot">
+    <span class="brand"><svg class="logo" aria-hidden="true"><use href="#i-logo"/></svg><span class="word">OhMy<b>Wind</b></span></span>
+    <span class="links">
+      <a href="{{url:app}}">{{t:footer_app}}</a>
+      <a href="{{url:methodology}}">{{t:footer_method}}</a>
+      <a href="{{url:youtube}}" target="_blank" rel="noopener">{{t:footer_youtube}}</a>
+      <a href="{{url:github}}">{{t:footer_github}}</a>
+    </span>
+    <span class="end">
+      <span>{{t:footer_data}}</span>
+      <span class="status">{{t:footer_status}}</span>
+    </span>
+  </footer>
+  </div>
 
-  <p class="footnote">{{t:footnote}}</p>
   <script>
     // Vibe's button folds and unfolds its steps in place. Without script it
     // stays a link to them (see .steps in the styles).
@@ -241,6 +723,23 @@
         show(!steps.classList.contains("open"));
       });
     })();
+    // Copy buttons: shown only where the clipboard can be written, so a
+    // reader never meets a button that does nothing.
+    if (navigator.clipboard && window.isSecureContext) {
+      document.documentElement.classList.add("clip");
+      document.querySelectorAll("button[data-copy]").forEach(function (button) {
+        var label = button.textContent;
+        var timer;
+        button.addEventListener("click", function () {
+          var text = document.getElementById(button.dataset.copy).textContent.trim();
+          navigator.clipboard.writeText(text).then(function () {
+            button.textContent = button.dataset.copied;
+            clearTimeout(timer);
+            timer = setTimeout(function () { button.textContent = label; }, 2000);
+          });
+        });
+      });
+    }
     // The poster is a plain link to the video, so it still works without
     // script. With script, it becomes the player in place.
     document.querySelectorAll("a.player").forEach(function (link) {
@@ -248,7 +747,7 @@
         if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
         event.preventDefault();
         var frame = document.createElement("iframe");
-        frame.className = "hero";
+        frame.className = "video-frame";
         frame.src = "https://www.youtube-nocookie.com/embed/" + link.dataset.video + "?autoplay=1&rel=0";
         frame.title = "{{t:video_frame_title}}";
         frame.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";

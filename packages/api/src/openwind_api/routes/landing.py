@@ -15,6 +15,10 @@ leftover slot stops the import instead of reaching a reader. Each request
 picks its language from ``?lang=`` first, then ``Accept-Language``, then
 English.
 
+It speaks to sailors rather than developers: what the server is for, why
+an assistant alone is not enough, who decides. The technical part (server
+address, source, self-hosting) is folded at the bottom.
+
 The demo video lives on YouTube; what the page serves itself is the poster
 the player hides behind until someone presses play, so that nothing from
 YouTube loads on a visit. The poster does not ship here: binary belongs to a
@@ -33,7 +37,12 @@ from pathlib import Path
 from starlette.requests import Request
 from starlette.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse
 
-from openwind_api.routes.landing_copy import COPY, LANGUAGE_NAMES
+from openwind_api.routes.landing_copy import COPY, LANGUAGE_NAMES, LINKS
+
+# The address an assistant connects to, filling every ``{{mcp_url}}`` slot:
+# Vibe's steps and the developer block, which are the only two places a
+# reader needs it.
+MCP_URL = "https://mcp.ohmywind.fr/mcp"
 
 # The assistants' official connector directories that list OhMyWind, one
 # entry per directory, each filling the ``{{<name>_directory_url}}`` slot of
@@ -85,14 +94,24 @@ def _alternates() -> str:
 
 
 def _language_switcher(current: str) -> str:
+    """Plain links, so the picker works without script and a shared link
+    keeps its language; the current language is not a link.
+
+    Each entry carries the full name and the two-letter code: the page shows
+    the names on a wide screen and the codes on a phone, while a screen
+    reader always reads the name.
+    """
     items = []
     for lang in LANGUAGES:
-        name = LANGUAGE_NAMES[lang]
+        label = (
+            f'<span class="full">{LANGUAGE_NAMES[lang]}</span>'
+            f'<span class="code" aria-hidden="true">{lang.upper()}</span>'
+        )
         if lang == current:
-            items.append(f'<span lang="{lang}" aria-current="true">{name}</span>')
+            items.append(f'<span lang="{lang}" aria-current="true">{label}</span>')
         else:
-            items.append(f'<a href="?lang={lang}" hreflang="{lang}" lang="{lang}">{name}</a>')
-    return '  <nav class="langs" aria-label="{{t:language_nav}}">' + "".join(items) + "</nav>"
+            items.append(f'<a href="?lang={lang}" hreflang="{lang}" lang="{lang}">{label}</a>')
+    return '    <nav class="langs" aria-label="{{t:language_nav}}">' + "".join(items) + "</nav>"
 
 
 def render_landing(template: str, lang: str = DEFAULT_LANGUAGE) -> str:
@@ -127,8 +146,13 @@ def render_landing(template: str, lang: str = DEFAULT_LANGUAGE) -> str:
             raise RuntimeError(f"landing_copy has keys landing.html never uses: {unused}")
     for name, url in DIRECTORY_URLS.items():
         html = html.replace("{{" + name + "_directory_url}}", url)
+    for name, url in LINKS.items():
+        html = html.replace("{{url:" + name + "}}", url)
+    html = html.replace("{{mcp_url}}", MCP_URL)
     if "{{" in html:
-        raise RuntimeError("landing.html has a {{...}} slot with no entry in DIRECTORY_URLS")
+        raise RuntimeError(
+            "landing.html has a {{...}} slot with no entry in DIRECTORY_URLS or LINKS"
+        )
     return html
 
 
@@ -189,12 +213,15 @@ ICON_REDIRECTS = {
 
 # The video poster ships with the deployment rather than coming from
 # i.ytimg.com: fetching YouTube's thumbnail would tell Google about every
-# visit, which the click-to-load player exists to avoid. One file means an
-# explicit allowlist rather than a StaticFiles mount, which keeps the routing
-# table readable and makes path traversal impossible by construction. A new
-# poster ships under a new name: the old one sits in caches for a week.
+# visit, which the click-to-load player exists to avoid. The web app's font
+# (Inter, latin subset, OFL) ships the same way, since the app's own copy has
+# a content hash in its name. A handful of files means an explicit allowlist
+# rather than a StaticFiles mount, which keeps the routing table readable and
+# makes path traversal impossible by construction. A new poster ships under a
+# new name: the old one sits in caches for a week.
 STATIC_ASSETS = {
     "video-poster.jpg": "image/jpeg",
+    "inter-latin.woff2": "font/woff2",
 }
 
 

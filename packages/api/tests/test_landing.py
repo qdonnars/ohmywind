@@ -22,11 +22,12 @@ from openwind_api.routes.landing import (
     LANDING_HTML,
     LANDING_PAGES,
     LANGUAGES,
+    MCP_URL,
     PUBLIC_URL,
     negotiate_language,
     render_landing,
 )
-from openwind_api.routes.landing_copy import COPY
+from openwind_api.routes.landing_copy import COPY, LINKS
 
 # Keys whose value lands inside an HTML attribute or a JS string literal.
 ATTRIBUTE_KEYS = (
@@ -40,6 +41,8 @@ ATTRIBUTE_KEYS = (
     "claude_cta",
     "vibe_cta",
     "chatgpt_cta",
+    "chat_label",
+    "copied",
 )
 
 # Inline markup a translation may legitimately add or drop (a quoted English
@@ -67,7 +70,28 @@ def _hrefs(html: str) -> Counter[str]:
 
 
 def _text(html: str) -> str:
+    """What a reader sees: no styles, no script, no comments, no tags."""
+    html = re.sub(r"<(style|script)\b.*?</\1>|<!--.*?-->", " ", html, flags=re.S)
     return re.sub(r"<[^>]+>", " ", html)
+
+
+def _between(html: str, start: str, end: str) -> str:
+    """The stretch of ``html`` from ``start`` to the first ``end`` after it."""
+    head = html[html.index(start) :]
+    return head[: head.index(end) + len(end)]
+
+
+def _devs(html: str) -> str:
+    return _between(html, '<details class="devs"', "</details>")
+
+
+def _vibe_steps(html: str) -> str:
+    return _between(html, '<section id="vibe"', "</section>")
+
+
+def _sections(html: str) -> list[str]:
+    """The ids of the page's titled sections, top to bottom."""
+    return re.findall(r'<h2 id="([a-z]+)">', html)
 
 
 # ── The three assistants, in every language ─────────────────────────────────
@@ -98,12 +122,15 @@ def test_vibe_unfolds_its_steps_under_the_buttons(lang: str) -> None:
     assert 'aria-controls="vibe"' in button
     assert 'aria-expanded="false"' in button
     assert "Vibe" in copy["vibe_cta"]
-    steps = page[page.index('<section id="vibe"') :]
-    steps = steps[: steps.index("</section>")]
+    steps = _vibe_steps(page)
     assert page.index('<div class="assistants">') < page.index('<section id="vibe"')
     assert copy["vibe_step_menu"] in steps
-    assert "https://mcp.ohmywind.fr/mcp" in steps
-    assert "Le Chat" not in page
+    assert MCP_URL in steps
+    # Vibe goes by its new name everywhere; Le Chat only ever appears as
+    # what it was called before.
+    assert "Le Chat" not in page.replace("Le Chat)", "").replace("Le Chat de", "").replace(
+        "Le Chat von", ""
+    ).replace("Le Chat di", "").replace("Le Chat&rsquo;s", "")
 
 
 @pytest.mark.parametrize("lang", LANGUAGES)
@@ -116,22 +143,97 @@ def test_the_three_buttons_in_order_each_with_its_mark(lang: str) -> None:
 
 
 @pytest.mark.parametrize("lang", LANGUAGES)
-def test_another_assistant_gets_the_server_address(lang: str) -> None:
-    page = LANDING_PAGES[lang]
-    after = page[page.index(COPY[lang]["other_assistant"]) :]
-    assert after.index("https://mcp.ohmywind.fr/mcp") < after.index("<h2>")
+def test_another_assistant_gets_the_server_address_in_the_developer_block(lang: str) -> None:
+    devs = _devs(LANDING_PAGES[lang])
+    after = devs[devs.index(COPY[lang]["devs_address"]) :]
+    assert f'<code id="mcp-url">{MCP_URL}</code>' in after
+    assert after.index(MCP_URL) < after.index(COPY[lang]["devs_other"])
 
 
 @pytest.mark.parametrize("lang", LANGUAGES)
 def test_the_url_lives_in_one_place(lang: str) -> None:
-    assert "{{" not in LANDING_PAGES[lang]
+    page = LANDING_PAGES[lang]
+    assert "{{" not in page
     for url in DIRECTORY_URLS.values():
-        assert LANDING_PAGES[lang].count(url) == 1
+        assert page.count(url) == 1
+    # The server address: in the developer block, and in Vibe's steps
+    # because Vibe needs it pasted. Nowhere else.
+    rest = page.replace(_devs(page), "").replace(_vibe_steps(page), "")
+    assert MCP_URL not in rest
+    assert page.count(MCP_URL) == 2
 
 
 def test_a_slot_without_its_entry_fails_loudly() -> None:
     with pytest.raises(RuntimeError, match="DIRECTORY_URLS"):
         render_landing('<a href="{{gemini_directory_url}}">Add to Gemini</a>')
+    with pytest.raises(RuntimeError, match="LINKS"):
+        render_landing('<a href="{{url:discord}}">Discord</a>')
+
+
+# ── The page, for sailors first ──────────────────────────────────────────────
+
+
+def test_the_sections_in_order() -> None:
+    assert _sections(LANDING_HTML) == [
+        "why",
+        "skipper",
+        "video",
+        "how",
+        "examples",
+        "faq",
+        "noassist",
+    ]
+    # Then the developer block, then the footer.
+    assert LANDING_HTML.index('id="noassist"') < LANDING_HTML.index('<details class="devs"')
+    assert LANDING_HTML.index("</details>") < LANDING_HTML.index('<footer class="foot">')
+
+
+@pytest.mark.parametrize("lang", LANGUAGES)
+def test_the_developer_block_is_folded(lang: str) -> None:
+    page = LANDING_PAGES[lang]
+    markup = re.sub(r"<(style|script)\b.*?</\1>|<!--.*?-->", "", page, flags=re.S)
+    openings = re.findall(r"<details\b[^>]*>", markup)
+    assert len(openings) == 1
+    opening = openings[0]
+    assert " open" not in opening
+    assert "<summary>" in _devs(page)
+
+
+@pytest.mark.parametrize("lang", LANGUAGES)
+def test_no_tool_names_or_protocol_jargon_above_the_developer_block(lang: str) -> None:
+    page = LANDING_PAGES[lang]
+    rest = page.replace(_devs(page), "")
+    for jargon in ("plan_passage", "MCP Apps", "MCP-Apps", "LLM", "AROME", "iframe"):
+        assert jargon not in _text(rest), jargon
+
+
+@pytest.mark.parametrize("lang", LANGUAGES)
+def test_the_methodology_is_linked_twice(lang: str) -> None:
+    # Once where the page says the calculations are public, once in the FAQ
+    # answer on reliability; plus the footer.
+    page = LANDING_PAGES[lang]
+    href = f'href="{LINKS["methodology"]}"'
+    assert page.count(href) == 3
+    for key in ("skipper_2_body", "faq_reliable_a"):
+        assert href in COPY[lang][key], key
+
+
+@pytest.mark.parametrize("lang", LANGUAGES)
+def test_the_page_links_the_app_youtube_and_github(lang: str) -> None:
+    hrefs = _hrefs(LANDING_PAGES[lang])
+    for name in ("app", "methodology", "youtube", "github"):
+        assert hrefs[LINKS[name]] >= 1, name
+
+
+@pytest.mark.parametrize("lang", LANGUAGES)
+def test_copy_buttons_carry_their_target_and_their_feedback(lang: str) -> None:
+    page, copy = LANDING_PAGES[lang], COPY[lang]
+    buttons = re.findall(r'<button class="copy"[^>]*>[^<]*</button>', page)
+    assert len(buttons) == 4
+    for button in buttons:
+        target = re.search(r'data-copy="([a-z0-9-]+)"', button).group(1)
+        assert f'id="{target}"' in page
+        assert f'data-copied="{copy["copied"]}"' in button
 
 
 # ── Parity: what a translation cannot get wrong ─────────────────────────────
@@ -209,9 +311,18 @@ def test_attribute_values_cannot_break_out(lang: str) -> None:
         assert "<" not in COPY[lang][key], key
 
 
-def test_french_says_vous() -> None:
-    text = _text(LANDING_PAGES["fr"]).lower()
-    assert not re.findall(r"\b(tu|toi|ton|ta|tes)\b", text)
+@pytest.mark.parametrize(
+    ("lang", "familiar"),
+    [
+        ("fr", r"\b(tu|toi|ton|ta|tes)\b"),
+        ("de", r"\b(du|dich|dir|dein|deine|deinen|deinem|deiner)\b"),
+        ("es", r"\b(tú|tu|tus|te|ti|contigo)\b"),
+    ],
+)
+def test_the_formal_register(lang: str, familiar: str) -> None:
+    # Place names keep their own words (the Chenal du Four).
+    text = _text(LANDING_PAGES[lang]).replace("Chenal du Four", "").lower()
+    assert not re.findall(familiar, text)
 
 
 @pytest.mark.parametrize("lang", LANGUAGES)
