@@ -78,10 +78,13 @@ webfont Noto Color Emoji en repli de `--ow-font-ui` avant la capture.
   Play (`fr.ohmywind.app`), version 4, correction M. Les deux sont vérifiés
   décodables sur l'aperçu rendu. À refaire si une adresse change (commande en
   tête de `build.sh`).
-- `assets/qr-multicoques-mag.svg` : QR code vers l'article de Multicoques Mag
-  (n°239, novembre-décembre 2026, en ligne le 26 octobre 2026), version 7,
-  correction M, imprimé à 17 mm. L'adresse est longue : l'aperçu PNG à 2× est
-  trop fin pour le décoder, vérifier sur un rendu à 6× (environ 230 dpi).
+- `assets/qr-claude.svg`, `assets/qr-chatgpt.svg`, `assets/qr-mcp.svg` : les
+  trois QR de l'encart « Avec votre assistant IA », vers la fiche de
+  l'annuaire de Claude (`https://claude.ai/directory/ohmywind`), la fiche
+  ChatGPT (`https://chatgpt.com/plugins/ohmywind`) et la page du serveur MCP
+  pour les autres assistants (`https://mcp.ohmywind.fr`). Mêmes adresses que
+  les boutons de cette page ; à refaire si l'une change. Imprimés à 16 mm,
+  trop fins pour l'aperçu PNG à 2× : les vérifier sur un rendu à 4×.
 - `assets/google-play-badge-fr.png` : badge officiel « Disponible sur Google
   Play », en français, tel que fourni par Google. Ne pas le modifier, garder
   sa zone de dégagement, et la mention « Google Play est une marque de Google
@@ -91,8 +94,6 @@ webfont Noto Color Emoji en repli de `--ow-font-ui` avant la capture.
 
 Le pied du flyer porte, et doit garder :
 
-- l'avertissement « aide à la décision, pas un instrument de navigation »,
-  dans les mêmes termes que l'app et le README ;
 - la licence (AGPL-3.0) et l'association porteuse (Libramer) ;
 - l'attribution du fond de carte visible sur la capture, « © les contributeurs
   OpenStreetMap », exigée par la licence ODbL.
@@ -106,11 +107,11 @@ Le nom et le logo restent couverts par la [politique de marque](../TRADEMARK.md)
   compte, sans traqueur, open source.
 - iPhone : l'App Store est annoncé comme « à venir, avec plus de soutiens et
   d'utilisateurs », sans date.
-- Encart presse : la citation entre guillemets est le sous-titre exact de
-  l'article (« La météo marine en cinq langues… et avec l'IA ! »), sans
-  retouche. Ne rien attribuer au magazine qu'il n'a pas écrit ; le chiffre
-  d'utilisateurs qu'il rapporte vient du projet, et Cap Innovation est une
-  candidature, pas un prix.
+- L'accroche met la gratuité en premier, et dit qu'elle durera parce que le
+  projet est porté par une association. C'est une promesse voulue ; elle ne
+  s'étend pas à l'absence de publicité.
+- L'avertissement « aide à la décision » n'est plus sur le flyer : l'app le
+  porte déjà partout.
 - Le site n'affiche plus de note de difficulté de 1 à 5, seulement des
   alertes : ne pas la réintroduire dans la copy.
 

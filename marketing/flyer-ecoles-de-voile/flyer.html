@@ -205,7 +205,7 @@
     display: flex;
     gap: 3mm;
     align-items: flex-start;
-    margin-bottom: 3mm;
+    margin-bottom: 3.4mm;
     break-inside: avoid;
   }
   .feature:last-child { margin-bottom: 0; }
@@ -288,42 +288,50 @@
      hauteur), comme le demandent les règles d'usage de Google Play. */
   .badge { display: block; width: 27mm; margin: -0.6mm 0 0.6mm -1mm; }
 
-  /* ---- Vu dans la presse : la citation à gauche, le QR de l'article à
-     droite. Même cadre que l'appel, en plus discret. ----------------- */
-  .press {
+  /* ---- Avec votre assistant IA : le texte à gauche, un QR par
+     assistant à droite (Claude, ChatGPT, puis mcp.ohmywind.fr pour les
+     autres). Même cadre que l'appel, en plus discret. -------------- */
+  .ai {
     flex: none;
     margin-top: 2.6mm;
-    padding: 1.8mm 2.6mm 1.8mm 4mm;
+    padding: 2mm 3mm 1.6mm 4mm;
     border-radius: 3.5mm;
     border: 0.3mm solid var(--line);
     border-left: 1.2mm solid var(--teal-deep);
     display: flex;
     align-items: center;
-    gap: 4mm;
+    gap: 2.6mm;
   }
-  .press > div:first-child { flex: 1 1 auto; }
-  .press .label {
+  .ai-text { flex: 1 1 auto; }
+  .ai .label {
     font-size: 6.6pt;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--teal-deep);
   }
-  .press .quote {
-    margin-top: 1mm;
+  .ai .title {
+    margin-top: 0.8mm;
     font-size: 10.2pt;
     font-weight: 700;
-    line-height: 1.2;
+    line-height: 1.15;
     letter-spacing: -0.01em;
   }
-  .press .how {
-    margin-top: 1mm;
+  .ai .how {
+    margin-top: 0.9mm;
     font-size: 7.2pt;
     line-height: 1.32;
     color: var(--ink-2);
   }
-  .press .how b { color: var(--ink); font-weight: 600; }
-  .qr.qr-press { width: 17mm; height: 17mm; padding: 1mm; }
+  .ai-qr { margin: 0; flex: none; width: 16mm; text-align: center; }
+  .ai-qr .qr { width: 16mm; height: 16mm; padding: 1.1mm; }
+  .ai-qr figcaption {
+    margin-top: 0.8mm;
+    font-size: 6.2pt;
+    font-weight: 600;
+    line-height: 1.15;
+    color: var(--ink);
+  }
 
   /* ---- Mentions --------------------------------------------------- */
   .fine {
@@ -361,9 +369,9 @@
 
     <h1>Combien de nœuds demain&#8239;<em>?</em></h1>
     <p class="lead">
-      <strong>Vent, vagues, marées et courants</strong>, heure par heure,
-      de la Manche à la Méditerranée. Une météo marine lisible, gratuite,
-      sans compte.
+      <strong>Une météo marine gratuite, et qui le restera</strong>&#8239;:
+      elle est portée par une association. Vent, vagues, marées et courants,
+      heure par heure, de la Manche à la Méditerranée.
     </p>
   </header>
 
@@ -436,15 +444,24 @@
     </div>
   </section>
 
-  <section class="press">
-    <div>
-      <p class="label">Vu dans Multicoques Mag</p>
-      <p class="quote">«&#8239;La météo marine en cinq langues… et avec l'IA&#8239;!&#8239;»</p>
-      <p class="how">N°239, nov.-déc. 2026. OhMyWind répond aussi dans ChatGPT, Claude et Le Chat&#8239;: <b>mcp.ohmywind.fr</b></p>
+  <section class="ai">
+    <div class="ai-text">
+      <p class="label">Avec votre assistant IA</p>
+      <p class="title">Demandez-lui votre sortie</p>
+      <p class="how">Branchez OhMyWind sur votre assistant en un clic&#8239;: il compare les heures de départ et trace la route.</p>
     </div>
-    <div class="qr qr-press">
-      <img src="assets/qr-multicoques-mag.svg" alt="QR code vers l'article de Multicoques Mag sur OhMyWind">
-    </div>
+    <figure class="ai-qr">
+      <div class="qr"><img src="assets/qr-claude.svg" alt="QR code pour ajouter OhMyWind à Claude"></div>
+      <figcaption>Claude</figcaption>
+    </figure>
+    <figure class="ai-qr">
+      <div class="qr"><img src="assets/qr-chatgpt.svg" alt="QR code pour ajouter OhMyWind à ChatGPT"></div>
+      <figcaption>ChatGPT</figcaption>
+    </figure>
+    <figure class="ai-qr">
+      <div class="qr"><img src="assets/qr-mcp.svg" alt="QR code vers mcp.ohmywind.fr, pour Vibe et les autres assistants"></div>
+      <figcaption>Les autres</figcaption>
+    </figure>
   </section>
 
   <section class="cta">
@@ -470,7 +487,6 @@
   </section>
 
   <footer class="fine">
-    <p><b>Aide à la décision, pas un instrument de navigation.</b> OhMyWind ne remplace ni le bulletin météo marine officiel, ni des cartes à jour, ni votre jugement de chef de bord. Les modèles se trompent parfois&#8239;: vous restez responsable de votre navigation.</p>
     <p>Projet libre (AGPL-3.0) porté par l'association Libramer · contact@ohmywind.fr · Données Open-Meteo, SHOM, MARC · Fond de carte © les contributeurs OpenStreetMap · Google Play est une marque de Google LLC.</p>
   </footer>
 

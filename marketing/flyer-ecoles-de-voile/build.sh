@@ -12,8 +12,10 @@
 #   uvx --from segno segno --error M --border 0 --scale 1 --dark '#030712' \
 #       --light transparent --no-xmldecl --no-classes --no-size \
 #       --output assets/qr-ohmywind.svg "https://ohmywind.fr"
-# Même commande pour l'article de presse, vers assets/qr-multicoques-mag.svg
-# (https://www.multicoques-mag.com/shopping-catamaran-trimaran/ohmywind-la-meteo-marine-en-cinq-langues-et-avec-lia).
+# Même commande pour les trois QR des assistants : assets/qr-claude.svg
+# (https://claude.ai/directory/ohmywind), assets/qr-chatgpt.svg
+# (https://chatgpt.com/plugins/ohmywind), assets/qr-mcp.svg
+# (https://mcp.ohmywind.fr).
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
