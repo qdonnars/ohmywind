@@ -129,9 +129,10 @@ jobs:
           # contains binary files". Images count: video-poster.jpg was refused
           # on 2026-10-21 (#488) when only *.mp4 was declared. The route
           # repair's shoreline grids (*.npz, vendored with data-adapters) are
-          # binaries too. Written before `git add` so the filter runs.
+          # binaries too, and so is the landing's font (*.woff2). Written
+          # before `git add` so the filter runs.
           printf '%s filter=lfs diff=lfs merge=lfs -text\n' \
-            '*.mp4' '*.webm' '*.jpg' '*.jpeg' '*.png' '*.webp' '*.gif' '*.npz' > .gitattributes
+            '*.mp4' '*.webm' '*.jpg' '*.jpeg' '*.png' '*.webp' '*.gif' '*.npz' '*.woff2' > .gitattributes
           git config user.name  "$GIT_USER_NAME"
           git config user.email "$GIT_USER_EMAIL"
           git add -A
