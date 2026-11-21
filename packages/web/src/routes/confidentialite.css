@@ -2,26 +2,29 @@
 /* SPDX-FileCopyrightText: 2026 Quentin Donnars */
 
 /*
- * Styles for /confidentialite.
+ * Styles for /confidentialite and /conditions.
  *
  * Moved out of a `<style>` element inside the page's JSX: the browser
  * re-parsed the whole block on every render, and nothing treated it as CSS.
  * The page is lazy-loaded, so Vite emits this alongside its chunk.
+ *
+ * On the app's tokens, like /methodologie: the page follows the theme, so
+ * the system bars, which take the theme's colour, sit on a page of the same
+ * colour.
  */
 
-/* Force a white-paper look on this page regardless of theme. */
 .conf-root {
-  background: #ffffff;
-  color: #1f2937;
+  background: var(--ow-bg-0);
+  color: var(--ow-fg-0);
 }
 .conf-header {
   /* iPhone: the status bar area, see .safe-top in index.css. */
   padding-top: env(safe-area-inset-top, 0px);
-  background: rgba(255, 255, 255, 0.85);
-  border-color: rgba(15, 23, 42, 0.10);
+  background: color-mix(in srgb, var(--ow-bg-0) 75%, transparent);
+  border-color: var(--ow-line-2);
 }
 .conf-root a {
-  color: #0d9488;
+  color: var(--ow-accent);
 }
 .prose-conf {
   font-size: 16px;
@@ -32,7 +35,7 @@
   font-weight: 700;
   margin: 0 0 1.75rem;
   line-height: 1.15;
-  color: #0f172a;
+  color: var(--ow-fg-0);
 }
 .prose-conf h2 {
   font-size: 1.5rem;
@@ -40,14 +43,14 @@
   margin: 2.75rem 0 1rem;
   line-height: 1.2;
   padding-bottom: 0.4rem;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.12);
-  color: #0f172a;
+  border-bottom: 1px solid var(--ow-line-2);
+  color: var(--ow-fg-0);
 }
 .prose-conf h3 {
   font-size: 1.15rem;
   font-weight: 600;
   margin: 2rem 0 0.75rem;
-  color: #0f172a;
+  color: var(--ow-fg-0);
 }
 .prose-conf p {
   margin: 0 0 1rem;
@@ -61,13 +64,15 @@
 }
 .prose-conf ul { list-style: disc; }
 .prose-conf ol { list-style: decimal; }
-.prose-conf strong { font-weight: 600; color: #0f172a; }
+.prose-conf strong { font-weight: 600; color: var(--ow-fg-0); }
 .prose-conf a {
-  color: #0d9488;
+  color: var(--ow-accent);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-.prose-conf a:hover { color: #0f766e; }
+/* Hover leans the accent towards the text colour: darker on the light
+   theme, lighter on the dark one, readable on both. */
+.prose-conf a:hover { color: color-mix(in srgb, var(--ow-accent) 75%, var(--ow-fg-0)); }
 .prose-conf table {
   width: 100%;
   border-collapse: collapse;
@@ -76,10 +81,10 @@
 }
 .prose-conf th, .prose-conf td {
   padding: 0.5rem 0.75rem;
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  border: 1px solid var(--ow-line-2);
   text-align: left;
 }
 .prose-conf th {
-  background: #f1f5f9;
+  background: var(--ow-bg-2);
   font-weight: 600;
 }

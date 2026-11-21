@@ -31,9 +31,9 @@ function MarkdownLink({ node, href, ...props }: ComponentProps<"a"> & { node?: u
 }
 
 /**
- * The press release, reached from `/presse`. Same theme as the press page
- * rather than the doc pages' white paper: it is the project speaking, not a
- * reference document. Written in the interface language, so a journalist
+ * The press release, reached from `/presse`. Styled as the press page, on
+ * the app's tokens: it is the project speaking, not a reference document,
+ * whose pages have their own stylesheets. Written in the interface language, so a journalist
  * sent the link reads it in the language the browser asks for.
  */
 export function PressReleasePage() {

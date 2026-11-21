@@ -49,30 +49,16 @@ const loadPressRelease = () =>
 // par installation : rien a faire payer au chunk d'entree.
 const loadTransfer = () => import("./routes/TransferPage").then((m) => ({ default: m.TransferPage }));
 
-// Les deux pages imposent un fond "papier blanc" quel que soit le theme.
-// L'attente reprend ce fond pour eviter un clignotement sombre puis clair
-// pendant le telechargement du chunk. Les deux valeurs sont ecrites en dur
-// exprès : elles appartiennent a la palette papier de routes/*.css, qui ne
-// suit deliberement aucun theme, et non aux jetons --ow-*.
+// Toutes les pages chargees a la demande suivent le theme de l'application :
+// leur attente prend donc les jetons du theme, pour ne pas clignoter d'un
+// fond a l'autre pendant le telechargement du chunk.
 //
 // Un composant, et non un element construit une fois au chargement du module :
 // il lit la langue active au moment ou il s'affiche, pas celle du demarrage.
-function DocFallback() {
-  const { t } = useT();
-  return (
-    <div className="min-h-screen" style={{ background: "#ffffff", color: "#6b7280" }}>
-      <p className="max-w-3xl mx-auto px-6 py-10 text-sm">{t("common.loading")}</p>
-    </div>
-  );
-}
-
-// /a-propos et /a-propos/nouveautes suivent le theme de l'application, comme
-// /presse : leur attente prend donc les jetons du theme et non le papier blanc
-// des documents.
 function AppPageFallback() {
   const { t } = useT();
   return (
-    <div className="min-h-screen" style={{ background: "var(--ow-bg-0)", color: "var(--ow-fg-2)" }}>
+    <div className="min-h-screen" style={{ background: "var(--ow-bg-0)", color: "var(--ow-fg-1)" }}>
       <p className="max-w-3xl mx-auto px-6 py-10 text-sm">{t("common.loading")}</p>
     </div>
   );
@@ -123,13 +109,13 @@ export function Routes() {
     case "press-release":
       return <LazyPageBoundary key={key} load={loadPressRelease} fallback={<PressFallback />} />;
     case "methodologie":
-      return <LazyPageBoundary key={key} load={loadMethodologie} fallback={<DocFallback />} />;
+      return <LazyPageBoundary key={key} load={loadMethodologie} fallback={<AppPageFallback />} />;
     case "methodologie-courants":
-      return <LazyPageBoundary key={key} load={loadMethodologieCourants} fallback={<DocFallback />} />;
+      return <LazyPageBoundary key={key} load={loadMethodologieCourants} fallback={<AppPageFallback />} />;
     case "confidentialite":
-      return <LazyPageBoundary key={key} load={loadConfidentialite} fallback={<DocFallback />} />;
+      return <LazyPageBoundary key={key} load={loadConfidentialite} fallback={<AppPageFallback />} />;
     case "conditions":
-      return <LazyPageBoundary key={key} load={loadConditions} fallback={<DocFallback />} />;
+      return <LazyPageBoundary key={key} load={loadConditions} fallback={<AppPageFallback />} />;
     case "about":
       return <LazyPageBoundary key={key} load={loadAbout} fallback={<AppPageFallback />} />;
     case "whats-new":

@@ -149,8 +149,8 @@ function ReleaseCard({ release }: { release: PressRelease }) {
 /**
  * The press page: what the sailing press has written about the project,
  * newest first, under our own release, and who to write to for the next
- * piece. Reached from the info panel; the app's theme rather than the doc
- * pages' white paper, since it is a page of the app, not a document.
+ * piece. Reached from the info panel; on the app's tokens, like every page
+ * of the app.
  */
 export function PressPage() {
   const { t, lang } = useT();
