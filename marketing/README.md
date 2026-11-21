@@ -112,11 +112,12 @@ Le nom et le logo restent couverts par la [politique de marque](../TRADEMARK.md)
 - Ne jamais promettre l'absence de publicité : le projet souhaite ne pas en
   mettre, il ne s'y engage pas. Les pastilles se limitent à gratuit, sans
   compte, sans traqueur, open source.
-- iPhone : l'App Store est annoncé comme « à venir, avec plus de soutiens et
-  d'utilisateurs », sans date.
-- L'accroche met la gratuité en premier, et dit qu'elle durera parce que le
-  projet est porté par une association. C'est une promesse voulue ; elle ne
-  s'étend pas à l'absence de publicité.
+- iPhone : « L'app arrive », sans date, et ohmywind.fr marche déjà sur
+  Safari (formulation choisie le 21 novembre 2026).
+- Le flyer parle aux gens qui paient une app météo : titre « Vous aimez payer
+  votre météo ? », données publiques gratuites, association à but non
+  lucratif qui les donne. « Gratuit pour de bon » est une promesse voulue ;
+  elle ne s'étend pas à l'absence de publicité.
 - L'avertissement « aide à la décision » n'est plus sur le flyer : l'app le
   porte déjà partout.
 - Le site n'affiche plus de note de difficulté de 1 à 5, seulement des
