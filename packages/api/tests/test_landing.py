@@ -23,7 +23,9 @@ from openwind_api.routes.landing import (
     LANDING_PAGES,
     LANGUAGES,
     MCP_URL,
+    PAGES,
     PUBLIC_URL,
+    QUESTIONS,
     negotiate_language,
     render_landing,
 )
@@ -41,7 +43,8 @@ ATTRIBUTE_KEYS = (
     "claude_cta",
     "vibe_cta",
     "chatgpt_cta",
-    "chat_label",
+    "questions_label",
+    "send_label",
     "copied",
 )
 
@@ -87,6 +90,13 @@ def _devs(html: str) -> str:
 
 def _vibe_steps(html: str) -> str:
     return _between(html, '<section id="vibe"', "</section>")
+
+
+def _opening(html: str, tag: str, attrs: str) -> str:
+    """The opening tag ``<tag ... attrs...>``: attrs is where it starts."""
+    match = re.search(rf"<{tag} {re.escape(attrs)}[^>]*>", html)
+    assert match, attrs
+    return match.group(0)
 
 
 def _sections(html: str) -> list[str]:
@@ -174,17 +184,13 @@ def test_a_slot_without_its_entry_fails_loudly() -> None:
 
 
 def test_the_sections_in_order() -> None:
-    assert _sections(LANDING_HTML) == [
-        "why",
-        "skipper",
-        "video",
-        "how",
-        "examples",
-        "faq",
-        "noassist",
-    ]
+    # The top of the page (the three questions) comes first, untitled
+    # beyond its h1.
+    assert LANDING_HTML.index("<h1>") < LANDING_HTML.index('<div class="ask">')
+    assert LANDING_HTML.index('<div class="ask">') < LANDING_HTML.index("<h2")
+    assert _sections(LANDING_HTML) == ["video", "why", "skipper", "noassist", "faq"]
     # Then the developer block, then the footer.
-    assert LANDING_HTML.index('id="noassist"') < LANDING_HTML.index('<details class="devs"')
+    assert LANDING_HTML.index('id="faq"') < LANDING_HTML.index('<details class="devs"')
     assert LANDING_HTML.index("</details>") < LANDING_HTML.index('<footer class="foot">')
 
 
@@ -229,11 +235,55 @@ def test_the_page_links_the_app_youtube_and_github(lang: str) -> None:
 def test_copy_buttons_carry_their_target_and_their_feedback(lang: str) -> None:
     page, copy = LANDING_PAGES[lang], COPY[lang]
     buttons = re.findall(r'<button class="copy"[^>]*>[^<]*</button>', page)
-    assert len(buttons) == 4
+    assert len(buttons) == 1
     for button in buttons:
         target = re.search(r'data-copy="([a-z0-9-]+)"', button).group(1)
         assert f'id="{target}"' in page
         assert f'data-copied="{copy["copied"]}"' in button
+
+
+# ── The three questions at the top ───────────────────────────────────────────
+
+
+@pytest.mark.parametrize("lang", LANGUAGES)
+def test_three_questions_in_every_language(lang: str) -> None:
+    page, copy = LANDING_PAGES[lang], COPY[lang]
+    chips = re.findall(r'<a class="chip" href="([^"]*)" data-chip="(\d)"[^>]*>([^<]*)</a>', page)
+    assert [(href, n) for href, n, _ in chips] == [
+        (f"?lang={lang}&amp;q={n}", str(n)) for n in QUESTIONS
+    ]
+    assert [label for *_, label in chips] == [copy[f"q{n}_chip"] for n in QUESTIONS]
+    for n in QUESTIONS:
+        # The question, read whole by a screen reader, and its answer.
+        assert f'<span class="sr-only">{copy[f"q{n}"]}</span>' in page
+        assert copy[f"q{n}_answer"] in page
+    # The answer is announced when it changes.
+    assert '<div class="replies" aria-live="polite">' in page
+
+
+@pytest.mark.parametrize("lang", LANGUAGES)
+@pytest.mark.parametrize("question", QUESTIONS)
+def test_the_question_asked_for_is_the_one_shown(lang: str, question: int) -> None:
+    page = PAGES[lang, question]
+    assert f'<div class="hero" id="hero" data-q="{question}">' in page
+    for n in QUESTIONS:
+        hidden = n != question
+        for tag, attrs in (
+            ("div", f'class="reply" data-for="{n}"'),
+            ("p", f'class="ask-text" data-for="{n}"'),
+        ):
+            assert (" hidden" in _opening(page, tag, attrs)) is hidden, (tag, n)
+        chip = _opening(page, "a", f'class="chip" href="?lang={lang}&amp;q={n}"')
+        assert ('aria-current="true"' in chip) is not hidden, n
+
+
+@pytest.mark.parametrize("lang", LANGUAGES)
+def test_the_language_picker_keeps_the_question(lang: str) -> None:
+    picker = PAGES[lang, 2][PAGES[lang, 2].index('<nav class="langs"') :]
+    picker = picker[: picker.index("</nav>")]
+    assert picker.count("&amp;q=2") == len(LANGUAGES) - 1
+    first = LANDING_PAGES[lang][LANDING_PAGES[lang].index('<nav class="langs"') :]
+    assert "q=" not in first[: first.index("</nav>")]
 
 
 # ── Parity: what a translation cannot get wrong ─────────────────────────────
@@ -382,6 +432,16 @@ def test_the_page_served(client, query: str, header: str | None, expected: str) 
     assert response.text == LANDING_PAGES[expected]
     assert response.headers["content-language"] == expected
     assert "accept-language" in response.headers["vary"].lower()
+
+
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [("", 1), ("?q=1", 1), ("?q=2", 2), ("?lang=fr&q=3", 3), ("?q=4", 1), ("?q=x", 1)],
+)
+def test_the_question_served_without_script(client, query: str, expected: int) -> None:
+    # The chips are links: with no script, ?q= is what shows a question.
+    response = client.get(f"/{query}", headers={"Accept-Language": "fr"})
+    assert response.text == PAGES["fr", expected]
 
 
 def test_vary_survives_the_middleware_stack(client) -> None:
