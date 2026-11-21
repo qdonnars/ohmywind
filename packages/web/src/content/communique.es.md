@@ -55,7 +55,7 @@ OhMyWind es una herramienta de ayuda a la decisión. No sustituye al boletín me
 
 ## Han hablado de nosotros
 
-[Bateaux.com](https://www.barcosnews.es/noticias/52477/ohmywind-el-proyecto-de-codigo-abierto-que-pretende-replantear-la-preparacion-de-una-travesia) (en español en barcosnews.es, y en francés, inglés, alemán e italiano), [BOOTE](https://www.boote-magazin.de/en/equipment/technology/navigation-ohmywind-a-free-weather-planner-with-ai-functionality/), YACHT. Todos los artículos están reunidos en la [revista de prensa](/presse).
+[Multicoques Mag](https://www.multihulls-world.com/shopping-catamaran-trimaran/ohmywind-marine-weather-in-five-languages-and-powered-by-ai) (en inglés como Multihulls World, y en francés), [Bateaux.com](https://www.barcosnews.es/noticias/52477/ohmywind-el-proyecto-de-codigo-abierto-que-pretende-replantear-la-preparacion-de-una-travesia) (en español en barcosnews.es, y en francés, inglés, alemán e italiano), [BOOTE](https://www.boote-magazin.de/en/equipment/technology/navigation-ohmywind-a-free-weather-planner-with-ai-functionality/), YACHT. Todos los artículos están reunidos en la [revista de prensa](/presse).
 
 ## Contacto de prensa
 
