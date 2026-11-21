@@ -56,8 +56,11 @@ tous deux versionnés pour que le flyer soit récupérable sans rien construire.
 
 ### Ressources
 
-Captures prises sur dev.ohmywind.fr le 12 septembre 2026, thème clair, en
-français, avec Chrome piloté (DevTools MCP) et `colorScheme: light`. Dans le
+Captures prises sur dev.ohmywind.fr le 21 novembre 2026, thème clair, en
+français, avec Playwright (`chromium.launch({ channel: 'chromium' })`) et
+`colorScheme: light`. L'émulation du MCP Chrome DevTools échoue (erreur de
+protocole), et le « headless shell » de Playwright laisse des zones de carte
+en basse résolution : prendre le Chromium complet. Dans le
 localStorage avant navigation : `ow_lang=fr`, `ohmywind:onboarding-v1=done`,
 et `ow_last_simulation_v1` supprimé (sinon `/plan` rouvre le formulaire au lieu
 de calculer le deep-link). Ce Chrome n'a pas de police emoji : injecter la
@@ -68,7 +71,9 @@ webfont Noto Color Emoji en repli de `--ow-font-ui` avant la capture.
   (`/?center=43.02,6.17&zoom=11` avec `ow_last_spot_v1` sur ce point).
 - `assets/capture-plan-ipad-fr.png` : tablette en paysage, 2360 × 1640
   (viewport 1180 × 820 en ×2, tactile), page Planifier Saint-Malo vers Chausey
-  (`/plan?wpts=48.66,-2.02;48.72,-1.95;48.87,-1.83&departure=2026-09-15T10:00`).
+  (`/plan?wpts=48.66,-2.02;48.72,-1.95;48.87,-1.83&departure=2026-11-23T11:00`).
+  La route est ajustée par le serveur (« Route ajustée pour rester en mer »,
+  replié en une ligne), c'est attendu.
   Choisir une route et une heure sans avertissement : ils sont générés en
   français côté serveur et s'affichent tels quels ; sonder `POST
   /api/v1/passage` sur le Space dev jusqu'à ce que `passage.warnings` et
@@ -92,11 +97,11 @@ webfont Noto Color Emoji en repli de `--ow-font-ui` avant la capture.
 
 ### Mentions obligatoires
 
-Le pied du flyer porte, et doit garder :
-
-- la licence (AGPL-3.0) et l'association porteuse (Libramer) ;
-- l'attribution du fond de carte visible sur la capture, « © les contributeurs
-  OpenStreetMap », exigée par la licence ODbL.
+Le pied du flyer porte la licence (AGPL-3.0), l'association porteuse
+(Libramer) et l'adresse de contact, rien d'autre. Les mentions de sources,
+d'OpenStreetMap et de Google Play en ont été retirées le 21 novembre 2026 à la
+demande du porteur du projet ; la licence ODbL (fond de carte des captures) et
+les règles d'usage du badge Google Play demandent pourtant chacune une mention.
 
 Le nom et le logo restent couverts par la [politique de marque](../TRADEMARK.md).
 
