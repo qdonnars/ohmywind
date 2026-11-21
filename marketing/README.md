@@ -97,6 +97,12 @@ webfont Noto Color Emoji en repli de `--ow-font-ui` avant la capture.
   sa zone de dégagement, et la mention « Google Play est une marque de Google
   LLC » dans le pied.
 
+### Liens cliquables
+
+Dans le PDF, chaque QR code, l'adresse ohmywind.fr et le badge Google Play
+sont des liens vers la même adresse que le code. Chrome les garde à l'export
+(`/URI` dans le PDF) ; ils ne changent rien à l'imprimé.
+
 ### Mentions obligatoires
 
 Le pied du flyer porte la licence (AGPL-3.0), l'association porteuse
