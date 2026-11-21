@@ -49,6 +49,13 @@ vi.mock("../../api/passage", async (importOriginal) => {
   };
 });
 
+// The route repair runs in a worker of the page; here it leaves the route
+// as drawn unless a test gives it a repair.
+const prepareRoute = vi.fn();
+vi.mock("../repair/client", () => ({
+  prepareRoute: (...args: unknown[]) => prepareRoute(...args),
+}));
+
 // The corridor sampler talks to Open-Meteo; the plan under test does not care
 // what it returns, only that it resolves.
 vi.mock("../../api/forecastCache", () => ({
@@ -155,6 +162,10 @@ beforeEach(() => {
   fetchPassage.mockReset();
   fetchPassageWindows.mockReset();
   fetchPassageByEta.mockReset();
+  prepareRoute.mockReset();
+  prepareRoute.mockImplementation((waypoints: [number, number][]) =>
+    Promise.resolve({ waypoints }),
+  );
   localStorage.clear();
   sessionStorage.clear();
   window.history.replaceState(null, "", "/plan");
@@ -187,7 +198,7 @@ describe("usePlanSession", () => {
     expect(cached.mode).toBe("single");
   });
 
-  it("takes the route the server repaired, and goes back to the one drawn on request", async () => {
+  it("plans the route the browser repaired, and goes back to the one drawn on request", async () => {
     const repaired = {
       waypoints: [
         { lat: 43.293, lon: 5.369 },
@@ -195,42 +206,45 @@ describe("usePlanSession", () => {
         { lat: 43.0006, lon: 6.1999 },
       ],
       changes: [
-        { code: "route.leg_retraced", params: { leg: 1, retraced_nm: "48.9", straight_nm: "40.4" }, message: "x" },
+        { code: "route.leg_retraced", params: { leg: 1, retraced_nm: "48.9", straight_nm: "40.4" }, message: "" },
       ],
     };
-    fetchPassage
-      .mockResolvedValueOnce({
-        passage: passage(),
-        complexity: complexity(),
-        forecast_updated_at: "2026-09-09T06:00:00Z",
-        repaired_route: repaired,
-      })
-      .mockResolvedValue({
-        passage: passage(),
-        complexity: complexity(),
-        forecast_updated_at: "2026-09-09T06:00:00Z",
-      });
+    prepareRoute.mockResolvedValueOnce({
+      waypoints: [[43.293, 5.369], [43.2, 5.32], [43.0006, 6.1999]],
+      repaired,
+    });
+    fetchPassage.mockResolvedValue({
+      passage: passage(),
+      complexity: complexity(),
+      forecast_updated_at: "2026-09-09T06:00:00Z",
+    });
     const { result } = renderHook(() => usePlanSession(session()));
 
     act(() => result.current.actions.compute());
     await waitFor(() => expect(result.current.state.routeRepair).not.toBeNull());
-    expect(fetchPassage.mock.calls[0][0].repairRoute).toBe(true);
+    expect(prepareRoute).toHaveBeenCalledWith([MARSEILLE, PORQUEROLLES], true);
+    // The server is sent the repaired route, to plan as it is.
+    expect(fetchPassage.mock.calls[0][0].waypoints).toHaveLength(3);
     expect(result.current.state.waypoints).toHaveLength(3);
+    expect(result.current.state.routeRepair?.original).toEqual([MARSEILLE, PORQUEROLLES]);
+    expect(result.current.state.routeRepair?.changes).toEqual(repaired.changes);
     expect(window.location.search).toContain("wpts=43.29300,5.36900;43.20000,5.32000");
 
     // A change of departure recomputes the repaired route, repair allowed:
-    // the server finds it at sea and leaves it as it is.
+    // the browser finds it at sea and leaves it as it is.
     act(() => result.current.actions.setDeparture("2026-09-11T08:00"));
     act(() => result.current.actions.compute());
     await waitFor(() => expect(fetchPassage).toHaveBeenCalledTimes(2));
+    expect(prepareRoute.mock.calls[1][1]).toBe(true);
     expect(fetchPassage.mock.calls[1][0].waypoints).toHaveLength(3);
     await waitFor(() => expect(result.current.state.pending).toBeNull());
+    expect(result.current.state.routeRepair).not.toBeNull();
 
+    // « Revenir à mon tracé » : the drawn route, and nothing repairs it.
     act(() => result.current.actions.revertRouteRepair());
     await waitFor(() => expect(fetchPassage).toHaveBeenCalledTimes(3));
-    const reverted = fetchPassage.mock.calls[2][0];
-    expect(reverted.waypoints).toEqual([[43.29, 5.37], [43.0, 6.2]]);
-    expect(reverted.repairRoute).toBe(false);
+    expect(prepareRoute).toHaveBeenLastCalledWith([MARSEILLE, PORQUEROLLES], false);
+    expect(fetchPassage.mock.calls[2][0].waypoints).toEqual([MARSEILLE, PORQUEROLLES]);
     await waitFor(() => expect(result.current.state.passage).not.toBeNull());
     expect(result.current.state.routeRepair).toBeNull();
     expect(window.location.search).toContain("wpts=43.29000,5.37000;43.00000,6.20000");

@@ -223,6 +223,7 @@ On sea levels:
 By design:
 
 - **No optimising router.** OhMyWind does not look for the "best route" or the "best window". It reports the raw data; the interpretation belongs to the sailor.
+- **A route repair, not a router.** On the coasts of France and its neighbours (Lisbon to Rotterdam with the south coast of England, Alicante to Naples with the Balearics, Corsica and Sardinia), a route that crosses land is retraced at sea on an OpenStreetMap shoreline at about 45 m, and a departure or an arrival placed ashore is moved to the nearest open water. That trace avoids the land, nothing more: it reads no chart, no rocks, no depths, and the nearest open water is not always the harbour. The app computes it in your browser, says what changed and lets you go back to your own route.
 - **Not a substitute for a SHOM atlas or a paper chart** in a narrow pass. It is a tool for planning, not for pilotage.
 
 Limitations of the data that we accept:

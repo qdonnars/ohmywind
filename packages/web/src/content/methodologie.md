@@ -221,6 +221,7 @@ Côté niveaux de mer :
 Par choix de conception :
 
 - **Pas de routeur d'optimisation**. OhMyWind ne cherche pas la "meilleure route" ni la "meilleure fenêtre". Il restitue les données brutes ; l'interprétation revient au marin.
+- **Une réparation de route, pas un routage**. Sur les côtes de France et des pays voisins (de Lisbonne à Rotterdam avec le sud de l'Angleterre, d'Alicante à Naples avec les Baléares, la Corse et la Sardaigne), une route qui coupe la terre est retracée en mer sur un trait de côte OpenStreetMap à environ 45 m, et un départ ou une arrivée placés à terre sont ramenés à l'eau la plus proche. Ce tracé évite la terre, rien de plus : il ne lit ni carte marine, ni roches, ni profondeurs, et l'eau la plus proche n'est pas toujours le port. L'application fait ce calcul dans votre navigateur, dit ce qui a changé et permet de revenir à votre tracé.
 - **Pas un substitut à un atlas SHOM ou à une carte papier** dans une passe étroite. C'est un outil de planification, pas de pilotage.
 
 Limites assumées des données :

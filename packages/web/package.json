@@ -9,6 +9,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "serve:lan": "node scripts/serve-lan.mjs",
     "test": "vitest run",
     "lint:budget": "node scripts/lint-budget.mjs",
     "knip": "knip",
