@@ -341,6 +341,13 @@ export const config = {
   "config.notFound.body": "Le lien est peut-être incomplet, ou la page a changé d'adresse.",
   "config.notFound.back": "Retour à la carte",
 
+  // /transfert : la page que l'application ouvre dans Chrome pour reprendre
+  // les données de l'ancienne application Android.
+  "config.transfer.working": "Reprise de vos spots et réglages…",
+  "config.transfer.button": "Terminer dans l'application",
+  "config.transfer.unavailable":
+    "Cette page ne sert qu'à l'application Android, pour reprendre vos spots et réglages. Il n'y a rien à faire ici.",
+
   // Le chunk d'une page de documentation n'est jamais arrivé.
   "config.lazyPage.offlineTitle": "Cette page nécessite une connexion.",
   "config.lazyPage.offlineBody": "Reconnectez-vous puis rechargez, ou revenez à la carte.",

@@ -21,6 +21,9 @@
  *   own v1 to v3 upgrade path with sanitisers.
  * - a key renamed from an older release goes in `LEGACY_STORAGE_KEYS` and gets
  *   a one-shot `migrateLegacyKey` call, so a returning user keeps their data.
+ * - a new `localStorage` key also needs an entry in `storage/transfer.ts`,
+ *   which decides whether it follows the reader into the native app. The
+ *   compiler refuses the build until that decision is written down.
  *
  * Not listed here, on purpose: `history.state` markers (`ohmywind:layer`, see
  * `hooks/useBackDismiss.ts`) are navigation state, not storage, and cookies are
@@ -69,7 +72,13 @@ export const LOCAL_STORAGE_KEYS = {
   /** Last app version (x.y.z) whose "Quoi de neuf" this browser has seen.
       Behind the dot on the menu entry, see `config/whatsNewSeen.ts`. */
   whatsNewSeen: "ow_whats_new_seen_v1",
+  /** Native shell only: where the one-shot import of the data left in Chrome
+      by the former Android app stands. See `native/shellImport.ts`. */
+  shellImport: "ow_shell_import_v1",
 } as const;
+
+/** Name of a `localStorage` entry, as the code refers to it. */
+export type LocalStorageKeyName = keyof typeof LOCAL_STORAGE_KEYS;
 
 /** Keys written to `window.sessionStorage`, i.e. dropped when the tab closes. */
 export const SESSION_STORAGE_KEYS = {

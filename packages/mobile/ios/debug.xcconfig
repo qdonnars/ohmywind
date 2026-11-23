@@ -1,0 +1,9 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
+CAPACITOR_DEBUG = true
+
+// The variant (bundle id, display name, app-bound domain), written by
+// `cap sync ios`. Optional on purpose: App/shell-prebuild.sh fails the build
+// with an explicit message when it is missing or stale.
+#include? "App/variant.xcconfig"

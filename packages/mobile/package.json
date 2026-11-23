@@ -1,0 +1,35 @@
+{
+  "name": "@ohmywind/mobile",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "description": "Thin Capacitor shell around ohmywind.fr for Android and iOS. No native screens: the shell loads the live web app. The shell version lives in android/app/build.gradle and in the iOS project (MARKETING_VERSION).",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "sync:dev": "OHMYWIND_VARIANT=dev cap sync android",
+    "sync:local": "OHMYWIND_VARIANT=local cap sync android",
+    "sync:prod": "OHMYWIND_VARIANT=prod cap sync android",
+    "sync:ios:dev": "OHMYWIND_VARIANT=dev cap sync ios",
+    "sync:ios:local": "OHMYWIND_VARIANT=local cap sync ios",
+    "sync:ios:prod": "OHMYWIND_VARIANT=prod cap sync ios",
+    "apk": "cd android && ./gradlew assembleDebug",
+    "build:dev": "npm run sync:dev && npm run apk",
+    "build:local": "npm run sync:local && npm run apk",
+    "build:prod": "npm run sync:prod && npm run apk",
+    "capacitor:sync:after": "node scripts/ios-variant.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.2",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/browser": "8.0.5",
+    "@capacitor/core": "8.6.2",
+    "@capacitor/ios": "8.6.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.2",
+    "typescript": "5.9.3"
+  }
+}

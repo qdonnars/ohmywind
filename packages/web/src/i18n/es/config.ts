@@ -334,6 +334,11 @@ export const config: Record<keyof typeof frConfig, string> = {
     "Puede que el enlace esté incompleto, o que la página haya cambiado de dirección.",
   "config.notFound.back": "Volver al mapa",
 
+  "config.transfer.working": "Recuperando sus spots y ajustes…",
+  "config.transfer.button": "Terminar en la aplicación",
+  "config.transfer.unavailable":
+    "Esta página solo la usa la aplicación Android, para recuperar sus spots y ajustes. Aquí no hay nada que hacer.",
+
   "config.lazyPage.offlineTitle": "Esta página necesita conexión.",
   "config.lazyPage.offlineBody": "Vuelva a conectarse y recargue, o regrese al mapa.",
   "config.lazyPage.errorTitle": "No se ha podido mostrar esta página.",

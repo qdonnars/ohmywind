@@ -25,8 +25,8 @@ const CONTENT: Record<Lang, string> = {
 };
 
 /** Page statique exigée par le Play Store (formulaire Data safety) et liée
-    depuis le panneau d'infos. Même habillage "papier blanc" que la page
-    méthodologie, sans les plugins math dont elle n'a pas besoin. */
+    depuis le panneau d'infos. Même habillage que la page méthodologie, sur
+    les jetons du thème, sans les plugins math dont elle n'a pas besoin. */
 export function ConfidentialitePage() {
   const { t, lang } = useT();
   useDocumentTitle(`${t("config.docs.privacy")} · OhMyWind`);

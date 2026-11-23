@@ -25,8 +25,8 @@ const CONTENT: Record<Lang, string> = {
 
 /** Conditions d'utilisation, exigées par l'annuaire d'apps de ChatGPT (avec
     site, support et confidentialité) et liées depuis le panneau d'infos.
-    Même habillage "papier blanc" que /confidentialite, dont elle reprend la
-    feuille de style. */
+    Même habillage que /confidentialite, dont elle reprend la feuille de
+    style. */
 export function ConditionsPage() {
   const { t, lang } = useT();
   useDocumentTitle(`${t("config.docs.terms")} · OhMyWind`);

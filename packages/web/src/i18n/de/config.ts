@@ -337,6 +337,11 @@ export const config: Record<keyof typeof frConfig, string> = {
     "Der Link ist vielleicht unvollständig, oder die Seite hat die Adresse gewechselt.",
   "config.notFound.back": "Zurück zur Karte",
 
+  "config.transfer.working": "Ihre Spots und Einstellungen werden übernommen…",
+  "config.transfer.button": "In der App abschließen",
+  "config.transfer.unavailable":
+    "Diese Seite dient nur der Android-App, um Ihre Spots und Einstellungen zu übernehmen. Hier ist nichts zu tun.",
+
   "config.lazyPage.offlineTitle": "Diese Seite benötigt eine Verbindung.",
   "config.lazyPage.offlineBody":
     "Stellen Sie die Verbindung wieder her und laden Sie neu, oder kehren Sie zur Karte zurück.",

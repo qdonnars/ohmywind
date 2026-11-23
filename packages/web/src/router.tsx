@@ -41,15 +41,20 @@ function isInAppNavigation(e: MouseEvent, anchor: HTMLAnchorElement): boolean {
  * Go to another page of the app, the way a click on one of its links does.
  * For the few places where the way there is a gesture rather than a link
  * (a second tap on a spot of the comparison opens it in Explorer).
+ *
+ * `replace` is for a page the reader did not walk to from the current one: a
+ * launcher shortcut or a link opened from another app. It takes the place of
+ * the current entry, so that going back leaves the app, as it would after
+ * opening it on that page.
  */
-export function goTo(href: string): void {
+export function goTo(href: string, options: { replace?: boolean } = {}): void {
   // Re-clicking the current URL should do nothing rather than remount.
   if (href === window.location.pathname + window.location.search) return;
   // Leaving a page with a panel open: the entry that panel pushed is
   // transient state of the page being left, so the navigation takes its
   // place rather than stacking on top of it. Otherwise a back press would
   // land on an entry whose panel is long gone and appear to do nothing.
-  navigate(href, { replace: isLayerEntry(window.history.state) });
+  navigate(href, { replace: options.replace === true || isLayerEntry(window.history.state) });
   backStack.detachAll();
   window.scrollTo(0, 0);
   checkForAppUpdate();

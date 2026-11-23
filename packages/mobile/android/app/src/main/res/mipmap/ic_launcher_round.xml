@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later
+     SPDX-FileCopyrightText: 2026 Quentin Donnars -->
+<!-- Pre-adaptive launchers (API 24 and 25): the PWA's rounded-square icon,
+     scaled down by the launcher. -->
+<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+    android:src="@drawable/shell_icon_legacy"
+    android:filter="true" />

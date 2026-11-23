@@ -25,6 +25,7 @@ export type RouteName =
   | "about"
   | "whats-new"
   | "press-release"
+  | "transfer"
   | "not-found";
 
 // A Map rather than an object literal: a path is untrusted input, and an
@@ -48,6 +49,9 @@ const ROUTES = new Map<string, RouteName>([
   // The release log's first address, kept so a link to it still lands.
   ["/nouveautes", "whats-new"],
   ["/presse/communique", "press-release"],
+  // Opened by the native app in a Custom Tab, never linked from the site:
+  // hands the browser's storage back to the app (see native/shellImport.ts).
+  ["/transfert", "transfer"],
 ]);
 
 /** `path` is expected already normalised (see `navigation.normalisePath`). */

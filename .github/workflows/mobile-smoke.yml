@@ -1,0 +1,264 @@
+name: Mobile smoke
+
+# Proves that the shell (packages/mobile) starts on an Android emulator and
+# on an iPhone simulator and loads the web build under test, offline
+# included. During development these tests run on the workstation
+# (packages/mobile/scripts/smoke-android.sh, see the README); CI plays them
+# before production only:
+#   - on pull requests into main (the promotions from dev);
+#   - on pushes to dev that touch the shell, the one way to test iOS without
+#     a Mac;
+#   - by hand (workflow_dispatch).
+# Not a required check: a red run is a signal to look, not a lock.
+#
+# Both platforms run the same scenario, packages/mobile/smoke/run.sh:
+# fallback page on a first launch without the site, site loaded and service
+# worker installed, page controlled by the worker on the second launch, site
+# opened from the worker's cache once the server is stopped. The facts come
+# from a probe inlined into the web build here and nowhere else
+# (smoke/inject-probe.mjs), which reports what the page sees to a small
+# collector on the runner. Screenshots, reports and device logs are uploaded
+# as artifacts, and the job summary has one line per stage.
+#
+# Never `pull_request_target`: the jobs build and run the pull request's
+# code, so they get no secret and a read-only token. Building for the
+# simulator needs no signing, hence no Apple secret either.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - dev
+      # Provisoire, à retirer avant la fusion : mise au point depuis la
+      # branche de travail de la coquille.
+      - feat/mobile-capacitor-shell
+    paths:
+      - "packages/mobile/**"
+      - ".github/workflows/mobile-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A branch pushed twice in a row only needs its latest state verified.
+concurrency:
+  group: mobile-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The `local` variant loads http://localhost:4173, where smoke/serve.mjs
+  # serves the build; the probe reports to the collector on 4174.
+  PROBE_COLLECTOR: http://localhost:4174/report
+
+jobs:
+  # Built once, on Linux: the root lockfile only carries the Linux native
+  # bindings of the web toolchain (rolldown, lightningcss), so `vite build`
+  # cannot run on the macOS runner. smoke/serve.mjs serves the result on both.
+  web:
+    name: Web build with the probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      # npm workspaces hoist to the repository root.
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        working-directory: packages/web
+        run: npm run build
+
+      - name: Inline the probe
+        run: node packages/mobile/smoke/inject-probe.mjs packages/web/dist/index.html "$PROBE_COLLECTOR"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: web-dist
+          path: packages/web/dist
+          retention-days: 3
+
+  android:
+    name: Android (emulator)
+    needs: web
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SYSTEM_IMAGE: "system-images;android-35;google_apis;x86_64"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: packages/mobile/package-lock.json
+
+      # capacitor-android compiles in Java 21.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+          cache-dependency-path: |
+            packages/mobile/android/*.gradle
+            packages/mobile/android/app/*.gradle
+            packages/mobile/android/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Install
+        run: npm ci --prefix packages/mobile
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: web-dist
+          path: packages/web/dist
+
+      # Hardware acceleration for the emulator; the runner's user is not in
+      # the kvm group by default.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          echo "SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_AVD_HOME=$HOME/.android/avd" >> "$GITHUB_ENV"
+
+      - name: Cache the emulator and system image
+        uses: actions/cache@v6
+        with:
+          path: |
+            ${{ env.SDK_ROOT }}/emulator
+            ${{ env.SDK_ROOT }}/system-images/android-35/google_apis/x86_64
+          key: android-emulator-35-google_apis-x86_64-v1
+
+      # Started, not waited for: scripts/smoke-android.sh builds the APK
+      # while the emulator boots, then waits for it.
+      - name: Start the emulator
+        run: |
+          mkdir -p "$ANDROID_AVD_HOME" "$RUNNER_TEMP/smoke-android"
+          yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --install emulator "$SYSTEM_IMAGE" > /dev/null || true
+          echo no | "$SDK_ROOT/cmdline-tools/latest/bin/avdmanager" create avd --force -n smoke -k "$SYSTEM_IMAGE" -d pixel_6
+          "$SDK_ROOT/emulator/emulator" -accel-check || true
+          nohup "$SDK_ROOT/emulator/emulator" -avd smoke -no-window -no-audio -no-boot-anim -no-snapshot \
+            -gpu swiftshader_indirect -camera-back none -camera-front none \
+            > "$RUNNER_TEMP/smoke-android/emulator.log" 2>&1 &
+
+      # The same script as on the workstation.
+      - name: Smoke scenario
+        env:
+          WEB_DIST: packages/web/dist
+          OUT_DIR: ${{ runner.temp }}/smoke-android
+          EMULATOR_BOOTING: "1"
+        run: packages/mobile/scripts/smoke-android.sh
+
+      - name: Emulator log on failure
+        if: failure()
+        run: tail -n 60 "$RUNNER_TEMP/smoke-android/emulator.log" || true
+
+      - name: Summary
+        if: always()
+        run: |
+          node packages/mobile/smoke/summary.mjs "$RUNNER_TEMP/smoke-android" "Android (emulator, API 35)" >> "$GITHUB_STEP_SUMMARY" || true
+          rm -rf "$RUNNER_TEMP/smoke-android/web-dist"
+
+      - name: Upload screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mobile-smoke-android
+          path: ${{ runner.temp }}/smoke-android
+          if-no-files-found: warn
+
+  ios:
+    name: iOS (simulator)
+    needs: web
+    # Capacitor 8 needs Xcode 26. Free on a public repository.
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: packages/mobile/package-lock.json
+
+      - name: Install
+        run: npm ci --prefix packages/mobile
+
+      # Booting a simulator takes minutes on the runner: started here, it
+      # boots while the app builds, and the scenario waits for it.
+      - name: Boot an iPhone
+        run: |
+          udid=$(xcrun simctl list devices available -j | node -e '
+            const { devices } = JSON.parse(require("fs").readFileSync(0, "utf8"));
+            const version = (rt) => (rt.match(/iOS-(\d+)-(\d+)/) || []).slice(1).map(Number);
+            const runtimes = Object.keys(devices).filter((rt) => rt.includes("iOS"))
+              .sort((a, b) => { const [x, y] = [version(a), version(b)]; return x[0] - y[0] || x[1] - y[1]; });
+            for (const rt of runtimes.reverse()) {
+              const phone = devices[rt].find((d) => /^iPhone \d+$/.test(d.name)) || devices[rt].find((d) => d.name.startsWith("iPhone"));
+              if (phone) { console.error(`${phone.name}, ${rt}`); console.log(phone.udid); process.exit(0); }
+            }
+            process.exit(1);
+          ')
+          xcrun simctl boot "$udid"
+          echo "UDID=$udid" >> "$GITHUB_ENV"
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: web-dist
+          path: packages/web/dist
+
+      # Writes ios/App/App/capacitor.config.json and, through the
+      # capacitor:sync:after hook, ios/App/variant.xcconfig.
+      - name: Sync (local variant)
+        working-directory: packages/mobile
+        run: OHMYWIND_VARIANT=local npx cap sync ios
+
+      - name: Cache Swift packages
+        uses: actions/cache@v6
+        with:
+          path: packages/mobile/ios/build/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('packages/mobile/ios/App/CapApp-SPM/Package.swift') }}
+
+      # A simulator build needs no signing: no certificate, no profile.
+      - name: Build for the simulator
+        working-directory: packages/mobile/ios
+        run: |
+          xcodebuild -version
+          xcodebuild -project App/App.xcodeproj -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath build -clonedSourcePackagesDirPath build/SourcePackages \
+            CODE_SIGNING_ALLOWED=NO -quiet build
+
+      - name: Smoke scenario
+        env:
+          APP_PATH: packages/mobile/ios/build/Build/Products/Debug-iphonesimulator/App.app
+          OUT_DIR: ${{ runner.temp }}/smoke-ios
+        run: |
+          xcrun simctl bootstatus "$UDID" -b
+          packages/mobile/smoke/run.sh ios
+
+      - name: Summary
+        if: always()
+        run: node packages/mobile/smoke/summary.mjs "$RUNNER_TEMP/smoke-ios" "iOS (simulator)" >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mobile-smoke-ios
+          path: ${{ runner.temp }}/smoke-ios
+          if-no-files-found: warn
