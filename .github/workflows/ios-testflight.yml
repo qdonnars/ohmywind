@@ -1,0 +1,208 @@
+name: iOS TestFlight
+
+# Archives the iOS shell (packages/mobile) and uploads it to App Store
+# Connect, where it lands in TestFlight. The shell loads the live site, so a
+# new build is only needed when its native part changes.
+#
+# Signing is manual and stays on the runner: the Apple Distribution
+# certificate and the App Store provisioning profile come from the secrets of
+# the `ios-testflight` environment, go into a temporary keychain, and are
+# deleted at the end whatever happens. The App Store Connect API key only
+# serves the upload. The environment restricts the branches allowed to use it
+# and asks the owner's approval for every run.
+#
+# Never `pull_request`: this job holds signing material and must only run
+# code that already sits on an allowed branch.
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: "Variant to upload"
+        type: choice
+        options: [dev, prod]
+        default: dev
+  push:
+    branches:
+      - dev
+      # Provisoire, à retirer avant la fusion : amorçage des envois depuis
+      # la branche de travail de la coquille.
+      - feat/mobile-capacitor-shell
+    paths:
+      - "packages/mobile/**"
+      - ".github/workflows/ios-testflight.yml"
+
+permissions:
+  contents: read
+
+# Two uploads of the same variant never race; none is cancelled halfway.
+concurrency:
+  group: ios-testflight-${{ inputs.variant || 'dev' }}
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    name: Archive and upload (${{ inputs.variant || 'dev' }})
+    runs-on: macos-26
+    environment: ios-testflight
+    timeout-minutes: 45
+    env:
+      VARIANT: ${{ inputs.variant || 'dev' }}
+      TEAM_ID: Z2M67M742P
+      # Unique for every run and every re-run, and increasing: TestFlight
+      # refuses a build number it has already seen for the same version.
+      BUILD_NUMBER: ${{ github.run_number }}.${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: packages/mobile/package-lock.json
+
+      # App Store Connect refuses uploads built with an SDK older than iOS 26.
+      - name: Select Xcode 26
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.6.app
+          xcodebuild -version
+          sdk=$(xcrun --sdk iphoneos --show-sdk-version)
+          echo "iOS SDK $sdk"
+          [ "${sdk%%.*}" -ge 26 ]
+
+      - name: Variant settings
+        run: |
+          case "$VARIANT" in
+            dev)  echo "BUNDLE_ID=fr.ohmywind.app.dev" >> "$GITHUB_ENV"; echo "PROFILE_NAME=OhMyWind Dev App Store" >> "$GITHUB_ENV"; echo "INTERNAL_ONLY=true" >> "$GITHUB_ENV" ;;
+            prod) echo "BUNDLE_ID=fr.ohmywind.app" >> "$GITHUB_ENV"; echo "PROFILE_NAME=OhMyWind App Store" >> "$GITHUB_ENV"; echo "INTERNAL_ONLY=false" >> "$GITHUB_ENV" ;;
+            *) echo "unknown variant $VARIANT" >&2; exit 1 ;;
+          esac
+
+      - name: Install
+        run: npm ci --prefix packages/mobile
+
+      # No web build: the app loads the live site, only www/fallback.html is
+      # embedded. The capacitor:sync:after hook writes ios/App/variant.xcconfig
+      # (bundle id, display name, app-bound domain, profile name).
+      - name: Sync
+        working-directory: packages/mobile
+        run: |
+          OHMYWIND_VARIANT="$VARIANT" npx cap sync ios
+          grep -q "OHMYWIND_APP_ID = $BUNDLE_ID$" ios/App/variant.xcconfig
+          grep -q "OHMYWIND_PROFILE_NAME = $PROFILE_NAME$" ios/App/variant.xcconfig
+
+      - name: Install the certificate and the profile
+        env:
+          P12_B64: ${{ secrets.IOS_DIST_P12_B64 }}
+          P12_PASSWORD: ${{ secrets.IOS_DIST_P12_PASSWORD }}
+          PROFILE_B64: ${{ (inputs.variant || 'dev') == 'prod' && secrets.IOS_PROFILE_PROD_B64 || secrets.IOS_PROFILE_DEV_B64 }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          keychain_password=$(openssl rand -hex 24)
+          echo "::add-mask::$keychain_password"
+          echo "KEYCHAIN=$keychain" >> "$GITHUB_ENV"
+
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          umask 077
+          printf '%s' "$P12_B64" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+          security import "$RUNNER_TEMP/dist.p12" -k "$keychain" -P "$P12_PASSWORD" -f pkcs12 \
+            -T /usr/bin/codesign -T /usr/bin/security > /dev/null
+          rm -f "$RUNNER_TEMP/dist.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" > /dev/null
+          # Search the temporary keychain first, keep the login one after it.
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          echo "Signing identities in the temporary keychain:"
+          security find-identity -v -p codesigning "$keychain" | sed -E 's/[0-9A-F]{40}/<sha1>/'
+
+          printf '%s' "$PROFILE_B64" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
+          security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" > "$RUNNER_TEMP/profile.plist"
+          uuid=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$RUNNER_TEMP/profile.plist")
+          name=$(/usr/libexec/PlistBuddy -c "Print :Name" "$RUNNER_TEMP/profile.plist")
+          app_identifier=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$RUNNER_TEMP/profile.plist")
+          expires=$(/usr/libexec/PlistBuddy -c "Print :ExpirationDate" "$RUNNER_TEMP/profile.plist")
+          echo "Profile \"$name\" for $app_identifier, expires $expires"
+          if [ "$name" != "$PROFILE_NAME" ] || [ "$app_identifier" != "$TEAM_ID.$BUNDLE_ID" ]; then
+            echo "::error::Expected the profile \"$PROFILE_NAME\" for $TEAM_ID.$BUNDLE_ID"
+            exit 1
+          fi
+          # Where Xcode 16 and later look, and the former location, to be safe.
+          for dir in "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" "$HOME/Library/MobileDevice/Provisioning Profiles"; do
+            mkdir -p "$dir"
+            cp "$RUNNER_TEMP/profile.mobileprovision" "$dir/$uuid.mobileprovision"
+          done
+          rm -f "$RUNNER_TEMP/profile.mobileprovision" "$RUNNER_TEMP/profile.plist"
+
+      # The App target's Release configuration signs manually with "Apple
+      # Distribution" and $(OHMYWIND_PROFILE_NAME) (see the project and
+      # variant.xcconfig): the profile is never passed on the command line,
+      # where it would also apply to the Swift packages, which refuse one.
+      - name: Archive
+        working-directory: packages/mobile/ios
+        run: |
+          xcodebuild -project App/App.xcodeproj -scheme App -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -derivedDataPath build -clonedSourcePackagesDirPath build/SourcePackages \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            -quiet archive
+          plist="$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app/Info.plist"
+          for key in CFBundleIdentifier CFBundleDisplayName CFBundleShortVersionString CFBundleVersion ITSAppUsesNonExemptEncryption; do
+            echo "$key = $(/usr/libexec/PlistBuddy -c "Print :$key" "$plist")"
+          done
+
+      - name: Upload to App Store Connect
+        env:
+          KEY_P8_B64: ${{ secrets.APP_STORE_CONNECT_KEY_P8_B64 }}
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          umask 077
+          key_path="$RUNNER_TEMP/AuthKey.p8"
+          printf '%s' "$KEY_P8_B64" | base64 --decode > "$key_path"
+          chmod 600 "$key_path"
+
+          options="$RUNNER_TEMP/ExportOptions.plist"
+          # testFlightInternalTestingOnly: the dev app is for the internal
+          # testers only, it never goes to external testing or review.
+          cat > "$options" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>$BUNDLE_ID</key><string>$PROFILE_NAME</string>
+            </dict>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+            <key>testFlightInternalTestingOnly</key><$INTERNAL_ONLY/>
+            <key>uploadSymbols</key><true/>
+          </dict>
+          </plist>
+          EOF
+          plutil -lint "$options"
+          plutil -p "$options"
+
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist "$options" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -authenticationKeyPath "$key_path" \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER_ID"
+          echo "Uploaded $BUNDLE_ID 2.0.0 ($BUILD_NUMBER)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the signing material
+        if: always()
+        run: |
+          if [ -n "${KEYCHAIN:-}" ]; then security delete-keychain "$KEYCHAIN" || true; fi
+          rm -f "$RUNNER_TEMP/AuthKey.p8" "$RUNNER_TEMP/dist.p12" "$RUNNER_TEMP/profile.mobileprovision" "$RUNNER_TEMP/profile.plist"
+          rm -f "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/"*.mobileprovision
+          rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/"*.mobileprovision
