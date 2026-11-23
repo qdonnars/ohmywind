@@ -1,27 +1,41 @@
 name: Mobile smoke
 
-# Proves, on every pull request that touches the web app or the native shell,
-# that the shell (packages/mobile) starts on an Android emulator and on an
-# iPhone simulator and loads the pull request's own web build, offline
-# included. Both jobs run the same scenario, packages/mobile/smoke/run.sh:
+# Proves that the shell (packages/mobile) starts on an Android emulator and
+# on an iPhone simulator and loads the web build under test, offline
+# included. During development these tests run on the workstation
+# (packages/mobile/scripts/smoke-android.sh, see the README); CI plays them
+# before production only:
+#   - on pull requests into main (the promotions from dev);
+#   - on pushes to dev that touch the shell, the one way to test iOS without
+#     a Mac;
+#   - by hand (workflow_dispatch).
+# Not a required check: a red run is a signal to look, not a lock.
+#
+# Both platforms run the same scenario, packages/mobile/smoke/run.sh:
 # fallback page on a first launch without the site, site loaded and service
 # worker installed, page controlled by the worker on the second launch, site
-# opened from the worker's cache once the server is stopped.
-#
-# The facts come from a probe inlined into the web build here and nowhere
-# else (smoke/inject-probe.mjs), which reports what the page sees to a small
+# opened from the worker's cache once the server is stopped. The facts come
+# from a probe inlined into the web build here and nowhere else
+# (smoke/inject-probe.mjs), which reports what the page sees to a small
 # collector on the runner. Screenshots, reports and device logs are uploaded
 # as artifacts, and the job summary has one line per stage.
 #
-# `pull_request` only, never `pull_request_target`: the jobs build and run
-# the pull request's code, so they get no secret and a read-only token.
-# Building for the simulator needs no signing, hence no Apple secret either.
+# Never `pull_request_target`: the jobs build and run the pull request's
+# code, so they get no secret and a read-only token. Building for the
+# simulator needs no signing, hence no Apple secret either.
 on:
   pull_request:
+    branches: [main]
+  push:
+    branches:
+      - dev
+      # Provisoire, à retirer avant la fusion : mise au point depuis la
+      # branche de travail de la coquille.
+      - feat/mobile-capacitor-shell
     paths:
       - "packages/mobile/**"
-      - "packages/web/**"
       - ".github/workflows/mobile-smoke.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -108,12 +122,6 @@ jobs:
           name: web-dist
           path: packages/web/dist
 
-      - name: Build the APK (local variant)
-        working-directory: packages/mobile
-        run: |
-          OHMYWIND_VARIANT=local npx cap sync android
-          cd android && ./gradlew assembleDebug --no-daemon
-
       # Hardware acceleration for the emulator; the runner's user is not in
       # the kvm group by default.
       - name: Enable KVM
@@ -122,8 +130,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
           echo "SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
-          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
-          echo "$ANDROID_HOME/emulator" >> "$GITHUB_PATH"
+          echo "ANDROID_AVD_HOME=$HOME/.android/avd" >> "$GITHUB_ENV"
 
       - name: Cache the emulator and system image
         uses: actions/cache@v6
@@ -133,30 +140,35 @@ jobs:
             ${{ env.SDK_ROOT }}/system-images/android-35/google_apis/x86_64
           key: android-emulator-35-google_apis-x86_64-v1
 
+      # Started, not waited for: scripts/smoke-android.sh builds the APK
+      # while the emulator boots, then waits for it.
       - name: Start the emulator
         run: |
-          yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --install emulator "$SYSTEM_IMAGE" > /dev/null
+          mkdir -p "$ANDROID_AVD_HOME" "$RUNNER_TEMP/smoke-android"
+          yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --install emulator "$SYSTEM_IMAGE" > /dev/null || true
           echo no | "$SDK_ROOT/cmdline-tools/latest/bin/avdmanager" create avd --force -n smoke -k "$SYSTEM_IMAGE" -d pixel_6
+          "$SDK_ROOT/emulator/emulator" -accel-check || true
           nohup "$SDK_ROOT/emulator/emulator" -avd smoke -no-window -no-audio -no-boot-anim -no-snapshot \
-            -gpu swiftshader_indirect -camera-back none -camera-front none > "$RUNNER_TEMP/emulator.log" 2>&1 &
-          timeout 300 adb wait-for-device
-          timeout 300 sh -c 'until [ "$(adb shell getprop sys.boot_completed | tr -d "\r")" = 1 ]; do sleep 3; done'
-          adb shell settings put global window_animation_scale 0
-          adb shell settings put global transition_animation_scale 0
-          adb shell settings put global animator_duration_scale 0
-          adb shell dumpsys package com.google.android.webview | grep -m1 versionName || true
+            -gpu swiftshader_indirect -camera-back none -camera-front none \
+            > "$RUNNER_TEMP/smoke-android/emulator.log" 2>&1 &
 
+      # The same script as on the workstation.
       - name: Smoke scenario
         env:
-          APK: packages/mobile/android/app/build/outputs/apk/debug/ohmywind-local-debug.apk
+          WEB_DIST: packages/web/dist
           OUT_DIR: ${{ runner.temp }}/smoke-android
-        run: packages/mobile/smoke/run.sh android
+          EMULATOR_BOOTING: "1"
+        run: packages/mobile/scripts/smoke-android.sh
+
+      - name: Emulator log on failure
+        if: failure()
+        run: tail -n 60 "$RUNNER_TEMP/smoke-android/emulator.log" || true
 
       - name: Summary
         if: always()
         run: |
           node packages/mobile/smoke/summary.mjs "$RUNNER_TEMP/smoke-android" "Android (emulator, API 35)" >> "$GITHUB_STEP_SUMMARY" || true
-          cp "$RUNNER_TEMP/emulator.log" "$RUNNER_TEMP/smoke-android/" 2>/dev/null || true
+          rm -rf "$RUNNER_TEMP/smoke-android/web-dist"
 
       - name: Upload screenshots and logs
         if: always()

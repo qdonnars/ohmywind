@@ -8,9 +8,12 @@
 // on the client), the right content types for the service worker.
 //
 //   node serve.mjs <dist dir> <port>
+//   node serve.mjs - <port> --refuse   (resets every connection: a stopped
+//                                       server, see run.sh)
 
 import { createReadStream, statSync } from "node:fs";
 import { createServer } from "node:http";
+import { createServer as createTcpServer } from "node:net";
 import { extname, join, normalize, resolve } from "node:path";
 
 const root = resolve(process.argv[2] ?? "dist");
@@ -52,7 +55,7 @@ function fileFor(pathname) {
   return null;
 }
 
-createServer((req, res) => {
+function serveFile(req, res) {
   const { pathname } = new URL(req.url ?? "/", "http://localhost");
   // Like vite preview: a path without a file extension is a page of the app.
   const file = fileFor(pathname) ?? (extname(pathname) === "" ? join(root, "index.html") : null);
@@ -69,4 +72,14 @@ createServer((req, res) => {
     return;
   }
   createReadStream(file).pipe(res);
-}).listen(port, "127.0.0.1", () => console.log(`[serve] ${root} on http://localhost:${port}`));
+}
+
+if (process.argv[4] === "--refuse") {
+  createTcpServer((socket) => socket.resetAndDestroy()).listen(port, "127.0.0.1", () =>
+    console.log(`[serve] refusing every connection on ${port}`),
+  );
+} else {
+  createServer(serveFile).listen(port, "127.0.0.1", () =>
+    console.log(`[serve] ${root} on http://localhost:${port}`),
+  );
+}

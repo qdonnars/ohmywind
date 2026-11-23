@@ -95,7 +95,31 @@ case "$platform" in
     ;;
 esac
 
+# Under WSL a port nobody listens on drops the connection instead of
+# refusing it: the WebView then waits instead of failing, and adb itself can
+# stall on the reversed port. SMOKE_REFUSE_WHEN_DOWN=1 keeps a listener on the
+# port while the site is "down" that resets every connection, which is what
+# a stopped server looks like on a normal machine.
+refuser_pid=""
+
+start_refuser() {
+  if [ "${SMOKE_REFUSE_WHEN_DOWN:-0}" = 1 ] && [ -z "$refuser_pid" ]; then
+    node "$here/serve.mjs" - 4173 --refuse >>"$out/serve.log" 2>&1 &
+    refuser_pid=$!
+    sleep 1
+  fi
+}
+
+stop_refuser() {
+  if [ -n "$refuser_pid" ]; then
+    kill "$refuser_pid" 2>/dev/null || true
+    wait "$refuser_pid" 2>/dev/null || true
+    refuser_pid=""
+  fi
+}
+
 start_server() {
+  stop_refuser
   node "$here/serve.mjs" "$dist_dir" 4173 >>"$out/serve.log" 2>&1 &
   server_pid=$!
   for _ in $(seq 60); do
@@ -108,6 +132,8 @@ start_server() {
 
 stop_server() {
   if [ -n "$server_pid" ]; then kill "$server_pid" 2>/dev/null || true; fi
+  server_pid=""
+  start_refuser
   for _ in $(seq 20); do
     if ! curl -s --max-time 3 -o /dev/null "$site/"; then return 0; fi
     sleep 1
@@ -119,7 +145,8 @@ stop_server() {
 cleanup() {
   status=$?
   collect_logs
-  stop_server >/dev/null 2>&1 || true
+  if [ -n "$server_pid" ]; then kill "$server_pid" 2>/dev/null || true; fi
+  stop_refuser
   if [ -n "$collector_pid" ]; then kill "$collector_pid" 2>/dev/null || true; fi
   exit $status
 }
@@ -144,6 +171,7 @@ collector_pid=$!
 
 prepare
 install_app
+start_refuser
 
 step "0-fallback: fresh install, server down"
 stage=0-fallback
