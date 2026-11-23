@@ -41,3 +41,8 @@ fi
 if [ ! -f "$icon_dest" ] || [ "$icon_src" -nt "$icon_dest" ]; then
   sips -z 1024 1024 "$icon_src" --out "$icon_dest" >/dev/null
 fi
+# App Store Connect rejects an app icon with an alpha channel.
+if sips -g hasAlpha "$icon_dest" | grep -q "hasAlpha: yes"; then
+  echo "error: ${icon_dest} has an alpha channel; the App Store refuses it."
+  exit 1
+fi
