@@ -32,27 +32,62 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # The `local` variant loads http://localhost:4173, where `vite preview`
+  # The `local` variant loads http://localhost:4173, where smoke/serve.mjs
   # serves the build; the probe reports to the collector on 4174.
   PROBE_COLLECTOR: http://localhost:4174/report
 
 jobs:
+  # Built once, on Linux: the root lockfile only carries the Linux native
+  # bindings of the web toolchain (rolldown, lightningcss), so `vite build`
+  # cannot run on the macOS runner. smoke/serve.mjs serves the result on both.
+  web:
+    name: Web build with the probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      # npm workspaces hoist to the repository root.
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        working-directory: packages/web
+        run: npm run build
+
+      - name: Inline the probe
+        run: node packages/mobile/smoke/inject-probe.mjs packages/web/dist/index.html "$PROBE_COLLECTOR"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: web-dist
+          path: packages/web/dist
+          retention-days: 3
+
   android:
     name: Android (emulator)
+    needs: web
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       SYSTEM_IMAGE: "system-images;android-35;google_apis;x86_64"
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            packages/mobile/package-lock.json
+          cache-dependency-path: packages/mobile/package-lock.json
 
       # capacitor-android compiles in Java 21.
       - uses: actions/setup-java@v6
@@ -65,19 +100,13 @@ jobs:
             packages/mobile/android/app/*.gradle
             packages/mobile/android/gradle/wrapper/gradle-wrapper.properties
 
-      # npm workspaces hoist to the repository root, so the web install
-      # happens there; the shell has its own lockfile.
       - name: Install
-        run: |
-          npm ci
-          npm ci --prefix packages/mobile
+        run: npm ci --prefix packages/mobile
 
-      - name: Build web
-        working-directory: packages/web
-        run: npm run build
-
-      - name: Inline the probe
-        run: node packages/mobile/smoke/inject-probe.mjs packages/web/dist/index.html "$PROBE_COLLECTOR"
+      - uses: actions/download-artifact@v7
+        with:
+          name: web-dist
+          path: packages/web/dist
 
       - name: Build the APK (local variant)
         working-directory: packages/mobile
@@ -139,31 +168,28 @@ jobs:
 
   ios:
     name: iOS (simulator)
+    needs: web
     # Capacitor 8 needs Xcode 26. Free on a public repository.
     runs-on: macos-26
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            packages/mobile/package-lock.json
+          cache-dependency-path: packages/mobile/package-lock.json
 
       - name: Install
-        run: |
-          npm ci
-          npm ci --prefix packages/mobile
+        run: npm ci --prefix packages/mobile
 
-      - name: Build web
-        working-directory: packages/web
-        run: npm run build
-
-      - name: Inline the probe
-        run: node packages/mobile/smoke/inject-probe.mjs packages/web/dist/index.html "$PROBE_COLLECTOR"
+      - uses: actions/download-artifact@v7
+        with:
+          name: web-dist
+          path: packages/web/dist
 
       # Writes ios/App/App/capacitor.config.json and, through the
       # capacitor:sync:after hook, ios/App/variant.xcconfig.
@@ -182,6 +208,9 @@ jobs:
         working-directory: packages/mobile/ios
         run: |
           xcodebuild -version
+          # The export options the TestFlight workflow relies on, as this
+          # Xcode documents them.
+          xcodebuild -help | grep -E -A3 "^ *(method|destination|testFlightInternalTestingOnly|manageAppVersionAndBuildNumber) *:" || true
           xcodebuild -project App/App.xcodeproj -scheme App -configuration Debug \
             -sdk iphonesimulator -destination "generic/platform=iOS Simulator" \
             -derivedDataPath build -clonedSourcePackagesDirPath build/SourcePackages \

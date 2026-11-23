@@ -3,8 +3,9 @@
 # SPDX-FileCopyrightText: 2026 Quentin Donnars
 #
 # Smoke scenario of the native shell, the same on both platforms. The app is
-# the `local` variant (http://localhost:4173) and the web build carries the
-# probe (inject-probe.mjs), which reports to collector.mjs on port 4174.
+# the `local` variant (http://localhost:4173), served by serve.mjs from the
+# web build, which carries the probe (inject-probe.mjs) reporting to
+# collector.mjs on port 4174.
 #
 #   0-fallback   fresh install, site server down: the shell's offline
 #                fallback page, and no report since the site never loaded
@@ -24,7 +25,7 @@ set -euo pipefail
 
 platform=${1:?usage: run.sh android|ios}
 here=$(cd "$(dirname "$0")" && pwd)
-web_dir=${WEB_DIR:-$here/../../web}
+dist_dir=${WEB_DIST:-$here/../../web/dist}
 out=${OUT_DIR:-$PWD/smoke-out}
 mkdir -p "$out"
 out=$(cd "$out" && pwd)
@@ -95,21 +96,18 @@ case "$platform" in
 esac
 
 start_server() {
-  (cd "$web_dir" && exec npx --no-install vite preview --port 4173 --strictPort --host 127.0.0.1) \
-    >>"$out/preview.log" 2>&1 &
+  node "$here/serve.mjs" "$dist_dir" 4173 >>"$out/serve.log" 2>&1 &
   server_pid=$!
   for _ in $(seq 60); do
     if curl -sf --max-time 3 "$site/" >/dev/null; then return 0; fi
     sleep 1
   done
-  echo "vite preview did not start" >&2
+  echo "the site server did not start" >&2
   return 1
 }
 
 stop_server() {
   if [ -n "$server_pid" ]; then kill "$server_pid" 2>/dev/null || true; fi
-  # npx runs vite as a child: make sure nothing keeps the port.
-  pkill -f "vite[.]js preview --port 4173" 2>/dev/null || true
   for _ in $(seq 20); do
     if ! curl -s --max-time 3 -o /dev/null "$site/"; then return 0; fi
     sleep 1
