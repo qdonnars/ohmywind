@@ -2,7 +2,7 @@
 
 Coquille [Capacitor 8](https://capacitorjs.com/) autour de https://ohmywind.fr. Comme la TWA de `packages/android`, l'app n'a aucun écran natif: la WebView charge le site en direct (`server.url`), donc un déploiement de `packages/web` arrive dans l'app sans nouvelle version au store. Seule une page de secours locale est embarquée.
 
-Android seulement pour l'instant. La config est écrite pour qu'iOS s'ajoute plus tard (`npx cap add ios`, Swift Package Manager), mais la plateforme n'est pas ajoutée. La TWA (`packages/android`, `packages/android-dev`) reste en place tant que cette coquille n'est pas publiée.
+Android et iOS. Le projet iOS (`ios/`) utilise Swift Package Manager, pas CocoaPods. La TWA (`packages/android`, `packages/android-dev`) reste en place tant que cette coquille n'est pas publiée.
 
 Aucun service payant, aucun SDK d'analytics, de crash ou de pub.
 
@@ -13,6 +13,9 @@ Aucun service payant, aucun SDK d'analytics, de crash ou de pub.
 | Node | 22 ou plus | exigé par la CLI Capacitor 8 |
 | JDK | **21** | le module `capacitor-android` compile en Java 21 (`sourceCompatibility VERSION_21`); le JDK 17 de Bubblewrap ne suffit pas |
 | Android SDK | platform `android-36`, build-tools 35 ou 36 | `compileSdk` et `targetSdk` 36 |
+| Xcode (iOS) | **26** ou plus, donc macOS | exigé par Capacitor 8; App Store Connect refuse les envois faits avec un SDK antérieur à iOS 26 |
+
+Sans Mac, la partie iOS se construit sur les runners macOS de GitHub Actions (voir « Tests automatiques » et « TestFlight »). `cap add ios` et `cap sync ios` tournent aussi sous Linux: seul `xcodebuild` exige macOS.
 
 Pas besoin d'Android Studio. Sur la machine de dev (WSL, sans sudo), le JDK 21 est un Temurin décompressé dans `~/.jdks/` et le SDK est celui de Bubblewrap:
 
@@ -36,15 +39,17 @@ echo "sdk.dir=$ANDROID_HOME" > packages/mobile/android/local.properties
 
 Une seule variable, `OHMYWIND_VARIANT`, lue par `capacitor.config.ts` au moment du `cap sync`:
 
-| Variante | applicationId | Nom affiché | Site chargé | HTTP en clair |
-|---|---|---|---|---|
-| `prod` | `fr.ohmywind.app` | OhMyWind | https://ohmywind.fr | non |
-| `dev` (défaut) | `fr.ohmywind.app.dev` | OhMyWind Dev | https://dev.ohmywind.fr | non |
-| `local` | `fr.ohmywind.app.dev` | OhMyWind Local | http://localhost:4173 | oui |
+| Variante | applicationId / bundle iOS | Nom affiché | Site chargé | HTTP en clair (Android) | Profil App Store (iOS) |
+|---|---|---|---|---|---|
+| `prod` | `fr.ohmywind.app` | OhMyWind | https://ohmywind.fr | non | OhMyWind App Store |
+| `dev` (défaut) | `fr.ohmywind.app.dev` | OhMyWind Dev | https://dev.ohmywind.fr | non | OhMyWind Dev App Store |
+| `local` | `fr.ohmywind.app.dev` | OhMyWind Local | http://localhost:4173 | oui | OhMyWind Dev App Store |
 
 Une valeur inconnue fait échouer le sync (pas de repli silencieux sur dev).
 
 Le sync écrit la config dans `android/app/src/main/assets/capacitor.config.json`, et `app/build.gradle` relit `appId`, `appName`, `server.url` et la variante dans ce fichier. Il n'y a donc pas de flavors Gradle: c'est le dernier sync qui décide de tout, et un APK ne peut pas porter l'applicationId de prod avec l'URL de dev. Conséquence: **toujours re-synchroniser avant de changer de variante**. Sans sync préalable, Gradle refuse de configurer le projet avec un message explicite.
+
+Sur iOS, Xcode ne sait pas lire un identifiant dans un JSON: le hook `capacitor:sync:after` (`scripts/ios-variant.mjs`) écrit, après chaque `cap sync ios`, `ios/App/variant.xcconfig` (non versionné) avec le bundle, le nom affiché, le domaine lié à l'app et le nom du profil App Store. `ios/debug.xcconfig` et `ios/release.xcconfig` l'incluent, et la première phase de build (`ios/App/shell-prebuild.sh`) échoue avec un message explicite s'il manque ou ne correspond plus au `capacitor.config.json` synchronisé. Même règle qu'Android: **re-synchroniser avant de changer de variante**.
 
 `local` partage l'applicationId de `dev` exprès: elle remplace l'app dev sur l'émulateur au lieu d'ajouter une troisième icône. Le HTTP en clair (`server.cleartext`, traduit par Capacitor en `android:usesCleartextTraffic="true"`) n'existe que dans cette variante.
 
@@ -81,6 +86,23 @@ Vérifier ce qui sort, sans appareil:
 
 Seuls des builds debug existent pour l'instant, signés par la clé debug locale (`~/.android/debug.keystore`). La clé d'upload de la TWA n'est pas branchée: la signature de release se fera au moment de remplacer la TWA sur le Play Store (même `fr.ohmywind.app`, même clé d'upload, `versionCode` au-dessus de 8).
 
+### iOS (macOS)
+
+```bash
+cd packages/mobile
+npm ci
+OHMYWIND_VARIANT=dev npx cap sync ios     # ou npm run sync:ios:dev, sync:ios:prod, sync:ios:local
+
+# simulateur, sans signature
+cd ios
+xcodebuild -project App/App.xcodeproj -scheme App -configuration Debug \
+  -sdk iphonesimulator -destination "generic/platform=iOS Simulator" \
+  -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+# -> ios/build/Build/Products/Debug-iphonesimulator/App.app
+```
+
+La configuration Debug signe en automatique (équipe `Z2M67M742P`), la configuration Release en manuel avec l'identité « Apple Distribution » et le profil App Store de la variante: elle ne sert qu'aux archives pour TestFlight et l'App Store. Version 2.0.0 (`MARKETING_VERSION`, alignée sur Android); le numéro de build (`CURRENT_PROJECT_VERSION`) est injecté par le workflow d'envoi. iPhone seulement pour l'instant (`TARGETED_DEVICE_FAMILY = 1`).
+
 ### Installer sur un appareil ou l'émulateur
 
 ```bash
@@ -105,6 +127,59 @@ adb install -r android/app/build/outputs/apk/debug/ohmywind-local-debug.apk
 
 `localhost` est un contexte sécurisé pour la WebView: géolocalisation et service worker y fonctionnent comme en HTTPS.
 
+## iOS
+
+### Service worker et hors-ligne dans WKWebView
+
+WebKit ne fait tourner un service worker dans une WKWebView que pour un **domaine lié à l'app** (App-Bound Domains, iOS 14+): sinon l'enregistrement échoue (« Job rejected for non app-bound domain », [WebKit bug 227531](https://bugs.webkit.org/show_bug.cgi?id=227531)), et le site n'aurait aucun hors-ligne dans l'app. D'où:
+
+- `WKAppBoundDomains` dans `ios/App/App/Info.plist`: l'hôte du site de la variante (`$(OHMYWIND_APP_BOUND_DOMAIN)`: `ohmywind.fr`, `dev.ohmywind.fr` ou `localhost`) et `localhost`, que la [doc Capacitor](https://capacitorjs.com/docs/config) demande pour les pages de la coquille (`capacitor://localhost`, où vit la page de secours). Dix domaines au plus ([WebKit, App-Bound Domains](https://webkit.org/blog/10882/app-bound-domains/));
+- `ios.limitsNavigationsToAppBoundDomains: true` dans `capacitor.config.ts`, qui passe le réglage à la `WKWebViewConfiguration`.
+
+Conséquences: la WebView ne peut naviguer que vers ces domaines (Capacitor ouvrait déjà les autres hôtes dans Safari), un `<iframe>` vers un domaine tiers ne se chargerait pas, et WebKit limite à trois les service workers de l'app (le site n'en a qu'un). Le pont des plugins reste disponible sur le site, puisque l'injection de scripts n'est permise que sur un domaine lié et que celui du site l'est.
+
+`localhost` en HTTP (variante `local`): le simulateur partage le réseau du Mac, `http://localhost:4173` y est joignable sans `adb reverse`, et WebKit traite `localhost` comme un contexte sécurisé.
+
+### `ShellViewController`
+
+`ios/App/App/ShellViewController.swift` remplace `CAPBridgeViewController` (dans `SceneDelegate.swift` et `Main.storyboard`):
+
+- **geste de retour**: `allowsBackForwardNavigationGestures`, le balayage depuis le bord gauche parcourt l'historique de la WebView, navigations internes du site (`history.pushState`) comprises;
+- **page de secours**: Capacitor 8 construit son URL avec `appendingPathComponent`, qui encode le « ? » de `fallback.html?to=<site>`: le gestionnaire de fichiers cherche alors un fichier nommé `fallback.html?to=...`, échoue, et cet échec recharge la même URL. Il l'affichait aussi pour une navigation simplement interrompue (lien confié à Safari, chargement remplacé par un autre). Un délégué de navigation placé devant celui de Capacitor (auquel il transmet tout le reste) résout `server.errorPath` comme une URL relative, requête comprise, et ne l'affiche que sur un vrai échec du cadre principal avant affichage. Il écrit `OhMyWind shell: showing the offline fallback page` dans le journal système.
+
+### Reste du projet iOS
+
+- `Info.plist`: `NSLocationWhenInUseUsageDescription` (anglais par défaut, traductions fr, de, it, es dans `<langue>.lproj/InfoPlist.strings`), `ITSAppUsesNonExemptEncryption = false`, `CFBundleLocalizations`.
+- Icône: `packages/web/public/icon-maskable-512.png` (pleine, sans transparence, iOS arrondit lui-même), agrandie à 1024 px par `sips` à chaque build dans `AppIcon.appiconset/AppIcon-1024.png` (non versionné). La phase de build refuse une icône avec canal alpha.
+- Écran de lancement uni `#030712`, sans image.
+- Côté web, `packages/web/src/native/shellImport.ts` ne lance la reprise des données de la TWA que sur Android: sur iOS, ni `ShellInfo` interrogé, ni navigateur ouvert. La barre d'état suit le thème du site par le plugin `SystemBars`, disponible sur iOS dans le cœur de Capacitor 8.
+
+## Tests automatiques sur émulateur et simulateur
+
+`.github/workflows/mobile-smoke.yml`, à chaque pull request qui touche `packages/mobile/**` ou `packages/web/**` (déclencheur `pull_request`, aucun secret, jeton en lecture seule):
+
+1. un job Linux construit le web de la PR et y glisse la sonde `smoke/probe.js` (`smoke/inject-probe.mjs`, dans le job seulement: le build déployé ne la contient jamais);
+2. un job Android (émulateur API 35, KVM) et un job iOS (`macos-26`, iPhone simulé) construisent la variante `local`, servent ce build sur `localhost:4173` (`smoke/serve.mjs`) et déroulent le même scénario, `smoke/run.sh`.
+
+La sonde relève, plusieurs fois par chargement, `Capacitor.isNativePlatform()`, la plateforme, un aller-retour par le pont (`App.getInfo()`), l'état du service worker, les marges de sécurité, l'état de la reprise de données et les erreurs JavaScript, et envoie le tout à `smoke/collector.mjs` (port 4174). `smoke/expect.mjs` attend un rapport qui remplit les conditions de l'étape, sinon le job échoue:
+
+| Étape | Situation | Conditions |
+|---|---|---|
+| `0-fallback` | installation neuve, serveur du site arrêté | page de secours à l'écran (texte lu par `uiautomator` sur Android, ligne du journal sur iOS), aucun rapport de la sonde |
+| `1-first` | serveur démarré | coquille native, bonne plateforme, `App.getInfo()` répond avec le bon identifiant, service worker enregistré et activé, reprise de données à `none` |
+| `2-second` | relance | page contrôlée par le service worker |
+| `3-offline` | serveur arrêté, relance | le site s'ouvre quand même, servi par le service worker |
+
+Captures à chaque étape, rapports, journaux de l'appareil en artefacts (`mobile-smoke-android`, `mobile-smoke-ios`), tableau récapitulatif dans le résumé du job.
+
+« Hors ligne » veut dire ici serveur du site arrêté (connexion refusée), pas mode avion: le reste d'internet reste joignable, les tuiles de la carte comprises.
+
+Pour rejouer le scénario Android en local: build web, `node smoke/inject-probe.mjs ../web/dist/index.html http://localhost:4174/report`, APK `local`, émulateur démarré, puis `APK=android/app/build/outputs/apk/debug/ohmywind-local-debug.apk smoke/run.sh android`. Sous WSL, le port d'un serveur arrêté ne refuse pas la connexion, il la laisse pendre: les étapes 0 et 3 n'y sont pas représentatives.
+
+## TestFlight
+
+`.github/workflows/ios-testflight.yml`: archive signée en manuel et envoi à App Store Connect, sur `workflow_dispatch` (variante `dev` ou `prod`) et à chaque push sur `dev` touchant `packages/mobile/**`. Le job tourne dans l'environnement GitHub `ios-testflight`, qui limite les branches et demande l'approbation du propriétaire à chaque exécution; ses secrets (certificat de distribution, profils App Store, clé d'API d'envoi) ne vont que dans un trousseau et des fichiers temporaires, supprimés à la fin quoi qu'il arrive. Numéro de build `run_number.run_attempt`. La variante dev est réservée aux testeurs internes (`testFlightInternalTestingOnly`).
+
 ## Ce qui est versionné, ce qui est généré
 
 Le projet `android/` est versionné, comme le veut la convention Capacitor: il porte le manifeste, le plugin `ShellInfo`, le filtre d'intent, le thème et le script Gradle des variantes. Seuls les fichiers que `cap sync` régénère sont ignorés (via `android/.gitignore`, celui du modèle Capacitor):
@@ -123,6 +198,12 @@ Le projet `android/` est versionné, comme le veut la convention Capacitor: il p
 | `android/app/src/main/res/xml/config.xml` | généré par `cap sync`, ignoré |
 | `android/local.properties`, `android/.gradle/`, `**/build/` | locaux, ignorés |
 | `android/app/build/generated/shell-res/` | généré par Gradle: raccourcis de la variante et icônes copiées depuis `packages/web/public/` |
+| `ios/App/App.xcodeproj`, `ios/App/App/` (Swift, `Info.plist`, storyboards, `*.lproj`), `ios/*.xcconfig`, `ios/App/shell-prebuild.sh` | versionnés |
+| `ios/App/CapApp-SPM/Package.swift` | versionné, réécrit par `cap sync` (liste des plugins) |
+| `ios/App/App/capacitor.config.json`, `ios/App/App/config.xml`, `ios/App/App/public/`, `ios/capacitor-cordova-ios-plugins/` | générés par `cap sync`, ignorés |
+| `ios/App/variant.xcconfig` | généré par le hook de sync, ignoré |
+| `ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` | généré au build depuis `packages/web/public/`, ignoré |
+| `ios/build/`, `DerivedData`, `xcuserdata` | locaux, ignorés |
 
 Le numéro de version de l'app (`versionCode` 9, `versionName` 2.0.0) est dans `android/app/build.gradle`. Il est indépendant de la version du web et doit rester au-dessus du `versionCode` 8 de la TWA pour être une mise à jour de la même fiche Play.
 
@@ -189,4 +270,7 @@ Comportement actuel:
 - **`minSdk` 24** (Android 7.0) au lieu de 21 pour la TWA: c'est le minimum de Capacitor 8.
 - **Raccourcis en français seulement**, comme dans la TWA.
 - **`server.url` en production**: la doc Capacitor le présente comme un réglage de développement. C'est un choix assumé (#535, #536): sur Android, le seul effet est l'absence de contenu embarqué. Sur iOS, c'est le risque de refus 4.2 décrit dans #536.
-- **Pas d'iOS**: ni plateforme, ni `WKAppBoundDomains`, ni `PrivacyInfo.xcprivacy` pour l'instant.
+- **iOS, pas encore fait**: raccourcis d'icône (Quick Actions), retour haptique, demande de note, liens universels (AASA, #502), `PrivacyInfo.xcprivacy` propre à l'app, captures et fiche App Store, iPad.
+- **iOS, non vérifié sur un vrai iPhone**: geste de retour par balayage (sur la carte, un glissé depuis le bord gauche peut être pris pour un retour), hors-ligne en mode avion, géolocalisation, taille du texte.
+- **Icône iOS agrandie**: la source web ne fait que 512 px; une source 1024 px dans `packages/web/public/` donnerait une icône nette sur l'App Store.
+- **Lockfile racine**: il ne porte que les binaires Linux de la chaîne web (rolldown, lightningcss), `vite build` échoue sur macOS. Le workflow de test contourne en construisant le web sous Linux.
