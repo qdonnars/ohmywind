@@ -162,7 +162,7 @@ Pendant le développement, ces tests se jouent **en local**; la CI (`.github/wor
 - sur un push vers `dev` qui touche `packages/mobile/**` (ou le workflow): seul moyen de tester iOS sans Mac;
 - à la main (`workflow_dispatch`).
 
-Le push sur la branche de travail de la coquille est un déclencheur provisoire, à retirer avant la fusion. Ce n'est pas un contrôle requis de `dev` (les règles de protection n'ont pas été touchées): un run rouge signale un problème, il ne bloque pas une fusion. Jamais `pull_request_target`, aucun secret, jeton en lecture seule.
+Ce n'est pas un contrôle requis de `dev` (les règles de protection n'ont pas été touchées): un run rouge signale un problème, il ne bloque pas une fusion. Jamais `pull_request_target`, aucun secret, jeton en lecture seule.
 
 ### En local (Android, WSL)
 
@@ -207,10 +207,10 @@ Captures à chaque étape, rapports, journaux de l'appareil en artefacts (`mobil
 
 | Variante | Déclencheurs | Environnement GitHub | Branches admises | Approbation |
 |---|---|---|---|---|
-| `dev` (OhMyWind Dev) | push sur `dev` touchant ce qui part dans l'app (voir plus bas), `workflow_dispatch` | `ios-testflight` | `dev` (et, provisoirement, la branche de travail de la coquille) | réglée dans l'environnement |
+| `dev` (OhMyWind Dev) | push sur `dev` touchant ce qui part dans l'app (voir plus bas), `workflow_dispatch` | `ios-testflight` | `dev` | réglée dans l'environnement |
 | `prod` (OhMyWind) | `workflow_dispatch` seulement | `ios-testflight-prod` | `main` | propriétaire, à chaque exécution |
 
-Un push n'envoie jamais que la variante dev. Les secrets (certificat « Apple Distribution », profil App Store de la variante, clé d'API App Store Connect au rôle Développeur, qui ne sert qu'à l'envoi) ne vont que dans un trousseau et des fichiers temporaires, supprimés à la fin quoi qu'il arrive. Numéro de build `run_number.run_attempt`. La variante dev est réservée aux testeurs internes (`testFlightInternalTestingOnly`). Le déclencheur `push` sur la branche de travail est provisoire, à retirer avant la fusion. Un push n'envoie une build que s'il touche ce qui part dans l'app (`ios/`, `www/`, `capacitor.config.ts`, les `package*.json`, `scripts/ios-variant.mjs`, l'icône source): un changement des tests, de la doc ou du workflow n'envoie rien.
+Un push n'envoie jamais que la variante dev. Les secrets (certificat « Apple Distribution », profil App Store de la variante, clé d'API App Store Connect au rôle Développeur, qui ne sert qu'à l'envoi) ne vont que dans un trousseau et des fichiers temporaires, supprimés à la fin quoi qu'il arrive. Numéro de build `run_number.run_attempt`. La variante dev est réservée aux testeurs internes (`testFlightInternalTestingOnly`). Un push n'envoie une build que s'il touche ce qui part dans l'app (`ios/`, `www/`, `capacitor.config.ts`, les `package*.json`, `scripts/ios-variant.mjs`, l'icône source): un changement des tests, de la doc ou du workflow n'envoie rien.
 
 Premier envoi le 23/11/2026: OhMyWind Dev 2.0.0 (1.1), Xcode 26.6, SDK iOS 26.5, « Upload succeeded » avec la clé au rôle Développeur. App Store Connect a averti qu'**à partir d'avril 2027, les apps devront être construites avec le SDK iOS 27 (Xcode 27)**: passer `Select Xcode 26` du workflow à Xcode 27 avant cette date.
 

@@ -29,9 +29,6 @@ on:
   push:
     branches:
       - dev
-      # Provisoire, à retirer avant la fusion : mise au point depuis la
-      # branche de travail de la coquille.
-      - feat/mobile-capacitor-shell
     paths:
       - "packages/mobile/**"
       - ".github/workflows/mobile-smoke.yml"
