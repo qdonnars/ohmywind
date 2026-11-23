@@ -4,10 +4,12 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 // One variable picks everything that differs between builds. `cap sync` writes
-// the result into android/app/src/main/assets/capacitor.config.json, and the
-// Gradle build reads appId and appName back from that file: the synced config
-// is the single source of truth, so an APK can never carry the prod
-// applicationId with the dev URL (or the reverse).
+// the result into android/app/src/main/assets/capacitor.config.json and
+// ios/App/App/capacitor.config.json. The Gradle build reads appId and appName
+// back from the first; on iOS a sync hook derives ios/App/variant.xcconfig
+// from the second and the Xcode build checks the two agree. The synced config
+// is the single source of truth, so an app can never carry the prod
+// identifier with the dev URL (or the reverse).
 type Variant = "prod" | "dev" | "local";
 
 interface VariantSettings {
@@ -66,18 +68,30 @@ const config: CapacitorConfig = {
     // Loaded when the main frame fails (network error or HTTP error status).
     // On Android the page is served from the APK at https://localhost/ and has
     // no Capacitor bridge, so the URL to retry travels in the query string.
+    // On iOS (capacitor://localhost/) ShellViewController.swift loads it, as
+    // Capacitor's own handler would percent-encode the "?".
     // Capacitor serves the page only when the requested URL equals this one
     // as a plain string, so the value stays unencoded: ":" and "/" are legal
     // in a query and the WebView leaves them untouched, whereas a
     // percent-encoded form would depend on how the URL gets normalised.
     errorPath: `fallback.html?to=${settings.serverUrl}`,
   },
+  ios: {
+    // WebKit runs service workers only on app-bound domains: without this
+    // flag (and WKAppBoundDomains in ios/App/App/Info.plist, which lists the
+    // site's host and localhost), the site would never register its worker
+    // and the app would have no offline mode on iOS. Side effect, intended:
+    // the WebView cannot navigate anywhere else. Links to other hosts were
+    // already handed to Safari by Capacitor.
+    limitsNavigationsToAppBoundDomains: true,
+  },
   // android.webContentsDebuggingEnabled is left unset on purpose: Capacitor
   // enables chrome://inspect for debuggable builds only, which is what we want
   // for every variant.
   plugins: {
     // Not read by any plugin: app/build.gradle names the APK after it
-    // (ohmywind-<variant>-debug.apk), so dev and local builds are told apart.
+    // (ohmywind-<variant>-debug.apk), so dev and local builds are told apart,
+    // and scripts/ios-variant.mjs writes it into ios/App/variant.xcconfig.
     ShellInfo: {
       variant,
     },
