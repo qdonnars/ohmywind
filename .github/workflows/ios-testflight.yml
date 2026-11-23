@@ -8,8 +8,13 @@ name: iOS TestFlight
 # certificate and the App Store provisioning profile come from the secrets of
 # the `ios-testflight` environment, go into a temporary keychain, and are
 # deleted at the end whatever happens. The App Store Connect API key only
-# serves the upload. The environment restricts the branches allowed to use it
-# and asks the owner's approval for every run.
+# serves the upload.
+#
+# One environment per variant, chosen from the variant: `ios-testflight` for
+# dev (branches dev and, for now, the shell's working branch), and
+# `ios-testflight-prod` for prod (branch main only, the owner approves every
+# run). Pushes always upload the dev variant; prod is only ever asked for by
+# hand, through workflow_dispatch.
 #
 # Never `pull_request`: this job holds signing material and must only run
 # code that already sits on an allowed branch.
@@ -27,9 +32,16 @@ on:
       # Provisoire, à retirer avant la fusion : amorçage des envois depuis
       # la branche de travail de la coquille.
       - feat/mobile-capacitor-shell
+    # Only what ends up in the app: a change to the tests, the docs or this
+    # workflow uploads nothing (workflow_dispatch is there for that).
     paths:
-      - "packages/mobile/**"
-      - ".github/workflows/ios-testflight.yml"
+      - "packages/mobile/ios/**"
+      - "packages/mobile/www/**"
+      - "packages/mobile/capacitor.config.ts"
+      - "packages/mobile/package.json"
+      - "packages/mobile/package-lock.json"
+      - "packages/mobile/scripts/ios-variant.mjs"
+      - "packages/web/public/icon-maskable-512.png"
 
 permissions:
   contents: read
@@ -43,7 +55,7 @@ jobs:
   upload:
     name: Archive and upload (${{ inputs.variant || 'dev' }})
     runs-on: macos-26
-    environment: ios-testflight
+    environment: ${{ (inputs.variant || 'dev') == 'prod' && 'ios-testflight-prod' || 'ios-testflight' }}
     timeout-minutes: 45
     env:
       VARIANT: ${{ inputs.variant || 'dev' }}
