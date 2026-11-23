@@ -198,6 +198,24 @@ jobs:
       - name: Install
         run: npm ci --prefix packages/mobile
 
+      # Booting a simulator takes minutes on the runner: started here, it
+      # boots while the app builds, and the scenario waits for it.
+      - name: Boot an iPhone
+        run: |
+          udid=$(xcrun simctl list devices available -j | node -e '
+            const { devices } = JSON.parse(require("fs").readFileSync(0, "utf8"));
+            const version = (rt) => (rt.match(/iOS-(\d+)-(\d+)/) || []).slice(1).map(Number);
+            const runtimes = Object.keys(devices).filter((rt) => rt.includes("iOS"))
+              .sort((a, b) => { const [x, y] = [version(a), version(b)]; return x[0] - y[0] || x[1] - y[1]; });
+            for (const rt of runtimes.reverse()) {
+              const phone = devices[rt].find((d) => /^iPhone \d+$/.test(d.name)) || devices[rt].find((d) => d.name.startsWith("iPhone"));
+              if (phone) { console.error(`${phone.name}, ${rt}`); console.log(phone.udid); process.exit(0); }
+            }
+            process.exit(1);
+          ')
+          xcrun simctl boot "$udid"
+          echo "UDID=$udid" >> "$GITHUB_ENV"
+
       - uses: actions/download-artifact@v7
         with:
           name: web-dist
@@ -220,36 +238,18 @@ jobs:
         working-directory: packages/mobile/ios
         run: |
           xcodebuild -version
-          # The export options the TestFlight workflow relies on, as this
-          # Xcode documents them.
-          xcodebuild -help | grep -E -A3 "^ *(method|destination|testFlightInternalTestingOnly|manageAppVersionAndBuildNumber) *:" || true
           xcodebuild -project App/App.xcodeproj -scheme App -configuration Debug \
             -sdk iphonesimulator -destination "generic/platform=iOS Simulator" \
             -derivedDataPath build -clonedSourcePackagesDirPath build/SourcePackages \
             CODE_SIGNING_ALLOWED=NO -quiet build
 
-      - name: Boot an iPhone
-        run: |
-          udid=$(xcrun simctl list devices available -j | node -e '
-            const { devices } = JSON.parse(require("fs").readFileSync(0, "utf8"));
-            const version = (rt) => (rt.match(/iOS-(\d+)-(\d+)/) || []).slice(1).map(Number);
-            const runtimes = Object.keys(devices).filter((rt) => rt.includes("iOS"))
-              .sort((a, b) => { const [x, y] = [version(a), version(b)]; return x[0] - y[0] || x[1] - y[1]; });
-            for (const rt of runtimes.reverse()) {
-              const phone = devices[rt].find((d) => /^iPhone \d+$/.test(d.name)) || devices[rt].find((d) => d.name.startsWith("iPhone"));
-              if (phone) { console.error(`${phone.name}, ${rt}`); console.log(phone.udid); process.exit(0); }
-            }
-            process.exit(1);
-          ')
-          xcrun simctl boot "$udid"
-          xcrun simctl bootstatus "$udid" -b
-          echo "UDID=$udid" >> "$GITHUB_ENV"
-
       - name: Smoke scenario
         env:
           APP_PATH: packages/mobile/ios/build/Build/Products/Debug-iphonesimulator/App.app
           OUT_DIR: ${{ runner.temp }}/smoke-ios
-        run: packages/mobile/smoke/run.sh ios
+        run: |
+          xcrun simctl bootstatus "$UDID" -b
+          packages/mobile/smoke/run.sh ios
 
       - name: Summary
         if: always()
