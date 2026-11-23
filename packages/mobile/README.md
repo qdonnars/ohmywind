@@ -156,10 +156,37 @@ Conséquences: la WebView ne peut naviguer que vers ces domaines (Capacitor ouvr
 
 ## Tests automatiques sur émulateur et simulateur
 
-`.github/workflows/mobile-smoke.yml`, à chaque pull request qui touche `packages/mobile/**` ou `packages/web/**` (déclencheur `pull_request`, aucun secret, jeton en lecture seule):
+Pendant le développement, ces tests se jouent **en local**; la CI (`.github/workflows/mobile-smoke.yml`, qui coûte un émulateur et un Mac) ne les joue qu'avant la prod:
 
-1. un job Linux construit le web de la PR et y glisse la sonde `smoke/probe.js` (`smoke/inject-probe.mjs`, dans le job seulement: le build déployé ne la contient jamais);
-2. un job Android (émulateur API 35, KVM) et un job iOS (`macos-26`, iPhone simulé) construisent la variante `local`, servent ce build sur `localhost:4173` (`smoke/serve.mjs`) et déroulent le même scénario, `smoke/run.sh`.
+- sur une pull request vers `main` (les promotions depuis `dev`);
+- sur un push vers `dev` qui touche `packages/mobile/**` (ou le workflow): seul moyen de tester iOS sans Mac;
+- à la main (`workflow_dispatch`).
+
+Le push sur la branche de travail de la coquille est un déclencheur provisoire, à retirer avant la fusion. Ce n'est pas un contrôle requis de `dev` (les règles de protection n'ont pas été touchées): un run rouge signale un problème, il ne bloque pas une fusion. Jamais `pull_request_target`, aucun secret, jeton en lecture seule.
+
+### En local (Android, WSL)
+
+Une commande, depuis la racine du dépôt:
+
+```bash
+packages/mobile/scripts/smoke-android.sh
+```
+
+Elle construit `packages/web` (ou prend `WEB_DIST=<dossier>` tel quel), y glisse la sonde **dans une copie** (le `dist` du web n'est pas touché), construit l'APK `local`, démarre l'AVD `ohmywind` si aucun appareil n'est en ligne (`AVD=<nom>` pour un autre, arrêté à la fin s'il a été démarré par le script), puis déroule `smoke/run.sh android`. Captures, rapports et journaux dans `tmp/mobile-smoke/android/` (ou `OUT_DIR`). Le job Android de la CI appelle le même script.
+
+Prérequis:
+
+- JDK 21 (`~/.jdks/jdk-21*` est pris si `JAVA_HOME` n'est pas posé) et le SDK de Bubblewrap (`~/.bubblewrap/android_sdk` si `ANDROID_HOME` n'est pas posé);
+- le serveur adb **démarré à la main**, en arrière-plan: `adb -a -P 5037 nodaemon server`. Le script ne démarre ni n'arrête jamais le serveur adb;
+- de la place sur l'appareil: le script désinstalle puis réinstalle `fr.ohmywind.app.dev` (les données de l'app dev sur l'émulateur sont perdues). Le 23/11/2026, l'AVD `ohmywind` n'avait plus assez de place libre (`INSTALL_FAILED_INSUFFICIENT_STORAGE`); un AVD neuf sur la même image système a servi;
+- sous WSL, un port sans serveur laisse pendre la connexion au lieu de la refuser: le script le détecte et garde sur le port, quand le site est « arrêté », un auditeur qui coupe chaque connexion (`SMOKE_REFUSE_WHEN_DOWN=1`), ce qui reproduit un serveur arrêté.
+
+iOS ne se teste pas en local faute de Mac: c'est le job iOS de la CI.
+
+### Déroulé
+
+1. le web est construit et reçoit la sonde `smoke/probe.js` (`smoke/inject-probe.mjs`, dans le test seulement: le build déployé ne la contient jamais). En CI, un job Linux s'en charge une fois pour les deux plateformes;
+2. Android (émulateur API 35, KVM) et iOS (`macos-26`, iPhone 17 simulé) construisent la variante `local`, servent ce build sur `localhost:4173` (`smoke/serve.mjs`) et déroulent le même scénario, `smoke/run.sh`.
 
 La sonde relève, plusieurs fois par chargement, `Capacitor.isNativePlatform()`, la plateforme, un aller-retour par le pont (`App.getInfo()`), l'état du service worker, les marges de sécurité, l'état de la reprise de données et les erreurs JavaScript, et envoie le tout à `smoke/collector.mjs` (port 4174). `smoke/expect.mjs` attend un rapport qui remplit les conditions de l'étape, sinon le job échoue:
 
@@ -174,11 +201,18 @@ Captures à chaque étape, rapports, journaux de l'appareil en artefacts (`mobil
 
 « Hors ligne » veut dire ici serveur du site arrêté (connexion refusée), pas mode avion: le reste d'internet reste joignable, les tuiles de la carte comprises.
 
-Pour rejouer le scénario Android en local: build web, `node smoke/inject-probe.mjs ../web/dist/index.html http://localhost:4174/report`, APK `local`, émulateur démarré, puis `APK=android/app/build/outputs/apk/debug/ohmywind-local-debug.apk smoke/run.sh android`. Sous WSL, le port d'un serveur arrêté ne refuse pas la connexion, il la laisse pendre: les étapes 0 et 3 n'y sont pas représentatives.
-
 ## TestFlight
 
-`.github/workflows/ios-testflight.yml`: archive signée en manuel et envoi à App Store Connect, sur `workflow_dispatch` (variante `dev` ou `prod`) et à chaque push sur `dev` touchant `packages/mobile/**`. Le job tourne dans l'environnement GitHub `ios-testflight`, qui limite les branches et demande l'approbation du propriétaire à chaque exécution; ses secrets (certificat de distribution, profils App Store, clé d'API d'envoi) ne vont que dans un trousseau et des fichiers temporaires, supprimés à la fin quoi qu'il arrive. Numéro de build `run_number.run_attempt`. La variante dev est réservée aux testeurs internes (`testFlightInternalTestingOnly`).
+`.github/workflows/ios-testflight.yml`: archive signée en manuel et envoi à App Store Connect.
+
+| Variante | Déclencheurs | Environnement GitHub | Branches admises | Approbation |
+|---|---|---|---|---|
+| `dev` (OhMyWind Dev) | push sur `dev` touchant ce qui part dans l'app (voir plus bas), `workflow_dispatch` | `ios-testflight` | `dev` (et, provisoirement, la branche de travail de la coquille) | réglée dans l'environnement |
+| `prod` (OhMyWind) | `workflow_dispatch` seulement | `ios-testflight-prod` | `main` | propriétaire, à chaque exécution |
+
+Un push n'envoie jamais que la variante dev. Les secrets (certificat « Apple Distribution », profil App Store de la variante, clé d'API App Store Connect au rôle Développeur, qui ne sert qu'à l'envoi) ne vont que dans un trousseau et des fichiers temporaires, supprimés à la fin quoi qu'il arrive. Numéro de build `run_number.run_attempt`. La variante dev est réservée aux testeurs internes (`testFlightInternalTestingOnly`). Le déclencheur `push` sur la branche de travail est provisoire, à retirer avant la fusion. Un push n'envoie une build que s'il touche ce qui part dans l'app (`ios/`, `www/`, `capacitor.config.ts`, les `package*.json`, `scripts/ios-variant.mjs`, l'icône source): un changement des tests, de la doc ou du workflow n'envoie rien.
+
+Premier envoi le 23/11/2026: OhMyWind Dev 2.0.0 (1.1), Xcode 26.6, SDK iOS 26.5, « Upload succeeded » avec la clé au rôle Développeur. App Store Connect a averti qu'**à partir d'avril 2027, les apps devront être construites avec le SDK iOS 27 (Xcode 27)**: passer `Select Xcode 26` du workflow à Xcode 27 avant cette date.
 
 ## Ce qui est versionné, ce qui est généré
 
