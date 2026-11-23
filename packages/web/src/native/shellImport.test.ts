@@ -25,6 +25,7 @@ function returnUrl(items: Record<string, string>, nonce = NONCE, v = "1"): strin
 
 interface Harness {
   deps: ShellDeps;
+  getInstallInfo: ReturnType<typeof vi.fn>;
   data: Map<string, string>;
   openBrowser: ReturnType<typeof vi.fn>;
   reload: ReturnType<typeof vi.fn>;
@@ -40,6 +41,7 @@ function harness(
     openFails?: boolean;
     setItemFails?: boolean;
     now?: number;
+    platform?: string;
   } = {},
 ): Harness {
   const data = new Map(Object.entries(options.data ?? {}));
@@ -48,7 +50,13 @@ function harness(
     if (options.openFails) throw new Error("no browser");
   });
   const reload = vi.fn();
+  const getInstallInfo = vi.fn(async () => {
+    const info = options.installInfo ?? UPDATED;
+    if (info instanceof Error) throw info;
+    return info;
+  });
   const deps: ShellDeps = {
+    platform: options.platform ?? "android",
     storage: {
       getItem: (k) => data.get(k) ?? null,
       setItem: (k, v) => {
@@ -57,11 +65,7 @@ function harness(
       },
     },
     origin: ORIGIN,
-    getInstallInfo: async () => {
-      const info = options.installInfo ?? UPDATED;
-      if (info instanceof Error) throw info;
-      return info;
-    },
+    getInstallInfo,
     openBrowser,
     getLaunchUrl: async () => options.launchUrl,
     onAppUrlOpen: (listener) => {
@@ -73,6 +77,7 @@ function harness(
   };
   return {
     deps,
+    getInstallInfo,
     data,
     openBrowser,
     reload,
@@ -102,6 +107,14 @@ describe("startShellImport, first boot", () => {
     const h = harness({ installInfo: new Error("not implemented on ios") });
     await startShellImport(h.deps);
     expect(stateOf(h)).toBe("none");
+    expect(h.openBrowser).not.toHaveBeenCalled();
+  });
+
+  it("never starts on iOS, where there was no former app", async () => {
+    const h = harness({ platform: "ios", installInfo: UPDATED });
+    await startShellImport(h.deps);
+    expect(stateOf(h)).toBe("none");
+    expect(h.getInstallInfo).not.toHaveBeenCalled();
     expect(h.openBrowser).not.toHaveBeenCalled();
   });
 
@@ -267,5 +280,12 @@ describe("restartShellImport", () => {
     await restartShellImport(h.deps);
     expect(stateOf(h)).toBe("pending");
     expect(h.openBrowser).toHaveBeenCalledWith(`${ORIGIN}/transfert?n=${NONCE}`);
+  });
+
+  it("does nothing on iOS", async () => {
+    const h = harness({ platform: "ios", data: { [STATE_KEY]: JSON.stringify({ state: "none", at: 1 }) } });
+    await restartShellImport(h.deps);
+    expect(stateOf(h)).toBe("none");
+    expect(h.openBrowser).not.toHaveBeenCalled();
   });
 });

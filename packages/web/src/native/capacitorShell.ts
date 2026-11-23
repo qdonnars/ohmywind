@@ -3,7 +3,7 @@
 
 import { App } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
-import { SystemBars, registerPlugin } from "@capacitor/core";
+import { Capacitor, SystemBars, registerPlugin } from "@capacitor/core";
 import { goTo } from "../router";
 import { inAppPath } from "./appLinks";
 import { systemBarsStyleFor } from "./systemBars";
@@ -20,11 +20,12 @@ import {
  * `native/index.ts`): the PWA never downloads a byte of this.
  */
 
-/** Provided by the Android shell itself, not by an npm package. */
+/** Provided by the Android shell itself, not by an npm package. iOS has none. */
 const ShellInfo = registerPlugin<{ getInstallInfo(): Promise<InstallInfo> }>("ShellInfo");
 
 function capacitorDeps(): ShellDeps {
   return {
+    platform: Capacitor.getPlatform(),
     storage: window.localStorage,
     origin: window.location.origin,
     getInstallInfo: () => ShellInfo.getInstallInfo(),

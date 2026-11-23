@@ -47,10 +47,12 @@ export interface InstallInfo {
 }
 
 export interface ShellDeps {
+  /** Capacitor's platform name ("android", "ios"). */
+  platform: string;
   storage: Pick<Storage, "getItem" | "setItem">;
   /** Origin of the site the shell loads, which serves `/transfert` too. */
   origin: string;
-  /** Rejects when the shell has no such plugin (iOS, an older build). */
+  /** Rejects when the shell has no such plugin (an older build). */
   getInstallInfo(): Promise<InstallInfo>;
   openBrowser(url: string): Promise<void>;
   /** URL the app was cold-started with, if any. */
@@ -73,6 +75,15 @@ const STATE_KEY = LOCAL_STORAGE_KEYS.shellImport;
  */
 const PENDING_GRACE_MS = 5 * 60 * 1000;
 const STATUSES: readonly string[] = ["pending", "done", "none", "failed"];
+
+/**
+ * The former app was a TWA, which only ever existed on Android. Anywhere else
+ * there is no Chrome storage to read and no `ShellInfo` plugin to ask: the
+ * bridge must not even start, let alone open a browser.
+ */
+function hasFormerApp(deps: ShellDeps): boolean {
+  return deps.platform === "android";
+}
 
 export function readShellImportState(storage: Pick<Storage, "getItem">): ShellImportState | null {
   let raw: string | null;
@@ -190,11 +201,15 @@ export async function startShellImport(deps: ShellDeps): Promise<void> {
 
   const current = readShellImportState(deps.storage);
   if (current === null) {
+    if (!hasFormerApp(deps)) {
+      writeState(deps, "none");
+      return;
+    }
     let info: InstallInfo;
     try {
       info = await deps.getInstallInfo();
     } catch {
-      // No plugin (iOS, older shell): there is no former app to read from.
+      // No plugin (an older shell): nothing tells an update from a fresh install.
       writeState(deps, "none");
       return;
     }
@@ -222,5 +237,6 @@ export async function startShellImport(deps: ShellDeps): Promise<void> {
  * settings; nothing calls it automatically.
  */
 export function restartShellImport(deps: ShellDeps): Promise<void> {
+  if (!hasFormerApp(deps)) return Promise.resolve();
   return openTransfer(deps);
 }
