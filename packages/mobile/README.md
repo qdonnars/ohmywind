@@ -84,7 +84,7 @@ Vérifier ce qui sort, sans appareil:
   | grep -E "^package|dkVersion|uses-permission|application-label:"
 ```
 
-Seuls des builds debug existent pour l'instant, signés par la clé debug locale (`~/.android/debug.keystore`). La clé d'upload de la TWA n'est pas branchée: la signature de release se fera au moment de remplacer la TWA sur le Play Store (même `fr.ohmywind.app`, même clé d'upload, `versionCode` au-dessus de 8).
+Les builds debug sont signés par la clé debug locale (`~/.android/debug.keystore`). Le build de release (`./gradlew bundleRelease`) est signé avec la clé d'upload Google Play quand l'environnement la fournit, jamais par un fichier du dépôt : `OHMYWIND_UPLOAD_KEYSTORE` (chemin du magasin), `OHMYWIND_UPLOAD_STORE_PASSWORD`, et au besoin `OHMYWIND_UPLOAD_KEY_ALIAS` (`android` par défaut) et `OHMYWIND_UPLOAD_KEY_PASSWORD` (le mot de passe du magasin par défaut). Sans elles, l'AAB sort non signé. `-PohmywindVersionCode=N` fixe le `versionCode` (9 par défaut, la dernière build déposée à la main) ; le workflow Google Play le calcule. Même `fr.ohmywind.app` et même clé d'upload que la TWA, `versionCode` au-dessus de 8.
 
 ### iOS (macOS)
 
@@ -209,12 +209,39 @@ Captures à chaque étape, rapports, journaux de l'appareil en artefacts (`mobil
 
 | Variante | Déclencheurs | Environnement GitHub | Branches admises | Approbation |
 |---|---|---|---|---|
-| `dev` (OhMyWind Dev) | push sur `dev` touchant ce qui part dans l'app (voir plus bas), `workflow_dispatch` | `ios-testflight` | `dev` | réglée dans l'environnement |
-| `prod` (OhMyWind) | `workflow_dispatch` seulement | `ios-testflight-prod` | `main` | propriétaire, à chaque exécution |
+| `dev` (OhMyWind Dev) | PR mergée sur `dev` avec le label `app-release`, `workflow_dispatch` | `ios-testflight` | `dev`, `main` | réglée dans l'environnement |
+| `prod` (OhMyWind) | PR mergée sur `main` avec le label `app-release`, `workflow_dispatch` | `ios-testflight-prod` | `main` | propriétaire, à chaque exécution |
 
-Un push n'envoie jamais que la variante dev. Les secrets (certificat « Apple Distribution », profil App Store de la variante, clé d'API App Store Connect au rôle Développeur, qui ne sert qu'à l'envoi) ne vont que dans un trousseau et des fichiers temporaires, supprimés à la fin quoi qu'il arrive. Numéro de build `run_number.run_attempt`. La variante dev est réservée aux testeurs internes (`testFlightInternalTestingOnly`). Un push n'envoie une build que s'il touche ce qui part dans l'app (`ios/`, `www/`, `capacitor.config.ts`, les `package*.json`, `scripts/ios-variant.mjs`, l'icône source): un changement des tests, de la doc ou du workflow n'envoie rien.
+Le workflow tourne à chaque push sur `dev` et `main`, mais un premier job léger (`gate`) lit les labels de la PR qui a produit le commit et arrête tout sans `app-release`: une nouvelle build est une décision prise au merge, pas une conséquence de chaque push. Il ne tourne jamais sur le code d'une PR non mergée. `workflow_dispatch` a une option `dry_run` (archive sans envoi).
+
+Les secrets (certificat « Apple Distribution », profil App Store de la variante, clé d'API App Store Connect au rôle Développeur) ne vont que dans un trousseau et des fichiers temporaires, supprimés à la fin quoi qu'il arrive. Numéro de build: partie entière du plus haut build déjà envoyé plus un, lu sur App Store Connect (`scripts/asc-next-build.mjs`, au moins 6: l'ancienne numérotation `run_number.run_attempt` est allée jusqu'à 5.1). La variante dev est réservée aux testeurs internes (`testFlightInternalTestingOnly`).
 
 Premier envoi le 23/11/2026: OhMyWind Dev 2.0.0 (1.1), Xcode 26.6, SDK iOS 26.5, « Upload succeeded » avec la clé au rôle Développeur. App Store Connect a averti qu'**à partir d'avril 2027, les apps devront être construites avec le SDK iOS 27 (Xcode 27)**: passer `Select Xcode 26` du workflow à Xcode 27 avant cette date.
+
+## Google Play
+
+`.github/workflows/android-play.yml`: AAB signé avec la clé d'upload et publié sur la piste de **test interne** de Google Play, jamais ailleurs.
+
+| Variante | Déclencheurs | Environnement GitHub | Branches admises | Approbation |
+|---|---|---|---|---|
+| `dev` (OhMyWind Dev, `fr.ohmywind.app.dev`) | PR mergée sur `dev` avec le label `app-release`, `workflow_dispatch` | `android-play` | `dev`, `main` | aucune |
+| `prod` (OhMyWind, `fr.ohmywind.app`) | PR mergée sur `main` avec le label `app-release`, `workflow_dispatch` | `android-play-prod` | `main` | propriétaire, à chaque exécution |
+
+Même garde que TestFlight (job `gate`, label `app-release`), même option `dry_run` (build et signature sans envoi). Secrets de chaque environnement: `ANDROID_UPLOAD_KEYSTORE_B64` (le magasin de la clé d'upload, en base64), `ANDROID_UPLOAD_STORE_PASSWORD`, `PLAY_SERVICE_ACCOUNT_JSON`. Le job vérifie l'empreinte du certificat de l'AAB avant tout envoi.
+
+L'envoi passe par l'API Android Publisher avec un compte de service Google Cloud (`play-publisher@ohmywind-play.iam.gserviceaccount.com`, projet `ohmywind-play`, aucun rôle Cloud), invité dans la Play Console sur les deux apps avec deux droits seulement: « Afficher les informations sur l'application (lecture seule) » et « Déployer les applications sur des canaux de test ». Il ne peut pas publier en production, et `scripts/play-publish.mjs` refuse de toute façon toute piste hors test.
+
+`versionCode`: plus haut code jamais reçu par l'app sur Play (bundles et pistes) plus un, au moins 10 (`scripts/play-publish.mjs next-version-code`).
+
+Une app qui n'a jamais été publiée (« appli provisoire » dans la console) n'accepte par l'API que des brouillons, et la validation demande un droit que le compte n'a pas: sa **première version se dépose et se déploie à la main** dans la console, l'API prend le relais ensuite. C'est le cas d'OhMyWind Dev, créée le 24/11/2026.
+
+En local, depuis un poste qui a la clé:
+
+```bash
+export PLAY_SERVICE_ACCOUNT_FILE=~/keys/ohmywind/play/service-account.json
+node scripts/play-publish.mjs next-version-code fr.ohmywind.app.dev --min 10   # lecture seule
+node scripts/play-publish.mjs upload fr.ohmywind.app.dev <aab> "2.0.0 (10)" --track internal
+```
 
 ## Ce qui est versionné, ce qui est généré
 
