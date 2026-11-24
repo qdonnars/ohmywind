@@ -52,7 +52,7 @@ export const panel = {
   "panel.results.recapArrival": "Arrivée : {day} · {time}",
   "panel.results.stale":
     "Itinéraire modifié. Cliquez sur Recalculer pour mettre à jour les détails.",
-  "panel.results.forecastUpdated": "Données fraîches au {time} · Open-Meteo.com (CC BY 4.0)",
+  "panel.results.forecastUpdated": "Prévisions du {when} · Open-Meteo.com (CC BY 4.0)",
 
   // ── LinkSettingsRow ───────────────────────────────────────────────────────
   // What a /plan link imposes on its plan (#534), over the saved settings.

@@ -54,11 +54,17 @@ export const TRANSFER_POLICY: Readonly<Record<LocalStorageKeyName, TransferDecis
   // Large and recomputable from the plan URL; it would eat most of the
   // payload for a passage whose forecast is probably stale by now.
   lastSimulation: SKIP,
+  // Points at a plan the receiving app does not hold (lastSimulation stays).
+  lastView: SKIP,
   // A refusal given to Chrome says nothing about the app: the permission is
   // asked by the system there, and a stale "no" would hide the button.
   geolocDeclined: SKIP,
   // The bridge's own bookkeeping, specific to each storage.
   shellImport: SKIP,
+  // An answer to the invitation to install the app, given on the site. The
+  // app never shows the invitation, and a reader back on the site later is
+  // asked again on the site's own schedule.
+  installInvite: SKIP,
 };
 
 /** Storage names that transfer, most precious first. */

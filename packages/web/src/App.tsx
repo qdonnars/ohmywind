@@ -5,9 +5,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { nowParisHourPrefix } from "./domain/datetime";
 import { useT } from "./i18n";
 import type { Spot, ModelForecast, MarineHourly, MetricView } from "./types";
-import { fetchAllModels } from "./api/openmeteo";
 import {
-  fetchMarine,
   isCurrentsRelevant,
   isTidesRelevant,
   isWavesRelevant,
@@ -32,6 +30,9 @@ import { LG_MEDIA_QUERY, useMediaQuery } from "./hooks/useMediaQuery";
 import { parseMapView, mapViewQuery } from "./utils/mapViewParams";
 import { hasDeclinedGeolocation } from "./config/geolocPreference";
 import { loadLastSpot, saveLastSpot } from "./config/lastSpot";
+import { useOnline } from "./hooks/useOnline";
+import { loadSpotForecast } from "./offline/spotForecast";
+import { ForecastStamp } from "./components/ForecastStamp";
 
 const DEFAULT_MAP_CENTER: { lat: number; lon: number } = { lat: 43.3, lon: 5.35 };
 
@@ -127,6 +128,18 @@ function App() {
   // data panel already has its full height when SpotMap's camera effects
   // measure it to centre the point in the visible strip (issue #218).
   const [loadedSpotKey, setLoadedSpotKey] = useState<string | null>(null);
+  // When the forecasts on screen were read from the device rather than just
+  // fetched (offline, issue #537): the epoch ms of their fetch, which the
+  // panel shows. Null for a forecast fresh from the network.
+  const [cachedAt, setCachedAt] = useState<number | null>(null);
+  // Read in the fetch effect, which must not re-run when the panel loads.
+  const loadedSpotKeyRef = useRef<string | null>(null);
+  const savedSpotsRef = useRef(customSpots);
+  useEffect(() => {
+    loadedSpotKeyRef.current = loadedSpotKey;
+    savedSpotsRef.current = customSpots;
+  }, [loadedSpotKey, customSpots]);
+  const online = useOnline();
   const [selectedHour, setSelectedHour] = useState<string | null>(null);
   const [view, setView] = useState<MetricView>("wind");
   // Whether the forecast panel counts as a layer the back button should
@@ -145,6 +158,7 @@ function App() {
     setForecasts([]);
     setMarine(null);
     setLoadedSpotKey(null);
+    setCachedAt(null);
     setSelectedHour(null);
   }, []);
   useBackDismiss(spotIsLayer, clearSpot);
@@ -157,17 +171,23 @@ function App() {
     [onLand, marine],
   );
   const isLoading = activeSpotKey != null && loadedSpotKey !== activeSpotKey;
+  // Re-run when the network comes back, so a forecast read from the device
+  // is refreshed in the background and its date goes. Losing the network
+  // re-runs it too, and the forecast already on screen then stays as it is.
   useEffect(() => {
     if (!spot) return;
+    const key = `${spot.latitude},${spot.longitude}`;
+    if (!online && loadedSpotKeyRef.current === key) return;
     let cancelled = false;
-    Promise.all([
-      fetchAllModels(spot.latitude, spot.longitude),
-      fetchMarine(spot.latitude, spot.longitude),
-    ]).then(([data, marineData]) => {
+    loadSpotForecast(spot, { online, savedSpots: savedSpotsRef.current }).then(({ models: data, marine: marineData, cachedAt: at }) => {
       if (!cancelled) {
+        // A refresh that got nothing back must not empty a panel that the
+        // device had filled: keep what is shown, with its date.
+        if (data.length === 0 && loadedSpotKeyRef.current === key) return;
         setForecasts(data);
         setMarine(marineData);
-        setLoadedSpotKey(`${spot.latitude},${spot.longitude}`);
+        setCachedAt(at);
+        setLoadedSpotKey(key);
         // Preserve the previously-selected hour across spot changes so users
         // don't have to scroll the timeline back to e.g. "tomorrow 14h" every
         // time they switch favourites. Fall back to "now" only when:
@@ -191,7 +211,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [spot]);
+  }, [spot, online]);
   useEffect(() => {
     if (!spot) return;
     let cancelled = false;
@@ -386,6 +406,7 @@ function App() {
                   convention sortait par le bas quand la table du vent
                   affichait quatre modeles. */}
               <div ref={dataPanelRef} className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                {cachedAt != null && !isLoading && <ForecastStamp key={cachedAt} fetchedAt={cachedAt} />}
                 {effectiveView === "wind" || !shownMarine ? (
                   <WindTable
                     forecasts={forecasts}

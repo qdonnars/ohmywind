@@ -3,14 +3,13 @@
 *Esta página es una traducción. En caso de discrepancia, la versión francesa
 ([/confidentialite](/confidentialite)) es la referencia.*
 
-*Última actualización: 12 de septiembre de 2026*
+*Última actualización: 24 de noviembre de 2026*
 
 OhMyWind es un planificador de navegación a vela de código abierto, disponible en
-[ohmywind.fr](https://ohmywind.fr) y en forma de aplicación Android. El responsable del
-tratamiento es la asociación Libramer (asociación sin ánimo de lucro de derecho
-francés, ley de 1901, RNA W751285736), con domicilio social en 51 rue Fondary, 75015
-París, Francia. La aplicación Android está editada y distribuida en Google Play por
-Quentin Donnars. Para cualquier pregunta relativa a esta política:
+[ohmywind.fr](https://ohmywind.fr) y en forma de aplicación móvil. El responsable del
+tratamiento es la asociación Libramer (asociación sin ánimo de lucro de derecho francés,
+ley de 1901, RNA W751285736), con domicilio social en 51 rue Fondary, 75015 París,
+Francia. Para cualquier pregunta relativa a esta política:
 [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 El principio general: **OhMyWind no tiene cuentas de usuario, ni base de datos, ni
@@ -32,7 +31,7 @@ Si usted lo autoriza, su posición sirve únicamente para centrar el mapa y obte
 previsiones cercanas a usted. Se transmite a los servicios meteorológicos y
 cartográficos indicados a continuación durante el tiempo necesario para responder a la
 solicitud, y OhMyWind nunca la registra. El permiso es opcional y revocable en
-cualquier momento en los ajustes de su navegador o de Android.
+cualquier momento en los ajustes de su navegador o de su teléfono.
 
 ### Planes de navegación y ajustes
 
@@ -42,7 +41,7 @@ coordenadas de los puntos de paso salen de su dispositivo: en cuanto se coloca u
 en el mapa del planificador, se envían a EMODnet para mostrar la sonda; cuando usted
 inicia una estimación de travesía, se envían al backend de OhMyWind (alojado en Hugging
 Face) para realizar el cálculo, se tratan en memoria y después se olvidan. Borrar los
-datos del sitio en su navegador (o los datos de la aplicación en Android) lo elimina
+datos del sitio en su navegador (o los datos de la aplicación en los ajustes de su teléfono) lo elimina
 todo.
 
 ## Servicios de terceros
@@ -68,9 +67,9 @@ propias políticas de privacidad (enlaces en la tabla).
 Las fuentes tipográficas se sirven desde ohmywind.fr: mostrar una página no envía
 ninguna petición a Google Fonts y, por tanto, ninguna dirección IP.
 
-## Permisos de Android
+## Permisos de la aplicación móvil
 
-La aplicación Android solicita un único permiso: la **ubicación**, delegada al sitio web
+La aplicación móvil solicita un único permiso: la **ubicación**, delegada al sitio web
 para los usos descritos más arriba. Es opcional: la aplicación funciona sin él, y en ese
 caso basta con buscar un lugar manualmente.
 

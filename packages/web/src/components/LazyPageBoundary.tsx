@@ -17,9 +17,9 @@ interface State {
 }
 
 /**
- * Suspense plus an error boundary for the documentation pages, which are the
- * only routes loaded on demand and, being deliberately kept out of the service
- * worker precache, the only ones whose chunk can be missing.
+ * Suspense plus an error boundary for the routes loaded on demand. Their
+ * chunks are precached, but can still be missing before the service worker
+ * has finished installing, or in a browser without one.
  *
  * Without a boundary a failed import propagates to the root and React unmounts
  * the whole tree: offline, opening /methodologie blanked the application.

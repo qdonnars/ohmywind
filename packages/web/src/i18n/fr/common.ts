@@ -12,6 +12,13 @@ export const common = {
   "common.days.one": "{count} jour",
   "common.days.other": "{count} jours",
 
+  // Prévisions gardées sur l'appareil (hors connexion) : leur date, et
+  // l'avertissement au-delà du seuil de offline/freshness.ts.
+  "common.forecast.dateAtTime": "{day} à {time}",
+  "common.forecast.from": "Prévisions du {when}",
+  "common.forecast.stale":
+    "Prévisions vieilles de plus de {hours} h : actualisez-les dès que le réseau revient.",
+
   // Menu de navigation : le burger et ses trois destinations
   "common.nav.open": "Ouvrir le menu",
   "common.nav.close": "Fermer le menu",
@@ -28,7 +35,7 @@ export const common = {
   "common.nav.whatsNew.title": "Quoi de neuf",
   "common.nav.whatsNew.unseen": "Nouvelle version",
   "common.whatsNew.intro":
-    "Ce qui a changé dans OhMyWind, de la version la plus récente à la plus ancienne. Le site et le serveur MCP partagent un même numéro de version, les applications mobiles gardent le leur.",
+    "Ce qui a changé dans OhMyWind, de la version la plus récente à la plus ancienne. Le site et le serveur MCP partagent un même numéro de version, les applications mobiles ont le leur.",
   "common.whatsNew.current": "Version actuelle",
   "common.whatsNew.upcoming": "En préparation",
   "common.whatsNew.allReleases": "Toutes les versions sur GitHub",
@@ -48,4 +55,13 @@ export const common = {
   "common.quota.reset.minutes.other": "Réinitialisation dans {count} minutes.",
   "common.quota.reset.hours.one": "Réinitialisation dans {count} heure environ.",
   "common.quota.reset.hours.other": "Réinitialisation dans {count} heures environ.",
+
+  // Invitation à installer l'application, sur le site ouvert depuis un
+  // téléphone. Jamais montrée dans les applications elles-mêmes.
+  "common.install.title": "OhMyWind en application",
+  "common.install.body":
+    "Ouvrez la carte d'un geste depuis votre écran d'accueil, en plein écran, sans barre d'adresse. Gratuite, sans compte et open source.",
+  "common.install.open.android": "Ouvrir Google Play",
+  "common.install.open.ios": "Ouvrir l'App Store",
+  "common.install.later": "Plus tard",
 } as const;

@@ -48,7 +48,9 @@ describe("transfer policy", () => {
     expect(skipped.sort()).toEqual(
       [
         "ow_geoloc_declined_v1",
+        "ow_install_invite_v1",
         "ow_last_simulation_v1",
+        "ow_last_view_v1",
         "ow_marc_coverage_v1",
         "ow_shell_import_v1",
         "ow_waypoint_depths_v1",

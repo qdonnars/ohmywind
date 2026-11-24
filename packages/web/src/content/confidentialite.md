@@ -1,13 +1,12 @@
 # Politique de confidentialité
 
-*Dernière mise à jour : 12 septembre 2026*
+*Dernière mise à jour : 24 novembre 2026*
 
 OhMyWind est un planificateur de navigation à la voile open-source, disponible sur
-[ohmywind.fr](https://ohmywind.fr) et sous forme d'application Android. Le responsable
-du traitement est l'association Libramer (association loi 1901, RNA W751285736), dont
-le siège social est situé 51 rue Fondary, 75015 Paris. L'application Android est
-éditée et distribuée sur Google Play par Quentin Donnars. Pour toute question relative
-à cette politique : [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
+[ohmywind.fr](https://ohmywind.fr) et sous forme d'application mobile. Le responsable du
+traitement est l'association Libramer (association loi 1901, RNA W751285736), dont le
+siège social est situé 51 rue Fondary, 75015 Paris. Pour toute question relative à cette politique :
+[contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 Le principe général : **OhMyWind ne possède ni compte utilisateur, ni base de données,
 ni outil de mesure d'audience**. Aucune donnée personnelle n'est conservée sur des
@@ -24,22 +23,22 @@ serveurs OhMyWind.
 
 ### Position géographique
 
-Si vous l'autorisez, votre position sert uniquement à centrer la carte et à obtenir
-les prévisions près de vous. Elle est transmise aux services météo et cartographiques
-listés ci-dessous, le temps de répondre à la demande, et n'est jamais enregistrée par
-OhMyWind. La permission est optionnelle et révocable à tout moment dans les réglages
-de votre navigateur ou d'Android.
+Si vous l'autorisez, votre position sert uniquement à centrer la carte et à obtenir les
+prévisions près de vous. Elle est transmise aux services météo et cartographiques listés
+ci-dessous, le temps de répondre à la demande, et n'est jamais enregistrée par OhMyWind.
+La permission est optionnelle et révocable à tout moment dans les réglages de votre
+navigateur ou de votre téléphone.
 
 ### Plans de navigation et réglages
 
 Vos points de passage, polaires de bateau et préférences sont stockés **localement sur
 votre appareil** (stockage local du navigateur ou de l'application). Seules les
-coordonnées des points de passage quittent votre appareil : dès qu'un point est posé
-sur la carte du planificateur, elles sont envoyées à EMODnet pour afficher la sonde ;
+coordonnées des points de passage quittent votre appareil : dès qu'un point est posé sur
+la carte du planificateur, elles sont envoyées à EMODnet pour afficher la sonde ;
 lorsque vous lancez une estimation de passage, elles sont envoyées au backend OhMyWind
-(hébergé sur Hugging Face) pour effectuer le calcul, traitées en mémoire, puis
-oubliées. Effacer les données du site dans votre navigateur (ou les données de
-l'application dans Android) supprime tout.
+(hébergé sur Hugging Face) pour effectuer le calcul, traitées en mémoire, puis oubliées.
+Effacer les données du site dans votre navigateur (ou les données de l'application dans
+les réglages de votre téléphone) supprime tout.
 
 ## Services tiers
 
@@ -64,9 +63,9 @@ politiques de confidentialité (liens dans le tableau).
 Les polices de caractères sont servies depuis ohmywind.fr : afficher une page
 n'envoie aucune requête à Google Fonts, et donc aucune adresse IP.
 
-## Permissions Android
+## Permissions de l'application mobile
 
-L'application Android demande une seule permission : la **localisation**, déléguée au
+L'application mobile demande une seule permission : la **localisation**, déléguée au
 site web pour les usages décrits plus haut. Elle est optionnelle : l'application
 fonctionne sans, il suffit alors de rechercher un lieu manuellement.
 
