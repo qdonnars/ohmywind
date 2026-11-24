@@ -11,10 +11,9 @@ the association Libramer (non-profit association under the French law of 1901, R
 W751285736), whose registered office is at 51 rue Fondary, 75015 Paris, France. For any question relating to this policy:
 [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
-The general principle: **OhMyWind does not record your data**. There is no user
-account, no database, no audience measurement tool, and no table that would link an IP
-address to searches, positions or routes. What the application sends is used to
-answer the request in progress, without being recorded.
+The general principle: **OhMyWind keeps no file on you**. There is no user account, no
+database and no audience measurement tool. What the application sends is used to answer
+the request in progress; the only traces are technical logs, described below.
 
 ## What the application does not do
 
@@ -29,8 +28,9 @@ answer the request in progress, without being recorded.
 
 If you allow it, your location is used to centre the map, to display the forecasts at
 that spot and to rank nearby places when you search. It is transmitted to the services
-listed below for the time it takes to answer the request, and is never recorded by
-OhMyWind. The permission is optional and can be revoked at any time in the settings of
+listed below for the time it takes to answer the request. It is kept in no database; its
+coordinates may appear, for 7 days at most, in the technical log of the relay described
+below. The permission is optional and can be revoked at any time in the settings of
 your browser or of your phone.
 
 ### Passage plans and settings
@@ -58,8 +58,15 @@ The OhMyWind backend writes one line per request: the method, the path without i
 parameters (for example `/api/v1/passage`), the status of the response, its duration,
 its size, and a short fingerprint computed from the caller's address, used only to spot
 abuse. It never writes an IP address, coordinates, search text or a route there. To
-limit the number of requests per minute, the address is kept in memory for the duration
-of that limit, without being written anywhere.
+limit the number of requests per minute, the address is kept in memory for the duration of that limit, without being written anywhere.
+
+The relay placed in front of the backend, operated by Cloudflare, keeps a technical log
+of each request for 7 days at most: the web address requested, in full, and technical
+information about the caller provided by Cloudflare, which may include its IP address.
+For coastline, tide and current requests around a place, this web address contains the
+coordinates of the place. The content of the requests is not in it: the waypoints, date
+and boat of an estimate never appear there. This log is used to diagnose outages and
+for nothing else; it erases itself.
 
 ## Third-party services
 
@@ -69,7 +76,7 @@ data transmitted in addition.
 
 | Service | Data transmitted | Purpose |
 | --- | --- | --- |
-| [Cloudflare](https://www.cloudflare.com/privacypolicy/) | Requests to the site and to the OhMyWind backend | Hosting of the site; relay to the backend |
+| [Cloudflare](https://www.cloudflare.com/privacypolicy/) | Requests to the site and to the OhMyWind backend; log of the relayed requests, 7 days at most (see "Technical logs") | Hosting of the site; relay to the backend |
 | OhMyWind backend, hosted by [Hugging Face](https://huggingface.co/privacy) | Coordinates of the places opened and of the routes consulted; for an estimate, waypoints, date, boat and settings | Coastline, tide and currents; passage plan calculation |
 | [Open-Meteo](https://open-meteo.com/en/terms) (forecast, marine, geocoding) | Coordinates of the places and routes consulted; text of your place searches, if Photon does not answer | Wind, wave and tide forecasts; fallback place search |
 | [Photon (Komoot)](https://photon.komoot.io) | Text of your place searches and, when known, a rounded position (yours if you have allowed it, or a point of the map displayed) | Place search, ranked by proximity |
@@ -95,8 +102,8 @@ in which case you simply search for a place manually.
 ## Your rights
 
 In accordance with the GDPR, you have rights of access, rectification, objection and
-erasure. As OhMyWind keeps no account, position, search or route relating to you, the
-essential part is exercised directly on your device: clear the site data or the
+erasure. As OhMyWind keeps no account and no file on you, and the relay's log
+erases itself within 7 days at most, the essential part is exercised directly on your device: clear the site data or the
 application data. For any question or request:
 [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
