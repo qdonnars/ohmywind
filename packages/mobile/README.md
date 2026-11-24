@@ -197,7 +197,7 @@ La sonde relève, plusieurs fois par chargement, `Capacitor.isNativePlatform()`,
 | `1-first` | serveur démarré | coquille native, bonne plateforme, `App.getInfo()` répond avec le bon identifiant, service worker enregistré et activé, reprise de données à `none`, plugins qui répondent (`Haptics.impact`, aller-retour `Preferences`, `KeepAwake` allumé puis relâché, `InAppReview` présent), marque de la copie native posée |
 | `2-second` | relance | page contrôlée par le service worker, copie des données présente dans les préférences natives |
 | `3-offline` | serveur arrêté, relance | le site s'ouvre quand même, servi par le service worker |
-| `4-plan` | serveur relancé, la sonde ouvre `/plan` avec une route (page et `localStorage` donnés par le collecteur, `GET /goto`) | page non décalée (`scrollY` et défilement de la colonne nuls, en-tête en haut), colonne qui tient dans l'écran, y compris tiroir monté un instant à 90 vh; capture de `/plan` |
+| `4-plan` | serveur relancé, la sonde ouvre `/plan` avec une route (page et `localStorage` donnés par le collecteur, `GET /goto`) | page non décalée (`scrollY` et défilement de la colonne nuls, en-tête en haut), document qui ne peut pas défiler (essayé par un `scrollTo`), colonne qui tient dans l'écran, y compris tiroir monté un instant à 90 vh; capture de `/plan` |
 
 Captures à chaque étape, rapports, journaux de l'appareil en artefacts (`mobile-smoke-android`, `mobile-smoke-ios`), tableau récapitulatif dans le résumé du job.
 

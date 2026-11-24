@@ -18,8 +18,9 @@
 #   3-offline    server stopped, relaunch: the site still opens, served by
 #                the service worker
 #   4-plan       server up again, the probe opens /plan with a route: the
-#                page fits the screen (not scrolled, header at the top) and
-#                still does with the drawer at its highest setting
+#                page fits the screen (not scrolled, document not scrollable,
+#                header at the top) and still does with the drawer at its
+#                highest setting
 #
 #   android: APK=<path> smoke/run.sh android   (emulator booted, adb on PATH)
 #   ios:     APP_PATH=<App.app> UDID=<id> smoke/run.sh ios   (simulator booted)
@@ -246,7 +247,8 @@ printf '%s\n' '{"path":"/plan?wpts=43.28,5.35;43.00,6.20","storage":{"ow_drawer_
 since=$(now_ms)
 launch
 expect_stage "$stage" "$since" 90 native=true appMounted=true href='~/plan?' \
-  layout.shifted=false layout.columnOverflows=false layout.planStress.columnOverflows=false
+  layout.shifted=false layout.documentScrolls=false layout.columnOverflows=false \
+  layout.planStress.columnOverflows=false
 rm -f "$goto"
 stop_app
 

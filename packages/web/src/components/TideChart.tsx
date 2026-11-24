@@ -123,7 +123,7 @@ export function TideChart({
     // Flex column down to the scroller, no percentage height: see WindTable.
     <div className="animate-fade-in flex-1 min-h-0 flex flex-col">
       <div className={`scroll-container flex-1 min-h-0 flex flex-col ${scrolledEnd ? "scrolled-end" : ""}`}>
-        <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto wind-table-scroll">
+        <div ref={scrollRef} className="relative flex-1 min-h-0 overflow-auto wind-table-scroll">
           <table
             className="border-collapse"
             role="table"

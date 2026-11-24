@@ -52,11 +52,23 @@
       return !!column && column.scrollHeight - column.clientHeight > 1;
     }
     var headerRect = header ? header.getBoundingClientRect() : null;
+    // How far the document itself can scroll, tried rather than computed:
+    // an absolutely positioned element that escapes a scroll container
+    // (a `sr-only` text in a static cell) lengthens the document without
+    // overflowing the column (QA of 2026-11-24). Restored at once, before
+    // anything paints.
+    var scroller = document.scrollingElement || document.documentElement;
+    var startY = window.scrollY;
+    window.scrollTo(0, scroller.scrollHeight);
+    var documentScrollMax = window.scrollY;
+    window.scrollTo(0, startY);
     var result = {
       scrollY: window.scrollY,
       innerHeight: window.innerHeight,
       visualViewport: vv ? { height: vv.height, offsetTop: vv.offsetTop, pageTop: vv.pageTop } : null,
       docScrollHeight: document.documentElement.scrollHeight,
+      documentScrollMax: documentScrollMax,
+      documentScrolls: documentScrollMax > 0 || scroller.scrollHeight - window.innerHeight > 1,
       column: column
         ? { clientHeight: column.clientHeight, scrollHeight: column.scrollHeight, scrollTop: column.scrollTop }
         : null,
