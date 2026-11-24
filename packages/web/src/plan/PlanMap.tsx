@@ -20,6 +20,7 @@ import { computeLegSegmentRanges } from "./aggregateLegs";
 import { closestOnPolyline, TapGuard } from "./mapGestures";
 import { waypointPlacedFeedback } from "../native/haptics";
 import { midpointAlong, type RouteOverlay } from "./compare/tracks";
+import { MAP_CONTROLS_GUTTER_PX } from "../components/mapControlsLayout";
 import {
   HOLD_SLOP_PX,
   MARKER_SETTLE_MS,
@@ -52,14 +53,17 @@ const ZOOM_SNAP = 0.1;
 /** Frame for a route: 8 % of the map on each side, so the waypoints span
     about 84 % of the smaller dimension, and never less than what a marker
     needs to stay whole at the edge: its disc, the × badge on its top-right
-    corner (24 px from the centre) and the sounding 40 px below it. */
+    corner (24 px from the centre) and the sounding 40 px below it. On the
+    right, the column of controls is kept clear as well, plus the radius of
+    a disc: a waypoint framed in a corner used to sit under the locate
+    button or the chart toggle (QA of 1.15.0, #579). */
 function routePadding(map: L.Map): L.FitBoundsOptions {
   const size = map.getSize();
   const x = Math.max(28, size.x * 0.08);
   const y = Math.max(28, size.y * 0.08);
   return {
     paddingTopLeft: L.point(x, y),
-    paddingBottomRight: L.point(x, Math.max(y, 40)),
+    paddingBottomRight: L.point(Math.max(x, MAP_CONTROLS_GUTTER_PX + 14), Math.max(y, 40)),
   };
 }
 
