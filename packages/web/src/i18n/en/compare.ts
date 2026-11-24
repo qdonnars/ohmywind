@@ -17,6 +17,7 @@ export const compare: Record<keyof typeof frCompare, string> = {
   "compare.row.open": "Open {name} in Explore",
   "compare.row.openHint": "Explore ›",
   "compare.row.noData": "Out of coverage",
+  "compare.row.onLand": "Inland",
 
   "compare.controls.resLabel": "Time step",
   "compare.controls.res": "{hours} h",

@@ -20,6 +20,7 @@ export const compare = {
   "compare.row.open": "Ouvrir {name} dans Explorer",
   "compare.row.openHint": "Explorer ›",
   "compare.row.noData": "Hors couverture",
+  "compare.row.onLand": "À terre",
 
   // Réglages
   "compare.controls.resLabel": "Pas horaire",
