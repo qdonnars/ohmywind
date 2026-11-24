@@ -6,15 +6,26 @@
 // deployed build.
 //
 // It reports what the page sees from inside the native shell to a collector
-// on the CI runner (collector.mjs), a few times per page load because the
-// service worker settles over several seconds. Inline rather than a separate
+// on the CI runner (collector.mjs), repeatedly over each page load because
+// the service worker settles over several seconds, and much longer on a slow
+// emulator. Inline rather than a separate
 // file so it is precached with index.html and still runs when the site is
 // served by the service worker with the server down.
 (function () {
   "use strict";
 
   var COLLECTOR = "__OHMYWIND_PROBE_COLLECTOR__";
+  // When the page reports. Often at first, for the stages that settle at
+  // once; then every 15 s for as long as a stage may wait (150 s, run.sh).
+  // The reports used to stop at 40 s: on a slow emulator the service worker
+  // was still activating in that last one, and the stage failed 110 s later
+  // on a page that had gone quiet (#578).
   var DELAYS_MS = [1500, 4000, 8000, 15000, 25000, 40000];
+  var LATE_STEP_MS = 15000;
+  var LATE_UNTIL_MS = 165000;
+  for (var late = 40000 + LATE_STEP_MS; late <= LATE_UNTIL_MS; late += LATE_STEP_MS) {
+    DELAYS_MS.push(late);
+  }
   var loadId = Math.random().toString(36).slice(2, 10);
   var errors = [];
 
