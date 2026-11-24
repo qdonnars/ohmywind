@@ -25,6 +25,9 @@ export interface CompareRow {
       does not say which model each hour came from. */
   forecast: ModelForecast | null;
   marine: MarineHourly | null;
+  /** The server's land mask put the spot on land: `marine` is then null,
+      whatever Open-Meteo answered from its nearest sea cell (#480). */
+  onLand?: boolean;
 }
 
 /** Hours folded into one cell. */

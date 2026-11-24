@@ -513,11 +513,15 @@ export function CompareTable({
                       </span>
                     ) : !row.forecast
                       ? t("compare.row.noData")
-                      : distance != null
-                        ? distance < 1
-                          ? t("explore.places.distanceUnderOne")
-                          : t("explore.places.distance", { value: fmtNm(distance).replace(/ nm$/, "") })
-                        : ""}
+                      : row.onLand && wave
+                        ? // Why its sea band is empty: the land mask, not a gap.
+                          // The word fits the name column; the hover says it all.
+                          <span title={t("explore.pills.onLand")}>{t("compare.row.onLand")}</span>
+                        : distance != null
+                          ? distance < 1
+                            ? t("explore.places.distanceUnderOne")
+                            : t("explore.places.distance", { value: fmtNm(distance).replace(/ nm$/, "") })
+                          : ""}
                   </span>
                 </span>
               </button>

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { fetchIsLand } from "../api/land";
 import { fetchMarineCorridor } from "../api/marine";
 import { fetchWindCorridor } from "../api/openmeteo";
 import { activeModels, loadModelConfig } from "../config/modelConfig";
@@ -65,11 +66,40 @@ export function useCompareData(spots: Spot[]): { rows: CompareRow[]; isLoading: 
     };
   }, [spots]);
 
+  // Open-Meteo Marine answers from the nearest sea cell however far inland
+  // the spot is: a favourite in the Léon read 1.6 m of swell (#480). The
+  // server's land mask says which spots are on land, as on the explore card.
+  // Never waited on: the table shows what Open-Meteo returned and drops the
+  // sea of a spot when the answer comes; a failure answers "not land".
+  const [land, setLand] = useState<{ key: string; keys: ReadonlySet<string> }>({
+    key: "",
+    keys: new Set(),
+  });
+  useEffect(() => {
+    if (spots.length === 0) return;
+    let cancelled = false;
+    Promise.all(spots.map((s) => fetchIsLand(s.latitude, s.longitude))).then((flags) => {
+      if (cancelled) return;
+      setLand({ key: setKey(spots), keys: new Set(spots.filter((_, i) => flags[i]).map(rowKey)) });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [spots]);
+
   // Derived rather than stored: the skeleton is part of the very commit that
   // changes the set, and rows fetched for another set are never shown.
   const current = loaded.key === key;
+  const landKeys = land.key === key ? land.keys : null;
+  const rows = useMemo(() => {
+    if (!current) return [];
+    if (!landKeys || landKeys.size === 0) return loaded.rows;
+    return loaded.rows.map((row) =>
+      landKeys.has(rowKey(row.spot)) ? { ...row, marine: null, onLand: true } : row,
+    );
+  }, [current, loaded.rows, landKeys]);
   return {
-    rows: current ? loaded.rows : [],
+    rows,
     isLoading: spots.length > 0 && !current,
   };
 }
