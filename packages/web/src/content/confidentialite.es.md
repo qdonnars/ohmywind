@@ -12,9 +12,10 @@ ley de 1901, RNA W751285736), con domicilio social en 51 rue Fondary, 75015 Par�
 Francia. Para cualquier pregunta relativa a esta política:
 [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
-El principio general: **OhMyWind no tiene cuentas de usuario, ni base de datos, ni
-herramienta de medición de audiencia**. Ningún dato personal se conserva en servidores
-de OhMyWind.
+El principio general: **OhMyWind no registra sus datos**. No hay cuentas de usuario, ni
+base de datos, ni herramienta de medición de audiencia, ni ninguna tabla que vincule una
+dirección IP con búsquedas, posiciones o rutas. Lo que la aplicación envía sirve para
+responder a la solicitud en curso, sin quedar registrado.
 
 ## Lo que la aplicación no hace
 
@@ -27,42 +28,63 @@ de OhMyWind.
 
 ### Posición geográfica
 
-Si usted lo autoriza, su posición sirve únicamente para centrar el mapa y obtener las
-previsiones cercanas a usted. Se transmite a los servicios meteorológicos y
-cartográficos indicados a continuación durante el tiempo necesario para responder a la
-solicitud, y OhMyWind nunca la registra. El permiso es opcional y revocable en
-cualquier momento en los ajustes de su navegador o de su teléfono.
+Si usted lo autoriza, su posición sirve para centrar el mapa, mostrar las previsiones en
+ese lugar y ordenar los lugares cercanos durante una búsqueda. Se transmite a los
+servicios indicados a continuación durante el tiempo necesario para responder a la
+solicitud, y OhMyWind nunca la registra. El permiso es opcional y revocable en cualquier
+momento en los ajustes de su navegador o de su teléfono.
 
 ### Planes de navegación y ajustes
 
-Sus puntos de paso, polares de barco y preferencias se almacenan **localmente en su
-dispositivo** (almacenamiento local del navegador o de la aplicación). Solo las
-coordenadas de los puntos de paso salen de su dispositivo: en cuanto se coloca un punto
-en el mapa del planificador, se envían a EMODnet para mostrar la sonda; cuando usted
-inicia una estimación de travesía, se envían al backend de OhMyWind (alojado en Hugging
-Face) para realizar el cálculo, se tratan en memoria y después se olvidan. Borrar los
-datos del sitio en su navegador (o los datos de la aplicación en los ajustes de su teléfono) lo elimina
-todo.
+Sus spots, puntos de paso, polares de barco y preferencias se almacenan **localmente en
+su dispositivo** (almacenamiento local del navegador o de la aplicación). Borrar los
+datos del sitio en su navegador (o los datos de la aplicación en los ajustes de su
+teléfono) lo elimina todo.
+
+Lo que sale de su dispositivo, y para qué:
+
+- **Un lugar abierto en el mapa**, o su posición si usted la ha autorizado: sus
+  coordenadas se envían a Open-Meteo para las previsiones, y al backend de OhMyWind para
+  la línea de costa, la marea y las corrientes.
+- **Un punto de paso**, en cuanto se coloca en el mapa del planificador: sus coordenadas
+  se envían a EMODnet para mostrar la sonda.
+- **Una ruta que usted estima o compara**: sus coordenadas se envían a Open-Meteo y al
+  backend de OhMyWind para las previsiones, la marea y las corrientes a lo largo del
+  recorrido. Para una estimación de travesía, el backend recibe además la fecha de
+  salida o de llegada, el barco (tipo de barco o polar), el coeficiente de rendimiento y
+  los modelos elegidos, y realiza el cálculo en memoria.
+
+## Registros técnicos
+
+El backend de OhMyWind escribe una línea por solicitud: el método, la ruta de acceso sin
+sus parámetros (por ejemplo `/api/v1/passage`), el estado de la respuesta, su duración,
+su tamaño y una huella corta calculada a partir de la dirección de quien llama, que solo
+sirve para detectar un abuso. Nunca escribe en ella una dirección IP, coordenadas, texto
+de búsqueda ni una ruta. Para limitar el número de solicitudes por minuto, la dirección
+se guarda en memoria durante ese límite, sin escribirse en ningún sitio.
 
 ## Servicios de terceros
 
-Para funcionar, la aplicación llama directamente a los siguientes servicios desde su
-dispositivo. Como en cualquier petición de Internet, cada uno de ellos ve su dirección
-IP; la tabla indica los datos de aplicación que se transmiten además.
+Para funcionar, la aplicación recurre a los siguientes servicios. Como en cualquier
+petición de Internet, cada uno de ellos ve su dirección IP; la tabla indica los datos de
+aplicación que se transmiten además.
 
 | Servicio | Datos transmitidos | Finalidad |
 | --- | --- | --- |
-| [Open-Meteo](https://open-meteo.com/en/terms) (forecast, marine, geocoding) | Coordenadas geográficas consultadas | Previsiones de viento, olas y mareas; geocodificación |
-| Backend de OhMyWind, alojado por [Hugging Face](https://huggingface.co/privacy) | Coordenadas y puntos de paso | Cálculo del plan de travesía |
-| [Nominatim / OpenStreetMap](https://osmfoundation.org/wiki/Privacy_Policy) | Coordenadas geográficas | Geocodificación inversa (nombre del lugar mostrado) |
-| [Photon (Komoot)](https://photon.komoot.io) | Texto de sus búsquedas de lugares | Búsqueda de lugares |
+| [Cloudflare](https://www.cloudflare.com/privacypolicy/) | Peticiones al sitio y al backend de OhMyWind | Alojamiento del sitio; reenvío al backend |
+| Backend de OhMyWind, alojado por [Hugging Face](https://huggingface.co/privacy) | Coordenadas de los lugares abiertos y de las rutas consultadas; en una estimación, puntos de paso, fecha, barco y ajustes | Línea de costa, marea y corrientes; cálculo del plan de travesía |
+| [Open-Meteo](https://open-meteo.com/en/terms) (forecast, marine, geocoding) | Coordenadas de los lugares y rutas consultados; texto de sus búsquedas de lugares, si Photon no responde | Previsiones de viento, olas y mareas; búsqueda de lugares de reserva |
+| [Photon (Komoot)](https://photon.komoot.io) | Texto de sus búsquedas de lugares y, si se conoce, una posición redondeada (la suya si usted la ha autorizado, o un punto del mapa mostrado) | Búsqueda de lugares, ordenados por proximidad |
+| [Nominatim / OpenStreetMap](https://osmfoundation.org/wiki/Privacy_Policy) | Coordenadas del punto donde usted crea un spot; zona del mapa mostrada, en los raros dispositivos que no pueden mostrar el mapa base habitual | Nombre del lugar (geocodificación inversa); mapa base de reserva |
 | [OpenFreeMap](https://openfreemap.org/privacy/) | Zona del mapa mostrada | Mapas base (teselas) |
 | [OpenSeaMap](https://www.openseamap.org/index.php?id=imprint) | Zona del mapa mostrada, cuando la capa de balizamiento está activa | Balizamiento superpuesto (boyas, balizas, faros) |
 | [EMODnet Bathymetry](https://emodnet.ec.europa.eu/en/privacy-statement) | Coordenadas de sus puntos de paso | Sonda (profundidad) bajo cada punto de paso |
 | [Ko-fi](https://more.ko-fi.com/privacy) | Nada, salvo si usted hace clic voluntariamente en el enlace de apoyo | Donaciones |
 
 Estos servicios son encargados del tratamiento técnicos independientes, regidos por sus
-propias políticas de privacidad (enlaces en la tabla).
+propias políticas de privacidad (enlaces en la tabla). Algunos están operados por
+empresas establecidas fuera de la Unión Europea, en particular Cloudflare y Hugging Face,
+en Estados Unidos.
 
 Las fuentes tipográficas se sirven desde ohmywind.fr: mostrar una página no envía
 ninguna petición a Google Fonts y, por tanto, ninguna dirección IP.
@@ -76,10 +98,10 @@ caso basta con buscar un lugar manualmente.
 ## Sus derechos
 
 De conformidad con el RGPD, usted dispone de derechos de acceso, rectificación,
-oposición y supresión. Dado que OhMyWind no conserva ningún dato personal del lado del
-servidor, lo esencial se ejerce directamente en su dispositivo: borre los datos del
-sitio o de la aplicación. Para cualquier pregunta o solicitud:
-[contact@ohmywind.fr](mailto:contact@ohmywind.fr).
+oposición y supresión. Dado que OhMyWind no conserva ni cuentas, ni posiciones, ni
+búsquedas, ni rutas que le conciernan, lo esencial se ejerce directamente en su
+dispositivo: borre los datos del sitio o de la aplicación. Para cualquier pregunta o
+solicitud: [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 ## Evolución de esta política
 

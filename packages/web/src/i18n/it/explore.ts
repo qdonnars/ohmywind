@@ -32,7 +32,7 @@ export const explore: Record<keyof typeof frExplore, string> = {
     "OhMyWind rende accessibile ai velisti un meteo marino di qualità. I modelli AROME, ICON, GFS, ECMWF e i dati di onde, correnti e maree sono pubblici e gratuiti. Questa app li riunisce in una vista leggibile, senza account né installazione.",
   "explore.infoPanel.privacy.title": "I suoi dati",
   "explore.infoPanel.privacy.body":
-    "Nessun tracciamento, nessun account, nessun dato registrato che la riguardi. Tutto gira nel suo browser, è una pagina di pura consultazione. Le richieste meteo partono direttamente verso le API pubbliche.",
+    "Nessun tracciamento, nessun account, nessun dato registrato che la riguardi. I suoi spot e le sue impostazioni restano sul dispositivo; le richieste meteo e i calcoli di rotta vanno ai servizi elencati nell'informativa sulla privacy, per il tempo necessario a rispondere.",
   "explore.infoPanel.privacy.link": "Leggere l'informativa sulla privacy",
   "explore.infoPanel.privacy.termsLink": "Leggere le condizioni d'uso",
   "explore.infoPanel.sources.title": "Fonti dei dati e metodologia",

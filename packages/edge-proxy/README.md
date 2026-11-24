@@ -36,7 +36,11 @@ npx wrangler deploy
 ```
 
 The routes in `wrangler.toml` are applied on deploy. `zone_name` must stay
-`ohmywind.fr`.
+`ohmywind.fr`. So is the observability block, invocation logs off included (see
+[Observability](#observability)): a change to it does nothing until the next
+`npx wrangler deploy`. A Worker deployed by pasting `src/index.js` in the
+dashboard does not read `wrangler.toml` at all: its invocation logs have to be
+switched off by hand in the Worker's observability settings.
 
 ## ChatGPT app directory: domain challenge
 
@@ -163,6 +167,25 @@ sampled; lower the rate if that changes. The Worker logs one structured JSON
 line per unreachable origin and per outage page, and one per keep-alive ping if
 that is ever switched on. Logs are in the dashboard under the Worker's
 Observability tab, and are kept 7 days.
+
+Those lines are the only ones kept. They carry the host, the path without its
+query string, and a status or an error message: never a query string, a client
+address or a request body. Cloudflare's own invocation logs are switched off:
+
+```toml
+[observability.logs]
+invocation_logs = false
+```
+
+Left on, they would store one entry per request with the full URL (so the
+coordinates of every `GET /api/v1/marine/...`) and metadata about the caller,
+for 7 days. The privacy policy on ohmywind.fr
+(`packages/web/src/content/confidentialite*.md`) says that no table links an
+address to searches or positions; this setting is what makes that true at the
+edge. Do not turn it back on without changing the policy. It only takes effect
+on the next `npx wrangler deploy`; until then the deployed Worker keeps the
+setting of its last deploy. The key is in wrangler's config schema (checked
+against 4.128 and later).
 
 ## Keep-alive, delivered off
 
