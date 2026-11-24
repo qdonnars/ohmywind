@@ -29,6 +29,14 @@ if [ "${OHMYWIND_APP_ID:-}" != "$synced_app_id" ] || [ "${OHMYWIND_APP_BOUND_DOM
   exit 1
 fi
 
+# Universal links: the prod and dev apps sign App/App.entitlements, the local
+# one nothing. A variant.xcconfig written before the setting existed would
+# silently ship an app without its associated domain.
+if [ "${OHMYWIND_VARIANT:-}" != "local" ] && [ -z "${CODE_SIGN_ENTITLEMENTS:-}" ]; then
+  echo "error: CODE_SIGN_ENTITLEMENTS is empty for the ${OHMYWIND_VARIANT:-missing} variant. Re-run \`npx cap sync ios\` with the right OHMYWIND_VARIANT."
+  exit 1
+fi
+
 # The maskable icon is full-bleed and has no alpha channel, which is what iOS
 # wants: the system rounds the corners itself. The web package only has it at
 # 512 px; the App Store asks for 1024.

@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["Z2M67M742P.fr.ohmywind.app", "Z2M67M742P.fr.ohmywind.app.dev"],
+        "components": [
+          { "/": "/transfert", "exclude": true, "comment": "Must stay in Safari: it reads the browser's own storage" },
+          { "/": "/transfert/*", "exclude": true },
+          { "/": "/", "comment": "The pages of the app itself, the same as the Android intent filter" },
+          { "/": "/plan" },
+          { "/": "/comparer" },
+          { "/": "/config" }
+        ]
+      }
+    ]
+  }
+}

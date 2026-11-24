@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later
+     SPDX-FileCopyrightText: 2026 Quentin Donnars -->
+<!-- Signed into the prod and dev apps only (CODE_SIGN_ENTITLEMENTS comes from
+     App/variant.xcconfig, empty for the local variant). The domain is the
+     variant's site: ohmywind.fr or dev.ohmywind.fr. iOS fetches
+     https://<domain>/.well-known/apple-app-site-association, which lists the
+     pages that open the app (packages/web/public/.well-known/). Both App Store
+     profiles allow com.apple.developer.associated-domains. -->
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:$(OHMYWIND_APP_BOUND_DOMAIN)</string>
+	</array>
+</dict>
+</plist>

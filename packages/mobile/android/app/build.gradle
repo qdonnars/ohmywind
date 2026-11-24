@@ -157,6 +157,10 @@ android {
         versionName "2.0.0"
         resValue "string", "app_name", shellAppName
         resValue "string", "title_activity_main", shellAppName
+        // Host of the variant's site, for the https links that open the app
+        // (intent filter with autoVerify in AndroidManifest.xml).
+        def shellSite = new URI(shellServerUrl)
+        manifestPlaceholders.putAll([shellLinkScheme: shellSite.scheme, shellLinkHost: shellSite.host])
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
