@@ -41,7 +41,7 @@
 	<true/>
 	<!-- English fallback. The translations live in <lang>.lproj/InfoPlist.strings. -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>OhMyWind uses your location to centre the map on where you are.</string>
+	<string>OhMyWind uses your location to centre the map on where you are, show the forecast for that spot and suggest nearby places when you search.</string>
 	<!-- The only domains the WebView may navigate to, enforced by
 	     ios.limitsNavigationsToAppBoundDomains in capacitor.config.ts. WebKit
 	     runs service workers only on app-bound domains: this list is what keeps
