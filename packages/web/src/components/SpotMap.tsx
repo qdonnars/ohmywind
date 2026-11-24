@@ -67,6 +67,11 @@ interface SpotMapProps {
       element itself is unmounted while no spot is active, so the ref is
       re-read rather than captured. */
   bottomInsetRef?: RefObject<HTMLElement | null>;
+  /** What floats over the top edge of the map, on a page without a header
+      (the bar of `MapTopBar`): a centred point lands in the middle of the
+      strip between it and the bottom panel. Positioned in the same box as
+      the map, so its bottom edge is read as `offsetTop + offsetHeight`. */
+  topInsetRef?: RefObject<HTMLElement | null>;
   onSelectSpot: (spot: Spot) => void;
   /** Plain tap or left click on the water: show the forecast there without
       saving anything. Looking up conditions at a point should not oblige
@@ -100,6 +105,7 @@ export function SpotMap({
   fitStamp,
   markerNumbers,
   bottomInsetRef,
+  topInsetRef,
   onSelectSpot,
   onPreviewSpot,
   onAddSpot,
@@ -202,7 +208,7 @@ export function SpotMap({
   // Camera moves that account for the data panel covering the bottom of the
   // map, and re-aim when the panel's height settles. See the hook.
   const { visibleCenter, autoCenter, seed: seedAutoCenter, clear: clearAutoCenter, observe: observePanel } =
-    useMapAutoCenter(bottomInsetRef);
+    useMapAutoCenter(bottomInsetRef, topInsetRef);
 
   // Init map once
   useEffect(() => {

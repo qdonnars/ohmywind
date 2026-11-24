@@ -4,10 +4,17 @@ Toutes les versions d'OhMyWind, de la plus récente à la plus ancienne. Le site
 
 Chaque version est aussi publiée sur la page [Releases](https://github.com/qdonnars/ohmywind/releases) du dépôt, et l'application affiche ce journal sur sa page « Quoi de neuf ». La marche à suivre pour publier une version est dans [docs/releases.md](docs/releases.md). English version: [CHANGELOG.en.md](CHANGELOG.en.md).
 
-## 1.16.0 · Prochaine version · La route retracée en mer par l'application, et des chiffres qui se recoupent
+## 1.16.0 · Prochaine version · La carte en plein écran, des Réglages refaits, et la route retracée en mer par l'application
 
 ### Nouveautés
 
+- La carte prend tout l'écran dans l'explorateur et le planificateur : plus de bandeau en haut, le menu, la recherche et les réglages flottent sur la carte (#599, #600).
+- Le menu s'ouvre en tiroir sur le côté, avec les trois pages de l'application, Quoi de neuf, Réglages, Méthodologie et À propos (#595).
+- Les Réglages s'ouvrent par-dessus la carte, sans quitter la page : thème, langue, écran allumé, balises, modèles météo et bateau, avec les mêmes écrans sur téléphone, tablette et ordinateur (#596, #597, #598).
+- Le thème a un mode Auto, qui suit le réglage clair ou sombre de votre appareil (#594).
+- Les balises et amers se règlent une fois pour les deux cartes, et sont affichés par défaut (#594).
+- Sur téléphone, la recherche s'ouvre en plein écran et propose d'abord vos spots enregistrés (#599).
+- Sous le tableau du vent, une note dit quand un modèle ne couvre pas le point et lequel le remplace (#597).
 - Une route tracée à travers une presqu'île ou une île est retracée en mer avant le calcul, sur votre appareil : l'encart « Route ajustée » le signale et « Revenir à mon tracé » la défait. La zone couverte va de Lisbonne à Rotterdam avec le sud de l'Angleterre, et d'Alicante à Naples avec les Baléares, la Corse et la Sardaigne (#573, #586).
 - À la souris, des boutons + et − permettent de zoomer sur la carte de l'explorateur et sur celle du planificateur (#470, #587).
 
@@ -23,11 +30,14 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 - Les réglages disent que vos préférences restent sur l'appareil, sans parler de cookies (#579, #587).
 - Dans l'application, après un effacement de ses données, la copie gardée par le téléphone rouvre directement le plan en cours (#579, #585).
 - Sur iPhone, à partir d'iOS 27, la position n'est demandée qu'une fois ; ce correctif arrive avec la prochaine version de l'application (#571, #585).
+- Au premier calcul d'une route retracée, la carte cadre la route obtenue et non plus le tracé de départ (#593).
+- Les réglages ne disent plus que l'ordre des modèles météo est sans effet sur les plans de passage : les plans calculés dans l'application suivent cet ordre (#600).
 
 ### Coulisses
 
 - Le serveur ne calcule plus de détour pour l'application : il lui fournit des tuiles de trait de côte, et le tracé se fait sur l'appareil, sans dépendre de la charge du serveur (#586).
 - Un test refuse désormais tout fichier binaire que la mise en ligne du serveur ne saurait pas transporter (#590).
+- Les réglages du bateau et l'ajustement de sa polaire se pilotent au clavier, point par point (#598).
 
 ## 1.15.0 · 2026-11-24 · Hors ligne en mer, et de vraies applications mobiles
 

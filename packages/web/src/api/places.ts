@@ -102,6 +102,29 @@ export function matchSavedSpots(
   return withDistances(matches, near).slice(0, limit);
 }
 
+/**
+ * Every saved spot, as rows of the search, in the order they were saved:
+ * the « Mes spots » group the full-screen search opens on, before anything
+ * is typed. Same rows as a match, without the "saved spot" context, which
+ * the group's title already says.
+ */
+export function savedSpotsAsPlaces(
+  spots: Spot[],
+  near: { lat: number; lon: number } | null | undefined,
+): PlaceResult[] {
+  return withDistances(
+    spots.map<PlaceResult>((s) => ({
+      id: `saved:${s.latitude},${s.longitude}`,
+      name: s.name,
+      latitude: s.latitude,
+      longitude: s.longitude,
+      context: "",
+      source: "saved",
+    })),
+    near,
+  );
+}
+
 /** "à 12 nm" for the dropdown. Below a mile the figure adds nothing. */
 export function formatDistance(nm: number | undefined): string | null {
   if (nm == null || !Number.isFinite(nm)) return null;

@@ -31,11 +31,14 @@ for (const stage of stages) {
     ? `${r.sw.registered ? "registered" : "not registered"}, ${r.sw.active ?? "no active worker"}, ${r.sw.controlled ? "controls the page" : "not controlling"}`
     : "?";
   const i = r.insets ?? {};
-  // 4-plan: the page geometry, the point of the stage.
+  // The page geometry: the point of 4-plan, and checked on the explorer at
+  // 2-second. The top controls (a header, or the bar floating over the map)
+  // against the status bar, and the column against the screen.
   const l = r.layout;
+  const c = l?.chrome;
   const result =
-    stage === "4-plan" && l
-      ? `ok, header ${Math.round(l.header?.top ?? NaN)}..${Math.round(l.header?.bottom ?? NaN)} px, column ${l.column?.clientHeight}/${l.column?.scrollHeight}, viewport ${l.innerHeight}`
+    (stage === "4-plan" || stage === "2-second") && l
+      ? `ok, ${c?.kind ?? "no"} controls ${Math.round(c?.top ?? NaN)}..${Math.round(c?.bottom ?? NaN)} px under an inset of ${Math.round(c?.insetTop ?? NaN)}${c?.mapToTop ? ", map to the top" : ""}, column ${l.column?.clientHeight}/${l.column?.scrollHeight}, viewport ${l.innerHeight}`
       : "ok";
   lines.push(
     `| ${stage} | ${result} | ${r.native} | ${r.platform} | ${app} | ${sw} | ${i.top}/${i.right}/${i.bottom}/${i.left} | ${(r.errors ?? []).length} |`,

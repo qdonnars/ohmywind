@@ -67,20 +67,47 @@
     });
   }
 
+  // Where the page's top controls stand. A page with a header (`.app-header`)
+  // pads it with the top inset, so its content row is what has to clear the
+  // status bar. A page without one (the explorer: a full-screen map with a
+  // bar floating over it, `[data-ow-chrome]`) runs its map under the status
+  // bar on purpose, and the bar is what has to clear it.
+  function chrome(insetTop) {
+    var header = document.querySelector(".app-header");
+    var bar = document.querySelector("[data-ow-chrome]");
+    var el = header ? header.firstElementChild || header : bar;
+    if (!el) return null;
+    var r = el.getBoundingClientRect();
+    var map = bar ? document.querySelector(".leaflet-container") : null;
+    var mapTop = map ? map.getBoundingClientRect().top : null;
+    return {
+      kind: header ? "header" : "floating",
+      top: r.top,
+      bottom: r.bottom,
+      outerTop: header ? header.getBoundingClientRect().top : r.top,
+      insetTop: insetTop,
+      // The controls start below the status bar, never under it.
+      clearsInset: r.top >= insetTop - 0.5,
+      // Without a header, the map itself reaches the top edge of the screen.
+      mapTop: mapTop,
+      mapToTop: mapTop === null ? null : Math.abs(mapTop) <= 0.5,
+    };
+  }
+
   // Page geometry as the WebView lays it out: whether the document or the
   // page's own column (the h-dvh root of the map pages) is scrolled, and
-  // where the header sits against the top safe-area inset. On /plan it also
+  // where the header, or the bar floating over the map, sits against the top
+  // safe-area inset. On /plan it also
   // opens the drawer to its highest setting (90 vh) for one synchronous
   // measure, restored before anything paints: the column must still fit the
   // screen, or an in-page scroll shifts the whole page up (iPhone, 2026-11).
-  function layout(settled) {
+  function layout(settled, insets) {
     var column = document.querySelector("#root .h-dvh");
-    var header = document.querySelector(".app-header");
     var vv = window.visualViewport;
     function overflows() {
       return !!column && column.scrollHeight - column.clientHeight > 1;
     }
-    var headerRect = header ? header.getBoundingClientRect() : null;
+    var top = chrome(parseFloat(insets.top) || 0);
     var scroller = document.scrollingElement || document.documentElement;
     var result = {
       scrollY: window.scrollY,
@@ -98,8 +125,9 @@
         ? { clientHeight: column.clientHeight, scrollHeight: column.scrollHeight, scrollTop: column.scrollTop }
         : null,
       columnOverflows: overflows(),
-      header: headerRect ? { top: headerRect.top, bottom: headerRect.bottom, height: headerRect.height } : null,
-      shifted: window.scrollY !== 0 || (!!column && column.scrollTop !== 0) || (!!headerRect && headerRect.top < -0.5),
+      chrome: top,
+      chromeClearsInset: !!top && top.clearsInset,
+      shifted: window.scrollY !== 0 || (!!column && column.scrollTop !== 0) || (!!top && top.outerTop < -0.5),
       planStress: null,
     };
     var handle = window.location.pathname === "/plan" ? document.querySelector('[role="separator"]') : null;
@@ -254,6 +282,7 @@
     return Promise.all([registration(), appInfo(cap), plugins(cap), settledScroll()]).then(function (results) {
       var reg = results[0];
       var sw = navigator.serviceWorker;
+      var insets = safeAreaInsets();
       var root = document.getElementById("root");
       var backupMarker = null;
       try {
@@ -287,8 +316,8 @@
         },
         appMounted: !!(root && root.childElementCount > 0),
         title: document.title,
-        insets: safeAreaInsets(),
-        layout: layout(results[3]),
+        insets: insets,
+        layout: layout(results[3], insets),
         viewport: { width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio },
         shellImport: shellImport,
         online: navigator.onLine,

@@ -8,13 +8,24 @@
 
 import { createContext, useContext } from 'react';
 
+/** The palette on screen: what `data-theme` carries and the maps paint with. */
 export type ThemeMode = 'light' | 'dark';
 
+/**
+ * What the reader picked. `auto` follows the device's light or dark setting,
+ * live, and is stored as the absence of `ow_theme`; `light` and `dark` are
+ * stored as such.
+ */
+export type ThemePreference = 'auto' | ThemeMode;
+
 export const ThemeCtx = createContext<{
-  mode: ThemeMode;
+  /** The reader's choice, for a control offering Auto / Light / Dark. */
+  preference: ThemePreference;
+  /** The palette that choice resolves to right now. */
   resolvedTheme: ThemeMode;
-  setMode: (m: ThemeMode) => void;
-}>({ mode: 'dark', resolvedTheme: 'dark', setMode: () => {} });
+  /** Applies a choice at once and stores it. */
+  setPreference: (p: ThemePreference) => void;
+}>({ preference: 'auto', resolvedTheme: 'dark', setPreference: () => {} });
 
 export function useTheme() {
   return useContext(ThemeCtx);

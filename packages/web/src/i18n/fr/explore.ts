@@ -10,13 +10,6 @@ export const explore = {
   "explore.emptyState.click":
     "Cliquez la carte pour la météo, clic droit pour enregistrer un spot",
 
-  // Header
-  "explore.header.settings": "Paramètres",
-
-  // Bascule de thème (design/theme)
-  "explore.theme.toDark": "Passer au thème sombre",
-  "explore.theme.toLight": "Passer au thème clair",
-
   // Bandeau hors connexion
   "explore.offlineBanner.message":
     "Hors connexion : les prévisions ne peuvent pas être actualisées.",
@@ -144,6 +137,8 @@ export const explore = {
   "explore.spotSearch.failed": "Recherche indisponible. Vérifiez votre connexion.",
   "explore.spotSearch.empty": "Aucun lieu trouvé.",
   "explore.spotSearch.goToPosition": "Aller à cette position",
+  "explore.spotSearch.mySpots": "Mes spots",
+  "explore.spotSearch.clear": "Effacer la recherche",
 
   // Dialogues de spot
   "explore.spotDialogs.options": "Options du spot",
@@ -196,4 +191,9 @@ export const explore = {
   "explore.geocoding.feature.island": "Île",
   "explore.geocoding.feature.islet": "Îlot",
   "explore.geocoding.feature.archipelago": "Archipel",
+
+  // Modèles météo : la note sous le tableau du vent quand un modèle
+  // affiché ne couvre pas le point et qu'un ignoré le remplace.
+  "explore.windTable.coverageNote":
+    "{model} ne couvre pas ce point : {fallback} le remplace (↳). Pour choisir un autre modèle : {settings} › {view}.",
 } as const;

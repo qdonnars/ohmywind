@@ -12,7 +12,7 @@ import {
   savePolarConfig,
 } from "../../config/polarConfig";
 import { usePolarConfig } from "../../config/usePolarConfig";
-import { rememberReturnPath } from "../../config/returnPath";
+import { openSettings } from "../../config/openSettings";
 import { usePlan } from "../session/planContext";
 import { useT } from "../../i18n";
 
@@ -111,7 +111,18 @@ export function ArchetypeSelector() {
                     borderBottom: "1px solid var(--ow-line)",
                   }}
                 >
-                  <a href="/config" onClick={rememberReturnPath} className="underline">
+                  {/* The settings open over the plan, which stays as it is
+                      under them. The href is the address that opens them
+                      from anywhere, for a middle click or a copied link. */}
+                  <a
+                    href="/config"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setOpen(false);
+                      openSettings();
+                    }}
+                    className="underline"
+                  >
                     {t("panel.boat.edit")}
                   </a>
                   <span style={{ opacity: 0.4 }}>·</span>

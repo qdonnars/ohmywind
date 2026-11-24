@@ -23,6 +23,12 @@ import { centerForBottomInset } from "../utils/visibleCenter";
  * A drag ends the intent: from then on the viewport belongs to the user, and a
  * panel resize must not take it back. A zoom does not, because zooming around
  * a centred point is still looking at that point.
+ *
+ * On a page without a header the top of the map is covered too, by the bar
+ * that floats over it (`MapTopBar`): the strip to centre in then runs from the
+ * bottom of that bar to the top of the panel, which shifts the centre by half
+ * the bar. Its height does not change while the page is open, so it is only
+ * read, never observed.
  */
 
 /** Zoom and duration of a "fly to this point" camera move. */
@@ -55,15 +61,19 @@ interface MapAutoCenter {
 
 export function useMapAutoCenter(
   bottomInsetRef: RefObject<HTMLElement | null> | undefined,
+  topInsetRef?: RefObject<HTMLElement | null>,
 ): MapAutoCenter {
   const intentRef = useRef<AutoCenterIntent | null>(null);
   const roRef = useRef<ResizeObserver | null>(null);
   const observedElRef = useRef<Element | null>(null);
 
-  const insetPx = useCallback(
-    () => bottomInsetRef?.current?.offsetHeight ?? 0,
-    [bottomInsetRef],
-  );
+  // The bottom panel's height, less what the bar covers at the top: the
+  // shift that puts a point in the middle of the strip between the two.
+  const insetPx = useCallback(() => {
+    const bottom = bottomInsetRef?.current?.offsetHeight ?? 0;
+    const top = topInsetRef?.current;
+    return bottom - (top ? top.offsetTop + top.offsetHeight : 0);
+  }, [bottomInsetRef, topInsetRef]);
 
   // The observer wants the element, but the data area is unmounted while no
   // spot is active, so each auto-centre re-points it at whichever node

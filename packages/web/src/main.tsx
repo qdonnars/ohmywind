@@ -12,6 +12,7 @@ import { initI18n } from "./i18n";
 import { startNativeShell } from "./native";
 import { startLastViewTracking } from "./offline/lastView";
 import { InstallInvite } from "./install/InstallInvite";
+import { SettingsSheet } from "./settings/SettingsSheet";
 import { startVisibleViewport } from "./viewport/visibleViewport";
 
 // Before the first render, so the tokens the maps read from the DOM are
@@ -40,6 +41,10 @@ initI18n()
           {/* Outside the routes, so a change of page does not restart its
               clock. Renders nothing in the apps and on a computer. */}
           <InstallInvite />
+          {/* Mounted once, over every page, and opened from anywhere with
+              openSettings() (config/openSettings.ts). Outside the routes so
+              they survive a change of page; they close on one. */}
+          <SettingsSheet />
         </ThemeProvider>
       </StrictMode>
     );

@@ -12,10 +12,21 @@
  * The Tailwind classes that place each control repeat these values as
  * literals (`right-3`, `top-[68px]`, `bottom-4`): Tailwind reads them from
  * the source, it cannot compute them.
+ *
+ * On a page without a header (the explorer, the planner), the map runs under the status
+ * bar and a bar of controls floats over its top (`MapTopBar`). The column
+ * then hangs from the bottom of that bar rather than from the top of the
+ * map, and its places depend on the safe-area insets, which only CSS knows:
+ * they are the `.ow-chrome-*` rules of index.css, the same geometry in CSS
+ * variables. `.ow-chrome-right` lines the column up under the bar's right
+ * button (12 px from the edge on a phone, 18 px from lg up, under a 52 px
+ * button 16 px from the edge), `.ow-chrome-slot-1` and `-2` are its first
+ * two places under the bar (the chart toggle, then the zoom buttons; on the
+ * explorer's phone layout the zoom buttons alone, the chart toggle being a
+ * setting there).
  */
 
-/** Distance of the column from the right edge, and of the chart toggle
-    from the top (`right-3`, `top-3`). */
+/** Distance of the column from the right edge on a phone (`right-3`). */
 const INSET_PX = 12;
 /** A round control (`w-12 h-12`). */
 const CONTROL_PX = 48;
@@ -23,22 +34,18 @@ const CONTROL_PX = 48;
 const GAP_PX = 8;
 /** The locate button sits this far above the bottom edge (`bottom-4`). */
 const LOCATE_BOTTOM_PX = 16;
-/** The zoom capsule: two 44 px halves, a 1 px rule and its 1 px border. */
-const ZOOM_GROUP_PX = 2 * 44 + 1 + 2;
 
 /** Width kept free along the right edge of the map: the column and its air.
     The hints of the planner keep out of it (`right-[68px]`), and so does
     the framing of a route. */
 export const MAP_CONTROLS_GUTTER_PX = INSET_PX + CONTROL_PX + GAP_PX;
 
-/** Top of the zoom buttons, right under the chart toggle (`top-[68px]`). */
-const ZOOM_TOP_PX = INSET_PX + CONTROL_PX + GAP_PX;
+/** What the zoom buttons need under them, down to the bottom of the map:
+    the air, the locate button and its distance to the edge. Shorter, they
+    stand down (`MapZoomButtons` `clearanceBelow`). Their top is measured
+    where it is, since it hangs from the bar over the map. */
+export const ZOOM_CLEARANCE_BELOW_PX = GAP_PX + CONTROL_PX + LOCATE_BOTTOM_PX;
 
-/** The least height of a map that holds the chart toggle and the locate
-    button one above the other without touching: below it the planner's
-    drawer gives way rather than the map. */
-export const MAP_MIN_PX = INSET_PX + CONTROL_PX + GAP_PX + CONTROL_PX + LOCATE_BOTTOM_PX;
-
-/** The least height of the planner's map that also holds the zoom buttons
-    between the two. Shorter, the zoom buttons stand down. */
-export const ZOOM_MIN_FRAME_PX = ZOOM_TOP_PX + ZOOM_GROUP_PX + GAP_PX + CONTROL_PX + LOCATE_BOTTOM_PX;
+/* The least height of the planner's map, which holds the bar over it, the
+   chart toggle and the locate button one above the other without touching,
+   is `.ow-map-min-height` in index.css: it depends on the safe-area insets. */

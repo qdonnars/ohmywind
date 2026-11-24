@@ -53,3 +53,75 @@ describe("SpotSearch", () => {
     expect(searchPlaces.mock.calls[1][1].near).toEqual({ lat: 43.2, lon: 5.3 });
   });
 });
+
+describe("SpotSearch, full screen", () => {
+  const saved = [
+    { name: "Carro", latitude: 43.33, longitude: 5.04 },
+    { name: "Cassis", latitude: 43.21, longitude: 5.54 },
+  ];
+
+  function mount(onSelect = vi.fn()) {
+    render(
+      <>
+        <div id="root" />
+        <SpotSearch onSelect={onSelect} nearLat={43.3} nearLon={5.35} savedSpots={saved} fullscreen />
+      </>,
+    );
+    return onSelect;
+  }
+
+  const trigger = () => screen.getByRole("button", { name: /Rechercher un lieu/ });
+
+  it("opens over the whole screen on the saved spots, field focused, page behind inert", () => {
+    mount();
+    // At rest, a field-shaped button: no text field, no list.
+    expect(screen.queryByRole("combobox")).toBeNull();
+    fireEvent.click(trigger());
+
+    const sheet = screen.getByRole("dialog", { name: "Rechercher un lieu" });
+    expect(sheet.getAttribute("aria-modal")).toBe("true");
+    expect(document.activeElement).toBe(screen.getByRole("combobox"));
+    expect(document.getElementById("root")?.hasAttribute("inert")).toBe(true);
+    const list = screen.getByRole("listbox", { name: "Mes spots" });
+    expect(Array.from(list.querySelectorAll('[role="option"]')).map((o) => o.textContent)).toEqual([
+      expect.stringContaining("Carro"),
+      expect.stringContaining("Cassis"),
+    ]);
+  });
+
+  it("picks a saved spot, closes, and shows its name in the field", () => {
+    const onSelect = mount();
+    fireEvent.click(trigger());
+    fireEvent.click(screen.getByRole("option", { name: /Cassis/ }));
+    expect(onSelect).toHaveBeenCalledWith({ name: "Cassis", latitude: 43.21, longitude: 5.54 });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(trigger().textContent).toContain("Cassis");
+    expect(document.getElementById("root")?.hasAttribute("inert")).toBe(false);
+  });
+
+  it("lists the results under the field once something is typed, and « Annuler » closes", async () => {
+    searchPlaces.mockResolvedValue([
+      { id: "p1", name: "Port-Miou", latitude: 43.2, longitude: 5.51, context: "Cassis", source: "photon" },
+    ]);
+    mount();
+    fireEvent.click(trigger());
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "Port-Miou" } });
+    await settle();
+    expect(screen.getByRole("listbox", { name: "Résultats de recherche" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: /Port-Miou/ })).toBeTruthy();
+    // The clear button empties the field and brings the saved spots back.
+    fireEvent.click(screen.getByRole("button", { name: "Effacer la recherche" }));
+    expect(screen.getByRole("listbox", { name: "Mes spots" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Annuler" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(trigger());
+  });
+
+  it("closes on Escape", () => {
+    mount();
+    fireEvent.click(trigger());
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
