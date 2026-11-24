@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
+import { KeepAwake } from "@capacitor-community/keep-awake";
 
 /**
  * The native plugins the site calls outside of `capacitorShell.ts`, behind
@@ -14,4 +15,12 @@ import { Haptics, ImpactStyle } from "@capacitor/haptics";
 /** One light tap, the same one everywhere it is used. */
 export function impactLight(): Promise<void> {
   return Haptics.impact({ style: ImpactStyle.Light });
+}
+
+export function keepScreenOn(): Promise<void> {
+  return KeepAwake.keepAwake();
+}
+
+export function allowScreenOff(): Promise<void> {
+  return KeepAwake.allowSleep();
 }

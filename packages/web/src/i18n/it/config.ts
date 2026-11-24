@@ -6,6 +6,12 @@ import type { config as frConfig } from "../fr/config";
 export const config: Record<keyof typeof frConfig, string> = {
   "config.lang.label": "Lingua",
 
+  "config.keepAwake.label": "Mantenere lo schermo acceso",
+  "config.keepAwake.hint":
+    "Finché è visualizzato un piano calcolato, lo schermo non va in standby, se il dispositivo lo consente.",
+  "config.keepAwake.on": "Attivo",
+  "config.keepAwake.off": "Disattivato",
+
   "config.header.title": "Configurazione",
   "config.reset": "Reimpostare",
   "config.saved": "· salvato",

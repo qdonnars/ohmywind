@@ -72,6 +72,9 @@ export const LOCAL_STORAGE_KEYS = {
   /** Last app version (x.y.z) whose "Quoi de neuf" this browser has seen.
       Behind the dot on the menu entry, see `config/whatsNewSeen.ts`. */
   whatsNewSeen: "ow_whats_new_seen_v1",
+  /** `"0"` when the reader turned off "keep the screen on" for computed plans,
+      `"1"` when turned back on; absent means on. Bare scalar. */
+  keepAwake: "ow_keep_awake",
   /** Native shell only: where the one-shot import of the data left in Chrome
       by the former Android app stands. See `native/shellImport.ts`. */
   shellImport: "ow_shell_import_v1",

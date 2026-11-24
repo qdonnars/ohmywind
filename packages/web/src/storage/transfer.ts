@@ -40,13 +40,14 @@ export const TRANSFER_POLICY: Readonly<Record<LocalStorageKeyName, TransferDecis
   seamarksExplore: keep(8),
   seamarksPlan: keep(9),
   lastSpot: keep(10),
+  keepAwake: keep(11),
   // Hints already seen: without them the app greets a regular as a newcomer.
-  onboarding: keep(11),
-  compareHint: keep(12),
-  whatsNewSeen: keep(13),
+  onboarding: keep(12),
+  compareHint: keep(13),
+  whatsNewSeen: keep(14),
   // Layout, cheapest to lose.
-  drawerHeight: keep(14),
-  sidebarWidth: keep(15),
+  drawerHeight: keep(15),
+  sidebarWidth: keep(16),
 
   // Caches, refetched on demand.
   marcCoverage: SKIP,

@@ -12,6 +12,7 @@ import {
   type ModelName,
 } from "../config/modelConfig";
 import { consumeReturnPath } from "../config/returnPath";
+import { loadKeepAwakeEnabled, saveKeepAwakeEnabled } from "../config/keepAwakePreference";
 import {
   defaultPolarConfig,
   loadPolarConfig,
@@ -111,6 +112,7 @@ export function ConfigPage() {
 
       <main className="max-w-3xl mx-auto px-6 py-10">
         <LangPicker />
+        <KeepAwakeSetting />
         <div className="config-tabs flex gap-2 mb-6" role="tablist">
           <button
             type="button"
@@ -298,6 +300,44 @@ export function LangPicker() {
             <span className="config-segment-short" aria-hidden="true">
               {LANG_SHORT_NAMES[l]}
             </span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Whether the screen stays on while a computed plan is shown (on by default,
+ * see `native/keepAwake.ts`). Same two-pill control as the language, saved
+ * at once. The plan page reads it when it opens.
+ */
+export function KeepAwakeSetting() {
+  const { t } = useT();
+  const [enabled, setEnabled] = useState(() => loadKeepAwakeEnabled());
+  const choose = (next: boolean) => {
+    setEnabled(next);
+    saveKeepAwakeEnabled(next);
+  };
+  return (
+    <section className="mb-6 flex items-center justify-between gap-3 flex-wrap">
+      <div className="min-w-0 flex-1">
+        <span id="config-keep-awake-label" className="text-sm font-medium opacity-80">
+          {t("config.keepAwake.label")}
+        </span>
+        <p className="text-xs opacity-60 mt-0.5">{t("config.keepAwake.hint")}</p>
+      </div>
+      <div className="config-segment" role="radiogroup" aria-labelledby="config-keep-awake-label">
+        {[true, false].map((value) => (
+          <button
+            key={String(value)}
+            type="button"
+            role="radio"
+            aria-checked={enabled === value}
+            className={`config-segment-btn ${enabled === value ? "is-active" : ""}`}
+            onClick={() => choose(value)}
+          >
+            {t(value ? "config.keepAwake.on" : "config.keepAwake.off")}
           </button>
         ))}
       </div>

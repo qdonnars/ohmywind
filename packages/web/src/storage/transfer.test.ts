@@ -38,6 +38,7 @@ describe("transfer policy", () => {
       "ow_seamarks_explore_v1",
       "ow_seamarks_plan_v1",
       "ow_last_spot_v1",
+      "ow_keep_awake",
       "ohmywind:onboarding-v1",
       "ow_compare_hint_v1",
       "ow_whats_new_seen_v1",
