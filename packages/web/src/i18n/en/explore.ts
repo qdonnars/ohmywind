@@ -10,12 +10,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.emptyState.click":
     "Click the map for the forecast, right-click to save a spot",
 
-  // Header
-
-  // Theme toggle (design/theme)
-  "explore.theme.toDark": "Switch to dark theme",
-  "explore.theme.toLight": "Switch to light theme",
-
   // Offline banner
   "explore.offlineBanner.message": "Offline: forecasts cannot be refreshed.",
 
@@ -142,6 +136,8 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.spotSearch.failed": "Search unavailable. Check your connection.",
   "explore.spotSearch.empty": "No place found.",
   "explore.spotSearch.goToPosition": "Go to this position",
+  "explore.spotSearch.mySpots": "My spots",
+  "explore.spotSearch.clear": "Clear the search",
 
   // Spot dialogs
   "explore.spotDialogs.options": "Spot options",

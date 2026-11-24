@@ -109,11 +109,13 @@ interface NavMenuProps {
   mapQuery?: string;
   /**
    * "map": the round control floating over the map, top left, on a wide
-   * screen. "header": the compact one that takes the logo's place in the
-   * header on a phone. Same gesture, same drawer, one of the two mounted at
-   * a time.
+   * screen, with the current destination as a badge. "floating": the glass
+   * one at the left end of the bar over the map on a phone, as tall as the
+   * bar, without the badge. "header": the compact one that takes the logo's
+   * place in a page header on a phone (the comparison). Same gesture, same
+   * drawer, one of them mounted at a time.
    */
-  variant: "map" | "header";
+  variant: "map" | "floating" | "header";
   className?: string;
   /** The trigger, for the onboarding card that points at it. */
   triggerRef?: RefObject<HTMLButtonElement | null>;
@@ -125,13 +127,18 @@ interface NavMenuProps {
  * the three destinations, then the pages around them (what's new, settings,
  * methodology, about).
  *
- * The drawer is portaled to `<body>`: the header blurs its backdrop, which
- * makes it both a stacking context and the containing block of any fixed
- * descendant, so a drawer rendered in place would be clipped to the header.
+ * The drawer is portaled to `<body>`: the header and the bar over the map
+ * blur their backdrop, which makes them both a stacking context and the
+ * containing block of any fixed descendant, so a drawer rendered in place
+ * would be clipped to them.
  */
 export function NavMenu({ current, mapQuery = "", variant, className = "", triggerRef }: NavMenuProps) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
+  // A release this browser has not read about yet. The trigger carries the
+  // dot the « i » of the header used to: the drawer is now the way to the
+  // release log, on every page.
+  const whatsNewDot = useWhatsNewDot();
   const ownRef = useRef<HTMLButtonElement>(null);
   const buttonRef = triggerRef ?? ownRef;
 
@@ -151,12 +158,15 @@ export function NavMenu({ current, mapQuery = "", variant, className = "", trigg
 
   const active = DESTINATIONS.find((d) => d.id === current) ?? DESTINATIONS[0];
   const isMap = variant === "map";
-  // The design's proportions: 52 px on the map, 44 px in the header, the
-  // glyph at 0.42 of that, the badge at 0.44 with its own glyph at 0.3.
-  const size = isMap ? 52 : 44;
+  const isFloating = variant === "floating";
+  // The design's proportions: 52 px on the map, 48 in the bar of a phone,
+  // 44 in a header, the glyph at 0.42 of that, the badge at 0.44 with its
+  // own glyph at 0.3.
+  const size = isMap ? 52 : isFloating ? 48 : 44;
   const glyph = Math.round(size * 0.42);
   const badge = Math.round(size * 0.44);
   const badgeGlyph = Math.round(size * 0.3);
+  const label = whatsNewDot ? `${t("common.nav.open")}, ${t("common.nav.whatsNew.unseen")}` : t("common.nav.open");
 
   return (
     <>
@@ -166,37 +176,61 @@ export function NavMenu({ current, mapQuery = "", variant, className = "", trigg
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={t("common.nav.open")}
+        aria-label={label}
         title={t(active.title)}
-        className={`${isMap ? "absolute z-[400]" : "relative"} shrink-0 rounded-full flex items-center justify-center cursor-pointer transition-colors ${className}`}
-        style={{
-          width: size,
-          height: size,
-          background: "var(--ow-surface-pop)",
-          color: "var(--ow-fg-0)",
-          border: "1px solid var(--ow-line-2)",
-          boxShadow: "var(--ow-shadow-2)",
-          backdropFilter: "blur(8px)",
-        }}
+        className={`${isMap ? "absolute z-[400]" : "relative"} ${
+          isFloating ? "ow-chrome-glass pointer-events-auto" : ""
+        } shrink-0 rounded-full flex items-center justify-center cursor-pointer transition-colors ${className}`}
+        style={
+          isFloating
+            ? { width: size, height: size, color: "var(--ow-fg-0)" }
+            : {
+                width: size,
+                height: size,
+                background: "var(--ow-surface-pop)",
+                color: "var(--ow-fg-0)",
+                border: "1px solid var(--ow-line-2)",
+                boxShadow: "var(--ow-shadow-2)",
+                backdropFilter: "blur(8px)",
+              }
+        }
       >
         <span style={{ width: glyph, height: glyph }}>{BurgerIcon}</span>
         {/* The badge says where the reader is without a word: the drawer
-            only spells it out once open. */}
-        <span
-          aria-hidden="true"
-          className="absolute rounded-full flex items-center justify-center"
-          style={{
-            right: -1,
-            bottom: -1,
-            width: badge,
-            height: badge,
-            background: "var(--ow-accent-strong)",
-            color: "var(--ow-on-accent)",
-            border: "2px solid var(--ow-bg-1)",
-          }}
-        >
-          <span style={{ width: badgeGlyph, height: badgeGlyph }}>{active.icon}</span>
-        </span>
+            only spells it out once open. Not in the bar of a phone, where
+            the button is one of a row and the page is the whole screen. */}
+        {!isFloating && (
+          <span
+            aria-hidden="true"
+            className="absolute rounded-full flex items-center justify-center"
+            style={{
+              right: -1,
+              bottom: -1,
+              width: badge,
+              height: badge,
+              background: "var(--ow-accent-strong)",
+              color: "var(--ow-on-accent)",
+              border: "2px solid var(--ow-bg-1)",
+            }}
+          >
+            <span style={{ width: badgeGlyph, height: badgeGlyph }}>{active.icon}</span>
+          </span>
+        )}
+        {whatsNewDot && (
+          <span
+            aria-hidden="true"
+            data-testid="whats-new-dot"
+            className="absolute rounded-full"
+            style={{
+              top: isFloating ? 9 : 4,
+              right: isFloating ? 9 : 4,
+              width: 10,
+              height: 10,
+              background: "var(--ow-accent)",
+              border: "2px solid var(--ow-bg-1)",
+            }}
+          />
+        )}
       </button>
 
       {open && createPortal(<NavDrawer current={current} mapQuery={mapQuery} onClose={close} />, document.body)}
@@ -223,8 +257,8 @@ interface NavDrawerProps {
 function NavDrawer({ current, mapQuery, onClose }: NavDrawerProps) {
   const { t } = useT();
   const panelRef = useRef<HTMLDivElement>(null);
-  // A release this browser has not read about yet: the dot the « i » of the
-  // header carries, on the entry that opens the release log.
+  // A release this browser has not read about yet: the dot of the trigger,
+  // on the entry that opens the release log.
   const whatsNewDot = useWhatsNewDot();
 
   useEffect(() => {
@@ -362,7 +396,7 @@ function NavDrawer({ current, mapQuery, onClose }: NavDrawerProps) {
             <li>
               {/* The release log comes back to /a-propos, which comes back
                   here: the page to return to is remembered the same way as
-                  from the « i » of the header. */}
+                  from the « À propos » entry below. */}
               <a
                 href="/a-propos/nouveautes"
                 onClick={rememberAboutReturnPath}

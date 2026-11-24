@@ -3,7 +3,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { useT } from '../i18n';
 import {
   applyTheme,
   readSystemTheme,
@@ -12,7 +11,7 @@ import {
   storeThemePreference,
   subscribeSystemTheme,
 } from './initialTheme';
-import { ThemeCtx, useTheme, type ThemePreference } from './useTheme';
+import { ThemeCtx, type ThemePreference } from './useTheme';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [preference, setPreferenceState] = useState<ThemePreference>(readThemePreference);
@@ -57,41 +56,5 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     <ThemeCtx.Provider value={{ preference, resolvedTheme, setPreference }}>
       {children}
     </ThemeCtx.Provider>
-  );
-}
-
-function SunIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-    </svg>
-  );
-}
-
-function MoonIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-    </svg>
-  );
-}
-
-/** Flips to the other palette from the one on screen, and stores it: from
-    Auto, this leaves Auto. */
-export function ThemeToggle() {
-  const { resolvedTheme: mode, setPreference } = useTheme();
-  const { t } = useT();
-  const label = mode === 'dark' ? t('explore.theme.toLight') : t('explore.theme.toDark');
-  return (
-    <button
-      onClick={() => setPreference(mode === 'dark' ? 'light' : 'dark')}
-      className="shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-sm font-semibold transition-colors"
-      style={{ color: 'var(--ow-fg-1)', background: 'transparent' }}
-      title={label}
-      aria-label={label}
-    >
-      {mode === 'dark' ? <SunIcon /> : <MoonIcon />}
-    </button>
   );
 }
