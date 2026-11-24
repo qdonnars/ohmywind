@@ -207,6 +207,21 @@ select,
 .spot-tooltip::before {
   border-top-color: var(--ow-line-2);
 }
+/* A saved spot on the explorer map (utils/spotMarkerLayer.ts). Its SVG node
+   takes the focus on a tap, a click or Tab, because of the tooltip's focus
+   listeners, and the browser outline of an SVG node is its bounding box: a
+   square around the round dot (#545). No outline, then, and for the keyboard
+   a ring drawn by the circle's own stroke, which stays round. CSS beats the
+   stroke attributes Leaflet writes on the node, so the ring overrides the
+   style of the moment and goes away with the focus. */
+path.ow-spot-marker:focus {
+  outline: none;
+}
+path.ow-spot-marker:focus-visible {
+  stroke: var(--ow-fg-0);
+  stroke-width: 4px;
+  stroke-opacity: 1;
+}
 /* The rank of a spot on the comparison map: a digit inside its marker, not a
    bubble beside it. Four names at the scale of a coastline pile up on each
    other; four numbers never do, and the table repeats them row by row. */
@@ -825,6 +840,19 @@ select,
 .ow-search-item:last-child { border-bottom: none; }
 .ow-search-item:hover { background: color-mix(in srgb, var(--ow-bg-1) 80%, transparent); }
 .ow-search-item:active { background: var(--ow-bg-1); }
+
+/* ── Visible part of the screen ──────────────────────────────────
+   A fixed box over exactly what the reader sees: the whole screen, or what
+   the on-screen keyboard leaves of it. The variables are written by
+   viewport/visibleViewport.ts; without them (no visualViewport) the box is
+   the whole screen. Only `top` and `height` here: `position` and the sides
+   come from the utilities next to it (`fixed inset-x-0`), and `inset-0`
+   must not be one of them, since which of the two `top` wins would then
+   depend on the order of the stylesheets in the bundle. */
+.ow-visible-viewport {
+  top: var(--ow-vv-top, 0px);
+  height: var(--ow-vv-height, 100dvh);
+}
 
 /* ── Theme-aware modals (SpotMap) ────────────────────────────── */
 .ow-modal-surface {
