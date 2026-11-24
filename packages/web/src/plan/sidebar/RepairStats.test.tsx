@@ -54,6 +54,20 @@ describe("RepairStats", () => {
     expect(container.innerHTML).toBe("");
   });
 
+  it("agrees in number, and says a route went as drawn on request", () => {
+    window.history.replaceState(null, "", "/plan?repair-stats=1");
+    report = {
+      last: { kind: "drawn", ms: 0, requests: 0, bytes: 0 },
+      session: { routes: 1, requests: 1, bytes: 800 },
+    };
+    render(<RepairStats />);
+    const line = screen.getByTestId("repair-stats").textContent ?? "";
+    expect(line).toContain("Route telle que tracée, à la demande");
+    expect(line).not.toContain("sur cet appareil");
+    expect(line).toContain("Tuiles : 0 requête, 0.0 ko");
+    expect(line).toContain("session : 1 route, 1 requête, 0.8 ko");
+  });
+
   it("says why when the browser could not repair", () => {
     window.history.replaceState(null, "", "/plan?repair-stats=1");
     report = { ...REPORT, last: { kind: "failed", error: "land tiles 404", ms: 30, requests: 0, bytes: 0 } };

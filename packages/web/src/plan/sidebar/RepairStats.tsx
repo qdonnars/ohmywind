@@ -24,12 +24,16 @@ function enabled(): boolean {
 
 const kb = (bytes: number): string => `${(bytes / 1000).toFixed(1)} ko`;
 
+/** « 1 requête », « 5 requêtes ». */
+const count = (n: number, word: string): string => `${n} ${word}${n > 1 ? "s" : ""}`;
+
 const OUTCOMES: Record<string, string> = {
   repaired: "retracée",
   unchanged: "en mer, inchangée",
   refused: "non réparable",
   uncovered: "hors des tuiles",
   failed: "échec",
+  drawn: "telle que tracée, à la demande",
 };
 
 /**
@@ -59,12 +63,13 @@ export function RepairStats() {
       }}
     >
       <div>
-        Route {OUTCOMES[last.kind]} sur cet appareil en {Math.round(last.ms)} ms
+        Route {OUTCOMES[last.kind]}
+        {last.kind === "drawn" ? "" : ` sur cet appareil en ${Math.round(last.ms)} ms`}
         {last.error ? ` (${last.error})` : ""}
       </div>
       <div>
-        Tuiles : {last.requests} requêtes, {kb(last.bytes)} · session : {session.routes} routes,{" "}
-        {session.requests} requêtes, {kb(session.bytes)}
+        Tuiles : {count(last.requests, "requête")}, {kb(last.bytes)} · session :{" "}
+        {count(session.routes, "route")}, {count(session.requests, "requête")}, {kb(session.bytes)}
       </div>
     </div>
   );

@@ -20,9 +20,10 @@ import type { RepairCost, RepairReply, RepairRequest } from "./worker";
 const TIMEOUT_MS = 8000;
 
 /** What the last repair did and cost, for whoever measures it
-    (`RepairStats`): `failed` when the browser had no answer. */
+    (`RepairStats`): `failed` when the browser had no answer, `drawn` when
+    the route went as drawn because the user asked for it. */
 export interface RepairReport {
-  last: { kind: RepairOutcome["kind"] | "failed"; error?: string } & RepairCost;
+  last: { kind: RepairOutcome["kind"] | "failed" | "drawn"; error?: string } & RepairCost;
   /** Since the page was loaded. */
   session: { routes: number; requests: number; bytes: number };
 }
@@ -44,7 +45,8 @@ function record(last: RepairReport["last"]): void {
   report = {
     last,
     session: {
-      routes: session.routes + 1,
+      // A route that goes as drawn on request was not searched.
+      routes: session.routes + (last.kind === "drawn" ? 0 : 1),
       requests: session.requests + last.requests,
       bytes: session.bytes + last.bytes,
     },
@@ -132,7 +134,11 @@ export async function prepareRoute(
   waypoints: [number, number][],
   allowRepair: boolean,
 ): Promise<PreparedRoute> {
-  if (!allowRepair) return { waypoints };
+  if (!allowRepair) {
+    // Only once something was measured: the line stays absent until then.
+    if (report !== null) record({ kind: "drawn", ms: 0, requests: 0, bytes: 0 });
+    return { waypoints };
+  }
   const outcome = await repairLocally(waypoints);
   if (outcome === null || outcome.kind !== "repaired") return { waypoints };
   const added = new Set(outcome.added);
