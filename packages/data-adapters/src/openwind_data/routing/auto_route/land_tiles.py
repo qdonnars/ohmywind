@@ -252,3 +252,21 @@ class LandTiles:
                 )
                 dst[:] = bits[:, la & 7 : (la & 7) + (lb - la)]
         return out
+
+
+def largest_archive(directory: Path | str | None) -> LandTiles | None:
+    """Of the archives (``*.owlt``) of a directory, the one that covers the most.
+
+    None without a directory or without an archive in it. A deployment that
+    puts the world next to the archive shipped in this package gets the
+    world, for the route repair and for the tiles it hands to a client alike.
+    """
+    if not directory or not Path(directory).is_dir():
+        return None
+    archives = [LandTiles(f) for f in sorted(Path(directory).glob("*.owlt"))]
+
+    def tiles_covered(t: LandTiles) -> int:
+        tx0, ty0, tx1, ty1 = t.coverage
+        return (tx1 - tx0) * (ty1 - ty0)
+
+    return max(archives, key=tiles_covered) if archives else None

@@ -42,6 +42,8 @@ from openwind_data.currents.marc_atlas import MarcAtlasRegistry
 from openwind_data.currents.router import compose_marine_adapter
 from openwind_data.currents.shom_c2d_registry import ShomC2dRegistry
 from openwind_data.routing.auto_route.dispatch import RepairPool
+from openwind_data.routing.auto_route.land_tiles import LandTiles, largest_archive
+from openwind_data.routing.auto_route.repair import resolve_grids_dir
 
 from openwind_api.settings import Settings
 
@@ -57,6 +59,27 @@ UPSTREAM_TIMEOUT_S = 10.0
 # a dozen or so concurrent calls before the adapter's own 10 req/s pacing
 # throttles them, so a small pool is plenty and bounds what a burst can open.
 _POOL_LIMITS = httpx.Limits(max_connections=16, max_keepalive_connections=8)
+
+
+class Shoreline:
+    """The land tiles of this deployment, opened on the first request for them.
+
+    The archive ``OPENWIND_ROUTE_GRIDS_DIR`` names, else the one bundled with
+    ``openwind_data``: the same choice as the route repair, so a server that
+    repairs and a browser that repairs read one shoreline.
+    """
+
+    def __init__(self, grids_dir: str | None) -> None:
+        self._dir = resolve_grids_dir(grids_dir)
+        self._tiles: LandTiles | None = None
+        self._opened = False
+
+    def tiles(self) -> LandTiles | None:
+        """The archive, None when the directory holds none. Reads the disk once."""
+        if not self._opened:
+            self._tiles = largest_archive(self._dir)
+            self._opened = True
+        return self._tiles
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,6 +119,9 @@ class Services:
     # hands this one to the MCP server too, so the web app and the connector
     # repair a route with the same code, the same grids and the same worker.
     repair: RepairPool | None = None
+    # The land tiles handed to the web app, which retraces its routes itself:
+    # served whether this server repairs or not.
+    shoreline: Shoreline = field(default_factory=lambda: Shoreline(None))
 
     @classmethod
     def from_settings(cls, settings: Settings) -> Services:
@@ -123,6 +149,7 @@ class Services:
             repair=(
                 RepairPool(settings.route_grids_dir) if settings.route_repair != "off" else None
             ),
+            shoreline=Shoreline(settings.route_grids_dir),
         )
 
     async def aclose(self) -> None:

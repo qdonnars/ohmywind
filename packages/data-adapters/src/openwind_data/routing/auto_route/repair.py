@@ -43,7 +43,7 @@ import numpy as np
 from openwind_data.routing.auto_route import land_tiles
 from openwind_data.routing.auto_route.engine import RouteParams, _segment_samples, suggest_route
 from openwind_data.routing.auto_route.grid import M_PER_DEG_LAT, MercatorGrid, NavGrid
-from openwind_data.routing.auto_route.land_tiles import LandTiles
+from openwind_data.routing.auto_route.land_tiles import LandTiles, largest_archive
 from openwind_data.routing.geometry import Point, haversine_distance
 from openwind_data.routing.notices import Notice, notice
 
@@ -233,13 +233,8 @@ class FineLand:
         """
         if not path or not Path(path).is_dir():
             return cls()
-        archives = [LandTiles(f) for f in sorted(Path(path).glob("*.owlt"))]
-
-        def tiles_covered(t: LandTiles) -> int:
-            tx0, ty0, tx1, ty1 = t.coverage
-            return (tx1 - tx0) * (ty1 - ty0)
-
-        world = _World(max(archives, key=tiles_covered)) if archives else None
+        archive = largest_archive(path)
+        world = _World(archive) if archive is not None else None
         regions = []
         for f in sorted(Path(path).glob("*.npz")):
             with np.load(f) as z:
@@ -299,8 +294,14 @@ class RepairParams:
     wide_margin_ratio: float = 0.75
     # Pixels a search window may hold before it is coarsened (see
     # ``_World.crop``): what bounds the time and the memory of a long leg,
-    # on a server as in a browser.
-    max_px: int = 8_000_000
+    # on a server as in a browser, where a phone is the machine to fit. Two
+    # million keeps an ordinary leg (20 to 40 miles) at full resolution and
+    # coarsens the long ones. Measured against eight million on the parity
+    # routes and four long ones (Lisbon to Gibraltar, Bergen to Stavanger):
+    # every route repaired at eight is repaired at two, 0.8 mile longer at
+    # worst on the coast of France and 2 % on Lisbon to Gibraltar, for a
+    # quarter of the memory.
+    max_px: int = 2_000_000
     route: RouteParams = field(
         default_factory=lambda: RouteParams(use_depth=False, hard_clearance_m=0.0)
     )

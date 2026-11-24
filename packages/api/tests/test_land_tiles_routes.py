@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import zlib
-from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -23,9 +22,9 @@ OUESSANT_TILE = (248, 335)
 
 @pytest.fixture(scope="module")
 def client():
-    app = create_app(Settings())
-    yield TestClient(app)
-    app.state.services.repair.close()
+    # The default deployment: the server repairs nothing, and serves the tiles.
+    assert Settings().route_repair == "off"
+    return TestClient(create_app(Settings()))
 
 
 @pytest.fixture(scope="module")
@@ -68,13 +67,20 @@ def test_what_is_not_a_mixed_tile_of_this_archive_is_not_found(client, shipped, 
     assert resp.headers["cache-control"] == "no-store"
 
 
-def test_a_deployment_that_repairs_nothing_serves_no_tiles(client) -> None:
-    app = create_app(Settings())
-    app.state.services.repair.close()
-    app.state.services = replace(app.state.services, repair=None)
-    off = TestClient(app)
-    assert off.get("/api/v1/land-tiles/index").status_code == 404
-    assert off.get("/api/v1/land-tiles/abc/248/335").status_code == 404
+def test_a_server_that_repairs_serves_the_same_tiles(shipped) -> None:
+    app = create_app(Settings(route_repair="compute"))
+    try:
+        resp = TestClient(app).get("/api/v1/land-tiles/index")
+        assert resp.status_code == 200
+        assert resp.content == shipped.index()
+    finally:
+        app.state.services.repair.close()
+
+
+def test_a_directory_without_an_archive_serves_no_tiles(tmp_path) -> None:
+    empty = TestClient(create_app(Settings(route_grids_dir=str(tmp_path))))
+    assert empty.get("/api/v1/land-tiles/index").status_code == 404
+    assert empty.get("/api/v1/land-tiles/abc/248/335").status_code == 404
 
 
 def test_the_tiles_are_readable_from_another_origin(client) -> None:

@@ -25,7 +25,7 @@ const MAX_SNAP_M = 3000.0;
 const MAX_RATIO = 3.0;
 const MARGIN_M = 12000.0;
 const WIDE_MARGIN_RATIO = 0.75;
-const MAX_PX = 8_000_000;
+const MAX_PX = 2_000_000;
 
 export type RepairNotice =
   | { code: "route.departure_moved" | "route.arrival_moved"; distanceM: string }

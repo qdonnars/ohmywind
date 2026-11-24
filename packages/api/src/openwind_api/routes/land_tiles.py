@@ -15,9 +15,10 @@ Two routes hand it over as stored, bytes for bytes:
   an id, so it is cached for good, and a client holding the index of an
   archive since replaced gets a 404 and reads the index again.
 
-Serving the tiles from here rather than from a file host is what keeps the
-browser and the server on the same shoreline: a deployment cannot ship one
-and compute on another.
+The tiles are served whether this server repairs routes or not
+(``OPENWIND_ROUTE_REPAIR``): the web app does not ask it to. Where it does
+repair, for the MCP server, it reads the same archive, so a deployment
+cannot hand out one shoreline and compute on another.
 """
 
 from __future__ import annotations
@@ -33,12 +34,8 @@ TILE_CACHE_CONTROL = "public, max-age=31536000, immutable"
 
 
 async def _tiles(request: Request) -> LandTiles | None:
-    pool = getattr(request.app.state.services, "repair", None)
-    if pool is None:
-        return None
-    # Read on first use, off the event loop, as the pool itself does.
-    fine = await asyncio.to_thread(lambda: pool.fine)
-    return fine.world.tiles if fine.world is not None else None
+    # Opened on first use, off the event loop.
+    return await asyncio.to_thread(request.app.state.services.shoreline.tiles)
 
 
 def _not_found() -> PlainTextResponse:
