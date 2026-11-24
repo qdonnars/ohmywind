@@ -2,12 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useState } from "react";
-import {
-  defaultPolarConfig,
-  loadPolarConfig,
-  savePolarConfig,
-  type PolarConfig,
-} from "../config/polarConfig";
+import { saveBoatEdit } from "../config/boatEdits";
+import { defaultPolarConfig, loadPolarConfig, type PolarConfig } from "../config/polarConfig";
 import { useT } from "../i18n";
 import { BoatAdvanced } from "./BoatAdvanced";
 import { BoatEssentials } from "./BoatEssentials";
@@ -17,8 +13,9 @@ import "../routes/config.css";
 
 /**
  * The boat: intro, the Essentials, Advanced and resulting-polar tiles, and
- * the reset. The "Bateau" tab of /config, and for now the "Bateau" view of
- * the settings, which show it as it is.
+ * the reset. The "Bateau" tab of /config. The settings show the same boat in
+ * views of their own (`settings/views/Boat*View`), on the same rules
+ * (`config/boatEdits`).
  */
 export function BoatEditor() {
   const { t } = useT();
@@ -29,11 +26,8 @@ export function BoatEditor() {
   const [polarCfg, setPolarCfg] = useState<PolarConfig>(() => loadPolarConfig());
 
   function updatePolar(next: PolarConfig) {
-    // Any touch here re-selects the perso polar on /plan (its selector may
-    // have parked it in favour of a stock archetype).
-    const activated = { ...next, persoActive: true };
-    setPolarCfg(activated);
-    savePolarConfig(activated);
+    // Any touch here re-selects the perso polar on /plan (see saveBoatEdit).
+    setPolarCfg(saveBoatEdit(next));
     setSavedOnce(true);
   }
 
