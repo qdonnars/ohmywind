@@ -4,13 +4,16 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
+import { openSettings } from "../config/openSettings";
+import { rememberAboutReturnPath } from "../config/returnPath";
+import { useWhatsNewDot } from "../config/whatsNewSeen";
 import { useBackDismiss } from "../hooks/useBackDismiss";
 import { useT, type Key } from "../i18n";
 
@@ -30,9 +33,6 @@ interface Destination {
   title: Key;
   description: Key;
   icon: ReactNode;
-  /** Size of the glyph on the panel's tile. The drawn compass needs more
-      room than a stroked outline to carry the same weight. */
-  tileGlyph?: number;
 }
 
 // The glyphs are the ones the rest of the app already uses for these ideas:
@@ -70,13 +70,9 @@ const BurgerIcon = (
   </svg>
 );
 
-// The "you are here" mark on the current entry. A crosshair, the same
-// vocabulary as the locate button: it points at where the reader stands.
-const HereIcon = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
-    <circle cx="12" cy="12" r="7" />
-    <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-    <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+const CloseIcon = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+    <path d="M6 6l12 12M18 6L6 18" />
   </svg>
 );
 
@@ -94,7 +90,6 @@ const DESTINATIONS: readonly Destination[] = [
     title: "common.nav.plan.title",
     description: "common.nav.plan.desc",
     icon: CompassIcon,
-    tileGlyph: 19,
   },
   {
     id: "compare",
@@ -105,34 +100,8 @@ const DESTINATIONS: readonly Destination[] = [
   },
 ];
 
-const PANEL_WIDTH = 268;
-const PANEL_GAP = 10;
-/** On a phone the panel spans the width, this far from each edge. */
-const PHONE_MARGIN = 10;
-
-interface PanelPosition {
-  top: number;
-  left: number;
-  width: number;
-}
-
-/** Below the trigger: left-aligned with it on a wide screen, kept inside
-    the viewport; edge to edge on a phone. */
-function panelPosition(rect: DOMRect, variant: "map" | "header"): PanelPosition {
-  if (variant === "header") {
-    return {
-      top: rect.bottom + PANEL_GAP - 2,
-      left: PHONE_MARGIN,
-      width: window.innerWidth - 2 * PHONE_MARGIN,
-    };
-  }
-  const maxLeft = Math.max(PHONE_MARGIN, window.innerWidth - PANEL_WIDTH - PHONE_MARGIN);
-  return {
-    top: rect.bottom + PANEL_GAP,
-    left: Math.min(Math.max(PHONE_MARGIN, rect.left), maxLeft),
-    width: PANEL_WIDTH,
-  };
-}
+/** What the drawer can move focus between: its links and its buttons. */
+const FOCUSABLE = "a[href], button:not([disabled])";
 
 interface NavMenuProps {
   current: NavDestination;
@@ -141,8 +110,8 @@ interface NavMenuProps {
   /**
    * "map": the round control floating over the map, top left, on a wide
    * screen. "header": the compact one that takes the logo's place in the
-   * header on a phone. Same gesture, same place on the screen, one of the
-   * two mounted at a time.
+   * header on a phone. Same gesture, same drawer, one of the two mounted at
+   * a time.
    */
   variant: "map" | "header";
   className?: string;
@@ -152,59 +121,38 @@ interface NavMenuProps {
 
 /**
  * The app's navigation: one control at rest, the burger with the current
- * destination as a badge, and on opening the three destinations with their
- * name and their reason to exist.
+ * destination as a badge, and on opening a drawer from the left edge with
+ * the three destinations, then the pages around them (what's new, settings,
+ * methodology, about).
  *
- * The panel is portaled to `<body>`: the header blurs its backdrop, which
+ * The drawer is portaled to `<body>`: the header blurs its backdrop, which
  * makes it both a stacking context and the containing block of any fixed
- * descendant, so a panel rendered in place would slide under the data
- * overlay on the map. Positioned from the trigger's rectangle instead, and
- * re-measured on resize.
+ * descendant, so a drawer rendered in place would be clipped to the header.
  */
 export function NavMenu({ current, mapQuery = "", variant, className = "", triggerRef }: NavMenuProps) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState<PanelPosition | null>(null);
   const ownRef = useRef<HTMLButtonElement>(null);
   const buttonRef = triggerRef ?? ownRef;
-  const panelRef = useRef<HTMLDivElement>(null);
 
   const close = useCallback(() => setOpen(false), []);
-  // Android's back button closes the menu instead of leaving the app, the
-  // same as Escape and a tap outside (issue #300).
+  // The back button (the browser's, or the phone's in the app) closes the
+  // drawer instead of leaving the page, the same as Escape (issue #300).
   useBackDismiss(open, close);
 
-  // Measured before paint so the panel never flashes at (0, 0).
-  useLayoutEffect(() => {
-    if (!open) return;
-    const update = () => {
-      const rect = buttonRef.current?.getBoundingClientRect();
-      if (rect) setPosition(panelPosition(rect, variant));
-    };
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, [open, buttonRef, variant]);
-
+  // Closing on the page (the cross, the scrim, Escape, the back button)
+  // hands focus back to the control that opened it. Leaving the page
+  // unmounts the whole menu, and there is nothing to hand back.
+  const wasOpen = useRef(false);
   useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        close();
-        buttonRef.current?.focus();
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    // Keyboard readers land on the current page's entry, the one they are
-    // most likely to want to move away from.
-    panelRef.current?.querySelector<HTMLAnchorElement>('a[aria-current="page"]')?.focus();
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, close, buttonRef]);
+    if (wasOpen.current && !open) buttonRef.current?.focus();
+    wasOpen.current = open;
+  }, [open, buttonRef]);
 
   const active = DESTINATIONS.find((d) => d.id === current) ?? DESTINATIONS[0];
   const isMap = variant === "map";
   // The design's proportions: 52 px on the map, 44 px in the header, the
-  // glyph at 0.42 of that, the badge at 0.44 with its own glyph at 0.24.
+  // glyph at 0.42 of that, the badge at 0.44 with its own glyph at 0.3.
   const size = isMap ? 52 : 44;
   const glyph = Math.round(size * 0.42);
   const badge = Math.round(size * 0.44);
@@ -215,26 +163,24 @@ export function NavMenu({ current, mapQuery = "", variant, className = "", trigg
       <button
         ref={buttonRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="true"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={open ? t("common.nav.close") : t("common.nav.open")}
+        aria-label={t("common.nav.open")}
         title={t(active.title)}
         className={`${isMap ? "absolute z-[400]" : "relative"} shrink-0 rounded-full flex items-center justify-center cursor-pointer transition-colors ${className}`}
         style={{
           width: size,
           height: size,
-          // At rest a quiet surface; open, the accent: the same states as
-          // the marine-chart toggle on the map.
-          background: open ? "var(--ow-accent-strong)" : "var(--ow-surface-pop)",
-          color: open ? "var(--ow-on-accent)" : "var(--ow-fg-0)",
-          border: open ? "1px solid transparent" : "1px solid var(--ow-line-2)",
+          background: "var(--ow-surface-pop)",
+          color: "var(--ow-fg-0)",
+          border: "1px solid var(--ow-line-2)",
           boxShadow: "var(--ow-shadow-2)",
           backdropFilter: "blur(8px)",
         }}
       >
         <span style={{ width: glyph, height: glyph }}>{BurgerIcon}</span>
-        {/* The badge says where the reader is without a word: the panel
+        {/* The badge says where the reader is without a word: the drawer
             only spells it out once open. */}
         <span
           aria-hidden="true"
@@ -253,106 +199,220 @@ export function NavMenu({ current, mapQuery = "", variant, className = "", trigg
         </span>
       </button>
 
-      {open &&
-        position &&
-        createPortal(
-          <>
-            {/* On a phone the map dims under the panel; on a wide screen a
-                tap anywhere else only closes the menu. Either way the
-                header above the panel stays clear. */}
-            <div
-              aria-hidden="true"
-              className="fixed inset-x-0 bottom-0 z-[999]"
-              style={{
-                top: isMap ? 0 : position.top - PANEL_GAP,
-                background: isMap ? "transparent" : "var(--ow-scrim)",
-              }}
-              onClick={close}
-            />
-            <div
-              ref={panelRef}
-              className="fixed z-[1000] p-1.5 rounded-xl animate-fade-in"
-              style={{
-                top: position.top,
-                left: position.left,
-                width: position.width,
-                background: "var(--ow-bg-1)",
-                border: "1px solid var(--ow-line-2)",
-                boxShadow: "var(--ow-shadow-pop)",
-              }}
-            >
-              <nav aria-label={t("common.nav.label")}>
-                <ul className="flex flex-col">
-                  {DESTINATIONS.map((d) => {
-                    const isCurrent = d.id === current;
-                    return (
-                      <li key={d.id}>
-                        <a
-                          href={d.href(mapQuery)}
-                          aria-current={isCurrent ? "page" : undefined}
-                          // Only the current page closes the menu by hand,
-                          // and it is the one link the router will not act
-                          // on. Closing on the others swallowed the
-                          // navigation: `useBackDismiss` pops the layer
-                          // entry on cleanup, the router then replaced the
-                          // URL, and the pending `history.back()` landed on
-                          // the page one had just left. Left to the router,
-                          // the page change unmounts the menu and the
-                          // cleanup finds its entry already gone.
-                          onClick={(e) => {
-                            if (!isCurrent) return;
-                            e.preventDefault();
-                            close();
-                          }}
-                          className={`flex items-center gap-[11px] rounded-lg transition-colors ${
-                            isCurrent ? "bg-accent-soft" : "hover:bg-surface-2"
-                          }`}
-                          style={{ padding: "10px 11px" }}
-                        >
-                          <span
-                            aria-hidden="true"
-                            className="shrink-0 rounded-lg flex items-center justify-center"
-                            style={{
-                              width: 30,
-                              height: 30,
-                              background: isCurrent ? "var(--ow-accent-strong)" : "var(--ow-bg-3)",
-                              color: isCurrent ? "var(--ow-on-accent)" : "var(--ow-fg-1)",
-                            }}
-                          >
-                            <span style={{ width: d.tileGlyph ?? 15, height: d.tileGlyph ?? 15 }}>
-                              {d.icon}
-                            </span>
-                          </span>
-                          <span className="flex-1 min-w-0 flex flex-col">
-                            <span
-                              className="text-[13.5px] font-semibold leading-tight"
-                              style={{ color: isCurrent ? "var(--ow-accent)" : "var(--ow-fg-0)" }}
-                            >
-                              {t(d.title)}
-                            </span>
-                            <span className="text-[11px] leading-tight mt-px" style={{ color: "var(--ow-fg-2)" }}>
-                              {t(d.description)}
-                            </span>
-                          </span>
-                          {isCurrent && (
-                            <span
-                              aria-hidden="true"
-                              className="shrink-0"
-                              style={{ width: 14, height: 14, color: "var(--ow-accent)" }}
-                            >
-                              {HereIcon}
-                            </span>
-                          )}
-                        </a>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </nav>
-            </div>
-          </>,
-          document.body,
-        )}
+      {open && createPortal(<NavDrawer current={current} mapQuery={mapQuery} onClose={close} />, document.body)}
     </>
+  );
+}
+
+interface NavDrawerProps {
+  current: NavDestination;
+  mapQuery: string;
+  onClose: () => void;
+}
+
+/**
+ * The drawer itself: a modal dialog along the left edge, over a scrim.
+ *
+ * Its links never close it by hand, save the one to the page it was opened
+ * on. Closing on the others swallowed the navigation: `useBackDismiss` pops
+ * the drawer's history entry on cleanup, the router then replaced the URL,
+ * and the pending `history.back()` landed on the page one had just left.
+ * Left to the router, the page change unmounts the drawer and the cleanup
+ * finds its entry already gone.
+ */
+function NavDrawer({ current, mapQuery, onClose }: NavDrawerProps) {
+  const { t } = useT();
+  const panelRef = useRef<HTMLDivElement>(null);
+  // A release this browser has not read about yet: the dot the « i » of the
+  // header carries, on the entry that opens the release log.
+  const whatsNewDot = useWhatsNewDot();
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    // Keyboard readers land on the current page's entry, the one they are
+    // most likely to want to move away from.
+    panelRef.current?.querySelector<HTMLAnchorElement>('a[aria-current="page"]')?.focus();
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  // Focus stays inside the drawer while it is open: Tab past the last entry
+  // comes back to the first, Shift+Tab before the first goes to the last.
+  const trapFocus = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Tab" || !panelRef.current) return;
+    const items = Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
+    if (items.length === 0) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    const here = document.activeElement;
+    if (e.shiftKey && (here === first || !panelRef.current.contains(here))) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && (here === last || !panelRef.current.contains(here))) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+
+  const rowClass = "flex items-center gap-3 w-full rounded-xl text-left transition-colors hover:bg-surface-2 cursor-pointer";
+  const rowStyle = { minHeight: 52, padding: "0 10px", fontSize: 15.5, color: "var(--ow-fg-0)" } as const;
+
+  return (
+    <div className="fixed inset-0 z-[1000]">
+      {/* The page dims under the drawer; a tap on it closes the drawer. The
+          cross is the way for the keyboard and for assistive technology. */}
+      <div
+        aria-hidden="true"
+        data-testid="nav-scrim"
+        className="absolute inset-0 ow-drawer-scrim"
+        style={{ background: "var(--ow-scrim)" }}
+        onClick={onClose}
+      />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("common.nav.label")}
+        onKeyDown={trapFocus}
+        className="ow-nav-drawer absolute inset-y-0 left-0 flex flex-col overflow-y-auto overscroll-contain"
+        style={{
+          background: "var(--ow-bg-1)",
+          borderRight: "1px solid var(--ow-line)",
+          boxShadow: "var(--ow-shadow-pop)",
+        }}
+      >
+        <div className="flex items-center gap-2.5" style={{ padding: "0 0 16px 8px" }}>
+          <span
+            aria-hidden="true"
+            className="shrink-0 rounded-lg flex items-center justify-center"
+            style={{ width: 32, height: 32, background: "var(--ow-bg-0)", color: "var(--ow-accent)" }}
+          >
+            <span style={{ width: 20, height: 20 }}>{WindIcon}</span>
+          </span>
+          <span className="text-[19px] font-extrabold tracking-tight">
+            <span style={{ color: "var(--ow-fg-0)" }}>OhMy</span>
+            <span style={{ color: "var(--ow-accent)" }}>Wind</span>
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t("common.nav.close")}
+            className="ml-auto shrink-0 rounded-full flex items-center justify-center cursor-pointer transition-colors hover:bg-surface-2"
+            style={{ width: 44, height: 44, color: "var(--ow-fg-1)" }}
+          >
+            {CloseIcon}
+          </button>
+        </div>
+
+        <nav aria-label={t("common.nav.label")} className="flex flex-col">
+          <ul className="flex flex-col gap-1">
+            {DESTINATIONS.map((d) => {
+              const isCurrent = d.id === current;
+              return (
+                <li key={d.id}>
+                  <a
+                    href={d.href(mapQuery)}
+                    aria-current={isCurrent ? "page" : undefined}
+                    // Only the current page closes the drawer by hand: it is
+                    // the one link the router will not act on (see above).
+                    onClick={(e) => {
+                      if (!isCurrent) return;
+                      e.preventDefault();
+                      onClose();
+                    }}
+                    className={`flex items-center gap-3 rounded-xl transition-colors ${
+                      isCurrent ? "bg-accent-soft" : "hover:bg-surface-2"
+                    }`}
+                    style={{ minHeight: 56, padding: "8px 10px" }}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="shrink-0 rounded-[10px] flex items-center justify-center"
+                      style={{
+                        width: 36,
+                        height: 36,
+                        background: isCurrent ? "var(--ow-accent-strong)" : "var(--ow-bg-3)",
+                        color: isCurrent ? "var(--ow-on-accent)" : "var(--ow-fg-1)",
+                      }}
+                    >
+                      <span style={{ width: 19, height: 19 }}>{d.icon}</span>
+                    </span>
+                    <span className="flex-1 min-w-0 flex flex-col">
+                      <span
+                        className="text-base font-semibold leading-tight"
+                        style={{ color: isCurrent ? "var(--ow-accent)" : "var(--ow-fg-0)" }}
+                      >
+                        {t(d.title)}
+                      </span>
+                      <span className="text-[12.5px] leading-snug mt-0.5" style={{ color: "var(--ow-fg-1)" }}>
+                        {t(d.description)}
+                      </span>
+                    </span>
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div aria-hidden="true" style={{ height: 1, background: "var(--ow-line)", margin: "10px 8px" }} />
+
+          <ul className="flex flex-col">
+            <li>
+              {/* The release log comes back to /a-propos, which comes back
+                  here: the page to return to is remembered the same way as
+                  from the « i » of the header. */}
+              <a
+                href="/a-propos/nouveautes"
+                onClick={rememberAboutReturnPath}
+                className={rowClass}
+                style={rowStyle}
+              >
+                <span className="flex-1 min-w-0">{t("common.nav.whatsNew.title")}</span>
+                {whatsNewDot && (
+                  <>
+                    <span
+                      aria-hidden="true"
+                      data-testid="whats-new-dot"
+                      className="shrink-0 rounded-full"
+                      style={{ width: 8, height: 8, background: "var(--ow-accent)" }}
+                    />
+                    <span className="sr-only">{t("common.nav.whatsNew.unseen")}</span>
+                  </>
+                )}
+              </a>
+            </li>
+            <li>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  openSettings();
+                }}
+                className={rowClass}
+                style={rowStyle}
+              >
+                {t("common.nav.settings")}
+              </button>
+            </li>
+            <li>
+              <a href="/methodologie" className={rowClass} style={rowStyle}>
+                {t("config.docs.methodology")}
+              </a>
+            </li>
+            <li>
+              <a href="/a-propos" onClick={rememberAboutReturnPath} className={rowClass} style={rowStyle}>
+                {t("explore.infoButton.title")}
+              </a>
+            </li>
+          </ul>
+        </nav>
+
+        <p className="mt-auto text-xs leading-normal" style={{ padding: "16px 10px 0", color: "var(--ow-fg-1)" }}>
+          {t("common.nav.sourcesNote")}
+        </p>
+      </div>
+    </div>
   );
 }
