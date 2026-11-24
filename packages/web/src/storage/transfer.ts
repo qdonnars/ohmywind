@@ -63,6 +63,8 @@ export const TRANSFER_POLICY: Readonly<Record<LocalStorageKeyName, TransferDecis
   // Counted from the first launch of the new app on purpose: a date brought
   // from elsewhere could let the rating request come before its delay.
   reviewPrompt: SKIP,
+  // Says whether this storage was wiped: meaningless in another one.
+  nativeBackup: SKIP,
 };
 
 /** Storage names that transfer, most precious first. */

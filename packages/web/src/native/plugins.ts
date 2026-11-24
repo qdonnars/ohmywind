@@ -3,6 +3,7 @@
 
 import { App } from "@capacitor/app";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
+import { Preferences } from "@capacitor/preferences";
 import { InAppReview } from "@capacitor-community/in-app-review";
 import { KeepAwake } from "@capacitor-community/keep-awake";
 
@@ -35,4 +36,13 @@ export function requestStoreReview(): Promise<void> {
 /** Version of the installed app (the shell), not of the site. */
 export async function shellVersion(): Promise<string> {
   return (await App.getInfo()).version;
+}
+
+/** The app's native key-value store (UserDefaults, SharedPreferences). */
+export async function readPreference(key: string): Promise<string | null> {
+  return (await Preferences.get({ key })).value;
+}
+
+export function writePreference(key: string, value: string): Promise<void> {
+  return Preferences.set({ key, value });
 }

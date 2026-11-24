@@ -79,6 +79,10 @@ export const LOCAL_STORAGE_KEYS = {
       version the store rating was last requested for. Written by the shell
       only, never carried over nor restored. See `native/reviewPrompt.ts`. */
   reviewPrompt: "ow_review_prompt_v1",
+  /** Native shell only: `"1"` once this storage is covered by the copy kept
+      in the app's native storage. Its absence at start means the storage was
+      wiped. See `native/nativeBackup.ts`. */
+  nativeBackup: "ow_native_backup_v1",
   /** Native shell only: where the one-shot import of the data left in Chrome
       by the former Android app stands. See `native/shellImport.ts`. */
   shellImport: "ow_shell_import_v1",

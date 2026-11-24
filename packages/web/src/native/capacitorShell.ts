@@ -7,6 +7,14 @@ import { Capacitor, SystemBars, registerPlugin } from "@capacitor/core";
 import { goTo } from "../router";
 import { inAppPath } from "./appLinks";
 import { openExternalLinksInApp } from "./externalLinks";
+import {
+  BACKUP_PREFERENCE_KEY,
+  createBackupWriter,
+  restoreIfWiped,
+  watchStorageWrites,
+  type BackupDeps,
+} from "./nativeBackup";
+import { readPreference, writePreference } from "./plugins";
 import { recordShellLaunch } from "./reviewPrompt";
 import { systemBarsStyleFor } from "./systemBars";
 import {
@@ -87,7 +95,39 @@ function followTheme(): void {
   new MutationObserver(apply).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
 }
 
-export function runNativeShell(): Promise<void> {
+/**
+ * The copy of the reader's data in the native storage (see nativeBackup.ts).
+ * Resolves to true when the page is about to reload with restored data: the
+ * shell then starts nothing else, the reloaded page will.
+ */
+async function keepNativeBackup(): Promise<boolean> {
+  const storage = window.localStorage;
+  const deps: BackupDeps = {
+    storage,
+    readCopy: () => readPreference(BACKUP_PREFERENCE_KEY),
+    writeCopy: (value) => writePreference(BACKUP_PREFERENCE_KEY, value),
+    reload: () => window.location.reload(),
+  };
+  const writer = createBackupWriter(deps);
+  // Watching from the start, writing only once the restore has decided.
+  watchStorageWrites(storage, (key) => writer.changed(key));
+  const outcome = await restoreIfWiped(deps).catch(() => "unavailable" as const);
+  if (outcome === "restored") return true;
+  if (outcome === "unavailable") return false;
+  writer.start();
+  void writer.flush();
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") void writer.flush();
+  });
+  void App.addListener("pause", () => void writer.flush()).catch(() => undefined);
+  return false;
+}
+
+export async function runNativeShell(): Promise<void> {
+  // First: a page about to reload must not consume the URL the app was
+  // opened with, nor open Chrome for the import.
+  const reloading = await keepNativeBackup().catch(() => false);
+  if (reloading) return;
   followAppLinks();
   handleBackButton();
   followTheme();

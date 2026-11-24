@@ -51,6 +51,7 @@ describe("transfer policy", () => {
         "ow_geoloc_declined_v1",
         "ow_last_simulation_v1",
         "ow_marc_coverage_v1",
+        "ow_native_backup_v1",
         "ow_review_prompt_v1",
         "ow_shell_import_v1",
         "ow_waypoint_depths_v1",
