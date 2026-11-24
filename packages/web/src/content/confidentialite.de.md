@@ -3,14 +3,15 @@
 *Diese Seite ist eine Übersetzung. Maßgeblich ist im Fall von Abweichungen die
 französische Fassung ([/confidentialite](/confidentialite)).*
 
-*Letzte Aktualisierung: 12. September 2026*
+*Letzte Aktualisierung: 24. November 2026*
 
 OhMyWind ist ein quelloffener Planer für Segeltörns, verfügbar unter
-[ohmywind.fr](https://ohmywind.fr) und als Android-Anwendung. Verantwortlicher für die
+[ohmywind.fr](https://ohmywind.fr) und als mobile Anwendung. Verantwortlicher für die
 Verarbeitung ist der Verein Libramer (Verein ohne Erwerbszweck nach dem französischen
 Vereinsgesetz von 1901, RNA W751285736) mit Sitz in 51 rue Fondary, 75015 Paris,
-Frankreich. Die Android-Anwendung wird von Quentin Donnars herausgegeben und über
-Google Play vertrieben. Bei Fragen zu dieser Erklärung:
+Frankreich. Die mobilen Anwendungen werden je nach Store von Quentin Donnars oder vom
+Verein Libramer herausgegeben und in den App-Stores vertrieben: Der Eintrag jeder
+Anwendung nennt ihren Herausgeber. Bei Fragen zu dieser Erklärung:
 [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 Der Grundsatz: **OhMyWind hat weder Benutzerkonten noch eine Datenbank noch ein
@@ -32,7 +33,7 @@ Wenn Sie es erlauben, dient Ihr Standort ausschließlich dazu, die Karte zu zent
 und die Vorhersagen in Ihrer Nähe abzurufen. Er wird für die Dauer der Beantwortung der
 Anfrage an die unten aufgeführten Wetter- und Kartendienste übermittelt und von
 OhMyWind niemals gespeichert. Die Berechtigung ist optional und jederzeit in den
-Einstellungen Ihres Browsers oder von Android widerrufbar.
+Einstellungen Ihres Browsers oder Ihres Telefons widerrufbar.
 
 ### Törnpläne und Einstellungen
 
@@ -43,7 +44,7 @@ werden sie an EMODnet gesendet, um die Wassertiefe anzuzeigen; wenn Sie eine
 Passageberechnung starten, werden sie an das OhMyWind-Backend (gehostet bei Hugging
 Face) gesendet, um die Berechnung durchzuführen, im Arbeitsspeicher verarbeitet und
 anschließend vergessen. Das Löschen der Website-Daten in Ihrem Browser (oder der
-Anwendungsdaten unter Android) entfernt alles.
+Anwendungsdaten in den Einstellungen Ihres Telefons) entfernt alles.
 
 ## Drittdienste
 
@@ -68,9 +69,9 @@ eigenen Datenschutzerklärungen (Links in der Tabelle).
 Die Schriftarten werden von ohmywind.fr ausgeliefert: Das Anzeigen einer Seite sendet
 keine Anfrage an Google Fonts und damit auch keine IP-Adresse.
 
-## Android-Berechtigungen
+## Berechtigungen der mobilen Anwendung
 
-Die Android-Anwendung verlangt eine einzige Berechtigung: den **Standort**, der für die
+Die mobile Anwendung verlangt eine einzige Berechtigung: den **Standort**, der für die
 oben beschriebenen Zwecke an die Website delegiert wird. Sie ist optional: Die
 Anwendung funktioniert auch ohne sie, dann genügt es, einen Ort manuell zu suchen.
 

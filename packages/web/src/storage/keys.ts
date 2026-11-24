@@ -89,6 +89,9 @@ export const SESSION_STORAGE_KEYS = {
   /** Waypoints drawn but not yet computed, so a service worker update or a
       reload does not throw away work in progress. */
   planDraft: "ow_plan_draft_v1",
+  /** `"1"` in a tab the Android TWA opened. Its launch referrer is only
+      there on the first load, a reload would lose it. See `install/platform.ts`. */
+  storeApp: "ow_store_app",
 } as const;
 
 /**

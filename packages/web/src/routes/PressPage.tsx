@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useMemo } from "react";
-import { PRESS_ARTICLES, PRESS_RELEASES, type PressArticle, type PressRelease } from "../content/press";
+import { PRESS_ARTICLES, PRESS_RELEASES, releaseLead, type PressArticle, type PressRelease } from "../content/press";
+import { inStoreApp } from "../install/platform";
 import { LANG_NAMES, LOCALE_BY_LANG, rich, useT, type Lang } from "../i18n";
 import "./press.css";
 
@@ -135,7 +136,7 @@ function ReleaseCard({ release }: { release: PressRelease }) {
       <h2 id="press-release-card-title" className="press-card-title">
         <a href={href}>{release.title}</a>
       </h2>
-      <p className="press-release-card-lead">{release.lead}</p>
+      <p className="press-release-card-lead">{releaseLead(release, inStoreApp())}</p>
       <p className="press-card-actions">
         <a className="press-card-cta" href={href}>
           {t("press.release.read")}

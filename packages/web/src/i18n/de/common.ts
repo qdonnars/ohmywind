@@ -27,7 +27,7 @@ export const common: Record<keyof typeof frCommon, string> = {
   "common.nav.whatsNew.title": "Neuigkeiten",
   "common.nav.whatsNew.unseen": "Neue Version",
   "common.whatsNew.intro":
-    "Was sich in OhMyWind geändert hat, von der neuesten Version bis zur ältesten. Website und MCP-Server teilen eine Versionsnummer, die Android-App hat ihre eigene. Die Versionshinweise sind auf Englisch.",
+    "Was sich in OhMyWind geändert hat, von der neuesten Version bis zur ältesten. Website und MCP-Server teilen eine Versionsnummer, die mobilen Apps haben ihre eigene. Die Versionshinweise sind auf Englisch.",
   "common.whatsNew.current": "Aktuelle Version",
   "common.whatsNew.upcoming": "In Vorbereitung",
   "common.whatsNew.allReleases": "Alle Versionen auf GitHub",

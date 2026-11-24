@@ -41,4 +41,23 @@ describe("WhatsNewPage", () => {
     render(<WhatsNewPage />);
     expect(localStorage.getItem(LOCAL_STORAGE_KEYS.whatsNewSeen)).toBe(APP_VERSION);
   });
+
+  it("inside the app, leaves out the notes about a platform or a store", () => {
+    (window as { Capacitor?: unknown }).Capacitor = { isNativePlatform: () => true };
+    try {
+      const { container } = render(<WhatsNewPage />);
+      const notes = container.querySelector("main")?.textContent ?? "";
+      expect(notes).not.toMatch(/android|google play|play store|iphone|\bios\b/i);
+      // The rest of the log is all there.
+      expect(container.querySelectorAll("article").length).toBeGreaterThan(10);
+      expect(screen.getByRole("link", { name: "#429" })).toBeTruthy();
+    } finally {
+      delete (window as { Capacitor?: unknown }).Capacitor;
+    }
+  });
+
+  it("on the site, keeps them", () => {
+    const { container } = render(<WhatsNewPage />);
+    expect(container.querySelector("main")?.textContent).toMatch(/Android/);
+  });
 });
