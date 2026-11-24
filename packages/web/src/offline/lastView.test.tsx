@@ -9,6 +9,7 @@ import {
   isOnResumedPlan,
   lastViewOf,
   loadLastView,
+  markRestoredLaunch,
   parseLastView,
   resumeTarget,
   startLastViewTracking,
@@ -62,6 +63,12 @@ describe("resumeTarget", () => {
     expect(resumeTarget({ ...launch, appLaunch: false })).toBeNull();
     expect(resumeTarget({ ...launch, navigationType: undefined })).toBe(PLAN);
   });
+
+  it("resumes on the reload the shell does after restoring a wiped storage", () => {
+    expect(resumeTarget({ ...launch, navigationType: "reload", restoredLaunch: true })).toBe(PLAN);
+    expect(resumeTarget({ ...launch, navigationType: "back_forward", restoredLaunch: true })).toBeNull();
+    expect(resumeTarget({ ...launch, navigationType: "reload", restoredLaunch: true, path: "/config" })).toBeNull();
+  });
 });
 
 describe("the remembered view", () => {
@@ -87,6 +94,8 @@ describe("startLastViewTracking", () => {
   });
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    sessionStorage.clear();
   });
 
   it("reopens the installed app on its plan, with the explorer under it for the back button", async () => {
@@ -138,6 +147,30 @@ describe("startLastViewTracking", () => {
     startLastViewTracking();
     navigate(PLAN);
     expect(isOnResumedPlan()).toBe(false);
+  });
+
+  it("resumes the plan on the shell's reload after a restore, once", () => {
+    localStorage.setItem(KEY, JSON.stringify({ view: "plan", url: PLAN }));
+    standalone(true);
+    const reload = [{ type: "reload" }] as unknown as PerformanceEntryList;
+    vi.spyOn(performance, "getEntriesByType").mockReturnValue(reload);
+
+    // A reload by the reader stays where it is.
+    startLastViewTracking();
+    expect(window.location.pathname).toBe("/");
+
+    // The shell's reload after putting the data back counts as the launch.
+    localStorage.setItem(KEY, JSON.stringify({ view: "plan", url: PLAN }));
+    markRestoredLaunch();
+    startLastViewTracking();
+    expect(getLocation().path).toBe("/plan");
+    expect(isOnResumedPlan()).toBe(true);
+
+    // The mark is spent: a later reload on / stays there.
+    window.history.replaceState(null, "", "/");
+    localStorage.setItem(KEY, JSON.stringify({ view: "plan", url: PLAN }));
+    startLastViewTracking();
+    expect(window.location.pathname).toBe("/");
   });
 
   it("stays on / in a browser tab", () => {

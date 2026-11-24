@@ -20,9 +20,11 @@ import { decodePayload, encodePayload, type TransferItems } from "../storage/tra
  *   backup". At start, no marker means the storage is new or was wiped: the
  *   marker is written first (so this can never loop), then each entry of the
  *   copy that `localStorage` lacks is written back, never one it already
- *   holds, and the page reloads once so every module reads the restored
- *   values. With the marker present nothing is restored, so data the reader
- *   deleted on purpose never comes back.
+ *   holds (save the last view, see `WRITTEN_AT_BOOT`), and the page reloads
+ *   once so every module reads the restored values, on the view the reader
+ *   left (`markRestoredLaunch` in `offline/lastView.ts`, called by the
+ *   shell's `reload`). With the marker present nothing is restored, so data
+ *   the reader deleted on purpose never comes back.
  * - It runs before the import from the former Android app
  *   (`shellImport.ts`): a restored storage carries that import's state, so
  *   Chrome is not opened a second time.
@@ -89,6 +91,14 @@ export const BACKUP_KEYS: readonly string[] = (Object.entries(BACKUP_POLICY) as 
   .map(([name]) => LOCAL_STORAGE_KEYS[name]);
 
 const BACKED_UP = new Set(BACKUP_KEYS);
+
+/**
+ * Entries the page writes at boot, before the restore had its look: the last
+ * view is recorded as soon as the page opens (`offline/lastView.ts`). In a
+ * wiped storage its value says where this launch opened, the explorer, not
+ * where the reader left: the copy's value wins.
+ */
+const WRITTEN_AT_BOOT: ReadonlySet<string> = new Set([LOCAL_STORAGE_KEYS.lastView]);
 
 function isBackedUp(key: string | null): boolean {
   return key === null || BACKED_UP.has(key);
@@ -162,7 +172,9 @@ export async function restoreIfWiped(deps: BackupDeps): Promise<RestoreOutcome> 
   let written = 0;
   for (const [key, value] of Object.entries(items)) {
     try {
-      if (deps.storage.getItem(key) !== null) continue;
+      const present = deps.storage.getItem(key);
+      if (present === value) continue;
+      if (present !== null && !WRITTEN_AT_BOOT.has(key)) continue;
       deps.storage.setItem(key, value);
       written += 1;
     } catch {

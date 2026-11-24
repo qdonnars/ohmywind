@@ -48,6 +48,7 @@ describe("storage key registry", () => {
       aboutReturnPath: "ow_about_return_to",
       planDraft: "ow_plan_draft_v1",
       storeApp: "ow_store_app",
+      restoredLaunch: "ow_restored_launch",
     });
   });
 

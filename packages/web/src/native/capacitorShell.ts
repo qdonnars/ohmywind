@@ -4,7 +4,7 @@
 import { App } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { Capacitor, SystemBars, registerPlugin } from "@capacitor/core";
-import { forgetResume, isOnResumedPlan } from "../offline/lastView";
+import { forgetResume, isOnResumedPlan, markRestoredLaunch } from "../offline/lastView";
 import { goTo } from "../router";
 import { inAppPath } from "./appLinks";
 import { backButtonAction } from "./backButton";
@@ -117,7 +117,11 @@ async function keepNativeBackup(): Promise<boolean> {
     storage,
     readCopy: () => readPreference(BACKUP_PREFERENCE_KEY),
     writeCopy: (value) => writePreference(BACKUP_PREFERENCE_KEY, value),
-    reload: () => window.location.reload(),
+    // The reloaded page resumes the plan the reader left, as a launch would.
+    reload: () => {
+      markRestoredLaunch();
+      window.location.reload();
+    },
   };
   const writer = createBackupWriter(deps);
   // Watching from the start, writing only once the restore has decided.
