@@ -54,11 +54,15 @@ class Settings:
             ``openwind_data.adapters.budget``.
         route_repair: ``OPENWIND_ROUTE_REPAIR``, ``off`` by default: every
             route is planned as drawn, and no repair worker is built.
-            ``compute``: a route that crosses land where a shoreline grid
-            holds it is repaired before it is planned (``suggest`` is the MCP
-            server's variant and repairs the same way here).
-        route_grids_dir: ``OPENWIND_ROUTE_GRIDS_DIR``, empty for the grids
-            bundled with ``openwind_data``.
+            ``compute``: a route that crosses land where the land tiles hold
+            it is repaired before it is planned (``suggest`` is the MCP
+            server's variant and repairs the same way here). The web app
+            repairs its routes itself and does not depend on this.
+        route_grids_dir: ``OPENWIND_ROUTE_GRIDS_DIR``, a directory holding an
+            archive of land tiles (``*.owlt``, the world's for instance);
+            empty for the one bundled with ``openwind_data``, France and the
+            coasts around it. The archive is served to the web app under
+            ``/api/v1/land-tiles`` whatever ``route_repair`` says.
     """
 
     marc_atlas_dir: str = ""

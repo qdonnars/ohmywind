@@ -82,8 +82,8 @@ class PassageRequest:
     model_chain: tuple[str, ...] | None
     adapter: CacheBackedAdapter | None
     # ``repair_route`` (default true): whether the server may repair a route
-    # that crosses land before planning it. The web app sends false for
-    # « Revenir à mon tracé ».
+    # that crosses land before planning it. The web app always sends false:
+    # it repairs the route itself, in the browser.
     repair: bool = True
     # The chain the ``models`` field asked for, before a ``forecast_cache``
     # replaced it with the models it sampled: a repaired route is planned

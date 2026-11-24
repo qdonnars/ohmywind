@@ -133,8 +133,8 @@ def test_a_route_at_sea_is_unchanged_and_no_grid_means_none():
     assert repair_route(FineLand(), route) is None
 
 
-def test_marseille_to_porquerolles_on_the_bundled_grid_says_each_change_twice():
-    """The real Provence grid: each change once in English, once as a coded notice."""
+def test_marseille_to_porquerolles_on_the_bundled_tiles_says_each_change_twice():
+    """The real shoreline: each change once in English, once as a coded notice."""
     from openwind_data.routing.auto_route.repair import BUNDLED_GRIDS_DIR
 
     fine = FineLand.from_directory(BUNDLED_GRIDS_DIR)

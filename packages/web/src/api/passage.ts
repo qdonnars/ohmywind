@@ -18,6 +18,14 @@ import {
   parsePassageResponse,
 } from "./parse";
 
+/**
+ * `repair_route` of every passage request: the server plans the route as
+ * sent. A route that crosses land is repaired here, in the browser, before
+ * the request (`plan/repair`): the server gives the app its land tiles, not
+ * a route of its own.
+ */
+const PLAN_AS_SENT = false;
+
 // Plan-time overrides driven by the user's /config preferences. Both are
 // optional — when omitted, the server falls back to its bundled archetype
 // polar and the hard-coded AUTO model chain. The shape mirrors what the
@@ -338,10 +346,6 @@ export async function fetchPassage(params: {
       page, the request in flight is dropped instead of racing the new one to
       the reducer. Omitted everywhere else, where the previous behaviour of
       never cancelling is still what is wanted. */
-  /** `false` asks the server to plan the route as drawn, never repaired
-      (« Revenir à mon tracé »). Omitted, the server repairs a route that
-      crosses land where it can, and says so in `repaired_route`. */
-  repairRoute?: boolean;
   signal?: AbortSignal;
 }): Promise<PassageResponse> {
   const body: Record<string, unknown> = {
@@ -353,7 +357,7 @@ export async function fetchPassage(params: {
   if (params.overrides?.models?.length) body["models"] = params.overrides.models;
   if (params.overrides?.polar) body["polar"] = params.overrides.polar;
   if (params.forecastCache) body["forecast_cache"] = params.forecastCache;
-  if (params.repairRoute === false) body["repair_route"] = false;
+  body["repair_route"] = PLAN_AS_SENT;
   const res = await postJson(`${API_BASE}/api/v1/passage`, body, params.signal);
   if (!res.ok) throw await toError(res);
   return parsePassageResponse(await res.json());
@@ -370,10 +374,6 @@ export async function fetchPassageWindows(params: {
   overrides?: PlanOverrides;
   forecastCache?: ForecastCache;
   /** See `fetchPassage`. */
-  /** `false` asks the server to plan the route as drawn, never repaired
-      (« Revenir à mon tracé »). Omitted, the server repairs a route that
-      crosses land where it can, and says so in `repaired_route`. */
-  repairRoute?: boolean;
   signal?: AbortSignal;
 }): Promise<MultiWindowResponse> {
   const body: Record<string, unknown> = {
@@ -388,7 +388,7 @@ export async function fetchPassageWindows(params: {
   if (params.overrides?.models?.length) body["models"] = params.overrides.models;
   if (params.overrides?.polar) body["polar"] = params.overrides.polar;
   if (params.forecastCache) body["forecast_cache"] = params.forecastCache;
-  if (params.repairRoute === false) body["repair_route"] = false;
+  body["repair_route"] = PLAN_AS_SENT;
 
   const res = await postJson(`${API_BASE}/api/v1/passage`, body, params.signal);
   if (!res.ok) throw await toError(res);
@@ -403,10 +403,6 @@ export async function fetchPassageByEta(params: {
   overrides?: PlanOverrides;
   forecastCache?: ForecastCache;
   /** See `fetchPassage`. */
-  /** `false` asks the server to plan the route as drawn, never repaired
-      (« Revenir à mon tracé »). Omitted, the server repairs a route that
-      crosses land where it can, and says so in `repaired_route`. */
-  repairRoute?: boolean;
   signal?: AbortSignal;
 }): Promise<PassageByEtaResponse> {
   const body: Record<string, unknown> = {
@@ -418,7 +414,7 @@ export async function fetchPassageByEta(params: {
   if (params.overrides?.models?.length) body["models"] = params.overrides.models;
   if (params.overrides?.polar) body["polar"] = params.overrides.polar;
   if (params.forecastCache) body["forecast_cache"] = params.forecastCache;
-  if (params.repairRoute === false) body["repair_route"] = false;
+  body["repair_route"] = PLAN_AS_SENT;
 
   const res = await postJson(`${API_BASE}/api/v1/passage-by-eta`, body, params.signal);
   if (!res.ok) throw await toError(res);

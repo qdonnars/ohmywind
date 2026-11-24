@@ -28,6 +28,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from openwind_api.access import AccessLogMiddleware
 from openwind_api.routes.archetypes import api_archetypes, api_client_debug
 from openwind_api.routes.health import healthz
+from openwind_api.routes.land_tiles import api_land_tile, api_land_tiles_index
 from openwind_api.routes.landing import ICON_REDIRECTS, icon_redirect, index, static_asset_route
 from openwind_api.routes.marine import (
     api_land,
@@ -161,6 +162,8 @@ def create_app(
         Route("/api/v1/marine/marc/coverage", api_marc_coverage, methods=["GET"]),
         Route("/api/v1/marine/marc/explain", api_marc_explain, methods=["GET"]),
         Route("/api/v1/marine/land", api_land, methods=["GET"]),
+        Route("/api/v1/land-tiles/index", api_land_tiles_index, methods=["GET"]),
+        Route("/api/v1/land-tiles/{archive}/{tx:int}/{ty:int}", api_land_tile, methods=["GET"]),
     ]
     if mcp_app is not None:
         routes.append(Mount("/", app=mcp_app))

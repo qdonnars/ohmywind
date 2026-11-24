@@ -10,7 +10,8 @@ Earth), ``depth`` from a bathymetry in metres below chart datum (positive is
 water depth, zero or negative is drying or land, NaN unknown). Building the
 grid from polygons happens offline; the engine only reads arrays.
 
-Spike code (issue #540): nothing in the API or the MCP server imports it.
+:class:`MercatorGrid` is the same raster cut from the world lattice of
+``land_tiles``, which is what the route repair searches.
 """
 
 from __future__ import annotations
@@ -19,6 +20,8 @@ import math
 from dataclasses import dataclass, field
 
 import numpy as np
+
+from openwind_data.routing.auto_route import land_tiles
 
 M_PER_DEG_LAT = 111_195.0
 
@@ -72,6 +75,47 @@ class NavGrid:
             return self._dist
         self._dist = chamfer_distance(self.land, self.pitch_m)
         return self._dist
+
+
+@dataclass
+class MercatorGrid(NavGrid):
+    """A window of the world lattice (``land_tiles``), each cell ``factor`` pixels a side.
+
+    Cell ``(r, c)`` covers lattice rows ``row0 + r * factor`` to
+    ``row0 + (r + 1) * factor`` and the same along the columns. The cells are
+    square on the ground; ``pitch`` is their side at the middle latitude of
+    the window, which the engine takes for the whole of it (over a window of
+    one degree of latitude at 47° N it is off by 1 % at the edges).
+    ``lat0``, ``lon0``, ``dlat`` and ``dlon`` describe the south-west corner
+    and the mean pitch, for a reader; nothing here computes with them.
+    """
+
+    row0: int = 0
+    col0: int = 0
+    factor: int = 1
+    pitch: float = 0.0
+
+    @property
+    def pitch_m(self) -> float:
+        return self.pitch
+
+    def rc(self, lat: float, lon: float) -> tuple[int, int]:
+        return (
+            math.floor((land_tiles.row_of(lat) - self.row0) / self.factor),
+            math.floor((land_tiles.col_of(lon) - self.col0) / self.factor),
+        )
+
+    def rc_float(self, lats: np.ndarray, lons: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        return (
+            (land_tiles.rows_of(lats) - self.row0) / self.factor,
+            (land_tiles.cols_of(lons) - self.col0) / self.factor,
+        )
+
+    def latlon(self, r: float, c: float) -> tuple[float, float]:
+        return (
+            land_tiles.lat_of(self.row0 + (r + 0.5) * self.factor),
+            land_tiles.lon_of(self.col0 + (c + 0.5) * self.factor),
+        )
 
 
 def chamfer_distance(mask: np.ndarray, pitch_m: float) -> np.ndarray:

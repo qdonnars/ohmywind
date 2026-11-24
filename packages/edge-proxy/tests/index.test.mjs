@@ -311,6 +311,40 @@ describe("edge cache", () => {
     );
   });
 
+  test("a land tile is stored at the edge, a missing one is not", async () => {
+    const tile = new Response(new Uint8Array([120, 156, 3, 0]), {
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
+    });
+    const { calls, ctx } = harness({ upstream: tile });
+    const response = await worker.fetch(
+      new Request(`${DEV}/api/v1/land-tiles/d1ea4c2f1594/248/335`),
+      {},
+      ctx,
+    );
+    await settle(calls);
+    assert.equal(response.status, 200);
+    assert.equal(calls.match.length, 1, "the edge cache is asked first");
+    assert.equal(calls.put.length, 1);
+    assert.match(calls.put[0].request.url, /land-tiles\/d1ea4c2f1594\/248\/335$/);
+
+    const missing = harness({
+      upstream: new Response("Not found", {
+        status: 404,
+        headers: { "Cache-Control": "no-store" },
+      }),
+    });
+    await worker.fetch(
+      new Request(`${DEV}/api/v1/land-tiles/000000000000/248/335`),
+      {},
+      missing.ctx,
+    );
+    await settle(missing.calls);
+    assert.equal(missing.calls.put.length, 0);
+  });
+
   test("query strings are part of the key, so /marine/marc caches per window", async () => {
     const { calls, ctx } = harness({
       upstream: json({ steps: [] }, {

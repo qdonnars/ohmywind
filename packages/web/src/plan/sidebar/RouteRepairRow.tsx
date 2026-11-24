@@ -29,9 +29,9 @@ function InfoIcon({ size = 12 }: { size?: number }) {
 }
 
 /**
- * The server repaired the route before computing it: the route drawn ran
- * over land, so an end was moved to the water or a leg retraced at sea. The
- * route on the map is the repaired one.
+ * The route was repaired before it was computed: the route drawn ran over
+ * land, so an end was moved to the water or a leg retraced at sea (in the
+ * browser, see `plan/repair`). The route on the map is the repaired one.
  *
  * Folded into one line behind an « i », like the alerts under it: open, the
  * block took a quarter of a phone's drawer before the first leg. A tap

@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-"""Auto-route spike (issue #540): a draft route at sea from a departure and an arrival.
+"""A route at sea between two points, and the repair of a drawn route that crosses land.
 
-Prototype. The MCP server uses it to repair a route that crosses land
-(``repair``, ``dispatch``), only when ``OPENWIND_ROUTE_REPAIR`` asks for it.
+``engine`` searches a land grid for a way at sea; ``repair`` applies it to
+the legs of a route that run over land, on the shoreline of ``land_tiles``;
+``dispatch`` runs that in a worker process for the REST API and the MCP
+server. The web app runs the same repair in the browser, in TypeScript.
 """
 
 from openwind_data.routing.auto_route.engine import (
