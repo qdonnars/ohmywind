@@ -110,6 +110,10 @@ export const SESSION_STORAGE_KEYS = {
   /** `"1"` in a tab the Android TWA opened. Its launch referrer is only
       there on the first load, a reload would lose it. See `install/platform.ts`. */
   storeApp: "ow_store_app",
+  /** `"1"` across the reload the native shell does after restoring a wiped
+      storage, so that reload counts as the launch it interrupted. One-shot,
+      see `offline/lastView.ts`. */
+  restoredLaunch: "ow_restored_launch",
 } as const;
 
 /**

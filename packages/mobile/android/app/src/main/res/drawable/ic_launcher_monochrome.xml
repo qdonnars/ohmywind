@@ -1,8 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later
      SPDX-FileCopyrightText: 2026 Quentin Donnars -->
-<!-- Same geometry as ic_launcher_foreground, so the themed icon lines up with
-     the coloured one. -->
+<!-- Sized so the glyph of the themed icon matches the one of the coloured
+     icon. The two PWA icons do not draw it at the same scale: about 295 px
+     wide in icon-maskable-512.png, 190 px in icon-monochrome-512.png, both
+     centred. The maskable icon is shrunk to 72dp (ic_launcher_foreground),
+     so its glyph is 41.5dp wide; the monochrome one needs 72 x 295 / 190,
+     about 112dp, to draw the same glyph: 2dp past each side of the 108dp
+     layer, hence the negative inset (InsetDrawable only refuses fractions of
+     1 or more). Only the transparent margin of the PNG falls outside the
+     layer. Same 1.56 ratio by area and by radius of gyration, so the two
+     glyphs have the same shape. To redo if either icon changes. -->
 <inset xmlns:android="http://schemas.android.com/apk/res/android"
     android:drawable="@drawable/shell_icon_monochrome"
-    android:inset="16.667%" />
+    android:inset="-2%" />
