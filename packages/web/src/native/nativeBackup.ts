@@ -56,6 +56,8 @@ export const BACKUP_POLICY: Readonly<Record<LocalStorageKeyName, boolean>> = {
   theme: true,
   timezone: true,
   compare: true,
+  seamarks: true,
+  // Superseded, but a reader not yet carried over is migrated from them.
   seamarksExplore: true,
   seamarksPlan: true,
   lastSpot: true,

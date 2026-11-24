@@ -1,40 +1,60 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { LOCAL_STORAGE_KEYS } from "../storage/keys";
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useT } from '../i18n';
-import { applyTheme, getInitialMode } from './initialTheme';
-import { ThemeCtx, useTheme, type ThemeMode } from './useTheme';
-
-const STORAGE_KEY = LOCAL_STORAGE_KEYS.theme;
+import {
+  applyTheme,
+  readSystemTheme,
+  readThemePreference,
+  resolveTheme,
+  storeThemePreference,
+  subscribeSystemTheme,
+} from './initialTheme';
+import { ThemeCtx, useTheme, type ThemePreference } from './useTheme';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setModeState] = useState<ThemeMode>(getInitialMode);
+  const [preference, setPreferenceState] = useState<ThemePreference>(readThemePreference);
+  const [system, setSystem] = useState(readSystemTheme);
+  const resolvedTheme = resolveTheme(preference, system);
 
-  // Keeps the attribute in step with the state. The two other writers
-  // (applyInitialTheme, called from main.tsx, and setMode below) are there to
-  // beat an ordering, not to replace this one.
+  // Read by the system listener, which is subscribed once and must not
+  // resubscribe on every choice.
+  const preferenceRef = useRef(preference);
+
+  // Keeps the attribute in step with the state. The other writers
+  // (applyInitialTheme, called from main.tsx, setPreference and the system
+  // listener below) are there to beat an ordering, not to replace this one.
   useEffect(() => {
-    applyTheme(mode);
-  }, [mode]);
+    applyTheme(resolvedTheme);
+  }, [resolvedTheme]);
 
-  function setMode(m: ThemeMode) {
+  // Follows the device while the app is open. Only Auto repaints, but the
+  // setting is tracked in every mode, so switching back to Auto lands on
+  // what the device shows now, not on what it showed at launch.
+  useEffect(
+    () =>
+      subscribeSystemTheme((next) => {
+        // Before the re-render: see setPreference.
+        if (preferenceRef.current === 'auto') applyTheme(next);
+        setSystem(next);
+      }),
+    [],
+  );
+
+  function setPreference(p: ThemePreference) {
     // Written before the re-render, for the same reason as the initial stamp:
     // the map effects that resolve a token from the DOM run before the
     // provider's own effect, and would otherwise read the outgoing palette.
-    applyTheme(m);
-    setModeState(m);
-    try {
-      localStorage.setItem(STORAGE_KEY, m);
-    } catch {
-      // Storage denied: the theme still applies, it just will not survive a reload.
-    }
+    applyTheme(resolveTheme(p, system));
+    preferenceRef.current = p;
+    setPreferenceState(p);
+    storeThemePreference(p);
   }
 
   return (
-    <ThemeCtx.Provider value={{ mode, resolvedTheme: mode, setMode }}>
+    <ThemeCtx.Provider value={{ preference, resolvedTheme, setPreference }}>
       {children}
     </ThemeCtx.Provider>
   );
@@ -57,13 +77,15 @@ function MoonIcon() {
   );
 }
 
+/** Flips to the other palette from the one on screen, and stores it: from
+    Auto, this leaves Auto. */
 export function ThemeToggle() {
-  const { mode, setMode } = useTheme();
+  const { resolvedTheme: mode, setPreference } = useTheme();
   const { t } = useT();
   const label = mode === 'dark' ? t('explore.theme.toLight') : t('explore.theme.toDark');
   return (
     <button
-      onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')}
+      onClick={() => setPreference(mode === 'dark' ? 'light' : 'dark')}
       className="shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-sm font-semibold transition-colors"
       style={{ color: 'var(--ow-fg-1)', background: 'transparent' }}
       title={label}

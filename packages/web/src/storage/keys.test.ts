@@ -21,6 +21,7 @@ describe("storage key registry", () => {
       timezone: "ow_tz",
       lang: "ow_lang",
       geolocDeclined: "ow_geoloc_declined_v1",
+      seamarks: "ow_seamarks_v2",
       seamarksExplore: "ow_seamarks_explore_v1",
       seamarksPlan: "ow_seamarks_plan_v1",
       marcCoverage: "ow_marc_coverage_v1",
