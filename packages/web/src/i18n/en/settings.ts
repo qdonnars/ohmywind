@@ -40,7 +40,7 @@ export const settings: Record<keyof typeof frSettings, string> = {
   "settings.boat.pointTuned": "Angle {twa}°, {speed}\u00a0kn, tuned",
 
   "settings.forecast.note":
-    "The models fill the table on the map; the boat is used for all your passage plans.",
+    "The models fill the table on the map and, in this order, are used to compute your passage plans. The boat is used for all your plans.",
   "settings.storageNote":
     "OhMyWind has no accounts: your preferences stay on this device. Changing device or clearing the site's data makes them disappear.",
   "settings.lang.note":

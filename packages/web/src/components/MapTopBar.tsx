@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import type { Spot } from "../types";
 import { LG_MEDIA_QUERY, useMediaQuery } from "../hooks/useMediaQuery";
 import { NavMenu, type NavDestination } from "./NavMenu";
@@ -24,6 +24,11 @@ interface MapTopBarProps {
   nearLat?: number | null;
   nearLon?: number | null;
   savedSpots?: Spot[];
+  /** What the page hangs under the bar, in the middle, after the offline
+      banner (on the planner: the way back to a comparison, the undo of a
+      removed waypoint). It keeps out of the column of controls on the
+      right, like the banner. */
+  under?: ReactNode;
 }
 
 /**
@@ -57,6 +62,7 @@ export function MapTopBar({
   nearLat,
   nearLon,
   savedSpots,
+  under,
 }: MapTopBarProps) {
   // The menu and the search are mounted once, in one layout or the other:
   // one control for assistive technology, one ref for the onboarding card.
@@ -92,8 +98,9 @@ export function MapTopBar({
           <SettingsButton variant="floating" />
         </div>
       )}
-      <div className="ow-chrome-under absolute z-[400] flex justify-center pointer-events-none">
+      <div className="ow-chrome-under absolute z-[400] flex flex-col items-center gap-2 pointer-events-none">
         <OfflineBanner floating />
+        {under}
       </div>
     </>
   );

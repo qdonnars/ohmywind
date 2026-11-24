@@ -55,4 +55,18 @@ describe("MapTopBar", () => {
     expect(screen.queryByRole("button", { name: /thème/ })).toBeNull();
     expect(screen.getAllByRole("button")).toHaveLength(2);
   });
+
+  it("hangs what the page hands it under the bar, after the offline banner", () => {
+    screenIsWide(false);
+    render(
+      <MapTopBar
+        current="plan"
+        mapQuery=""
+        onSelectSpot={vi.fn()}
+        under={<p>Point 2 supprimé</p>}
+      />,
+    );
+    const note = screen.getByText("Point 2 supprimé");
+    expect(note.closest(".ow-chrome-under")).toBeTruthy();
+  });
 });

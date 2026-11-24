@@ -44,7 +44,7 @@ export const settings = {
   "settings.boat.pointTuned": "Angle {twa}°, {speed}\u00a0kn, ajusté",
 
   "settings.forecast.note":
-    "Les modèles remplissent le tableau de la carte ; le bateau sert à tous vos plans de passage.",
+    "Les modèles remplissent le tableau de la carte et servent, dans cet ordre, au calcul de vos plans de passage. Le bateau sert à tous vos plans.",
   "settings.storageNote":
     "OhMyWind n'a pas de compte : vos préférences restent sur cet appareil. Changer d'appareil ou effacer les données du site les fait disparaître.",
   "settings.lang.note":

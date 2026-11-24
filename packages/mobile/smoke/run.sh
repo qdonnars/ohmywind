@@ -21,8 +21,9 @@
 #                the service worker
 #   4-plan       server up again, the probe opens /plan with a route: the
 #                page fits the screen (not scrolled, document not scrollable,
-#                header at the top, its content below the status bar) and
-#                still does with the drawer at its highest setting
+#                no header: the map runs under the status bar, the bar
+#                floating over it stays below) and still does with the
+#                drawer at its highest setting
 #
 #   android: APK=<path> smoke/run.sh android   (emulator booted, adb on PATH)
 #   ios:     APP_PATH=<App.app> UDID=<id> smoke/run.sh ios   (simulator booted)
@@ -252,7 +253,8 @@ since=$(now_ms)
 launch
 expect_stage "$stage" "$since" 90 native=true appMounted=true href='~/plan?' \
   layout.shifted=false layout.documentScrolls=false layout.columnOverflows=false \
-  layout.chromeClearsInset=true layout.planStress.columnOverflows=false
+  layout.chrome.kind=floating layout.chrome.mapToTop=true layout.chromeClearsInset=true \
+  layout.planStress.columnOverflows=false
 rm -f "$goto"
 stop_app
 
