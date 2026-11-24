@@ -68,6 +68,7 @@ import type { InitialSession } from "./initial";
 import { defaultSweepLatest, tomorrowRoundedLocal } from "./initial";
 import { toNaiveLocal } from "../../domain/datetime";
 import { applyCacheCommand, applyUrlWrite, resyncUrl, syncDraft } from "./persist";
+import { notePlanComputed } from "../../native/reviewPrompt";
 
 // Build the plan-time overrides payload from current /config preferences.
 // Read at request time (not at mount) so a /config tweak takes effect on the
@@ -342,6 +343,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
             forecastUpdatedAt: res.forecast_updated_at,
             repairedRoute: res.repaired_route,
           });
+          notePlanComputed();
         })
         .catch((error: unknown) => onFailure(requestId, error));
     },
@@ -460,6 +462,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
           forecastUpdatedAt: res.forecast_updated_at,
           repairedRoute: res.repaired_route,
         });
+        notePlanComputed();
       })
       .catch((error: unknown) => onFailure(requestId, error));
   }, [startRequest, onFailure]);

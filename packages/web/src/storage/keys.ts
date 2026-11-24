@@ -75,6 +75,10 @@ export const LOCAL_STORAGE_KEYS = {
   /** `"0"` when the reader turned off "keep the screen on" for computed plans,
       `"1"` when turned back on; absent means on. Bare scalar. */
   keepAwake: "ow_keep_awake",
+  /** Native shell only: first launch of the app, plans computed and the app
+      version the store rating was last requested for. Written by the shell
+      only, never carried over nor restored. See `native/reviewPrompt.ts`. */
+  reviewPrompt: "ow_review_prompt_v1",
   /** Native shell only: where the one-shot import of the data left in Chrome
       by the former Android app stands. See `native/shellImport.ts`. */
   shellImport: "ow_shell_import_v1",

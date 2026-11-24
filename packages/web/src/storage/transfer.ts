@@ -60,6 +60,9 @@ export const TRANSFER_POLICY: Readonly<Record<LocalStorageKeyName, TransferDecis
   geolocDeclined: SKIP,
   // The bridge's own bookkeeping, specific to each storage.
   shellImport: SKIP,
+  // Counted from the first launch of the new app on purpose: a date brought
+  // from elsewhere could let the rating request come before its delay.
+  reviewPrompt: SKIP,
 };
 
 /** Storage names that transfer, most precious first. */

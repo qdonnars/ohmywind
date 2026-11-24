@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { App } from "@capacitor/app";
 import { Haptics, ImpactStyle } from "@capacitor/haptics";
+import { InAppReview } from "@capacitor-community/in-app-review";
 import { KeepAwake } from "@capacitor-community/keep-awake";
 
 /**
@@ -23,4 +25,14 @@ export function keepScreenOn(): Promise<void> {
 
 export function allowScreenOff(): Promise<void> {
   return KeepAwake.allowSleep();
+}
+
+/** The store decides whether a sheet shows; nothing says if it did. */
+export function requestStoreReview(): Promise<void> {
+  return InAppReview.requestReview();
+}
+
+/** Version of the installed app (the shell), not of the site. */
+export async function shellVersion(): Promise<string> {
+  return (await App.getInfo()).version;
 }

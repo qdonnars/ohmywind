@@ -7,6 +7,7 @@ import { Capacitor, SystemBars, registerPlugin } from "@capacitor/core";
 import { goTo } from "../router";
 import { inAppPath } from "./appLinks";
 import { openExternalLinksInApp } from "./externalLinks";
+import { recordShellLaunch } from "./reviewPrompt";
 import { systemBarsStyleFor } from "./systemBars";
 import {
   generateNonce,
@@ -91,6 +92,11 @@ export function runNativeShell(): Promise<void> {
   handleBackButton();
   followTheme();
   openExternalLinksInApp(window, (url) => Browser.open({ url }));
+  try {
+    recordShellLaunch(window.localStorage, Date.now());
+  } catch {
+    /* storage blocked: no first launch, so never a rating request */
+  }
   return startShellImport(capacitorDeps());
 }
 
