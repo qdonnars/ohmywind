@@ -35,7 +35,7 @@ import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
 import { useT } from "../i18n";
 import { useKeepScreenOn } from "../hooks/useKeepScreenOn";
 import { usePointerWording } from "../hooks/usePointerWording";
-import { MAP_MIN_PX } from "../components/mapControlsLayout";
+import { MAP_MIN_PX, ZOOM_MIN_FRAME_PX } from "../components/mapControlsLayout";
 import { loadKeepAwakeEnabled } from "../config/keepAwakePreference";
 
 // ── ResizableMobileDrawer ────────────────────────────────────────────────────
@@ -737,6 +737,10 @@ export function PlanPage() {
             depths={waypointDepths}
             highlightedSegmentRange={drawing ? null : highlightedSegmentRange}
             focusedSegmentIdx={drawing ? null : focusedSegmentIdx}
+            // Under the chart toggle, in the column of the map's controls
+            // (#470). Mouse and trackpad only, and only on a map tall enough
+            // to hold them above the locate button.
+            zoomButtons={{ className: "top-[68px] right-3", minFrameHeight: ZOOM_MIN_FRAME_PX }}
           />
           {/* Navigation menu — same control, same corner as on the home
               map; the camera travels with its links so going back to the
@@ -752,9 +756,10 @@ export function PlanPage() {
           {/* Marine-chart toggle — top right, the corner a layer control
               conventionally lives in, and the only one free on this page:
               the menu owns the top left and the locate button plus its
-              error bubble own the bottom right. Together they make one
-              column along the right edge, which the hints and the framing
-              of a route keep clear of (see components/mapControlsLayout.ts). */}
+              error bubble own the bottom right. With the zoom buttons
+              between them, they make one column along the right edge,
+              which the hints and the framing of a route keep clear of
+              (see components/mapControlsLayout.ts). */}
           <SeamarkButton enabled={seamarks} onToggle={toggleSeamarks} className="top-3 right-3" />
           {/* Scale of the track's tints, once a passage is drawn. Wide
               screens only: on a phone the map is a strip above the drawer,

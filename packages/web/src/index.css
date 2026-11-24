@@ -798,6 +798,14 @@ path.ow-spot-marker:focus-visible {
   white-space: nowrap;
 }
 
+/* ── Zoom buttons of the maps (#470) ─────────────────────────── */
+/* Drawn inside the capsule: the default ring would be clipped by its
+   rounded, overflow-hidden edge. */
+.ow-map-zoom button:focus-visible {
+  outline: 2px solid var(--ow-accent);
+  outline-offset: -3px;
+}
+
 /* ── Theme-aware table header ────────────────────────────────── */
 .ow-tbl-bg {
   background: var(--ow-bg-1);

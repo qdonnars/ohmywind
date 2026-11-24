@@ -337,6 +337,9 @@ function App() {
           metric={effectiveView}
           selectedHour={selectedHour}
           showSeamarks={seamarks}
+          // Under the chart toggle, at the top of the column of controls
+          // along the right edge (#470). Mouse and trackpad only.
+          zoomButtons={{ className: "top-[68px] right-3" }}
         />
         {/* Marine-chart toggle — top right, the corner a layer control
             conventionally lives in, and the one free corner here: the
