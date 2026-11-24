@@ -38,13 +38,42 @@
     return insets;
   }
 
+  // Whether the document really scrolls, tried rather than computed: scroll
+  // to the bottom, let the page settle, read where it is, come back. Read
+  // after two frames and not at once: WebKit on iOS answers `scrollY` with
+  // the position just asked for, even one the page cannot reach (a document
+  // exactly as tall as the screen reported 874 there, 2026-11-24), and only
+  // the settled value says where the page ended up.
+  function settledScroll() {
+    return new Promise(function (resolve) {
+      var scroller = document.scrollingElement || document.documentElement;
+      var startY = window.scrollY;
+      var done = false;
+      function finish() {
+        if (done) return;
+        done = true;
+        var y = window.scrollY;
+        window.scrollTo(0, startY);
+        resolve({ y: y });
+      }
+      window.scrollTo(0, scroller.scrollHeight);
+      window.requestAnimationFrame(function () {
+        window.requestAnimationFrame(function () {
+          window.setTimeout(finish, 120);
+        });
+      });
+      // A page in the background gets no frame: never hold the report.
+      window.setTimeout(finish, 1000);
+    });
+  }
+
   // Page geometry as the WebView lays it out: whether the document or the
   // page's own column (the h-dvh root of the map pages) is scrolled, and
   // where the header sits against the top safe-area inset. On /plan it also
   // opens the drawer to its highest setting (90 vh) for one synchronous
   // measure, restored before anything paints: the column must still fit the
   // screen, or an in-page scroll shifts the whole page up (iPhone, 2026-11).
-  function layout() {
+  function layout(settled) {
     var column = document.querySelector("#root .h-dvh");
     var header = document.querySelector(".app-header");
     var vv = window.visualViewport;
@@ -52,23 +81,19 @@
       return !!column && column.scrollHeight - column.clientHeight > 1;
     }
     var headerRect = header ? header.getBoundingClientRect() : null;
-    // How far the document itself can scroll, tried rather than computed:
-    // an absolutely positioned element that escapes a scroll container
-    // (a `sr-only` text in a static cell) lengthens the document without
-    // overflowing the column (QA of 2026-11-24). Restored at once, before
-    // anything paints.
     var scroller = document.scrollingElement || document.documentElement;
-    var startY = window.scrollY;
-    window.scrollTo(0, scroller.scrollHeight);
-    var documentScrollMax = window.scrollY;
-    window.scrollTo(0, startY);
     var result = {
       scrollY: window.scrollY,
       innerHeight: window.innerHeight,
       visualViewport: vv ? { height: vv.height, offsetTop: vv.offsetTop, pageTop: vv.pageTop } : null,
       docScrollHeight: document.documentElement.scrollHeight,
-      documentScrollMax: documentScrollMax,
-      documentScrolls: documentScrollMax > 0 || scroller.scrollHeight - window.innerHeight > 1,
+      // How far the document itself scrolls: by its geometry, and by trying
+      // (see settledScroll). An absolutely positioned element that escapes a
+      // scroll container (a `sr-only` text in a static cell) lengthens the
+      // document without overflowing the column (QA of 2026-11-24).
+      documentOverflow: scroller.scrollHeight - window.innerHeight,
+      documentScrollSettled: settled ? settled.y : null,
+      documentScrolls: scroller.scrollHeight - window.innerHeight > 1 || (!!settled && settled.y > 0),
       column: column
         ? { clientHeight: column.clientHeight, scrollHeight: column.scrollHeight, scrollTop: column.scrollTop }
         : null,
@@ -226,7 +251,7 @@
 
   function snapshot(seq) {
     var cap = window.Capacitor;
-    return Promise.all([registration(), appInfo(cap), plugins(cap)]).then(function (results) {
+    return Promise.all([registration(), appInfo(cap), plugins(cap), settledScroll()]).then(function (results) {
       var reg = results[0];
       var sw = navigator.serviceWorker;
       var root = document.getElementById("root");
@@ -263,7 +288,7 @@
         appMounted: !!(root && root.childElementCount > 0),
         title: document.title,
         insets: safeAreaInsets(),
-        layout: layout(),
+        layout: layout(results[3]),
         viewport: { width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio },
         shellImport: shellImport,
         online: navigator.onLine,
