@@ -51,7 +51,7 @@ export const panel = {
   "panel.results.recapDeparture": "Départ : {day} · {time}",
   "panel.results.recapArrival": "Arrivée : {day} · {time}",
   "panel.results.stale":
-    "Itinéraire modifié. Cliquez sur Recalculer pour mettre à jour les détails.",
+    "Itinéraire modifié. Recalculez pour mettre à jour les détails.",
   "panel.results.forecastUpdated": "Prévisions du {when} · Open-Meteo.com (CC BY 4.0)",
 
   // ── LinkSettingsRow ───────────────────────────────────────────────────────

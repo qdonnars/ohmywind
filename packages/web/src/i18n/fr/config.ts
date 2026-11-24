@@ -193,7 +193,7 @@ export const config = {
   "config.docs.tidalCurrents": "Courants de marée",
 
   // La carte des sources de courants de marée de /methodologie (TidalSourcesMap).
-  "config.methodo.tidal.hint": "Cliquez sur la mer : la fiche indique la source que l'application utilise à cet endroit, telle que le serveur la choisit.",
+  "config.methodo.tidal.hint": "Choisissez un point en mer : la fiche indique la source que l'application utilise à cet endroit, telle que le serveur la choisit.",
   "config.methodo.tidal.fullscreen.enter": "Afficher la carte en plein écran",
   "config.methodo.tidal.fullscreen.exit": "Quitter le plein écran",
   "config.methodo.tidal.fullscreen.ramp": "0,5 à 5 kt et plus",

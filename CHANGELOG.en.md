@@ -4,6 +4,31 @@ Every OhMyWind release, newest first. The ohmywind.fr site and the MCP server sh
 
 This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the reference. Each release is also published on the repository's [Releases](https://github.com/qdonnars/ohmywind/releases) page, and the app shows this log on its "What's new" page.
 
+## 1.16.0 · Next release · Routes redrawn at sea by the app, and figures that add up
+
+### New
+
+- A route drawn across a peninsula or an island is redrawn at sea before the computation, on your device: the "Route adjusted" box says so and "Back to my route" undoes it. The covered area runs from Lisbon to Rotterdam with the south of England, and from Alicante to Naples with the Balearics, Corsica and Sardinia (#573, #586).
+- With a mouse, + and − buttons zoom the map of the explorer and of the planner (#470, #587).
+
+### Fixes
+
+- The figures of a plan add up as printed: the speed build-up matches the speed, the legs sum to the total, and durations match the departure and arrival times, in the comparison of departures too (#532, #583).
+- On a phone, text fields and their buttons stay visible above the keyboard: new spot, renaming, search, settings (#569, #584).
+- A saved spot is no longer framed by a square when you touch it (#545, #584).
+- In the comparison of spots, a favourite placed inland no longer shows waves: the row says "Inland" (#480, #582).
+- In the planner on a phone, the drawer pulled to its maximum leaves the map visible, and the map buttons no longer overlap or hide the hint and the arrival (#579, #587).
+- The map hints say tap on a touch screen and click with a mouse, in all five languages (#579, #587).
+- The place search no longer runs again every time the map moves (#579, #587).
+- The settings say your preferences stay on the device, with no mention of cookies (#579, #587).
+- In the app, after its data has been cleared, the copy kept by the phone reopens the plan in progress directly (#579, #585).
+- On iPhone, from iOS 27, the position is asked for only once; this fix comes with the next version of the app (#571, #585).
+
+### Behind the scenes
+
+- The server no longer computes a detour for the app: it serves coastline tiles, and the route is drawn on the device, whatever the load on the server (#586).
+- A test now refuses any binary file the server deployment could not carry (#590).
+
 ## 1.15.0 · 2026-11-24 · Offline at sea, and real mobile apps
 
 ### New
