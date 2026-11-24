@@ -19,8 +19,10 @@ import { useRouter } from "./router";
 // Les autres routes restent statiques : /plan est la destination principale,
 // la retarder d'un aller-retour reseau ne servirait rien.
 //
-// Elles sont aussi tenues hors du precache du service worker, donc leur chunk
-// peut manquer : hors ligne, l'import echoue. LazyPageBoundary porte le
+// Leur chunk est au precache du service worker (plugins/precache.ts, verifie
+// par tests/offlineRoutes.test.ts) : une fois le worker installe, chaque page
+// s'ouvre hors ligne. Avant cela (premiere visite coupee en route, navigateur
+// sans service worker), l'import peut echouer : LazyPageBoundary porte le
 // Suspense et rattrape cet echec, sinon l'erreur remonte jusqu'a la racine et
 // React demonte toute l'application.
 //
@@ -35,8 +37,7 @@ const loadConfidentialite = () =>
   import("./routes/ConfidentialitePage").then((m) => ({ default: m.ConfidentialitePage }));
 const loadConditions = () => import("./routes/ConditionsPage").then((m) => ({ default: m.ConditionsPage }));
 // Le journal des versions tire lui aussi react-markdown et les deux
-// CHANGELOG : meme traitement que les pages de documentation, a la demande et
-// hors precache.
+// CHANGELOG : meme traitement que les pages de documentation, a la demande.
 const loadWhatsNew = () => import("./routes/WhatsNewPage").then((m) => ({ default: m.WhatsNewPage }));
 // La page « À propos » n'a ni carte ni markdown : petite, chargee a la
 // demande quand meme, puisque plus rien dans l'en-tete ne l'importe.
