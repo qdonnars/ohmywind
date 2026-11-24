@@ -12,6 +12,13 @@ export const common = {
   "common.days.one": "{count} jour",
   "common.days.other": "{count} jours",
 
+  // Prévisions gardées sur l'appareil (hors connexion) : leur date, et
+  // l'avertissement au-delà du seuil de offline/freshness.ts.
+  "common.forecast.dateAtTime": "{day} à {time}",
+  "common.forecast.from": "Prévisions du {when}",
+  "common.forecast.stale":
+    "Prévisions vieilles de plus de {hours} h : actualisez-les dès que le réseau revient.",
+
   // Menu de navigation : le burger et ses trois destinations
   "common.nav.open": "Ouvrir le menu",
   "common.nav.close": "Fermer le menu",
