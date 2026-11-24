@@ -343,7 +343,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.transfer.working": "Recuperando sus spots y ajustes…",
   "config.transfer.button": "Terminar en la aplicación",
   "config.transfer.unavailable":
-    "Esta página solo la usa la aplicación Android, para recuperar sus spots y ajustes. Aquí no hay nada que hacer.",
+    "Esta página solo la usa la aplicación móvil, para recuperar sus spots y ajustes. Aquí no hay nada que hacer.",
 
   "config.lazyPage.offlineTitle": "Esta página necesita conexión.",
   "config.lazyPage.offlineBody": "Vuelva a conectarse y recargue, o regrese al mapa.",

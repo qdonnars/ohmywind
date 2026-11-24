@@ -1,13 +1,11 @@
 # Conditions d'utilisation
 
-*Dernière mise à jour : 22 octobre 2026*
+*Dernière mise à jour : 24 novembre 2026*
 
 ## Éditeur
 
 OhMyWind est édité par l'association Libramer (association loi 1901, RNA W751285736),
-dont le siège social est situé 51 rue Fondary, 75015 Paris. L'application Android est
-distribuée sur Google Play par Quentin Donnars. Contact :
-[contact@ohmywind.fr](mailto:contact@ohmywind.fr).
+dont le siège social est situé 51 rue Fondary, 75015 Paris. Contact : [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 ## Le service
 
@@ -16,7 +14,7 @@ rassemble des prévisions publiques de vent, de vagues, de marées et de courant
 estime la durée et la difficulté d'un trajet.
 
 Ces conditions s'appliquent de la même façon à toutes les manières d'accéder au
-service : le site [ohmywind.fr](https://ohmywind.fr), l'application Android et le
+service : le site [ohmywind.fr](https://ohmywind.fr), les applications mobiles et le
 connecteur pour assistants IA (serveur MCP sur `mcp.ohmywind.fr`). Utiliser l'une de
 ces voies vaut acceptation de ces conditions.
 

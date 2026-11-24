@@ -3,14 +3,14 @@
 *Esta página es una traducción. En caso de discrepancia, la versión francesa
 ([/conditions](/conditions)) es la de referencia.*
 
-*Última actualización: 22 de octubre de 2026*
+*Última actualización: 24 de noviembre de 2026*
 
 ## Editor
 
-OhMyWind es editado por la asociación Libramer (asociación sin ánimo de lucro de
-derecho francés, «loi 1901», RNA W751285736), con sede en 51 rue Fondary, 75015 París,
-Francia. La aplicación Android se distribuye en Google Play a nombre de Quentin
-Donnars. Contacto: [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
+OhMyWind es editado por la asociación Libramer (asociación sin ánimo de lucro de derecho
+francés, «loi 1901», RNA W751285736), con sede en 51 rue Fondary, 75015 París, Francia.
+Contacto:
+[contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 ## El servicio
 
@@ -19,7 +19,7 @@ vela: reúne previsiones públicas de viento, olas, mareas y corrientes, y estim
 duración y la dificultad de un trayecto.
 
 Estas condiciones se aplican por igual a todas las vías de acceso al servicio: el sitio
-[ohmywind.fr](https://ohmywind.fr), la aplicación Android y el conector para
+[ohmywind.fr](https://ohmywind.fr), las aplicaciones móviles y el conector para
 asistentes de IA (servidor MCP en `mcp.ohmywind.fr`). Utilizar cualquiera de ellas
 supone aceptar estas condiciones.
 

@@ -3,14 +3,13 @@
 *This page is a translation. The French version ([/confidentialite](/confidentialite))
 is the reference in the event of any discrepancy.*
 
-*Last updated: 12 September 2026*
+*Last updated: 24 November 2026*
 
 OhMyWind is an open-source sailing passage planner, available at
-[ohmywind.fr](https://ohmywind.fr) and as an Android application. The data controller
-is the association Libramer (non-profit association under the French law of 1901, RNA
-W751285736), whose registered office is at 51 rue Fondary, 75015 Paris, France. The
-Android application is published and distributed on Google Play by Quentin Donnars. For
-any question relating to this policy: [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
+[ohmywind.fr](https://ohmywind.fr) and as a mobile application. The data controller is
+the association Libramer (non-profit association under the French law of 1901, RNA
+W751285736), whose registered office is at 51 rue Fondary, 75015 Paris, France. For any question relating to this policy:
+[contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 The general principle: **OhMyWind has no user accounts, no database and no audience
 measurement tool**. No personal data is kept on OhMyWind servers.
@@ -30,7 +29,7 @@ If you allow it, your location is used only to centre the map and to obtain the
 forecasts near you. It is transmitted to the weather and mapping services listed below
 for the time it takes to answer the request, and is never recorded by OhMyWind. The
 permission is optional and can be revoked at any time in the settings of your browser
-or of Android.
+or of your phone.
 
 ### Passage plans and settings
 
@@ -40,7 +39,7 @@ waypoints leave your device: as soon as a waypoint is placed on the planner map,
 are sent to EMODnet to display the sounding; when you start a passage estimate, they
 are sent to the OhMyWind backend (hosted on Hugging Face) to perform the calculation,
 processed in memory, then forgotten. Clearing the site data in your browser (or the
-application data in Android) deletes everything.
+application data in your phone's settings) deletes everything.
 
 ## Third-party services
 
@@ -65,9 +64,9 @@ policies (links in the table).
 The fonts are served from ohmywind.fr: displaying a page sends no request to Google
 Fonts, and therefore no IP address.
 
-## Android permissions
+## Mobile application permissions
 
-The Android application requests a single permission: **location**, delegated to the
+The mobile application requests a single permission: **location**, delegated to the
 website for the uses described above. It is optional: the application works without it,
 in which case you simply search for a place manually.
 

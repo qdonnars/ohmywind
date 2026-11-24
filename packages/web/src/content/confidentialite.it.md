@@ -3,15 +3,14 @@
 *Questa pagina è una traduzione. In caso di discordanza fa fede la versione francese
 ([/confidentialite](/confidentialite)).*
 
-*Ultimo aggiornamento: 12 settembre 2026*
+*Ultimo aggiornamento: 24 novembre 2026*
 
 OhMyWind è un pianificatore di navigazione a vela open source, disponibile su
-[ohmywind.fr](https://ohmywind.fr) e sotto forma di applicazione Android. Il titolare
-del trattamento è l'associazione Libramer (associazione senza scopo di lucro di diritto
+[ohmywind.fr](https://ohmywind.fr) e sotto forma di applicazione mobile. Il titolare del
+trattamento è l'associazione Libramer (associazione senza scopo di lucro di diritto
 francese, legge del 1901, RNA W751285736), con sede legale in 51 rue Fondary, 75015
-Parigi, Francia. L'applicazione Android è pubblicata e distribuita su Google Play da
-Quentin Donnars. Per qualsiasi domanda relativa alla presente informativa:
-[contact@ohmywind.fr](mailto:contact@ohmywind.fr).
+Parigi, Francia. Per qualsiasi domanda relativa alla
+presente informativa: [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 Il principio generale: **OhMyWind non ha account utente, né banca dati, né strumenti di
 misurazione del pubblico**. Nessun dato personale è conservato su server OhMyWind.
@@ -32,7 +31,7 @@ Se lo si autorizza, la posizione serve unicamente a centrare la mappa e a ottene
 previsioni nelle vicinanze. Viene trasmessa ai servizi meteo e cartografici elencati di
 seguito per il tempo necessario a rispondere alla richiesta e non viene mai registrata
 da OhMyWind. L'autorizzazione è facoltativa e revocabile in qualsiasi momento nelle
-impostazioni del browser o di Android.
+impostazioni del browser o del telefono.
 
 ### Piani di navigazione e impostazioni
 
@@ -43,7 +42,7 @@ punto viene posato sulla mappa del pianificatore, vengono inviate a EMODnet per
 mostrare il fondale; quando si avvia una stima di traversata, vengono inviate al
 backend OhMyWind (ospitato su Hugging Face) per eseguire il calcolo, trattate in
 memoria e poi dimenticate. Cancellare i dati del sito nel browser (o i dati
-dell'applicazione in Android) elimina tutto.
+dell'applicazione nelle impostazioni del telefono) elimina tutto.
 
 ## Servizi terzi
 
@@ -68,9 +67,9 @@ dalle rispettive informative sulla privacy (link nella tabella).
 I caratteri tipografici sono serviti da ohmywind.fr: visualizzare una pagina non invia
 alcuna richiesta a Google Fonts e quindi nessun indirizzo IP.
 
-## Autorizzazioni Android
+## Autorizzazioni dell'applicazione mobile
 
-L'applicazione Android richiede una sola autorizzazione: la **posizione**, delegata al
+L'applicazione mobile richiede una sola autorizzazione: la **posizione**, delegata al
 sito web per gli usi descritti sopra. È facoltativa: l'applicazione funziona anche
 senza, basta allora cercare un luogo manualmente.
 

@@ -128,7 +128,7 @@ export function sanitizeHourly(hourly: HourlyData): HourlyData {
 async function fetchOneModel(
   name: ModelName,
   base: string,
-): Promise<{ forecast: ModelForecast | null; refused: boolean }> {
+): Promise<{ forecast: ModelForecast | null; refused: boolean; failed?: boolean }> {
   const endpoint = MODEL_ENDPOINTS[name];
   try {
     const resp = await fetch(`${endpoint.endpoint}${base}${endpoint.extraParams || ""}`);
@@ -137,7 +137,9 @@ async function fetchOneModel(
     if (!data.hourly) return { forecast: null, refused: false };
     return { forecast: { modelName: name, hourly: sanitizeHourly(data.hourly) }, refused: false };
   } catch {
-    return { forecast: null, refused: false };
+    // No answer at all (offline, network error): not a model without
+    // coverage, so the caller must not cache it as one.
+    return { forecast: null, refused: false, failed: true };
   }
 }
 
@@ -173,6 +175,7 @@ export async function fetchAllModels(
   // way, and the walk was up to a dozen requests refused one after the
   // other. The table shows the quota instead (see `openMeteoQuota.ts`).
   let refused = phase1.some((r) => r.refused);
+  let failed = phase1.some((r) => r.failed === true);
   const pool = [...fallbackPool];
   const slots: (ModelForecast | null)[] = phase1.map((r) => r.forecast);
   for (let i = 0; i < slots.length && !refused; i++) {
@@ -185,6 +188,7 @@ export async function fetchAllModels(
         refused = true;
         break;
       }
+      if (result.failed) failed = true;
       if (result.forecast != null) {
         slots[i] = { ...result.forecast, fellBackFrom: originalSlot };
         break;
@@ -196,8 +200,10 @@ export async function fetchAllModels(
   // model (rare: would need a spot outside every grid in the user's config).
   const models = slots.filter((s): s is ModelForecast => s != null);
   // A refusal is not a forecast: caching it would pin the empty table until
-  // the TTL runs out, past the moment the quota may be back.
-  if (!refused) {
+  // the TTL runs out, past the moment the quota may be back. Nor is a request
+  // that never got an answer: cached, a phone that lost its signal kept an
+  // empty table for half an hour after the network came back.
+  if (!refused && !failed) {
     storeBounded(cache, cacheKey, { models, fetchedAt: Date.now() }, CACHE_TTL, SPOT_CACHE_MAX);
   }
   return models;
