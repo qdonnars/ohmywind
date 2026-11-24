@@ -101,7 +101,7 @@ xcodebuild -project App/App.xcodeproj -scheme App -configuration Debug \
 # -> ios/build/Build/Products/Debug-iphonesimulator/App.app
 ```
 
-La configuration Debug signe en automatique (équipe `Z2M67M742P`), la configuration Release en manuel avec l'identité « Apple Distribution » et le profil App Store de la variante: elle ne sert qu'aux archives pour TestFlight et l'App Store. Version 2.0.0 (`MARKETING_VERSION`, alignée sur Android); le numéro de build (`CURRENT_PROJECT_VERSION`) est injecté par le workflow d'envoi. iPhone seulement pour l'instant (`TARGETED_DEVICE_FAMILY = 1`).
+La configuration Debug signe en automatique (équipe `Z2M67M742P`), la configuration Release en manuel avec l'identité « Apple Distribution » et le profil App Store de la variante: elle ne sert qu'aux archives pour TestFlight et l'App Store. Version 2.0.0 (`MARKETING_VERSION`, alignée sur Android); le numéro de build (`CURRENT_PROJECT_VERSION`) est injecté par le workflow d'envoi. iPhone et iPad (`TARGETED_DEVICE_FAMILY = "1,2"`): sur iPad, l'app tourne en natif dans les quatre orientations et accepte le multitâche (fenêtres redimensionnables, Split View), sans `UIRequiresFullScreen` (déprécié depuis iPadOS 26). Le site suit la largeur de la fenêtre: mise en page téléphone sous 1024 px (iPad en portrait, demi-écran), mise en page poste au-delà (iPad en paysage). Une app iPhone seulement aurait tourné sur l'iPad du relecteur en mode compatibilité, agrandie et floue. Conséquence pour la fiche: App Store Connect demande des captures iPad (13 pouces).
 
 ### Installer sur un appareil ou l'émulateur
 
@@ -305,6 +305,6 @@ Comportement actuel:
 - **`minSdk` 24** (Android 7.0) au lieu de 21 pour la TWA: c'est le minimum de Capacitor 8.
 - **Raccourcis en français seulement**, comme dans la TWA.
 - **`server.url` en production**: la doc Capacitor le présente comme un réglage de développement. C'est un choix assumé (#535, #536): sur Android, le seul effet est l'absence de contenu embarqué. Sur iOS, c'est le risque de refus 4.2 décrit dans #536.
-- **iOS, pas encore fait**: raccourcis d'icône (Quick Actions), retour haptique, demande de note, liens universels (AASA, #502), captures et fiche App Store, iPad.
+- **iOS, pas encore fait**: raccourcis d'icône (Quick Actions), retour haptique, demande de note, liens universels (AASA, #502), captures et fiche App Store.
 - **iOS, non vérifié sur un vrai iPhone**: geste de retour par balayage (sur la carte, un glissé depuis le bord gauche peut être pris pour un retour), hors-ligne en mode avion, géolocalisation, taille du texte.
 - **Lockfile racine**: il ne porte que les binaires Linux de la chaîne web (rolldown, lightningcss), `vite build` échoue sur macOS. Le workflow de test contourne en construisant le web sous Linux.
