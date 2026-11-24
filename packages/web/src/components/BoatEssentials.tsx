@@ -14,6 +14,7 @@ import {
   isImportedActive,
   type PolarConfig,
 } from "../config/polarConfig";
+import { motorWarnings, withBase, withMotorField, type MotorField } from "../config/boatEdits";
 
 // "Essentiel" tile: the three settings every sailor needs — which boat,
 // when the engine takes over, how close to the polar they actually sail.
@@ -32,48 +33,22 @@ export function BoatEssentials({ config, onChange }: BoatEssentialsProps) {
   const [motorClamped, setMotorClamped] = useState(false);
 
   function setBase(base: string) {
-    if (base === config.base) return;
-    // Clear overrides when switching base because they're keyed by grid index
-    // (twsIdx, twaIdx) and a different archetype may have a different grid.
-    // Coefficient + spi are archetype-agnostic so we keep them as-is.
-    onChange({ ...config, base, overrides: {} });
+    const next = withBase(config, base);
+    if (next) onChange(next);
   }
 
   function setCoefficient(coefficient: number) {
     onChange({ ...config, coefficient });
   }
 
-  function setMotorField(field: "motorThresholdKn" | "motorSpeedKn", raw: string) {
-    const val = raw.trim();
-    if (val === "") {
-      setMotorClamped(false);
-      onChange({ ...config, [field]: undefined });
-      return;
-    }
-    const num = Number(val);
-    if (!Number.isFinite(num) || num <= 0) return;
-    if (num > MOTOR_MAX_KN) {
-      setMotorClamped(true);
-      onChange({ ...config, [field]: MOTOR_MAX_KN });
-      return;
-    }
-    setMotorClamped(false);
-    const rounded = Math.round(num * 10) / 10;
-    // Same floor as a persisted config: the API ignores a slower engine.
-    const floor = field === "motorSpeedKn" ? MOTOR_SPEED_MIN_KN : 0;
-    onChange({ ...config, [field]: Math.max(floor, rounded) });
+  function setMotorField(field: MotorField, raw: string) {
+    const result = withMotorField(config, field, raw);
+    if (!result) return;
+    setMotorClamped(result.clamped);
+    onChange(result.next);
   }
 
-  const motorThreshold = config.motorThresholdKn;
-  const motorSpeed = config.motorSpeedKn;
-  const motorHalfSet = (typeof motorThreshold === "number") !== (typeof motorSpeed === "number");
-  // A threshold above the motor speed would make the engine *slow the boat
-  // down* on segments sailing between the two values — always a config
-  // mistake, worth flagging (the simulation still applies it as configured).
-  const motorInverted =
-    typeof motorThreshold === "number" &&
-    typeof motorSpeed === "number" &&
-    motorThreshold > motorSpeed;
+  const { halfSet: motorHalfSet, inverted: motorInverted } = motorWarnings(config);
 
   return (
     <>

@@ -191,4 +191,9 @@ export const explore = {
   "explore.geocoding.feature.island": "Île",
   "explore.geocoding.feature.islet": "Îlot",
   "explore.geocoding.feature.archipelago": "Archipel",
+
+  // Modèles météo : la note sous le tableau du vent quand un modèle
+  // affiché ne couvre pas le point et qu'un ignoré le remplace.
+  "explore.windTable.coverageNote":
+    "{model} ne couvre pas ce point : {fallback} le remplace (↳). Pour choisir un autre modèle : {settings} › {view}.",
 } as const;

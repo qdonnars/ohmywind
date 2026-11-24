@@ -3,6 +3,8 @@
 
 import type { ComponentType } from "react";
 import type { Key } from "../i18n";
+import { BoatAdvancedView } from "./views/BoatAdvancedView";
+import { BoatTypeView } from "./views/BoatTypeView";
 import { BoatView } from "./views/BoatView";
 import { LanguageView } from "./views/LanguageView";
 import { ModelsView } from "./views/ModelsView";
@@ -27,6 +29,8 @@ export const SETTINGS_VIEWS = {
   language: { title: "config.lang.label", Component: LanguageView },
   models: { title: "config.models.title", Component: ModelsView },
   boat: { title: "config.boat.title", Component: BoatView },
+  boatType: { title: "config.boat.essentials.myBoat", Component: BoatTypeView },
+  boatAdvanced: { title: "config.boat.advanced.title", Component: BoatAdvancedView },
 } satisfies Record<string, SettingsViewDef>;
 
 export type SettingsViewId = keyof typeof SETTINGS_VIEWS;

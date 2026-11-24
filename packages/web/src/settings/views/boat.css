@@ -1,0 +1,344 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* SPDX-FileCopyrightText: 2026 Quentin Donnars */
+
+/*
+ * The Bateau views of the settings (Bateau, Mon bateau, Avancé): what they
+ * add to the grouped rows of settings.css. Every selector carries an
+ * `ow-boat-*` class nothing else uses; one that adjusts a shared row or
+ * group names both classes, so it outweighs settings.css whatever order the
+ * bundle emits the two files in. Colours are design tokens only, which carry
+ * both themes.
+ */
+
+/* ── Rows ────────────────────────────────────────────────────── */
+
+.ow-settings-row.ow-boat-link:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.ow-settings-row.ow-boat-link:disabled:hover {
+  background: transparent;
+}
+/* The value beside a row's label gives way before the label does: a long
+   boat name is cut, never the label. */
+.ow-boat-link-value {
+  flex: 0 1 auto;
+  max-width: 45%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ow-fg-1);
+}
+
+.ow-settings-row.ow-boat-type {
+  min-height: 60px;
+}
+
+.ow-boat-inline-warn {
+  margin: 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--ow-line);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ow-warn-ink);
+}
+
+/* The coefficient: its label over a slider as wide as the row, the slider
+   a 44 px target. */
+.ow-settings-row.ow-boat-slider {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding-top: 12px;
+  padding-bottom: 6px;
+}
+.ow-boat-slider > input {
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  accent-color: var(--ow-accent);
+  cursor: pointer;
+}
+
+/* A motor speed: the label wraps on as many lines as it needs, the field
+   keeps its width, and the row never gets wider than its group. */
+.ow-boat-field > label {
+  overflow-wrap: anywhere;
+}
+.ow-boat-field > input {
+  flex: none;
+  width: 88px;
+  height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--ow-line-2);
+  border-radius: 10px;
+  background: var(--ow-bg-1);
+  color: var(--ow-fg-0);
+  font: inherit;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  /* No spin arrows: they sat over the placeholder, and a phone has none. */
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.ow-boat-field > input::-webkit-inner-spin-button,
+.ow-boat-field > input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.ow-boat-field > input::placeholder {
+  color: var(--ow-fg-2);
+}
+.ow-boat-field > input:focus {
+  outline: 2px solid var(--ow-accent);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.ow-settings-note.ow-boat-warn {
+  color: var(--ow-warn-ink);
+}
+.ow-settings-note.ow-boat-ok {
+  color: var(--ow-accent);
+}
+
+.ow-boat-spaced {
+  margin-top: 18px;
+}
+.ow-boat-spaced-sm {
+  margin-top: 10px;
+}
+.ow-settings-note.ow-boat-after-segment {
+  margin-top: 8px;
+}
+
+/* A figure read in a row (an angle, a threshold). */
+.ow-boat-value {
+  font-variant-numeric: tabular-nums;
+}
+.ow-boat-value-accent {
+  flex: none;
+  font-weight: 600;
+  color: var(--ow-accent);
+}
+
+/* ── Polar file ──────────────────────────────────────────────── */
+
+.ow-boat-file-icon {
+  flex: none;
+  color: var(--ow-accent);
+}
+.ow-boat-file-name {
+  overflow-wrap: anywhere;
+}
+.ow-settings-row.ow-boat-action {
+  color: var(--ow-accent);
+}
+/* Replace and remove side by side under the file, each its own target. */
+.ow-boat-file-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 10px;
+}
+.ow-boat-file-actions > .ow-settings-row.ow-boat-action {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 0;
+}
+.ow-boat-link-inline {
+  color: var(--ow-accent);
+  text-decoration: underline;
+}
+
+/* ── Choices across the width ────────────────────────────────── */
+
+.ow-boat-segment {
+  display: grid;
+  gap: 2px;
+  padding: 3px;
+  margin: 0 0 8px;
+  border-radius: 12px;
+  background: var(--ow-bg-3);
+}
+.ow-boat-segment-btn {
+  min-width: 0;
+  min-height: 44px;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ow-fg-1);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  /* A word too long for its column is hyphenated in its language rather
+     than cut anywhere. */
+  overflow-wrap: break-word;
+  hyphens: auto;
+  cursor: pointer;
+}
+.ow-boat-segment-btn:hover:not([aria-checked="true"]):not(:disabled) {
+  color: var(--ow-fg-0);
+}
+.ow-boat-segment-btn[aria-checked="true"] {
+  background: var(--ow-accent-strong);
+  color: var(--ow-on-accent);
+}
+.ow-boat-segment-btn:disabled {
+  cursor: not-allowed;
+}
+.ow-boat-segment[aria-disabled="true"] {
+  opacity: 0.45;
+}
+
+/* ── Stepper and pill ────────────────────────────────────────── */
+
+.ow-boat-stepper {
+  flex: none;
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: 10px;
+  background: var(--ow-bg-3);
+  overflow: hidden;
+}
+.ow-boat-stepper > button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--ow-fg-0);
+  cursor: pointer;
+}
+.ow-boat-stepper > button:hover:not(:disabled) {
+  background: var(--ow-accent-soft);
+}
+.ow-boat-stepper > button:disabled {
+  color: var(--ow-fg-3);
+  cursor: default;
+}
+.ow-boat-stepper-sep {
+  width: 1px;
+  margin: 10px 0;
+  background: var(--ow-line-2);
+}
+.ow-boat-pill {
+  flex: none;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--ow-line-2);
+  border-radius: 22px;
+  background: transparent;
+  color: var(--ow-fg-0);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ow-boat-pill:hover {
+  background: var(--ow-accent-soft);
+}
+
+/* ── Polar diagrams ──────────────────────────────────────────── */
+
+.ow-settings-group.ow-boat-card {
+  padding: 10px 12px 12px;
+}
+.ow-boat-diagram {
+  max-width: 420px;
+  margin: 4px auto 0;
+}
+.ow-boat-curves {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ow-boat-curves-label {
+  font-size: 12.5px;
+  color: var(--ow-fg-1);
+}
+.ow-boat-curves-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 4px;
+}
+/* A 44 px target around a 32 px chip. */
+.ow-boat-chip {
+  min-width: 44px;
+  height: 44px;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.ow-boat-chip > span {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--ow-line-2);
+  border-radius: 16px;
+  color: var(--ow-fg-1);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ow-boat-chip:hover > span {
+  color: var(--ow-fg-0);
+}
+.ow-boat-chip[aria-checked="true"] > span {
+  border-color: var(--ow-accent);
+  background: var(--ow-accent-soft);
+  color: var(--ow-accent);
+}
+
+.ow-boat-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ow-boat-tuned {
+  margin: 0 4px 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ow-warn-ink);
+}
+
+/* ── Destructive actions ─────────────────────────────────────── */
+
+.ow-boat-danger {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 16px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--ow-danger);
+  color: var(--ow-on-danger);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ow-boat-danger:hover:not(:disabled) {
+  background: var(--ow-danger-hover);
+}
+.ow-boat-danger:active:not(:disabled) {
+  background: var(--ow-danger-active);
+}
+.ow-boat-danger:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.ow-boat-danger-inline {
+  flex: none;
+  width: auto;
+  min-height: 44px;
+  margin: 0;
+  border-radius: 10px;
+  font-size: 15px;
+}
