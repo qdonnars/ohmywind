@@ -41,7 +41,7 @@
 	<true/>
 	<!-- English fallback. The translations live in <lang>.lproj/InfoPlist.strings. -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>OhMyWind uses your location to centre the map on where you are.</string>
+	<string>OhMyWind uses your location to centre the map on where you are, show the forecast for that spot and suggest nearby places when you search.</string>
 	<!-- The only domains the WebView may navigate to, enforced by
 	     ios.limitsNavigationsToAppBoundDomains in capacitor.config.ts. WebKit
 	     runs service workers only on app-bound domains: this list is what keeps
@@ -73,13 +73,48 @@
 			</array>
 		</dict>
 	</dict>
+	<!-- Home screen quick actions, as the launcher shortcuts on Android: the
+	     path of a page of the site, opened by SceneDelegate.swift. The titles
+	     are keys of <lang>.lproj/InfoPlist.strings (English value as the key,
+	     so a missing translation still reads). -->
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>fr.ohmywind.shortcut.plan</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Plan</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>map</string>
+			<key>UIApplicationShortcutItemUserInfo</key>
+			<dict>
+				<key>path</key>
+				<string>/plan</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>fr.ohmywind.shortcut.config</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Settings</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>gearshape</string>
+			<key>UIApplicationShortcutItemUserInfo</key>
+			<dict>
+				<key>path</key>
+				<string>/config</string>
+			</dict>
+		</dict>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+	<!-- arm64, which Apple asks every 64-bit app to declare (armv7 came from
+	     the Capacitor template and describes 32-bit builds). -->
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>

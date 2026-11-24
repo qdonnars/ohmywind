@@ -49,6 +49,11 @@ function previewSpot(lat: number, lon: number): Spot {
 
 function EmptyState() {
   const { t } = useT();
+  // Touch or mouse wording from the pointer, not the width: an iPad in
+  // landscape gets the wide layout and was told to right-click. The width
+  // still decides when the device reports neither kind of pointer.
+  const coarse = useMediaQuery("(pointer: coarse)");
+  const fine = useMediaQuery("(pointer: fine)");
   return (
     <div className="flex items-end justify-center pb-6 px-4">
       <div
@@ -65,8 +70,16 @@ function EmptyState() {
           style={{ background: 'var(--ow-accent)' }}
         />
         <span className="text-[12px] font-medium" style={{ color: 'var(--ow-fg-0)' }}>
-          <span className="lg:hidden">{t("explore.emptyState.touch")}</span>
-          <span className="hidden lg:inline">{t("explore.emptyState.click")}</span>
+          {coarse ? (
+            t("explore.emptyState.touch")
+          ) : fine ? (
+            t("explore.emptyState.click")
+          ) : (
+            <>
+              <span className="lg:hidden">{t("explore.emptyState.touch")}</span>
+              <span className="hidden lg:inline">{t("explore.emptyState.click")}</span>
+            </>
+          )}
         </span>
       </div>
     </div>

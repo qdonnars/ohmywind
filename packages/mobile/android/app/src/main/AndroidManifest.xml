@@ -54,6 +54,27 @@
                 <data android:scheme="ohmywind" android:host="import" />
             </intent-filter>
 
+            <!-- Links to the site's own pages open the app (#502), on the host of
+                 the variant (ohmywind.fr, dev.ohmywind.fr; localhost for the
+                 local build, which cannot be verified and is approved by hand
+                 with `pm set-app-links-user-selection`). Verified against
+                 https://<host>/.well-known/assetlinks.json. Only the pages
+                 of the app itself: /transfert must stay in Chrome, where the
+                 data of the former app lives, and the reading pages
+                 (/methodologie, /confidentialite, ...) stay in the browser.
+                 The URL reaches the site as appUrlOpen, like a shortcut. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="${shellLinkScheme}" />
+                <data android:host="${shellLinkHost}" />
+                <data android:path="/" />
+                <data android:path="/plan" />
+                <data android:path="/comparer" />
+                <data android:path="/config" />
+            </intent-filter>
+
             <!-- Generated per variant by app/build.gradle (GenerateShellResources). -->
             <meta-data
                 android:name="android.app.shortcuts"

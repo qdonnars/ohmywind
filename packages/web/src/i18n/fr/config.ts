@@ -6,6 +6,13 @@
 export const config = {
   "config.lang.label": "Langue",
 
+  // Réglage « écran allumé » (voir native/keepAwake.ts).
+  "config.keepAwake.label": "Garder l'écran allumé",
+  "config.keepAwake.hint":
+    "Tant qu'un plan calculé est affiché, l'écran ne se met pas en veille, si l'appareil le permet.",
+  "config.keepAwake.on": "Activé",
+  "config.keepAwake.off": "Désactivé",
+
   "config.header.title": "Configuration",
   "config.reset": "Réinitialiser",
   "config.saved": "· enregistré",

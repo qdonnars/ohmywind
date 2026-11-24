@@ -84,6 +84,9 @@ const config: CapacitorConfig = {
     // the WebView cannot navigate anywhere else. Links to other hosts were
     // already handed to Safari by Capacitor.
     limitsNavigationsToAppBoundDomains: true,
+    // A long press on a link must not open Safari's page preview: that is
+    // a browser gesture, not one of the app (Capacitor leaves it on).
+    allowsLinkPreview: false,
   },
   // android.webContentsDebuggingEnabled is left unset on purpose: Capacitor
   // enables chrome://inspect for debuggable builds only, which is what we want

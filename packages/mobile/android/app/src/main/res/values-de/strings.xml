@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later
+     SPDX-FileCopyrightText: 2026 Quentin Donnars -->
+<!-- Launcher shortcuts, same words as the iOS quick actions. French, the
+     default, lives in values/strings.xml. -->
+<resources>
+    <string name="shell_shortcut_plan_short">Planen</string>
+    <string name="shell_shortcut_plan_long">Route planen</string>
+    <string name="shell_shortcut_config_short">Einstellungen</string>
+    <string name="shell_shortcut_config_long">Einstellungen</string>
+</resources>

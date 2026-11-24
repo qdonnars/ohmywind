@@ -9,11 +9,17 @@
 #
 #   0-fallback   fresh install, site server down: the shell's offline
 #                fallback page, and no report since the site never loaded
-#   1-first      server up: native shell, site loaded, plugins answer, the
-#                service worker installed and activated
-#   2-second     relaunch: the page is controlled by the service worker
+#   1-first      server up: native shell, site loaded, plugins answer (App,
+#                Haptics, Preferences round trip, KeepAwake on then off,
+#                InAppReview present), the service worker installed and
+#                activated, the native backup's marker written
+#   2-second     relaunch: the page is controlled by the service worker, and
+#                the copy of the data sits in the native preferences
 #   3-offline    server stopped, relaunch: the site still opens, served by
 #                the service worker
+#   4-plan       server up again, the probe opens /plan with a route: the
+#                page fits the screen (not scrolled, header at the top) and
+#                still does with the drawer at its highest setting
 #
 #   android: APK=<path> smoke/run.sh android   (emulator booted, adb on PATH)
 #   ios:     APP_PATH=<App.app> UDID=<id> smoke/run.sh ios   (simulator booted)
@@ -166,7 +172,9 @@ expect_stage() {
 }
 
 : >"$reports"
-node "$here/collector.mjs" 4174 "$reports" >"$out/collector.log" 2>&1 &
+goto=$out/goto.json
+rm -f "$goto"
+node "$here/collector.mjs" 4174 "$reports" "$goto" >"$out/collector.log" 2>&1 &
 collector_pid=$!
 
 prepare
@@ -204,14 +212,18 @@ since=$(now_ms)
 launch
 expect_stage "$stage" "$since" 150 \
   native=true platform="$platform" appMounted=true appInfo.id="$app_id" \
-  sw.registered=true sw.active=activated shellImport='~"none"'
+  sw.registered=true sw.active=activated shellImport='~"none"' \
+  plugins.haptics=ok plugins.preferencesRoundTrip=true \
+  plugins.keepAwake.on=true plugins.keepAwake.off=false plugins.review=true \
+  backupMarker='"1"'
 stop_app
 
 step "2-second: relaunch, controlled by the service worker"
 stage=2-second
 since=$(now_ms)
 launch
-expect_stage "$stage" "$since" 90 native=true appMounted=true sw.controlled=true
+expect_stage "$stage" "$since" 90 native=true appMounted=true sw.controlled=true \
+  plugins.backupCopy=true backupMarker='"1"'
 stop_app
 
 stop_server
@@ -222,6 +234,20 @@ stage=3-offline
 since=$(now_ms)
 launch
 expect_stage "$stage" "$since" 90 native=true appMounted=true sw.controlled=true appInfo.id="$app_id"
+stop_app
+
+start_server
+
+step "4-plan: the planner fits the screen"
+stage=4-plan
+# Two waypoints off Marseille; the drawer height the user last dragged to is
+# set to the maximum, which overflowed the column on an iPhone (2026-11).
+printf '%s\n' '{"path":"/plan?wpts=43.28,5.35;43.00,6.20","storage":{"ow_drawer_vh_v1":"90"}}' >"$goto"
+since=$(now_ms)
+launch
+expect_stage "$stage" "$since" 90 native=true appMounted=true href='~/plan?' \
+  layout.shifted=false layout.columnOverflows=false layout.planStress.columnOverflows=false
+rm -f "$goto"
 stop_app
 
 echo

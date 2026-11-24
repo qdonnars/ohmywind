@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { rememberAboutReturnPath } from "../config/returnPath";
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
@@ -14,6 +14,17 @@ beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
 });
+
+afterEach(() => {
+  delete (window as { Capacitor?: unknown }).Capacitor;
+});
+
+function asShell(platform: string): void {
+  (window as { Capacitor?: unknown }).Capacitor = {
+    isNativePlatform: () => true,
+    getPlatform: () => platform,
+  };
+}
 
 describe("AboutPage", () => {
   it("goes back, top left, to the page whose « i » was tapped", () => {
@@ -49,5 +60,19 @@ describe("AboutPage", () => {
     expect(entry.textContent).toContain("Nouvelle version");
     // The version is said once on the page, on that entry.
     expect(screen.getAllByText(`Version ${APP_VERSION}`)).toHaveLength(1);
+  });
+
+  it("offers the Ko-fi link on the web and in the Android app, not in the iOS app", () => {
+    const kofi = () => document.querySelector('a[href="https://ko-fi.com/ohmywind"]');
+    const web = render(<AboutPage />);
+    expect(kofi()).not.toBeNull();
+    web.unmount();
+    asShell("android");
+    const android = render(<AboutPage />);
+    expect(kofi()).not.toBeNull();
+    android.unmount();
+    asShell("ios");
+    render(<AboutPage />);
+    expect(kofi()).toBeNull();
   });
 });

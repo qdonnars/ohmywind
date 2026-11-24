@@ -38,6 +38,78 @@
     return insets;
   }
 
+  // Page geometry as the WebView lays it out: whether the document or the
+  // page's own column (the h-dvh root of the map pages) is scrolled, and
+  // where the header sits against the top safe-area inset. On /plan it also
+  // opens the drawer to its highest setting (90 vh) for one synchronous
+  // measure, restored before anything paints: the column must still fit the
+  // screen, or an in-page scroll shifts the whole page up (iPhone, 2026-11).
+  function layout() {
+    var column = document.querySelector("#root .h-dvh");
+    var header = document.querySelector(".app-header");
+    var vv = window.visualViewport;
+    function overflows() {
+      return !!column && column.scrollHeight - column.clientHeight > 1;
+    }
+    var headerRect = header ? header.getBoundingClientRect() : null;
+    var result = {
+      scrollY: window.scrollY,
+      innerHeight: window.innerHeight,
+      visualViewport: vv ? { height: vv.height, offsetTop: vv.offsetTop, pageTop: vv.pageTop } : null,
+      docScrollHeight: document.documentElement.scrollHeight,
+      column: column
+        ? { clientHeight: column.clientHeight, scrollHeight: column.scrollHeight, scrollTop: column.scrollTop }
+        : null,
+      columnOverflows: overflows(),
+      header: headerRect ? { top: headerRect.top, bottom: headerRect.bottom, height: headerRect.height } : null,
+      shifted: window.scrollY !== 0 || (!!column && column.scrollTop !== 0) || (!!headerRect && headerRect.top < -0.5),
+      planStress: null,
+    };
+    var handle = window.location.pathname === "/plan" ? document.querySelector('[role="separator"]') : null;
+    var drawer = handle ? handle.parentElement : null;
+    if (drawer) {
+      var saved = drawer.style.height;
+      drawer.style.height = "90vh";
+      result.planStress = {
+        drawerHeight: drawer.getBoundingClientRect().height,
+        columnOverflows: overflows(),
+      };
+      drawer.style.height = saved;
+    }
+    return result;
+  }
+
+  // A stage of the test may ask for another page than the start URL: the
+  // collector answers GET /goto with { path, storage } (see collector.mjs).
+  function followGoto() {
+    var origin;
+    try {
+      origin = new URL(COLLECTOR).origin;
+    } catch (e) {
+      return;
+    }
+    fetch(origin + "/goto", { cache: "no-store" })
+      .then(function (res) {
+        return res.ok ? res.json() : {};
+      })
+      .then(function (goto) {
+        if (!goto || !goto.path) return;
+        var target = new URL(goto.path, window.location.href);
+        if (target.pathname === window.location.pathname) return;
+        Object.keys(goto.storage || {}).forEach(function (key) {
+          try {
+            window.localStorage.setItem(key, goto.storage[key]);
+          } catch (e) {
+            /* the page then opens with its defaults */
+          }
+        });
+        window.location.replace(target.href);
+      })
+      .catch(function () {
+        /* no collector, no stage asking for a page */
+      });
+  }
+
   // A round trip through the native bridge, to prove the plugins answer.
   function appInfo(cap) {
     if (!cap) return Promise.resolve(null);
@@ -58,6 +130,74 @@
     );
   }
 
+  // The plugins the site uses beside App, each called once per page load
+  // straight through the bridge (nativePromise), so the answer does not
+  // depend on the site having loaded its own plugin chunk yet. The rating
+  // request is only checked for presence: calling it could show a sheet.
+  function call(cap, plugin, method, options) {
+    if (!cap || !cap.nativePromise) return Promise.reject(new Error("no bridge"));
+    return Promise.resolve(cap.nativePromise(plugin, method, options || {}));
+  }
+
+  function outcome(promise) {
+    return promise.then(
+      function (value) {
+        return value === undefined ? "ok" : value;
+      },
+      function (err) {
+        return { error: String((err && err.message) || err) };
+      },
+    );
+  }
+
+  var pluginChecks = null;
+  function plugins(cap) {
+    if (!cap || !cap.isNativePlatform || !cap.isNativePlatform()) return Promise.resolve(null);
+    if (pluginChecks) return pluginChecks;
+    var token = "probe-" + loadId;
+    var prefs = call(cap, "Preferences", "set", { key: "ow_probe_roundtrip", value: token })
+      .then(function () {
+        return call(cap, "Preferences", "get", { key: "ow_probe_roundtrip" });
+      })
+      .then(function (res) {
+        return call(cap, "Preferences", "remove", { key: "ow_probe_roundtrip" }).then(function () {
+          return !!res && res.value === token;
+        });
+      });
+    var keepAwake = call(cap, "KeepAwake", "keepAwake")
+      .then(function () {
+        return call(cap, "KeepAwake", "isKeptAwake");
+      })
+      .then(function (on) {
+        return call(cap, "KeepAwake", "allowSleep")
+          .then(function () {
+            return call(cap, "KeepAwake", "isKeptAwake");
+          })
+          .then(function (off) {
+            return { on: !!on && on.isKeptAwake === true, off: !!off && off.isKeptAwake === true };
+          });
+      });
+    var backupCopy = call(cap, "Preferences", "get", { key: "ow_backup_v1" }).then(function (res) {
+      return !!res && typeof res.value === "string" && res.value.length > 0;
+    });
+    pluginChecks = Promise.all([
+      outcome(call(cap, "Haptics", "impact", { style: "LIGHT" })),
+      outcome(prefs),
+      outcome(keepAwake),
+      outcome(backupCopy),
+    ]).then(function (r) {
+      return {
+        haptics: r[0],
+        preferencesRoundTrip: r[1],
+        keepAwake: r[2],
+        backupCopy: r[3],
+        review: !!(cap.isPluginAvailable && cap.isPluginAvailable("InAppReview")),
+        webWakeLock: !!(navigator.wakeLock && navigator.wakeLock.request),
+      };
+    });
+    return pluginChecks;
+  }
+
   function registration() {
     var sw = navigator.serviceWorker;
     if (!sw) return Promise.resolve(null);
@@ -74,10 +214,16 @@
 
   function snapshot(seq) {
     var cap = window.Capacitor;
-    return Promise.all([registration(), appInfo(cap)]).then(function (results) {
+    return Promise.all([registration(), appInfo(cap), plugins(cap)]).then(function (results) {
       var reg = results[0];
       var sw = navigator.serviceWorker;
       var root = document.getElementById("root");
+      var backupMarker = null;
+      try {
+        backupMarker = window.localStorage.getItem("ow_native_backup_v1");
+      } catch (e) {
+        backupMarker = "unreadable: " + String(e);
+      }
       var shellImport = null;
       try {
         shellImport = window.localStorage.getItem("ow_shell_import_v1");
@@ -92,6 +238,8 @@
         native: !!(cap && cap.isNativePlatform && cap.isNativePlatform()),
         platform: cap && cap.getPlatform ? cap.getPlatform() : null,
         appInfo: results[1],
+        plugins: results[2],
+        backupMarker: backupMarker,
         sw: {
           supported: !!sw,
           controlled: !!(sw && sw.controller),
@@ -103,6 +251,7 @@
         appMounted: !!(root && root.childElementCount > 0),
         title: document.title,
         insets: safeAreaInsets(),
+        layout: layout(),
         viewport: { width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio },
         shellImport: shellImport,
         online: navigator.onLine,
@@ -124,6 +273,8 @@
       /* the collector is the test's business, never the page's */
     });
   }
+
+  followGoto();
 
   DELAYS_MS.forEach(function (delay, seq) {
     window.setTimeout(function () {

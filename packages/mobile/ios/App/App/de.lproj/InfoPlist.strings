@@ -2,4 +2,8 @@
    SPDX-FileCopyrightText: 2026 Quentin Donnars */
 
 /* Shown by iOS when the site first asks for the position (navigator.geolocation). */
-"NSLocationWhenInUseUsageDescription" = "OhMyWind verwendet Ihren Standort, um die Karte auf Ihre Position zu zentrieren.";
+"NSLocationWhenInUseUsageDescription" = "OhMyWind verwendet Ihren Standort, um die Karte auf Ihre Position zu zentrieren, dort die Vorhersage anzuzeigen und bei der Suche Orte in Ihrer Nähe vorzuschlagen.";
+
+/* Home screen quick actions (UIApplicationShortcutItems in Info.plist). */
+"Plan" = "Planen";
+"Settings" = "Einstellungen";

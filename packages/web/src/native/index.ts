@@ -23,6 +23,19 @@ export function isNativeShell(): boolean {
   }
 }
 
+type NativePlugins = typeof import("./plugins");
+
+/**
+ * The native plugins, or null outside the shell. The module is fetched at
+ * the first call and kept by the module loader afterwards. A failed fetch
+ * (offline before it was ever cached) resolves to null: every caller treats
+ * the plugin as a bonus and has a way to do without it.
+ */
+export function loadPlugins(): Promise<NativePlugins | null> {
+  if (!isNativeShell()) return Promise.resolve(null);
+  return import("./plugins").catch(() => null);
+}
+
 export function startNativeShell(): void {
   if (!isNativeShell()) return;
   // A failure here (chunk missing offline, a plugin rejecting) must never

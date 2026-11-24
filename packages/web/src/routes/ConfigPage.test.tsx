@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { LangPicker } from "./ConfigPage";
+import { afterEach, describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { KeepAwakeSetting, LangPicker } from "./ConfigPage";
+import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { AVAILABLE_LANGS, LANG_NAMES, LANG_SHORT_NAMES } from "../i18n";
 
 /**
@@ -39,5 +40,23 @@ describe("LangPicker", () => {
     const checked = radios.filter((r) => r.getAttribute("aria-checked") === "true");
     expect(checked).toHaveLength(1);
     expect(checked[0].getAttribute("aria-label")).toBe(LANG_NAMES["fr"]);
+  });
+});
+
+describe("KeepAwakeSetting", () => {
+  afterEach(() => localStorage.removeItem(LOCAL_STORAGE_KEYS.keepAwake));
+
+  it("is on by default and saves a change at once", () => {
+    render(<KeepAwakeSetting />);
+    const group = screen.getByRole("radiogroup", { name: "Garder l'écran allumé" });
+    expect(group).toBeDefined();
+    const on = screen.getByRole("radio", { name: "Activé" });
+    const off = screen.getByRole("radio", { name: "Désactivé" });
+    expect(on.getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(off);
+    expect(off.getAttribute("aria-checked")).toBe("true");
+    expect(localStorage.getItem(LOCAL_STORAGE_KEYS.keepAwake)).toBe("0");
+    fireEvent.click(on);
+    expect(localStorage.getItem(LOCAL_STORAGE_KEYS.keepAwake)).toBe("1");
   });
 });

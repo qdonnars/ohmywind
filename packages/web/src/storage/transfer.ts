@@ -40,13 +40,14 @@ export const TRANSFER_POLICY: Readonly<Record<LocalStorageKeyName, TransferDecis
   seamarksExplore: keep(8),
   seamarksPlan: keep(9),
   lastSpot: keep(10),
+  keepAwake: keep(11),
   // Hints already seen: without them the app greets a regular as a newcomer.
-  onboarding: keep(11),
-  compareHint: keep(12),
-  whatsNewSeen: keep(13),
+  onboarding: keep(12),
+  compareHint: keep(13),
+  whatsNewSeen: keep(14),
   // Layout, cheapest to lose.
-  drawerHeight: keep(14),
-  sidebarWidth: keep(15),
+  drawerHeight: keep(15),
+  sidebarWidth: keep(16),
 
   // Caches, refetched on demand.
   marcCoverage: SKIP,
@@ -61,6 +62,11 @@ export const TRANSFER_POLICY: Readonly<Record<LocalStorageKeyName, TransferDecis
   geolocDeclined: SKIP,
   // The bridge's own bookkeeping, specific to each storage.
   shellImport: SKIP,
+  // Counted from the first launch of the new app on purpose: a date brought
+  // from elsewhere could let the rating request come before its delay.
+  reviewPrompt: SKIP,
+  // Says whether this storage was wiped: meaningless in another one.
+  nativeBackup: SKIP,
   // An answer to the invitation to install the app, given on the site. The
   // app never shows the invitation, and a reader back on the site later is
   // asked again on the site's own schedule.

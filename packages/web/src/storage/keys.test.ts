@@ -37,6 +37,9 @@ describe("storage key registry", () => {
       compareHint: "ow_compare_hint_v1",
       compare: "ow_compare_v1",
       whatsNewSeen: "ow_whats_new_seen_v1",
+      keepAwake: "ow_keep_awake",
+      reviewPrompt: "ow_review_prompt_v1",
+      nativeBackup: "ow_native_backup_v1",
       shellImport: "ow_shell_import_v1",
       installInvite: "ow_install_invite_v1",
     });
