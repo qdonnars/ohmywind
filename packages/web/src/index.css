@@ -175,19 +175,19 @@ select,
 
    Une seule regle plutot qu'une retouche par composant : les tailles
    viennent de partout (Tailwind `text-sm` sur la recherche et les modales,
-   13 px sur `.polar-select` et `.polar-motor-input` dans config.css), et
-   c'est une contrainte de plateforme, pas une decision de design par champ.
+   des tailles propres aux champs des Reglages), et c'est une contrainte de
+   plateforme, pas une decision de design par champ.
 
    Portee `pointer: coarse` : sur poste, ou le zoom au focus n'existe pas,
    les tailles choisies restent intactes. Les trois `:not()` sortent les
    commandes sans texte (curseurs, cases, boutons radio), dont la taille de
    police ne sert a rien. Ils portent aussi la specificite du selecteur a
    (0,3,1), ce qui lui fait battre les classes utilitaires (`text-sm`) comme
-   les `.polar-*` de config.css sans `!important` et sans dependre de l'ordre
+   les classes des composants sans `!important` et sans dependre de l'ordre
    des feuilles dans le bundle. Le `:is()` sert precisement a cela : il
    distribue les `:not()` sur les trois elements a la fois, la ou trois
    selecteurs separes auraient laisse `select` et `textarea` a (0,0,1), donc
-   perdants face a `.polar-select`. */
+   perdants face a une simple classe. */
 @media (pointer: coarse) {
   :is(input, select, textarea):not([type="range"]):not([type="checkbox"]):not([type="radio"]) {
     font-size: 16px;

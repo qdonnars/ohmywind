@@ -188,4 +188,9 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.geocoding.feature.island": "Isola",
   "explore.geocoding.feature.islet": "Isolotto",
   "explore.geocoding.feature.archipelago": "Arcipelago",
+
+  // Modèles météo : la note sous le tableau du vent quand un modèle
+  // affiché ne couvre pas le point et qu'un ignoré le remplace.
+  "explore.windTable.coverageNote":
+    "{model} non copre questo punto: lo sostituisce {fallback} (↳). Per scegliere un altro modello: {settings} › {view}.",
 };

@@ -1,0 +1,251 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* SPDX-FileCopyrightText: 2026 Quentin Donnars */
+
+/*
+ * « Modèles météo » in the settings: the ordered list of the models, the
+ * cut between the rows the table shows and the ignored ones, the toast and
+ * the reset.
+ *
+ * Same rules as settings.css: `ow-models-*` classes nothing else uses, the
+ * design tokens only. The handle also carries `config-handle`, the class
+ * `useDragReorder` recognises a handle by; it has no style of its own.
+ */
+
+.ow-models-intro {
+  padding-top: 4px;
+}
+.ow-models-strong {
+  font-weight: 600;
+  color: var(--ow-fg-0);
+}
+
+.ow-models-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 12px;
+  margin: 16px 4px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--ow-fg-1);
+}
+
+/* ── The list ────────────────────────────────────────────────── */
+
+.ow-models-list {
+  position: relative;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+  border-radius: 14px;
+  background: var(--ow-bg-2);
+}
+
+.ow-models-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  /* 76 px as drawn, taller when a translation wraps: a description cut
+     short could not be read anywhere else. */
+  min-height: 76px;
+  padding: 9px 4px 9px 12px;
+  border-bottom: 1px solid var(--ow-line);
+  /* A mouse grabs anywhere on the row (useDragReorder). */
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transition: background 0.15s;
+}
+.ow-models-row:first-child {
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+}
+.ow-models-row:last-child {
+  border-bottom: 0;
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+}
+.ow-models-row.is-cut {
+  z-index: 2;
+  border-bottom: 2px solid var(--ow-accent);
+}
+.ow-models-row.is-dragging {
+  z-index: 3;
+  background: var(--ow-bg-3);
+  box-shadow: var(--ow-shadow-2);
+  cursor: grabbing;
+}
+
+.ow-models-rank {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--ow-bg-3);
+  color: var(--ow-fg-1);
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ow-models-row.is-shown .ow-models-rank {
+  background: var(--ow-accent-strong);
+  color: var(--ow-on-accent);
+}
+
+.ow-models-text {
+  flex: 1;
+  min-width: 0;
+}
+.ow-models-row.is-ignored .ow-models-text {
+  opacity: 0.55;
+}
+.ow-models-label {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ow-fg-0);
+}
+.ow-models-provider {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--ow-fg-1);
+}
+.ow-models-desc {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--ow-fg-0);
+}
+.ow-models-meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--ow-fg-1);
+}
+
+.ow-models-row .ow-models-handle {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 60px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ow-fg-1);
+  opacity: 1;
+  font-size: inherit;
+  letter-spacing: normal;
+  /* The handle grabs at once under a finger: the browser must not claim
+     the touch for scrolling first. The row body keeps scrolling. */
+  touch-action: none;
+  cursor: grab;
+  /* Reaches into the row's padding, so the grip sits against its edge. */
+  margin: -10px -6px;
+  font-weight: 700;
+}
+.ow-models-row .ow-models-handle:focus-visible {
+  outline: 2px solid var(--ow-accent);
+  outline-offset: -2px;
+}
+
+/* The cut, on the bottom border of the last row shown. */
+.ow-models-cut {
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  z-index: 3;
+  transform: translateX(-50%);
+  padding: 2px 10px;
+  border: 1px solid var(--ow-accent);
+  border-radius: 10px;
+  background: var(--ow-bg-1);
+  color: var(--ow-accent);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ── Reset ───────────────────────────────────────────────────── */
+
+.ow-models-reset {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 16px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--ow-bg-2);
+  color: var(--ow-err);
+  font-size: 16px;
+  cursor: pointer;
+}
+/* --ow-err is a light red made for dark surfaces; on the light ones the
+   danger red reads. */
+[data-theme="light"] .ow-models-reset {
+  color: var(--ow-danger);
+}
+.ow-models-reset:hover {
+  background: var(--ow-bg-3);
+}
+
+/* ── Toast ───────────────────────────────────────────────────── */
+
+/* Sticky at the top of the view's scroll area and of no height: the toast
+   hangs from it over the list, wherever the list is scrolled to. */
+.ow-models-toast-anchor {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  height: 0;
+}
+.ow-models-toast {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 16px);
+  padding: 10px 16px;
+  border-radius: 22px;
+  background: var(--ow-fg-0);
+  color: var(--ow-bg-1);
+  box-shadow: var(--ow-shadow-2);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  pointer-events: none;
+  animation: ow-models-toast 2.2s ease forwards;
+}
+@keyframes ow-models-toast {
+  0% { opacity: 0; transform: translate(-50%, -8px); }
+  12% { opacity: 1; transform: translate(-50%, 0); }
+  88% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ow-models-toast {
+    animation: none;
+  }
+  .ow-models-row {
+    transition: none;
+  }
+}

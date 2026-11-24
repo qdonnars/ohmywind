@@ -21,7 +21,6 @@ import { hideSettings, openerToRefocus, useSettingsOpen } from "./settingsStore"
 import "./settings.css";
 // The styles of the model and boat editors some views show, which were
 // those of the /config page.
-import "../routes/config.css";
 
 /**
  * The settings, mounted once for the whole app (`main.tsx`) and opened with
