@@ -50,7 +50,7 @@ export const panel: Record<keyof typeof frPanel, string> = {
   // ── SingleResults ──────────────────────────────────────────────────────────
   "panel.results.recapDeparture": "Departure: {day} · {time}",
   "panel.results.recapArrival": "Arrival: {day} · {time}",
-  "panel.results.stale": "Route changed. Click Recalculate to update the details.",
+  "panel.results.stale": "Route changed. Recalculate to update the details.",
   "panel.results.forecastUpdated": "Forecast from {when} · Open-Meteo.com (CC BY 4.0)",
 
   // ── LinkSettingsRow ───────────────────────────────────────────────────────

@@ -183,7 +183,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.docs.tidalCurrents": "Tidal currents",
 
   // The tidal-sources map on /methodologie (TidalSourcesMap).
-  "config.methodo.tidal.hint": "Click on the sea: the card shows the source the app uses at that point, as the server picks it.",
+  "config.methodo.tidal.hint": "Pick a point at sea: the card shows the source the app uses at that point, as the server picks it.",
   "config.methodo.tidal.fullscreen.enter": "Show the map full screen",
   "config.methodo.tidal.fullscreen.exit": "Exit full screen",
   "config.methodo.tidal.fullscreen.ramp": "0.5 to 5 kt and above",

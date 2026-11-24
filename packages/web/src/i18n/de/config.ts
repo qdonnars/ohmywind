@@ -188,7 +188,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.docs.tidalCurrents": "Gezeitenströme",
 
   // The tidal-sources map on /methodologie (TidalSourcesMap).
-  "config.methodo.tidal.hint": "Klicken Sie auf das Meer: die Karte zeigt die Quelle, die die App an dieser Stelle nutzt, so wie der Server sie auswählt.",
+  "config.methodo.tidal.hint": "Wählen Sie einen Punkt auf dem Meer: die Karte zeigt die Quelle, die die App an dieser Stelle nutzt, so wie der Server sie auswählt.",
   "config.methodo.tidal.fullscreen.enter": "Karte im Vollbild anzeigen",
   "config.methodo.tidal.fullscreen.exit": "Vollbild verlassen",
   "config.methodo.tidal.fullscreen.ramp": "0,5 bis 5 kn und mehr",
