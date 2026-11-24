@@ -4,6 +4,43 @@ Toutes les versions d'OhMyWind, de la plus récente à la plus ancienne. Le site
 
 Chaque version est aussi publiée sur la page [Releases](https://github.com/qdonnars/ohmywind/releases) du dépôt, et l'application affiche ce journal sur sa page « Quoi de neuf ». La marche à suivre pour publier une version est dans [docs/releases.md](docs/releases.md). English version: [CHANGELOG.en.md](CHANGELOG.en.md).
 
+## 1.15.0 · 2026-11-24 · Hors ligne en mer, des routes qui contournent la terre et de vraies applications mobiles
+
+### Nouveautés
+
+- Sans réseau, l'application rouvre sur ce que vous regardiez : les prévisions du dernier lieu consulté et de vos spots enregistrés restent sur l'appareil et s'affichent avec leur date, et une application installée revient sur le plan en cours (#537, #561).
+- Toutes les pages s'ouvrent hors ligne dès que l'application est installée, méthodologie et réglages compris (#561).
+- Une route tracée à travers une île ou une pointe est ajustée pour contourner la terre, dans le planificateur comme dans l'assistant ; un encart « Route ajustée », replié derrière un « i », dit ce qui a changé (#546, #547, #548).
+- Dans l'assistant, un plan donne la marée au départ et à l'arrivée, et peut se calculer avec la polaire de votre bateau (#542).
+- Le lien vers un plan donné par l'assistant porte le moteur et l'efficacité du calcul, et l'application les applique à ce plan sans toucher à vos réglages (#534, #541, #543).
+- Les applications mobiles gagnent ce qu'un site ne fait pas : une vibration au dépôt d'un point de route, l'écran qui reste allumé tant qu'un plan est affiché (un réglage permet de le couper), des raccourcis sur l'icône, les liens du site qui ouvrent l'application, et une copie de vos spots et réglages gardée par le téléphone (#557, #563).
+- Ouvert sur un téléphone, le site propose d'installer l'application (#560).
+- Les pages de méthodologie, de confidentialité et de conditions suivent le thème clair ou sombre de l'application (#557).
+
+### Corrections
+
+- Sur téléphone, le tiroir du plan cède la place au lieu de pousser la page hors de l'écran (#563).
+- Dans l'explorateur, les onglets s'effacent en fondu contre le bouton de localisation au lieu d'être coupés net (#558).
+- Au retour du réseau, l'explorateur ne reste plus vide pendant une demi-heure (#561).
+- Sur un écran tactile large, l'aide de la carte parle d'appui long et non plus de clic droit (#563).
+
+### Coulisses
+
+- La politique de confidentialité dit exactement ce qui quitte votre appareil et ce que le serveur journalise, et le relais du serveur ne garde plus ses journaux automatiques (#562, #564).
+- Les applications mobiles sont testées sur émulateur et sur simulateur avant chaque mise en production : premier lancement, relance, serveur coupé, page du plan (#557, #563).
+- La mise en ligne du serveur attend que la nouvelle version réponde avant de se dire réussie (#553).
+
+## 1.14.0 · 2026-11-21 · Une page pour brancher OhMyWind sur votre assistant
+
+### Nouveautés
+
+- La page mcp.ohmywind.fr s'adresse aux plaisanciers : trois questions de marin jouées sur la carte, un bouton par assistant (Claude, ChatGPT, Vibe), des exemples à copier et une foire aux questions ; la technique se replie dans « Pour les développeurs » (#549, #551, #552).
+- Cette page existe en cinq langues, choisies d'après votre navigateur, avec un sélecteur en haut de page (#544).
+
+### Coulisses
+
+- Le communiqué de presse cite l'article de Multicoques Mag, et le flyer pour les écoles de voile est à jour, avec des QR codes pour ChatGPT, Claude et les autres assistants (#550, #554).
+
 ## 1.13.0 · 2026-11-11 · Des tableaux harmonisés, un serveur plus rapide et mieux protégé
 
 ### Nouveautés
