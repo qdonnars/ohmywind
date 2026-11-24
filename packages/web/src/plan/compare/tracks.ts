@@ -13,7 +13,7 @@
 
 import type { ComplexityScore, Notice, PassageReport, RepairedRoute } from "../types";
 import { haversineNm } from "../../utils/geo";
-import { fmtDurationSafe } from "../format";
+import { fmtSpanSafe } from "../format";
 import { complexityNotice, noticeText, passageNotices } from "../notices";
 import { motorShare } from "./slots";
 
@@ -83,6 +83,7 @@ export function isVariantComplete(variant: [number, number][]): boolean {
 export interface TrackSummary {
   distanceNm: number;
   durationH: number;
+  departure: string;
   arrival: string;
   /** Distance-weighted mean wave height, null without sea data. */
   hsAvgM: number | null;
@@ -107,6 +108,7 @@ export function summariseTrack(passage: PassageReport, complexity: ComplexitySco
   return {
     distanceNm: passage.distance_nm,
     durationH: passage.duration_h,
+    departure: passage.departure_time,
     arrival: passage.arrival_time,
     hsAvgM: hsDist > 0 ? hsSum / hsDist : null,
     hsMaxM: hsMax,
@@ -219,7 +221,9 @@ export function routeOverlays(input: OverlayInput): RouteOverlay[] {
       waypoints: o.waypoints,
       colorToken: trackColorToken(i),
       dim: active !== null && o.id !== active,
-      label: o.passage ? `${i + 1} · ${fmtDurationSafe(o.passage.duration_h)}` : `${i + 1}`,
+      label: o.passage
+        ? `${i + 1} · ${fmtSpanSafe(o.passage.departure_time, o.passage.arrival_time)}`
+        : `${i + 1}`,
     }));
   }
   if (openedInPlan) {

@@ -22,7 +22,7 @@ import { usePlan } from "../session/planContext";
 import { AlertChip } from "../../components/AlertChip";
 import { noticeText } from "../notices";
 import { StalePlaceholder } from "../sidebar/parts";
-import { fmtDurationSafe, numFixed } from "../format";
+import { fmtSpanSafe, numFixed } from "../format";
 import { fmtClock, fmtDay } from "../../domain/datetime";
 import { beaufortLevel, windSoftVar } from "../../domain/thresholds";
 import { useT, type Key } from "../../i18n";
@@ -183,7 +183,9 @@ function SlotRow({
   const alertsText = alerts > 0 ? tn("panel.compare.row.alerts", alerts) : null;
   const time = fmtClock(w.departure);
   const arrival = fmtTimeSafe(w.arrival);
-  const duration = fmtDurationSafe(w.duration_h);
+  // Read on the two clocks beside it, not on `duration_h`, which the
+  // server rounds to the hundredth of an hour (see `displayRounding`).
+  const duration = fmtSpanSafe(w.departure, w.arrival);
   const wind = fmtRange(cs.tws_min_kn, cs.tws_max_kn, 0);
   const sea = fmtRange(cs.hs_min_m, cs.hs_max_m, 1);
   // The columns are spans without headers of their own: the name says each

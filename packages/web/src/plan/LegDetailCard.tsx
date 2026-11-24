@@ -25,6 +25,7 @@ import type { AggregatedLeg, LegSpread } from "./aggregateLegs";
 import { ConditionsCompass } from "./ConditionsCompass";
 import { FORCE_COLORS } from "./forceColors";
 import { num1 } from "./format";
+import { speedBuildUp } from "./displayRounding";
 import { CURRENT_RELEVANCE_THRESHOLD_KN } from "../domain/thresholds";
 import { useT } from "../i18n";
 
@@ -119,9 +120,14 @@ export function LegDetailCard({
   // neither the dial nor the numbers mention it, same rule as the leg row.
   // For the average `current_speed_kn` is the max over the steps, so a leg
   // shows its current as soon as one step carries a real one. A current that
-  // still moves the speed by a tenth of a knot stays on screen too, so the
-  // build-up never shows a "courant" row the dial does not explain.
-  const currentDelta = view.current_delta_kn != null && Math.abs(view.current_delta_kn) > 0.05;
+  // still prints a term in the build-up stays on screen too, so the build-up
+  // never shows a "courant" term the dial does not explain.
+  //
+  // The build-up is rounded as a whole (see `displayRounding`): its terms
+  // add up to the speed printed above them, and a term that rounds to zero
+  // is not printed.
+  const buildUp = speedBuildUp(view);
+  const currentDelta = buildUp.current !== 0;
   const hasCurrent =
     view.current_speed_kn != null &&
     (view.current_speed_kn >= CURRENT_RELEVANCE_THRESHOLD_KN || currentDelta);
@@ -244,7 +250,7 @@ export function LegDetailCard({
               className="text-2xl font-bold"
               style={{ color: "var(--ow-accent)", letterSpacing: "-0.02em", lineHeight: 1 }}
             >
-              {num1(view.target_speed_kn)}
+              {num1(buildUp.total)}
             </span>
             <span className="text-[10px]" style={{ color: "var(--ow-fg-2)" }}>
               {t("panel.legDetail.speedUnit")}
@@ -257,23 +263,23 @@ export function LegDetailCard({
                 // does the motoring speed and only the current moves the
                 // figure, so the one term is the speed through water itself.
                 <span style={{ color: "var(--ow-fg-1)" }}>
-                  {t("panel.legDetail.buildUpMotor", { value: num1(view.boat_speed_kn) })}
+                  {t("panel.legDetail.buildUpMotor", { value: num1(buildUp.base) })}
                 </span>
               ) : (
                 <>
                   <span style={{ color: FORCE_COLORS.wind }}>
-                    {t("panel.legDetail.buildUpPolar", { value: num1(view.polar_after_eff_kn) })}
+                    {t("panel.legDetail.buildUpPolar", { value: num1(buildUp.base) })}
                   </span>
-                  {hasWaves && Math.abs(view.wave_delta_kn) > 0.05 && (
+                  {buildUp.sea !== 0 && (
                     <span style={{ color: FORCE_COLORS.waves }}>
-                      {t("panel.legDetail.buildUpSea", { value: fmtSigned1(view.wave_delta_kn) })}
+                      {t("panel.legDetail.buildUpSea", { value: fmtSigned1(buildUp.sea) })}
                     </span>
                   )}
                 </>
               )}
               {currentDelta && (
                 <span style={{ color: FORCE_COLORS.current }}>
-                  {t("panel.legDetail.buildUpCurrent", { value: fmtSigned1(view.current_delta_kn ?? 0) })}
+                  {t("panel.legDetail.buildUpCurrent", { value: fmtSigned1(buildUp.current) })}
                 </span>
               )}
             </div>
