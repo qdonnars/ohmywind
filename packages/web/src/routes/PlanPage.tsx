@@ -218,7 +218,12 @@ export function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, cont
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     e.preventDefault();
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
-    dragRef.current = { startY: e.clientY, startVh: vh };
+    // From the height on screen, not the one asked for: the column may have
+    // shrunk the drawer (see `min-h-0` below), and a drag starting from the
+    // larger figure would move nothing for its first centimetres.
+    const outer = outerRef.current;
+    const shownVh = outer && outer.offsetHeight > 0 ? (outer.offsetHeight / window.innerHeight) * 100 : vh;
+    dragRef.current = { startY: e.clientY, startVh: Math.min(vh, shownVh) };
   }
   function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
     if (!dragRef.current) return;
@@ -235,10 +240,18 @@ export function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, cont
     (e.currentTarget as HTMLDivElement).releasePointerCapture?.(e.pointerId);
   }
 
+  // `min-h-0`, not `shrink-0`: the drawer is the one part of the column that
+  // gives way when the column overflows. Its height is a share of the
+  // viewport while the header above it grows with the top safe-area inset;
+  // on an iPhone (62 px of inset) a drawer at 90 vh pushed the column some
+  // 35 px past the bottom of the screen. The page clips that, but every
+  // scrollIntoView of the panel (an opened leg, the comparison doors) or a
+  // focused field could then scroll the whole column to reach the hidden
+  // strip, which shifted the page up.
   return (
     <div
       ref={outerRef}
-      className="shrink-0 border-t flex flex-col"
+      className="min-h-0 border-t flex flex-col"
       style={{
         height: `${vh}vh`,
         background: "var(--ow-bg-1)",
