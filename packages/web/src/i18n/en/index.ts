@@ -9,5 +9,6 @@ import { plan } from "./plan";
 import { panel } from "./panel";
 import { compare } from "./compare";
 import { press } from "./press";
+import { settings } from "./settings";
 
-export const en: Dict = { ...common, ...config, ...explore, ...plan, ...panel, ...compare, ...press };
+export const en: Dict = { ...common, ...config, ...explore, ...plan, ...panel, ...compare, ...press, ...settings };

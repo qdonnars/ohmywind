@@ -3,10 +3,11 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { aboutReturnPath, consumeReturnPath } from "../config/returnPath";
+import { aboutReturnPath } from "../config/returnPath";
 import { isLayerEntry } from "../hooks/useBackDismiss";
 import { useRouter } from "../router";
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
+import { hideSettings, isSettingsOpen } from "../settings/settingsStore";
 import { NavMenu } from "./NavMenu";
 
 // The router pings the service worker on every navigation; that module
@@ -218,21 +219,18 @@ describe("NavMenu, under the router", () => {
     expect(window.location.pathname).toBe("/plan");
   });
 
-  it("opens the settings from « Réglages », with the page to come back to", () => {
+  it("opens the settings from « Réglages », without leaving the page", () => {
     window.history.replaceState(null, "", "/comparer");
-    const back = vi.spyOn(window.history, "back");
     render(<Page current="compare" />);
     open();
+    expect(isSettingsOpen()).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "Réglages" }));
 
-    expect(screen.getByTestId("path").textContent).toBe("/config");
-    // The drawer closes in the same click, after the navigation has taken
-    // its history entry: nothing left for it to pop.
-    expect(back).not.toHaveBeenCalled();
-    expect(isLayerEntry(window.history.state)).toBe(false);
-    fireEvent.popState(window);
-    expect(window.location.pathname).toBe("/config");
-    expect(consumeReturnPath()).toBe("/comparer");
-    back.mockRestore();
+    // The settings are a sheet over the page, not a page of their own: the
+    // drawer closes in the same click and the address does not move.
+    expect(isSettingsOpen()).toBe(true);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByTestId("path").textContent).toBe("/comparer");
+    hideSettings();
   });
 });

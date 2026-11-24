@@ -11,7 +11,6 @@ export const explore = {
     "Cliquez la carte pour la météo, clic droit pour enregistrer un spot",
 
   // Header
-  "explore.header.settings": "Paramètres",
 
   // Bascule de thème (design/theme)
   "explore.theme.toDark": "Passer au thème sombre",

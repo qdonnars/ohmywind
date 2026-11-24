@@ -278,6 +278,21 @@ export function saveModelConfig(cfg: ModelConfig): void {
   } catch {
     // localStorage unavailable / full — fail silently; next load returns default.
   }
+  for (const listener of listeners) listener();
+}
+
+const listeners = new Set<() => void>();
+
+/**
+ * Hears this page's own writes. The settings open over the forecast table,
+ * so the table has to learn of a new order without the page being reloaded.
+ * Returns the unsubscribe.
+ */
+export function subscribeModelConfig(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 export function activeModels(cfg: ModelConfig): ModelName[] {

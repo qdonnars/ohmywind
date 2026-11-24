@@ -9,7 +9,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.emptyState.click": "Cliccare sulla mappa per il meteo, clic destro per salvare uno spot",
 
   // Header
-  "explore.header.settings": "Impostazioni",
 
   // Theme toggle (design/theme)
   "explore.theme.toDark": "Passare al tema scuro",

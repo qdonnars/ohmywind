@@ -6,6 +6,7 @@ import { fetchIsLand } from "../api/land";
 import { fetchMarineCorridor } from "../api/marine";
 import { fetchWindCorridor } from "../api/openmeteo";
 import { activeModels, loadModelConfig } from "../config/modelConfig";
+import { useAppliedModelOrder } from "../settings/useAppliedModelOrder";
 import type { Spot } from "../types";
 import { mergeModelChain, rowKey, type CompareRow } from "./data";
 
@@ -42,6 +43,9 @@ function setKey(spots: Spot[]): string {
 export function useCompareData(spots: Spot[]): { rows: CompareRow[]; isLoading: boolean } {
   const key = setKey(spots);
   const [loaded, setLoaded] = useState<Loaded>({ key: "", rows: [] });
+  // The settings open over this page: a new model order fetches again, once
+  // they close. The effect reads the order itself.
+  const modelOrder = useAppliedModelOrder();
 
   useEffect(() => {
     if (spots.length === 0) return;
@@ -64,7 +68,7 @@ export function useCompareData(spots: Spot[]): { rows: CompareRow[]; isLoading: 
     return () => {
       cancelled = true;
     };
-  }, [spots]);
+  }, [spots, modelOrder]);
 
   // Open-Meteo Marine answers from the nearest sea cell however far inland
   // the spot is: a favourite in the Léon read 1.6 m of swell (#480). The

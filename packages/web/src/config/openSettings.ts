@@ -1,20 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { goTo } from "../router";
-import { rememberReturnPath } from "./returnPath";
+import { showSettings } from "../settings/settingsStore";
 
 /**
- * Where the « Réglages » entry of the navigation drawer leads. The one place
- * that decides it: today the /config page, remembering the page it was opened
- * from for its back link; once the settings open as a sheet over the page,
- * only this function changes.
+ * Opens the settings, always on their root view. The one way in, for every
+ * control that offers them (the gear of the header, the drawer's entry, a
+ * floating button), and callable outside React.
  *
- * Called after the drawer has asked to close, from the same click: the
- * navigation replaces the drawer's history entry before its close is
- * committed, so the drawer finds nothing left to pop (see `goTo`).
+ * Safe to call from a handler that closes another layer in the same breath
+ * (the drawer closes, then the settings open): the history entry the
+ * settings take waits for the drawer's own to be popped, see `BackStack.open`
+ * in `hooks/useBackDismiss.ts`.
  */
 export function openSettings(): void {
-  rememberReturnPath();
-  goTo("/config");
+  showSettings();
 }
