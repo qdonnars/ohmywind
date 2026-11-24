@@ -404,6 +404,48 @@ path.ow-spot-marker:focus-visible {
   filter: brightness(0.85);
 }
 
+/* Navigation drawer (components/NavMenu.tsx). 304 px on a phone, 320 px
+   from lg up, never so wide that the scrim to tap disappears. On a phone it
+   runs under the status bar and the notch: the safe-area insets go into its
+   padding, and into its width on the left, so the content keeps its room. */
+.ow-nav-drawer {
+  width: min(calc(304px + env(safe-area-inset-left, 0px)), calc(100vw - 48px));
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 12px calc(20px + env(safe-area-inset-bottom, 0px))
+    calc(12px + env(safe-area-inset-left, 0px));
+  animation: owDrawerIn 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@media (min-width: 64rem) {
+  .ow-nav-drawer {
+    width: min(calc(320px + env(safe-area-inset-left, 0px)), calc(100vw - 48px));
+    padding-top: calc(16px + env(safe-area-inset-top, 0px));
+  }
+}
+.ow-drawer-scrim {
+  animation: owFade 0.2s ease;
+}
+@keyframes owDrawerIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes owFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ow-nav-drawer,
+  .ow-drawer-scrim {
+    animation: none;
+  }
+}
+
 /* Modal enter animation */
 @keyframes modalIn {
   from {

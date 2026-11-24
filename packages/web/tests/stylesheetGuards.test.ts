@@ -41,4 +41,11 @@ describe("index.css", () => {
     // fight the height.
     expect(declarations).not.toMatch(/\b(bottom|inset|position):/);
   });
+
+  it("runs the navigation drawer under the status bar and the notch without hiding its content", () => {
+    const declarations = rule(".ow-nav-drawer");
+    expect(declarations).toMatch(/width:\s*min\(calc\(304px \+ env\(safe-area-inset-left/);
+    expect(declarations).toMatch(/env\(safe-area-inset-top/);
+    expect(declarations).toMatch(/env\(safe-area-inset-bottom/);
+  });
 });

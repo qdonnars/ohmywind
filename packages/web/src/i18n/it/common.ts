@@ -29,6 +29,8 @@ export const common: Record<keyof typeof frCommon, string> = {
   "common.nav.compare.title": "Confrontare i miei spot",
   "common.nav.compare.desc": "I miei preferiti fianco a fianco",
   "common.nav.settings": "Impostazioni",
+  "common.nav.sourcesNote":
+    "Previsioni Open-Meteo (CC BY 4.0). Non sono osservazioni: ascolti il bollettino prima di partire.",
 
   "common.version": "Versione {version}",
   "common.nav.whatsNew.title": "Novità",
