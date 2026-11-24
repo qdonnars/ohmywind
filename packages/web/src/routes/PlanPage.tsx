@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useState, useEffect, useMemo, useRef, useCallback, useImperativeHandle, type Ref } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback, useImperativeHandle, type Ref, type RefObject } from "react";
 import { isParsedOk, parsePlanUrl } from "../plan/parseUrl";
 import { PlanMap, type PlanMapHandle } from "../plan/PlanMap";
 import { WindScaleLegend } from "../plan/WindScaleLegend";
@@ -327,20 +327,26 @@ export function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, cont
   );
 }
 
-// ── ResizableDesktopSidebar ──────────────────────────────────────────────────
-// Desktop equivalent of ResizableMobileDrawer: vertical grab-handle on the left
-// edge adjusts width in px. Persists in localStorage so reload feels stable.
-// Useful when comparing windows — the 7-column table is cramped at 320–384 px.
+// ── FloatingDesktopPanel ─────────────────────────────────────────────────────
+// Desktop equivalent of ResizableMobileDrawer: from lg up, the planner's
+// panel is a card floating over the right of the map, 12 px from the edges
+// of the screen, the map running under it (`.ow-plan-panel` in index.css). A
+// small bar straddling its left edge adjusts its width in px, persisted in
+// localStorage so a reload feels stable. Useful when comparing windows: the
+// 7-column table is cramped at 320–384 px.
 
 const SIDEBAR_WIDTH_KEY = LOCAL_STORAGE_KEYS.sidebarWidth;
 const SIDEBAR_MIN_PX = 280;
 const SIDEBAR_MAX_PX = 800;
 
-function ResizableDesktopSidebar({
+function FloatingDesktopPanel({
   defaultPx,
+  panelRef,
   children,
 }: {
   defaultPx: number;
+  /** The panel itself, for the map to frame a route left of it. */
+  panelRef: RefObject<HTMLDivElement | null>;
   children: React.ReactNode;
 }) {
   const { t } = useT();
@@ -357,6 +363,22 @@ function ResizableDesktopSidebar({
   });
   const dragRef = useRef<{ startX: number; startPx: number } | null>(null);
 
+  // The width goes to the page's body, the panel's parent, as a CSS variable
+  // written straight to the element (`--ow-plan-panel-px`, read by
+  // `.ow-plan-body`): the controls of the map, the search and the hints
+  // follow the panel at every move of a drag without re-rendering the page.
+  // The CSS keeps the map at least --ow-plan-map-min wide beside it. The
+  // parent and not a ref of the page: a parent's ref is attached after its
+  // children's layout effects have run.
+  useLayoutEffect(() => {
+    const host = panelRef.current?.parentElement;
+    if (!host) return;
+    host.style.setProperty("--ow-plan-panel-px", `${px}px`);
+    return () => {
+      host.style.removeProperty("--ow-plan-panel-px");
+    };
+  }, [px, panelRef]);
+
   function persist(next: number) {
     try { localStorage.setItem(SIDEBAR_WIDTH_KEY, String(next)); } catch { /* best-effort */ }
   }
@@ -364,11 +386,14 @@ function ResizableDesktopSidebar({
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     e.preventDefault();
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
-    dragRef.current = { startX: e.clientX, startPx: px };
+    // Start from the width on screen, which the CSS may have narrowed on a
+    // small window, so the bar moves under the pointer from the first pixel.
+    const shown = panelRef.current?.getBoundingClientRect().width ?? px;
+    dragRef.current = { startX: e.clientX, startPx: Math.min(px, Math.round(shown)) };
   }
   function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
     if (!dragRef.current) return;
-    // Sidebar is on the right, so dragging left expands it.
+    // The panel is on the right, so dragging left widens it.
     const dx = dragRef.current.startX - e.clientX;
     const next = Math.max(SIDEBAR_MIN_PX, Math.min(SIDEBAR_MAX_PX, dragRef.current.startPx + dx));
     setPx(next);
@@ -382,10 +407,17 @@ function ResizableDesktopSidebar({
   }
 
   return (
-    <div
-      className="flex shrink-0"
-      style={{ width: `${px}px`, background: "var(--ow-bg-1)" }}
-    >
+    <div ref={panelRef} data-plan-panel="" className="ow-plan-panel absolute z-[500] flex">
+      {/* The card: rounded, its content scrolling inside it, so the head of
+          the panel (« Départ : … ») follows the rounded top and the legs
+          scroll under it within the card. `relative` on the scrolling box,
+          like every scroll container (tests/scrollContainers.test.ts). */}
+      <div className="ow-plan-panel-card relative flex-1 min-w-0 overflow-hidden flex flex-col">
+        <div className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain">{children}</div>
+      </div>
+      {/* The grab bar: a small grey bar astride the left edge of the card.
+          Its target reaches 30 px over the map and 14 px into the card, the
+          card's own padding, so it never takes a tap meant for the panel. */}
       <div
         role="separator"
         aria-orientation="vertical"
@@ -394,19 +426,22 @@ function ResizableDesktopSidebar({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        className="group shrink-0 flex items-center justify-center cursor-col-resize touch-none transition-colors hover:bg-[var(--ow-bg-2)]"
-        style={{
-          width: 12,
-          borderLeft: "1px solid var(--ow-line)",
-          borderRight: "1px solid var(--ow-line)",
-        }}
+        className="group absolute top-1/2 -translate-y-1/2 flex items-center cursor-col-resize touch-none"
+        style={{ left: -30, width: 44, height: 72 }}
       >
         <span
           className="block rounded-full transition-colors group-hover:bg-[var(--ow-accent)]"
-          style={{ width: 4, height: 56, background: "var(--ow-fg-3)" }}
+          style={{
+            marginLeft: 28,
+            width: 5,
+            height: 40,
+            // Mid grey in both themes, ringed with the card's surface so it
+            // reads over a dark chart as over a light one.
+            background: "var(--ow-fg-2)",
+            boxShadow: "0 0 0 1.5px var(--ow-bg-1)",
+          }}
         />
       </div>
-      <div className="relative flex-1 min-w-0 overflow-y-auto">{children}</div>
     </div>
   );
 }
@@ -419,6 +454,9 @@ export function PlanPage() {
   // The bar floating over the top of the map (MapTopBar): framing a route
   // keeps it clear.
   const topBarRef = useRef<HTMLDivElement>(null);
+  // From lg up: the panel floating over the map, which framing a route
+  // keeps clear of.
+  const panelRef = useRef<HTMLDivElement>(null);
   // The reader's spots, offered by the search before anything is typed.
   const { customSpots } = useCustomSpots();
 
@@ -724,8 +762,11 @@ export function PlanPage() {
           over the drawer; in landscape the two sat on top of each other (QA
           of 1.15.0, #579). The drawer is the part of the column that gives
           way (see ResizableMobileDrawer). */}
-      <div className={`flex-1 min-h-0 flex flex-col lg:flex-row ${isDesktop ? "" : "ow-map-min-height"}`}>
-        {/* Map — full height on mobile, flex-1 on desktop */}
+      <div
+        className={`flex-1 min-h-0 flex flex-col ${isDesktop ? "relative ow-plan-body" : "ow-map-min-height"}`}
+      >
+        {/* Map — full height on mobile; on desktop the whole window, the
+            panel floating over its right side (FloatingDesktopPanel). */}
         <div className="flex-1 min-h-0 relative">
           <PlanMap
             ref={mapRef}
@@ -760,6 +801,7 @@ export function PlanPage() {
             // to hold them above the locate button.
             zoomButtons={{ className: "ow-chrome-right ow-chrome-slot-2", clearanceBelow: ZOOM_CLEARANCE_BELOW_PX }}
             topInsetRef={topBarRef}
+            rightInsetRef={isDesktop ? panelRef : undefined}
           />
           {/* Marine-chart toggle — at the top of the column of controls
               along the right edge, under the settings button of the bar.
@@ -791,7 +833,7 @@ export function PlanPage() {
           />
           {/* Hint overlay while drawing a variant between the plan's ends */}
           {drawing && (
-            <div className="absolute left-4 right-[68px] bottom-4 z-[400] flex justify-center pointer-events-none">
+            <div className="absolute ow-map-hint bottom-4 z-[400] flex justify-center pointer-events-none">
               <div
                 className="px-4 py-2 rounded-xl text-sm font-medium text-center text-balance"
                 style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)", color: "var(--ow-fg-1)" }}
@@ -801,12 +843,13 @@ export function PlanPage() {
             </div>
           )}
           {/* Hint overlay while building the route. Both hints keep out of
-              the column of controls on the right: at 360 px the German and
-              Italian ones ran under the locate button (#579). Centred in
-              what is left rather than on the map, so a short hint keeps to
-              one line on a phone. */}
+              the column of controls on the right, and of the panel on a
+              wide screen (.ow-map-hint): at 360 px the German and Italian
+              ones ran under the locate button (#579). Centred in what is
+              left rather than on the map, so a short hint keeps to one line
+              on a phone. */}
           {!drawing && waypoints.length < 2 && (
-            <div className="absolute left-4 right-[68px] bottom-4 z-[400] flex justify-center pointer-events-none">
+            <div className="absolute ow-map-hint bottom-4 z-[400] flex justify-center pointer-events-none">
               <div
                 className="px-4 py-2 rounded-xl text-sm font-medium text-center text-balance"
                 style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)", color: "var(--ow-fg-1)" }}
@@ -859,15 +902,16 @@ export function PlanPage() {
           />
         </div>
 
-        {/* Desktop sidebar — user-resizable via the handle on the left edge.
-            Mounted only above `lg`: both layouts used to be in the DOM at all
-            times with one hidden by CSS, so every state tick rendered the
-            panel twice, re-read ow_polar_config_v1 twice, and every button of
-            the planner existed twice for assistive technology. */}
+        {/* Desktop panel — floating over the map, user-resizable via the
+            bar on its left edge. Mounted only above `lg`: both layouts used
+            to be in the DOM at all times with one hidden by CSS, so every
+            state tick rendered the panel twice, re-read ow_polar_config_v1
+            twice, and every button of the planner existed twice for
+            assistive technology. */}
         {isDesktop && (
-          <ResizableDesktopSidebar defaultPx={384}>
+          <FloatingDesktopPanel defaultPx={384} panelRef={panelRef}>
             <PlanSidebar />
-          </ResizableDesktopSidebar>
+          </FloatingDesktopPanel>
         )}
       </div>
 
