@@ -67,12 +67,19 @@ export function SpotSearch({ onSelect, nearLat, nearLon, savedSpots = [] }: Spot
     () => (nearLat != null && nearLon != null ? { lat: nearLat, lon: nearLon } : null),
     [nearLat, nearLon],
   );
+  // The reference point of the geocoder is the one in force when the text
+  // was typed, held with the text. Read live, it changes with every move of
+  // the map (the pages hand the map's centre), and a text left in the field
+  // was searched again at each pan (QA of 1.15.0, #579). The next keystroke
+  // takes the new point. The saved spots, matched on the device, keep the
+  // live one.
+  const [queryNear, setQueryNear] = useState<{ lat: number; lon: number } | null>(null);
   // The language is part of the key: the geocoder answers in the reader's
   // language, so two languages are two different result sets.
   const cacheKey = useMemo(
     () =>
-      `${lang}|${normalizeForMatch(trimmed)}|${near ? `${near.lat.toFixed(2)},${near.lon.toFixed(2)}` : ""}`,
-    [lang, trimmed, near],
+      `${lang}|${normalizeForMatch(trimmed)}|${queryNear ? `${queryNear.lat.toFixed(2)},${queryNear.lon.toFixed(2)}` : ""}`,
+    [lang, trimmed, queryNear],
   );
 
   // Remote state is keyed by the query it belongs to, so a late response for
@@ -101,7 +108,7 @@ export function SpotSearch({ onSelect, nearLat, nearLon, savedSpots = [] }: Spot
     // synchronously in the effect body.
     const timer = setTimeout(() => {
       setRemote({ key: cacheKey, status: "loading", results: [] });
-      searchPlaces(trimmed, { near, signal: controller.signal })
+      searchPlaces(trimmed, { near: queryNear, signal: controller.signal })
         .then((results) => {
           cachePut(cacheKey, results);
           setRemote({ key: cacheKey, status: "done", results });
@@ -117,7 +124,7 @@ export function SpotSearch({ onSelect, nearLat, nearLon, savedSpots = [] }: Spot
       clearTimeout(timer);
       controller.abort();
     };
-  }, [trimmed, cacheKey, near]);
+  }, [trimmed, cacheKey, queryNear]);
 
   const coordinates = useMemo(() => parseCoordinates(trimmed), [trimmed]);
   const savedMatches = useMemo(
@@ -175,6 +182,7 @@ export function SpotSearch({ onSelect, nearLat, nearLon, savedSpots = [] }: Spot
 
   function handleChange(value: string) {
     setQuery(value);
+    setQueryNear(near);
     setActiveIndex(0);
     setOpen(value.trim().length >= MIN_CHARS || parseCoordinates(value.trim()) != null);
   }
@@ -182,7 +190,10 @@ export function SpotSearch({ onSelect, nearLat, nearLon, savedSpots = [] }: Spot
   const handleSelect = useCallback(
     (r: PlaceResult) => {
       onSelect({ name: r.name, latitude: r.latitude, longitude: r.longitude });
+      // The name of the place picked, searched from the place itself: the
+      // page is about to centre on it.
       setQuery(r.name);
+      setQueryNear({ lat: r.latitude, lon: r.longitude });
       setOpen(false);
     },
     [onSelect],

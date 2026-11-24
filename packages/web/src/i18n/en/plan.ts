@@ -7,8 +7,10 @@ export const plan: Record<keyof typeof frPlan, string> = {
   // ── PlanPage ──────────────────────────────────────────────────────────────
   "plan.page.urlError.title": "Invalid URL",
   "plan.page.urlError.back": "← Explore the weather",
-  "plan.page.hint.placeStart": "Click to place the departure",
-  "plan.page.hint.drawRoute": "Click to draw your route",
+  "plan.page.hint.placeStart.click": "Click to place the departure",
+  "plan.page.hint.placeStart.touch": "Tap to place the departure",
+  "plan.page.hint.drawRoute.click": "Click to draw your route",
+  "plan.page.hint.drawRoute.touch": "Tap to draw your route",
   "plan.panel.resize": "Resize the panel",
 
   // ── Totals: panel block and mobile strip ──────────────────────────────────
@@ -25,8 +27,10 @@ export const plan: Record<keyof typeof frPlan, string> = {
 
   // ── Panel states ──────────────────────────────────────────────────────────
   "plan.states.empty.title": "Draw your route",
-  "plan.states.empty.body":
+  "plan.states.empty.body.click":
     "Click the map to place a departure and an arrival. You can then compute the passage, then compare other departures or other routes.",
+  "plan.states.empty.body.touch":
+    "Tap the map to place a departure and an arrival. You can then compute the passage, then compare other departures or other routes.",
   "plan.states.error.title": "Error",
   "plan.states.waking.title": "The weather server is waking up",
   "plan.states.waking.body":

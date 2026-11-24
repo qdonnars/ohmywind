@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useEffect, useRef, useImperativeHandle, type Ref } from "react";
+import { useEffect, useRef, useImperativeHandle, useState, type Ref } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useTheme } from "../design/useTheme";
@@ -20,6 +20,9 @@ import { computeLegSegmentRanges } from "./aggregateLegs";
 import { closestOnPolyline, TapGuard } from "./mapGestures";
 import { waypointPlacedFeedback } from "../native/haptics";
 import { midpointAlong, type RouteOverlay } from "./compare/tracks";
+import { MapZoomButtons } from "../components/MapZoomButtons";
+import { createMapZoomStore } from "../utils/mapZoomStore";
+import { MAP_CONTROLS_GUTTER_PX } from "../components/mapControlsLayout";
 import {
   HOLD_SLOP_PX,
   MARKER_SETTLE_MS,
@@ -52,14 +55,17 @@ const ZOOM_SNAP = 0.1;
 /** Frame for a route: 8 % of the map on each side, so the waypoints span
     about 84 % of the smaller dimension, and never less than what a marker
     needs to stay whole at the edge: its disc, the × badge on its top-right
-    corner (24 px from the centre) and the sounding 40 px below it. */
+    corner (24 px from the centre) and the sounding 40 px below it. On the
+    right, the column of controls is kept clear as well, plus the radius of
+    a disc: a waypoint framed in a corner used to sit under the locate
+    button or the chart toggle (QA of 1.15.0, #579). */
 function routePadding(map: L.Map): L.FitBoundsOptions {
   const size = map.getSize();
   const x = Math.max(28, size.x * 0.08);
   const y = Math.max(28, size.y * 0.08);
   return {
     paddingTopLeft: L.point(x, y),
-    paddingBottomRight: L.point(x, Math.max(y, 40)),
+    paddingBottomRight: L.point(Math.max(x, MAP_CONTROLS_GUTTER_PX + 14), Math.max(y, 40)),
   };
 }
 
@@ -115,6 +121,10 @@ interface PlanMapProps {
   /** The first and last waypoints cannot be removed: a variant keeps the
       plan's ends. */
   lockedEnds?: boolean;
+  /** Where the zoom buttons go, as positioning classes; no buttons without
+      it. They are only drawn for a mouse or a trackpad, and only while the
+      map is at least `minFrameHeight` tall. */
+  zoomButtons?: { className: string; minFrameHeight?: number };
   /** Imperative handle, for the page to re-frame the camera on the route.
       A plain prop since React 19: `forwardRef` is no longer needed to
       receive one. */
@@ -145,7 +155,7 @@ function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon 
 }
 
 export function PlanMap(
-  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, focusedSegmentIdx = null, initialCenter, userPosition, onViewChange, initialZoom, showSeamarks = false, depths, overlays, hideBaseRoute = false, lockedEnds = false, ref }: PlanMapProps,
+  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, focusedSegmentIdx = null, initialCenter, userPosition, onViewChange, initialZoom, showSeamarks = false, depths, overlays, hideBaseRoute = false, lockedEnds = false, zoomButtons, ref }: PlanMapProps,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -160,6 +170,7 @@ export function PlanMap(
   const segLabelsRef = useRef<L.Tooltip[]>([]);
   const userLayerRef = useRef<L.LayerGroup | null>(null);
   const flyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [zoomStore] = useState(createMapZoomStore);
   const onViewChangeRef = useRef(onViewChange);
   useEffect(() => { onViewChangeRef.current = onViewChange; }, [onViewChange]);
   const livePositionsRef = useRef<[number, number][]>(waypoints);
@@ -271,9 +282,10 @@ export function PlanMap(
     // Foundation allows this as long as they stay findable through an info
     // button, which is where they now are, alongside the other sources.
 
-    // No zoom buttons: they crowded the bottom-right corner against the
-    // locate control, and the explore map has done without them since day
-    // one. Wheel and pinch zoom stay enabled.
+    // Leaflet's own zoom buttons stay off: they live in a corner of their
+    // own, against the menu. The page draws its own under the chart toggle,
+    // in the column of the other controls (#470).
+    const detachZoom = zoomStore.attach(map);
 
     // Initial view. Falls back to a France-wide view rather than the Riviera
     // so users landing on /plan from anywhere on the coast aren't whisked to
@@ -383,6 +395,7 @@ export function PlanMap(
       window.removeEventListener("pointerup", onPointerUp, true);
       window.removeEventListener("pointercancel", onPointerCancel, true);
       tapGuardRef.current = null;
+      detachZoom();
       map.off("zoomend", onZoomEnd);
       segLabelsRef.current = [];
       map.remove();
@@ -937,5 +950,18 @@ export function PlanMap(
     focusLayerRef.current = group;
   }, [focusedSegmentIdx, segments, resolvedTheme]);
 
-  return <div ref={containerRef} className="w-full h-full" />;
+  // The buttons are a sibling of the Leaflet container, not a child: the
+  // container belongs to Leaflet, and a click on them must not reach the map.
+  return (
+    <>
+      <div ref={containerRef} className="w-full h-full" />
+      {zoomButtons && (
+        <MapZoomButtons
+          store={zoomStore}
+          className={zoomButtons.className}
+          minFrameHeight={zoomButtons.minFrameHeight}
+        />
+      )}
+    </>
+  );
 }

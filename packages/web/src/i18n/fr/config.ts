@@ -17,7 +17,7 @@ export const config = {
   "config.reset": "Réinitialiser",
   "config.saved": "· enregistré",
   "config.storageNote":
-    "OhMyWind ne propose volontairement pas de comptes utilisateurs : aucune donnée n'est envoyée sur un serveur pour identifier qui vous êtes. Vos préférences (modèles, polaire perso) sont stockées localement dans votre navigateur. Si vous changez d'appareil, de navigateur ou si vous effacez les cookies de ce site, ces ajustements seront perdus.",
+    "OhMyWind ne propose volontairement pas de comptes utilisateurs : aucune donnée n'est envoyée sur un serveur pour identifier qui vous êtes. Vos préférences (modèles, polaire perso) restent enregistrées sur cet appareil. Si vous changez d'appareil ou de navigateur, ou si vous effacez les données d'OhMyWind sur cet appareil, ces ajustements seront perdus.",
 
   // Onglet « Modèles météo » : intro, bracket des zones, horizon.
   "config.models.title": "Modèles météo",

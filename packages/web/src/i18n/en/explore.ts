@@ -160,6 +160,9 @@ export const explore: Record<keyof typeof frExplore, string> = {
   // Sea marks button
   "explore.seamarks.show": "Show sea marks: buoys, beacons and lighthouses",
   "explore.seamarks.hide": "Hide sea marks",
+  "explore.zoom.group": "Map zoom",
+  "explore.zoom.in": "Zoom in",
+  "explore.zoom.out": "Zoom out",
 
   // Geolocation
   "explore.geoloc.denied":

@@ -161,6 +161,9 @@ export const explore = {
   // Bouton des amers
   "explore.seamarks.show": "Afficher les amers : bouées, balises et phares",
   "explore.seamarks.hide": "Masquer les amers",
+  "explore.zoom.group": "Zoom de la carte",
+  "explore.zoom.in": "Zoom avant",
+  "explore.zoom.out": "Zoom arrière",
 
   // Géolocalisation
   "explore.geoloc.denied":

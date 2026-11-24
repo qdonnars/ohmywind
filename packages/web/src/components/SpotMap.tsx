@@ -18,6 +18,8 @@ import { syncPreviewMarker, syncSpotMarkers } from "../utils/spotMarkerLayer";
 import { addBasemap, BASEMAP_MAX_ZOOM, type Basemap } from "../utils/basemapLayer";
 import { useMapAutoCenter } from "../hooks/useMapAutoCenter";
 import type { MapView } from "../utils/mapViewParams";
+import { createMapZoomStore } from "../utils/mapZoomStore";
+import { MapZoomButtons } from "./MapZoomButtons";
 
 interface SpotMapProps {
   // null when the user has just removed their active spot — keep the map
@@ -81,6 +83,9 @@ interface SpotMapProps {
       exists to read wind arrows over a clean coastline. The preference
       belongs to the page, which persists it. */
   showSeamarks?: boolean;
+  /** Where the zoom buttons go, as positioning classes; no buttons without
+      it. They are only drawn for a mouse or a trackpad (#470). */
+  zoomButtons?: { className: string };
 }
 
 export function SpotMap({
@@ -105,9 +110,11 @@ export function SpotMap({
   metric,
   selectedHour,
   showSeamarks = false,
+  zoomButtons,
 }: SpotMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const [zoomStore] = useState(createMapZoomStore);
   const markersRef = useRef<Map<string, L.CircleMarker>>(new Map());
   const arrowLayerRef = useRef<L.Marker | null>(null);
   const userLayerRef = useRef<L.LayerGroup | null>(null);
@@ -246,6 +253,7 @@ export function SpotMap({
     map.getPane(ARROW_PANE)!.style.zIndex = "450";
 
     mapRef.current = map;
+    const detachZoom = zoomStore.attach(map);
 
     // Plain click on the map background → preview the forecast there. Marker
     // clicks never reach this handler: Leaflet paths default to
@@ -285,6 +293,7 @@ export function SpotMap({
     return () => {
       ro.disconnect();
       detachPanelWatch();
+      detachZoom();
       map.remove();
       mapRef.current = null;
     };
@@ -405,6 +414,7 @@ export function SpotMap({
   return (
     <div className="w-full h-full relative">
       <div ref={containerRef} className="w-full h-full overflow-hidden" />
+      {zoomButtons && <MapZoomButtons store={zoomStore} className={zoomButtons.className} />}
       {/* Long press on a saved marker: rename or delete. */}
       {pendingEdit && (
         <SpotEditDialog

@@ -34,6 +34,8 @@ import { LG_MEDIA_QUERY, useMediaQuery } from "../hooks/useMediaQuery";
 import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
 import { useT } from "../i18n";
 import { useKeepScreenOn } from "../hooks/useKeepScreenOn";
+import { usePointerWording } from "../hooks/usePointerWording";
+import { MAP_MIN_PX, ZOOM_MIN_FRAME_PX } from "../components/mapControlsLayout";
 import { loadKeepAwakeEnabled } from "../config/keepAwakePreference";
 
 // ── ResizableMobileDrawer ────────────────────────────────────────────────────
@@ -417,6 +419,8 @@ export function PlanPage() {
   // Which of the two panel layouts to mount. Same breakpoint the CSS uses, so
   // React and Tailwind can never disagree about which one is on screen.
   const isDesktop = useMediaQuery(LG_MEDIA_QUERY);
+  // Touch or click, for the hints laid over the map.
+  const pointer = usePointerWording();
   const { enabled: seamarks, toggle: toggleSeamarks } = useSeamarks("plan");
   // Zoom handed over by the explore map, used only when no route frames the
   // camera itself. Read once: navigating remounts the page.
@@ -693,8 +697,16 @@ export function PlanPage() {
         mapQuery={mapViewQuery(mapView)}
       />
 
-      {/* Body */}
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
+      {/* Body. On a phone it is only the map, and it keeps the height its
+          column of controls needs: a drawer pulled to the top used to bring
+          it to nothing, and the chart toggle and the locate button then
+          spilled over the header and the drawer; in landscape the two sat
+          on top of each other (QA of 1.15.0, #579). The drawer is the part
+          of the column that gives way (see ResizableMobileDrawer). */}
+      <div
+        className="flex-1 min-h-0 flex flex-col lg:flex-row"
+        style={isDesktop ? undefined : { minHeight: MAP_MIN_PX }}
+      >
         {/* Map — full height on mobile, flex-1 on desktop */}
         <div className="flex-1 min-h-0 relative">
           <PlanMap
@@ -725,6 +737,10 @@ export function PlanPage() {
             depths={waypointDepths}
             highlightedSegmentRange={drawing ? null : highlightedSegmentRange}
             focusedSegmentIdx={drawing ? null : focusedSegmentIdx}
+            // Under the chart toggle, in the column of the map's controls
+            // (#470). Mouse and trackpad only, and only on a map tall enough
+            // to hold them above the locate button.
+            zoomButtons={{ className: "top-[68px] right-3", minFrameHeight: ZOOM_MIN_FRAME_PX }}
           />
           {/* Navigation menu — same control, same corner as on the home
               map; the camera travels with its links so going back to the
@@ -740,7 +756,10 @@ export function PlanPage() {
           {/* Marine-chart toggle — top right, the corner a layer control
               conventionally lives in, and the only one free on this page:
               the menu owns the top left and the locate button plus its
-              error bubble own the bottom right. */}
+              error bubble own the bottom right. With the zoom buttons
+              between them, they make one column along the right edge,
+              which the hints and the framing of a route keep clear of
+              (see components/mapControlsLayout.ts). */}
           <SeamarkButton enabled={seamarks} onToggle={toggleSeamarks} className="top-3 right-3" />
           {/* Scale of the track's tints, once a passage is drawn. Wide
               screens only: on a phone the map is a strip above the drawer,
@@ -787,25 +806,29 @@ export function PlanPage() {
           )}
           {/* Hint overlay while drawing a variant between the plan's ends */}
           {drawing && (
-            <div className="absolute inset-x-4 bottom-4 z-[400] flex justify-center pointer-events-none">
+            <div className="absolute left-4 right-[68px] bottom-4 z-[400] flex justify-center pointer-events-none">
               <div
-                className="px-4 py-2 rounded-xl text-sm font-medium text-center"
+                className="px-4 py-2 rounded-xl text-sm font-medium text-center text-balance"
                 style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)", color: "var(--ow-fg-1)" }}
               >
-                {t("panel.tracks.drawing.hint")}
+                {t(`panel.tracks.drawing.hint.${pointer}`)}
               </div>
             </div>
           )}
-          {/* Hint overlay while building the route */}
+          {/* Hint overlay while building the route. Both hints keep out of
+              the column of controls on the right: at 360 px the German and
+              Italian ones ran under the locate button (#579). Centred in
+              what is left rather than on the map, so a short hint keeps to
+              one line on a phone. */}
           {!drawing && waypoints.length < 2 && (
-            <div className="absolute inset-x-4 bottom-4 z-[400] flex justify-center pointer-events-none">
+            <div className="absolute left-4 right-[68px] bottom-4 z-[400] flex justify-center pointer-events-none">
               <div
-                className="px-4 py-2 rounded-xl text-sm font-medium"
+                className="px-4 py-2 rounded-xl text-sm font-medium text-center text-balance"
                 style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)", color: "var(--ow-fg-1)" }}
               >
                 {waypoints.length === 0
-                  ? t("plan.page.hint.placeStart")
-                  : t("plan.page.hint.drawRoute")}
+                  ? t(`plan.page.hint.placeStart.${pointer}`)
+                  : t(`plan.page.hint.drawRoute.${pointer}`)}
               </div>
             </div>
           )}

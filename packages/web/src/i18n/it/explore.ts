@@ -158,6 +158,9 @@ export const explore: Record<keyof typeof frExplore, string> = {
   // Sea marks button
   "explore.seamarks.show": "Mostrare i segnalamenti marittimi: boe, mede e fari",
   "explore.seamarks.hide": "Nascondere i segnalamenti marittimi",
+  "explore.zoom.group": "Zoom della mappa",
+  "explore.zoom.in": "Ingrandire",
+  "explore.zoom.out": "Ridurre",
 
   // Geolocation
   "explore.geoloc.denied":
