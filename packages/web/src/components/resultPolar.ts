@@ -15,8 +15,7 @@ import { t } from "../i18n";
  * The resulting polar, as the planner will work from it: the effective
  * matrix (imported file, or archetype × spinnaker × hand-tuned points)
  * scaled by the coefficient, with the title and subtitle the diagram shows.
- * One computation for the two places that draw it, the "Polaire résultante"
- * tile of /config (`BoatResult`) and the Bateau view of the settings.
+ * Drawn by the Bateau view of the settings.
  */
 export function resultPolar(config: PolarConfig): {
   effective: PolarData;

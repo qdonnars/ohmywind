@@ -316,9 +316,3 @@ button.ow-settings-row:hover {
     transition: none;
   }
 }
-
-/* The legacy editors of /config, shown as they are inside the stack: their
-   own page header and outer margins do not come with them. */
-.ow-settings-legacy {
-  padding-top: 8px;
-}

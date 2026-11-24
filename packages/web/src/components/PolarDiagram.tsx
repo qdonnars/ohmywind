@@ -558,35 +558,3 @@ export function PolarDiagram({
     </div>
   );
 }
-
-// Small pill row selecting which TWS curve is highlighted in the diagram.
-export function TwsPills({
-  twsKn,
-  selectedIdx,
-  onSelect,
-  label,
-}: {
-  twsKn: number[];
-  selectedIdx: number;
-  onSelect: (idx: number) => void;
-  label: string;
-}) {
-  const active = Math.min(selectedIdx, twsKn.length - 1);
-  return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-xs uppercase tracking-wider opacity-70">{label}</span>
-      <div className="flex gap-1 flex-wrap">
-        {twsKn.map((tws, idx) => (
-          <button
-            key={tws}
-            type="button"
-            onClick={() => onSelect(idx)}
-            className={`polar-tws-btn ${idx === active ? "is-selected" : ""}`}
-          >
-            {tws} kn
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}

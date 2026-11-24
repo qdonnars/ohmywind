@@ -5,11 +5,10 @@
  * The edits a reader can make to their boat, as pure steps from one
  * `PolarConfig` to the next, plus the one way they are stored.
  *
- * Two editors share them: the "Bateau" tab of /config (`BoatEditor` and its
- * tiles) and the Bateau views of the settings (`settings/views/Boat*View`).
- * Each rule lives here once, so the two cannot drift apart: what a motor
- * value becomes once typed, what picking another boat clears, how a file
- * is read, how far a hand-tuned point may go.
+ * The Bateau views of the settings (`settings/views/Boat*View`) share them.
+ * Each rule lives here once: what a motor value becomes once typed, what
+ * picking another boat clears, how a file is read, how far a hand-tuned
+ * point may go.
  */
 
 import { t } from "../i18n";
