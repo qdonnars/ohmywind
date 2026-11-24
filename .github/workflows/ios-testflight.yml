@@ -29,9 +29,6 @@ on:
   push:
     branches:
       - dev
-      # Provisoire, à retirer avant la fusion : amorçage des envois depuis
-      # la branche de travail de la coquille.
-      - feat/mobile-capacitor-shell
     # Only what ends up in the app: a change to the tests, the docs or this
     # workflow uploads nothing (workflow_dispatch is there for that).
     paths:
