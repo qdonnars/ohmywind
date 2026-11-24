@@ -142,7 +142,7 @@ Conséquences: la WebView ne peut naviguer que vers ces domaines (Capacitor ouvr
 
 ### `ShellViewController`
 
-`ios/App/App/ShellViewController.swift` remplace `CAPBridgeViewController` (dans `SceneDelegate.swift` et `Main.storyboard`):
+`ios/App/App/ShellViewController.swift` remplace `CAPBridgeViewController`. C'est `SceneDelegate.swift` qui crée la fenêtre et ce contrôleur: le projet n'a pas de storyboard principal (ni `UIMainStoryboardFile`, ni `UISceneStoryboardFile`), qui aurait instancié un second contrôleur aussitôt remplacé. Ce qu'il change:
 
 - **geste de retour**: `allowsBackForwardNavigationGestures`, le balayage depuis le bord gauche parcourt l'historique de la WebView, navigations internes du site (`history.pushState`) comprises;
 - **page de secours**: Capacitor 8 construit son URL avec `appendingPathComponent`, qui encode le « ? » de `fallback.html?to=<site>`: le gestionnaire de fichiers cherche alors un fichier nommé `fallback.html?to=...`, échoue, et cet échec recharge la même URL. Il l'affichait aussi pour une navigation simplement interrompue (lien confié à Safari, chargement remplacé par un autre). Un délégué de navigation placé devant celui de Capacitor (auquel il transmet tout le reste) résout `server.errorPath` comme une URL relative, requête comprise, et ne l'affiche que sur un vrai échec du cadre principal avant affichage. Il écrit `OhMyWind shell: showing the offline fallback page` dans le journal système;
@@ -235,7 +235,7 @@ Le projet `android/` est versionné, comme le veut la convention Capacitor: il p
 | `android/app/src/main/res/xml/config.xml` | généré par `cap sync`, ignoré |
 | `android/local.properties`, `android/.gradle/`, `**/build/` | locaux, ignorés |
 | `android/app/build/generated/shell-res/` | généré par Gradle: raccourcis de la variante et icônes copiées depuis `packages/web/public/` |
-| `ios/App/App.xcodeproj`, `ios/App/App/` (Swift, `Info.plist`, `App.entitlements`, storyboards, `*.lproj`), `ios/*.xcconfig`, `ios/App/shell-prebuild.sh` | versionnés |
+| `ios/App/App.xcodeproj`, `ios/App/App/` (Swift, `Info.plist`, `App.entitlements`, storyboard de lancement, `*.lproj`), `ios/*.xcconfig`, `ios/App/shell-prebuild.sh` | versionnés |
 | `ios/App/CapApp-SPM/Package.swift` | versionné, réécrit par `cap sync` (liste des plugins) |
 | `ios/App/App/capacitor.config.json`, `ios/App/App/config.xml`, `ios/App/App/public/`, `ios/capacitor-cordova-ios-plugins/` | générés par `cap sync`, ignorés |
 | `ios/App/variant.xcconfig` | généré par le hook de sync, ignoré |
