@@ -15,6 +15,7 @@ import { MODEL_META, type ModelName } from "../config/modelConfig";
 import { useT, t as translate } from "../i18n";
 import { circularMean, directionSpreadDeg, MODEL_DIRECTION_SPREAD_DEG } from "../domain/thresholds";
 import { DirectionArrow } from "./DirectionArrow";
+import { PanelNote } from "./PanelNote";
 
 function modelStep(name: string): number {
   const meta = MODEL_META[name as ModelName];
@@ -338,6 +339,23 @@ export function WindTable({
           </table>
         </div>
       </div>
+      {/* A model of the table that does not cover the point has been
+          replaced by the first ignored one that does (`fetchAllModels`):
+          the row marked ↳ says so on hover only, this line for everyone,
+          with the way to choose another. */}
+      {forecasts.map(
+        (f) =>
+          f.fellBackFrom && (
+            <PanelNote key={f.modelName}>
+              {t("explore.windTable.coverageNote", {
+                model: modelLabel(f.fellBackFrom),
+                fallback: modelLabel(f.modelName),
+                settings: t("common.nav.settings"),
+                view: t("config.models.title"),
+              })}
+            </PanelNote>
+          ),
+      )}
     </div>
   );
 }
