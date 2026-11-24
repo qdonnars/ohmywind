@@ -15,19 +15,19 @@ routes = [
 # cache that never hits leaves no trace anywhere. Traffic here is a few requests
 # a minute, so everything is sampled; lower the rate if that ever changes.
 #
-# What is kept is only what src/index.js logs itself: one line per unreachable
-# origin or outage page, carrying the host and the path without its query
-# string. The invocation logs are off: Cloudflare would otherwise store, for
-# every request, the full URL (so the coordinates of every GET) and metadata
-# about the caller, for 7 days. The privacy policy published on ohmywind.fr
-# relies on this setting; do not turn it back on without changing the policy.
-# Like every key in this file, it only takes effect on `npx wrangler deploy`.
+# Invocation logs are on, deliberately: Cloudflare keeps, for every request and
+# for up to 7 days, the full URL (so the coordinates in the query string of
+# GET /api/v1/marine/land and /api/v1/marine/marc) and metadata about the
+# caller, on top of the lines src/index.js writes itself on an outage. Request
+# bodies (POST /api/v1/passage, /marine/marc/batch, /mcp) are not logged.
+# The privacy policy on ohmywind.fr (packages/web/src/content/confidentialite*.md)
+# declares exactly this. Turning them off (`invocation_logs = false` under
+# [observability.logs]) or stripping query strings (`redact_query_string = true`
+# under [observability]) changes what the policy has to say: update it in the
+# same change. Like every key in this file, it only takes effect on deploy.
 [observability]
 enabled = true
 head_sampling_rate = 1
-
-[observability.logs]
-invocation_logs = false
 
 # Keep-alive, deliberately not enabled. Uncomment to turn it on.
 #
