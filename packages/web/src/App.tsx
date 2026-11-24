@@ -12,8 +12,7 @@ import {
 } from "./api/marine";
 import { fetchIsLand, withoutSea } from "./api/land";
 import { useCustomSpots } from "./hooks/useCustomSpots";
-import { Header } from "./components/Header";
-import { NavMenu } from "./components/NavMenu";
+import { MapTopBar } from "./components/MapTopBar";
 import { WindTable } from "./components/WindTable";
 import { MarineTable } from "./components/MarineTable";
 import { MetricPills } from "./components/MetricPills";
@@ -55,7 +54,10 @@ function EmptyState() {
   // landscape gets the wide layout and was told to right-click.
   const pointer = usePointerWording();
   return (
-    <div className="flex items-end justify-center pb-6 px-4">
+    // Centred in the width the locate button leaves (12 or 18 px from the
+    // edge, 48 px wide, see .ow-chrome-right): in German at 360 px the
+    // bubble ran under it.
+    <div className="flex items-end justify-center pb-6 pl-4 pr-[68px] lg:pr-[74px]">
       <div
         className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full shadow-lg"
         style={{
@@ -289,8 +291,11 @@ function App() {
   const effectiveView: MetricView = relevant[view] ? view : "wind";
 
   // The navigation menu's trigger, for the onboarding card to point at.
-  // Mounted once: in the header on a phone, on the map on a wide screen.
+  // Mounted once, in the bar over the map (MapTopBar).
   const navRef = useRef<HTMLButtonElement>(null);
+  // The bar itself, which covers the top of the map: a point the camera
+  // centres lands in the middle of what the bar and the tables leave.
+  const topBarRef = useRef<HTMLDivElement>(null);
   const isDesktop = useMediaQuery(LG_MEDIA_QUERY);
   // Handed to SpotMap so camera moves can centre a point in the strip of map
   // the OPAQUE data tables leave visible, instead of the full (half-covered)
@@ -304,24 +309,11 @@ function App() {
       className="h-dvh flex flex-col overflow-hidden"
       style={{ background: 'var(--ow-bg-0)', color: 'var(--ow-fg-0)' }}
     >
-      {/* Search proximity reference: the granted position first, else where
-          the map is currently looking, else the active spot. The viewport
-          matters because without it a search for "Brest" from a phone with
-          no position granted ranks Brest in Belarus and Brest in Croatia
-          alongside the Finistère one. */}
-      <Header
-        onSelectSpot={selectSpot}
-        nearLat={userPosition?.lat ?? mapView?.lat ?? spot?.latitude ?? null}
-        nearLon={userPosition?.lon ?? mapView?.lon ?? spot?.longitude ?? null}
-        savedSpots={customSpots}
-        current="explore"
-        mapQuery={mapViewQuery(mapView)}
-        navRef={navRef}
-      />
-
-      {/* Map fills the entire space; pills + table are an overlay floating
-          above its bottom edge so the map keeps showing through the gaps
-          around the data cells. */}
+      {/* No header: the map fills the whole screen, under the status bar in
+          the apps, and the menu, the search and the settings float over its
+          top (MapTopBar). Pills + table are an overlay floating above its
+          bottom edge so the map keeps showing through the gaps around the
+          data cells. */}
       <div className="flex-1 min-h-0 relative">
         <SpotMap
           current={spot}
@@ -332,6 +324,7 @@ function App() {
           initialView={initialView}
           defaultCenter={DEFAULT_MAP_CENTER}
           bottomInsetRef={dataPanelRef}
+          topInsetRef={topBarRef}
           onSelectSpot={selectSpot}
           onPreviewSpot={handlePreviewSpot}
           onAddSpot={(s) => { addSpot(s); selectSpot(s); }}
@@ -342,28 +335,39 @@ function App() {
           metric={effectiveView}
           selectedHour={selectedHour}
           showSeamarks={seamarks}
-          // Under the chart toggle, at the top of the column of controls
-          // along the right edge (#470). Mouse and trackpad only.
-          zoomButtons={{ className: "top-[68px] right-3" }}
+          // In the column of controls along the right edge, under the bar
+          // over the map and, from lg up, under the chart toggle (#470).
+          // Mouse and trackpad only.
+          zoomButtons={{
+            className: `ow-chrome-right ${isDesktop ? "ow-chrome-slot-2" : "ow-chrome-slot-1"}`,
+          }}
         />
-        {/* Marine-chart toggle — top right, the corner a layer control
-            conventionally lives in, and the one free corner here: the
-            navigation menu owns the top left and the data overlay owns the
-            bottom. */}
-        <SeamarkButton enabled={seamarks} onToggle={toggleSeamarks} className="top-3 right-3" />
-        {/* Navigation menu — after SpotMap so it renders on top. The camera
-            travels with the links (`?center`, `?zoom`) so the planner opens
-            on the region the reader was just looking at. On a phone the
-            same menu sits in the header instead. */}
+        {/* Marine-chart toggle — from lg up only, right under the settings
+            button, at the top of the column of controls along the right
+            edge. On a phone the bar is all the top of the map can carry:
+            the sea marks are a setting (Réglages > Carte), the same one
+            this button flips. */}
         {isDesktop && (
-          <NavMenu
-            variant="map"
-            current="explore"
-            mapQuery={mapViewQuery(mapView)}
-            className="top-3 left-3"
-            triggerRef={navRef}
-          />
+          <SeamarkButton enabled={seamarks} onToggle={toggleSeamarks} className="ow-chrome-right ow-chrome-slot-1" />
         )}
+        {/* Menu, search and settings — after SpotMap so they render on top.
+            Search proximity reference: the granted position first, else
+            where the map is currently looking, else the active spot. The
+            viewport matters because without it a search for "Brest" from a
+            phone with no position granted ranks Brest in Belarus and Brest
+            in Croatia alongside the Finistère one. The camera travels with
+            the menu's links (`?center`, `?zoom`) so the planner opens on the
+            region the reader was just looking at. */}
+        <MapTopBar
+          current="explore"
+          mapQuery={mapViewQuery(mapView)}
+          navRef={navRef}
+          barRef={topBarRef}
+          onSelectSpot={selectSpot}
+          nearLat={userPosition?.lat ?? mapView?.lat ?? spot?.latitude ?? null}
+          nearLon={userPosition?.lon ?? mapView?.lon ?? spot?.longitude ?? null}
+          savedSpots={customSpots}
+        />
 
         {/* Bottom overlay: pills (fixed at top of overlay) + scrollable table
             below. Pills sit in a ``shrink-0`` band so vertical scroll inside
@@ -380,14 +384,15 @@ function App() {
               which is transparent over the map: the button straddles the
               pills and keeps the same gap to the panel as on /plan. Out of
               flow, so it does not push the pills around. */}
-          <LocateButton status={geolocStatus} attempt={geolocAttempt} onClick={handleLocate} className="-top-4 right-3" />
+          <LocateButton status={geolocStatus} attempt={geolocAttempt} onClick={handleLocate} className="-top-4 ow-chrome-right" />
           {spot ? (
             <>
-              {/* pr-16 keeps the scrolling row clear of the locate button
-                  above (right-3 + w-12): with four pills on a phone the
-                  last one slid under it and could not be read or tapped
+              {/* The right padding keeps the scrolling row clear of the
+                  locate button above (12 px + 48 on a phone, 18 + 48 from
+                  lg up, see .ow-chrome-right): with four pills on a phone
+                  the last one slid under it and could not be read or tapped
                   (#387). The row scrolls to it instead. */}
-              <div className="shrink-0 pr-16">
+              <div className="shrink-0 pr-16 lg:pr-[72px]">
                 <MetricPills
                   view={effectiveView}
                   onSelect={setView}

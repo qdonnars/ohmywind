@@ -45,7 +45,6 @@ describe("storage key registry", () => {
       installInvite: "ow_install_invite_v1",
     });
     expect(SESSION_STORAGE_KEYS).toEqual({
-      configReturnPath: "ow_config_return_to",
       aboutReturnPath: "ow_about_return_to",
       planDraft: "ow_plan_draft_v1",
       storeApp: "ow_store_app",

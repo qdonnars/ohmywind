@@ -26,9 +26,9 @@ import { advancedSummary, sentenceCase } from "./useBoatSummary";
 /**
  * « Bateau »: what every passage plan sails on. The boat and its
  * performance coefficient, the engine, the way to « Avancé », the polar the
- * planner will use, and the reset. Same data and rules as the "Bateau" tab
- * of /config (`config/boatEdits`); each change is stored as it is made and
- * re-selects the perso polar on /plan.
+ * planner will use, and the reset. The rules live in `config/boatEdits`;
+ * each change is stored as it is made and re-selects the perso polar on
+ * /plan.
  */
 export function BoatView() {
   const { t } = useT();
@@ -65,7 +65,7 @@ export function BoatView() {
           value={ARCHETYPE_LABELS[cfg.base]}
           onOpen={() => nav.push("boatType")}
           // An imported polar ignores the boat type: its choice applies on
-          // the archetype only, and is closed meanwhile, as on /config.
+          // the archetype only, and is closed meanwhile.
           disabled={importedActive}
           describedBy={importedActive ? `${ids}-imported` : undefined}
         />

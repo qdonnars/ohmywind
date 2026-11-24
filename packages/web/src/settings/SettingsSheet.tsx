@@ -19,6 +19,8 @@ import { SettingsNavCtx, type SettingsNav } from "./nav";
 import { SETTINGS_VIEWS, type SettingsViewId } from "./registry";
 import { hideSettings, openerToRefocus, useSettingsOpen } from "./settingsStore";
 import "./settings.css";
+// The styles of the model and boat editors some views show, which were
+// those of the /config page.
 
 /**
  * The settings, mounted once for the whole app (`main.tsx`) and opened with

@@ -8,9 +8,7 @@
  *
  * Same rules as settings.css: `ow-models-*` classes nothing else uses, the
  * design tokens only. The handle also carries `config-handle`, the class
- * `useDragReorder` recognises a handle by, which routes/config.css styles
- * for /config; the two-class selectors below win over it whatever order the
- * bundle emits the files in.
+ * `useDragReorder` recognises a handle by; it has no style of its own.
  */
 
 .ow-models-intro {
@@ -155,6 +153,9 @@
      the touch for scrolling first. The row body keeps scrolling. */
   touch-action: none;
   cursor: grab;
+  /* Reaches into the row's padding, so the grip sits against its edge. */
+  margin: -10px -6px;
+  font-weight: 700;
 }
 .ow-models-row .ow-models-handle:focus-visible {
   outline: 2px solid var(--ow-accent);

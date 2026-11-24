@@ -35,8 +35,7 @@ import { BoatSegmented, BoatStepper, CurveChips } from "./boatParts";
  * « Avancé »: what a sailor who knows their boat's numbers may set, none of
  * it needed for a first plan. Their own polar file, the minimum upwind
  * angle, the spinnaker and the hand tuning of the polar, point by point.
- * Same rules as the "Avancé" tile of /config (`config/boatEdits`), every
- * change stored as it is made.
+ * The rules live in `config/boatEdits`, every change stored as it is made.
  */
 export function BoatAdvancedView() {
   const { t } = useT();

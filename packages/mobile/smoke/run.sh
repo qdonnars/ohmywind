@@ -14,13 +14,15 @@
 #                InAppReview present), the service worker installed and
 #                activated, the native backup's marker written
 #   2-second     relaunch: the page is controlled by the service worker, and
-#                the copy of the data sits in the native preferences
+#                the copy of the data sits in the native preferences; the
+#                explorer, without a header, fits the screen: its map runs
+#                under the status bar, the bar floating over it stays below
 #   3-offline    server stopped, relaunch: the site still opens, served by
 #                the service worker
 #   4-plan       server up again, the probe opens /plan with a route: the
 #                page fits the screen (not scrolled, document not scrollable,
-#                header at the top) and still does with the drawer at its
-#                highest setting
+#                header at the top, its content below the status bar) and
+#                still does with the drawer at its highest setting
 #
 #   android: APK=<path> smoke/run.sh android   (emulator booted, adb on PATH)
 #   ios:     APP_PATH=<App.app> UDID=<id> smoke/run.sh ios   (simulator booted)
@@ -224,7 +226,9 @@ stage=2-second
 since=$(now_ms)
 launch
 expect_stage "$stage" "$since" 90 native=true appMounted=true sw.controlled=true \
-  plugins.backupCopy=true backupMarker='"1"'
+  plugins.backupCopy=true backupMarker='"1"' \
+  layout.chrome.kind=floating layout.chrome.mapToTop=true layout.chromeClearsInset=true \
+  layout.shifted=false layout.documentScrolls=false layout.columnOverflows=false
 stop_app
 
 stop_server
@@ -248,7 +252,7 @@ since=$(now_ms)
 launch
 expect_stage "$stage" "$since" 90 native=true appMounted=true href='~/plan?' \
   layout.shifted=false layout.documentScrolls=false layout.columnOverflows=false \
-  layout.planStress.columnOverflows=false
+  layout.chromeClearsInset=true layout.planStress.columnOverflows=false
 rm -f "$goto"
 stop_app
 

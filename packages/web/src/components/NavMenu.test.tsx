@@ -122,19 +122,34 @@ describe("NavMenu", () => {
     expect(dialog.contains(document.activeElement)).toBe(true);
   });
 
-  it("carries the release dot on « Quoi de neuf » for a returning reader", () => {
-    localStorage.setItem(LOCAL_STORAGE_KEYS.lastSpot, "{}");
-    localStorage.setItem(LOCAL_STORAGE_KEYS.whatsNewSeen, "0.0.1");
-    render(<NavMenu variant="header" current="plan" />);
-    open();
-    expect(screen.getByTestId("whats-new-dot")).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Quoi de neuf.*Nouvelle version/ })).toBeTruthy();
-  });
+  it.each(["map", "floating", "header"] as const)(
+    "carries the release dot on its %s trigger and on « Quoi de neuf » for a returning reader",
+    (variant) => {
+      localStorage.setItem(LOCAL_STORAGE_KEYS.lastSpot, "{}");
+      localStorage.setItem(LOCAL_STORAGE_KEYS.whatsNewSeen, "0.0.1");
+      render(<NavMenu variant={variant} current="plan" />);
+      // The trigger says it too, in its name: the « i » of the header that
+      // used to carry the dot is gone.
+      const trigger = screen.getByRole("button", { name: "Ouvrir le menu, Nouvelle version" });
+      expect(trigger.querySelector('[data-testid="whats-new-dot"]')).toBeTruthy();
+      fireEvent.click(trigger);
+      expect(screen.getAllByTestId("whats-new-dot")).toHaveLength(2);
+      expect(screen.getByRole("link", { name: /Quoi de neuf.*Nouvelle version/ })).toBeTruthy();
+    },
+  );
 
   it("shows no dot once the current version has been seen", () => {
-    render(<NavMenu variant="header" current="plan" />);
+    render(<NavMenu variant="floating" current="plan" />);
     open();
     expect(screen.queryByTestId("whats-new-dot")).toBeNull();
+  });
+
+  it("drops the badge of the current page in the bar of a phone, keeps it elsewhere", () => {
+    const { unmount } = render(<NavMenu variant="floating" current="explore" />);
+    expect(screen.getByRole("button", { name: "Ouvrir le menu" }).querySelectorAll("svg")).toHaveLength(1);
+    unmount();
+    render(<NavMenu variant="map" current="explore" />);
+    expect(screen.getByRole("button", { name: "Ouvrir le menu" }).querySelectorAll("svg")).toHaveLength(2);
   });
 });
 

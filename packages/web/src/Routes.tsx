@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { useEffect } from "react";
 import App from "./App";
 import { PlanPage } from "./routes/PlanPage";
 import { ComparePage } from "./routes/ComparePage";
-import { ConfigPage } from "./routes/ConfigPage";
 import { PressPage } from "./routes/PressPage";
+import { openSettings } from "./config/openSettings";
+import { navigate } from "./navigation";
 import { LazyPageBoundary } from "./components/LazyPageBoundary";
 import { NotFoundPage } from "./routes/NotFoundPage";
 import { useT } from "./i18n";
@@ -86,6 +88,20 @@ function PressFallback() {
  */
 export function Routes() {
   const { path } = useRouter();
+  const route = matchRoute(path);
+
+  // /config is no page of its own any more: the settings open over any page
+  // (`openSettings()`). The address stays, for the links already out there
+  // (the launcher shortcut of the manifest, the app links of the native
+  // shell, a bookmark): it opens the explorer with the settings over it. The
+  // address becomes the explorer's before the settings take their history
+  // entry, so closing them leaves the reader on the map, and a back press
+  // from there leaves the app as it would from any page opened directly.
+  useEffect(() => {
+    if (route !== "config") return;
+    navigate("/", { replace: true });
+    openSettings();
+  }, [route]);
 
   // Keyed on the path alone, deliberately not on the full URL. A navigation
   // still remounts the page, which is what the pages expect: each reads its
@@ -98,13 +114,11 @@ export function Routes() {
   // under the same path, so the path is a sufficient key.
   const key = path;
 
-  switch (matchRoute(path)) {
+  switch (route) {
     case "plan":
       return <PlanPage key={key} />;
     case "compare":
       return <ComparePage key={key} />;
-    case "config":
-      return <ConfigPage key={key} />;
     case "press":
       return <PressPage key={key} />;
     case "press-release":
@@ -125,7 +139,10 @@ export function Routes() {
       return <LazyPageBoundary key={key} load={loadTransfer} fallback={<AppPageFallback />} />;
     case "not-found":
       return <NotFoundPage key={key} />;
+    // One key for the two: rewriting /config into / must not remount the
+    // explorer under the settings that were just opened over it.
+    case "config":
     case "explore":
-      return <App key={key} />;
+      return <App key="/" />;
   }
 }

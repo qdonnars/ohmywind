@@ -12,6 +12,18 @@
  * The Tailwind classes that place each control repeat these values as
  * literals (`right-3`, `top-[68px]`, `bottom-4`): Tailwind reads them from
  * the source, it cannot compute them.
+ *
+ * On a page without a header (the explorer), the map runs under the status
+ * bar and a bar of controls floats over its top (`MapTopBar`). The column
+ * then hangs from the bottom of that bar rather than from the top of the
+ * map, and its places depend on the safe-area insets, which only CSS knows:
+ * they are the `.ow-chrome-*` rules of index.css, the same geometry in CSS
+ * variables. `.ow-chrome-right` lines the column up under the bar's right
+ * button (12 px from the edge on a phone, 18 px from lg up, under a 52 px
+ * button 16 px from the edge), `.ow-chrome-slot-1` and `-2` are its first
+ * two places under the bar (the chart toggle, then the zoom buttons, from lg
+ * up; the zoom buttons alone on a phone, where the chart toggle is a
+ * setting).
  */
 
 /** Distance of the column from the right edge, and of the chart toggle

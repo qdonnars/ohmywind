@@ -10,12 +10,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.emptyState.click":
     "Haga clic en el mapa para ver la previsión, clic derecho para guardar un spot",
 
-  // Header
-
-  // Theme toggle (design/theme)
-  "explore.theme.toDark": "Cambiar al tema oscuro",
-  "explore.theme.toLight": "Cambiar al tema claro",
-
   // Offline banner
   "explore.offlineBanner.message": "Sin conexión: las previsiones no se pueden actualizar.",
 
@@ -141,6 +135,8 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.spotSearch.failed": "Búsqueda no disponible. Compruebe su conexión.",
   "explore.spotSearch.empty": "No se ha encontrado ningún lugar.",
   "explore.spotSearch.goToPosition": "Ir a esta posición",
+  "explore.spotSearch.mySpots": "Mis spots",
+  "explore.spotSearch.clear": "Borrar la búsqueda",
 
   // Spot dialogs
   "explore.spotDialogs.options": "Opciones del spot",

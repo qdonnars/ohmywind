@@ -175,19 +175,19 @@ select,
 
    Une seule regle plutot qu'une retouche par composant : les tailles
    viennent de partout (Tailwind `text-sm` sur la recherche et les modales,
-   13 px sur `.polar-select` et `.polar-motor-input` dans config.css), et
-   c'est une contrainte de plateforme, pas une decision de design par champ.
+   des tailles propres aux champs des Reglages), et c'est une contrainte de
+   plateforme, pas une decision de design par champ.
 
    Portee `pointer: coarse` : sur poste, ou le zoom au focus n'existe pas,
    les tailles choisies restent intactes. Les trois `:not()` sortent les
    commandes sans texte (curseurs, cases, boutons radio), dont la taille de
    police ne sert a rien. Ils portent aussi la specificite du selecteur a
    (0,3,1), ce qui lui fait battre les classes utilitaires (`text-sm`) comme
-   les `.polar-*` de config.css sans `!important` et sans dependre de l'ordre
+   les classes des composants sans `!important` et sans dependre de l'ordre
    des feuilles dans le bundle. Le `:is()` sert precisement a cela : il
    distribue les `:not()` sur les trois elements a la fois, la ou trois
    selecteurs separes auraient laisse `select` et `textarea` a (0,0,1), donc
-   perdants face a `.polar-select`. */
+   perdants face a une simple classe. */
 @media (pointer: coarse) {
   :is(input, select, textarea):not([type="range"]):not([type="checkbox"]):not([type="radio"]) {
     font-size: 16px;
@@ -330,6 +330,113 @@ path.ow-spot-marker:focus-visible {
     padding-left: calc(1.5rem + env(safe-area-inset-left, 0px));
     padding-right: calc(1.5rem + env(safe-area-inset-right, 0px));
   }
+}
+
+/* ── The controls floating over a full-screen map ───────────────────
+   Pages without a header (components/MapTopBar.tsx): the map runs to the
+   top edge of the screen, under the status bar in the apps, and the menu,
+   the search and the settings float over it. Their geometry lives here, as
+   variables, because it depends on the safe-area insets, which only CSS
+   knows. The column of round controls along the right edge of the map
+   (components/mapControlsLayout.ts) hangs from the bottom of that bar.
+
+   --ow-chrome-top    top of the bar: under the status bar when there is one
+                      (inset + 8 px), never closer than 12 px (16 from lg) to
+                      the edge when there is none (a browser tab).
+   --ow-chrome-size   height of the bar and of its round buttons.
+   --ow-chrome-gap    air between the bar and what hangs under it.
+   --ow-chrome-side   distance from the left and right edges, insets apart. */
+:root {
+  --ow-chrome-top: max(12px, calc(env(safe-area-inset-top, 0px) + 8px));
+  --ow-chrome-size: 48px;
+  --ow-chrome-gap: 8px;
+  --ow-chrome-side: 12px;
+}
+@media (min-width: 64rem) {
+  :root {
+    --ow-chrome-top: max(16px, calc(env(safe-area-inset-top, 0px) + 8px));
+    --ow-chrome-size: 52px;
+    --ow-chrome-gap: 12px;
+    --ow-chrome-side: 16px;
+  }
+}
+/* The round 48 px controls of the map, centred under the button at the right
+   end of the bar: 12 px from the edge on a phone, 18 px from lg up, where the
+   bar's buttons are 52 px wide and 16 px from the edge. */
+.ow-chrome-right {
+  right: calc(var(--ow-chrome-side) + (var(--ow-chrome-size) - 48px) / 2 + env(safe-area-inset-right, 0px));
+}
+/* First and second slot of that column, under the bar. A slot is a 48 px
+   control and 8 px of air. */
+.ow-chrome-slot-1 {
+  top: calc(var(--ow-chrome-top) + var(--ow-chrome-size) + var(--ow-chrome-gap));
+}
+.ow-chrome-slot-2 {
+  top: calc(var(--ow-chrome-top) + var(--ow-chrome-size) + var(--ow-chrome-gap) + 56px);
+}
+/* The bar itself, and what hangs under it in the middle (the offline
+   banner). Placed by these rules rather than by utilities, for the insets. */
+.ow-chrome-bar {
+  top: var(--ow-chrome-top);
+  left: calc(var(--ow-chrome-side) + env(safe-area-inset-left, 0px));
+  right: calc(var(--ow-chrome-side) + env(safe-area-inset-right, 0px));
+  height: var(--ow-chrome-size);
+}
+/* From lg up the three are apart: the menu in the top left corner, the
+   settings in the top right one, the search centred between them, 480 px at
+   most, and the offline banner centred under the search. */
+.ow-chrome-left {
+  top: var(--ow-chrome-top);
+  left: calc(var(--ow-chrome-side) + env(safe-area-inset-left, 0px));
+}
+.ow-chrome-end {
+  top: var(--ow-chrome-top);
+  right: calc(var(--ow-chrome-side) + env(safe-area-inset-right, 0px));
+}
+.ow-chrome-search {
+  top: var(--ow-chrome-top);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(480px, calc(100% - 2 * (var(--ow-chrome-side) + var(--ow-chrome-size) + 12px)));
+  height: var(--ow-chrome-size);
+}
+/* Under the bar, in the middle: the offline banner. On a phone it spans the
+   width but the right column, where the map's round controls hang. */
+.ow-chrome-under {
+  top: calc(var(--ow-chrome-top) + var(--ow-chrome-size) + var(--ow-chrome-gap));
+  left: calc(var(--ow-chrome-side) + env(safe-area-inset-left, 0px));
+  right: calc(var(--ow-chrome-side) + 56px + env(safe-area-inset-right, 0px));
+}
+@media (min-width: 64rem) {
+  .ow-chrome-under {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: min(480px, calc(100% - 2 * (var(--ow-chrome-side) + var(--ow-chrome-size) + 12px)));
+  }
+}
+/* A light veil under the status bar of the apps, so the clock and the
+   battery stay readable over a busy stretch of map. Its height is the inset
+   itself plus a fade: zero in a browser tab, where no status bar lies over
+   the page. The colour is the page's own background, which is what the
+   system bars' style follows (native/systemBars.ts): dark icons over a light
+   veil in the light theme, light icons over a dark one in the dark theme. */
+.ow-statusbar-veil {
+  height: calc(env(safe-area-inset-top, 0px) * 1.5);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--ow-bg-0) 72%, transparent) 0%,
+    color-mix(in srgb, var(--ow-bg-0) 55%, transparent) 66%,
+    transparent 100%
+  );
+}
+/* The round buttons and the field of the bar: glass over the map. */
+.ow-chrome-glass {
+  background: var(--ow-surface-glass);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--ow-line);
+  box-shadow: var(--ow-shadow-2);
 }
 
 /* Scroll fade indicator */
@@ -888,6 +995,40 @@ path.ow-spot-marker:focus-visible {
   color: var(--ow-fg-0);
 }
 .ow-search-item:last-child { border-bottom: none; }
+/* The field of the bar over a full-screen map (SpotSearch "floating"), on
+   top of .ow-chrome-glass: only the placeholder and the focus ring. */
+.ow-search-floating {
+  height: var(--ow-chrome-size);
+  color: var(--ow-fg-0);
+}
+.ow-search-floating::placeholder {
+  color: var(--ow-fg-2);
+}
+.ow-search-floating:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--ow-accent) 60%, transparent);
+}
+/* The search over the whole screen, on a phone (SpotSearch "fullscreen").
+   Its field starts where the bar over the map stands, under the status bar
+   and clear of the notch in landscape. */
+.ow-search-sheet {
+  background: var(--ow-bg-1);
+  color: var(--ow-fg-0);
+  animation: owFade 0.18s ease;
+}
+.ow-search-sheet-head {
+  padding: var(--ow-chrome-top) calc(12px + env(safe-area-inset-right, 0px)) 12px
+    calc(12px + env(safe-area-inset-left, 0px));
+}
+.ow-search-sheet-body {
+  padding: 0 calc(12px + env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px))
+    calc(12px + env(safe-area-inset-left, 0px));
+}
+@media (prefers-reduced-motion: reduce) {
+  .ow-search-sheet {
+    animation: none;
+  }
+}
 .ow-search-item:hover { background: color-mix(in srgb, var(--ow-bg-1) 80%, transparent); }
 .ow-search-item:active { background: var(--ow-bg-1); }
 

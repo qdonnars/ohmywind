@@ -1,15 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import type { RefObject } from "react";
-import { useT } from "../i18n";
 import type { Spot } from "../types";
 import { SpotSearch } from "./SpotSearch";
-import { ThemeToggle } from "../design/theme";
-import { InfoButton } from "./InfoButton";
 import { NavMenu, type NavDestination } from "./NavMenu";
-import { openSettings } from "../config/openSettings";
 import { OfflineBanner } from "./OfflineBanner";
+import { SettingsButton } from "./SettingsButton";
 import { LG_MEDIA_QUERY, useMediaQuery } from "../hooks/useMediaQuery";
 
 
@@ -24,10 +20,6 @@ interface HeaderProps {
   current: NavDestination;
   /** Camera hand-over for the menu's map links ("?center=…&zoom=…"). */
   mapQuery?: string;
-  /** The menu trigger, for a page that has to point at it (the onboarding
-      card). Only meaningful on a narrow screen, where the trigger lives
-      here; on a wide one the page mounts the menu on its map instead. */
-  navRef?: RefObject<HTMLButtonElement | null>;
 }
 
 function WindIcon() {
@@ -40,34 +32,7 @@ function WindIcon() {
   );
 }
 
-function SettingsIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  );
-}
-
-/** Opens the settings over the page (`settings/SettingsSheet.tsx`). */
-function SettingsButton() {
-  const { t } = useT();
-  return (
-    <button
-      type="button"
-      onClick={openSettings}
-      aria-haspopup="dialog"
-      aria-label={t("common.nav.settings")}
-      title={t("common.nav.settings")}
-      className="shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg transition-colors cursor-pointer"
-      style={{ color: 'var(--ow-fg-1)', background: 'transparent' }}
-    >
-      <SettingsIcon />
-    </button>
-  );
-}
-
-export function Header({ onSelectSpot, nearLat, nearLon, savedSpots, current, mapQuery, navRef }: HeaderProps) {
+export function Header({ onSelectSpot, nearLat, nearLon, savedSpots, current, mapQuery }: HeaderProps) {
   // Same breakpoint as the pages: the menu is mounted once, here on a phone
   // and on the map on a wide screen, never both (one control for assistive
   // technology, one ref for the onboarding card to point at).
@@ -84,7 +49,7 @@ export function Header({ onSelectSpot, nearLat, nearLon, savedSpots, current, ma
           {isDesktop ? (
             <WindIcon />
           ) : (
-            <NavMenu variant="header" current={current} mapQuery={mapQuery} triggerRef={navRef} />
+            <NavMenu variant="header" current={current} mapQuery={mapQuery} />
           )}
           <h1 className="hidden sm:block text-xl font-extrabold tracking-tight">
             <span style={{ color: 'var(--ow-fg-0)' }}>OhMy</span>
@@ -99,14 +64,14 @@ export function Header({ onSelectSpot, nearLat, nearLon, savedSpots, current, ma
             savedSpots={savedSpots}
           />
         </div>
-        <InfoButton />
-        <SettingsButton />
-        <ThemeToggle />
+        {/* The settings only: the theme is one of them, and « À propos »
+            (with the release log and its dot) is in the menu's drawer. */}
+        <SettingsButton variant="header" />
       </div>
       {/* Sous la barre plutot qu'au-dessus : la ligne du logo et de la
-          recherche ne bouge pas quand le reseau tombe. Rendu ici parce que
-          l'explorateur et le planificateur montent tous deux ce header, donc
-          une seule instance couvre les deux ecrans. */}
+          recherche ne bouge pas quand le reseau tombe. Une seule instance
+          par page : les pages sans en-tete (carte plein ecran) la montent
+          sous leur recherche flottante (MapTopBar). */}
       <OfflineBanner />
     </header>
   );

@@ -8,12 +8,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.emptyState.touch": "Toccare la mappa per il meteo, tenere premuto per salvare uno spot",
   "explore.emptyState.click": "Cliccare sulla mappa per il meteo, clic destro per salvare uno spot",
 
-  // Header
-
-  // Theme toggle (design/theme)
-  "explore.theme.toDark": "Passare al tema scuro",
-  "explore.theme.toLight": "Passare al tema chiaro",
-
   // Offline banner
   "explore.offlineBanner.message": "Offline: le previsioni non possono essere aggiornate.",
 
@@ -140,6 +134,8 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.spotSearch.failed": "Ricerca non disponibile. Verificare la connessione.",
   "explore.spotSearch.empty": "Nessun luogo trovato.",
   "explore.spotSearch.goToPosition": "Andare a questa posizione",
+  "explore.spotSearch.mySpots": "I miei spot",
+  "explore.spotSearch.clear": "Cancellare la ricerca",
 
   // Spot dialogs
   "explore.spotDialogs.options": "Opzioni dello spot",

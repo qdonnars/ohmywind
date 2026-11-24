@@ -147,7 +147,7 @@ describe("Mon bateau", () => {
 
     fireEvent.click(radios.find((r) => r.textContent?.includes("Croiseur 40 pieds"))!);
     expect(title()).toBe("Bateau");
-    // Another grid: the tuned points go, as on /config.
+    // Another grid: the tuned points go.
     expect(stored().base).toBe("cruiser_40ft");
     expect(stored().overrides).toEqual({});
   });
