@@ -3,7 +3,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import L from "leaflet";
-import { spotKey, syncSpotMarkers } from "./spotMarkerLayer";
+import { SPOT_MARKER_CLASS, spotKey, syncSpotMarkers } from "./spotMarkerLayer";
 import { SPOT_HIT_RADIUS_PX } from "../domain/gestures";
 import type { Spot } from "../types";
 
@@ -78,6 +78,31 @@ describe("syncSpotMarkers", () => {
       sync([], state);
       expect(map.hasLayer(hit)).toBe(false);
       expect(state.elementToSpot.size).toBe(0);
+    } finally {
+      Reflect.deleteProperty(window, "matchMedia");
+    }
+  });
+
+  it("marks the dot for the round focus ring, and only the dot (#545)", () => {
+    // The hover tooltip makes the SVG node focusable, and the browser's own
+    // outline of it is a square. index.css swaps it for a ring on this class
+    // (the rule itself is checked in tests/stylesheetGuards.test.ts).
+    window.matchMedia = (query: string) =>
+      ({ matches: query === "(pointer: coarse)" }) as unknown as MediaQueryList;
+    try {
+      const state = { markers: new Map<string, L.CircleMarker>(), elementToSpot: new Map<Element, Spot>() };
+      const spot: Spot = { ...AT, name: "Vieux-Port" };
+      sync([spot], state);
+      const marker = state.markers.get(spotKey(spot))!;
+      const dot = marker.getElement()!;
+      expect(dot.classList.contains(SPOT_MARKER_CLASS)).toBe(true);
+      // Spelled out in tests/stylesheetGuards.test.ts, which checks the rule.
+      expect(SPOT_MARKER_CLASS).toBe("ow-spot-marker");
+      // The hit area around it takes no focus (no tooltip) and draws nothing:
+      // a ring on it would circle empty water.
+      const hits = [...state.elementToSpot.keys()].filter((el) => el !== dot);
+      expect(hits).toHaveLength(1);
+      expect(hits[0].classList.contains(SPOT_MARKER_CLASS)).toBe(false);
     } finally {
       Reflect.deleteProperty(window, "matchMedia");
     }

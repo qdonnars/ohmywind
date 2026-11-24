@@ -56,6 +56,9 @@ function addHitArea(
   hitAreas.set(marker, hit);
 }
 
+/** Class on the SVG node of every saved-spot dot, styled in index.css. */
+export const SPOT_MARKER_CLASS = "ow-spot-marker";
+
 /** Identity of a spot on the map: two spots at the same point are one marker. */
 export function spotKey(s: Spot): string {
   return `${s.latitude},${s.longitude}`;
@@ -167,6 +170,14 @@ export function syncSpotMarkers({
       // keeps a marker click from also reaching the map's own click handler,
       // which would preview open water on top of selecting the spot.
       bubblingMouseEvents: false,
+      // The hook for the focus rules in index.css. The hover tooltip bound
+      // below puts focus listeners on the SVG node, and that alone makes it
+      // focusable, in Chromium at least: a tap or a click focused it, and
+      // the browser drew its focus outline, the square box of the node,
+      // around a round dot (#545). It is reachable with Tab too, which is
+      // worth keeping (the focus opens the tooltip), so the stylesheet trades
+      // that outline for a round ring, shown to the keyboard only.
+      className: SPOT_MARKER_CLASS,
     })
       .bindTooltip(
         number != null ? String(number) : spot.name,
