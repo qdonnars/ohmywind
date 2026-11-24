@@ -73,6 +73,39 @@
 			</array>
 		</dict>
 	</dict>
+	<!-- Home screen quick actions, as the launcher shortcuts on Android: the
+	     path of a page of the site, opened by SceneDelegate.swift. The titles
+	     are keys of <lang>.lproj/InfoPlist.strings (English value as the key,
+	     so a missing translation still reads). -->
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>fr.ohmywind.shortcut.plan</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Plan</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>map</string>
+			<key>UIApplicationShortcutItemUserInfo</key>
+			<dict>
+				<key>path</key>
+				<string>/plan</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>fr.ohmywind.shortcut.config</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Settings</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>gearshape</string>
+			<key>UIApplicationShortcutItemUserInfo</key>
+			<dict>
+				<key>path</key>
+				<string>/config</string>
+			</dict>
+		</dict>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

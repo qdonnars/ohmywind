@@ -3,3 +3,7 @@
 
 /* Shown by iOS when the site first asks for the position (navigator.geolocation). */
 "NSLocationWhenInUseUsageDescription" = "OhMyWind uses your location to centre the map on where you are.";
+
+/* Home screen quick actions (UIApplicationShortcutItems in Info.plist). */
+"Plan" = "Plan";
+"Settings" = "Settings";
