@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
+import { Haptics, ImpactStyle } from "@capacitor/haptics";
+
+/**
+ * The native plugins the site calls outside of `capacitorShell.ts`, behind
+ * plain functions. Imported only with `import()` and only once
+ * `isNativeShell()` said yes (see `loadPlugins` in `native/index.ts`): the
+ * PWA never downloads this module, and the modules that choose between a
+ * plugin and a web API stay free of Capacitor, so they run and test anywhere.
+ */
+
+/** One light tap, the same one everywhere it is used. */
+export function impactLight(): Promise<void> {
+  return Haptics.impact({ style: ImpactStyle.Light });
+}
