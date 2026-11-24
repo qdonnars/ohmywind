@@ -23,6 +23,9 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 - Dans l'explorateur, les onglets s'effacent en fondu contre le bouton de localisation au lieu d'être coupés net (#558).
 - Au retour du réseau, l'explorateur ne reste plus vide pendant une demi-heure (#561).
 - Sur un écran tactile large, l'aide de la carte parle d'appui long et non plus de clic droit (#563).
+- La page du plan ne remonte plus sous la barre d'état sur un petit écran ou en paysage : seul le contenu du tiroir défile.
+- Dans l'application, le retour depuis un plan rouvert au lancement ramène à la carte au lieu de fermer l'application.
+- L'application voit quand le téléphone perd le réseau : le bandeau « Hors connexion » s'affiche et la comparaison des spots le dit.
 
 ### Coulisses
 

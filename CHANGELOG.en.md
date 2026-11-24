@@ -23,6 +23,9 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 - In the explorer, the tabs fade out against the locate button instead of being cut off (#558).
 - When the network comes back, the explorer no longer stays empty for half an hour (#561).
 - On a wide touch screen, the map hint speaks of a long press and no longer of a right click (#563).
+- The plan page no longer slides up under the status bar on a small screen or in landscape: only the drawer's content scrolls.
+- In the app, going back from a plan reopened at launch returns to the map instead of closing the app.
+- The app notices when the phone loses its network: the offline banner shows, and the spot comparison says so.
 
 ### Behind the scenes
 
