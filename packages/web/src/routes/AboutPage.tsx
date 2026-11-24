@@ -8,10 +8,11 @@ import { useWhatsNewDot } from "../config/whatsNewSeen";
 import { useT } from "../i18n";
 
 /**
- * /a-propos: what the « i » of the header opens. A page of its own rather
- * than a window over the map with a ✕, the way back at the top left as on
- * every other page of the app, and leading to the page whose « i » was
- * tapped. Its sub-page, the release log, comes back here.
+ * /a-propos: what the « i » of the header and the « À propos » entry of the
+ * navigation drawer open. A page of its own rather than a window over the map
+ * with a ✕, the way back at the top left as on every other page of the app,
+ * and leading to the page it was opened from. Its sub-page, the release log,
+ * comes back here.
  */
 export function AboutPage() {
   const { t } = useT();
