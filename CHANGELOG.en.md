@@ -4,10 +4,17 @@ Every OhMyWind release, newest first. The ohmywind.fr site and the MCP server sh
 
 This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the reference. Each release is also published on the repository's [Releases](https://github.com/qdonnars/ohmywind/releases) page, and the app shows this log on its "What's new" page.
 
-## 1.16.0 · Next release · Routes redrawn at sea by the app, and figures that add up
+## 1.16.0 · Next release · A full-screen map, new Settings, and routes redrawn at sea by the app
 
 ### New
 
+- The map takes the whole screen in the explorer and the planner: no more bar at the top, the menu, the search and the settings float on the map (#599, #600).
+- The menu opens as a drawer on the side, with the three pages of the app, What's new, Settings, Methodology and About (#595).
+- The Settings open over the map, without leaving the page: theme, language, screen kept on, seamarks, weather models and boat, with the same screens on phone, tablet and computer (#596, #597, #598).
+- The theme has an Auto mode, which follows the light or dark setting of your device (#594).
+- Seamarks are set once for both maps, and are shown by default (#594).
+- On a phone, the search opens full screen and offers your saved spots first (#599).
+- Under the wind table, a note says when a model does not cover the point and which one replaces it (#597).
 - A route drawn across a peninsula or an island is redrawn at sea before the computation, on your device: the "Route adjusted" box says so and "Back to my route" undoes it. The covered area runs from Lisbon to Rotterdam with the south of England, and from Alicante to Naples with the Balearics, Corsica and Sardinia (#573, #586).
 - With a mouse, + and − buttons zoom the map of the explorer and of the planner (#470, #587).
 
@@ -23,11 +30,14 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 - The settings say your preferences stay on the device, with no mention of cookies (#579, #587).
 - In the app, after its data has been cleared, the copy kept by the phone reopens the plan in progress directly (#579, #585).
 - On iPhone, from iOS 27, the position is asked for only once; this fix comes with the next version of the app (#571, #585).
+- On the first computation of a redrawn route, the map frames the route obtained, no longer the one drawn (#593).
+- The settings no longer say the order of the weather models has no effect on passage plans: the plans computed in the app follow that order (#600).
 
 ### Behind the scenes
 
 - The server no longer computes a detour for the app: it serves coastline tiles, and the route is drawn on the device, whatever the load on the server (#586).
 - A test now refuses any binary file the server deployment could not carry (#590).
+- The boat settings and the tuning of its polar can be driven from the keyboard, point by point (#598).
 
 ## 1.15.0 · 2026-11-24 · Offline at sea, and real mobile apps
 
