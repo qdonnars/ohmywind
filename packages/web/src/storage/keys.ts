@@ -41,7 +41,12 @@ export const LOCAL_STORAGE_KEYS = {
   lang: "ow_lang",
   /** `"1"` once the user has declined geolocation, so we stop asking. */
   geolocDeclined: "ow_geoloc_declined_v1",
-  /** Sea marks overlay, one flag per map surface. */
+  /** Sea marks overlay on both maps: `"1"` Always, `"0"` Never; absent
+      means the default (`config/seamarkPreference.ts`). Bare scalar. */
+  seamarks: "ow_seamarks_v2",
+  /** Former per-map flags (`"1"`/`"0"`), superseded by `seamarks`. Never
+      written again, only read while `seamarks` is absent, to carry an
+      explicit choice over; still transferred and backed up for that reason. */
   seamarksExplore: "ow_seamarks_explore_v1",
   seamarksPlan: "ow_seamarks_plan_v1",
   /** Cached MARC atlas coverage (tiles + bbox), refreshed on a TTL. */

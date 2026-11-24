@@ -421,7 +421,7 @@ export function PlanPage() {
   const isDesktop = useMediaQuery(LG_MEDIA_QUERY);
   // Touch or click, for the hints laid over the map.
   const pointer = usePointerWording();
-  const { enabled: seamarks, toggle: toggleSeamarks } = useSeamarks("plan");
+  const { enabled: seamarks, toggle: toggleSeamarks } = useSeamarks();
   // Zoom handed over by the explore map, used only when no route frames the
   // camera itself. Read once: navigating remounts the page.
   const [handedView] = useState(() => parseMapView(window.location.search));
