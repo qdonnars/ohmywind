@@ -12,10 +12,10 @@ Vereinsgesetz von 1901, RNA W751285736) mit Sitz in 51 rue Fondary, 75015 Paris,
 Frankreich. Bei Fragen zu dieser Erklärung:
 [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
-Der Grundsatz: **OhMyWind speichert Ihre Daten nicht**. Es gibt weder Benutzerkonten
-noch eine Datenbank noch ein Werkzeug zur Reichweitenmessung, und keine Tabelle, die
-eine IP-Adresse mit Suchen, Positionen oder Routen verknüpfen würde. Was die Anwendung
-sendet, dient der Beantwortung der laufenden Anfrage, ohne gespeichert zu werden.
+Der Grundsatz: **OhMyWind führt keine Akte über Sie**. Es gibt weder Benutzerkonten
+noch eine Datenbank noch ein Werkzeug zur Reichweitenmessung. Was die Anwendung sendet,
+dient der Beantwortung der laufenden Anfrage; die einzigen Spuren sind technische
+Protokolle, die weiter unten beschrieben sind.
 
 ## Was die Anwendung nicht tut
 
@@ -31,7 +31,9 @@ sendet, dient der Beantwortung der laufenden Anfrage, ohne gespeichert zu werden
 Wenn Sie es erlauben, dient Ihr Standort dazu, die Karte zu zentrieren, die Vorhersagen
 an diesem Ort anzuzeigen und bei einer Suche nahe gelegene Orte nach vorne zu reihen. Er
 wird für die Dauer der Beantwortung der Anfrage an die unten aufgeführten Dienste
-übermittelt und von OhMyWind niemals gespeichert. Die Berechtigung ist optional und
+übermittelt. Er wird in keiner Datenbank aufbewahrt; seine Koordinaten können
+höchstens 7 Tage lang im technischen Protokoll der weiter unten beschriebenen
+Weiterleitung stehen. Die Berechtigung ist optional und
 jederzeit in den Einstellungen Ihres Browsers oder Ihres Telefons widerrufbar.
 
 ### Törnpläne und Einstellungen
@@ -64,6 +66,15 @@ Koordinaten, Suchtext oder eine Route. Um die Zahl der Anfragen pro Minute zu be
 wird die Adresse für die Dauer dieser Begrenzung im Arbeitsspeicher gehalten, ohne
 irgendwo geschrieben zu werden.
 
+Die dem Backend vorgeschaltete Weiterleitung, betrieben von Cloudflare, führt höchstens
+7 Tage lang ein technisches Protokoll jeder Anfrage: die vollständige aufgerufene
+Webadresse und technische Angaben zum Aufrufer, die Cloudflare liefert und die seine
+IP-Adresse enthalten können. Bei Anfragen zu Küstenlinie, Gezeiten und Strömungen rund
+um einen Ort enthält diese Webadresse die Koordinaten des Orts. Der Inhalt der Anfragen
+steht nicht darin: Wegpunkte, Datum und Boot einer Berechnung erscheinen dort nie. Dieses
+Protokoll dient der Fehlerdiagnose und wird für nichts anderes verwendet; es löscht sich
+von selbst.
+
 ## Drittdienste
 
 Für ihren Betrieb nutzt die Anwendung die folgenden Dienste. Wie bei jeder
@@ -72,7 +83,7 @@ hinaus übermittelten Anwendungsdaten.
 
 | Dienst | Übermittelte Daten | Zweck |
 | --- | --- | --- |
-| [Cloudflare](https://www.cloudflare.com/privacypolicy/) | Anfragen an die Website und an das OhMyWind-Backend | Hosting der Website; Weiterleitung an das Backend |
+| [Cloudflare](https://www.cloudflare.com/privacypolicy/) | Anfragen an die Website und an das OhMyWind-Backend; Protokoll der weitergeleiteten Anfragen, höchstens 7 Tage (siehe „Technische Protokolle“) | Hosting der Website; Weiterleitung an das Backend |
 | OhMyWind-Backend, gehostet von [Hugging Face](https://huggingface.co/privacy) | Koordinaten der geöffneten Orte und der abgefragten Routen; bei einer Berechnung Wegpunkte, Datum, Boot und Einstellungen | Küstenlinie, Gezeiten und Strömungen; Berechnung des Passageplans |
 | [Open-Meteo](https://open-meteo.com/en/terms) (forecast, marine, geocoding) | Koordinaten der abgefragten Orte und Routen; Text Ihrer Ortssuchen, wenn Photon nicht antwortet | Vorhersagen zu Wind, Wellen und Gezeiten; Ersatz für die Ortssuche |
 | [Photon (Komoot)](https://photon.komoot.io) | Text Ihrer Ortssuchen und, sofern bekannt, eine gerundete Position (Ihre, wenn Sie sie freigegeben haben, oder ein Punkt der angezeigten Karte) | Ortssuche, nach Nähe sortiert |
@@ -99,8 +110,8 @@ Anwendung funktioniert auch ohne sie, dann genügt es, einen Ort manuell zu such
 ## Ihre Rechte
 
 Gemäß der DSGVO haben Sie Rechte auf Auskunft, Berichtigung, Widerspruch und Löschung.
-Da OhMyWind weder Konten noch Positionen, Suchen oder Routen aufbewahrt, die Sie
-betreffen, wird das Wesentliche unmittelbar auf Ihrem Gerät ausgeübt: Löschen Sie die
+Da OhMyWind weder ein Konto noch eine Akte über Sie führt und sich das
+Protokoll der Weiterleitung nach höchstens 7 Tagen von selbst löscht, wird das Wesentliche unmittelbar auf Ihrem Gerät ausgeübt: Löschen Sie die
 Website-Daten oder die Anwendungsdaten. Bei Fragen oder Anliegen:
 [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 

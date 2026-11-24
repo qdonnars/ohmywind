@@ -12,10 +12,10 @@ francese, legge del 1901, RNA W751285736), con sede legale in 51 rue Fondary, 75
 Parigi, Francia. Per qualsiasi domanda relativa alla
 presente informativa: [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
-Il principio generale: **OhMyWind non registra i dati degli utenti**. Non ci sono account
-utente, né banca dati, né strumenti di misurazione del pubblico, e nessuna tabella che
-colleghi un indirizzo IP a ricerche, posizioni o rotte. Ciò che l'applicazione invia
-serve a rispondere alla richiesta in corso, senza essere registrato.
+Il principio generale: **OhMyWind non scheda nessuno**. Non ci sono account utente, né
+banca dati, né strumenti di misurazione del pubblico. Ciò che l'applicazione invia serve
+a rispondere alla richiesta in corso; le sole tracce sono registri tecnici, descritti
+più avanti.
 
 ## Che cosa l'applicazione non fa
 
@@ -31,8 +31,9 @@ serve a rispondere alla richiesta in corso, senza essere registrato.
 
 Se lo si autorizza, la posizione serve a centrare la mappa, a mostrare le previsioni in
 quel punto e a ordinare i luoghi vicini durante una ricerca. Viene trasmessa ai servizi
-elencati di seguito per il tempo necessario a rispondere alla richiesta e non viene mai
-registrata da OhMyWind. L'autorizzazione è facoltativa e revocabile in qualsiasi momento
+elencati di seguito per il tempo necessario a rispondere alla richiesta. Non è conservata in alcuna banca
+dati; le sue coordinate possono comparire, per 7 giorni al massimo, nel registro tecnico
+del servizio di inoltro descritto più avanti. L'autorizzazione è facoltativa e revocabile in qualsiasi momento
 nelle impostazioni del browser o del telefono.
 
 ### Piani di navigazione e impostazioni
@@ -65,6 +66,15 @@ testo di ricerca né una rotta. Per limitare il numero di richieste al minuto, l
 è tenuto in memoria per la durata di questo limite, senza essere scritto da nessuna
 parte.
 
+Il servizio di inoltro posto davanti al backend, gestito da Cloudflare, conserva per 7
+giorni al massimo un registro tecnico di ogni richiesta: l'indirizzo web richiesto, per
+intero, e informazioni tecniche sul chiamante fornite da Cloudflare, che possono
+includere il suo indirizzo IP. Per le richieste di linea di costa, marea e correnti
+intorno a un luogo, questo indirizzo web contiene le coordinate del luogo. Il contenuto
+delle richieste non vi compare: i punti di passaggio, la data e la barca di una stima
+non vi figurano mai. Questo registro serve a diagnosticare i guasti e non è utilizzato
+per nient'altro; si cancella da sé.
+
 ## Servizi terzi
 
 Per funzionare, l'applicazione si appoggia ai servizi seguenti. Come per qualsiasi
@@ -73,7 +83,7 @@ applicativi trasmessi in aggiunta.
 
 | Servizio | Dati trasmessi | Finalità |
 | --- | --- | --- |
-| [Cloudflare](https://www.cloudflare.com/privacypolicy/) | Richieste verso il sito e verso il backend OhMyWind | Hosting del sito; inoltro verso il backend |
+| [Cloudflare](https://www.cloudflare.com/privacypolicy/) | Richieste verso il sito e verso il backend OhMyWind; registro delle richieste inoltrate, 7 giorni al massimo (vedere «Registri tecnici») | Hosting del sito; inoltro verso il backend |
 | Backend OhMyWind, ospitato da [Hugging Face](https://huggingface.co/privacy) | Coordinate dei luoghi aperti e delle rotte consultate; per una stima, punti di passaggio, data, barca e impostazioni | Linea di costa, marea e correnti; calcolo del piano di traversata |
 | [Open-Meteo](https://open-meteo.com/en/terms) (forecast, marine, geocoding) | Coordinate dei luoghi e delle rotte consultati; testo delle ricerche di luoghi, se Photon non risponde | Previsioni di vento, onde e maree; ricerca di luoghi di riserva |
 | [Photon (Komoot)](https://photon.komoot.io) | Testo delle ricerche di luoghi e, se nota, una posizione arrotondata (quella dell'utente se autorizzata, oppure un punto della mappa visualizzata) | Ricerca di luoghi, ordinati per vicinanza |
@@ -100,8 +110,8 @@ senza, basta allora cercare un luogo manualmente.
 ## I Suoi diritti
 
 Ai sensi del GDPR, Lei dispone dei diritti di accesso, rettifica, opposizione e
-cancellazione. Poiché OhMyWind non conserva né account, né posizioni, né ricerche, né
-rotte che La riguardino, l'essenziale si esercita direttamente sul dispositivo,
+cancellazione. Poiché OhMyWind non tiene né account né schedature che La riguardino, e il
+registro del servizio di inoltro si cancella da sé entro 7 giorni al massimo, l'essenziale si esercita direttamente sul dispositivo,
 cancellando i dati del sito o dell'applicazione. Per qualsiasi domanda o richiesta:
 [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 

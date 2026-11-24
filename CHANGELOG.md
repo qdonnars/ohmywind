@@ -29,7 +29,7 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 
 ### Coulisses
 
-- La politique de confidentialité dit exactement ce qui quitte votre appareil et ce que le serveur journalise, et le relais du serveur ne garde plus ses journaux automatiques (#562, #564).
+- La politique de confidentialité dit exactement ce qui quitte votre appareil et ce que le serveur et son relais journalisent (#562, #564).
 - Les applications mobiles sont testées sur émulateur et sur simulateur avant chaque mise en production : premier lancement, relance, serveur coupé, page du plan (#557, #563).
 - La mise en ligne du serveur attend que la nouvelle version réponde avant de se dire réussie (#553).
 

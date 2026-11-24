@@ -50,8 +50,8 @@ or using it abusively is not allowed.
 
 ## Personal data
 
-OhMyWind asks for no account and does not record your data: not your positions, your
-searches or your routes. The details are in the [privacy policy](/confidentialite).
+OhMyWind asks for no account and keeps no file on you; its technical logs are
+described in the [privacy policy](/confidentialite).
 
 ## Intellectual property
 

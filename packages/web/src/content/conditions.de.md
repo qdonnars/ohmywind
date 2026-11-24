@@ -53,8 +53,8 @@ stören oder den Dienst missbräuchlich zu nutzen.
 
 ## Personenbezogene Daten
 
-OhMyWind verlangt kein Konto und speichert Ihre Daten nicht: weder Ihre Positionen
-noch Ihre Suchen noch Ihre Routen. Einzelheiten stehen in der
+OhMyWind verlangt kein Konto und führt keine Akte über Sie; seine technischen
+Protokolle sind beschrieben in der
 [Datenschutzerklärung](/confidentialite).
 
 ## Geistiges Eigentum

@@ -36,11 +36,10 @@ npx wrangler deploy
 ```
 
 The routes in `wrangler.toml` are applied on deploy. `zone_name` must stay
-`ohmywind.fr`. So is the observability block, invocation logs off included (see
+`ohmywind.fr`. So is the observability block (see
 [Observability](#observability)): a change to it does nothing until the next
-`npx wrangler deploy`. A Worker deployed by pasting `src/index.js` in the
-dashboard does not read `wrangler.toml` at all: its invocation logs have to be
-switched off by hand in the Worker's observability settings.
+`npx wrangler deploy`, and a Worker deployed by pasting `src/index.js` in the
+dashboard does not read `wrangler.toml` at all.
 
 ## ChatGPT app directory: domain challenge
 
@@ -168,24 +167,28 @@ line per unreachable origin and per outage page, and one per keep-alive ping if
 that is ever switched on. Logs are in the dashboard under the Worker's
 Observability tab, and are kept 7 days.
 
-Those lines are the only ones kept. They carry the host, the path without its
-query string, and a status or an error message: never a query string, a client
-address or a request body. Cloudflare's own invocation logs are switched off:
+Cloudflare's own invocation logs are on too, and that is a decision, not a
+default left alone. They keep one entry per request for up to 7 days: the full
+URL, so the coordinates in the query string of `GET /api/v1/marine/land` and
+`GET /api/v1/marine/marc` (and `/marc/explain`), and metadata about the
+caller that Cloudflare attaches to the request. Bodies are not logged: the
+waypoints, date and boat of `POST /api/v1/passage`, the points of
+`POST /api/v1/marine/marc/batch` and every MCP call (`POST /mcp`) stay out.
+
+The privacy policy on ohmywind.fr (`packages/web/src/content/confidentialite*.md`,
+section on technical logs) declares exactly this. Either way of reducing it
+changes what the policy has to say, so update the policy in the same change:
 
 ```toml
+[observability]
+redact_query_string = true   # keep the logs, drop the query strings
+
 [observability.logs]
-invocation_logs = false
+invocation_logs = false      # keep only the lines src/index.js writes
 ```
 
-Left on, they would store one entry per request with the full URL (so the
-coordinates of every `GET /api/v1/marine/...`) and metadata about the caller,
-for 7 days. The privacy policy on ohmywind.fr
-(`packages/web/src/content/confidentialite*.md`) says that no table links an
-address to searches or positions; this setting is what makes that true at the
-edge. Do not turn it back on without changing the policy. It only takes effect
-on the next `npx wrangler deploy`; until then the deployed Worker keeps the
-setting of its last deploy. The key is in wrangler's config schema (checked
-against 4.128 and later).
+Both keys are in wrangler's config schema (checked against 4.128 and later),
+and both take effect only on the next `npx wrangler deploy`.
 
 ## Keep-alive, delivered off
 

@@ -29,7 +29,7 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 
 ### Behind the scenes
 
-- The privacy policy says exactly what leaves your device and what the server logs, and the server's relay no longer keeps its automatic logs (#562, #564).
+- The privacy policy says exactly what leaves your device and what the server and its relay log (#562, #564).
 - The mobile apps are tested on an emulator and a simulator before each release: first launch, relaunch, server down, plan page (#557, #563).
 - A server deployment waits for the new version to answer before calling itself done (#553).
 
