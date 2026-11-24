@@ -153,7 +153,10 @@ android {
         // The TWA published versionCode 8 under fr.ohmywind.app: the shell has
         // to stay above it to ship as an update of the same Play listing. The
         // shell keeps its own numbering, independent of the web app version.
-        versionCode 9
+        // The Play workflow passes -PohmywindVersionCode=<last on Play + 1>
+        // (scripts/play-publish.mjs next-version-code); 9 is the last one
+        // shipped by hand, and the default for local builds.
+        versionCode((project.findProperty('ohmywindVersionCode') ?: '9') as Integer)
         versionName "2.0.0"
         resValue "string", "app_name", shellAppName
         resValue "string", "title_activity_main", shellAppName
@@ -168,8 +171,26 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Release signing with the Play upload key, only when the environment
+    // provides it (the Play workflow, or a developer exporting the variables):
+    // the key and its password never sit in a file of the repository. Without
+    // them, bundleRelease still builds, unsigned.
+    def uploadKeystore = System.getenv('OHMYWIND_UPLOAD_KEYSTORE')
+    signingConfigs {
+        if (uploadKeystore) {
+            upload {
+                storeFile file(uploadKeystore)
+                storePassword System.getenv('OHMYWIND_UPLOAD_STORE_PASSWORD')
+                keyAlias System.getenv('OHMYWIND_UPLOAD_KEY_ALIAS') ?: 'android'
+                keyPassword System.getenv('OHMYWIND_UPLOAD_KEY_PASSWORD') ?: System.getenv('OHMYWIND_UPLOAD_STORE_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
+            if (uploadKeystore) {
+                signingConfig signingConfigs.upload
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
