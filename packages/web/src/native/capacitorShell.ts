@@ -6,6 +6,7 @@ import { Browser } from "@capacitor/browser";
 import { Capacitor, SystemBars, registerPlugin } from "@capacitor/core";
 import { goTo } from "../router";
 import { inAppPath } from "./appLinks";
+import { openExternalLinksInApp } from "./externalLinks";
 import { systemBarsStyleFor } from "./systemBars";
 import {
   generateNonce,
@@ -89,6 +90,7 @@ export function runNativeShell(): Promise<void> {
   followAppLinks();
   handleBackButton();
   followTheme();
+  openExternalLinksInApp(window, (url) => Browser.open({ url }));
   return startShellImport(capacitorDeps());
 }
 
