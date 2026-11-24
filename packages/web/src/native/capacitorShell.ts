@@ -4,8 +4,10 @@
 import { App } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { Capacitor, SystemBars, registerPlugin } from "@capacitor/core";
+import { forgetResume, isOnResumedPlan } from "../offline/lastView";
 import { goTo } from "../router";
 import { inAppPath } from "./appLinks";
+import { backButtonAction } from "./backButton";
 import { openExternalLinksInApp } from "./externalLinks";
 import {
   BACKUP_PREFERENCE_KEY,
@@ -61,7 +63,10 @@ function followAppLinks(): void {
     // Replaced, not stacked: the reader did not come from the page that
     // happened to be open, so back should leave the app. An entry pushed
     // here, without a tap, would be skipped by the system back anyway.
-    if (path) goTo(path, { replace: true });
+    if (path) {
+      forgetResume();
+      goTo(path, { replace: true });
+    }
   }).catch(() => undefined);
 }
 
@@ -70,11 +75,17 @@ function followAppLinks(): void {
  * while there is history and then swallows the press: at the first page the
  * app could not be left with back at all. With one, the decision is ours:
  * back through the history, then out of the app, kept in memory the way
- * Android does for a launcher app since version 12.
+ * Android does for a launcher app since version 12. See `backButton.ts` for
+ * the plan resumed at launch.
  */
 function handleBackButton(): void {
   void App.addListener("backButton", ({ canGoBack }) => {
-    if (canGoBack) window.history.back();
+    const action = backButtonAction({
+      canGoBack,
+      onResumedPlan: isOnResumedPlan(),
+      historyLength: window.history.length,
+    });
+    if (action === "back") window.history.back();
     else void App.minimizeApp().catch(() => undefined);
   }).catch(() => undefined);
 }

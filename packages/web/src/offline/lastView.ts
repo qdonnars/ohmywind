@@ -121,6 +121,27 @@ function navigationType(): string | undefined {
 }
 
 /**
+ * Whether the plan this launch resumed is still the page on screen.
+ *
+ * The plan is pushed without a tap, and Chromium then marks the entry under
+ * it as one the system back skips: in the Android shell, back from the
+ * resumed plan found no history and left the app (QA of 2026-11-24). The
+ * shell's back handler asks this to go to the explorer instead. Cleared as
+ * soon as the reader leaves the plan, or when the system opens a page
+ * (`forgetResume`): a shortcut or a link opened cold still leaves the app
+ * on back.
+ */
+let resumedPlan = false;
+
+export function isOnResumedPlan(): boolean {
+  return resumedPlan && getLocation().path === "/plan";
+}
+
+export function forgetResume(): void {
+  resumedPlan = false;
+}
+
+/**
  * At boot, before the first render: go back to the last view if this is a
  * fresh app launch on `/`, then keep the last view up to date for the next.
  */
@@ -133,10 +154,15 @@ export function startLastViewTracking(): void {
     appLaunch: isAppLaunch(),
     lastView: loadLastView(),
   });
-  if (target) navigate(target);
+  if (target) {
+    navigate(target);
+    resumedPlan = true;
+  }
 
   const record = () => {
-    const view = lastViewOf(getLocation());
+    const location = getLocation();
+    if (location.path !== "/plan") resumedPlan = false;
+    const view = lastViewOf(location);
     if (view) saveLastView(view);
   };
   record();

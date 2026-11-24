@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { getLocation, navigate } from "../navigation";
 import {
+  forgetResume,
+  isOnResumedPlan,
   lastViewOf,
   loadLastView,
   parseLastView,
@@ -81,6 +83,7 @@ describe("startLastViewTracking", () => {
   beforeEach(() => {
     localStorage.clear();
     window.history.replaceState(null, "", "/");
+    forgetResume();
   });
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -102,6 +105,39 @@ describe("startLastViewTracking", () => {
     window.history.back();
     await popped;
     expect(getLocation()).toEqual({ path: "/", search: "" });
+  });
+
+  it("knows the resumed plan is on screen until the reader leaves it", () => {
+    localStorage.setItem(KEY, JSON.stringify({ view: "plan", url: PLAN }));
+    standalone(true);
+    startLastViewTracking();
+    expect(isOnResumedPlan()).toBe(true);
+    // The page rewriting its own URL is not leaving it.
+    navigate("/plan?wpts=1,2;3,4", { replace: true });
+    expect(isOnResumedPlan()).toBe(true);
+    navigate("/");
+    expect(isOnResumedPlan()).toBe(false);
+    // Coming back to a plan later is not the resumed one any more.
+    navigate("/plan?wpts=1,2;3,4");
+    expect(isOnResumedPlan()).toBe(false);
+  });
+
+  it("forgets the resume when the system opens a page", () => {
+    localStorage.setItem(KEY, JSON.stringify({ view: "plan", url: PLAN }));
+    standalone(true);
+    startLastViewTracking();
+    // The launcher shortcut « Planifier » lands on /plan as well.
+    forgetResume();
+    navigate("/plan", { replace: true });
+    expect(isOnResumedPlan()).toBe(false);
+  });
+
+  it("has no resumed plan when nothing was resumed", () => {
+    localStorage.setItem(KEY, JSON.stringify({ view: "plan", url: PLAN }));
+    standalone(false);
+    startLastViewTracking();
+    navigate(PLAN);
+    expect(isOnResumedPlan()).toBe(false);
   });
 
   it("stays on / in a browser tab", () => {
