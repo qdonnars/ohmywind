@@ -16,7 +16,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.reset": "Reimpostare",
   "config.saved": "· salvato",
   "config.storageNote":
-    "OhMyWind non prevede volutamente account utente: nessun dato viene inviato a un server per identificare chi la utilizza. Le sue preferenze (modelli, polare personalizzata) sono memorizzate localmente nel suo browser. Se cambia dispositivo o browser, oppure se cancella i cookie di questo sito, queste impostazioni andranno perse.",
+    "OhMyWind non prevede volutamente account utente: nessun dato viene inviato a un server per identificare chi la utilizza. Le sue preferenze (modelli, polare personalizzata) restano memorizzate su questo dispositivo. Se cambia dispositivo o browser, oppure se cancella i dati di OhMyWind su questo dispositivo, queste impostazioni andranno perse.",
 
   "config.models.title": "Modelli meteo",
   "config.models.intro":
