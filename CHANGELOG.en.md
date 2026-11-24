@@ -4,11 +4,12 @@ Every OhMyWind release, newest first. The ohmywind.fr site and the MCP server sh
 
 This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the reference. Each release is also published on the repository's [Releases](https://github.com/qdonnars/ohmywind/releases) page, and the app shows this log on its "What's new" page.
 
-## 1.16.0 · Next release · A full-screen map, new Settings, and routes redrawn at sea by the app
+## 1.16.0 · 2026-11-25 · A full-screen map, new Settings, and routes redrawn at sea by the app
 
 ### New
 
 - The map takes the whole screen in the explorer and the planner: no more bar at the top, the menu, the search and the settings float on the map (#599, #600).
+- On a computer, the planner panel is a card detached from the edges, laid over the chart: the buttons and the search sit on its left and follow it when you resize it (#603).
 - The menu opens as a drawer on the side, with the three pages of the app, What's new, Settings, Methodology and About (#595).
 - The Settings open over the map, without leaving the page: theme, language, screen kept on, seamarks, weather models and boat, with the same screens on phone, tablet and computer (#596, #597, #598).
 - The theme has an Auto mode, which follows the light or dark setting of your device (#594).
@@ -38,6 +39,8 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 - The server no longer computes a detour for the app: it serves coastline tiles, and the route is drawn on the device, whatever the load on the server (#586).
 - A test now refuses any binary file the server deployment could not carry (#590).
 - The boat settings and the tuning of its polar can be driven from the keyboard, point by point (#598).
+- "Keep the screen on" now concerns phones and tablets only: on a computer the setting is no longer offered (#602).
+- The automated test of the apps no longer fails when the emulator is slow to start (#578, #604).
 
 ## 1.15.0 · 2026-11-24 · Offline at sea, and real mobile apps
 

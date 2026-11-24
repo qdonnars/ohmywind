@@ -4,11 +4,12 @@ Toutes les versions d'OhMyWind, de la plus récente à la plus ancienne. Le site
 
 Chaque version est aussi publiée sur la page [Releases](https://github.com/qdonnars/ohmywind/releases) du dépôt, et l'application affiche ce journal sur sa page « Quoi de neuf ». La marche à suivre pour publier une version est dans [docs/releases.md](docs/releases.md). English version: [CHANGELOG.en.md](CHANGELOG.en.md).
 
-## 1.16.0 · Prochaine version · La carte en plein écran, des Réglages refaits, et la route retracée en mer par l'application
+## 1.16.0 · 2026-11-25 · La carte en plein écran, des Réglages refaits, et la route retracée en mer par l'application
 
 ### Nouveautés
 
 - La carte prend tout l'écran dans l'explorateur et le planificateur : plus de bandeau en haut, le menu, la recherche et les réglages flottent sur la carte (#599, #600).
+- Sur ordinateur, le panneau du planificateur est une carte détachée des bords, posée sur la carte marine : les boutons et la recherche se rangent à sa gauche et le suivent quand vous le redimensionnez (#603).
 - Le menu s'ouvre en tiroir sur le côté, avec les trois pages de l'application, Quoi de neuf, Réglages, Méthodologie et À propos (#595).
 - Les Réglages s'ouvrent par-dessus la carte, sans quitter la page : thème, langue, écran allumé, balises, modèles météo et bateau, avec les mêmes écrans sur téléphone, tablette et ordinateur (#596, #597, #598).
 - Le thème a un mode Auto, qui suit le réglage clair ou sombre de votre appareil (#594).
@@ -38,6 +39,8 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 - Le serveur ne calcule plus de détour pour l'application : il lui fournit des tuiles de trait de côte, et le tracé se fait sur l'appareil, sans dépendre de la charge du serveur (#586).
 - Un test refuse désormais tout fichier binaire que la mise en ligne du serveur ne saurait pas transporter (#590).
 - Les réglages du bateau et l'ajustement de sa polaire se pilotent au clavier, point par point (#598).
+- « Garder l'écran allumé » ne concerne plus que les téléphones et les tablettes : sur ordinateur, le réglage n'est plus proposé (#602).
+- Le test automatique des applications n'échoue plus quand l'émulateur met du temps à démarrer (#578, #604).
 
 ## 1.15.0 · 2026-11-24 · Hors ligne en mer, et de vraies applications mobiles
 
