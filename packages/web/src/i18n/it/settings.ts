@@ -29,4 +29,22 @@ export const settings: Record<keyof typeof frSettings, string> = {
     "OhMyWind non ha account: le preferenze restano su questo dispositivo. Cambiare dispositivo o cancellare i dati del sito le fa sparire.",
   "settings.lang.note":
     "Ogni lingua è scritta nella propria lingua, perché chi si è perso riconosca la sua.",
+
+  // Modèles météo : la vue des Réglages (intro, repère du tableau,
+  // poignées et leurs noms accessibles, toasts, réinitialisation).
+  "settings.models.intro":
+    "I primi <b>{limit}</b> compaiono nella tabella, in quest'ordine. Trascinare la maniglia per riordinare: un modello portato tra loro fa scendere l'ultimo tra gli ignorati.",
+  "settings.models.headShown": "Usati nell'app",
+  "settings.models.headIgnored": "Ignorati sotto",
+  "settings.models.cut": "↑ Tabella · Ignorati ↓",
+  "settings.models.meta": "{resolution}\u00a0km · ~{horizon} · {coverage}",
+  "settings.models.position.shown": "{model}, posizione {rank}, visualizzato",
+  "settings.models.position.ignored": "{model}, posizione {rank}, ignorato",
+  "settings.models.handle.role": "maniglia di spostamento",
+  "settings.models.handle.hint":
+    "Frecce su e giù per salire o scendere di una posizione.",
+  "settings.models.toast.swap":
+    "{shown} visualizzato, {ignored} passa tra gli ignorati",
+  "settings.models.toast.reset": "Ordine predefinito ripristinato",
+  "settings.models.reset": "Reimpostare l'ordine",
 };
