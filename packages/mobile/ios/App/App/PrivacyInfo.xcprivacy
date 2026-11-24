@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later
+     SPDX-FileCopyrightText: 2026 Quentin Donnars -->
+<!-- The app's own privacy manifest. Capacitor and each plugin ship their own
+     for their native code.
+
+     Tracking: none. No account, no identifier, no analytics, crash or
+     advertising SDK, and no tracking domain.
+
+     Collected data: the site the app loads sends the position the user asks
+     a forecast for (the GPS fix when location is allowed, otherwise a point
+     picked on the map) to the OhMyWind servers and to Open-Meteo, for that
+     forecast only. Declared as precise location for app functionality, not
+     linked to the user, never used for tracking. It must match the answers
+     given in App Store Connect ("App Privacy").
+
+     Required reason APIs: UserDefaults, read and written by the Preferences
+     plugin for the copy of the user's own spots and settings (reason CA92.1,
+     data the app itself wrote). Nothing else in the app's own code
+     (AppDelegate, SceneDelegate, ShellViewController). Native code added
+     later that reads file timestamps, the system boot time, the free disk
+     space or the active keyboards must be declared here with its reason. -->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePreciseLocation</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

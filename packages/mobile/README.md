@@ -101,7 +101,7 @@ xcodebuild -project App/App.xcodeproj -scheme App -configuration Debug \
 # -> ios/build/Build/Products/Debug-iphonesimulator/App.app
 ```
 
-La configuration Debug signe en automatique (équipe `Z2M67M742P`), la configuration Release en manuel avec l'identité « Apple Distribution » et le profil App Store de la variante: elle ne sert qu'aux archives pour TestFlight et l'App Store. Version 2.0.0 (`MARKETING_VERSION`, alignée sur Android); le numéro de build (`CURRENT_PROJECT_VERSION`) est injecté par le workflow d'envoi. iPhone seulement pour l'instant (`TARGETED_DEVICE_FAMILY = 1`).
+La configuration Debug signe en automatique (équipe `Z2M67M742P`), la configuration Release en manuel avec l'identité « Apple Distribution » et le profil App Store de la variante: elle ne sert qu'aux archives pour TestFlight et l'App Store. Version 2.0.0 (`MARKETING_VERSION`, alignée sur Android); le numéro de build (`CURRENT_PROJECT_VERSION`) est injecté par le workflow d'envoi. iPhone et iPad (`TARGETED_DEVICE_FAMILY = "1,2"`): sur iPad, l'app tourne en natif dans les quatre orientations et accepte le multitâche (fenêtres redimensionnables, Split View), sans `UIRequiresFullScreen` (déprécié depuis iPadOS 26). Le site suit la largeur de la fenêtre: mise en page téléphone sous 1024 px (iPad en portrait, demi-écran), mise en page poste au-delà (iPad en paysage). Une app iPhone seulement aurait tourné sur l'iPad du relecteur en mode compatibilité, agrandie et floue. Conséquence pour la fiche: App Store Connect demande des captures iPad (13 pouces).
 
 ### Installer sur un appareil ou l'émulateur
 
@@ -150,7 +150,8 @@ Conséquences: la WebView ne peut naviguer que vers ces domaines (Capacitor ouvr
 ### Reste du projet iOS
 
 - `Info.plist`: `NSLocationWhenInUseUsageDescription` (anglais par défaut, traductions fr, de, it, es dans `<langue>.lproj/InfoPlist.strings`), `ITSAppUsesNonExemptEncryption = false`, `CFBundleLocalizations`.
-- Icône: `packages/web/public/icon-maskable-512.png` (pleine, sans transparence, iOS arrondit lui-même), agrandie à 1024 px par `sips` à chaque build dans `AppIcon.appiconset/AppIcon-1024.png` (non versionné). La phase de build refuse une icône avec canal alpha.
+- `PrivacyInfo.xcprivacy` (manifeste de confidentialité de l'app, à la racine du bundle): aucun suivi, aucun domaine de suivi; une donnée collectée, la position précise, pour le fonctionnement de l'app, non liée à l'utilisateur (la position demandée part vers les serveurs d'OhMyWind et Open-Meteo pour la prévision); aucune API « required reason » dans le code de l'app. Capacitor et les plugins portent chacun le leur. Tout code natif ajouté qui lit `UserDefaults`, des dates de fichiers, l'heure de démarrage, l'espace disque ou les claviers actifs doit y être déclaré avec sa raison, et les réponses « App Privacy » d'App Store Connect doivent rester cohérentes avec ce fichier.
+- Icône: `AppIcon.appiconset/AppIcon-1024.png`, versionnée, rendue depuis la source vectorielle du logo, `packages/web/public/favicon.svg`, en pleine page (`rx="0"` sur le fond, sans coins arrondis: iOS arrondit lui-même), à 1024 × 1024 px, en RGB sans canal alpha. Même dessin que `icon-maskable-512.png` (écart limité à l'anticrénelage). Rendu fait par Chromium (Playwright): `svg` collé dans une page de 1024 px, capture de l'élément. La phase de build refuse une icône absente, d'une autre taille ou avec canal alpha. À refaire si le logo change.
 - Écran de lancement uni `#030712`, sans image.
 - Côté web, `packages/web/src/native/shellImport.ts` ne lance la reprise des données de la TWA que sur Android: sur iOS, ni `ShellInfo` interrogé, ni navigateur ouvert. La barre d'état suit le thème du site par le plugin `SystemBars`, disponible sur iOS dans le cœur de Capacitor 8.
 
@@ -188,7 +189,7 @@ iOS ne se teste pas en local faute de Mac: c'est le job iOS de la CI.
 1. le web est construit et reçoit la sonde `smoke/probe.js` (`smoke/inject-probe.mjs`, dans le test seulement: le build déployé ne la contient jamais). En CI, un job Linux s'en charge une fois pour les deux plateformes;
 2. Android (émulateur API 35, KVM) et iOS (`macos-26`, iPhone 17 simulé) construisent la variante `local`, servent ce build sur `localhost:4173` (`smoke/serve.mjs`) et déroulent le même scénario, `smoke/run.sh`.
 
-La sonde relève, plusieurs fois par chargement, `Capacitor.isNativePlatform()`, la plateforme, un aller-retour par le pont (`App.getInfo()`), l'état du service worker, les marges de sécurité, l'état de la reprise de données et les erreurs JavaScript, et envoie le tout à `smoke/collector.mjs` (port 4174). `smoke/expect.mjs` attend un rapport qui remplit les conditions de l'étape, sinon le job échoue:
+La sonde relève, plusieurs fois par chargement, `Capacitor.isNativePlatform()`, la plateforme, un aller-retour par le pont (`App.getInfo()`), l'état du service worker, les marges de sécurité, la géométrie de la page (`scrollY`, `visualViewport`, `innerHeight`, rectangle de l'en-tête, débord de la colonne), l'état de la reprise de données et les erreurs JavaScript, et envoie le tout à `smoke/collector.mjs` (port 4174). `smoke/expect.mjs` attend un rapport qui remplit les conditions de l'étape, sinon le job échoue:
 
 | Étape | Situation | Conditions |
 |---|---|---|
@@ -196,6 +197,7 @@ La sonde relève, plusieurs fois par chargement, `Capacitor.isNativePlatform()`,
 | `1-first` | serveur démarré | coquille native, bonne plateforme, `App.getInfo()` répond avec le bon identifiant, service worker enregistré et activé, reprise de données à `none`, plugins qui répondent (`Haptics.impact`, aller-retour `Preferences`, `KeepAwake` allumé puis relâché, `InAppReview` présent), marque de la copie native posée |
 | `2-second` | relance | page contrôlée par le service worker, copie des données présente dans les préférences natives |
 | `3-offline` | serveur arrêté, relance | le site s'ouvre quand même, servi par le service worker |
+| `4-plan` | serveur relancé, la sonde ouvre `/plan` avec une route (page et `localStorage` donnés par le collecteur, `GET /goto`) | page non décalée (`scrollY` et défilement de la colonne nuls, en-tête en haut), colonne qui tient dans l'écran, y compris tiroir monté un instant à 90 vh; capture de `/plan` |
 
 Captures à chaque étape, rapports, journaux de l'appareil en artefacts (`mobile-smoke-android`, `mobile-smoke-ios`), tableau récapitulatif dans le résumé du job.
 
@@ -236,7 +238,7 @@ Le projet `android/` est versionné, comme le veut la convention Capacitor: il p
 | `ios/App/CapApp-SPM/Package.swift` | versionné, réécrit par `cap sync` (liste des plugins) |
 | `ios/App/App/capacitor.config.json`, `ios/App/App/config.xml`, `ios/App/App/public/`, `ios/capacitor-cordova-ios-plugins/` | générés par `cap sync`, ignorés |
 | `ios/App/variant.xcconfig` | généré par le hook de sync, ignoré |
-| `ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` | généré au build depuis `packages/web/public/`, ignoré |
+| `ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` | versionné, rendu depuis `packages/web/public/favicon.svg` |
 | `ios/build/`, `DerivedData`, `xcuserdata` | locaux, ignorés |
 
 Le numéro de version de l'app (`versionCode` 9, `versionName` 2.0.0) est dans `android/app/build.gradle`. Il est indépendant de la version du web et doit rester au-dessus du `versionCode` 8 de la TWA pour être une mise à jour de la même fiche Play.
@@ -341,8 +343,7 @@ Comportement actuel:
 - **Détection de l'échec**: elle repose sur l'URL interne `chrome-error://chromewebdata/` de la page d'erreur de Chromium, stable depuis longtemps mais non documentée par Android. Si elle changeait, la WebView afficherait sa propre page d'erreur au lieu de la page de secours, sans casser le hors-ligne.
 - **`minSdk` 24** (Android 7.0) au lieu de 21 pour la TWA: c'est le minimum de Capacitor 8.
 - **`server.url` en production**: la doc Capacitor le présente comme un réglage de développement. C'est un choix assumé (#535, #536): sur Android, le seul effet est l'absence de contenu embarqué. Sur iOS, c'est le risque de refus 4.2 décrit dans #536.
-- **iOS, pas encore fait**: `PrivacyInfo.xcprivacy` propre à l'app (il devra déclarer `NSPrivacyAccessedAPICategoryUserDefaults`, raison `CA92.1`, à cause du plugin Preferences), captures et fiche App Store, iPad.
+- **iOS, pas encore fait**: captures et fiche App Store (captures iPad 13 pouces comprises, l'app est universelle).
 - **iOS, écrit sans Mac, non vérifié**: raccourcis d'icône, liens universels, demande de note, écran allumé et retour haptique ne sont prouvés qu'au niveau des plugins par le scénario du simulateur (voir « Tests automatiques »).
 - **iOS, non vérifié sur un vrai iPhone**: geste de retour par balayage (sur la carte, un glissé depuis le bord gauche peut être pris pour un retour), hors-ligne en mode avion, géolocalisation, taille du texte.
-- **Icône iOS agrandie**: la source web ne fait que 512 px; une source 1024 px dans `packages/web/public/` donnerait une icône nette sur l'App Store.
 - **Lockfile racine**: il ne porte que les binaires Linux de la chaîne web (rolldown, lightningcss), `vite build` échoue sur macOS. Le workflow de test contourne en construisant le web sous Linux.

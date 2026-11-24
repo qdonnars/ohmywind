@@ -17,6 +17,9 @@
 #                the copy of the data sits in the native preferences
 #   3-offline    server stopped, relaunch: the site still opens, served by
 #                the service worker
+#   4-plan       server up again, the probe opens /plan with a route: the
+#                page fits the screen (not scrolled, header at the top) and
+#                still does with the drawer at its highest setting
 #
 #   android: APK=<path> smoke/run.sh android   (emulator booted, adb on PATH)
 #   ios:     APP_PATH=<App.app> UDID=<id> smoke/run.sh ios   (simulator booted)
@@ -169,7 +172,9 @@ expect_stage() {
 }
 
 : >"$reports"
-node "$here/collector.mjs" 4174 "$reports" >"$out/collector.log" 2>&1 &
+goto=$out/goto.json
+rm -f "$goto"
+node "$here/collector.mjs" 4174 "$reports" "$goto" >"$out/collector.log" 2>&1 &
 collector_pid=$!
 
 prepare
@@ -229,6 +234,20 @@ stage=3-offline
 since=$(now_ms)
 launch
 expect_stage "$stage" "$since" 90 native=true appMounted=true sw.controlled=true appInfo.id="$app_id"
+stop_app
+
+start_server
+
+step "4-plan: the planner fits the screen"
+stage=4-plan
+# Two waypoints off Marseille; the drawer height the user last dragged to is
+# set to the maximum, which overflowed the column on an iPhone (2026-11).
+printf '%s\n' '{"path":"/plan?wpts=43.28,5.35;43.00,6.20","storage":{"ow_drawer_vh_v1":"90"}}' >"$goto"
+since=$(now_ms)
+launch
+expect_stage "$stage" "$since" 90 native=true appMounted=true href='~/plan?' \
+  layout.shifted=false layout.columnOverflows=false layout.planStress.columnOverflows=false
+rm -f "$goto"
 stop_app
 
 echo

@@ -38,6 +38,78 @@
     return insets;
   }
 
+  // Page geometry as the WebView lays it out: whether the document or the
+  // page's own column (the h-dvh root of the map pages) is scrolled, and
+  // where the header sits against the top safe-area inset. On /plan it also
+  // opens the drawer to its highest setting (90 vh) for one synchronous
+  // measure, restored before anything paints: the column must still fit the
+  // screen, or an in-page scroll shifts the whole page up (iPhone, 2026-11).
+  function layout() {
+    var column = document.querySelector("#root .h-dvh");
+    var header = document.querySelector(".app-header");
+    var vv = window.visualViewport;
+    function overflows() {
+      return !!column && column.scrollHeight - column.clientHeight > 1;
+    }
+    var headerRect = header ? header.getBoundingClientRect() : null;
+    var result = {
+      scrollY: window.scrollY,
+      innerHeight: window.innerHeight,
+      visualViewport: vv ? { height: vv.height, offsetTop: vv.offsetTop, pageTop: vv.pageTop } : null,
+      docScrollHeight: document.documentElement.scrollHeight,
+      column: column
+        ? { clientHeight: column.clientHeight, scrollHeight: column.scrollHeight, scrollTop: column.scrollTop }
+        : null,
+      columnOverflows: overflows(),
+      header: headerRect ? { top: headerRect.top, bottom: headerRect.bottom, height: headerRect.height } : null,
+      shifted: window.scrollY !== 0 || (!!column && column.scrollTop !== 0) || (!!headerRect && headerRect.top < -0.5),
+      planStress: null,
+    };
+    var handle = window.location.pathname === "/plan" ? document.querySelector('[role="separator"]') : null;
+    var drawer = handle ? handle.parentElement : null;
+    if (drawer) {
+      var saved = drawer.style.height;
+      drawer.style.height = "90vh";
+      result.planStress = {
+        drawerHeight: drawer.getBoundingClientRect().height,
+        columnOverflows: overflows(),
+      };
+      drawer.style.height = saved;
+    }
+    return result;
+  }
+
+  // A stage of the test may ask for another page than the start URL: the
+  // collector answers GET /goto with { path, storage } (see collector.mjs).
+  function followGoto() {
+    var origin;
+    try {
+      origin = new URL(COLLECTOR).origin;
+    } catch (e) {
+      return;
+    }
+    fetch(origin + "/goto", { cache: "no-store" })
+      .then(function (res) {
+        return res.ok ? res.json() : {};
+      })
+      .then(function (goto) {
+        if (!goto || !goto.path) return;
+        var target = new URL(goto.path, window.location.href);
+        if (target.pathname === window.location.pathname) return;
+        Object.keys(goto.storage || {}).forEach(function (key) {
+          try {
+            window.localStorage.setItem(key, goto.storage[key]);
+          } catch (e) {
+            /* the page then opens with its defaults */
+          }
+        });
+        window.location.replace(target.href);
+      })
+      .catch(function () {
+        /* no collector, no stage asking for a page */
+      });
+  }
+
   // A round trip through the native bridge, to prove the plugins answer.
   function appInfo(cap) {
     if (!cap) return Promise.resolve(null);
@@ -179,6 +251,7 @@
         appMounted: !!(root && root.childElementCount > 0),
         title: document.title,
         insets: safeAreaInsets(),
+        layout: layout(),
         viewport: { width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio },
         shellImport: shellImport,
         online: navigator.onLine,
@@ -200,6 +273,8 @@
       /* the collector is the test's business, never the page's */
     });
   }
+
+  followGoto();
 
   DELAYS_MS.forEach(function (delay, seq) {
     window.setTimeout(function () {

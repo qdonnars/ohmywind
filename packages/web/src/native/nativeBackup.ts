@@ -65,6 +65,8 @@ export const BACKUP_POLICY: Readonly<Record<LocalStorageKeyName, boolean>> = {
   sidebarWidth: true,
   // The last plan: no URL to fit in here, unlike the transfer.
   lastSimulation: true,
+  // The view the app was closed on, restored with the plan it points at.
+  lastView: true,
   // Given to this app, so still true after a purge.
   geolocDeclined: true,
   // Restored with the rest, the import from the former app stays done.
@@ -75,6 +77,9 @@ export const BACKUP_POLICY: Readonly<Record<LocalStorageKeyName, boolean>> = {
   // Counted from the launch of this storage on purpose, see reviewPrompt.ts:
   // a purge can only make the rating request later, never earlier.
   reviewPrompt: false,
+  // An answer given on the site to the invitation to install the app: the
+  // app never shows that invitation.
+  installInvite: false,
   // The marker must disappear with a wipe: it is how a wipe is detected.
   nativeBackup: false,
 };
