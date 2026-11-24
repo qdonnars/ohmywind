@@ -9,9 +9,7 @@ OhMyWind è un pianificatore di navigazione a vela open source, disponibile su
 [ohmywind.fr](https://ohmywind.fr) e sotto forma di applicazione mobile. Il titolare del
 trattamento è l'associazione Libramer (associazione senza scopo di lucro di diritto
 francese, legge del 1901, RNA W751285736), con sede legale in 51 rue Fondary, 75015
-Parigi, Francia. Le applicazioni mobili sono pubblicate e distribuite negli store di
-applicazioni da Quentin Donnars o dall'associazione Libramer, a seconda dello store: la
-scheda di ciascuna applicazione ne indica l'editore. Per qualsiasi domanda relativa alla
+Parigi, Francia. Per qualsiasi domanda relativa alla
 presente informativa: [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 Il principio generale: **OhMyWind non ha account utente, né banca dati, né strumenti di
