@@ -21,7 +21,8 @@ export function WindScaleLegend({ className = "" }: { className?: string }) {
       aria-label={t("plan.map.windScale", {
         bounds: LEVELS.map(beaufortLowerBoundKn).join(" · "),
       })}
-      className={`absolute z-[400] flex rounded-[10px] px-3 py-2.5 pointer-events-none ${className}`}
+      // The corners of the planner's floating panel (.ow-plan-panel-card).
+      className={`absolute z-[400] flex rounded-[16px] px-3.5 py-2.5 pointer-events-none ${className}`}
       style={{
         background: "var(--ow-surface-pop)",
         border: "1px solid var(--ow-line-2)",

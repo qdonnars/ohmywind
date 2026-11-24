@@ -48,4 +48,18 @@ describe("index.css", () => {
     expect(declarations).toMatch(/env\(safe-area-inset-top/);
     expect(declarations).toMatch(/env\(safe-area-inset-bottom/);
   });
+
+  it("stands the map's controls, its hints and its search beside the planner's floating panel", () => {
+    // The page publishes what the panel covers; unset elsewhere, it counts
+    // for nothing, so the explorer and the phone keep their places.
+    expect(rule(".ow-chrome-right")).toMatch(/var\(--ow-map-cover-right, 0px\)/);
+    expect(rule(".ow-chrome-end")).toMatch(/var\(--ow-map-cover-right, 0px\)/);
+    expect(rule(".ow-chrome-search")).toMatch(/left:\s*calc\(\(100% - var\(--ow-map-cover-right, 0px\)\) \/ 2\)/);
+    expect(rule(".ow-map-hint")).toMatch(/var\(--ow-map-cover-right, 0px\)/);
+    // The card: rounded, lifted off the chart in either theme.
+    const card = rule(".ow-plan-panel-card");
+    expect(card).toMatch(/border-radius:\s*16px/);
+    expect(card).toMatch(/box-shadow:\s*var\(--ow-shadow-pop\)/);
+    expect(card).toMatch(/border:\s*1px solid var\(--ow-line-2\)/);
+  });
 });

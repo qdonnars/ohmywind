@@ -23,7 +23,11 @@
  * button 16 px from the edge), `.ow-chrome-slot-1` and `-2` are its first
  * two places under the bar (the chart toggle, then the zoom buttons; on the
  * explorer's phone layout the zoom buttons alone, the chart toggle being a
- * setting there).
+ * setting there). On the planner from lg up, a panel floats over the right
+ * of the map: the page publishes the width it covers as
+ * `--ow-map-cover-right`, and the column stands just left of it, the search
+ * and the hints centred on the rest (`.ow-plan-body`, `.ow-map-hint`). The
+ * framing of a route measures the panel itself (`PlanMap` `rightInsetRef`).
  */
 
 /** Distance of the column from the right edge on a phone (`right-3`). */
@@ -35,10 +39,26 @@ const GAP_PX = 8;
 /** The locate button sits this far above the bottom edge (`bottom-4`). */
 const LOCATE_BOTTOM_PX = 16;
 
-/** Width kept free along the right edge of the map: the column and its air.
-    The hints of the planner keep out of it (`right-[68px]`), and so does
-    the framing of a route. */
-export const MAP_CONTROLS_GUTTER_PX = INSET_PX + CONTROL_PX + GAP_PX;
+/** Width kept free along the right edge of the map on a phone: the column
+    and its air. The hints keep out of it (`.ow-map-hint`), and so does the
+    framing of a route. */
+const MAP_CONTROLS_GUTTER_PX = INSET_PX + CONTROL_PX + GAP_PX;
+
+/**
+ * The same width as laid out now, read from the variables the column is
+ * placed by (`--ow-chrome-side`, `--ow-chrome-size` in index.css): 68 px on
+ * a phone, 74 from lg up, where the column stands 18 px from the edge (or
+ * from the panel floating over the map). Falls back to the phone's value
+ * where no stylesheet is applied.
+ */
+export function mapControlsGutterPx(): number {
+  if (typeof document === "undefined") return MAP_CONTROLS_GUTTER_PX;
+  const style = getComputedStyle(document.documentElement);
+  const side = parseFloat(style.getPropertyValue("--ow-chrome-side"));
+  const size = parseFloat(style.getPropertyValue("--ow-chrome-size"));
+  if (!Number.isFinite(side) || !Number.isFinite(size)) return MAP_CONTROLS_GUTTER_PX;
+  return side + (size - CONTROL_PX) / 2 + CONTROL_PX + GAP_PX;
+}
 
 /** What the zoom buttons need under them, down to the bottom of the map:
     the air, the locate button and its distance to the edge. Shorter, they
