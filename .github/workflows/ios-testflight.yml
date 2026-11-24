@@ -20,9 +20,9 @@ name: iOS TestFlight
 # whatever happens. The App Store Connect API key reads the last build number
 # and serves the upload.
 #
-# Build number = integer part of the highest build already on App Store
-# Connect + 1 (scripts/asc-next-build.mjs), so numbers follow each other
-# (6, 7, 8) whatever the number of workflow runs.
+# Build number = highest build already on App Store Connect with its last
+# number raised by one (scripts/asc-next-build.mjs): 6.1, 6.2, 6.3, whatever
+# the number of workflow runs.
 #
 # The workflow runs on the push, once the code sits on the branch, and only
 # reads the label of the pull request that produced the commit. Never
@@ -184,8 +184,8 @@ jobs:
           rm -f "$RUNNER_TEMP/profile.mobileprovision" "$RUNNER_TEMP/profile.plist"
 
       # TestFlight refuses a build number it has already seen for the same
-      # version. --min 6: the last builds sent with the former numbering
-      # (run_number.run_attempt) went up to 5.1.
+      # version: highest build of the app with its last number raised (6.1
+      # then 6.2), see scripts/asc-next-build.mjs.
       - name: Next build number
         working-directory: packages/mobile
         env:
@@ -196,7 +196,7 @@ jobs:
           umask 077
           export ASC_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
           printf '%s' "$KEY_P8_B64" | base64 --decode > "$ASC_KEY_PATH"
-          build=$(node scripts/asc-next-build.mjs "$BUNDLE_ID" --min 6)
+          build=$(node scripts/asc-next-build.mjs "$BUNDLE_ID")
           echo "BUILD_NUMBER=$build" >> "$GITHUB_ENV"
           echo "$BUNDLE_ID build $build"
 
