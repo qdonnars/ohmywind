@@ -36,7 +36,7 @@ import { useT } from "../i18n";
 import { useKeepScreenOn } from "../hooks/useKeepScreenOn";
 import { usePointerWording } from "../hooks/usePointerWording";
 import { MAP_MIN_PX, ZOOM_MIN_FRAME_PX } from "../components/mapControlsLayout";
-import { loadKeepAwakeEnabled } from "../config/keepAwakePreference";
+import { useKeepAwakePreference } from "../config/useKeepAwakePreference";
 
 // ── ResizableMobileDrawer ────────────────────────────────────────────────────
 // User-resizable bottom drawer: a 4 px grab-handle at the top responds to
@@ -556,11 +556,11 @@ export function PlanPage() {
     return filled ? {} : null;
   }, [passage, windows, planMode, isLoading, compareAxis, drawing, tracksPending, tracks]);
 
-  // The screen stays on while a computed plan is on screen (the setting in
-  // /config can turn it off). Same notion of "a result" as above, but not
+  // The screen stays on while a computed plan is on screen (the settings
+  // can turn it off, and the plan follows at once). Same notion of "a result" as above, but not
   // gated on loading: a recomputation keeps the previous plan in view. A
   // plan gone stale (route edited since) hides its details: no need.
-  const [keepAwakeEnabled] = useState(() => loadKeepAwakeEnabled());
+  const { enabled: keepAwakeEnabled } = useKeepAwakePreference();
   const showingPlan =
     planMode === "single"
       ? !!passage && !isStale
