@@ -14,9 +14,20 @@ routes = [
 # Without this, a Worker in production is a black box: an intermittent 503 or a
 # cache that never hits leaves no trace anywhere. Traffic here is a few requests
 # a minute, so everything is sampled; lower the rate if that ever changes.
+#
+# What is kept is only what src/index.js logs itself: one line per unreachable
+# origin or outage page, carrying the host and the path without its query
+# string. The invocation logs are off: Cloudflare would otherwise store, for
+# every request, the full URL (so the coordinates of every GET) and metadata
+# about the caller, for 7 days. The privacy policy published on ohmywind.fr
+# relies on this setting; do not turn it back on without changing the policy.
+# Like every key in this file, it only takes effect on `npx wrangler deploy`.
 [observability]
 enabled = true
 head_sampling_rate = 1
+
+[observability.logs]
+invocation_logs = false
 
 # Keep-alive, deliberately not enabled. Uncomment to turn it on.
 #
