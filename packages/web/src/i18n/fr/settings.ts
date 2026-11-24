@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
+/** Les Réglages : la feuille (ou fenêtre) à pile de vues, sa racine et la
+    liste des langues. Les vues Modèles météo et Bateau reprennent encore les
+    clés `config.*` de la page /config. Le titre « Réglages » lui-même est
+    `common.nav.settings`, partagé avec le menu. */
+export const settings = {
+  "settings.done": "OK",
+  "settings.group.device": "Appareil",
+  "settings.group.map": "Carte",
+  "settings.group.forecast": "Prévisions",
+  "settings.theme.label": "Thème",
+  "settings.theme.auto": "Auto",
+  "settings.theme.light": "Clair",
+  "settings.theme.dark": "Sombre",
+  "settings.device.note": "Auto suit le réglage clair ou sombre de l'appareil.",
+  "settings.keepAwake.subtitle": "Tant qu'un plan calculé est affiché",
+  "settings.seamarks.label": "Balises et amers",
+  "settings.seamarks.subtitle": "Bouées, balises et phares (OpenSeaMap)",
+  "settings.seamarks.always": "Toujours",
+  "settings.seamarks.never": "Jamais",
+  "settings.map.note": "Sur les deux cartes, météo et planificateur.",
+  "settings.models.summary": "Tableau : {models}",
+  "settings.boat.summary": "{boat} · {percent}\u00a0%",
+  "settings.boat.summaryMotor": "moteur sous {speed}\u00a0kn",
+  "settings.boat.summaryImported": "polaire importée",
+  "settings.forecast.note":
+    "Les modèles remplissent le tableau de la carte ; le bateau sert à tous vos plans de passage.",
+  "settings.storageNote":
+    "OhMyWind n'a pas de compte : vos préférences restent sur cet appareil. Changer d'appareil ou effacer les données du site les fait disparaître.",
+  "settings.lang.note":
+    "Chaque langue est écrite dans sa propre langue, pour qu'un lecteur perdu reconnaisse la sienne.",
+} as const;

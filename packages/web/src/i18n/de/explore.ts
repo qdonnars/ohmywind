@@ -11,7 +11,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
     "Karte klicken für das Wetter, Rechtsklick zum Speichern eines Spots",
 
   // Header
-  "explore.header.settings": "Einstellungen",
 
   // Theme toggle (design/theme)
   "explore.theme.toDark": "Zum dunklen Design wechseln",

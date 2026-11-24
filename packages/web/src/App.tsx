@@ -34,6 +34,7 @@ import { useOnline } from "./hooks/useOnline";
 import { loadSpotForecast } from "./offline/spotForecast";
 import { ForecastStamp } from "./components/ForecastStamp";
 import { usePointerWording } from "./hooks/usePointerWording";
+import { useAppliedModelOrder } from "./settings/useAppliedModelOrder";
 
 const DEFAULT_MAP_CENTER: { lat: number; lon: number } = { lat: 43.3, lon: 5.35 };
 
@@ -164,6 +165,10 @@ function App() {
   // Re-run when the network comes back, so a forecast read from the device
   // is refreshed in the background and its date goes. Losing the network
   // re-runs it too, and the forecast already on screen then stays as it is.
+  // And when the reader reorders the models in the settings, opened over
+  // this page: the fetch reads the stored order itself, the value here only
+  // says when (once the settings close, see useAppliedModelOrder).
+  const modelOrder = useAppliedModelOrder();
   useEffect(() => {
     if (!spot) return;
     const key = `${spot.latitude},${spot.longitude}`;
@@ -201,7 +206,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [spot, online]);
+  }, [spot, online, modelOrder]);
   useEffect(() => {
     if (!spot) return;
     let cancelled = false;

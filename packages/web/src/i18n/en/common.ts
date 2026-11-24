@@ -28,6 +28,7 @@ export const common: Record<keyof typeof frCommon, string> = {
   "common.nav.plan.desc": "Simulate a route, compare windows",
   "common.nav.compare.title": "Compare my spots",
   "common.nav.compare.desc": "My favourites side by side",
+  "common.nav.settings": "Settings",
 
   "common.version": "Version {version}",
   "common.nav.whatsNew.title": "What's new",

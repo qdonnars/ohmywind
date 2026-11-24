@@ -8,7 +8,7 @@ import { SpotSearch } from "./SpotSearch";
 import { ThemeToggle } from "../design/theme";
 import { InfoButton } from "./InfoButton";
 import { NavMenu, type NavDestination } from "./NavMenu";
-import { rememberReturnPath } from "../config/returnPath";
+import { openSettings } from "../config/openSettings";
 import { OfflineBanner } from "./OfflineBanner";
 import { LG_MEDIA_QUERY, useMediaQuery } from "../hooks/useMediaQuery";
 
@@ -49,19 +49,21 @@ function SettingsIcon() {
   );
 }
 
+/** Opens the settings over the page (`settings/SettingsSheet.tsx`). */
 function SettingsButton() {
   const { t } = useT();
   return (
-    <a
-      href="/config"
-      onClick={rememberReturnPath}
-      aria-label={t("explore.header.settings")}
-      title={t("explore.header.settings")}
-      className="shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg transition-colors"
+    <button
+      type="button"
+      onClick={openSettings}
+      aria-haspopup="dialog"
+      aria-label={t("common.nav.settings")}
+      title={t("common.nav.settings")}
+      className="shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg transition-colors cursor-pointer"
       style={{ color: 'var(--ow-fg-1)', background: 'transparent' }}
     >
       <SettingsIcon />
-    </a>
+    </button>
   );
 }
 

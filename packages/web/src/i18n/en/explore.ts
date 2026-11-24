@@ -11,7 +11,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
     "Click the map for the forecast, right-click to save a spot",
 
   // Header
-  "explore.header.settings": "Settings",
 
   // Theme toggle (design/theme)
   "explore.theme.toDark": "Switch to dark theme",

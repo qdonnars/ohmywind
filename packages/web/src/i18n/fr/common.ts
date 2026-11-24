@@ -29,6 +29,7 @@ export const common = {
   "common.nav.plan.desc": "Simuler une route, comparer les fenêtres",
   "common.nav.compare.title": "Comparer mes spots",
   "common.nav.compare.desc": "Mes favoris côte à côte",
+  "common.nav.settings": "Réglages",
 
   // Quoi de neuf : l'entrée du menu, la page /nouveautes et la version
   "common.version": "Version {version}",
