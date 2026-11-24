@@ -166,7 +166,7 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 
 - The privacy policy names the Libramer association as data controller (#396).
 
-## 1.5.0 · 2026-09-06 · Five languages, and the iPhone properly framed
+## 1.5.0 · 2026-09-06 · Five languages, and the phone screen properly framed
 
 ### New
 
@@ -204,7 +204,7 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 - The relay in front of the MCP server returns a readable error while the server sleeps, with a cache and metrics (#350).
 - The interface colours rest on the design tokens (#356).
 
-## 1.3.3 · 2026-09-02 · Faster, and Android's back button closes panels
+## 1.3.3 · 2026-09-02 · Faster, and the back button closes panels
 
 ### Fixes
 
@@ -292,7 +292,7 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 
 - The Android app's signing fingerprints are up to date (#251, #255).
 
-## 1.1.1 · 2026-08-13 · Full-screen Android app, licence and trademark
+## 1.1.1 · 2026-08-13 · Full-screen app, licence and trademark
 
 ### Fixes
 

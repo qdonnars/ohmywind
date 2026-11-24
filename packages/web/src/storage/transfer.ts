@@ -61,6 +61,10 @@ export const TRANSFER_POLICY: Readonly<Record<LocalStorageKeyName, TransferDecis
   geolocDeclined: SKIP,
   // The bridge's own bookkeeping, specific to each storage.
   shellImport: SKIP,
+  // An answer to the invitation to install the app, given on the site. The
+  // app never shows the invitation, and a reader back on the site later is
+  // asked again on the site's own schedule.
+  installInvite: SKIP,
 };
 
 /** Storage names that transfer, most precious first. */

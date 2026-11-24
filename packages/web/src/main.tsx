@@ -11,6 +11,7 @@ import { registerServiceWorker } from "./sw";
 import { initI18n } from "./i18n";
 import { startNativeShell } from "./native";
 import { startLastViewTracking } from "./offline/lastView";
+import { InstallInvite } from "./install/InstallInvite";
 
 // Before the first render, so the tokens the maps read from the DOM are
 // already those of the reader's theme. See applyInitialTheme.
@@ -31,6 +32,9 @@ initI18n()
       <StrictMode>
         <ThemeProvider>
           <Routes />
+          {/* Outside the routes, so a change of page does not restart its
+              clock. Renders nothing in the apps and on a computer. */}
+          <InstallInvite />
         </ThemeProvider>
       </StrictMode>
     );

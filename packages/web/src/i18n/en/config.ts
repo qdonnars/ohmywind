@@ -334,7 +334,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.transfer.working": "Bringing over your spots and settings…",
   "config.transfer.button": "Finish in the app",
   "config.transfer.unavailable":
-    "This page is only used by the Android app, to bring over your spots and settings. There is nothing to do here.",
+    "This page is only used by the mobile app, to bring over your spots and settings. There is nothing to do here.",
 
   "config.lazyPage.offlineTitle": "This page needs a connection.",
   "config.lazyPage.offlineBody": "Reconnect then reload, or go back to the map.",
