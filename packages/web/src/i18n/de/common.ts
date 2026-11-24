@@ -44,4 +44,11 @@ export const common: Record<keyof typeof frCommon, string> = {
   "common.quota.reset.minutes.other": "Zurücksetzung in {count} Minuten.",
   "common.quota.reset.hours.one": "Zurücksetzung in etwa {count} Stunde.",
   "common.quota.reset.hours.other": "Zurücksetzung in etwa {count} Stunden.",
+
+  "common.install.title": "OhMyWind als App",
+  "common.install.body":
+    "Öffnen Sie die Karte mit einem Tipp vom Startbildschirm, im Vollbild und ohne Adressleiste. Kostenlos, ohne Konto und Open Source.",
+  "common.install.open.android": "Google Play öffnen",
+  "common.install.open.ios": "App Store öffnen",
+  "common.install.later": "Später",
 };

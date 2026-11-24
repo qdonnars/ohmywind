@@ -48,4 +48,13 @@ export const common = {
   "common.quota.reset.minutes.other": "Réinitialisation dans {count} minutes.",
   "common.quota.reset.hours.one": "Réinitialisation dans {count} heure environ.",
   "common.quota.reset.hours.other": "Réinitialisation dans {count} heures environ.",
+
+  // Invitation à installer l'application, sur le site ouvert depuis un
+  // téléphone. Jamais montrée dans les applications elles-mêmes.
+  "common.install.title": "OhMyWind en application",
+  "common.install.body":
+    "Ouvrez la carte d'un geste depuis votre écran d'accueil, en plein écran, sans barre d'adresse. Gratuite, sans compte et open source.",
+  "common.install.open.android": "Ouvrir Google Play",
+  "common.install.open.ios": "Ouvrir l'App Store",
+  "common.install.later": "Plus tard",
 } as const;

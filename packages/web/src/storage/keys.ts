@@ -75,6 +75,10 @@ export const LOCAL_STORAGE_KEYS = {
   /** Native shell only: where the one-shot import of the data left in Chrome
       by the former Android app stands. See `native/shellImport.ts`. */
   shellImport: "ow_shell_import_v1",
+  /** Epoch milliseconds of the last answer to the invitation to install the
+      store app (either button, or back): it stays away for a while after.
+      Site on a phone only, see `install/invite.ts`. */
+  installInvite: "ow_install_invite_v1",
 } as const;
 
 /** Name of a `localStorage` entry, as the code refers to it. */
