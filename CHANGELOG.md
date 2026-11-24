@@ -4,6 +4,31 @@ Toutes les versions d'OhMyWind, de la plus récente à la plus ancienne. Le site
 
 Chaque version est aussi publiée sur la page [Releases](https://github.com/qdonnars/ohmywind/releases) du dépôt, et l'application affiche ce journal sur sa page « Quoi de neuf ». La marche à suivre pour publier une version est dans [docs/releases.md](docs/releases.md). English version: [CHANGELOG.en.md](CHANGELOG.en.md).
 
+## 1.16.0 · Prochaine version · La route retracée en mer par l'application, et des chiffres qui se recoupent
+
+### Nouveautés
+
+- Une route tracée à travers une presqu'île ou une île est retracée en mer avant le calcul, sur votre appareil : l'encart « Route ajustée » le signale et « Revenir à mon tracé » la défait. La zone couverte va de Lisbonne à Rotterdam avec le sud de l'Angleterre, et d'Alicante à Naples avec les Baléares, la Corse et la Sardaigne (#573, #586).
+- À la souris, des boutons + et − permettent de zoomer sur la carte de l'explorateur et sur celle du planificateur (#470, #587).
+
+### Corrections
+
+- Les chiffres d'un plan se recoupent tels qu'ils sont affichés : la décomposition de la vitesse tombe juste, la somme des tronçons fait le total, et les durées collent aux heures de départ et d'arrivée, y compris dans la comparaison des départs (#532, #583).
+- Sur téléphone, les champs de saisie et leurs boutons restent visibles au-dessus du clavier : nouveau spot, renommage, recherche, réglages (#569, #584).
+- Un spot enregistré n'est plus entouré d'un carré quand on le touche (#545, #584).
+- Dans la comparaison des spots, un favori placé dans les terres n'affiche plus de vagues : la ligne dit « À terre » (#480, #582).
+- Dans le planificateur sur téléphone, le tiroir monté au maximum laisse la carte visible, les boutons de la carte ne se chevauchent plus et ne cachent plus ni l'aide ni l'arrivée (#579, #587).
+- Les aides de la carte parlent de toucher sur un écran tactile et de cliquer à la souris, dans les cinq langues (#579, #587).
+- La recherche de lieux n'est plus relancée à chaque déplacement de la carte (#579, #587).
+- Les réglages disent que vos préférences restent sur l'appareil, sans parler de cookies (#579, #587).
+- Dans l'application, après un effacement de ses données, la copie gardée par le téléphone rouvre directement le plan en cours (#579, #585).
+- Sur iPhone, à partir d'iOS 27, la position n'est demandée qu'une fois ; ce correctif arrive avec la prochaine version de l'application (#571, #585).
+
+### Coulisses
+
+- Le serveur ne calcule plus de détour pour l'application : il lui fournit des tuiles de trait de côte, et le tracé se fait sur l'appareil, sans dépendre de la charge du serveur (#586).
+- Un test refuse désormais tout fichier binaire que la mise en ligne du serveur ne saurait pas transporter (#590).
+
 ## 1.15.0 · 2026-11-24 · Hors ligne en mer, et de vraies applications mobiles
 
 ### Nouveautés
