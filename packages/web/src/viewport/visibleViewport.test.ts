@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Quentin Donnars
+
+import { describe, expect, it } from "vitest";
+import { revealDelta, visibleBox } from "./visibleViewport";
+
+// An iPhone 14 in portrait: 844 px of layout viewport, and the keyboard with
+// its bar covering the bottom 380.
+const PHONE = 844;
+const KEYBOARD = 380;
+
+describe("visibleBox", () => {
+  it("is the whole screen when nothing covers it", () => {
+    expect(visibleBox(PHONE, { height: PHONE, offsetTop: 0, scale: 1 })).toEqual({
+      top: 0,
+      height: PHONE,
+      hiddenBelow: 0,
+    });
+  });
+
+  it("stops above a keyboard that slides over the page (#569)", () => {
+    expect(visibleBox(PHONE, { height: PHONE - KEYBOARD, offsetTop: 0, scale: 1 })).toEqual({
+      top: 0,
+      height: PHONE - KEYBOARD,
+      hiddenBelow: KEYBOARD,
+    });
+  });
+
+  it("follows iOS when it slides the view down to reach a low field", () => {
+    // The visual viewport moved 120 px down the layout viewport: what is seen
+    // starts there, and what is hidden below is the keyboard minus that.
+    expect(visibleBox(PHONE, { height: PHONE - KEYBOARD, offsetTop: 120, scale: 1 })).toEqual({
+      top: 120,
+      height: PHONE - KEYBOARD,
+      hiddenBelow: KEYBOARD - 120,
+    });
+  });
+
+  it("is the whole screen in a WebView that shrinks itself for the keyboard", () => {
+    // adjustResize: the layout viewport is already the short one.
+    expect(visibleBox(PHONE - KEYBOARD, { height: PHONE - KEYBOARD, offsetTop: 0, scale: 1 })).toEqual({
+      top: 0,
+      height: PHONE - KEYBOARD,
+      hiddenBelow: 0,
+    });
+  });
+
+  it("ignores a two-finger zoom, which is not a keyboard", () => {
+    expect(visibleBox(PHONE, { height: PHONE / 2, offsetTop: 200, scale: 2 })).toEqual({
+      top: 0,
+      height: PHONE,
+      hiddenBelow: 0,
+    });
+  });
+
+  it("is the whole screen without a visual viewport", () => {
+    expect(visibleBox(PHONE, null)).toEqual({ top: 0, height: PHONE, hiddenBelow: 0 });
+  });
+
+  it("never reaches past the layout viewport", () => {
+    // iOS overshoots for a frame while the keyboard slides.
+    const box = visibleBox(PHONE, { height: PHONE, offsetTop: 40, scale: 1 });
+    expect(box.top + box.height).toBe(PHONE);
+    expect(box.hiddenBelow).toBe(0);
+  });
+});
+
+describe("revealDelta", () => {
+  const box = visibleBox(PHONE, { height: PHONE - KEYBOARD, offsetTop: 0, scale: 1 });
+
+  it("leaves alone a block already in sight", () => {
+    expect(revealDelta({ top: 100, bottom: 300 }, box, 12)).toBe(0);
+  });
+
+  it("scrolls up just enough to clear the keyboard", () => {
+    // Bottom at 600, seen down to 464 - 12 = 452.
+    expect(revealDelta({ top: 400, bottom: 600 }, box, 12)).toBe(148);
+  });
+
+  it("never pushes the top of the block out of sight", () => {
+    // 700 px tall: only its top can be shown, at the margin.
+    expect(revealDelta({ top: 300, bottom: 1000 }, box, 12)).toBe(288);
+  });
+
+  it("scrolls down to a block above what is seen", () => {
+    const panned = visibleBox(PHONE, { height: PHONE - KEYBOARD, offsetTop: 120, scale: 1 });
+    expect(revealDelta({ top: 50, bottom: 100 }, panned, 12)).toBe(-82);
+  });
+});

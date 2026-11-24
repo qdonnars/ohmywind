@@ -32,4 +32,13 @@ describe("index.css", () => {
     expect(rule(`path.${SPOT_MARKER_CLASS}:focus`)).toMatch(/outline:\s*none/);
     expect(rule(`path.${SPOT_MARKER_CLASS}:focus-visible`)).toMatch(/stroke:\s*var\(--ow-fg-0\)/);
   });
+
+  it("pins a viewport overlay to the visible box, with only its top and height (#569)", () => {
+    const declarations = rule(".ow-visible-viewport");
+    expect(declarations).toMatch(/top:\s*var\(--ow-vv-top,/);
+    expect(declarations).toMatch(/height:\s*var\(--ow-vv-height,/);
+    // The sides and the position come from utilities; a `bottom` here would
+    // fight the height.
+    expect(declarations).not.toMatch(/\b(bottom|inset|position):/);
+  });
 });

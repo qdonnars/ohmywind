@@ -9,6 +9,7 @@ import type { PlaceResult } from "../api/places";
 import { matchSavedSpots, formatDistance, normalizeForMatch } from "../api/places";
 import { parseCoordinates, formatCoordinates } from "../api/coordinates";
 import { useT } from "../i18n";
+import { useVisibleViewport } from "../viewport/visibleViewport";
 
 interface SpotSearchProps {
   onSelect: (spot: Spot) => void;
@@ -35,6 +36,10 @@ const CACHE_MAX = 40;
     and Lighthouse ask of every form control. */
 const INPUT_ID = "ow-search-input";
 const LISTBOX_ID = "ow-search-dropdown-portal";
+/** Gap kept between the suggestions and the keyboard (or the screen's edge),
+    and the least the list shrinks to: two rows, still worth scrolling. */
+const LIST_EDGE_GAP_PX = 8;
+const LIST_MIN_PX = 112;
 
 const searchCache = new Map<string, PlaceResult[]>();
 /** Shared empty array: a fresh literal each render would defeat memoization. */
@@ -55,6 +60,7 @@ export function SpotSearch({ onSelect, nearLat, nearLon, savedSpots = [] }: Spot
   const [activeIndex, setActiveIndex] = useState(0);
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const visible = useVisibleViewport();
 
   const trimmed = query.trim();
   const near = useMemo(
@@ -202,6 +208,11 @@ export function SpotSearch({ onSelect, nearLat, nearLon, savedSpots = [] }: Spot
   }
 
   const showDropdown = open && pos !== null;
+  // The list stops above the keyboard and scrolls: grown to its natural
+  // height, its last rows sat under the keys, out of reach (#569).
+  const listMaxHeight = pos
+    ? Math.max(LIST_MIN_PX, visible.top + visible.height - pos.top - LIST_EDGE_GAP_PX)
+    : undefined;
 
   return (
     <div ref={containerRef} className="relative w-full max-w-md lg:max-w-lg">
@@ -240,8 +251,8 @@ export function SpotSearch({ onSelect, nearLat, nearLon, savedSpots = [] }: Spot
           id={LISTBOX_ID}
           role="listbox"
           aria-label={t("explore.spotSearch.results")}
-          className="ow-search-dropdown rounded-xl overflow-hidden animate-fade-in"
-          style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width, zIndex: 1000 }}
+          className="ow-search-dropdown fixed rounded-xl overflow-y-auto overscroll-contain animate-fade-in"
+          style={{ top: pos.top, left: pos.left, width: pos.width, maxHeight: listMaxHeight, zIndex: 1000 }}
         >
           {rows.map((r, idx) => {
             const distance = formatDistance(r.distanceNm);

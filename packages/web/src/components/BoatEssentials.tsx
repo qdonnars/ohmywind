@@ -123,8 +123,10 @@ export function BoatEssentials({ config, onChange }: BoatEssentialsProps) {
 
       {/* Motor (optional) — switches segments with sail speed under the
           threshold to a fixed motor speed. Both fields must be filled for
-          the override to apply; the backend ignores partial configs. */}
-      <fieldset className="polar-motor">
+          the override to apply; the backend ignores partial configs, which
+          is why, with the keyboard up, the two are brought into sight
+          together (data-ow-keyboard-reveal, see viewport/visibleViewport). */}
+      <fieldset className="polar-motor" data-ow-keyboard-reveal>
         <legend className="polar-motor-legend">{t("config.boat.motor.legend")}</legend>
         <div className="polar-motor-grid">
           <label className="polar-motor-label">

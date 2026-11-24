@@ -12,10 +12,15 @@ import { initI18n } from "./i18n";
 import { startNativeShell } from "./native";
 import { startLastViewTracking } from "./offline/lastView";
 import { InstallInvite } from "./install/InstallInvite";
+import { startVisibleViewport } from "./viewport/visibleViewport";
 
 // Before the first render, so the tokens the maps read from the DOM are
 // already those of the reader's theme. See applyInitialTheme.
 applyInitialTheme();
+
+// The part of the screen the on-screen keyboard leaves visible, for the
+// dialogs and lists that must stay above it. See viewport/visibleViewport.
+startVisibleViewport();
 
 // An app launch on bare `/` goes back to the plan it was closed on, before
 // anything renders, so the explorer never flashes first. See offline/lastView.
