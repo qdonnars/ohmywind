@@ -54,7 +54,10 @@ function EmptyState() {
   // landscape gets the wide layout and was told to right-click.
   const pointer = usePointerWording();
   return (
-    <div className="flex items-end justify-center pb-6 px-4">
+    // Centred in the width the locate button leaves (12 or 18 px from the
+    // edge, 48 px wide, see .ow-chrome-right): in German at 360 px the
+    // bubble ran under it.
+    <div className="flex items-end justify-center pb-6 pl-4 pr-[68px] lg:pr-[74px]">
       <div
         className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full shadow-lg"
         style={{

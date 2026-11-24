@@ -598,7 +598,9 @@ function SearchSheet({
           onClose();
         }
       }}
-      className="ow-search-sheet ow-visible-viewport fixed inset-x-0 z-[1000] flex flex-col"
+      // Over the page and the invitation to install (1100), like the
+      // navigation drawer; under the settings (1200).
+      className="ow-search-sheet ow-visible-viewport fixed inset-x-0 z-[1150] flex flex-col"
     >
       <div className="ow-search-sheet-head shrink-0 flex items-center gap-2.5">
         <div className="relative flex-1 min-w-0">

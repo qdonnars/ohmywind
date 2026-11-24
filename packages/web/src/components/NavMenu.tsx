@@ -294,7 +294,9 @@ function NavDrawer({ current, mapQuery, onClose }: NavDrawerProps) {
   const rowStyle = { minHeight: 52, padding: "0 10px", fontSize: 15.5, color: "var(--ow-fg-0)" } as const;
 
   return (
-    <div className="fixed inset-0 z-[1000]">
+    // Above every layer of the page and the invitation to install (1100),
+    // under the settings (1200), which the drawer opens over itself.
+    <div className="fixed inset-0 z-[1150]">
       {/* The page dims under the drawer; a tap on it closes the drawer. The
           cross is the way for the keyboard and for assistive technology. */}
       <div
