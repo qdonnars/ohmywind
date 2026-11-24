@@ -25,6 +25,24 @@ export const settings = {
   "settings.boat.summary": "{boat} · {percent}\u00a0%",
   "settings.boat.summaryMotor": "moteur sous {speed}\u00a0kn",
   "settings.boat.summaryImported": "polaire importée",
+
+  // Bateau : les vues Bateau, Mon bateau et Avancé. Le reste de leurs
+  // textes reprend les clés `config.boat.*` de la page /config.
+  "settings.boat.intro":
+    "Ces réglages nourrissent tous vos plans de passage. L'essentiel suffit pour bien commencer.",
+  "settings.boat.types.note":
+    "Chaque type porte sa polaire et son angle de près. Ajustez ensuite le coefficient.",
+  "settings.boat.advanced.upwind": "près {deg}°",
+  "settings.boat.upwind.manual": "Réglé à la main",
+  "settings.boat.upwind.tighter": "Resserrer l'angle de près",
+  "settings.boat.upwind.wider": "Ouvrir l'angle de près",
+  "settings.boat.spi.lower": "Abaisser le seuil d'affalage",
+  "settings.boat.spi.higher": "Relever le seuil d'affalage",
+  "settings.boat.tuning.legend":
+    "Pointillés : la courbe avant vos ajustements. Points jaunes : points ajustés. Au clavier, les flèches changent la vitesse d'un point de {step}\u00a0kn.",
+  "settings.boat.point": "Angle {twa}°, {speed}\u00a0kn",
+  "settings.boat.pointTuned": "Angle {twa}°, {speed}\u00a0kn, ajusté",
+
   "settings.forecast.note":
     "Les modèles remplissent le tableau de la carte ; le bateau sert à tous vos plans de passage.",
   "settings.storageNote":
