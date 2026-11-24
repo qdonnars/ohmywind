@@ -11,8 +11,10 @@ export const plan = {
   // ── PlanPage ──────────────────────────────────────────────────────────────
   "plan.page.urlError.title": "URL invalide",
   "plan.page.urlError.back": "← Explorer la météo",
-  "plan.page.hint.placeStart": "Cliquez pour placer le départ",
-  "plan.page.hint.drawRoute": "Cliquez pour tracer votre route",
+  "plan.page.hint.placeStart.click": "Cliquez pour placer le départ",
+  "plan.page.hint.placeStart.touch": "Touchez pour placer le départ",
+  "plan.page.hint.drawRoute.click": "Cliquez pour tracer votre route",
+  "plan.page.hint.drawRoute.touch": "Touchez pour tracer votre route",
   "plan.panel.resize": "Redimensionner le panneau",
 
   // ── Totaux : bloc du panneau et bandeau mobile ────────────────────────────
@@ -29,8 +31,10 @@ export const plan = {
 
   // ── Etats du panneau ──────────────────────────────────────────────────────
   "plan.states.empty.title": "Tracez votre trajet",
-  "plan.states.empty.body":
+  "plan.states.empty.body.click":
     "Cliquez sur la carte pour placer un départ et une arrivée. Vous pourrez ensuite calculer le passage, puis comparer d'autres départs ou d'autres itinéraires.",
+  "plan.states.empty.body.touch":
+    "Touchez la carte pour placer un départ et une arrivée. Vous pourrez ensuite calculer le passage, puis comparer d'autres départs ou d'autres itinéraires.",
   "plan.states.error.title": "Erreur",
   "plan.states.waking.title": "Le serveur météo se réveille",
   "plan.states.waking.body":

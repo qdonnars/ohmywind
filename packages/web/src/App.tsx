@@ -33,6 +33,7 @@ import { loadLastSpot, saveLastSpot } from "./config/lastSpot";
 import { useOnline } from "./hooks/useOnline";
 import { loadSpotForecast } from "./offline/spotForecast";
 import { ForecastStamp } from "./components/ForecastStamp";
+import { usePointerWording } from "./hooks/usePointerWording";
 
 const DEFAULT_MAP_CENTER: { lat: number; lon: number } = { lat: 43.3, lon: 5.35 };
 
@@ -50,10 +51,8 @@ function previewSpot(lat: number, lon: number): Spot {
 function EmptyState() {
   const { t } = useT();
   // Touch or mouse wording from the pointer, not the width: an iPad in
-  // landscape gets the wide layout and was told to right-click. The width
-  // still decides when the device reports neither kind of pointer.
-  const coarse = useMediaQuery("(pointer: coarse)");
-  const fine = useMediaQuery("(pointer: fine)");
+  // landscape gets the wide layout and was told to right-click.
+  const pointer = usePointerWording();
   return (
     <div className="flex items-end justify-center pb-6 px-4">
       <div
@@ -70,16 +69,7 @@ function EmptyState() {
           style={{ background: 'var(--ow-accent)' }}
         />
         <span className="text-[12px] font-medium" style={{ color: 'var(--ow-fg-0)' }}>
-          {coarse ? (
-            t("explore.emptyState.touch")
-          ) : fine ? (
-            t("explore.emptyState.click")
-          ) : (
-            <>
-              <span className="lg:hidden">{t("explore.emptyState.touch")}</span>
-              <span className="hidden lg:inline">{t("explore.emptyState.click")}</span>
-            </>
-          )}
+          {t(`explore.emptyState.${pointer}`)}
         </span>
       </div>
     </div>

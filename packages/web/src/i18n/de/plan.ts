@@ -7,8 +7,10 @@ export const plan: Record<keyof typeof frPlan, string> = {
   // ── PlanPage ──────────────────────────────────────────────────────────────
   "plan.page.urlError.title": "Ungültige URL",
   "plan.page.urlError.back": "← Wetter erkunden",
-  "plan.page.hint.placeStart": "Klicken, um die Abfahrt zu setzen",
-  "plan.page.hint.drawRoute": "Klicken, um Ihre Route zu zeichnen",
+  "plan.page.hint.placeStart.click": "Klicken, um die Abfahrt zu setzen",
+  "plan.page.hint.placeStart.touch": "Tippen, um die Abfahrt zu setzen",
+  "plan.page.hint.drawRoute.click": "Klicken, um Ihre Route zu zeichnen",
+  "plan.page.hint.drawRoute.touch": "Tippen, um Ihre Route zu zeichnen",
   "plan.panel.resize": "Panelgröße ändern",
 
   // ── Totals: panel block and mobile strip ──────────────────────────────────
@@ -25,8 +27,10 @@ export const plan: Record<keyof typeof frPlan, string> = {
 
   // ── Panel states ──────────────────────────────────────────────────────────
   "plan.states.empty.title": "Zeichnen Sie Ihre Route",
-  "plan.states.empty.body":
+  "plan.states.empty.body.click":
     "Klicken Sie auf die Karte, um Abfahrt und Ankunft zu setzen. Danach können Sie den Törn berechnen und dann andere Abfahrten oder andere Routen vergleichen.",
+  "plan.states.empty.body.touch":
+    "Tippen Sie auf die Karte, um Abfahrt und Ankunft zu setzen. Danach können Sie den Törn berechnen und dann andere Abfahrten oder andere Routen vergleichen.",
   "plan.states.error.title": "Fehler",
   "plan.states.waking.title": "Der Wetterserver wacht auf",
   "plan.states.waking.body":

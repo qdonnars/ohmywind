@@ -7,8 +7,10 @@ export const plan: Record<keyof typeof frPlan, string> = {
   // ── PlanPage ──────────────────────────────────────────────────────────────
   "plan.page.urlError.title": "URL non valido",
   "plan.page.urlError.back": "← Esplorare il meteo",
-  "plan.page.hint.placeStart": "Cliccare per posizionare la partenza",
-  "plan.page.hint.drawRoute": "Cliccare per tracciare la rotta",
+  "plan.page.hint.placeStart.click": "Cliccare per posizionare la partenza",
+  "plan.page.hint.placeStart.touch": "Toccare per posizionare la partenza",
+  "plan.page.hint.drawRoute.click": "Cliccare per tracciare la rotta",
+  "plan.page.hint.drawRoute.touch": "Toccare per tracciare la rotta",
   "plan.panel.resize": "Ridimensionare il pannello",
 
   // ── Totals: panel block and mobile strip ──────────────────────────────────
@@ -25,8 +27,10 @@ export const plan: Record<keyof typeof frPlan, string> = {
 
   // ── Panel states ──────────────────────────────────────────────────────────
   "plan.states.empty.title": "Tracciare il percorso",
-  "plan.states.empty.body":
+  "plan.states.empty.body.click":
     "Clicchi sulla mappa per posizionare una partenza e un arrivo. Potrà poi calcolare il passaggio, quindi confrontare altre partenze o altre rotte.",
+  "plan.states.empty.body.touch":
+    "Tocchi la mappa per posizionare una partenza e un arrivo. Potrà poi calcolare il passaggio, quindi confrontare altre partenze o altre rotte.",
   "plan.states.error.title": "Errore",
   "plan.states.waking.title": "Il server meteo si sta riavviando",
   "plan.states.waking.body":

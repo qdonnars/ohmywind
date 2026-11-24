@@ -25,6 +25,7 @@ import { AlertChip } from "../../components/AlertChip";
 import { fmtSpanSafe, num1 } from "../format";
 import { fmtClock } from "../../domain/datetime";
 import { useT } from "../../i18n";
+import { usePointerWording } from "../../hooks/usePointerWording";
 import {
   isVariantComplete,
   planAsTrack,
@@ -253,6 +254,7 @@ function TrackRow({
 /** The panel while a variant is being drawn on the map. */
 function DrawingPanel({ variant, optionNumber }: { variant: [number, number][]; optionNumber: number }) {
   const { t, tn } = useT();
+  const pointer = usePointerWording();
   const { actions } = usePlan();
   const complete = isVariantComplete(variant);
   return (
@@ -266,7 +268,7 @@ function DrawingPanel({ variant, optionNumber }: { variant: [number, number][]; 
           {tn("panel.tracks.drawing.points", variant.length)}
         </span>
       </div>
-      <p className="text-xs leading-relaxed" style={{ color: "var(--ow-fg-2)" }}>{t("panel.tracks.drawing.hint")}</p>
+      <p className="text-xs leading-relaxed" style={{ color: "var(--ow-fg-2)" }}>{t(`panel.tracks.drawing.hint.${pointer}`)}</p>
       <div className="flex gap-2">
         <button
           type="button"

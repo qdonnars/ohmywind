@@ -9,6 +9,7 @@ import { beaufortLevel, windSoftVar } from "../domain/thresholds";
 import { fmtSpanSafe, num1 } from "./format";
 import { capitalise, fmtClock, fmtDay, parisDayDelta } from "../domain/datetime";
 import { useT } from "../i18n";
+import { usePointerWording } from "../hooks/usePointerWording";
 
 // ── EmptyState ────────────────────────────────────────────────────────────────
 // Shown when fewer than 2 waypoints are placed: invites the user to draw a
@@ -44,6 +45,7 @@ function RouteSketch() {
 // a phone the map itself is where the route gets drawn.
 export function EmptyState() {
   const { t } = useT();
+  const pointer = usePointerWording();
   return (
     <div className="px-2 pt-2 pb-6 lg:py-6 flex flex-col gap-4">
       <div>
@@ -54,7 +56,7 @@ export function EmptyState() {
           {t("plan.states.empty.title")}
         </div>
         <div className="text-xs leading-relaxed" style={{ color: "var(--ow-fg-1)" }}>
-          {t("plan.states.empty.body")}
+          {t(`plan.states.empty.body.${pointer}`)}
         </div>
       </div>
       <div className="hidden lg:block">

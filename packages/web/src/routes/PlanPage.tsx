@@ -34,6 +34,7 @@ import { LG_MEDIA_QUERY, useMediaQuery } from "../hooks/useMediaQuery";
 import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
 import { useT } from "../i18n";
 import { useKeepScreenOn } from "../hooks/useKeepScreenOn";
+import { usePointerWording } from "../hooks/usePointerWording";
 import { loadKeepAwakeEnabled } from "../config/keepAwakePreference";
 
 // ── ResizableMobileDrawer ────────────────────────────────────────────────────
@@ -417,6 +418,8 @@ export function PlanPage() {
   // Which of the two panel layouts to mount. Same breakpoint the CSS uses, so
   // React and Tailwind can never disagree about which one is on screen.
   const isDesktop = useMediaQuery(LG_MEDIA_QUERY);
+  // Touch or click, for the hints laid over the map.
+  const pointer = usePointerWording();
   const { enabled: seamarks, toggle: toggleSeamarks } = useSeamarks("plan");
   // Zoom handed over by the explore map, used only when no route frames the
   // camera itself. Read once: navigating remounts the page.
@@ -792,7 +795,7 @@ export function PlanPage() {
                 className="px-4 py-2 rounded-xl text-sm font-medium text-center"
                 style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)", color: "var(--ow-fg-1)" }}
               >
-                {t("panel.tracks.drawing.hint")}
+                {t(`panel.tracks.drawing.hint.${pointer}`)}
               </div>
             </div>
           )}
@@ -804,8 +807,8 @@ export function PlanPage() {
                 style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)", color: "var(--ow-fg-1)" }}
               >
                 {waypoints.length === 0
-                  ? t("plan.page.hint.placeStart")
-                  : t("plan.page.hint.drawRoute")}
+                  ? t(`plan.page.hint.placeStart.${pointer}`)
+                  : t(`plan.page.hint.drawRoute.${pointer}`)}
               </div>
             </div>
           )}
