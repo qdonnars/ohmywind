@@ -58,6 +58,74 @@
     );
   }
 
+  // The plugins the site uses beside App, each called once per page load
+  // straight through the bridge (nativePromise), so the answer does not
+  // depend on the site having loaded its own plugin chunk yet. The rating
+  // request is only checked for presence: calling it could show a sheet.
+  function call(cap, plugin, method, options) {
+    if (!cap || !cap.nativePromise) return Promise.reject(new Error("no bridge"));
+    return Promise.resolve(cap.nativePromise(plugin, method, options || {}));
+  }
+
+  function outcome(promise) {
+    return promise.then(
+      function (value) {
+        return value === undefined ? "ok" : value;
+      },
+      function (err) {
+        return { error: String((err && err.message) || err) };
+      },
+    );
+  }
+
+  var pluginChecks = null;
+  function plugins(cap) {
+    if (!cap || !cap.isNativePlatform || !cap.isNativePlatform()) return Promise.resolve(null);
+    if (pluginChecks) return pluginChecks;
+    var token = "probe-" + loadId;
+    var prefs = call(cap, "Preferences", "set", { key: "ow_probe_roundtrip", value: token })
+      .then(function () {
+        return call(cap, "Preferences", "get", { key: "ow_probe_roundtrip" });
+      })
+      .then(function (res) {
+        return call(cap, "Preferences", "remove", { key: "ow_probe_roundtrip" }).then(function () {
+          return !!res && res.value === token;
+        });
+      });
+    var keepAwake = call(cap, "KeepAwake", "keepAwake")
+      .then(function () {
+        return call(cap, "KeepAwake", "isKeptAwake");
+      })
+      .then(function (on) {
+        return call(cap, "KeepAwake", "allowSleep")
+          .then(function () {
+            return call(cap, "KeepAwake", "isKeptAwake");
+          })
+          .then(function (off) {
+            return { on: !!on && on.isKeptAwake === true, off: !!off && off.isKeptAwake === true };
+          });
+      });
+    var backupCopy = call(cap, "Preferences", "get", { key: "ow_backup_v1" }).then(function (res) {
+      return !!res && typeof res.value === "string" && res.value.length > 0;
+    });
+    pluginChecks = Promise.all([
+      outcome(call(cap, "Haptics", "impact", { style: "LIGHT" })),
+      outcome(prefs),
+      outcome(keepAwake),
+      outcome(backupCopy),
+    ]).then(function (r) {
+      return {
+        haptics: r[0],
+        preferencesRoundTrip: r[1],
+        keepAwake: r[2],
+        backupCopy: r[3],
+        review: !!(cap.isPluginAvailable && cap.isPluginAvailable("InAppReview")),
+        webWakeLock: !!(navigator.wakeLock && navigator.wakeLock.request),
+      };
+    });
+    return pluginChecks;
+  }
+
   function registration() {
     var sw = navigator.serviceWorker;
     if (!sw) return Promise.resolve(null);
@@ -74,10 +142,16 @@
 
   function snapshot(seq) {
     var cap = window.Capacitor;
-    return Promise.all([registration(), appInfo(cap)]).then(function (results) {
+    return Promise.all([registration(), appInfo(cap), plugins(cap)]).then(function (results) {
       var reg = results[0];
       var sw = navigator.serviceWorker;
       var root = document.getElementById("root");
+      var backupMarker = null;
+      try {
+        backupMarker = window.localStorage.getItem("ow_native_backup_v1");
+      } catch (e) {
+        backupMarker = "unreadable: " + String(e);
+      }
       var shellImport = null;
       try {
         shellImport = window.localStorage.getItem("ow_shell_import_v1");
@@ -92,6 +166,8 @@
         native: !!(cap && cap.isNativePlatform && cap.isNativePlatform()),
         platform: cap && cap.getPlatform ? cap.getPlatform() : null,
         appInfo: results[1],
+        plugins: results[2],
+        backupMarker: backupMarker,
         sw: {
           supported: !!sw,
           controlled: !!(sw && sw.controller),

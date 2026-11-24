@@ -9,9 +9,12 @@
 #
 #   0-fallback   fresh install, site server down: the shell's offline
 #                fallback page, and no report since the site never loaded
-#   1-first      server up: native shell, site loaded, plugins answer, the
-#                service worker installed and activated
-#   2-second     relaunch: the page is controlled by the service worker
+#   1-first      server up: native shell, site loaded, plugins answer (App,
+#                Haptics, Preferences round trip, KeepAwake on then off,
+#                InAppReview present), the service worker installed and
+#                activated, the native backup's marker written
+#   2-second     relaunch: the page is controlled by the service worker, and
+#                the copy of the data sits in the native preferences
 #   3-offline    server stopped, relaunch: the site still opens, served by
 #                the service worker
 #
@@ -204,14 +207,18 @@ since=$(now_ms)
 launch
 expect_stage "$stage" "$since" 150 \
   native=true platform="$platform" appMounted=true appInfo.id="$app_id" \
-  sw.registered=true sw.active=activated shellImport='~"none"'
+  sw.registered=true sw.active=activated shellImport='~"none"' \
+  plugins.haptics=ok plugins.preferencesRoundTrip=true \
+  plugins.keepAwake.on=true plugins.keepAwake.off=false plugins.review=true \
+  backupMarker='"1"'
 stop_app
 
 step "2-second: relaunch, controlled by the service worker"
 stage=2-second
 since=$(now_ms)
 launch
-expect_stage "$stage" "$since" 90 native=true appMounted=true sw.controlled=true
+expect_stage "$stage" "$since" 90 native=true appMounted=true sw.controlled=true \
+  plugins.backupCopy=true backupMarker='"1"'
 stop_app
 
 stop_server
