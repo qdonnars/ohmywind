@@ -52,11 +52,11 @@ class Settings:
             (``OPENWIND_UPSTREAM_BUDGET_PER_MINUTE`` / ``_HOUR`` / ``_DAY``,
             default 80 % of the free tier: 480, 4 000, 8 000). See
             ``openwind_data.adapters.budget``.
-        route_repair: ``OPENWIND_ROUTE_REPAIR``, ``compute`` by default: a
-            route that crosses land where a shoreline grid holds it is
-            repaired before it is planned (``suggest`` is the MCP server's
-            variant and repairs the same way here); ``off`` plans every route
-            as drawn.
+        route_repair: ``OPENWIND_ROUTE_REPAIR``, ``off`` by default: every
+            route is planned as drawn, and no repair worker is built.
+            ``compute``: a route that crosses land where a shoreline grid
+            holds it is repaired before it is planned (``suggest`` is the MCP
+            server's variant and repairs the same way here).
         route_grids_dir: ``OPENWIND_ROUTE_GRIDS_DIR``, empty for the grids
             bundled with ``openwind_data``.
     """

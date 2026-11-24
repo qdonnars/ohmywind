@@ -90,8 +90,9 @@ class Services:
     land: LandMask = field(default_factory=LandMask.empty)
     weather: OpenMeteoAdapter | None = None
     budget: UpstreamBudget | None = None
-    # The worker that repairs a route crossing land, None when the
-    # deployment turned the repair off. One per process: the deployment
+    # The worker that repairs a route crossing land, None unless the
+    # deployment turned the repair on (off by default, so nothing is built
+    # and no grid is read). One per process: the deployment
     # hands this one to the MCP server too, so the web app and the connector
     # repair a route with the same code, the same grids and the same worker.
     repair: RepairPool | None = None

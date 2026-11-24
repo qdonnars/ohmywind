@@ -169,13 +169,13 @@ async def test_the_two_shells_describe_the_same_passage(server) -> None:
 
 
 async def test_single_mode_repaired(monkeypatch) -> None:
-    """The repair, on by default: the route planned, what changed, and both authors named.
+    """The repair, turned on: the route planned, what changed, and both authors named.
 
     Same route as the REST golden ``passage_single_repaired.json``, whose
     ``repaired_route.waypoints`` must be this payload's ``waypoints`` exactly:
     the web app and the connector trace one route.
     """
-    monkeypatch.delenv("OPENWIND_ROUTE_REPAIR", raising=False)
+    monkeypatch.setenv("OPENWIND_ROUTE_REPAIR", "compute")
     server = build_server(adapter=DeterministicMarineAdapter())
     payload = await _structured(
         server,
