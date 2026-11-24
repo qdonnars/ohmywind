@@ -129,4 +129,26 @@ describe("WindTable", () => {
     fireEvent.click(directionCells[0]);
     expect(onSelectHour).toHaveBeenLastCalledWith(TIMES[0]);
   });
+
+  it("says under the table which model replaces one that does not cover the point", () => {
+    const { container } = render(
+      <WindTable
+        forecasts={[AROME, { ...ICON, modelName: "ARPEGE_EU", fellBackFrom: "ICON_D2" }]}
+        isLoading={false}
+        selectedHour={null}
+        onSelectHour={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByText(
+        "ICON D2 ne couvre pas ce point : ARPEGE EU le remplace (↳). Pour choisir un autre modèle : Réglages › Modèles météo.",
+      ),
+    ).toBeTruthy();
+    expect(container.querySelectorAll("p")).toHaveLength(1);
+  });
+
+  it("adds no note when every model covers the point", () => {
+    const { container } = renderTable();
+    expect(container.querySelector("p")).toBeNull();
+  });
 });
