@@ -219,7 +219,9 @@ describe("nowParisHourPrefix", () => {
     })
       .format(new Date())
       .replace(", ", "T")
-      .replace("24", "00");
+      // Midnight comes out as hour 24. Only the hour: on the 24th of a
+      // month a plain replace hit the day instead.
+      .replace(/T24$/, "T00");
     expect(nowParisHourPrefix()).toBe(expected);
   });
 });

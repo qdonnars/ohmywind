@@ -137,4 +137,10 @@ export const plan: Record<keyof typeof frPlan, string> = {
     "{skipped} slot(s) skipped for lack of forecast coverage (beyond the horizon): showing the {kept} remaining.",
   "plan.notice.sweep.no_window_near_eta":
     "no slot arrives within ±2 h of target_eta={target_eta}; all {count} slots returned",
+  "plan.notice.route.departure_moved":
+    "The departure was on land: it was moved {distance_m} m to the nearest open water.",
+  "plan.notice.route.arrival_moved":
+    "The arrival was on land: it was moved {distance_m} m to the nearest open water.",
+  "plan.notice.route.leg_retraced":
+    "Leg {leg} crossed land: it was retraced at sea, {retraced_nm} nm instead of {straight_nm} nm in a straight line.",
 };

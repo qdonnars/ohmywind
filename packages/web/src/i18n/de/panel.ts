@@ -52,8 +52,19 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.results.recapArrival": "Ankunft: {day} · {time}",
   "panel.results.stale":
     "Route geändert. Klicken Sie auf Neu berechnen, um die Details zu aktualisieren.",
-  "panel.results.forecastUpdated":
-    "Daten aktualisiert um {time} · Open-Meteo.com (CC BY 4.0)",
+  "panel.results.forecastUpdated": "Vorhersage vom {when} · Open-Meteo.com (CC BY 4.0)",
+
+  // ── LinkSettingsRow ───────────────────────────────────────────────────────
+  "panel.link.lead": "Einstellungen aus dem Link",
+  "panel.link.motor":
+    "Motor mit {speed} kn, sobald das Boot unter Segeln langsamer als {threshold} kn ist",
+  "panel.link.efficiency": "Leistungsfaktor {percent} %",
+  "panel.link.useMine": "Meine Einstellungen verwenden",
+  // ── RouteRepairRow ────────────────────────────────────────────────────────
+  "panel.routeRepair.lead": "Route angepasst, um auf See zu bleiben",
+  "panel.routeRepair.check":
+    "Diese automatische Linienführung umgeht nur das Land: Felsen und Untiefen sieht sie nicht. Prüfen Sie die Route auf der Karte, bevor Sie sich auf die Zeiten verlassen.",
+  "panel.routeRepair.revert": "Zurück zu meiner Route",
 
   // ── LegList / aggregateLegs ────────────────────────────────────────────────
   "panel.legs.colLeg": "Teilstr.",

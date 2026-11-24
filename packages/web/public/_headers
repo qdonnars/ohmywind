@@ -33,6 +33,18 @@
 /sw.js
   Cache-Control: no-store
 
+# Fichier des liens universels d'iOS : Apple le lit (par son CDN) pour savoir
+# quelles pages du site ouvrent l'application. Sans extension, Pages le
+# servirait en application/octet-stream ; Apple exige du JSON.
+/.well-known/apple-app-site-association
+  Content-Type: application/json
+
+# /transfert n'existe que pour l'application native, qui l'ouvre dans Chrome
+# pour reprendre les donnees de l'ancienne application Android. Rien a y
+# trouver pour un moteur de recherche.
+/transfert
+  X-Robots-Tag: noindex
+
 # Les environnements de preview et les anciens domaines ne doivent pas etre
 # indexes : seule ohmywind.fr est canonique.
 https://dev.ohmywind.fr/*

@@ -91,10 +91,23 @@ export interface ComplexityScore {
   warnings?: ComplexityWarning[];
 }
 
+/**
+ * The route the server planned instead of the one sent, when that one
+ * crossed land and the server repaired it (`repair_route`, on by default).
+ * `waypoints` is the route planned, a point the server added carrying
+ * `by_server`; `changes` says what changed, as coded notices
+ * (`plan.notice.route.*`). Absent when the route was planned as sent.
+ */
+export interface RepairedRoute {
+  waypoints: { lat: number; lon: number; by_server?: boolean }[];
+  changes: Notice[];
+}
+
 export interface PassageResponse {
   passage: PassageReport;
   complexity: ComplexityScore;
   forecast_updated_at: string;
+  repaired_route?: RepairedRoute;
 }
 
 // ── ETA-driven mode (target arrival, solve for departure) ────────────────────
@@ -156,6 +169,8 @@ export interface MultiWindowResponse {
       an older server sends none, so it is always there to render. */
   meta_notices: Notice[];
   forecast_updated_at: string;
+  /** See `PassageResponse`. */
+  repaired_route?: RepairedRoute;
 }
 
 export interface Archetype {

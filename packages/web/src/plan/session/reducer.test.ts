@@ -88,6 +88,7 @@ const session = (over: Partial<InitialSession> = {}): InitialSession => ({
   isStale: false,
   actionTaken: true,
   center: null,
+  link: null,
   urlError: null,
   mount: { rewriteUrl: false, fetch: false },
   sources: { route: "url", boat: "url", departure: "url" },
@@ -779,5 +780,72 @@ describe("cold-start retry", () => {
     );
     expect(failed.retry).toBeNull();
     expect(failed.apiError).toBe("boom");
+  });
+});
+
+describe("a route the server repaired", () => {
+  const REPAIRED = {
+    waypoints: [
+      { lat: 43.2932, lon: 5.3694 },
+      { lat: 43.2, lon: 5.32, by_server: true },
+      { lat: 43.0006, lon: 6.1999 },
+    ],
+    changes: [
+      {
+        code: "route.leg_retraced",
+        params: { leg: 1, retraced_nm: "48.9", straight_nm: "40.4" },
+        message: "Le tronçon 1 coupait la terre : il a été retracé en mer, 48.9 nm au lieu de 40.4 nm en ligne droite.",
+      },
+    ],
+  };
+  const repairedPairs = REPAIRED.waypoints.map((p): [number, number] => [p.lat, p.lon]);
+
+  const repaired = () =>
+    run(start(), { type: "FETCH_STARTED", requestId: 1, kind: "single" }, {
+      ...(succeedSingle(1) as Extract<PlanAction, { kind: "single" }>),
+      repairedRoute: REPAIRED,
+    });
+
+  it("becomes the route on screen, in the address bar and in the cache", () => {
+    const s = repaired();
+    expect(s.waypoints).toEqual(repairedPairs);
+    expect(s.originWaypoints).toEqual(repairedPairs);
+    expect(s.routeRepair).toEqual({ original: [MARSEILLE, PORQUEROLLES], changes: REPAIRED.changes });
+    expect(s.persist?.url).toContain("wpts=43.29320,5.36940;43.20000,5.32000;43.00060,6.19990");
+    expect(s.persist?.cache).toMatchObject({ kind: "single", waypoints: repairedPairs });
+    expect(s.isStale).toBe(false);
+  });
+
+  it("is forgotten once the reader edits the route", () => {
+    const s = planReducer(repaired(), { type: "WAYPOINT_MOVED", index: 1, lat: 43.1, lon: 5.5 });
+    expect(s.routeRepair).toBeNull();
+    expect(s.repairDeclined).toBe(false);
+  });
+
+  it("survives a change of departure: the repaired route is what is computed next", () => {
+    const s = planReducer(repaired(), { type: "DEPARTURE_CHANGED", departure: "2026-09-11T08:00" });
+    expect(s.waypoints).toEqual(repairedPairs);
+    expect(s.routeRepair).not.toBeNull();
+  });
+
+  it("« Revenir à mon tracé » puts the route drawn back, to be computed as drawn", () => {
+    const s = planReducer(repaired(), { type: "ROUTE_REPAIR_REVERTED" });
+    expect(s.waypoints).toEqual([MARSEILLE, PORQUEROLLES]);
+    expect(s.routeRepair).toBeNull();
+    expect(s.repairDeclined).toBe(true);
+    expect(s.isStale).toBe(true);
+    // Computed as drawn, then edited: the next computation may repair again.
+    const edited = planReducer(s, { type: "WAYPOINT_APPENDED", lat: 42.95, lon: 6.3 });
+    expect(edited.repairDeclined).toBe(false);
+  });
+
+  it("a sweep that repaired the route moves the plan onto it", () => {
+    const s = run(start(), { type: "FETCH_STARTED", requestId: 1, kind: "sweep" }, {
+      ...(succeedSweep(1) as Extract<PlanAction, { kind: "sweep" }>),
+      repairedRoute: REPAIRED,
+    });
+    expect(s.waypoints).toEqual(repairedPairs);
+    expect(s.routeRepair?.original).toEqual([MARSEILLE, PORQUEROLLES]);
+    expect(s.persist?.cache).toMatchObject({ kind: "compare", waypoints: repairedPairs });
   });
 });

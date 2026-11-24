@@ -6,6 +6,13 @@
 export const config = {
   "config.lang.label": "Langue",
 
+  // Réglage « écran allumé » (voir native/keepAwake.ts).
+  "config.keepAwake.label": "Garder l'écran allumé",
+  "config.keepAwake.hint":
+    "Tant qu'un plan calculé est affiché, l'écran ne se met pas en veille, si l'appareil le permet.",
+  "config.keepAwake.on": "Activé",
+  "config.keepAwake.off": "Désactivé",
+
   "config.header.title": "Configuration",
   "config.reset": "Réinitialiser",
   "config.saved": "· enregistré",
@@ -340,6 +347,14 @@ export const config = {
   "config.notFound.title": "Cette page n'existe pas",
   "config.notFound.body": "Le lien est peut-être incomplet, ou la page a changé d'adresse.",
   "config.notFound.back": "Retour à la carte",
+
+  // /transfert : la page que l'application ouvre dans Chrome pour reprendre
+  // les données de l'ancienne application Android (sans le nommer : la page
+  // est aussi servie dans les applications, voir install/storeMentions.ts).
+  "config.transfer.working": "Reprise de vos spots et réglages…",
+  "config.transfer.button": "Terminer dans l'application",
+  "config.transfer.unavailable":
+    "Cette page ne sert qu'à l'application mobile, pour reprendre vos spots et réglages. Il n'y a rien à faire ici.",
 
   // Le chunk d'une page de documentation n'est jamais arrivé.
   "config.lazyPage.offlineTitle": "Cette page nécessite une connexion.",

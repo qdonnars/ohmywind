@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import type { MetricView } from "../types";
 import { useT, type Key } from "../i18n";
 
@@ -56,6 +56,37 @@ const CurrentsIcon = (
   </svg>
 );
 
+// Same width as the scroll fade of the tables below (`.scroll-container`).
+const END_FADE_PX = 32;
+
+/**
+ * Fades the pills out over the last few pixels of the row instead of cutting
+ * them at its edge, which on the explore map sits right against the locate
+ * button: a pill sliced by a vertical line ("Co" for "Courants") read as a
+ * rendering bug. The fade is as wide as what is still left to scroll, capped
+ * at END_FADE_PX, so it shrinks to nothing as the last pill comes into view
+ * and never touches a row that fits.
+ *
+ * The mask goes on each pill rather than on the row: a masked ancestor
+ * becomes the backdrop root of the pills, and their glass blur would no
+ * longer see the map underneath (#387).
+ */
+function fadeRowEnd(row: HTMLElement) {
+  const hidden = row.scrollWidth - row.clientWidth - row.scrollLeft;
+  const fade = hidden < 1 ? 0 : Math.min(END_FADE_PX, hidden);
+  const edge = row.getBoundingClientRect().right;
+  for (const pill of row.children) {
+    if (!(pill instanceof HTMLElement)) continue;
+    const { left, right } = pill.getBoundingClientRect();
+    const mask =
+      fade > 0 && right > edge - fade
+        ? `linear-gradient(to right, #000 ${edge - fade - left}px, transparent ${edge - left}px)`
+        : "";
+    pill.style.setProperty("-webkit-mask-image", mask);
+    pill.style.setProperty("mask-image", mask);
+  }
+}
+
 export function MetricPills({
   view,
   onSelect,
@@ -65,6 +96,40 @@ export function MetricPills({
   onLand = false,
 }: PillsProps) {
   const { t } = useT();
+  const rowRef = useRef<HTMLDivElement>(null);
+  const pills: PillDef[] = [
+    { view: "wind", label: "explore.pills.wind", visible: true, icon: WindIcon },
+    { view: "waves", label: "explore.pills.waves", visible: showWaves, icon: WavesIcon },
+    { view: "tides", label: "explore.pills.tides", visible: showTides, icon: TidesIcon },
+    {
+      view: "currents",
+      label: "explore.pills.currents",
+      visible: showCurrents,
+      icon: CurrentsIcon,
+    },
+  ];
+  const visible = pills.filter((p) => p.visible);
+  const visibleKey = onLand ? "" : visible.map((p) => p.view).join();
+
+  // Re-run on scroll, and on any size change of the row or of a pill: a
+  // phone turned sideways, the webfont landing, a language switch.
+  useLayoutEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+    const update = () => fadeRowEnd(row);
+    update();
+    row.addEventListener("scroll", update, { passive: true });
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
+    if (observer) {
+      observer.observe(row);
+      for (const pill of row.children) observer.observe(pill);
+    }
+    return () => {
+      row.removeEventListener("scroll", update);
+      observer?.disconnect();
+    };
+  }, [visibleKey]);
+
   if (onLand) {
     return (
       <div className="flex px-3 py-2.5">
@@ -84,22 +149,11 @@ export function MetricPills({
       </div>
     );
   }
-  const pills: PillDef[] = [
-    { view: "wind", label: "explore.pills.wind", visible: true, icon: WindIcon },
-    { view: "waves", label: "explore.pills.waves", visible: showWaves, icon: WavesIcon },
-    { view: "tides", label: "explore.pills.tides", visible: showTides, icon: TidesIcon },
-    {
-      view: "currents",
-      label: "explore.pills.currents",
-      visible: showCurrents,
-      icon: CurrentsIcon,
-    },
-  ];
-  const visible = pills.filter((p) => p.visible);
   if (visible.length <= 1) return null;
   return (
     <div
-      className="flex gap-2 px-3 py-2.5 overflow-x-auto"
+      ref={rowRef}
+      className="relative flex gap-2 px-3 py-2.5 overflow-x-auto"
       role="tablist"
       aria-label={t("explore.pills.groupLabel")}
     >

@@ -52,7 +52,19 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.results.recapArrival": "Llegada: {day} · {time}",
   "panel.results.stale":
     "Itinerario modificado. Haga clic en Recalcular para actualizar los detalles.",
-  "panel.results.forecastUpdated": "Datos actualizados a las {time} · Open-Meteo.com (CC BY 4.0)",
+  "panel.results.forecastUpdated": "Previsiones del {when} · Open-Meteo.com (CC BY 4.0)",
+
+  // ── LinkSettingsRow ───────────────────────────────────────────────────────
+  "panel.link.lead": "Ajustes del enlace",
+  "panel.link.motor":
+    "motor a {speed} kn cuando a vela se va a menos de {threshold} kn",
+  "panel.link.efficiency": "coeficiente de rendimiento {percent} %",
+  "panel.link.useMine": "Usar mis ajustes",
+  // ── RouteRepairRow ────────────────────────────────────────────────────────
+  "panel.routeRepair.lead": "Ruta ajustada para seguir en el mar",
+  "panel.routeRepair.check":
+    "Este trazado automático evita la tierra, nada más: no ve ni rocas ni bajos. Estudie la ruta en el mapa antes de fiarse de los horarios.",
+  "panel.routeRepair.revert": "Volver a mi ruta",
 
   // ── LegList / aggregateLegs ────────────────────────────────────────────────
   "panel.legs.colLeg": "Tramo",

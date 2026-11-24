@@ -154,7 +154,7 @@ export function StepTable({
     // `contain: inline-size`: the table sits in a cell of the legs table,
     // which grows to its widest content. Ten steps would have widened the
     // whole panel (#385); contained, they scroll inside it instead.
-    <div className="overflow-x-auto -mx-4 px-4" style={{ contain: "inline-size", scrollbarWidth: "thin" }}>
+    <div className="relative overflow-x-auto -mx-4 px-4" style={{ contain: "inline-size", scrollbarWidth: "thin" }}>
       <div
         role="table"
         aria-label={t("plan.steps.table.label")}

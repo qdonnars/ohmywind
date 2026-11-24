@@ -670,6 +670,10 @@ export function TidalSourcesMap() {
     // The sea itself is the "general currents" colour: everywhere no tidal
     // atlas answers, the app uses Copernicus's general current.
     addBasemap(map, "light", { seaColor: GENERAL_SEA_COLOR });
+    // The basemap is light in both themes, and so is the furniture on it:
+    // the zoom and attribution controls take the light theme's tokens
+    // (their links would otherwise wear the dark theme's accent on white).
+    map.getContainer().querySelector(".leaflet-control-container")?.setAttribute("data-theme", "light");
     mapRef.current = map;
     // The figure sits in a lazily rendered article: its box settles after
     // the map is created (fonts, images, the phone's toolbar), and Leaflet
@@ -878,6 +882,7 @@ export function TidalSourcesMap() {
         <button
           type="button"
           className="methodo-map-fullscreen"
+          data-theme="light"
           aria-pressed={fullscreen}
           aria-label={t(fullscreen ? "config.methodo.tidal.fullscreen.exit" : "config.methodo.tidal.fullscreen.enter")}
           title={t(fullscreen ? "config.methodo.tidal.fullscreen.exit" : "config.methodo.tidal.fullscreen.enter")}
@@ -894,7 +899,7 @@ export function TidalSourcesMap() {
           )}
         </button>
         {fullscreen && (
-          <div className="methodo-map-fs-legend" aria-hidden="true">
+          <div className="methodo-map-fs-legend" data-theme="light" aria-hidden="true">
             <span className="methodo-map-ramp" style={{ background: rampGradient() }} />
             <span>{t("config.methodo.tidal.fullscreen.ramp")}</span>
           </div>
@@ -921,11 +926,18 @@ export function TidalSourcesMap() {
           <span>{t("config.methodo.tidal.legend.negligible")}</span>
         </div>
         <div className="methodo-map-item">
-          <span className="methodo-map-swatch" style={{ background: UNKNOWN_ZONE_COLOR, opacity: 0.6 }} />
+          {/* The grey at the map's 0.6 over the map's sea, as it reads on the
+              map: over the page itself it sank into the dark theme. */}
+          <span
+            className="methodo-map-swatch"
+            style={{ background: `linear-gradient(${UNKNOWN_ZONE_COLOR}99, ${UNKNOWN_ZONE_COLOR}99), ${GENERAL_SEA_COLOR}` }}
+          />
           <span>{t("config.methodo.tidal.legend.unknownZone")}</span>
         </div>
         <div className="methodo-map-item">
-          <span className="methodo-map-swatch is-dashed" style={{ borderColor: OBJECTIVE_COLOR }} />
+          {/* On the sea it is drawn over too: a dark dashed line alone would
+              vanish into the page on the dark theme. */}
+          <span className="methodo-map-swatch is-dashed" style={{ borderColor: OBJECTIVE_COLOR, background: GENERAL_SEA_COLOR }} />
           <span>{t("config.methodo.tidal.legend.objective")}</span>
         </div>
       </div>

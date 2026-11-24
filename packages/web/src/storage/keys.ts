@@ -21,6 +21,9 @@
  *   own v1 to v3 upgrade path with sanitisers.
  * - a key renamed from an older release goes in `LEGACY_STORAGE_KEYS` and gets
  *   a one-shot `migrateLegacyKey` call, so a returning user keeps their data.
+ * - a new `localStorage` key also needs an entry in `storage/transfer.ts`,
+ *   which decides whether it follows the reader into the native app. The
+ *   compiler refuses the build until that decision is written down.
  *
  * Not listed here, on purpose: `history.state` markers (`ohmywind:layer`, see
  * `hooks/useBackDismiss.ts`) are navigation state, not storage, and cookies are
@@ -55,6 +58,9 @@ export const LOCAL_STORAGE_KEYS = {
   drawerHeight: "ow_drawer_vh_v1",
   /** Width of the desktop plan sidebar, in px. */
   sidebarWidth: "ow_sidebar_px_v1",
+  /** Last of the two main views (explorer, or the plan with its URL), so the
+      app reopens on it. See `offline/lastView.ts`. */
+  lastView: "ow_last_view_v1",
   /** Last computed passage, replayed on reopening `/plan`. Versioned, capped. */
   lastSimulation: "ow_last_simulation_v1",
   /** User-created spots. Pre-rebrand name, kept: renaming costs a migration
@@ -69,7 +75,28 @@ export const LOCAL_STORAGE_KEYS = {
   /** Last app version (x.y.z) whose "Quoi de neuf" this browser has seen.
       Behind the dot on the menu entry, see `config/whatsNewSeen.ts`. */
   whatsNewSeen: "ow_whats_new_seen_v1",
+  /** `"0"` when the reader turned off "keep the screen on" for computed plans,
+      `"1"` when turned back on; absent means on. Bare scalar. */
+  keepAwake: "ow_keep_awake",
+  /** Native shell only: first launch of the app, plans computed and the app
+      version the store rating was last requested for. Written by the shell
+      only, never carried over nor restored. See `native/reviewPrompt.ts`. */
+  reviewPrompt: "ow_review_prompt_v1",
+  /** Native shell only: `"1"` once this storage is covered by the copy kept
+      in the app's native storage. Its absence at start means the storage was
+      wiped. See `native/nativeBackup.ts`. */
+  nativeBackup: "ow_native_backup_v1",
+  /** Native shell only: where the one-shot import of the data left in Chrome
+      by the former Android app stands. See `native/shellImport.ts`. */
+  shellImport: "ow_shell_import_v1",
+  /** Epoch milliseconds of the last answer to the invitation to install the
+      store app (either button, or back): it stays away for a while after.
+      Site on a phone only, see `install/invite.ts`. */
+  installInvite: "ow_install_invite_v1",
 } as const;
+
+/** Name of a `localStorage` entry, as the code refers to it. */
+export type LocalStorageKeyName = keyof typeof LOCAL_STORAGE_KEYS;
 
 /** Keys written to `window.sessionStorage`, i.e. dropped when the tab closes. */
 export const SESSION_STORAGE_KEYS = {
@@ -80,6 +107,9 @@ export const SESSION_STORAGE_KEYS = {
   /** Waypoints drawn but not yet computed, so a service worker update or a
       reload does not throw away work in progress. */
   planDraft: "ow_plan_draft_v1",
+  /** `"1"` in a tab the Android TWA opened. Its launch referrer is only
+      there on the first load, a reload would lose it. See `install/platform.ts`. */
+  storeApp: "ow_store_app",
 } as const;
 
 /**

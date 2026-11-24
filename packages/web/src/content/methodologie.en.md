@@ -240,6 +240,7 @@ Limitations of the data that we accept:
 | SHOM Atlas C2D                | Licence Ouverte Etalab 2.0                           | SHOM, via data.gouv.fr                                          |
 | MARC PREVIMER atlases         | Undertaking not to redistribute the raw NetCDF       | Pineau-Guillou (2013)                                           |
 | REFMAR tide gauges            | Free to use, source must be credited                 | REFMAR, dx.doi.org/10.17183/REFMAR#RONIM                        |
+| Shoreline (route repair)      | ODbL 1.0                                             | © OpenStreetMap contributors                                    |
 | OhMyWind code                 | AGPL-3.0-or-later, excluding the name and visual identity | [TRADEMARK.md](https://github.com/qdonnars/ohmywind/blob/main/TRADEMARK.md) |
 
 Academic reference for MARC: Pineau-Guillou Lucia (2013). PREVIMER, Validation des atlas de composantes harmoniques de hauteurs et courants de marée. Ifremer report, 89 pp. [archimer.ifremer.fr/doc/00157/26801](http://archimer.ifremer.fr/doc/00157/26801/)

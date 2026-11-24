@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Quentin Donnars
+#
+# android/.gitignore (Capacitor's) already covers Gradle outputs, the synced
+# web assets and config, the Cordova plugin module and local.properties.
+# These lines guard the rest of the package.
+
+/node_modules/
+
+# Build outputs copied out of android/app/build
+*.apk
+*.aab
+
+# Signing material never enters the repo (debug builds only for now; the
+# upload keystore lives outside the worktree).
+*.keystore
+*.jks

@@ -238,6 +238,7 @@ Limites assumées des données :
 | SHOM Atlas C2D                | Licence Ouverte Etalab 2.0                           | SHOM, via data.gouv.fr                                          |
 | Atlas MARC PREVIMER           | Engagement non-redistribution NetCDF brut            | Pineau-Guillou (2013)                                           |
 | Marégraphes REFMAR            | Libre, source obligatoire                            | REFMAR, dx.doi.org/10.17183/REFMAR#RONIM                        |
+| Trait de côte (réparation des routes) | ODbL 1.0                                       | © les contributeurs d'OpenStreetMap                            |
 | Code OhMyWind                 | AGPL-3.0-or-later, hors nom et identité visuelle     | [TRADEMARK.md](https://github.com/qdonnars/ohmywind/blob/main/TRADEMARK.md) |
 
 Référence académique pour MARC : Pineau-Guillou Lucia (2013). PREVIMER, Validation des atlas de composantes harmoniques de hauteurs et courants de marée. Rapport Ifremer, 89 p. [archimer.ifremer.fr/doc/00157/26801](http://archimer.ifremer.fr/doc/00157/26801/)

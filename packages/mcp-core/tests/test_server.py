@@ -646,7 +646,7 @@ class TestAlternatives:
         assert alt["waypoints"] == _SOUTH_OF_THE_ISLAND
         assert alt["passage"]["distance_nm"] > out["passage"]["distance_nm"]
         assert alt["openwind_url"].startswith("https://ohmywind.fr/plan?wpts=43.300,5.350;42.950")
-        assert list(out)[-1] == "disclaimer"
+        assert list(out)[-2:] == ["disclaimer", "end_your_answer_with"]
 
     async def test_sweep_gives_each_route_the_same_departures(self) -> None:
         from openwind_mcp_core.server import PLAN_UI_ALT_LEGS_META_KEY
@@ -828,3 +828,42 @@ class TestLandCheck:
     async def test_without_a_mask_nothing_is_refused(self) -> None:
         out = await _call(build_server(adapter=StubAdapter()), "plan_passage", _SWEEP_ARGS)
         assert out["mode"] == "multi_window"
+
+
+class TestRouteRepairDefault:
+    """The route repair is off unless ``OPENWIND_ROUTE_REPAIR`` turns it on.
+
+    ``_BASE_PLAN_ARGS`` lies in the Provence shoreline grid, so with the
+    repair on its leg over the cape would be retraced at sea; without the
+    variable it meets the coarse check, as it did before the repair existed.
+    """
+
+    async def test_without_the_variable_the_coarse_check_refuses(self, monkeypatch) -> None:
+        from openwind_data.routing.auto_route.dispatch import RepairPool
+
+        monkeypatch.delenv("OPENWIND_ROUTE_REPAIR", raising=False)
+        adapter = StubAdapter()
+        pool = RepairPool()
+        server = build_server(adapter=adapter, land_mask=_mask_with_a_cape(), repair_pool=pool)
+        with pytest.raises(Exception, match="no forecast was requested") as excinfo:
+            await server.call_tool("plan_passage", _BASE_PLAN_ARGS)
+        assert "leg 1 (waypoint 1 to 2) runs about" in str(excinfo.value)
+        assert "Redraw it at sea" in str(excinfo.value)
+        assert adapter.fetch_calls == 0
+        # Off, a pool handed in is left alone: no grid read, no worker.
+        assert pool._fine is None and pool._pool is None
+
+    async def test_the_variable_turns_the_repair_on(self, monkeypatch) -> None:
+        from openwind_data.routing.auto_route.dispatch import RepairPool
+
+        monkeypatch.setenv("OPENWIND_ROUTE_REPAIR", "compute")
+        pool = RepairPool()
+        try:
+            server = build_server(
+                adapter=StubAdapter(), land_mask=_mask_with_a_cape(), repair_pool=pool
+            )
+            out = await _call(server, "plan_passage", _BASE_PLAN_ARGS)
+        finally:
+            pool.close()
+        assert out["route_changes"]
+        assert any(p.get("by_server") for p in out["waypoints"])

@@ -11,7 +11,7 @@
  * as on the departure axis are aligned, and the reader judges.
  */
 
-import type { ComplexityScore, PassageReport } from "../types";
+import type { ComplexityScore, Notice, PassageReport, RepairedRoute } from "../types";
 import { haversineNm } from "../../utils/geo";
 import { fmtDurationSafe } from "../format";
 import { complexityNotice, noticeText, passageNotices } from "../notices";
@@ -29,6 +29,15 @@ export interface Track {
   complexity: ComplexityScore | null;
   /** The failure of its last computation, in the reader's language. */
   error: string | null;
+  /** The server repaired this track over land: what it was drawn as and
+      what changed, carried to the plan when the option is opened. */
+  repair?: RouteRepair | null;
+}
+
+/** A route the server repaired: the route drawn and what changed. */
+export interface RouteRepair {
+  original: [number, number][];
+  changes: Notice[];
 }
 
 /** A variant may not reach past three options: the map cannot hold more
@@ -226,4 +235,9 @@ export function routeOverlays(input: OverlayInput): RouteOverlay[] {
       }));
   }
   return [];
+}
+
+/** The points of a route the server repaired, as the plan holds a route. */
+export function repairedWaypoints(route: RepairedRoute): [number, number][] {
+  return route.waypoints.map((p): [number, number] => [p.lat, p.lon]);
 }

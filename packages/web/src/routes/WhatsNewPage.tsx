@@ -9,6 +9,8 @@ import { LOCALE_BY_LANG, useT, type Lang } from "../i18n";
 import { formatReleaseDate, linkPullRequests, parseChangelog, visibleReleases, type Release } from "../content/changelog";
 import { markWhatsNewSeen } from "../config/whatsNewSeen";
 import { APP_VERSION } from "../utils/version";
+import { inStoreApp } from "../install/platform";
+import { withoutPlatformItems } from "../install/storeMentions";
 // The release log lives at the root of the repository, where GitHub readers
 // expect it and where the release notes are cut from. One source, read here
 // as text: Vite allows the workspace root, and Cloudflare Pages builds from
@@ -97,10 +99,12 @@ export function WhatsNewPage() {
   const { t, lang } = useT();
   const content = CONTENT[lang];
 
-  const releases = useMemo(
-    () => visibleReleases(parseChangelog(content.md), window.location.hostname),
-    [content.md],
-  );
+  // Inside a store app, the notes about a platform or a store are left out
+  // (see install/storeMentions.ts); the titles are written without one.
+  const releases = useMemo(() => {
+    const all = visibleReleases(parseChangelog(content.md), window.location.hostname);
+    return inStoreApp() ? all.map((r) => ({ ...r, body: withoutPlatformItems(r.body) })) : all;
+  }, [content.md]);
   const dateFormat = useMemo(
     () => new Intl.DateTimeFormat(LOCALE_BY_LANG[lang], { day: "numeric", month: "long", year: "numeric" }),
     [lang],

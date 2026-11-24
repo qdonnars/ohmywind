@@ -30,17 +30,24 @@ describe("storage key registry", () => {
       waypointDepths: "ow_waypoint_depths_v1",
       drawerHeight: "ow_drawer_vh_v1",
       sidebarWidth: "ow_sidebar_px_v1",
+      lastView: "ow_last_view_v1",
       lastSimulation: "ow_last_simulation_v1",
       customSpots: "ohmywind_custom_spots",
       onboarding: "ohmywind:onboarding-v1",
       compareHint: "ow_compare_hint_v1",
       compare: "ow_compare_v1",
       whatsNewSeen: "ow_whats_new_seen_v1",
+      keepAwake: "ow_keep_awake",
+      reviewPrompt: "ow_review_prompt_v1",
+      nativeBackup: "ow_native_backup_v1",
+      shellImport: "ow_shell_import_v1",
+      installInvite: "ow_install_invite_v1",
     });
     expect(SESSION_STORAGE_KEYS).toEqual({
       configReturnPath: "ow_config_return_to",
       aboutReturnPath: "ow_about_return_to",
       planDraft: "ow_plan_draft_v1",
+      storeApp: "ow_store_app",
     });
   });
 

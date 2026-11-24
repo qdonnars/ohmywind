@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later
+     SPDX-FileCopyrightText: 2026 Quentin Donnars -->
+<!-- Adaptive icon (API 26+) built from the PWA's maskable and monochrome icons.
+     The monochrome layer is what Android 13+ uses for themed icons. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/shell_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
+</adaptive-icon>

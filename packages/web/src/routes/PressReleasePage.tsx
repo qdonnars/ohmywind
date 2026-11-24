@@ -4,7 +4,9 @@
 import type { ComponentProps } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { PRESS_RELEASES } from "../content/press";
+import { PRESS_RELEASES, releaseLead } from "../content/press";
+import { inStoreApp } from "../install/platform";
+import { withoutPlatformItems } from "../install/storeMentions";
 import bodyFr from "../content/communique.md?raw";
 import bodyEn from "../content/communique.en.md?raw";
 import bodyDe from "../content/communique.de.md?raw";
@@ -31,15 +33,19 @@ function MarkdownLink({ node, href, ...props }: ComponentProps<"a"> & { node?: u
 }
 
 /**
- * The press release, reached from `/presse`. Same theme as the press page
- * rather than the doc pages' white paper: it is the project speaking, not a
- * reference document. Written in the interface language, so a journalist
+ * The press release, reached from `/presse`. Styled as the press page, on
+ * the app's tokens: it is the project speaking, not a reference document,
+ * whose pages have their own stylesheets. Written in the interface language, so a journalist
  * sent the link reads it in the language the browser asks for.
  */
 export function PressReleasePage() {
   const { t, lang } = useT();
   const release = PRESS_RELEASES[lang];
   const { highlight } = release;
+  // Inside a store app, the download links and the platform go: see
+  // install/storeMentions.ts. The site keeps the release as it was sent.
+  const inApp = inStoreApp();
+  const body = inApp ? withoutPlatformItems(BODIES[lang]) : BODIES[lang];
 
   return (
     <div className="press-root min-h-screen">
@@ -57,7 +63,7 @@ export function PressReleasePage() {
         <article>
           <p className="press-release-dateline">{release.dateline}</p>
           <h1 className="press-title press-release-title">{release.title}</h1>
-          <p className="press-release-lead">{release.lead}</p>
+          <p className="press-release-lead">{releaseLead(release, inApp)}</p>
           {highlight && (
             <aside className="press-release-highlight" aria-labelledby="press-release-highlight-title">
               <p className="press-release-highlight-badge">{highlight.badge}</p>
@@ -72,7 +78,7 @@ export function PressReleasePage() {
           )}
           <div className="prose-press">
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: MarkdownLink }}>
-              {BODIES[lang]}
+              {body}
             </ReactMarkdown>
           </div>
         </article>

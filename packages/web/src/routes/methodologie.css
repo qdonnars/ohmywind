@@ -2,26 +2,31 @@
 /* SPDX-FileCopyrightText: 2026 Quentin Donnars */
 
 /*
- * Styles for /methodologie.
+ * Styles for /methodologie and /methodologie/courants.
  *
  * Moved out of a `<style>` element inside the page's JSX: the browser
  * re-parsed the whole block on every render, and nothing treated it as CSS.
  * The page is lazy-loaded, so Vite emits this alongside its chunk.
+ *
+ * On the app's tokens, like every page of the app: the page follows the
+ * theme, so the system bars, which take the theme's colour, sit on a page of
+ * the same colour. What stays written out below is the map's own furniture
+ * (its basemap is drawn light in both themes) and the colours that carry a
+ * meaning in the registry.
  */
 
-/* Force a white-paper look on this page regardless of theme. */
 .methodo-root {
-  background: #ffffff;
-  color: #1f2937;
+  background: var(--ow-bg-0);
+  color: var(--ow-fg-0);
 }
 .methodo-header {
   /* iPhone: the status bar area, see .safe-top in index.css. */
   padding-top: env(safe-area-inset-top, 0px);
-  background: rgba(255, 255, 255, 0.85);
-  border-color: rgba(15, 23, 42, 0.10);
+  background: color-mix(in srgb, var(--ow-bg-0) 75%, transparent);
+  border-color: var(--ow-line-2);
 }
 .methodo-root a {
-  color: #0d9488;
+  color: var(--ow-accent);
 }
 .prose-methodo {
   font-size: 16px;
@@ -32,7 +37,7 @@
   font-weight: 700;
   margin: 0 0 1.75rem;
   line-height: 1.15;
-  color: #0f172a;
+  color: var(--ow-fg-0);
 }
 .prose-methodo h2 {
   font-size: 1.5rem;
@@ -40,14 +45,14 @@
   margin: 2.75rem 0 1rem;
   line-height: 1.2;
   padding-bottom: 0.4rem;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.12);
-  color: #0f172a;
+  border-bottom: 1px solid var(--ow-line-2);
+  color: var(--ow-fg-0);
 }
 .prose-methodo h3 {
   font-size: 1.15rem;
   font-weight: 600;
   margin: 2rem 0 0.75rem;
-  color: #0f172a;
+  color: var(--ow-fg-0);
 }
 .prose-methodo p {
   margin: 0 0 1rem;
@@ -61,30 +66,32 @@
 }
 .prose-methodo ul { list-style: disc; }
 .prose-methodo ol { list-style: decimal; }
-.prose-methodo strong { font-weight: 600; color: #0f172a; }
+.prose-methodo strong { font-weight: 600; color: var(--ow-fg-0); }
 .prose-methodo a {
-  color: #0d9488;
+  color: var(--ow-accent);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-.prose-methodo a:hover { color: #0f766e; }
+/* Hover leans the accent towards the text colour: darker on the light
+   theme, lighter on the dark one, readable on both. */
+.prose-methodo a:hover { color: color-mix(in srgb, var(--ow-accent) 75%, var(--ow-fg-0)); }
 .prose-methodo code {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: 0.875em;
   padding: 0.1em 0.35em;
   border-radius: 4px;
-  background: rgba(15, 23, 42, 0.06);
-  color: #0f172a;
+  background: var(--ow-bg-2);
+  color: var(--ow-fg-0);
 }
 .prose-methodo pre {
-  background: #f8fafc;
+  background: var(--ow-bg-1);
   padding: 0.9rem 1rem;
   border-radius: 8px;
   overflow-x: auto;
   margin: 0 0 1.25rem;
   font-size: 0.875rem;
   line-height: 1.5;
-  border: 1px solid rgba(15, 23, 42, 0.06);
+  border: 1px solid var(--ow-line);
 }
 .prose-methodo pre code {
   background: transparent;
@@ -99,11 +106,11 @@
 }
 .prose-methodo th, .prose-methodo td {
   padding: 0.5rem 0.75rem;
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  border: 1px solid var(--ow-line-2);
   text-align: left;
 }
 .prose-methodo th {
-  background: #f1f5f9;
+  background: var(--ow-bg-2);
   font-weight: 600;
 }
 .prose-methodo img {
@@ -112,34 +119,41 @@
   height: auto;
   margin: 1rem auto 1.5rem;
 }
+/* The article's diagrams are SVG files drawn in currentColor and the teal.
+   An <img> does not inherit the page's colour, so their ink resolves to
+   black: on the dark theme, negative them, and turn the hue back so the teal
+   stays teal. Photographs, should one come, are left alone. */
+[data-theme="dark"] .prose-methodo img[src$=".svg"] {
+  filter: invert(1) hue-rotate(180deg);
+}
 .prose-methodo blockquote {
-  border-left: 3px solid #14b8a6;
-  background: #f0fdfa;
+  border-left: 3px solid var(--ow-accent);
+  background: var(--ow-accent-soft);
   padding: 0.75rem 1rem;
   margin: 1rem 0;
-  color: #134e4a;
+  color: var(--ow-fg-0);
   border-radius: 0 6px 6px 0;
 }
 .prose-methodo blockquote p { margin-bottom: 0; }
 .prose-methodo blockquote p + p { margin-top: 0.5rem; }
 .prose-methodo details {
   margin: 0.75rem 0;
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  border: 1px solid var(--ow-line-2);
   border-radius: 8px;
   padding: 0.75rem 1rem;
-  background: #f8fafc;
+  background: var(--ow-bg-1);
 }
 .prose-methodo details[open] {
   padding-bottom: 1rem;
-  border-color: rgba(13, 148, 136, 0.4);
+  border-color: var(--ow-accent-line);
 }
 .prose-methodo summary {
   cursor: pointer;
   font-weight: 500;
-  color: #0d9488;
+  color: var(--ow-accent);
   user-select: none;
 }
-.prose-methodo summary:hover { color: #0f766e; }
+.prose-methodo summary:hover { color: color-mix(in srgb, var(--ow-accent) 75%, var(--ow-fg-0)); }
 .prose-methodo details[open] summary {
   margin-bottom: 0.75rem;
 }
@@ -194,7 +208,7 @@
     position: sticky;
     top: 0;
     z-index: 1;
-    background: #f8fafc;
+    background: var(--ow-bg-1);
   }
   .methodo-map-note {
     grid-column: 1 / -1;
@@ -210,7 +224,7 @@
 }
 .methodo-map-hint {
   font-size: 0.9rem;
-  color: #475569;
+  color: var(--ow-fg-1);
   margin: 0 0 0.5rem;
 }
 /* The article gives every image a top margin and centring; inside the map
@@ -224,6 +238,10 @@
 .methodo-map-stage {
   position: relative;
 }
+/* The full-screen button and its legend sit on the map, whose basemap is
+   drawn light in both themes, next to Leaflet's own controls: all of them
+   carry data-theme="light", so the tokens below resolve to the light theme
+   whatever the page's. The border is Leaflet's own bar's. */
 .methodo-map-fullscreen {
   position: absolute;
   top: 10px;
@@ -235,12 +253,12 @@
   place-items: center;
   border-radius: 4px;
   border: 2px solid rgba(0, 0, 0, 0.2);
-  background: #fff;
-  color: #0f172a;
+  background: var(--ow-bg-1);
+  color: var(--ow-fg-0);
   cursor: pointer;
 }
 .methodo-map-fullscreen:hover {
-  background: #f4f4f4;
+  background: var(--ow-bg-0);
 }
 .methodo-map-fs-legend {
   position: absolute;
@@ -252,9 +270,9 @@
   gap: 0.5rem;
   padding: 0.3rem 0.6rem;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--ow-surface-pop);
   font-size: 0.8rem;
-  color: #0f172a;
+  color: var(--ow-fg-0);
 }
 /* Pinned over the whole viewport: dvh follows the phone's collapsing
    toolbars, the safe-area insets keep the button clear of the notch. */
@@ -262,6 +280,7 @@
   position: fixed;
   inset: 0;
   z-index: 2000;
+  /* The light basemap's sea, as under the canvas. */
   background: #dbe7f0;
 }
 .methodo-map-stage.is-fullscreen .methodo-map-canvas {
@@ -283,7 +302,8 @@ html.methodo-map-locked body {
   width: 100%;
   height: min(70vh, 520px);
   border-radius: 10px;
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  border: 1px solid var(--ow-line-2);
+  /* The light basemap's sea, under the tiles while they load. */
   background: #dbe7f0;
   cursor: crosshair;
 }
@@ -301,7 +321,7 @@ html.methodo-map-locked body {
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #64748b;
+  color: var(--ow-fg-1);
   margin-bottom: 0.25rem;
 }
 .methodo-map-item {
@@ -319,7 +339,7 @@ html.methodo-map-locked body {
 .methodo-map-sources > summary {
   cursor: pointer;
   font-weight: 600;
-  color: #334155;
+  color: var(--ow-fg-1);
 }
 .methodo-map-table-wrap {
   overflow-x: auto;
@@ -361,6 +381,8 @@ html.methodo-map-locked body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Row tints in the colours of the map (a ticked source's green, the focus
+   blue): translucent, so they read on either theme. */
 .methodo-map-table tr.is-shown td {
   background: rgba(42, 157, 92, 0.08);
 }
@@ -373,11 +395,11 @@ html.methodo-map-locked body {
   font-weight: 600;
 }
 .methodo-map-sub {
-  color: #64748b;
+  color: var(--ow-fg-1);
 }
 .methodo-map-how summary {
   cursor: pointer;
-  color: #0f766e;
+  color: var(--ow-accent);
   font-size: 0.68rem;
 }
 .methodo-map-how p {
@@ -386,7 +408,7 @@ html.methodo-map-locked body {
 .methodo-map-how strong {
   display: block;
   font-weight: 600;
-  color: #334155;
+  color: var(--ow-fg-1);
 }
 .methodo-map-chip {
   display: inline-block;
@@ -394,9 +416,12 @@ html.methodo-map-locked body {
   border-radius: 8px;
   font-size: 0.68rem;
   line-height: 1.3;
-  background: #e2e8f0;
-  color: #1e293b;
+  background: var(--ow-bg-3);
+  color: var(--ow-fg-0);
 }
+/* The coloured chips say something (automatable or not, fresh or late, the
+   licence's family): each carries its own pale fill and dark ink, readable
+   on either theme, so they stay as written. */
 .methodo-map-chip.is-auto,
 .methodo-map-chip.is-fresh,
 .methodo-map-chip.is-live {
@@ -426,7 +451,7 @@ html.methodo-map-locked body {
   text-align: left;
   vertical-align: top;
   padding: 0.25rem 0.4rem;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  border-bottom: 1px solid var(--ow-line);
   overflow-wrap: anywhere;
 }
 /* A status pill in a narrow column: let it take two lines and keep its
@@ -441,7 +466,7 @@ html.methodo-map-locked body {
   font-size: 0.62rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #64748b;
+  color: var(--ow-fg-1);
   white-space: nowrap;
 }
 .methodo-map-table input {
@@ -460,12 +485,15 @@ html.methodo-map-locked body {
   padding-top: 0.6rem;
   font-weight: 600;
 }
+/* The legend's swatches are the map's colours, fixed. Their outline follows
+   the text colour, so a pale swatch holds its edge on the light page and a
+   dark one on the dark page. */
 .methodo-map-swatch {
   width: 14px;
   height: 14px;
   border-radius: 3px;
   flex: 0 0 auto;
-  border: 1px solid rgba(15, 23, 42, 0.25);
+  border: 1px solid color-mix(in srgb, var(--ow-fg-0) 25%, transparent);
   box-sizing: border-box;
 }
 .methodo-map-ramp {
@@ -474,7 +502,7 @@ html.methodo-map-locked body {
   height: 14px;
   flex: 0 0 auto;
   border-radius: 3px;
-  border: 1px solid rgba(15, 23, 42, 0.25);
+  border: 1px solid color-mix(in srgb, var(--ow-fg-0) 25%, transparent);
   box-sizing: border-box;
 }
 .methodo-map-swatch.is-round {
@@ -486,8 +514,25 @@ html.methodo-map-locked body {
 }
 .methodo-map-note {
   font-size: 0.85rem;
-  color: #64748b;
+  color: var(--ow-fg-1);
   margin: 0.75rem 0 0;
+}
+/* The map's cards, unlike its controls, follow the page's theme: they are
+   text to read, not furniture on the basemap. Doubled selectors: leaflet.css
+   comes in with the map's chunk, after this file, and would win a tie. */
+.methodo-map-popup .leaflet-popup-content-wrapper,
+.methodo-map-popup .leaflet-popup-tip {
+  background: var(--ow-bg-1);
+  color: var(--ow-fg-0);
+}
+.methodo-map-popup.leaflet-popup a.leaflet-popup-close-button {
+  color: var(--ow-fg-1);
+}
+.methodo-map-popup.leaflet-popup a.leaflet-popup-close-button:hover {
+  color: var(--ow-fg-0);
+}
+.methodo-map-popup.leaflet-popup .leaflet-popup-content a {
+  color: var(--ow-accent);
 }
 .methodo-map-popup .leaflet-popup-content {
   font-size: 13px;
@@ -511,7 +556,7 @@ html.methodo-map-locked body {
   gap: 2px 10px;
 }
 .methodo-map-popup-grid dt {
-  color: #64748b;
+  color: var(--ow-fg-1);
   overflow-wrap: normal;
 }
 .methodo-map-popup-grid dd {
@@ -559,13 +604,13 @@ html.methodo-map-locked body {
 .prose-methodo .methodo-map-table td {
   padding: 0.25rem 0.4rem;
   border: 0;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  border-bottom: 1px solid var(--ow-line);
 }
 .prose-methodo .methodo-map-table th {
   white-space: normal;
   font-size: 0.6rem;
   line-height: 1.2;
-  background: #f8fafc;
+  background: var(--ow-bg-1);
 }
 .prose-methodo .methodo-map-how {
   margin: 0.15rem 0 0;

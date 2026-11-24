@@ -126,6 +126,8 @@ on the deployment.
 | Request body on `/mcp` | 256 KiB, `413` beyond | `OPENWIND_MCP_MAX_BODY_BYTES` |
 | Open-Meteo calls per minute / hour / day, counted as Open-Meteo weighs them | 480 / 4 000 / 8 000 (80 % of the free tier), `503` `upstream_budget_exhausted` beyond | `OPENWIND_UPSTREAM_BUDGET_PER_MINUTE`, `_PER_HOUR`, `_PER_DAY` (`0` leaves a window unenforced); `OPENWIND_UPSTREAM_BUDGET=0` disables the budget |
 | Deadline of one MCP tool call | 90 s, then a tool error saying so (`0` disables) | `OPENWIND_MCP_TOOL_TIMEOUT_S` |
+| Route repair (a route over land retraced at sea, REST and MCP alike, one worker process) | `off`: no worker, no grid read, REST plans the route as drawn and MCP keeps its coarse land check. `compute` turns it on (a few seconds of CPU per repair at worst on the Space, and a repaired route is planned on the Space's Open-Meteo quota, not the browser's forecast cache); `suggest` (MCP answers with the repaired route instead of planning it) | `OPENWIND_ROUTE_REPAIR=compute` on the Space's variables, then a restart; grids from `OPENWIND_ROUTE_GRIDS_DIR`, else the three bundled with `openwind-data` |
+| Route repairs waiting on the worker (repair on) | 4, then the route is planned unrepaired (REST as drawn, MCP through its coarse land check); 6 s per repair, queue included; 512 routes answered from memory | fixed in `openwind-data` |
 | `forecast_cache` corridor points | 120, `422` beyond | fixed in `openwind-data` |
 | `forecast_cache` time axis | 400 hours, `422` beyond | fixed in `openwind-data` |
 | Steps per `/api/v1/marine/marc` call | 800, `422` beyond | fixed in the wrapper |
@@ -168,13 +170,14 @@ would block the worker for seconds, such as a month at a 5-minute step.
 **Source of truth:** <https://github.com/qdonnars/ohmywind>. This Space is
 auto-deployed by GitHub Actions from `packages/hf-space/` on `main`. Don't
 commit directly to the Space repo; your changes will be overwritten at the
-next push.
+next push. The workflow stays red until this Space runs the pushed commit and
+answers `/healthz`, the landing page and an MCP `initialize`.
 
 The wrapper is about a hundred lines: it reads the environment, allows the
 Space's own hostnames through FastMCP's DNS-rebinding guard, and runs uvicorn
 with the proxy flags HF's TLS edge requires. Everything else lives upstream in
 three packages that know nothing about Hugging Face: `openwind-api` (the HTTP
-surface, landing page, CORS, rate limiting), `openwind-mcp-core` (the four
+surface, landing page, CORS, rate limiting), `openwind-mcp-core` (the five
 tools) and `openwind-data` (the domain). None of them imports Gradio or
 `huggingface_hub`.
 

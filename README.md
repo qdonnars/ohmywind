@@ -243,6 +243,7 @@ and [`docs/bench/currents_resolution_2026-09-12_1347.md`](docs/bench/currents_re
 ### What's not modelled (V1)
 
 - No automatic routing optimisation: the LLM and human stay in the loop on departure choice.
+- Route repair, not routing, and off unless a deployment sets `OPENWIND_ROUTE_REPAIR=compute` (the public server runs without it): in three areas (Bretagne sud and Vendée, Manche ouest and the Channel Islands, Provence from Port-Camargue to Le Lavandou), a route that crosses land is retraced at sea on an OpenStreetMap shoreline at about 45 m, and an end placed ashore is moved to the nearest open water. It avoids the land, nothing else: no chart, no rocks, no depths. When it is on, both the web app and the MCP server say what changed.
 - No coastal acceleration zones (capes, peninsulas): the caller adds intermediate waypoints.
 - No port/starboard polar asymmetry, no spinnaker-specific curves, no hull condition modelling beyond the `efficiency` knob.
 
@@ -258,6 +259,10 @@ Wind & sea: [Open-Meteo](https://open-meteo.com/) (CC BY 4.0). Hosting:
 [Hugging Face Spaces](https://huggingface.co/spaces). Map tiles on
 [ohmywind.fr](https://ohmywind.fr): [CARTO](https://carto.com/) /
 [OpenStreetMap](https://www.openstreetmap.org/copyright).
+Shoreline of the route repair: © OpenStreetMap contributors,
+[ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/), rasterised into the
+grids under `packages/data-adapters/src/openwind_data/routing/auto_route/grids/`
+(see the `NOTICE.md` there).
 
 ## License and trademark
 

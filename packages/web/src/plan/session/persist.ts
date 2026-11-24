@@ -27,6 +27,7 @@ import { savePlanDraft, clearPlanDraft } from "../draft";
 import type { CacheWrite, PersistCommand, PlanState } from "./reducer";
 import { navigate, normalisePath } from "../../navigation";
 import { backStack } from "../../hooks/useBackDismiss";
+import { requestPersistentStorage } from "../../offline/persistentStorage";
 
 /**
  * Merge a committed result into the persisted simulation.
@@ -144,6 +145,9 @@ export function resyncUrl(written: string | null): void {
 export function applyCacheCommand(command: PersistCommand): void {
   if (command.cache !== undefined) {
     applyCacheWrite(command.cache);
+    // A computed plan is worth keeping for the offline case: ask the browser
+    // not to evict the origin's storage (once per page, never a prompt).
+    if (command.cache.kind !== "clear") void requestPersistentStorage();
   }
 }
 

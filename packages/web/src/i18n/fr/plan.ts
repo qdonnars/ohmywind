@@ -145,4 +145,10 @@ export const plan = {
     "{skipped} fenêtre(s) ignorée(s) faute de couverture météo (horizon dépassé) : affichage des {kept} restantes.",
   "plan.notice.sweep.no_window_near_eta":
     "aucune fenêtre n'arrive dans ±2h de target_eta={target_eta} ; toutes les {count} fenêtres retournées",
+  "plan.notice.route.departure_moved":
+    "Le départ était à terre : il a été déplacé de {distance_m} m vers l'eau la plus proche.",
+  "plan.notice.route.arrival_moved":
+    "L'arrivée était à terre : elle a été déplacée de {distance_m} m vers l'eau la plus proche.",
+  "plan.notice.route.leg_retraced":
+    "Le tronçon {leg} coupait la terre : il a été retracé en mer, {retraced_nm} nm au lieu de {straight_nm} nm en ligne droite.",
 } as const;

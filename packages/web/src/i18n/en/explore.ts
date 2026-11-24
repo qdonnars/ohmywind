@@ -34,7 +34,7 @@ export const explore: Record<keyof typeof frExplore, string> = {
     "OhMyWind puts good marine weather within reach of sailors. The AROME, ICON, GFS and ECMWF models, along with wave, current and tide data, are public and free. This app brings them together in one readable view, with no account and no install.",
   "explore.infoPanel.privacy.title": "Your data",
   "explore.infoPanel.privacy.body":
-    "No tracking, no account, no data recorded about you. Everything runs in your browser, this is a pure reading page. Weather requests go straight to the public APIs.",
+    "No tracking, no account, no file on you. Your spots and settings stay on your device; weather requests and route calculations go to the services listed in the privacy policy.",
   "explore.infoPanel.privacy.link": "Read the privacy policy",
   "explore.infoPanel.privacy.termsLink": "Read the terms of use",
   "explore.infoPanel.sources.title": "Data sources and methodology",

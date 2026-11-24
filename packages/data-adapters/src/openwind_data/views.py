@@ -58,6 +58,34 @@ def to_json(obj: Any) -> Any:
     return obj
 
 
+def route_points_view(points: Any, added: Any = ()) -> list[dict[str, Any]]:
+    """The route a plan was computed on, one ``{lat, lon}`` per waypoint.
+
+    A waypoint the server added when it repaired the route over land
+    carries ``"by_server": true``. The MCP shell's ``waypoints`` and the REST
+    shell's ``repaired_route.waypoints`` are this list, so the connector and
+    the web app draw the same points.
+    """
+    added_set = set(added)
+    return [
+        {"lat": p.lat, "lon": p.lon} | ({"by_server": True} if i in added_set else {})
+        for i, p in enumerate(points)
+    ]
+
+
+def repaired_route_view(points: Any, added: Any, notices: Any) -> dict[str, Any]:
+    """What the REST shell answers with when the server repaired the route.
+
+    ``waypoints`` the route planned (see ``route_points_view``), ``changes``
+    what changed as coded notices, one for one with the MCP shell's
+    ``route_changes`` sentences.
+    """
+    return {
+        "waypoints": route_points_view(points, added),
+        "changes": [to_json(n) for n in notices],
+    }
+
+
 def passage_view(report: Any) -> dict[str, Any]:
     """The full per-segment timing report: distances, times, wind, sea, motor."""
     return to_json(report)

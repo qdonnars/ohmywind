@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later
+     SPDX-FileCopyrightText: 2026 Quentin Donnars -->
+<!-- The OHMYWIND_* values come from App/variant.xcconfig, written by
+     `cap sync ios` from capacitor.config.ts (see scripts/ios-variant.mjs). -->
+<plist version="1.0">
+<dict>
+	<key>CAPACITOR_DEBUG</key>
+	<string>$(CAPACITOR_DEBUG)</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>fr</string>
+		<string>de</string>
+		<string>it</string>
+		<string>es</string>
+	</array>
+	<key>CFBundleDisplayName</key>
+	<string>$(OHMYWIND_DISPLAY_NAME)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<!-- HTTPS through the system's own stack, no cryptography of our own. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<!-- English fallback. The translations live in <lang>.lproj/InfoPlist.strings. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>OhMyWind uses your location to centre the map on where you are, show the forecast for that spot and suggest nearby places when you search.</string>
+	<!-- The only domains the WebView may navigate to, enforced by
+	     ios.limitsNavigationsToAppBoundDomains in capacitor.config.ts. WebKit
+	     runs service workers only on app-bound domains: this list is what keeps
+	     the site's offline mode working inside the app. localhost covers the
+	     shell's own pages (capacitor://localhost, where the offline fallback
+	     lives), as Capacitor's documentation requires, and the site of the
+	     local variant. -->
+	<key>WKAppBoundDomains</key>
+	<array>
+		<string>$(OHMYWIND_APP_BOUND_DOMAIN)</string>
+		<string>localhost</string>
+	</array>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+	<!-- Home screen quick actions, as the launcher shortcuts on Android: the
+	     path of a page of the site, opened by SceneDelegate.swift. The titles
+	     are keys of <lang>.lproj/InfoPlist.strings (English value as the key,
+	     so a missing translation still reads). -->
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>fr.ohmywind.shortcut.plan</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Plan</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>map</string>
+			<key>UIApplicationShortcutItemUserInfo</key>
+			<dict>
+				<key>path</key>
+				<string>/plan</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>fr.ohmywind.shortcut.config</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Settings</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>gearshape</string>
+			<key>UIApplicationShortcutItemUserInfo</key>
+			<dict>
+				<key>path</key>
+				<string>/config</string>
+			</dict>
+		</dict>
+	</array>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<!-- arm64, which Apple asks every 64-bit app to declare (armv7 came from
+	     the Capacitor template and describes 32-bit builds). -->
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
+</dict>
+</plist>

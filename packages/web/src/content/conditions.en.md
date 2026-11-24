@@ -3,13 +3,12 @@
 *This page is a translation. The French version ([/conditions](/conditions)) is the
 reference in the event of any discrepancy.*
 
-*Last updated: 22 October 2026*
+*Last updated: 24 November 2026*
 
 ## Publisher
 
 OhMyWind is published by Libramer, a French non-profit association (loi 1901, RNA
-W751285736), registered at 51 rue Fondary, 75015 Paris, France. The Android app is
-distributed on Google Play by Quentin Donnars. Contact:
+W751285736), registered at 51 rue Fondary, 75015 Paris, France. Contact:
 [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 ## The service
@@ -18,7 +17,7 @@ OhMyWind is a free tool to help prepare a sailing passage: it gathers public win
 wave, tide and current forecasts, and estimates the duration and difficulty of a trip.
 
 These terms apply in the same way to every way of reaching the service: the website
-[ohmywind.fr](https://ohmywind.fr), the Android app and the connector for AI assistants
+[ohmywind.fr](https://ohmywind.fr), the mobile apps and the connector for AI assistants
 (MCP server at `mcp.ohmywind.fr`). Using any of them means accepting these terms.
 
 ## What the service is not
@@ -51,8 +50,8 @@ or using it abusively is not allowed.
 
 ## Personal data
 
-OhMyWind asks for no account and keeps no personal data on its servers. The details
-are in the [privacy policy](/confidentialite).
+OhMyWind asks for no account and keeps no file on you; its technical logs are
+described in the [privacy policy](/confidentialite).
 
 ## Intellectual property
 

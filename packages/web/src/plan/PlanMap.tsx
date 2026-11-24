@@ -18,6 +18,7 @@ import type { MapView } from "../utils/mapViewParams";
 import { t, useLang } from "../i18n";
 import { computeLegSegmentRanges } from "./aggregateLegs";
 import { closestOnPolyline, TapGuard } from "./mapGestures";
+import { waypointPlacedFeedback } from "../native/haptics";
 import { midpointAlong, type RouteOverlay } from "./compare/tracks";
 import {
   HOLD_SLOP_PX,
@@ -354,6 +355,7 @@ export function PlanMap(
       if (isDraggingRef.current || !onMapClickRef.current) return;
       if (!guard.acceptClick(performance.now())) return;
       onMapClickRef.current(e.latlng.lat, e.latlng.lng);
+      waypointPlacedFeedback();
     });
 
     // Re-evaluate the segment labels on zoom: the screen-length auto-hide
@@ -732,6 +734,7 @@ export function PlanMap(
         if (!best) return;
         const ll = map.layerPointToLatLng(L.point(best.point.x, best.point.y));
         onWptAddRef.current(afterIdxOf(best.segIdx), ll.lat, ll.lng);
+        waypointPlacedFeedback();
       });
       polylinesRef.current.push(hit);
     };

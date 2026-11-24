@@ -51,7 +51,19 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.results.recapDeparture": "Departure: {day} · {time}",
   "panel.results.recapArrival": "Arrival: {day} · {time}",
   "panel.results.stale": "Route changed. Click Recalculate to update the details.",
-  "panel.results.forecastUpdated": "Forecast updated at {time} · Open-Meteo.com (CC BY 4.0)",
+  "panel.results.forecastUpdated": "Forecast from {when} · Open-Meteo.com (CC BY 4.0)",
+
+  // ── LinkSettingsRow ───────────────────────────────────────────────────────
+  "panel.link.lead": "Link settings",
+  "panel.link.motor":
+    "engine at {speed} kn when sailing below {threshold} kn",
+  "panel.link.efficiency": "performance coefficient {percent}%",
+  "panel.link.useMine": "Use my settings",
+  // ── RouteRepairRow ────────────────────────────────────────────────────────
+  "panel.routeRepair.lead": "Route adjusted to stay at sea",
+  "panel.routeRepair.check":
+    "This automatic trace avoids the land, nothing more: it does not see rocks or shoals. Study the route on the map before relying on the timings.",
+  "panel.routeRepair.revert": "Back to my route",
 
   // ── LegList / aggregateLegs ────────────────────────────────────────────────
   "panel.legs.colLeg": "Leg",

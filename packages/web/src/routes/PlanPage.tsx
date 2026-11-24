@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { useState, useEffect, useMemo, useRef, useCallback, useImperativeHandle, type Ref } from "react";
-import { parsePlanUrl } from "../plan/parseUrl";
+import { isParsedOk, parsePlanUrl } from "../plan/parseUrl";
 import { PlanMap, type PlanMapHandle } from "../plan/PlanMap";
 import { WindScaleLegend } from "../plan/WindScaleLegend";
 import { DRAWER_HANDLE_REACH_PX, UNDO_MS } from "../domain/gestures";
@@ -33,6 +33,8 @@ import { useMapView } from "../hooks/useMapView";
 import { LG_MEDIA_QUERY, useMediaQuery } from "../hooks/useMediaQuery";
 import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
 import { useT } from "../i18n";
+import { useKeepScreenOn } from "../hooks/useKeepScreenOn";
+import { loadKeepAwakeEnabled } from "../config/keepAwakePreference";
 
 // ── ResizableMobileDrawer ────────────────────────────────────────────────────
 // User-resizable bottom drawer: a 4 px grab-handle at the top responds to
@@ -218,7 +220,12 @@ export function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, cont
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     e.preventDefault();
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
-    dragRef.current = { startY: e.clientY, startVh: vh };
+    // From the height on screen, not the one asked for: the column may have
+    // shrunk the drawer (see `min-h-0` below), and a drag starting from the
+    // larger figure would move nothing for its first centimetres.
+    const outer = outerRef.current;
+    const shownVh = outer && outer.offsetHeight > 0 ? (outer.offsetHeight / window.innerHeight) * 100 : vh;
+    dragRef.current = { startY: e.clientY, startVh: Math.min(vh, shownVh) };
   }
   function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
     if (!dragRef.current) return;
@@ -235,10 +242,18 @@ export function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, cont
     (e.currentTarget as HTMLDivElement).releasePointerCapture?.(e.pointerId);
   }
 
+  // `min-h-0`, not `shrink-0`: the drawer is the one part of the column that
+  // gives way when the column overflows. Its height is a share of the
+  // viewport while the header above it grows with the top safe-area inset;
+  // on an iPhone (62 px of inset) a drawer at 90 vh pushed the column some
+  // 35 px past the bottom of the screen. The page clips that, but every
+  // scrollIntoView of the panel (an opened leg, the comparison doors) or a
+  // focused field could then scroll the whole column to reach the hidden
+  // strip, which shifted the page up.
   return (
     <div
       ref={outerRef}
-      className="shrink-0 border-t flex flex-col"
+      className="min-h-0 border-t flex flex-col"
       style={{
         height: `${vh}vh`,
         background: "var(--ow-bg-1)",
@@ -297,7 +312,12 @@ export function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, cont
         />
       </div>
       {head}
-      <div ref={contentRef} className="flex-1 min-h-0 overflow-y-auto">{children}</div>
+      {/* `relative`: every scroll container is the containing block of its
+          absolutely positioned content. Without it, an `sr-only` text in a
+          static cell (« , Mer formée ») was placed against the root, below
+          the fold, and the whole page scrolled under the status bar
+          (QA of 2026-11-24). `tests/scrollContainers.test.ts` keeps the rule. */}
+      <div ref={contentRef} className="relative flex-1 min-h-0 overflow-y-auto">{children}</div>
     </div>
   );
 }
@@ -381,7 +401,7 @@ function ResizableDesktopSidebar({
           style={{ width: 4, height: 56, background: "var(--ow-fg-3)" }}
         />
       </div>
-      <div className="flex-1 min-w-0 overflow-y-auto">{children}</div>
+      <div className="relative flex-1 min-w-0 overflow-y-auto">{children}</div>
     </div>
   );
 }
@@ -414,16 +434,19 @@ export function PlanPage() {
   // cached last simulation) have to say about the page, decided once, in one
   // pure place. `plan/session/initial.ts` carries the precedence table and the
   // freshness rules.
-  const [initial] = useState<InitialSession>(() =>
-    resolveInitialSession({
-      url: parsePlanUrl(window.location.search),
+  const [initial] = useState<InitialSession>(() => {
+    const url = parsePlanUrl(window.location.search);
+    return resolveInitialSession({
+      url,
       draft: loadPlanDraft(),
       cache: loadLastSimulation(),
       polarConfig: loadPolarConfig(),
-      configFingerprint: currentConfigFingerprint(),
+      // The link's engine and efficiency are part of the preferences the
+      // cached results must have been computed on.
+      configFingerprint: currentConfigFingerprint(isParsedOk(url) ? url.link : null),
       now: Date.now(),
-    }),
-  );
+    });
+  });
 
   // The whole domain state of the planner, plus the two computations and the
   // single effect that persists. See plan/session/reducer.ts.
@@ -528,6 +551,19 @@ export function PlanPage() {
           : !!windows && windows.length > 0;
     return filled ? {} : null;
   }, [passage, windows, planMode, isLoading, compareAxis, drawing, tracksPending, tracks]);
+
+  // The screen stays on while a computed plan is on screen (the setting in
+  // /config can turn it off). Same notion of "a result" as above, but not
+  // gated on loading: a recomputation keeps the previous plan in view. A
+  // plan gone stale (route edited since) hides its details: no need.
+  const [keepAwakeEnabled] = useState(() => loadKeepAwakeEnabled());
+  const showingPlan =
+    planMode === "single"
+      ? !!passage && !isStale
+      : compareAxis === "tracks"
+        ? !drawing && tracks.length > 0
+        : !!windows && windows.length > 0;
+  useKeepScreenOn(keepAwakeEnabled && showingPlan);
 
   // The short steps of the mobile drawer, fitted to what they hold rather
   // than to a fixed slot: nothing drawn yet, a route with nothing asked yet,

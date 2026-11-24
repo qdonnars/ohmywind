@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later
+     SPDX-FileCopyrightText: 2026 Quentin Donnars -->
+<resources>
+    <!-- Same as the site's theme-color and the TWA's theme, navigation and
+         background colours (twa-manifest.json). -->
+    <color name="shell_background">#030712</color>
+</resources>

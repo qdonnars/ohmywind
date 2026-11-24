@@ -4,6 +4,34 @@ Every OhMyWind release, newest first. The ohmywind.fr site and the MCP server sh
 
 This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the reference. Each release is also published on the repository's [Releases](https://github.com/qdonnars/ohmywind/releases) page, and the app shows this log on its "What's new" page.
 
+## 1.15.0 · 2026-11-24 · Offline at sea, and real mobile apps
+
+### New
+
+- Without a network, the app reopens on what you were looking at: the forecasts of the last place you opened and of your saved spots stay on the device and show with their date, and an installed app comes back to the plan in progress (#537, #561).
+- Every page opens offline once the app is installed, methodology and settings included (#561).
+- In the assistant, a plan gives the tide at departure and at arrival, and can be computed with your boat's polar (#542).
+- The link to a plan given by the assistant carries the engine and the efficiency of the computation, and the app applies them to that plan without touching your settings (#534, #541, #543).
+- The mobile apps gain what a site cannot do: a vibration when a route point is dropped, a screen that stays on while a plan is shown (a setting turns it off), shortcuts on the icon, links to the site that open the app, and a copy of your spots and settings kept by the phone (#557, #563).
+- Opened on a phone, the site offers to install the app (#560).
+- The methodology, privacy and terms pages follow the app's light or dark theme (#557).
+
+### Fixes
+
+- On a phone, the plan drawer gives way instead of pushing the page off the screen (#563).
+- In the explorer, the tabs fade out against the locate button instead of being cut off (#558).
+- When the network comes back, the explorer no longer stays empty for half an hour (#561).
+- On a wide touch screen, the map hint speaks of a long press and no longer of a right click (#563).
+- The plan page no longer slides up under the status bar on a small screen or in landscape: only the drawer's content scrolls.
+- In the app, going back from a plan reopened at launch returns to the map instead of closing the app.
+- The app notices when the phone loses its network: the offline banner shows, and the spot comparison says so.
+
+### Behind the scenes
+
+- The privacy policy says exactly what leaves your device and what the server and its relay log (#562, #564).
+- The mobile apps are tested on an emulator and a simulator before each release: first launch, relaunch, server down, plan page (#557, #563).
+- A server deployment waits for the new version to answer before calling itself done (#553).
+
 ## 1.14.0 · 2026-11-21 · A page to plug OhMyWind into your assistant
 
 ### New
@@ -177,7 +205,7 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 
 - The privacy policy names the Libramer association as data controller (#396).
 
-## 1.5.0 · 2026-09-06 · Five languages, and the iPhone properly framed
+## 1.5.0 · 2026-09-06 · Five languages, and the phone screen properly framed
 
 ### New
 
@@ -215,7 +243,7 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 - The relay in front of the MCP server returns a readable error while the server sleeps, with a cache and metrics (#350).
 - The interface colours rest on the design tokens (#356).
 
-## 1.3.3 · 2026-09-02 · Faster, and Android's back button closes panels
+## 1.3.3 · 2026-09-02 · Faster, and the back button closes panels
 
 ### Fixes
 
@@ -303,7 +331,7 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 
 - The Android app's signing fingerprints are up to date (#251, #255).
 
-## 1.1.1 · 2026-08-13 · Full-screen Android app, licence and trademark
+## 1.1.1 · 2026-08-13 · Full-screen app, licence and trademark
 
 ### Fixes
 

@@ -118,6 +118,7 @@ const baseSession: InitialSession = {
   isStale: false,
   actionTaken: true,
   center: null,
+  link: null,
   urlError: null,
   mount: { rewriteUrl: false, fetch: false },
   sources: { route: "url", boat: "url", departure: "url" },
@@ -133,6 +134,8 @@ function stubActions(): PlanActions {
     selectPerso: vi.fn(),
     setDeparture: vi.fn(),
     setTimeAnchor: vi.fn(),
+    clearLinkSettings: vi.fn(),
+    revertRouteRepair: vi.fn(),
     openForm: vi.fn(),
     openCompare: vi.fn(),
     closeCompare: vi.fn(),
@@ -247,7 +250,10 @@ describe("PlanSidebar views", () => {
     expect(screen.getByRole("button", { name: "Nouveau plan" })).toBeTruthy();
     // One row per leg, opening the build-up on click.
     expect(screen.getByRole("button", { name: /^1 → 2/ })).toBeTruthy();
-    expect(screen.getByText(/Données fraîches au/)).toBeTruthy();
+    // Dated, since a plan may be reopened from the device days later; and
+    // that one, computed long ago, carries the warning.
+    expect(screen.getByText(/Prévisions du .*9 sept.* à \d\d:\d\d/)).toBeTruthy();
+    expect(screen.getByRole("note").textContent).toMatch(/plus de 48 h/);
     // The two doors, after everything else.
     await userEvent.click(screen.getByRole("button", { name: "D'autres départs" }));
     expect(value.actions.openCompare).toHaveBeenCalledWith("slots");
@@ -783,5 +789,37 @@ describe("departure « Ajuster »", () => {
     mountWith(<DepartureSlider value="2026-10-12T10:00" onChange={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Ajuster" }));
     expect(document.activeElement).toBe(screen.getByLabelText("Date de départ"));
+  });
+});
+
+describe("the settings a link carries (#534)", () => {
+  const LINK = { motor: { thresholdKn: 4, speedKn: 5.5 }, efficiency: 0.85 };
+
+  it("says nothing when the plan runs on the reader's own settings", () => {
+    mount({ passage: passage(), complexity: complexity() });
+    expect(screen.queryByTestId("link-settings")).toBeNull();
+  });
+
+  it("names the link's engine and efficiency once, with the way back", async () => {
+    const value = mount({ passage: passage(), complexity: complexity(), link: LINK });
+    const row = screen.getByTestId("link-settings");
+    expect(row.textContent).toContain("Réglages du lien");
+    expect(row.textContent).toContain("moteur à 5,5 kn quand la voile fait moins de 4 kn");
+    expect(row.textContent).toContain("coefficient de performance 85 %");
+    expect(screen.getAllByTestId("link-settings")).toHaveLength(1);
+    await userEvent.click(within(row).getByRole("button", { name: "Revenir à mes réglages" }));
+    expect(value.actions.clearLinkSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("names only what the link carries", () => {
+    mount({ passage: passage(), complexity: complexity(), link: { motor: null, efficiency: 0.9 } });
+    const row = screen.getByTestId("link-settings");
+    expect(row.textContent).toContain("coefficient de performance 90 %");
+    expect(row.textContent).not.toContain("moteur");
+  });
+
+  it("shows in the form too, before the plan has a result", () => {
+    mount({ link: LINK });
+    expect(screen.getByTestId("link-settings")).toBeTruthy();
   });
 });

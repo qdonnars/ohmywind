@@ -20,17 +20,38 @@ reads, plus a stable code.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from datetime import datetime
-from itertools import pairwise
 from typing import Any
 
 from openwind_data.adapters.cache_backed import CacheBackedAdapter
-from openwind_data.routing.archetypes import BoatPolar, validate_motor
+from openwind_data.routing.archetypes import BoatPolar
+
+# The polar reader lives in the domain since #514, shared with the MCP tool;
+# re-exported here so this module stays the one place the routes read from.
+from openwind_data.routing.custom_polar import (
+    MAX_BOAT_SPEED_KN,
+    optional_float,
+    parse_polar,
+)
 from openwind_data.routing.geometry import Point, parse_waypoints
 
 from openwind_api.errors import RequestError, code_for_value_error
+
+__all__ = [
+    "DEFAULT_EFFICIENCY",
+    "MAX_BOAT_SPEED_KN",
+    "MODEL_NAME_MAP",
+    "PassageRequest",
+    "build_cache_adapter",
+    "optional_float",
+    "parse_optional_timestamp",
+    "parse_passage_request",
+    "parse_polar",
+    "parse_sweep_interval",
+    "parse_timestamp",
+    "translate_models",
+]
 
 DEFAULT_EFFICIENCY = 0.75
 
@@ -49,12 +70,6 @@ MODEL_NAME_MAP: dict[str, str] = {
     "GFS": "gfs_seamless",
 }
 
-# The polar matrix ceiling, the same value as the web's MOTOR_MAX_KN and as
-# the domain's motor bounds (``MOTOR_THRESHOLD_MAX_KN``, ``MOTOR_SPEED_MAX_KN``).
-# Keep them aligned or the web will show a motor the simulation silently
-# ignores.
-MAX_BOAT_SPEED_KN = 30.0
-
 
 @dataclass(frozen=True, slots=True)
 class PassageRequest:
@@ -66,6 +81,14 @@ class PassageRequest:
     polar_override: BoatPolar | None
     model_chain: tuple[str, ...] | None
     adapter: CacheBackedAdapter | None
+    # ``repair_route`` (default true): whether the server may repair a route
+    # that crosses land before planning it. The web app sends false for
+    # « Revenir à mon tracé ».
+    repair: bool = True
+    # The chain the ``models`` field asked for, before a ``forecast_cache``
+    # replaced it with the models it sampled: a repaired route is planned
+    # live, off the cache, on this one.
+    requested_model_chain: tuple[str, ...] | None = None
 
 
 def parse_passage_request(body: Any, *, timestamp_field: str) -> tuple[datetime, PassageRequest]:
@@ -105,6 +128,11 @@ def parse_passage_request(body: Any, *, timestamp_field: str) -> tuple[datetime,
         raise RequestError(f"invalid polar: {exc}", "invalid_polar") from exc
 
     model_chain = translate_models(body.get("models"))
+    requested_model_chain = model_chain
+
+    repair = body.get("repair_route", True)
+    if not isinstance(repair, bool):
+        raise RequestError("invalid repair_route: true or false", "invalid_repair_route")
 
     try:
         adapter = build_cache_adapter(body.get("forecast_cache"))
@@ -123,6 +151,8 @@ def parse_passage_request(body: Any, *, timestamp_field: str) -> tuple[datetime,
         polar_override=polar_override,
         model_chain=model_chain,
         adapter=adapter,
+        repair=repair,
+        requested_model_chain=requested_model_chain,
     )
 
 
@@ -196,95 +226,3 @@ def build_cache_adapter(raw: Any) -> CacheBackedAdapter | None:
     if raw is None:
         return None
     return CacheBackedAdapter.from_payload(raw)
-
-
-def parse_polar(raw: Any) -> BoatPolar | None:
-    """Build a BoatPolar from the web client's `polar` payload. Returns None
-    when no payload is provided. Raises ValueError on shape mismatch / invalid
-    values so the caller can surface a 422 with the original message.
-    """
-    if raw is None:
-        return None
-    if not isinstance(raw, dict):
-        raise ValueError("polar must be an object")
-    try:
-        tws = [float(v) for v in raw["tws_kn"]]
-        twa = [float(v) for v in raw["twa_deg"]]
-        matrix = [[float(v) for v in row] for row in raw["boat_speed_kn"]]
-    except (KeyError, TypeError, ValueError) as exc:
-        raise ValueError(f"polar fields missing or non-numeric: {exc}") from exc
-    if len(tws) < 2 or len(twa) < 2:
-        raise ValueError("polar must have >= 2 TWS and >= 2 TWA entries")
-    if any(a >= b for a, b in pairwise(tws)):
-        raise ValueError("polar tws_kn must be strictly ascending")
-    if any(a >= b for a, b in pairwise(twa)):
-        raise ValueError("polar twa_deg must be strictly ascending")
-    if twa[0] < 0 or twa[-1] > 180:
-        raise ValueError("polar twa_deg must lie in [0, 180]")
-    if len(matrix) != len(tws):
-        raise ValueError(
-            f"polar boat_speed_kn has {len(matrix)} rows, expected {len(tws)} (one per TWS)"
-        )
-    for i, row in enumerate(matrix):
-        if len(row) != len(twa):
-            raise ValueError(
-                f"polar boat_speed_kn row {i} has {len(row)} cols, expected {len(twa)}"
-            )
-        for j, v in enumerate(row):
-            if v < 0 or v > MAX_BOAT_SPEED_KN:
-                raise ValueError(f"polar boat_speed_kn[{i}][{j}]={v} out of range [0, 30]")
-    # Optional motor config. Both fields must be set together; either alone
-    # is dropped silently so a half-filled web form never silently changes
-    # the simulation (matches the frontend / backend "both or neither" rule).
-    # The rule is the domain's (``validate_motor``), the tolerance is this
-    # shell's: out of range is dropped here, refused by the MCP tool.
-    motor_threshold = optional_float(raw.get("motor_threshold_kn"))
-    motor_speed = optional_float(raw.get("motor_speed_kn"))
-    try:
-        validate_motor(motor_threshold, motor_speed)
-    except ValueError:
-        motor_threshold = None
-        motor_speed = None
-    if motor_threshold is None or motor_speed is None:
-        motor_threshold = None
-        motor_speed = None
-    # Min upwind angle is strict (422) where motor is tolerant: a malformed
-    # value here silently reshapes every upwind ETA, so fail loudly instead.
-    min_upwind: float | None = None
-    raw_min_upwind = raw.get("min_upwind_twa_deg")
-    if raw_min_upwind is not None:
-        try:
-            min_upwind = float(raw_min_upwind)
-        except (TypeError, ValueError) as exc:
-            raise ValueError("polar min_upwind_twa_deg must be a number in (0, 90)") from exc
-        if not math.isfinite(min_upwind) or not 0 < min_upwind < 90:
-            raise ValueError("polar min_upwind_twa_deg must be a number in (0, 90)")
-    return BoatPolar(
-        name=str(raw.get("name", "custom")),
-        length_ft=int(raw.get("length_ft", 0) or 0),
-        type=str(raw.get("type", "monohull")),
-        category=str(raw.get("category", "custom")),
-        examples=tuple(str(e) for e in raw.get("examples", ())),
-        performance_class=str(raw.get("performance_class", "custom")),
-        tws_kn=tuple(tws),
-        twa_deg=tuple(twa),
-        boat_speed_kn=tuple(tuple(row) for row in matrix),
-        motor_threshold_kn=motor_threshold,
-        motor_speed_kn=motor_speed,
-        min_upwind_twa_deg=min_upwind,
-    )
-
-
-def optional_float(raw: Any) -> float | None:
-    """Coerce an optional numeric field to a float, or None.
-
-    Tolerant: any non-number becomes None rather than raising. The motor
-    config is opt-in UX so we'd rather drop a malformed value than 422 the
-    whole passage; its range is checked by the domain (``validate_motor``).
-    """
-    if raw is None:
-        return None
-    try:
-        return float(raw)
-    except (TypeError, ValueError):
-        return None

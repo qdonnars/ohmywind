@@ -21,8 +21,12 @@ and by the MCP Apps resource template.
 from __future__ import annotations
 
 import logging
+import math
 import os
+from typing import Any
 from urllib.parse import quote, urlsplit
+
+from openwind_data.routing import validate_motor
 
 _logger = logging.getLogger(__name__)
 
@@ -69,10 +73,25 @@ WEB_BASE = _resolve_web_base()
 WEB_HOST = urlsplit(WEB_BASE).netloc
 
 
+# ``plan_passage``'s ``efficiency`` default, the tool signature reads it from
+# here. The deep-link carries ``eff`` only when the call departs from it, so a
+# plan at the default keeps the URL it always had.
+DEFAULT_EFFICIENCY = 0.75
+
+
+def _short(x: float) -> str:
+    """A number as the web parser reads it: ``4``, ``5.5``, ``0.85``."""
+    return f"{x:g}"
+
+
 def build_ohmywind_url(
-    waypoints: list[dict[str, float]],
+    waypoints: list[dict[str, Any]],
     departure_iso: str,
     archetype: str,
+    *,
+    motor_threshold_kn: float | None = None,
+    motor_speed_kn: float | None = None,
+    efficiency: float = DEFAULT_EFFICIENCY,
 ) -> str:
     """Build the ``/plan`` deep-link URL for the configured web app.
 
@@ -80,12 +99,46 @@ def build_ohmywind_url(
     Apps iframe (Le Chat, Goose, terminals) — they show this URL as the
     link to adjust the route or the departure on the site.
 
+    The plan's engine settings ride along so the site recomputes the plan the
+    conversation gave, not one under the visitor's saved boat (issue #534):
+
+    - ``motor=<threshold>,<speed>`` in knots, only when both are set and
+      valid. Either alone is ignored by the engine (``validate_motor`` and
+      :class:`BoatPolar`), so the link ignores it too.
+    - ``eff=<efficiency>``, only when it differs from :data:`DEFAULT_EFFICIENCY`.
+
+    Both come after the historical parameters, whose order does not change.
+
+    Waypoints are written to three decimals, five for a route the server
+    repaired (see below).
+
     Deep-links emitted before the rebrand pointed at ``openwind.fr``; those
     keep working through the 301 that fronts the old domain.
     """
-    wpts = ";".join(f"{w['lat']:.3f},{w['lon']:.3f}" for w in waypoints)
+    # Three decimals (about 100 m) for a route as the model drew it, the
+    # links' historical form. A route the server repaired (a waypoint carries
+    # ``by_server``) hugs the coast it was retraced round: rounded to 100 m a
+    # point could fall ashore and the web app would repair it again,
+    # differently. Five decimals, as the web app writes its own links, keep
+    # the route the connector planned.
+    decimals = 5 if any(w.get("by_server") for w in waypoints) else 3
+    wpts = ";".join(f"{w['lat']:.{decimals}f},{w['lon']:.{decimals}f}" for w in waypoints)
     dep = quote(departure_iso, safe="")
-    return f"{WEB_BASE}/plan?wpts={wpts}&departure={dep}&archetype={archetype}"
+    url = f"{WEB_BASE}/plan?wpts={wpts}&departure={dep}&archetype={archetype}"
+    if motor_threshold_kn is not None and motor_speed_kn is not None:
+        try:
+            validate_motor(motor_threshold_kn, motor_speed_kn)
+        except ValueError:
+            pass
+        else:
+            url += f"&motor={_short(motor_threshold_kn)},{_short(motor_speed_kn)}"
+    if (
+        math.isfinite(efficiency)
+        and 0.0 < efficiency <= 1.0
+        and _short(efficiency) != _short(DEFAULT_EFFICIENCY)
+    ):
+        url += f"&eff={_short(efficiency)}"
+    return url
 
 
 def build_explore_url(lat: float, lon: float, zoom: int = 11) -> str:

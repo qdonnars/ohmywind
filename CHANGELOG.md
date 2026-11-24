@@ -4,6 +4,34 @@ Toutes les versions d'OhMyWind, de la plus récente à la plus ancienne. Le site
 
 Chaque version est aussi publiée sur la page [Releases](https://github.com/qdonnars/ohmywind/releases) du dépôt, et l'application affiche ce journal sur sa page « Quoi de neuf ». La marche à suivre pour publier une version est dans [docs/releases.md](docs/releases.md). English version: [CHANGELOG.en.md](CHANGELOG.en.md).
 
+## 1.15.0 · 2026-11-24 · Hors ligne en mer, et de vraies applications mobiles
+
+### Nouveautés
+
+- Sans réseau, l'application rouvre sur ce que vous regardiez : les prévisions du dernier lieu consulté et de vos spots enregistrés restent sur l'appareil et s'affichent avec leur date, et une application installée revient sur le plan en cours (#537, #561).
+- Toutes les pages s'ouvrent hors ligne dès que l'application est installée, méthodologie et réglages compris (#561).
+- Dans l'assistant, un plan donne la marée au départ et à l'arrivée, et peut se calculer avec la polaire de votre bateau (#542).
+- Le lien vers un plan donné par l'assistant porte le moteur et l'efficacité du calcul, et l'application les applique à ce plan sans toucher à vos réglages (#534, #541, #543).
+- Les applications mobiles gagnent ce qu'un site ne fait pas : une vibration au dépôt d'un point de route, l'écran qui reste allumé tant qu'un plan est affiché (un réglage permet de le couper), des raccourcis sur l'icône, les liens du site qui ouvrent l'application, et une copie de vos spots et réglages gardée par le téléphone (#557, #563).
+- Ouvert sur un téléphone, le site propose d'installer l'application (#560).
+- Les pages de méthodologie, de confidentialité et de conditions suivent le thème clair ou sombre de l'application (#557).
+
+### Corrections
+
+- Sur téléphone, le tiroir du plan cède la place au lieu de pousser la page hors de l'écran (#563).
+- Dans l'explorateur, les onglets s'effacent en fondu contre le bouton de localisation au lieu d'être coupés net (#558).
+- Au retour du réseau, l'explorateur ne reste plus vide pendant une demi-heure (#561).
+- Sur un écran tactile large, l'aide de la carte parle d'appui long et non plus de clic droit (#563).
+- La page du plan ne remonte plus sous la barre d'état sur un petit écran ou en paysage : seul le contenu du tiroir défile.
+- Dans l'application, le retour depuis un plan rouvert au lancement ramène à la carte au lieu de fermer l'application.
+- L'application voit quand le téléphone perd le réseau : le bandeau « Hors connexion » s'affiche et la comparaison des spots le dit.
+
+### Coulisses
+
+- La politique de confidentialité dit exactement ce qui quitte votre appareil et ce que le serveur et son relais journalisent (#562, #564).
+- Les applications mobiles sont testées sur émulateur et sur simulateur avant chaque mise en production : premier lancement, relance, serveur coupé, page du plan (#557, #563).
+- La mise en ligne du serveur attend que la nouvelle version réponde avant de se dire réussie (#553).
+
 ## 1.14.0 · 2026-11-21 · Une page pour brancher OhMyWind sur votre assistant
 
 ### Nouveautés
@@ -177,7 +205,7 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 
 - La politique de confidentialité désigne l'association Libramer comme responsable du traitement (#396).
 
-## 1.5.0 · 2026-09-06 · Cinq langues, et l'iPhone bien cadré
+## 1.5.0 · 2026-09-06 · Cinq langues, et l'écran du téléphone bien cadré
 
 ### Nouveautés
 
@@ -215,7 +243,7 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 - Le relais devant le serveur MCP renvoie une erreur lisible quand le serveur dort, avec un cache et des mesures (#350).
 - Les couleurs de l'interface s'appuient sur les jetons de design (#356).
 
-## 1.3.3 · 2026-09-02 · Plus rapide, et le retour Android ferme les panneaux
+## 1.3.3 · 2026-09-02 · Plus rapide, et le bouton retour ferme les panneaux
 
 ### Corrections
 
@@ -303,7 +331,7 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 
 - Les empreintes de signature de l'application Android sont à jour (#251, #255).
 
-## 1.1.1 · 2026-08-13 · Application Android en plein écran, licence et marque
+## 1.1.1 · 2026-08-13 · Application en plein écran, licence et marque
 
 ### Corrections
 

@@ -18,12 +18,16 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from openwind_data.adapters.budget import DEFAULT_LIMITS, UpstreamBudget
+from openwind_data.routing.auto_route.dispatch import DEFAULT_REPAIR_MODE, parse_repair_mode
 
 # Serving directory of the tidal atlas dataset. Both point at the same place in
 # the shipped image: the dataset puts the SHOM artefacts at its root, next to
 # the per-atlas MARC subdirectories.
 MARC_ATLAS_DIR_ENV = "MARC_ATLAS_DIR"
 SHOM_C2D_DIR_ENV = "SHOM_C2D_DIR"
+# The route repair, shared with the MCP server (which reads the same two).
+ROUTE_REPAIR_ENV = "OPENWIND_ROUTE_REPAIR"
+ROUTE_GRIDS_DIR_ENV = "OPENWIND_ROUTE_GRIDS_DIR"
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +52,13 @@ class Settings:
             (``OPENWIND_UPSTREAM_BUDGET_PER_MINUTE`` / ``_HOUR`` / ``_DAY``,
             default 80 % of the free tier: 480, 4 000, 8 000). See
             ``openwind_data.adapters.budget``.
+        route_repair: ``OPENWIND_ROUTE_REPAIR``, ``off`` by default: every
+            route is planned as drawn, and no repair worker is built.
+            ``compute``: a route that crosses land where a shoreline grid
+            holds it is repaired before it is planned (``suggest`` is the MCP
+            server's variant and repairs the same way here).
+        route_grids_dir: ``OPENWIND_ROUTE_GRIDS_DIR``, empty for the grids
+            bundled with ``openwind_data``.
     """
 
     marc_atlas_dir: str = ""
@@ -55,6 +66,8 @@ class Settings:
     static_dir: Path | None = None
     upstream_budget_enabled: bool = True
     upstream_budget_limits: Mapping[str, float] | None = None
+    route_repair: str = DEFAULT_REPAIR_MODE
+    route_grids_dir: str = ""
 
     def upstream_budget(self) -> UpstreamBudget:
         """The budget these settings describe, as a fresh counter."""
@@ -74,4 +87,6 @@ class Settings:
             static_dir=Path(raw_static) if raw_static else None,
             upstream_budget_enabled=budget.enabled,
             upstream_budget_limits=budget.limits(),
+            route_repair=parse_repair_mode(env.get(ROUTE_REPAIR_ENV)),
+            route_grids_dir=env.get(ROUTE_GRIDS_DIR_ENV, ""),
         )

@@ -7,6 +7,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { legalPagesPlugin } from './plugins/legalPages'
+import { PRECACHE_GLOB_IGNORES, PRECACHE_GLOB_PATTERNS } from './plugins/precache'
 
 // La version du produit (site et serveur MCP) vit dans package.json, et nulle
 // part ailleurs cote web : elle est injectee au build sous __APP_VERSION__
@@ -67,51 +68,12 @@ export default defineConfig({
         // Kept: the new worker claims the open pages as soon as it activates,
         // so the reload lands on the new shell rather than one load later.
         clientsClaim: true,
-        // Precache the built app shell. These globs cover the hashed JS/CSS/HTML
-        // plus icons and fonts emitted into dist/. ``mjs`` is there for
-        // MapLibre's tile worker, which ships as its own module file.
-        globPatterns: ['**/*.{js,mjs,css,html,ico,png,svg,woff2}'],
-        // Ce qui n'appartient qu'aux pages de documentation reste en ligne:
-        // les polices KaTeX, la carte de couverture et les diagrammes de
-        // polaires ne servent qu'a /methodologie, chargee a la demande. Les
-        // precacher coutait ~330 KB de reseau a la premiere visite et autant
-        // de stockage, pour des pages que la plupart des visiteurs n'ouvrent
-        // jamais et qui n'ont pas besoin de fonctionner hors ligne.
-        // /methodologie, /confidentialite et /presse/communique sont chargees a
-        // la demande et n'ont aucune raison de fonctionner hors ligne : ce sont
-        // des pages de lecture, pas la coque de l'application. Restent donc
-        // hors precache leurs chunks, leur CSS, le schema de segmentation et
-        // les polices KaTeX. Le chunk partage lib-*.js n'est importe que par ces trois
-        // pages (verifie sur la sortie de build : le chunk d'entree n'importe
-        // que maplibre et le runtime rolldown) ; si un jour l'entree en
-        // dependait, il faudrait le remettre au precache sous peine de casser
-        // le mode hors ligne.
-        // Les captures du manifeste (la feuille d'installation les affiche, une
-        // fois, avant l'installation) n'ont aucune raison de peser sur le
-        // precache : le navigateur les tire lui-meme quand il montre la
-        // feuille, et jamais ensuite.
-        globIgnores: [
-          '**/KaTeX_*',
-          'screenshots/**',
-          'methodologie/**',
-          'polars/**',
-          '**/MethodologiePage-*',
-          '**/ConfidentialitePage-*',
-          '**/ConditionsPage-*',
-          // Le journal des versions (/nouveautes) suit la meme regle : une
-          // page de lecture chargee a la demande, qui partage lib-*.js.
-          '**/WhatsNewPage-*',
-          // Leurs copies HTML aussi (plugins/legalPages.ts) : elles ne servent
-          // qu'aux robots sans JavaScript. Une fois l'application installee,
-          // navigateFallback sert index.html pour toute navigation, ces pages
-          // comprises, et le chunk de la page affiche le texte.
-          'confidentialite.html',
-          'conditions.html',
-          'terms.html',
-          '**/PressReleasePage-*',
-          '**/lib-*.js',
-          '**/segmentation-*.svg',
-        ],
+        // Precache the built app shell and every page loaded on demand, so
+        // that each route opens offline from the first install (issue #537).
+        // The lists, and why each exclusion is safe, live in
+        // plugins/precache.ts, where a test reads them.
+        globPatterns: PRECACHE_GLOB_PATTERNS,
+        globIgnores: PRECACHE_GLOB_IGNORES,
         // compass.png et favicon.svg vivent dans public/ : leur nom ne porte
         // pas de hash, donc Workbox les precache avec une requete
         // ?__WB_REVISION__=... qui contourne le cache HTTP et les retelecharge
@@ -146,7 +108,8 @@ export default defineConfig({
         // sur la page introuvable de l'application chez tout visiteur qui l'a
         // deja installee.
         navigateFallbackDenylist: [/^\/youtube\/?$/],
-        // Doctrine du cache runtime : le fond de carte, et rien d'autre.
+        // Doctrine du cache runtime : le fond de carte, et rien d'autre (hors
+        // les donnees statiques de la carte des courants, juste en dessous).
         //
         // Ce qui entre au cache : les octets statiques d'OpenFreeMap. Les
         // tuiles vectorielles, les glyphes, les sprites et les fonds Natural
@@ -173,6 +136,21 @@ export default defineConfig({
         // couche marine passera en `crossOrigin`, la question pourra se
         // reposer.
         runtimeCaching: [
+          {
+            // Les donnees de la carte de couverture des courants
+            // (/methodologie/courants) : 1,6 Mo de GeoJSON et de rasters,
+            // tenus hors du precache (plugins/precache.ts). Gardees ici a la
+            // premiere ouverture de la page, pour qu'elle s'ouvre ensuite hors
+            // ligne avec sa carte. Ni haches ni versionnes : un deploiement
+            // peut les changer sous la meme URL, d'ou `StaleWhileRevalidate`.
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith("/methodologie/tidal/"),
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "ow-docs-data-v1",
+              expiration: { maxEntries: 40, maxAgeSeconds: 30 * 24 * 60 * 60, purgeOnQuotaError: true },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
           {
             // Contenus versionnes d'OpenFreeMap. `CacheFirst` parce que
             // l'URL porte la version du planet : le contenu ne bouge pas,

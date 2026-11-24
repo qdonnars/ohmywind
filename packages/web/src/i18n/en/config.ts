@@ -6,6 +6,12 @@ import type { config as frConfig } from "../fr/config";
 export const config: Record<keyof typeof frConfig, string> = {
   "config.lang.label": "Language",
 
+  "config.keepAwake.label": "Keep the screen on",
+  "config.keepAwake.hint":
+    "While a computed plan is shown, the screen does not go to sleep, if the device allows it.",
+  "config.keepAwake.on": "On",
+  "config.keepAwake.off": "Off",
+
   "config.header.title": "Configuration",
   "config.reset": "Reset",
   "config.saved": "· saved",
@@ -330,6 +336,11 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.notFound.title": "This page does not exist",
   "config.notFound.body": "The link may be incomplete, or the page has moved.",
   "config.notFound.back": "Back to the map",
+
+  "config.transfer.working": "Bringing over your spots and settings…",
+  "config.transfer.button": "Finish in the app",
+  "config.transfer.unavailable":
+    "This page is only used by the mobile app, to bring over your spots and settings. There is nothing to do here.",
 
   "config.lazyPage.offlineTitle": "This page needs a connection.",
   "config.lazyPage.offlineBody": "Reconnect then reload, or go back to the map.",

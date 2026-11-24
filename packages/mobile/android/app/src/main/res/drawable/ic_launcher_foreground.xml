@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later
+     SPDX-FileCopyrightText: 2026 Quentin Donnars -->
+<!-- An adaptive icon layer is 108dp, of which launchers show at most the
+     central 72dp. The maskable icon is designed to be shown whole, so it is
+     shrunk to those 72dp (inset of 1/6 per side); its own safe zone then sits
+     inside the launcher mask. The background layer has the same colour, so
+     the inset is invisible, including during parallax. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/shell_icon_maskable"
+    android:inset="16.667%" />

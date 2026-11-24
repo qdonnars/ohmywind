@@ -166,3 +166,35 @@ async def test_the_two_shells_describe_the_same_passage(server) -> None:
     # them is the same.
     assert payload["passage"] == _drop_notices(_in_zone(rest["passage"], UTC))
     assert payload["complexity"] == rest["complexity"]
+
+
+async def test_single_mode_repaired(monkeypatch) -> None:
+    """The repair, turned on: the route planned, what changed, and both authors named.
+
+    Same route as the REST golden ``passage_single_repaired.json``, whose
+    ``repaired_route.waypoints`` must be this payload's ``waypoints`` exactly:
+    the web app and the connector trace one route.
+    """
+    monkeypatch.setenv("OPENWIND_ROUTE_REPAIR", "compute")
+    server = build_server(adapter=DeterministicMarineAdapter())
+    payload = await _structured(
+        server,
+        {
+            "waypoints": WAYPOINTS,
+            "departure": DEPARTURE.isoformat(),
+            "archetype": "cruiser_30ft",
+        },
+    )
+    assert len(payload["route_changes"]) == 3
+    _assert_golden("plan_passage_single_repaired.json", _render(payload))
+    rest = json.loads(
+        (
+            pathlib.Path(__file__).parents[2]
+            / "api"
+            / "tests"
+            / "goldens"
+            / "passage_single_repaired.json"
+        ).read_bytes()
+    )
+    assert payload["waypoints"] == rest["repaired_route"]["waypoints"]
+    assert payload["passage"] == _drop_notices(_in_zone(rest["passage"], UTC))

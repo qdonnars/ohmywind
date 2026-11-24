@@ -59,6 +59,20 @@ const SparkleIcon = (
 
 /** `whatsNewUnseen`: the app runs a release this browser has not read about
     yet, so the "Quoi de neuf" entry carries the same dot as the button. */
+/** The iOS app (Capacitor shell), read from the global the shell injects
+    before the page runs. App Review refuses a donation link to the developer
+    outside in-app purchase (guideline 3.1.1), so the Ko-fi block stays on the
+    web and in the Android app only. */
+function inIosApp(): boolean {
+  try {
+    const cap = (window as { Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string } })
+      .Capacitor;
+    return cap?.isNativePlatform?.() === true && cap.getPlatform?.() === "ios";
+  } catch {
+    return false;
+  }
+}
+
 export function InfoPanel({ whatsNewUnseen = false }: { whatsNewUnseen?: boolean }) {
   const { t } = useT();
   return (
@@ -192,38 +206,40 @@ export function InfoPanel({ whatsNewUnseen = false }: { whatsNewUnseen?: boolean
         </p>
       </Section>
 
-      <section
-        className="rounded-xl p-4 lg:p-5"
-        style={{
-          background: "var(--ow-accent-soft)",
-          border: "1px solid var(--ow-accent-line)",
-        }}
-      >
-        <h3
-          className="text-sm font-semibold mb-2 uppercase tracking-wider"
-          style={{ color: "var(--ow-accent)" }}
-        >
-          {t("explore.infoPanel.support.title")}
-        </h3>
-        <p className="text-sm leading-relaxed mb-3" style={{ color: "var(--ow-fg-0)" }}>
-          {t("explore.infoPanel.support.body")}
-        </p>
-        <a
-          href="https://ko-fi.com/ohmywind"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-transform hover:scale-105 active:scale-95"
+      {!inIosApp() && (
+        <section
+          className="rounded-xl p-4 lg:p-5"
           style={{
-            background: "var(--ow-accent)",
-            color: "var(--ow-on-accent)",
+            background: "var(--ow-accent-soft)",
+            border: "1px solid var(--ow-accent-line)",
           }}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-          </svg>
-          {t("explore.infoPanel.support.cta")}
-        </a>
-      </section>
+          <h3
+            className="text-sm font-semibold mb-2 uppercase tracking-wider"
+            style={{ color: "var(--ow-accent)" }}
+          >
+            {t("explore.infoPanel.support.title")}
+          </h3>
+          <p className="text-sm leading-relaxed mb-3" style={{ color: "var(--ow-fg-0)" }}>
+            {t("explore.infoPanel.support.body")}
+          </p>
+          <a
+            href="https://ko-fi.com/ohmywind"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-transform hover:scale-105 active:scale-95"
+            style={{
+              background: "var(--ow-accent)",
+              color: "var(--ow-on-accent)",
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+            </svg>
+            {t("explore.infoPanel.support.cta")}
+          </a>
+        </section>
+      )}
 
       {/* Map credits, last, as the small print of the panel. The OSM
           Foundation allows the attribution to sit off the map, but only if

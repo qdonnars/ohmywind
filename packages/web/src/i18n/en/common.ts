@@ -12,6 +12,12 @@ export const common: Record<keyof typeof frCommon, string> = {
   "common.days.one": "{count} day",
   "common.days.other": "{count} days",
 
+  // Forecasts kept on the device (offline): their date, and the warning.
+  "common.forecast.dateAtTime": "{day} at {time}",
+  "common.forecast.from": "Forecast from {when}",
+  "common.forecast.stale":
+    "Forecast more than {hours} h old: refresh it as soon as you have a connection again.",
+
   // Navigation menu: the burger and its three destinations
   "common.nav.open": "Open the menu",
   "common.nav.close": "Close the menu",
@@ -27,7 +33,7 @@ export const common: Record<keyof typeof frCommon, string> = {
   "common.nav.whatsNew.title": "What's new",
   "common.nav.whatsNew.unseen": "New version",
   "common.whatsNew.intro":
-    "What has changed in OhMyWind, from the newest release to the oldest. The site and the MCP server share one version number, the Android app keeps its own.",
+    "What has changed in OhMyWind, from the newest release to the oldest. The site and the MCP server share one version number, the mobile apps keep their own.",
   "common.whatsNew.current": "Current version",
   "common.whatsNew.upcoming": "In preparation",
   "common.whatsNew.allReleases": "All releases on GitHub",
@@ -44,4 +50,11 @@ export const common: Record<keyof typeof frCommon, string> = {
   "common.quota.reset.minutes.other": "It resets in {count} minutes.",
   "common.quota.reset.hours.one": "It resets in about {count} hour.",
   "common.quota.reset.hours.other": "It resets in about {count} hours.",
+
+  "common.install.title": "OhMyWind as an app",
+  "common.install.body":
+    "Open the map in one tap from your home screen, full screen, with no address bar. Free, no account, open source.",
+  "common.install.open.android": "Open Google Play",
+  "common.install.open.ios": "Open the App Store",
+  "common.install.later": "Later",
 };

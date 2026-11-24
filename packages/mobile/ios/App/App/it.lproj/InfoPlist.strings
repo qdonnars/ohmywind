@@ -1,0 +1,9 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later
+   SPDX-FileCopyrightText: 2026 Quentin Donnars */
+
+/* Shown by iOS when the site first asks for the position (navigator.geolocation). */
+"NSLocationWhenInUseUsageDescription" = "OhMyWind usa la posizione del dispositivo per centrare la mappa sul punto in cui ci si trova, mostrarne le previsioni e suggerire i luoghi vicini durante la ricerca.";
+
+/* Home screen quick actions (UIApplicationShortcutItems in Info.plist). */
+"Plan" = "Pianificare";
+"Settings" = "Impostazioni";

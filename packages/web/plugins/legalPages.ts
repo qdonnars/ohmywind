@@ -61,8 +61,8 @@ const PRIVACY = {
   title: "Privacy policy · OhMyWind",
   description:
     "Privacy policy of OhMyWind, the open-source sailing planner run by the association " +
-    "Libramer: no account, no database, no audience measurement, no personal data kept on " +
-    "its servers.",
+    "Libramer: no account, no database, no audience measurement, no file on you, and the " +
+    "technical logs it keeps described in full.",
 };
 
 const TERMS = {
