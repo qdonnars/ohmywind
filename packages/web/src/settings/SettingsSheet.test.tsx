@@ -156,6 +156,21 @@ describe("SettingsSheet", () => {
     expect(window.location.pathname).toBe("/");
   });
 
+  it("leaves the screen setting out on a computer, where the pointer is a mouse", () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(pointer: fine)",
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }));
+    render(<App />);
+    act(() => openSettings());
+
+    expect(within(dialog()).queryByRole("switch", { name: "Garder l'écran allumé" })).toBeNull();
+    // The rest of the group is there.
+    expect(within(dialog()).getByRole("radiogroup", { name: "Thème" })).toBeTruthy();
+    stubMatchMedia();
+  });
+
   it("stores each choice at once: switch, theme and sea marks", () => {
     render(<App />);
     act(() => openSettings());

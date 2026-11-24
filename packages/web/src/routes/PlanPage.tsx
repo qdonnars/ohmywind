@@ -37,6 +37,7 @@ import { useT } from "../i18n";
 import { useKeepScreenOn } from "../hooks/useKeepScreenOn";
 import { usePointerWording } from "../hooks/usePointerWording";
 import { ZOOM_CLEARANCE_BELOW_PX } from "../components/mapControlsLayout";
+import { useKeepAwakeApplies } from "../config/useKeepAwakeApplies";
 import { useKeepAwakePreference } from "../config/useKeepAwakePreference";
 
 // ── ResizableMobileDrawer ────────────────────────────────────────────────────
@@ -601,18 +602,20 @@ export function PlanPage() {
     return filled ? {} : null;
   }, [passage, windows, planMode, isLoading, compareAxis, drawing, tracksPending, tracks]);
 
-  // The screen stays on while a computed plan is on screen (the settings
-  // can turn it off, and the plan follows at once). Same notion of "a result" as above, but not
+  // On a phone or a tablet, the screen stays on while a computed plan is on
+  // screen (the settings can turn it off, and the plan follows at once); a
+  // computer is left alone. Same notion of "a result" as above, but not
   // gated on loading: a recomputation keeps the previous plan in view. A
   // plan gone stale (route edited since) hides its details: no need.
   const { enabled: keepAwakeEnabled } = useKeepAwakePreference();
+  const keepAwakeApplies = useKeepAwakeApplies();
   const showingPlan =
     planMode === "single"
       ? !!passage && !isStale
       : compareAxis === "tracks"
         ? !drawing && tracks.length > 0
         : !!windows && windows.length > 0;
-  useKeepScreenOn(keepAwakeEnabled && showingPlan);
+  useKeepScreenOn(keepAwakeApplies && keepAwakeEnabled && showingPlan);
 
   // The short steps of the mobile drawer, fitted to what they hold rather
   // than to a fixed slot: nothing drawn yet, a route with nothing asked yet,

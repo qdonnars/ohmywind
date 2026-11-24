@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
+import { useKeepAwakeApplies } from "../../config/useKeepAwakeApplies";
 import { useKeepAwakePreference } from "../../config/useKeepAwakePreference";
 import type { ThemePreference } from "../../design/useTheme";
 import { useTheme } from "../../design/useTheme";
@@ -29,6 +30,7 @@ export function RootView() {
   const nav = useSettingsNav();
   const { preference, setPreference } = useTheme();
   const keepAwake = useKeepAwakePreference();
+  const keepAwakeApplies = useKeepAwakeApplies();
   const seamarks = useSeamarks();
   const modelsSummary = useModelsSummary();
   const boatSummary = useBoatSummary();
@@ -58,12 +60,14 @@ export function RootView() {
           value={<span lang={lang}>{LANG_NAMES[lang]}</span>}
           onOpen={() => nav.push("language")}
         />
-        <SettingsSwitchRow
-          label={t("config.keepAwake.label")}
-          subtitle={t("settings.keepAwake.subtitle")}
-          checked={keepAwake.enabled}
-          onChange={keepAwake.setEnabled}
-        />
+        {keepAwakeApplies && (
+          <SettingsSwitchRow
+            label={t("config.keepAwake.label")}
+            subtitle={t("settings.keepAwake.subtitle")}
+            checked={keepAwake.enabled}
+            onChange={keepAwake.setEnabled}
+          />
+        )}
       </SettingsGroup>
       <SettingsNote>{t("settings.device.note")}</SettingsNote>
 
