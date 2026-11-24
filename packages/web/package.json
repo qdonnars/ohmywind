@@ -15,9 +15,13 @@
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
+    "@capacitor-community/in-app-review": "^8.0.0",
+    "@capacitor-community/keep-awake": "^8.0.1",
     "@capacitor/app": "^8.1.2",
     "@capacitor/browser": "^8.0.5",
     "@capacitor/core": "^8.6.2",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/preferences": "^8.0.1",
     "@maplibre/maplibre-gl-leaflet": "^0.1.4",
     "katex": "^0.16.45",
     "leaflet": "^1.9.4",
