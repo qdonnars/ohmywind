@@ -4,6 +4,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- navigator.onLine and the online/offline events. The WebView follows
+         the network itself only when the app holds this permission (Chromium,
+         android_webview StartupTasks); without it, onLine stayed true in
+         airplane mode. Calling WebView.setNetworkAvailable instead would turn
+         that tracking off for good. Normal permission, no prompt. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- navigator.geolocation in the WebView: Capacitor's BridgeWebChromeClient
          requests these at runtime when the page asks for a position, and
