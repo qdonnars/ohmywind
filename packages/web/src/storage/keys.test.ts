@@ -30,6 +30,7 @@ describe("storage key registry", () => {
       waypointDepths: "ow_waypoint_depths_v1",
       drawerHeight: "ow_drawer_vh_v1",
       sidebarWidth: "ow_sidebar_px_v1",
+      lastView: "ow_last_view_v1",
       lastSimulation: "ow_last_simulation_v1",
       customSpots: "ohmywind_custom_spots",
       onboarding: "ohmywind:onboarding-v1",

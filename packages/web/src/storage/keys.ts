@@ -58,6 +58,9 @@ export const LOCAL_STORAGE_KEYS = {
   drawerHeight: "ow_drawer_vh_v1",
   /** Width of the desktop plan sidebar, in px. */
   sidebarWidth: "ow_sidebar_px_v1",
+  /** Last of the two main views (explorer, or the plan with its URL), so the
+      app reopens on it. See `offline/lastView.ts`. */
+  lastView: "ow_last_view_v1",
   /** Last computed passage, replayed on reopening `/plan`. Versioned, capped. */
   lastSimulation: "ow_last_simulation_v1",
   /** User-created spots. Pre-rebrand name, kept: renaming costs a migration

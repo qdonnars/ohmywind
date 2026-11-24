@@ -54,6 +54,8 @@ export const TRANSFER_POLICY: Readonly<Record<LocalStorageKeyName, TransferDecis
   // Large and recomputable from the plan URL; it would eat most of the
   // payload for a passage whose forecast is probably stale by now.
   lastSimulation: SKIP,
+  // Points at a plan the receiving app does not hold (lastSimulation stays).
+  lastView: SKIP,
   // A refusal given to Chrome says nothing about the app: the permission is
   // asked by the system there, and a stale "no" would hide the button.
   geolocDeclined: SKIP,
