@@ -43,6 +43,7 @@ import json
 import math
 import os
 import re
+import textwrap
 from collections.abc import Sequence
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta, tzinfo
@@ -1238,6 +1239,83 @@ def _archetype_summary(p: Any) -> dict[str, Any]:
     }
 
 
+# The land rule, said in ``read_me`` and in ``plan_passage``'s description as
+# this deployment applies it: the route repair is off unless
+# ``OPENWIND_ROUTE_REPAIR`` turns it on, and a model told that a route over
+# land gets repaired would stop rounding the headlands itself.
+_METHODOLOGY_LAND_COARSE = """\
+- A coarse land check only: a route whose legs run a couple of
+  kilometres over land, or a waypoint inland, is refused before any
+  forecast request (Natural Earth 10 m, about 1 km, coast widened by 2 km;
+  water a fine current atlas resolves counts as sea). A spit narrower than
+  about 4 km or a leg shaving a headland passes: the polyline is timed
+  exactly as drawn, and keeping it off the coast is still the caller's job. No obstacle check (shoals, marks, traffic
+  schemes)."""
+
+_METHODOLOGY_LAND_REPAIR = """\
+- A land check, fine in three areas only: where an OpenStreetMap
+  shoreline at about 45 m covers the whole route (Bretagne sud and
+  Vendée, Manche ouest and the Channel Islands, Provence from
+  Port-Camargue to Le Lavandou), an end ashore within 3 km of the sea is
+  moved to the nearest open water and a leg over land is retraced at sea
+  (``route_changes`` says so). The retrace avoids the land, nothing else:
+  it can pass close to rocks and end off the wrong side of a harbour.
+  Elsewhere the check is coarse: a route whose legs run a couple of
+  kilometres over land, or a waypoint inland, is refused before any
+  forecast request (Natural Earth 10 m, about 1 km, coast widened by 2 km;
+  water a fine current atlas resolves counts as sea). A spit narrower than
+  about 4 km or a leg shaving a headland passes: the polyline is timed
+  exactly as drawn, and keeping it off the coast is still the caller's job. No obstacle check (shoals, marks, traffic
+  schemes)."""
+
+_PLAN_LAND_COARSE = """\
+This server runs a coarse land check before anything else: a leg
+that runs a couple of kilometres over land, or a waypoint inland, gets
+the call refused before any forecast request, with the leg and the
+place named. Redraw it and call again: a route over land is not one
+the boat can sail. The shoreline is coarse (about 1 km, the coast widened by
+2 km so harbours stay at sea, and any water a fine current atlas
+resolves counts as sea): a spit narrower than about 4 km, or a
+leg that shaves a headland, passes the check and is timed as drawn,
+too short, too fast, and scored on conditions the boat would never
+meet.
+
+So the route is still yours to draw."""
+
+_PLAN_LAND_REPAIR = """\
+The route is yours to draw, and this server checks it against the
+land before any forecast request.
+
+Where its fine shoreline (OpenStreetMap, about 45 m) covers the
+whole route, which today is three areas only (Bretagne sud and
+Vendée, Manche ouest and the Channel Islands, Provence from
+Port-Camargue to Le Lavandou), a route over land is repaired, not
+refused: a departure or an arrival ashore within 3 km of the sea is
+moved to the nearest open water (not always the harbour), and a leg
+that crosses land is retraced at sea, that leg alone. The plan is
+computed on the repaired route, ``route_changes`` says what changed,
+and a waypoint the server added carries ``"by_server": true``. A
+waypoint between the ends that lies ashore is refused, as is an end
+further inland or a leg with no passage at sea.
+
+Elsewhere a coarse land check applies: a leg that runs a couple of
+kilometres over land, or a waypoint inland, gets the call refused,
+with the leg and the place named. Redraw it and call again: a route
+over land is not one the boat can sail. That shoreline is coarse
+(about 1 km, the coast widened by 2 km so harbours stay at sea, and
+any water a fine current atlas resolves counts as sea): a spit
+narrower than about 4 km, or a leg that shaves a headland, passes
+the check and is timed as drawn, too short, too fast, and scored on
+conditions the boat would never meet.
+
+So draw the route at sea anyway."""
+
+
+def _land_rule(text: str, indent: str) -> str:
+    """``text`` indented to sit in place of a ``{land_rule}`` at ``indent``."""
+    return textwrap.indent(text, indent).lstrip()
+
+
 _METHODOLOGY = """\
 # OhMyWind calculation method
 
@@ -1410,20 +1488,7 @@ but the underlying complexity is unchanged.
 
 - No automatic routing optimisation (LLM + human choose).
 - No coastal acceleration zones (caller adds intermediate waypoints).
-- A land check, fine in three areas only: where an OpenStreetMap
-  shoreline at about 45 m covers the whole route (Bretagne sud and
-  Vendée, Manche ouest and the Channel Islands, Provence from
-  Port-Camargue to Le Lavandou), an end ashore within 3 km of the sea is
-  moved to the nearest open water and a leg over land is retraced at sea
-  (``route_changes`` says so). The retrace avoids the land, nothing else:
-  it can pass close to rocks and end off the wrong side of a harbour.
-  Elsewhere the check is coarse: a route whose legs run a couple of
-  kilometres over land, or a waypoint inland, is refused before any
-  forecast request (Natural Earth 10 m, about 1 km, coast widened by 2 km;
-  water a fine current atlas resolves counts as sea). A spit narrower than
-  about 4 km or a leg shaving a headland passes: the polyline is timed
-  exactly as drawn, and keeping it off the coast is still the caller's job. No obstacle check (shoals, marks, traffic
-  schemes).
+{land_rule}
 - No port/starboard polar asymmetry, no spinnaker-specific curves.
 - No hull condition modelling beyond the `efficiency` knob.
 
@@ -2304,16 +2369,21 @@ def build_server(
         else load_land_mask(marc_dir or shom_dir, marc=marc, shom=shom)
     )
     timeout_s = tool_timeout_s if tool_timeout_s is not None else tool_timeout_from_env()
-    # Route repair: on by default (``compute``), ``suggest`` or ``off`` from
+    # Route repair: off by default; ``compute`` or ``suggest`` from
     # OPENWIND_ROUTE_REPAIR, on the shoreline grids bundled with
-    # openwind_data unless OPENWIND_ROUTE_GRIDS_DIR names others. The repair
-    # is a second of search: it runs in a worker process, never on the event
-    # loop the other requests share.
+    # openwind_data unless OPENWIND_ROUTE_GRIDS_DIR names others. Off, no
+    # pool is built (a pool handed in is ignored) and no grid is read. The
+    # repair is a second of search: it runs in a worker process, never on
+    # the event loop the other requests share.
     repair_mode = parse_repair_mode(os.environ.get("OPENWIND_ROUTE_REPAIR"))
     if repair_mode == "off":
         repair_pool = None
     elif repair_pool is None:
         repair_pool = RepairPool(os.environ.get("OPENWIND_ROUTE_GRIDS_DIR"))
+    methodology = _METHODOLOGY.replace(
+        "{land_rule}",
+        _METHODOLOGY_LAND_COARSE if repair_pool is None else _METHODOLOGY_LAND_REPAIR,
+    )
 
     @server.resource(
         PLAN_UI_RESOURCE_URI,
@@ -2380,7 +2450,7 @@ def build_server(
         current, short-period chop, what is intentionally not modelled, and
         the data attributions.
         """
-        return _METHODOLOGY
+        return methodology
 
     @server.tool(
         annotations=ToolAnnotations(
@@ -2659,32 +2729,7 @@ def build_server(
 
         ## Waypoints must stay in the water
 
-        The route is yours to draw, and this server checks it against the
-        land before any forecast request.
-
-        Where its fine shoreline (OpenStreetMap, about 45 m) covers the
-        whole route, which today is three areas only (Bretagne sud and
-        Vendée, Manche ouest and the Channel Islands, Provence from
-        Port-Camargue to Le Lavandou), a route over land is repaired, not
-        refused: a departure or an arrival ashore within 3 km of the sea is
-        moved to the nearest open water (not always the harbour), and a leg
-        that crosses land is retraced at sea, that leg alone. The plan is
-        computed on the repaired route, ``route_changes`` says what changed,
-        and a waypoint the server added carries ``"by_server": true``. A
-        waypoint between the ends that lies ashore is refused, as is an end
-        further inland or a leg with no passage at sea.
-
-        Elsewhere a coarse land check applies: a leg that runs a couple of
-        kilometres over land, or a waypoint inland, gets the call refused,
-        with the leg and the place named. Redraw it and call again: a route
-        over land is not one the boat can sail. That shoreline is coarse
-        (about 1 km, the coast widened by 2 km so harbours stay at sea, and
-        any water a fine current atlas resolves counts as sea): a spit
-        narrower than about 4 km, or a leg that shaves a headland, passes
-        the check and is timed as drawn, too short, too fast, and scored on
-        conditions the boat would never meet.
-
-        So draw the route at sea anyway. Between every consecutive pair of
+        {land_rule} Between every consecutive pair of
         waypoints the straight line must stay at sea. Add intermediate
         waypoints to round anything the direct line would cut: headlands,
         peninsulas, islands, shoals.
@@ -3109,9 +3154,19 @@ def build_server(
     indent = next(
         (ln[: len(ln) - len(ln.lstrip())] for ln in doc.splitlines() if "{archetypes}" in ln), ""
     )
-    plan_passage.__doc__ = doc.replace(
-        "{archetypes}", _archetype_lines(indent=indent).lstrip()
-    ).replace("{polar_max}", f"{POLAR_MAX_TWS_ENTRIES} TWS x {POLAR_MAX_TWA_ENTRIES} TWA")
+    land_indent = next(
+        (ln[: len(ln) - len(ln.lstrip())] for ln in doc.splitlines() if "{land_rule}" in ln), ""
+    )
+    plan_passage.__doc__ = (
+        doc.replace("{archetypes}", _archetype_lines(indent=indent).lstrip())
+        .replace("{polar_max}", f"{POLAR_MAX_TWS_ENTRIES} TWS x {POLAR_MAX_TWA_ENTRIES} TWA")
+        .replace(
+            "{land_rule}",
+            _land_rule(
+                _PLAN_LAND_COARSE if repair_pool is None else _PLAN_LAND_REPAIR, land_indent
+            ),
+        )
+    )
     server.tool(
         annotations=ToolAnnotations(
             title="Plan a passage",

@@ -153,7 +153,7 @@ export function MetricPills({
   return (
     <div
       ref={rowRef}
-      className="flex gap-2 px-3 py-2.5 overflow-x-auto"
+      className="relative flex gap-2 px-3 py-2.5 overflow-x-auto"
       role="tablist"
       aria-label={t("explore.pills.groupLabel")}
     >

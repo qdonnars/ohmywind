@@ -53,8 +53,8 @@ funzionamento del servizio o utilizzarlo in modo abusivo.
 
 ## Dati personali
 
-OhMyWind non richiede alcun account e non registra i dati degli utenti: né posizioni,
-né ricerche, né rotte. I dettagli sono nell'[informativa sulla privacy](/confidentialite).
+OhMyWind non richiede alcun account e non scheda nessuno; i suoi registri tecnici
+sono descritti nell'[informativa sulla privacy](/confidentialite).
 
 ## Proprietà intellettuale
 

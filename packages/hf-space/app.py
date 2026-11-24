@@ -82,8 +82,9 @@ def build_mcp_app(adapter: Any, land_mask: Any = None, repair_pool: Any = None) 
     the same passage planned over MCP read their currents off one source.
     The land mask travels the same way: the one the tidal overlay answers
     with is the one ``plan_passage`` checks routes against. So does the
-    route repair worker: the web app and the connector repair a route with
-    one pool, one cache and one queue.
+    route repair worker, when ``OPENWIND_ROUTE_REPAIR`` turns it on (None
+    otherwise): the web app and the connector repair a route with one pool,
+    one cache and one queue.
     """
     server = build_server(adapter=adapter, land_mask=land_mask, repair_pool=repair_pool)
     server.settings.transport_security = TransportSecuritySettings(

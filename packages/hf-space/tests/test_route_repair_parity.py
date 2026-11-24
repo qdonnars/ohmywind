@@ -7,7 +7,8 @@ The deployment hands one ``RepairPool`` to both shells (``build_app``), and
 both call the same ``repair_route`` on the same bundled grids. This sends the
 same two-point route over land to ``POST /api/v1/passage`` and to the MCP
 tool ``plan_passage``, assembled the way ``app.py`` assembles them, with the
-repair left at its default, and holds the answers together: the same points,
+repair turned on (``OPENWIND_ROUTE_REPAIR=compute``; it is off by default),
+and holds the answers together: the same points,
 the same points marked as the server's, the same facts behind the changes
 (coded for the web, English sentences for the model). Only the wording may
 differ.
@@ -33,8 +34,8 @@ PORQUEROLLES = (43.000, 6.242)
 
 @pytest.fixture
 def services(monkeypatch):
-    # The default, as a deployment without the variable gets it.
-    monkeypatch.delenv("OPENWIND_ROUTE_REPAIR", raising=False)
+    # Turned on, as a deployment turns it on.
+    monkeypatch.setenv("OPENWIND_ROUTE_REPAIR", "compute")
     monkeypatch.delenv("OPENWIND_ROUTE_GRIDS_DIR", raising=False)
     built = Services.from_settings(Settings.from_env())
     built = replace(built, marine=DeterministicMarineAdapter())
@@ -108,3 +109,47 @@ async def test_rest_and_mcp_repair_a_route_into_the_same_points(services) -> Non
     # And the same passage planned on it.
     assert rest["passage"]["distance_nm"] == mcp["passage"]["distance_nm"]
     assert len(rest["passage"]["segments"]) == len(mcp["passage"]["segments"])
+
+
+async def test_by_default_neither_shell_repairs_the_route(monkeypatch) -> None:
+    """No variable: REST plans the route as drawn, MCP keeps its coarse check."""
+    monkeypatch.delenv("OPENWIND_ROUTE_REPAIR", raising=False)
+    monkeypatch.delenv("OPENWIND_ROUTE_GRIDS_DIR", raising=False)
+    built = Services.from_settings(Settings.from_env())
+    built = replace(built, marine=DeterministicMarineAdapter())
+    assert built.repair is None
+    app = create_app(Settings.from_env(), services=built)
+    server = build_server(adapter=built.marine, repair_pool=built.repair)
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        resp = await client.post(
+            "/api/v1/passage",
+            json={
+                "waypoints": [list(MARSEILLE), list(PORQUEROLLES)],
+                "departure": DEPARTURE.isoformat(),
+                "archetype": "cruiser_30ft",
+                "repair_route": True,
+            },
+        )
+    assert resp.status_code == 200
+    assert "repaired_route" not in resp.json()
+
+    # No coarse land mask in this test deployment (no atlases): the coarse
+    # check finds nothing and the route is planned as sent, unrepaired.
+    result = await server.call_tool(
+        "plan_passage",
+        {
+            "waypoints": [
+                {"lat": MARSEILLE[0], "lon": MARSEILLE[1]},
+                {"lat": PORQUEROLLES[0], "lon": PORQUEROLLES[1]},
+            ],
+            "departure": DEPARTURE.isoformat(),
+            "archetype": "cruiser_30ft",
+        },
+    )
+    mcp = result.structuredContent
+    assert "route_changes" not in mcp
+    assert [(p["lat"], p["lon"]) for p in mcp["waypoints"]] == [MARSEILLE, PORQUEROLLES]
+    assert not any(p.get("by_server") for p in mcp["waypoints"])

@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-"""The route repair on the REST passage routes: on by default, declinable, and quiet elsewhere.
+"""The route repair on the REST passage routes: off by default, on when the deployment says so.
 
-One app and one ``RepairPool`` for the module: the worker is a process that
-takes a second to spawn, and sharing it is what a deployment does anyway.
+Turned on (``OPENWIND_ROUTE_REPAIR=compute``), it is declinable and quiet
+where no grid holds the route. One app and one ``RepairPool`` for the module:
+the worker is a process that takes a second to spawn, and sharing it is what
+a deployment does anyway.
 """
 
 from __future__ import annotations
@@ -30,7 +32,9 @@ OUESSANT = [48.46, -5.10]
 
 @pytest.fixture(scope="module")
 def client():
-    app = create_app(Settings())
+    # Turned on the way a deployment turns it on: through the variable.
+    app = create_app(Settings.from_env({"OPENWIND_ROUTE_REPAIR": "compute"}))
+    assert app.state.services.repair is not None
     app.state.services = replace(app.state.services, marine=DeterministicMarineAdapter())
     yield TestClient(app)
     app.state.services.repair.close()
@@ -130,8 +134,25 @@ def test_the_sweep_and_the_target_arrival_are_repaired_too(client) -> None:
     assert "repaired_route" in eta.json()
 
 
-def test_the_repair_is_on_unless_the_deployment_turns_it_off() -> None:
-    assert Settings.from_env({}).route_repair == "compute"
-    assert Settings.from_env({"OPENWIND_ROUTE_REPAIR": "off"}).route_repair == "off"
-    app = create_app(Settings(route_repair="off"))
-    assert app.state.services.repair is None
+def test_the_repair_is_off_unless_the_deployment_turns_it_on() -> None:
+    assert Settings.from_env({}).route_repair == "off"
+    assert Settings().route_repair == "off"
+    assert Settings.from_env({"OPENWIND_ROUTE_REPAIR": "compute"}).route_repair == "compute"
+    assert Settings.from_env({"OPENWIND_ROUTE_REPAIR": "suggest"}).route_repair == "suggest"
+    # Off, nothing is built: no worker, no grid read.
+    assert create_app(Settings.from_env({})).state.services.repair is None
+
+
+def test_by_default_a_route_over_land_is_planned_as_drawn() -> None:
+    """No variable: the route is planned as drawn, even when the web app asks for the repair."""
+    app = create_app(Settings.from_env({}))
+    app.state.services = replace(app.state.services, marine=DeterministicMarineAdapter())
+    client = TestClient(app)
+    for extra in ({}, {"repair_route": True}):
+        resp = client.post("/api/v1/passage", json=_body(**extra))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "repaired_route" not in body
+        segments = body["passage"]["segments"]
+        assert segments[0]["start"] == {"lat": MARSEILLE[0], "lon": MARSEILLE[1]}
+        assert segments[-1]["end"] == {"lat": PORQUEROLLES[0], "lon": PORQUEROLLES[1]}

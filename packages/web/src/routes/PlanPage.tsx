@@ -312,7 +312,12 @@ export function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, cont
         />
       </div>
       {head}
-      <div ref={contentRef} className="flex-1 min-h-0 overflow-y-auto">{children}</div>
+      {/* `relative`: every scroll container is the containing block of its
+          absolutely positioned content. Without it, an `sr-only` text in a
+          static cell (« , Mer formée ») was placed against the root, below
+          the fold, and the whole page scrolled under the status bar
+          (QA of 2026-11-24). `tests/scrollContainers.test.ts` keeps the rule. */}
+      <div ref={contentRef} className="relative flex-1 min-h-0 overflow-y-auto">{children}</div>
     </div>
   );
 }
@@ -396,7 +401,7 @@ function ResizableDesktopSidebar({
           style={{ width: 4, height: 56, background: "var(--ow-fg-3)" }}
         />
       </div>
-      <div className="flex-1 min-w-0 overflow-y-auto">{children}</div>
+      <div className="relative flex-1 min-w-0 overflow-y-auto">{children}</div>
     </div>
   );
 }

@@ -34,16 +34,35 @@ def test_plan_passage_makes_the_land_rule_prominent(by_name) -> None:
     assert "## Waypoints must stay in the water" in description
     assert "coarse land check" in description
     assert "Redraw it and call again" in description
-    # The repair, on by default, said where it applies and what it returns.
+    # The repair is off by default: the description promises none.
     flat = " ".join(description.split())
-    assert "a route over land is repaired, not refused" in flat
-    assert "three areas only" in flat
-    assert '``"by_server": true``' in flat
+    assert "repaired, not refused" not in flat
+    assert "three areas only" not in flat
 
     # Ahead of the payload docs: the caller has to read it before it matters,
     # not after it has already drawn the route.
     heading = description.index("## Waypoints must stay in the water")
     assert heading < description.index("## Returned payload")
+
+
+async def test_the_land_rule_says_the_repair_only_where_it_is_on(monkeypatch) -> None:
+    """A model told that a route over land gets repaired stops rounding headlands itself."""
+    monkeypatch.setenv("OPENWIND_ROUTE_REPAIR", "compute")
+    server = build_server(adapter=object())
+    tools = {t.name: t for t in await server.list_tools()}
+    flat = " ".join(tools["plan_passage"].description.split())
+    assert "## Waypoints must stay in the water" in tools["plan_passage"].description
+    assert "a route over land is repaired, not refused" in flat
+    assert "three areas only" in flat
+    assert '``"by_server": true``' in flat
+    assert "coarse land check" in flat and "{land_rule}" not in flat
+    on = str(await server.call_tool("read_me", {}))
+    assert "fine in three areas only" in on
+
+    monkeypatch.delenv("OPENWIND_ROUTE_REPAIR")
+    off = str(await build_server(adapter=object()).call_tool("read_me", {}))
+    assert "A coarse land check only" in off
+    assert "retraced at sea" not in off and "{land_rule}" not in off
 
 
 def test_plan_passage_shows_a_route_that_needs_the_rule(by_name) -> None:

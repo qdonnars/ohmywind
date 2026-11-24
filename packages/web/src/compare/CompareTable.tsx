@@ -361,7 +361,7 @@ export function CompareTable({
   return (
     <div
       ref={scrollRef}
-      className="ow-hscroll wind-table-scroll flex-1 min-h-0 overflow-auto"
+      className="ow-hscroll wind-table-scroll relative flex-1 min-h-0 overflow-auto"
       style={{ scrollPaddingLeft: nameWidth + gap }}
       role="table"
       aria-label={t("common.nav.compare.title")}

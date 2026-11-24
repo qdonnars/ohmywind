@@ -33,7 +33,7 @@ export const explore: Record<keyof typeof frExplore, string> = {
     "OhMyWind macht gutes Seewetter für Segler zugänglich. Die Modelle AROME, ICON, GFS und ECMWF sowie die Daten zu Wellen, Strom und Tiden sind öffentlich und kostenlos. Diese App bringt sie in einer lesbaren Ansicht zusammen, ohne Konto und ohne Installation.",
   "explore.infoPanel.privacy.title": "Ihre Daten",
   "explore.infoPanel.privacy.body":
-    "Kein Tracking, kein Konto, keine über Sie gespeicherten Daten. Ihre Spots und Einstellungen bleiben auf Ihrem Gerät; Wetteranfragen und Routenberechnungen gehen an die in der Datenschutzerklärung aufgeführten Dienste, für die Dauer der Antwort.",
+    "Kein Tracking, kein Konto, keine Akte über Sie. Ihre Spots und Einstellungen bleiben auf Ihrem Gerät; Wetteranfragen und Routenberechnungen gehen an die in der Datenschutzerklärung aufgeführten Dienste.",
   "explore.infoPanel.privacy.link": "Datenschutzerklärung lesen",
   "explore.infoPanel.privacy.termsLink": "Nutzungsbedingungen lesen",
   "explore.infoPanel.sources.title": "Datenquellen und Methodik",

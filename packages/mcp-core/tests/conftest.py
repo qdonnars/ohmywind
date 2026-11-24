@@ -12,11 +12,11 @@ import pytest
 def route_repair_off(monkeypatch):
     """Plan routes as drawn unless a test asks for the repair.
 
-    The server repairs a route over land by default, and most tests here
-    plan Marseille to Porquerolles, whose straight line cuts the coast: left
-    on, every one of them would spawn a repair worker and test the repair
-    instead of what it is about. The tests of the repair set
-    ``OPENWIND_ROUTE_REPAIR=compute`` themselves (``test_route_repair_gate``,
-    the repaired goldens, the REST parity test).
+    The repair is off by default; this pins it off whatever the shell
+    exports, because most tests here plan Marseille to Porquerolles, whose
+    straight line cuts the coast: left on, every one of them would spawn a
+    repair worker and test the repair instead of what it is about. The tests
+    of the repair set ``OPENWIND_ROUTE_REPAIR`` themselves (the repaired
+    goldens, ``TestRouteRepairDefault``, the guidance tests).
     """
     monkeypatch.setenv("OPENWIND_ROUTE_REPAIR", "off")

@@ -8,10 +8,10 @@ traitement est l'association Libramer (association loi 1901, RNA W751285736), do
 siège social est situé 51 rue Fondary, 75015 Paris. Pour toute question relative à cette politique :
 [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
-Le principe général : **OhMyWind n'enregistre pas vos données**. Il n'y a ni compte
-utilisateur, ni base de données, ni outil de mesure d'audience, et aucune table qui
-relierait une adresse IP à des recherches, à des positions ou à des trajets. Ce que
-l'application envoie sert à répondre à la demande en cours, sans être enregistré.
+Le principe général : **OhMyWind ne tient aucun fichier sur vous**. Il n'y a ni compte
+utilisateur, ni base de données, ni outil de mesure d'audience. Ce que l'application
+envoie sert à répondre à la demande en cours ; les seules traces sont des journaux
+techniques, décrits plus bas.
 
 ## Ce que l'application ne fait pas
 
@@ -26,8 +26,9 @@ l'application envoie sert à répondre à la demande en cours, sans être enregi
 
 Si vous l'autorisez, votre position sert à centrer la carte, à afficher les prévisions à
 cet endroit et à classer les lieux proches lors d'une recherche. Elle est transmise aux
-services listés ci-dessous, le temps de répondre à la demande, et n'est jamais
-enregistrée par OhMyWind. La permission est optionnelle et révocable à tout moment dans
+services listés ci-dessous, le temps de répondre à la demande. Elle n'est conservée dans
+aucune base ; ses coordonnées peuvent figurer, 7 jours au plus, dans le journal
+technique du relais décrit plus bas. La permission est optionnelle et révocable à tout moment dans
 les réglages de votre navigateur ou de votre téléphone.
 
 ### Plans de navigation et réglages
@@ -59,6 +60,15 @@ seulement à repérer un abus. Il n'y écrit jamais d'adresse IP, de coordonnée
 de recherche ni de trajet. Pour limiter le nombre de requêtes par minute, l'adresse est
 gardée en mémoire le temps de cette limite, sans être écrite nulle part.
 
+Le relais placé devant le backend, opéré par Cloudflare, garde pendant 7 jours au plus
+un journal technique de chaque requête : l'adresse web demandée, en entier, et des
+informations techniques sur l'appelant fournies par Cloudflare, qui peuvent inclure son
+adresse IP. Pour les demandes de trait de côte, de marée et de courants autour d'un
+lieu, cette adresse web contient les coordonnées du lieu. Le contenu des requêtes n'y figure pas : les
+points de passage, la date et le bateau d'une estimation n'y apparaissent jamais. Ce
+journal sert à diagnostiquer les pannes et n'est utilisé pour rien d'autre ; il
+s'efface de lui-même.
+
 ## Services tiers
 
 Pour fonctionner, l'application fait appel aux services suivants. Comme pour toute
@@ -67,7 +77,7 @@ applicatives transmises en plus.
 
 | Service | Données transmises | Finalité |
 | --- | --- | --- |
-| [Cloudflare](https://www.cloudflare.com/privacypolicy/) | Requêtes vers le site et vers le backend OhMyWind | Hébergement du site ; relais vers le backend |
+| [Cloudflare](https://www.cloudflare.com/privacypolicy/) | Requêtes vers le site et vers le backend OhMyWind ; journal des requêtes relayées, 7 jours au plus (voir « Journaux techniques ») | Hébergement du site ; relais vers le backend |
 | Backend OhMyWind, hébergé par [Hugging Face](https://huggingface.co/privacy) | Coordonnées des lieux ouverts et des trajets consultés ; lors d'une estimation, points de passage, date, bateau et réglages | Trait de côte, marée et courants ; calcul du plan de passage |
 | [Open-Meteo](https://open-meteo.com/en/terms) (forecast, marine, geocoding) | Coordonnées des lieux et des trajets consultés ; texte de vos recherches de lieu, si Photon ne répond pas | Prévisions de vent, vagues, marées ; recherche de lieux de secours |
 | [Photon (Komoot)](https://photon.komoot.io) | Texte de vos recherches de lieu et, si elle est connue, une position arrondie (la vôtre si vous l'avez autorisée, ou un point de la carte affichée) | Recherche de lieux, classés par proximité |
@@ -94,8 +104,8 @@ fonctionne sans, il suffit alors de rechercher un lieu manuellement.
 ## Vos droits
 
 Conformément au RGPD, vous disposez de droits d'accès, de rectification, d'opposition
-et d'effacement. OhMyWind ne conservant ni compte, ni position, ni recherche, ni trajet
-vous concernant, l'essentiel s'exerce directement sur votre appareil : effacez les
+et d'effacement. OhMyWind ne tenant ni compte ni fichier vous
+concernant, et le journal du relais s'effaçant de lui-même en 7 jours au plus, l'essentiel s'exerce directement sur votre appareil : effacez les
 données du site ou de l'application. Pour toute question ou demande :
 [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 

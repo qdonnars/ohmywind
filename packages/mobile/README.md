@@ -197,7 +197,7 @@ La sonde relève, plusieurs fois par chargement, `Capacitor.isNativePlatform()`,
 | `1-first` | serveur démarré | coquille native, bonne plateforme, `App.getInfo()` répond avec le bon identifiant, service worker enregistré et activé, reprise de données à `none`, plugins qui répondent (`Haptics.impact`, aller-retour `Preferences`, `KeepAwake` allumé puis relâché, `InAppReview` présent), marque de la copie native posée |
 | `2-second` | relance | page contrôlée par le service worker, copie des données présente dans les préférences natives |
 | `3-offline` | serveur arrêté, relance | le site s'ouvre quand même, servi par le service worker |
-| `4-plan` | serveur relancé, la sonde ouvre `/plan` avec une route (page et `localStorage` donnés par le collecteur, `GET /goto`) | page non décalée (`scrollY` et défilement de la colonne nuls, en-tête en haut), colonne qui tient dans l'écran, y compris tiroir monté un instant à 90 vh; capture de `/plan` |
+| `4-plan` | serveur relancé, la sonde ouvre `/plan` avec une route (page et `localStorage` donnés par le collecteur, `GET /goto`) | page non décalée (`scrollY` et défilement de la colonne nuls, en-tête en haut), document qui ne peut pas défiler (essayé par un `scrollTo`), colonne qui tient dans l'écran, y compris tiroir monté un instant à 90 vh; capture de `/plan` |
 
 Captures à chaque étape, rapports, journaux de l'appareil en artefacts (`mobile-smoke-android`, `mobile-smoke-ios`), tableau récapitulatif dans le résumé du job.
 
@@ -330,6 +330,7 @@ Comportement actuel:
 ## Parité avec la TWA
 
 - **Géolocalisation**: `ACCESS_COARSE_LOCATION` et `ACCESS_FINE_LOCATION` déclarées; le `WebChromeClient` de Capacitor les demande au premier `navigator.geolocation` et accepte la position approximative si l'utilisateur la choisit. Les `uses-feature` de localisation sont marqués non requis pour ne pas exclure d'appareils sur le Play Store.
+- **État du réseau**: `ACCESS_NETWORK_STATE` déclarée. Le WebView d'Android ne suit le réseau (`navigator.onLine`, événements `online` et `offline`) que si l'app a cette permission (Chromium, `android_webview/.../StartupTasks.java`): sans elle, `navigator.onLine` restait à `true` en mode avion et le site ne se savait jamais hors ligne. Ne pas appeler `WebView.setNetworkAvailable`: ce suivi serait coupé pour toute la durée du processus (`AwContents.setNetworkAvailable`). Vérifié sur l'émulateur (WebView 150), y compris pour une app lancée déjà en mode avion. WKWebView suit le réseau lui-même (`NetworkStateNotifierIOS.mm` de WebKit), sans permission.
 - **Raccourcis**: voir plus haut.
 - **Couleurs**: `#030712` pour le fond de la fenêtre, l'écran de démarrage et, avant Android 15, les barres système. À partir d'Android 15 (targetSdk 36), le bord à bord est imposé et les barres sont transparentes: c'est le site qui peint dessous.
 - **Bord à bord**: plugin `SystemBars` du cœur de Capacitor 8 en `insetsHandling: "native"`. Avec une WebView 140 ou plus, le site (qui déclare `viewport-fit=cover`) passe sous les barres et se décale avec `env(safe-area-inset-*)`. Avec une WebView plus ancienne, Capacitor réserve la place des barres autour de la WebView et les `env()` valent 0. Le style des icônes de barre suit le mode clair ou sombre du système (`style: "DEFAULT"`).

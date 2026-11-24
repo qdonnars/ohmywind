@@ -39,11 +39,14 @@ from openwind_data.routing.geometry import Point
 logger = logging.getLogger(__name__)
 
 # ``OPENWIND_ROUTE_REPAIR``: what a server does with a route that crosses land
-# where a shoreline grid holds it. ``compute`` (the default) plans the repaired
-# route and says what changed; ``suggest`` (MCP only; REST treats it as
-# ``compute``) refuses a retraced route with the repaired waypoints to send
-# back; ``off`` repairs nothing, the MCP server falls back to its coarse land
-# check and REST plans the route as drawn.
+# where a shoreline grid holds it. ``off`` (the default) repairs nothing, the
+# MCP server falls back to its coarse land check and REST plans the route as
+# drawn. A repair costs up to two seconds of the server's processor, and a
+# repaired route is planned on the server's Open-Meteo quota rather than the
+# browser's forecast cache: a deployment turns it on deliberately.
+# ``compute`` plans the repaired route and says what changed; ``suggest`` (MCP
+# only; REST treats it as ``compute``) refuses a retraced route with the
+# repaired waypoints to send back.
 REPAIR_MODES = ("off", "compute", "suggest")
 
 # Load guards, the same for every caller since REST and MCP share the pool.
@@ -59,7 +62,7 @@ CACHE_DECIMALS = 5
 # times that on the Space.
 MAX_PENDING = 4
 TIMEOUT_S = 6.0
-DEFAULT_REPAIR_MODE = "compute"
+DEFAULT_REPAIR_MODE = "off"
 
 
 def parse_repair_mode(raw: str | None) -> str:

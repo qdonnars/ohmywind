@@ -4,13 +4,12 @@ Toutes les versions d'OhMyWind, de la plus récente à la plus ancienne. Le site
 
 Chaque version est aussi publiée sur la page [Releases](https://github.com/qdonnars/ohmywind/releases) du dépôt, et l'application affiche ce journal sur sa page « Quoi de neuf ». La marche à suivre pour publier une version est dans [docs/releases.md](docs/releases.md). English version: [CHANGELOG.en.md](CHANGELOG.en.md).
 
-## 1.15.0 · 2026-11-24 · Hors ligne en mer, des routes qui contournent la terre et de vraies applications mobiles
+## 1.15.0 · 2026-11-24 · Hors ligne en mer, et de vraies applications mobiles
 
 ### Nouveautés
 
 - Sans réseau, l'application rouvre sur ce que vous regardiez : les prévisions du dernier lieu consulté et de vos spots enregistrés restent sur l'appareil et s'affichent avec leur date, et une application installée revient sur le plan en cours (#537, #561).
 - Toutes les pages s'ouvrent hors ligne dès que l'application est installée, méthodologie et réglages compris (#561).
-- Une route tracée à travers une île ou une pointe est ajustée pour contourner la terre, dans le planificateur comme dans l'assistant ; un encart « Route ajustée », replié derrière un « i », dit ce qui a changé (#546, #547, #548).
 - Dans l'assistant, un plan donne la marée au départ et à l'arrivée, et peut se calculer avec la polaire de votre bateau (#542).
 - Le lien vers un plan donné par l'assistant porte le moteur et l'efficacité du calcul, et l'application les applique à ce plan sans toucher à vos réglages (#534, #541, #543).
 - Les applications mobiles gagnent ce qu'un site ne fait pas : une vibration au dépôt d'un point de route, l'écran qui reste allumé tant qu'un plan est affiché (un réglage permet de le couper), des raccourcis sur l'icône, les liens du site qui ouvrent l'application, et une copie de vos spots et réglages gardée par le téléphone (#557, #563).
@@ -23,10 +22,13 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 - Dans l'explorateur, les onglets s'effacent en fondu contre le bouton de localisation au lieu d'être coupés net (#558).
 - Au retour du réseau, l'explorateur ne reste plus vide pendant une demi-heure (#561).
 - Sur un écran tactile large, l'aide de la carte parle d'appui long et non plus de clic droit (#563).
+- La page du plan ne remonte plus sous la barre d'état sur un petit écran ou en paysage : seul le contenu du tiroir défile.
+- Dans l'application, le retour depuis un plan rouvert au lancement ramène à la carte au lieu de fermer l'application.
+- L'application voit quand le téléphone perd le réseau : le bandeau « Hors connexion » s'affiche et la comparaison des spots le dit.
 
 ### Coulisses
 
-- La politique de confidentialité dit exactement ce qui quitte votre appareil et ce que le serveur journalise, et le relais du serveur ne garde plus ses journaux automatiques (#562, #564).
+- La politique de confidentialité dit exactement ce qui quitte votre appareil et ce que le serveur et son relais journalisent (#562, #564).
 - Les applications mobiles sont testées sur émulateur et sur simulateur avant chaque mise en production : premier lancement, relance, serveur coupé, page du plan (#557, #563).
 - La mise en ligne du serveur attend que la nouvelle version réponde avant de se dire réussie (#553).
 

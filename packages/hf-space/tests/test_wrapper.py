@@ -120,17 +120,24 @@ def test_the_rest_api_and_the_mcp_server_share_one_marine_adapter(wrapper, monke
         return _StubServer()
 
     monkeypatch.setattr(wrapper, "build_server", _fake_build_server)
-    monkeypatch.delenv("OPENWIND_ROUTE_REPAIR", raising=False)
+    monkeypatch.setenv("OPENWIND_ROUTE_REPAIR", "compute")
     app = wrapper.build_app()
 
     assert captured["adapter"] is app.state.services.marine
     assert captured["adapter"] is not None
     # The mask plan_passage checks routes against is the overlay's own.
     assert captured["land_mask"] is app.state.services.land
-    # One route repair worker, its cache and its queue, for both shells: the
-    # web app and the connector trace a route with the same code.
+    # With the repair turned on, one route repair worker, its cache and its
+    # queue, for both shells: the web app and the connector trace a route
+    # with the same code.
     assert captured["repair_pool"] is app.state.services.repair
     assert captured["repair_pool"] is not None
+
+    # Off by default: no pool built, none handed to the MCP server.
+    monkeypatch.delenv("OPENWIND_ROUTE_REPAIR")
+    app = wrapper.build_app()
+    assert app.state.services.repair is None
+    assert captured["repair_pool"] is None
 
 
 def test_the_shared_client_is_closed_when_the_process_stops(wrapper, monkeypatch) -> None:

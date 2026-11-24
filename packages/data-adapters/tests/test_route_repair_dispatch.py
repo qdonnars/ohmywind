@@ -83,12 +83,14 @@ async def test_no_grid_for_the_route_starts_no_worker(tmp_path):
     assert pool._pool is None
 
 
-def test_the_repair_is_on_by_default_and_can_be_turned_off():
-    assert parse_repair_mode(None) == "compute"
-    assert parse_repair_mode("") == "compute"
+def test_the_repair_is_off_by_default_and_can_be_turned_on():
+    assert parse_repair_mode(None) == "off"
+    assert parse_repair_mode("") == "off"
+    assert parse_repair_mode(" COMPUTE ") == "compute"
     assert parse_repair_mode(" OFF ") == "off"
     assert parse_repair_mode("suggest") == "suggest"
-    assert parse_repair_mode("nonsense") == "compute"
+    # A typo never turns the repair on.
+    assert parse_repair_mode("nonsense") == "off"
 
 
 def test_without_a_directory_the_pool_reads_the_bundled_grids():

@@ -131,12 +131,13 @@ def _passage_body(**extra) -> dict:
 
 
 class TestRepairedRoute:
-    """The route repair, on by default: what the web app reads when the route moved."""
+    """The route repair, turned on by the deployment: what the web app reads when the route moved."""
 
     def test_single_mode_repaired(self) -> None:
-        # The default deployment, repair on. The route is the golden's own
-        # Marseille to Porquerolles, whose straight line cuts the coast.
-        client = _deterministic_app(Settings())
+        # A deployment with the repair on (it is off by default). The route
+        # is the golden's own Marseille to Porquerolles, whose straight line
+        # cuts the coast.
+        client = _deterministic_app(Settings(route_repair="compute"))
         try:
             resp = client.post("/api/v1/passage", json=_passage_body())
             assert resp.status_code == 200
