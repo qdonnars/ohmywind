@@ -22,7 +22,7 @@ import type { CSSProperties } from "react";
 import { usePlan } from "../session/planContext";
 import { StalePlaceholder } from "../sidebar/parts";
 import { AlertChip } from "../../components/AlertChip";
-import { fmtDurationSafe, num1 } from "../format";
+import { fmtSpanSafe, num1 } from "../format";
 import { fmtClock } from "../../domain/datetime";
 import { useT } from "../../i18n";
 import {
@@ -118,7 +118,8 @@ function TrackRow({
   const usable = summary !== null;
   const inPlan = t("panel.tracks.row.inPlan");
   const arrival = summary ? fmtClock(summary.arrival) : "—";
-  const duration = summary ? fmtDurationSafe(summary.durationH) : "—";
+  // On the clocks, like the arrival beside it (see `displayRounding`).
+  const duration = summary ? fmtSpanSafe(summary.departure, summary.arrival) : "—";
   const distance = summary ? num1(summary.distanceNm) : "—";
   const seaMax = summary && summary.hsMaxM !== null ? num1(summary.hsMaxM) : "—";
   // An engine that never ran says nothing a sailing passage does not.

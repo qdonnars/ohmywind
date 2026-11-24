@@ -12,6 +12,7 @@ import { planMinUpwind } from "../../config/polarConfig";
 import { usePolarConfig } from "../../config/usePolarConfig";
 import { usePlan } from "../session/planContext";
 import { num1 } from "../format";
+import { sharesShown } from "../displayRounding";
 import { useT } from "../../i18n";
 
 // ── LegList ──────────────────────────────────────────────────────────────────
@@ -38,6 +39,7 @@ function Unit({ children }: { children: string }) {
 
 function LegRow({
   leg,
+  distanceShown,
   index,
   expanded,
   onToggle,
@@ -45,6 +47,8 @@ function LegRow({
   minUpwindDeg,
 }: {
   leg: AggregatedLeg;
+  /** The leg's distance as printed: the legs add up to the total. */
+  distanceShown: number;
   index: number;
   expanded: boolean;
   onToggle: () => void;
@@ -95,7 +99,7 @@ function LegRow({
                 {index + 1} → {index + 2}
               </div>
               <div className="text-[10.5px] leading-tight mt-0.5" style={{ color: "var(--ow-fg-2)" }}>
-                {num1(leg.distance_nm)} nm
+                {num1(distanceShown)} nm
               </div>
             </div>
           </div>
@@ -153,7 +157,12 @@ function LegRow({
       {expanded && (
         <tr style={{ background: rowBg }}>
           <td colSpan={6} className="px-4 pb-3 pt-1">
-            <LegExpanded leg={leg} segments={segments} minUpwindDeg={minUpwindDeg} />
+            <LegExpanded
+              leg={leg}
+              distanceShown={distanceShown}
+              segments={segments}
+              minUpwindDeg={minUpwindDeg}
+            />
           </td>
         </tr>
       )}
@@ -182,6 +191,12 @@ export function LegList({ passage }: { passage: PassageReport }) {
     void lang;
     return aggregateLegs(passage.segments, waypoints, passage.efficiency, minUpwindDeg);
   }, [passage.segments, passage.efficiency, waypoints, minUpwindDeg, lang]);
+  // Each leg's distance rounded with the others, so the tenths printed on
+  // the legs add up to the distance of the totals (see `displayRounding`).
+  const distances = useMemo(
+    () => sharesShown(legs.map((l) => l.distance_nm), passage.distance_nm, 1),
+    [legs, passage.distance_nm],
+  );
   const onOpenChange = actions.selectLeg;
   return (
     <div>
@@ -208,6 +223,7 @@ export function LegList({ passage }: { passage: PassageReport }) {
             <LegRow
               key={i}
               leg={leg}
+              distanceShown={distances[i]}
               index={i}
               expanded={openIdx === i}
               onToggle={() => onOpenChange(openIdx === i ? null : i)}

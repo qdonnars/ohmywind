@@ -29,6 +29,7 @@ import { LegDetailCard, type LegDetailHeader, type LegDetailNote } from "../LegD
 import { StepTable } from "../StepTable";
 import { stepTableWidthPx } from "../stepTableLayout";
 import { num1 } from "../format";
+import { sharesShown } from "../displayRounding";
 import { fmtClock } from "../../domain/datetime";
 import type { SegmentReport } from "../types";
 import { usePlan } from "../session/planContext";
@@ -67,10 +68,13 @@ const SIDE_BY_SIDE_MAX_STEPS = 5;
 
 export function LegExpanded({
   leg,
+  distanceShown,
   segments,
   minUpwindDeg,
 }: {
   leg: AggregatedLeg;
+  /** The leg's distance as its row prints it; the steps add up to it. */
+  distanceShown: number;
   /** The whole passage's segments; the leg knows its own range in them. */
   segments: SegmentReport[];
   minUpwindDeg: number;
@@ -95,6 +99,11 @@ export function LegExpanded({
     return aggregateSteps(segments, leg.segment_range, leg.efficiency, minUpwindDeg);
   }, [segments, leg.segment_range, leg.efficiency, minUpwindDeg, lang]);
   const spread = useMemo(() => legSpread(steps), [steps]);
+  // The steps' distances rounded together, to add up to the leg's.
+  const stepDistances = useMemo(
+    () => sharesShown(steps.map((s) => s.distance_nm), distanceShown, 1),
+    [steps, distanceShown],
+  );
   const n = steps.length;
 
   // A stale index (fewer steps than before) falls back to the average rather
@@ -110,7 +119,7 @@ export function LegExpanded({
   if (n <= 1) {
     header = {
       title: `${fmtClock(leg.start_time)} → ${fmtClock(leg.end_time)}`,
-      sub: `${legDurationLabel(leg)} · ${num1(leg.distance_nm)} nm`,
+      sub: `${legDurationLabel(leg)} · ${num1(distanceShown)} nm`,
     };
     notes = stepNotes(leg);
   } else if (selected == null) {
@@ -124,7 +133,7 @@ export function LegExpanded({
     view = step;
     header = {
       title: `${fmtClock(step.start_time)} → ${fmtClock(step.end_time)}`,
-      sub: `${legDurationLabel(step)} · ${num1(step.distance_nm)} nm`,
+      sub: `${legDurationLabel(step)} · ${num1(stepDistances[selected])} nm`,
     };
     notes = compactNotes([step]);
   }

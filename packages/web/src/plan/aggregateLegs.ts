@@ -10,6 +10,7 @@ import {
 import { COEFF_DEFAULT } from "../config/polarConfig";
 import { t } from "../i18n";
 import { num1, numRange } from "./format";
+import { clockMinutes } from "./displayRounding";
 
 export interface AggregatedLeg {
   // ── Distances & timing (carried from the segment span) ─────────────────────
@@ -28,9 +29,14 @@ export interface AggregatedLeg {
   point_of_sail: string;
 
   // ── Boat speed build-up (all in knots) ────────────────────────────────────
-  // Distance-weighted means computed per-segment then averaged, so the
-  // build-up adds up exactly: polar_after_eff_kn + wave_delta_kn (≤ 0)
+  // Time-weighted means computed per-segment then averaged, so the build-up
+  // adds up exactly: polar_after_eff_kn + wave_delta_kn (≤ 0)
   // = boat_speed_kn, and boat_speed_kn + current_delta_kn = target_speed_kn.
+  // Weighted by time, not by distance: the mean of the speeds over ground is
+  // then the leg's distance over its duration, the speed the reader finds by
+  // dividing the two figures on screen. Weighted by distance, a leg of two
+  // 6 nm halves at 5,0 and 3,0 kn read 4,0 kn beside 12,0 nm in 3h12, which
+  // is 3,75 kn (#532). For a single step both weightings are its own values.
   //
   // The sail speed the server started from before the wave derate, that is
   // boat_speed_kn / wave_derate_factor. Not polar_speed_kn × efficiency: that
@@ -127,8 +133,9 @@ function twaToPointOfSail(twa: number, minUpwindDeg: number): string {
 }
 
 export function legDurationLabel(leg: AggregatedLeg): string {
-  const ms = new Date(leg.end_time).getTime() - new Date(leg.start_time).getTime();
-  const totalMin = Math.max(0, Math.round(ms / 60000));
+  // Read on the clocks as printed (`fmtClock` cuts the seconds), so a step
+  // of « 12:14 → 13:45 » says 1h31, and the legs add up to the total.
+  const totalMin = clockMinutes(leg.start_time, leg.end_time) || 0;
   if (totalMin < 60) return t("panel.legs.durationMinutes", { minutes: totalMin });
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
@@ -303,6 +310,26 @@ function sailSpeedBeforeDerate(s: SegmentReport): number {
   return s.boat_speed_kn / derate;
 }
 
+/**
+ * The time each segment takes: its reported duration, or, from a report
+ * without one, its distance over the speed the server timed it with.
+ */
+function segmentHours(s: SegmentReport): number {
+  if (Number.isFinite(s.duration_h) && s.duration_h > 0) return s.duration_h;
+  const ground = s.sog_kn ?? s.boat_speed_kn;
+  return ground > 0 ? s.distance_nm / ground : 0;
+}
+
+/** Mean of `pick` over `segs` weighted by time; by distance when no segment
+    has a usable time. */
+function timeWeightedMean(segs: SegmentReport[]): (pick: (s: SegmentReport) => number) => number {
+  const hours = segs.map(segmentHours);
+  const total = hours.reduce((a, h) => a + h, 0);
+  const weights = total > 0 ? hours : segs.map((s) => s.distance_nm);
+  const sum = total > 0 ? total : weights.reduce((a, w) => a + w, 0);
+  return (pick) => segs.reduce((acc, seg, i) => acc + pick(seg) * weights[i], 0) / sum;
+}
+
 function classifyCurrent(deltaKn: number, currentSpeedKn: number | null): "portant" | "contraire" | "travers" {
   // |delta| / current_speed ~ |cos(angle)|. > 0.5 → mostly along (portant or contraire); < 0.5 → mostly travers.
   if (currentSpeedKn != null && currentSpeedKn > 0 && Math.abs(deltaKn) / currentSpeedKn < 0.5) return "travers";
@@ -312,9 +339,11 @@ function classifyCurrent(deltaKn: number, currentSpeedKn: number | null): "porta
 /**
  * Summarise one run of consecutive server segments as an `AggregatedLeg`.
  *
- * Distance-weighted means throughout, so a long calm segment outweighs a
- * short gusty one, and the speed build-up adds up. `range` is only carried
- * through for provenance. Returns null for an empty or zero-length run.
+ * Distance-weighted means for the conditions, so a long calm segment
+ * outweighs a short gusty one; time-weighted means for the speeds, so the
+ * build-up adds up and the speed over ground is distance over duration.
+ * `range` is only carried through for provenance. Returns null for an empty
+ * or zero-length run.
  */
 function aggregateSegments(
   segs: SegmentReport[],
@@ -337,15 +366,17 @@ function aggregateSegments(
   const gusts = segs.map((s) => s.gust_kn).filter((g): g is number => g != null);
   const gust_max_kn = gusts.length > 0 ? Math.max(...gusts) : null;
 
-  // Speed build-up (per-segment, then weighted averaged so the additions stay coherent)
-  const polar_after_eff_kn = wsum(sailSpeedBeforeDerate);
-  const boat_speed_kn = wsum((s) => s.boat_speed_kn);
+  // Speed build-up (per-segment, then time-weighted so the additions stay
+  // coherent and the mean over ground is distance over duration).
+  const tsum = timeWeightedMean(segs);
+  const polar_after_eff_kn = tsum(sailSpeedBeforeDerate);
+  const boat_speed_kn = tsum((s) => s.boat_speed_kn);
   const wave_delta_kn = boat_speed_kn - polar_after_eff_kn; // ≤ 0
 
   // Current — only if every segment in the leg has SOG (avoid mixing)
   const allHaveSog = segs.every((s) => s.sog_kn != null);
-  const current_delta_kn = allHaveSog ? wsum((s) => (s.sog_kn as number) - s.boat_speed_kn) : null;
-  const target_speed_kn = allHaveSog ? wsum((s) => s.sog_kn as number) : boat_speed_kn;
+  const current_delta_kn = allHaveSog ? tsum((s) => (s.sog_kn as number) - s.boat_speed_kn) : null;
+  const target_speed_kn = allHaveSog ? tsum((s) => s.sog_kn as number) : boat_speed_kn;
 
   // Current speed/direction (max speed for "worst case", circular mean direction)
   const curSpeeds = segs.map((s) => s.current_speed_kn).filter((v): v is number => v != null);

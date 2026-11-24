@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { describe, expect, it } from "vitest";
-import { fmtDuration, fmtDurationSafe, num1, fmtDepthM } from "./format";
+import { fmtMinutes, fmtSpanSafe, num1, fmtDepthM } from "./format";
 
 describe("fmtDepthM", () => {
   it("keeps a decimal under 10 m, where the metre under the keel counts", () => {
@@ -20,36 +20,34 @@ describe("fmtDepthM", () => {
   });
 });
 
-describe("fmtDuration", () => {
+describe("fmtMinutes", () => {
   it("formats whole hours without minutes", () => {
-    expect(fmtDuration(3)).toBe("3h");
+    expect(fmtMinutes(180)).toBe("3h");
   });
 
   it("formats sub-hour durations as minutes only", () => {
-    expect(fmtDuration(0.5)).toBe("30m");
+    expect(fmtMinutes(30)).toBe("30m");
+    expect(fmtMinutes(43)).toBe("43m");
   });
 
   it("zero-pads minutes in the 12h30 convention", () => {
-    expect(fmtDuration(12.5)).toBe("12h30");
-    expect(fmtDuration(1 + 5 / 60)).toBe("1h05");
-  });
-
-  it("rounds minutes to the nearest whole", () => {
-    // 2h 29.5m rounds up to 2h30
-    expect(fmtDuration(2 + 29.5 / 60)).toBe("2h30");
+    expect(fmtMinutes(750)).toBe("12h30");
+    expect(fmtMinutes(65)).toBe("1h05");
+    expect(fmtMinutes(331)).toBe("5h31");
   });
 });
 
-describe("fmtDurationSafe", () => {
-  it("delegates to fmtDuration for finite numbers", () => {
-    expect(fmtDurationSafe(12.5)).toBe("12h30");
+describe("fmtSpanSafe", () => {
+  it("reads the span on the clocks, seconds cut", () => {
+    expect(fmtSpanSafe("2026-11-25T09:00:00+00:00", "2026-11-25T14:31:55.062828+00:00")).toBe("5h31");
+    // 1h59m45s, which decimal hours rounded to « 1h60 ».
+    expect(fmtSpanSafe("2026-11-25T09:00:00+00:00", "2026-11-25T10:59:45+00:00")).toBe("1h59");
   });
 
-  it("returns a dash for null, undefined and non-finite input", () => {
-    expect(fmtDurationSafe(null)).toBe("—");
-    expect(fmtDurationSafe(undefined)).toBe("—");
-    expect(fmtDurationSafe(Number.NaN)).toBe("—");
-    expect(fmtDurationSafe(Infinity)).toBe("—");
+  it("returns a dash for a missing or unreadable end", () => {
+    expect(fmtSpanSafe(null, "2026-11-25T09:00:00+00:00")).toBe("—");
+    expect(fmtSpanSafe("2026-11-25T09:00:00+00:00", undefined)).toBe("—");
+    expect(fmtSpanSafe("not a date", "2026-11-25T09:00:00+00:00")).toBe("—");
   });
 });
 
