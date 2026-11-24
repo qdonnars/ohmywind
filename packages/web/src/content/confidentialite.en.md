@@ -8,10 +8,7 @@ is the reference in the event of any discrepancy.*
 OhMyWind is an open-source sailing passage planner, available at
 [ohmywind.fr](https://ohmywind.fr) and as a mobile application. The data controller is
 the association Libramer (non-profit association under the French law of 1901, RNA
-W751285736), whose registered office is at 51 rue Fondary, 75015 Paris, France. The
-mobile applications are published and distributed in the app stores by Quentin Donnars
-or by the association Libramer, depending on the store: each application's listing names
-its publisher. For any question relating to this policy:
+W751285736), whose registered office is at 51 rue Fondary, 75015 Paris, France. For any question relating to this policy:
 [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 The general principle: **OhMyWind has no user accounts, no database and no audience

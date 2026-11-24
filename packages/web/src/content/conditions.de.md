@@ -9,9 +9,7 @@ französische Fassung ([/conditions](/conditions)).*
 
 OhMyWind wird vom Verein Libramer herausgegeben (gemeinnütziger Verein nach
 französischem Recht, „loi 1901“, RNA W751285736), Sitz: 51 rue Fondary, 75015 Paris,
-Frankreich. Die mobilen Apps werden in den App-Stores je nach Store von Quentin Donnars
-oder vom Verein Libramer vertrieben: Der Eintrag jeder App nennt ihren Herausgeber.
-Kontakt: [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
+Frankreich. Kontakt: [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 ## Der Dienst
 

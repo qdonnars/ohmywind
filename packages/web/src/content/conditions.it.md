@@ -9,9 +9,7 @@
 
 OhMyWind è pubblicato dall'associazione Libramer (associazione senza scopo di lucro di
 diritto francese, « loi 1901 », RNA W751285736), con sede in 51 rue Fondary, 75015
-Parigi, Francia. Le app mobili sono distribuite negli store di applicazioni da Quentin
-Donnars o dall'associazione Libramer, a seconda dello store: la scheda di ciascuna app
-ne indica l'editore. Contatto: [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
+Parigi, Francia. Contatto: [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 ## Il servizio
 

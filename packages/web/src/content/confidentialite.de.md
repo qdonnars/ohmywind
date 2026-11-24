@@ -9,9 +9,7 @@ OhMyWind ist ein quelloffener Planer für Segeltörns, verfügbar unter
 [ohmywind.fr](https://ohmywind.fr) und als mobile Anwendung. Verantwortlicher für die
 Verarbeitung ist der Verein Libramer (Verein ohne Erwerbszweck nach dem französischen
 Vereinsgesetz von 1901, RNA W751285736) mit Sitz in 51 rue Fondary, 75015 Paris,
-Frankreich. Die mobilen Anwendungen werden je nach Store von Quentin Donnars oder vom
-Verein Libramer herausgegeben und in den App-Stores vertrieben: Der Eintrag jeder
-Anwendung nennt ihren Herausgeber. Bei Fragen zu dieser Erklärung:
+Frankreich. Bei Fragen zu dieser Erklärung:
 [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 Der Grundsatz: **OhMyWind hat weder Benutzerkonten noch eine Datenbank noch ein

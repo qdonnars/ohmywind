@@ -5,10 +5,7 @@
 ## Éditeur
 
 OhMyWind est édité par l'association Libramer (association loi 1901, RNA W751285736),
-dont le siège social est situé 51 rue Fondary, 75015 Paris. Les applications mobiles
-sont distribuées dans les boutiques d'applications par Quentin Donnars ou par
-l'association Libramer, selon la boutique : la fiche de chaque application indique son
-éditeur. Contact : [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
+dont le siège social est situé 51 rue Fondary, 75015 Paris. Contact : [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 ## Le service
 

@@ -8,9 +8,7 @@ reference in the event of any discrepancy.*
 ## Publisher
 
 OhMyWind is published by Libramer, a French non-profit association (loi 1901, RNA
-W751285736), registered at 51 rue Fondary, 75015 Paris, France. The mobile apps are
-distributed in the app stores by Quentin Donnars or by the association Libramer,
-depending on the store: each app's listing names its publisher. Contact:
+W751285736), registered at 51 rue Fondary, 75015 Paris, France. Contact:
 [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 ## The service

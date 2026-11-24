@@ -5,10 +5,7 @@
 OhMyWind est un planificateur de navigation à la voile open-source, disponible sur
 [ohmywind.fr](https://ohmywind.fr) et sous forme d'application mobile. Le responsable du
 traitement est l'association Libramer (association loi 1901, RNA W751285736), dont le
-siège social est situé 51 rue Fondary, 75015 Paris. Les applications mobiles sont
-éditées et distribuées dans les boutiques d'applications par Quentin Donnars ou par
-l'association Libramer, selon la boutique : la fiche de chaque application indique son
-éditeur. Pour toute question relative à cette politique :
+siège social est situé 51 rue Fondary, 75015 Paris. Pour toute question relative à cette politique :
 [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 Le principe général : **OhMyWind ne possède ni compte utilisateur, ni base de données,
