@@ -75,6 +75,10 @@ export const LOCAL_STORAGE_KEYS = {
   /** Native shell only: where the one-shot import of the data left in Chrome
       by the former Android app stands. See `native/shellImport.ts`. */
   shellImport: "ow_shell_import_v1",
+  /** Epoch milliseconds of the last answer to the invitation to install the
+      store app (either button, or back): it stays away for a while after.
+      Site on a phone only, see `install/invite.ts`. */
+  installInvite: "ow_install_invite_v1",
 } as const;
 
 /** Name of a `localStorage` entry, as the code refers to it. */
@@ -89,6 +93,9 @@ export const SESSION_STORAGE_KEYS = {
   /** Waypoints drawn but not yet computed, so a service worker update or a
       reload does not throw away work in progress. */
   planDraft: "ow_plan_draft_v1",
+  /** `"1"` in a tab the Android TWA opened. Its launch referrer is only
+      there on the first load, a reload would lose it. See `install/platform.ts`. */
+  storeApp: "ow_store_app",
 } as const;
 
 /**

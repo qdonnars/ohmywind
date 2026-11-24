@@ -166,7 +166,7 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 
 - La politique de confidentialité désigne l'association Libramer comme responsable du traitement (#396).
 
-## 1.5.0 · 2026-09-06 · Cinq langues, et l'iPhone bien cadré
+## 1.5.0 · 2026-09-06 · Cinq langues, et l'écran du téléphone bien cadré
 
 ### Nouveautés
 
@@ -204,7 +204,7 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 - Le relais devant le serveur MCP renvoie une erreur lisible quand le serveur dort, avec un cache et des mesures (#350).
 - Les couleurs de l'interface s'appuient sur les jetons de design (#356).
 
-## 1.3.3 · 2026-09-02 · Plus rapide, et le retour Android ferme les panneaux
+## 1.3.3 · 2026-09-02 · Plus rapide, et le bouton retour ferme les panneaux
 
 ### Corrections
 
@@ -292,7 +292,7 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 
 - Les empreintes de signature de l'application Android sont à jour (#251, #255).
 
-## 1.1.1 · 2026-08-13 · Application Android en plein écran, licence et marque
+## 1.1.1 · 2026-08-13 · Application en plein écran, licence et marque
 
 ### Corrections
 

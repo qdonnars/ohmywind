@@ -70,9 +70,28 @@ describe.each(AVAILABLE_LANGS)("PressReleasePage in %s", (lang) => {
     expect(linkTo("mailto:contact@ohmywind.fr").hasAttribute("target")).toBe(false);
   });
 
+  it("inside the app, names no platform and links no store", async () => {
+    await setLang(lang);
+    (window as { Capacitor?: unknown }).Capacitor = { isNativePlatform: () => true };
+    try {
+      render(<PressReleasePage />);
+      const text = document.body.textContent ?? "";
+      expect(text).not.toMatch(/android|google play|app store|iphone/i);
+      expect(document.querySelector('a[href*="play.google.com"]')).toBeNull();
+      expect(text).toContain(release.leadInApps ?? release.lead);
+      // The rest of the ways in are still there.
+      expect(linkTo("/plan")).toBeDefined();
+      expect(linkTo("https://mcp.ohmywind.fr")).toBeDefined();
+    } finally {
+      delete (window as { Capacitor?: unknown }).Capacitor;
+    }
+  });
+
   it("keeps the copy free of em-dashes and of any no-ads promise", () => {
     const { highlight } = release;
-    const copy = [release.title, release.lead, highlight?.title, highlight?.body, BODIES[lang]].join("\n");
+    const copy = [release.title, release.lead, release.leadInApps, highlight?.title, highlight?.body, BODIES[lang]].join(
+      "\n",
+    );
     expect(copy).not.toContain("—");
     expect(copy).not.toMatch(NO_ADS);
   });

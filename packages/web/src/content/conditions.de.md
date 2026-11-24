@@ -3,13 +3,14 @@
 *Diese Seite ist eine Übersetzung. Maßgeblich ist im Fall von Abweichungen die
 französische Fassung ([/conditions](/conditions)).*
 
-*Zuletzt aktualisiert: 22. Oktober 2026*
+*Zuletzt aktualisiert: 24. November 2026*
 
 ## Herausgeber
 
 OhMyWind wird vom Verein Libramer herausgegeben (gemeinnütziger Verein nach
 französischem Recht, „loi 1901“, RNA W751285736), Sitz: 51 rue Fondary, 75015 Paris,
-Frankreich. Die Android-App wird von Quentin Donnars über Google Play vertrieben.
+Frankreich. Die mobilen Apps werden in den App-Stores je nach Store von Quentin Donnars
+oder vom Verein Libramer vertrieben: Der Eintrag jeder App nennt ihren Herausgeber.
 Kontakt: [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 ## Der Dienst
@@ -19,7 +20,7 @@ OhMyWind ist ein kostenloses Hilfsmittel zur Vorbereitung eines Segeltörns: Es 
 Dauer und Schwierigkeit einer Strecke.
 
 Diese Bedingungen gelten gleichermaßen für alle Zugangswege zum Dienst: die Website
-[ohmywind.fr](https://ohmywind.fr), die Android-App und den Connector für
+[ohmywind.fr](https://ohmywind.fr), die mobilen Apps und den Connector für
 KI-Assistenten (MCP-Server unter `mcp.ohmywind.fr`). Wer einen dieser Wege nutzt,
 akzeptiert diese Bedingungen.
 

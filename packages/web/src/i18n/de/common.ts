@@ -27,7 +27,7 @@ export const common: Record<keyof typeof frCommon, string> = {
   "common.nav.whatsNew.title": "Neuigkeiten",
   "common.nav.whatsNew.unseen": "Neue Version",
   "common.whatsNew.intro":
-    "Was sich in OhMyWind geändert hat, von der neuesten Version bis zur ältesten. Website und MCP-Server teilen eine Versionsnummer, die Android-App hat ihre eigene. Die Versionshinweise sind auf Englisch.",
+    "Was sich in OhMyWind geändert hat, von der neuesten Version bis zur ältesten. Website und MCP-Server teilen eine Versionsnummer, die mobilen Apps haben ihre eigene. Die Versionshinweise sind auf Englisch.",
   "common.whatsNew.current": "Aktuelle Version",
   "common.whatsNew.upcoming": "In Vorbereitung",
   "common.whatsNew.allReleases": "Alle Versionen auf GitHub",
@@ -44,4 +44,11 @@ export const common: Record<keyof typeof frCommon, string> = {
   "common.quota.reset.minutes.other": "Zurücksetzung in {count} Minuten.",
   "common.quota.reset.hours.one": "Zurücksetzung in etwa {count} Stunde.",
   "common.quota.reset.hours.other": "Zurücksetzung in etwa {count} Stunden.",
+
+  "common.install.title": "OhMyWind als App",
+  "common.install.body":
+    "Öffnen Sie die Karte mit einem Tipp vom Startbildschirm, im Vollbild und ohne Adressleiste. Kostenlos, ohne Konto und Open Source.",
+  "common.install.open.android": "Google Play öffnen",
+  "common.install.open.ios": "App Store öffnen",
+  "common.install.later": "Später",
 };
