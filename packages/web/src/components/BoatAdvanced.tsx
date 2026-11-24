@@ -21,12 +21,13 @@ import {
   type PolarSource,
   type SpiKind,
 } from "../config/polarConfig";
-import { parsePolarFile, PolarImportError } from "../config/polarImport";
+import {
+  importPolarFile,
+  withOverride,
+  withoutImported,
+  type ImportNotice,
+} from "../config/boatEdits";
 import { PolarDiagram, TwsPills } from "./PolarDiagram";
-
-// Refuse absurdly large uploads before parsing: a real polar file weighs a
-// few kB; past this size it's the wrong file.
-const IMPORT_MAX_BYTES = 512 * 1024;
 
 // "Avancé" tile: polar file import, minimum upwind angle, spinnaker settings
 // and manual cell-by-cell tuning — everything a sailor who knows their boat's
@@ -38,9 +39,7 @@ interface BoatAdvancedProps {
 
 export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
   const { t } = useT();
-  const [importNotice, setImportNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(
-    null,
-  );
+  const [importNotice, setImportNotice] = useState<ImportNotice | null>(null);
   const [tuningOpen, setTuningOpen] = useState(false);
   const [selectedTwsIdx, setSelectedTwsIdx] = useState(0);
   const [spiMaxTwsDraft, setSpiMaxTwsDraft] = useState<string | null>(null);
@@ -49,44 +48,12 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
   const importedActive = isImportedActive(config);
 
   async function importFile(file: File) {
-    if (file.size > IMPORT_MAX_BYTES) {
-      setImportNotice({ kind: "error", text: t("config.polarImport.tooLarge") });
-      return;
-    }
-    try {
-      const parsed = parsePolarFile(await file.text());
-      const name =
-        file.name.replace(/\.[^.]+$/, "").slice(0, 120) || t("config.polarImport.defaultName");
-      // A fresh file is trusted as-is: no spi overlay, upwind angle re-derived
-      // from the grid (the previous file's manual pin no longer applies).
-      onChange({
-        ...config,
-        imported: {
-          name,
-          tws_kn: parsed.tws_kn,
-          twa_deg: parsed.twa_deg,
-          boat_speed_kn: parsed.boat_speed_kn,
-        },
-        source: "imported",
-        spi: "off",
-        minUpwindDeg: undefined,
-      });
+    const { next, notice } = await importPolarFile(config, file);
+    if (next) {
+      onChange(next);
       setSelectedTwsIdx(0);
-      const done = t("config.polarImport.ok", {
-        name,
-        tws: parsed.tws_kn.length,
-        twa: parsed.twa_deg.length,
-      });
-      // The parser's warnings are whole sentences of their own, already
-      // translated: they follow the confirmation, they are not woven into it.
-      const suffix = parsed.warnings.length > 0 ? ` ${parsed.warnings.join(" ")}` : "";
-      setImportNotice({ kind: "ok", text: `${done}${suffix}` });
-    } catch (e) {
-      setImportNotice({
-        kind: "error",
-        text: e instanceof PolarImportError ? e.message : t("config.polarImport.unreadable"),
-      });
     }
+    setImportNotice(notice);
   }
 
   function onFilePicked(e: React.ChangeEvent<HTMLInputElement>) {
@@ -103,7 +70,7 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
   }
 
   function removeImported() {
-    onChange({ ...config, imported: null, source: "archetype" });
+    onChange(withoutImported(config));
     setImportNotice(null);
     setSelectedTwsIdx(0);
   }
@@ -158,11 +125,7 @@ export function BoatAdvanced({ config, onChange }: BoatAdvancedProps) {
   }
 
   function setOverride(twsIdx: number, twaIdx: number, speedKn: number) {
-    const clamped = Math.max(0, Math.min(30, Math.round(speedKn * 10) / 10));
-    onChange({
-      ...config,
-      overrides: { ...config.overrides, [`${twsIdx},${twaIdx}`]: clamped },
-    });
+    onChange(withOverride(config, twsIdx, twaIdx, speedKn));
   }
 
   function clearOverrides() {

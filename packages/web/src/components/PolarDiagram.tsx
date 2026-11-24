@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useMemo, useRef, useState } from "react";
-import { useT } from "../i18n";
+import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { TUNE_STEP_KN } from "../config/boatEdits";
+import { getLocale, useT } from "../i18n";
 import { visiblePolarPoints } from "./polarPoints";
 
 // Pure polar diagram — wind from the top, right half-circle. Extracted from
@@ -23,6 +24,10 @@ const CY = 240;
 const R_MAX = 200;
 const HANDLE_R = 6;
 const HANDLE_R_HOVER = 8;
+// Half the 44 px a finger needs, in screen pixels: the reach of a point of
+// the editable curve. Converted to the drawing's units at the size it is
+// shown, and shared out between neighbours by `nearestHandle`.
+const HIT_RADIUS_PX = 22;
 
 function pickRingStep(maxSpeed: number): number {
   if (maxSpeed <= 6) return 1;
@@ -62,6 +67,9 @@ export interface PolarDiagramProps {
   // Cell keys `${twsIdx},${twaIdx}` currently overridden (accent handles).
   overriddenKeys?: ReadonlySet<string>;
   onCellChange?: (twsIdx: number, twaIdx: number, speedKn: number) => void;
+  // The selected curve before any hand tuning, drawn dashed under it so a
+  // moved point shows how far it went. Same length as a matrix row.
+  baseline?: number[];
 }
 
 export function PolarDiagram({
@@ -75,6 +83,7 @@ export function PolarDiagram({
   editable = false,
   overriddenKeys,
   onCellChange,
+  baseline,
 }: PolarDiagramProps) {
   const { t } = useT();
   const [hoverHandle, setHoverHandle] = useState<number | null>(null);
@@ -88,8 +97,9 @@ export function PolarDiagram({
   const maxSpeed = useMemo(() => {
     let m = 0;
     for (const row of matrix) for (const v of row) if (v > m) m = v;
+    for (const v of baseline ?? []) if (v > m) m = v;
     return Math.max(1, m);
-  }, [matrix]);
+  }, [matrix, baseline]);
   const pxPerKn = R_MAX / maxSpeed;
   const ringStep = pickRingStep(maxSpeed);
   const ringSpeeds = useMemo(() => {
@@ -99,6 +109,23 @@ export function PolarDiagram({
   }, [maxSpeed, ringStep]);
 
   const svgRef = useRef<SVGSVGElement>(null);
+
+  // Drawing units per screen pixel, so the reach of a point stays a finger
+  // wide whatever size the diagram is shown at. Only the editable diagram
+  // needs it.
+  const [unitsPerPx, setUnitsPerPx] = useState(1);
+  useLayoutEffect(() => {
+    const svg = svgRef.current;
+    if (!editable || !svg || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const width = svg.getBoundingClientRect().width;
+      if (width > 0) setUnitsPerPx(VIEW_W / width);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, [editable]);
 
   // Drag state — held in a ref so the move/up listeners don't capture stale
   // closures. The visual highlight uses `hoverHandle` state for re-renders.
@@ -116,13 +143,49 @@ export function PolarDiagram({
     return { x: local.x, y: local.y };
   }
 
+  // The point of the selected curve nearest to where the pointer went down.
+  // Neighbouring points' reaches overlap where the curve is tight; the
+  // nearest one wins rather than whichever was drawn last.
+  function nearestHandle(clientX: number, clientY: number, fallback: number): number {
+    const local = clientToSvg(clientX, clientY);
+    if (!local) return fallback;
+    let best = fallback;
+    let bestD = Infinity;
+    matrix[activeTwsIdx].forEach((speed, twaIdx) => {
+      if (twaDeg[twaIdx] < minUpwindDeg) return;
+      const pt = polarToCartesian(twaDeg[twaIdx], speed * pxPerKn);
+      const d = Math.hypot(pt.x - local.x, pt.y - local.y);
+      if (d < bestD) {
+        bestD = d;
+        best = twaIdx;
+      }
+    });
+    return best;
+  }
+
   function onHandlePointerDown(e: React.PointerEvent, twaIdx: number) {
     if (!editable || !onCellChange) return;
     e.preventDefault();
     e.stopPropagation();
-    dragRef.current = { twsIdx: activeTwsIdx, twaIdx, twaDeg: twaDeg[twaIdx] };
-    setDraggingTwaIdx(twaIdx);
+    const picked = nearestHandle(e.clientX, e.clientY, twaIdx);
+    dragRef.current = { twsIdx: activeTwsIdx, twaIdx: picked, twaDeg: twaDeg[picked] };
+    setDraggingTwaIdx(picked);
     (e.target as Element).setPointerCapture(e.pointerId);
+  }
+
+  // Arrow keys on a focused point: up or right faster, down or left slower,
+  // a tenth of a knot at a time.
+  function onHandleKeyDown(e: KeyboardEvent, twaIdx: number) {
+    if (!editable || !onCellChange) return;
+    const step =
+      e.key === "ArrowUp" || e.key === "ArrowRight"
+        ? TUNE_STEP_KN
+        : e.key === "ArrowDown" || e.key === "ArrowLeft"
+          ? -TUNE_STEP_KN
+          : 0;
+    if (!step) return;
+    e.preventDefault();
+    onCellChange(activeTwsIdx, twaIdx, matrix[activeTwsIdx][twaIdx] + step);
   }
 
   function onHandlePointerMove(e: React.PointerEvent) {
@@ -168,10 +231,16 @@ export function PolarDiagram({
         ref={svgRef}
         viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
         className="polar-svg"
-        role="img"
+        // Editable, its points are buttons, which an image would hide from
+        // a screen reader: a named group instead.
+        role={editable ? "group" : "img"}
         aria-label={t("config.polar.diagram", { title })}
         onPointerMove={onHandlePointerMove}
         onPointerUp={onHandlePointerUp}
+        // A drag the browser takes back (a system gesture, a call) ends too,
+        // or its live label would stay on screen.
+        onPointerCancel={onHandlePointerUp}
+        onLostPointerCapture={onHandlePointerUp}
       >
         {/* Title */}
         <text x={CX} y={26} textAnchor="middle" className="polar-title">
@@ -250,6 +319,15 @@ export function PolarDiagram({
           );
         })}
 
+        {/* The selected curve before hand tuning, dashed, under it. */}
+        {baseline && (
+          <path
+            d={curvePath(twaDeg, baseline, minUpwindDeg, pxPerKn)}
+            fill="none"
+            className="polar-curve-baseline"
+          />
+        )}
+
         {/* Selected curve: thick, accent */}
         <path
           d={curvePath(twaDeg, matrix[activeTwsIdx], minUpwindDeg, pxPerKn)}
@@ -257,33 +335,63 @@ export function PolarDiagram({
           className="polar-curve-selected"
         />
 
-        {/* Handles for the selected curve — draggable when editable, plain
-            markers otherwise. Grid points inside the no-go zone are skipped
-            (they are not part of the drawn curve). */}
+        {/* Handles for the selected curve: plain markers when read-only.
+            Editable, each is a button named by its angle, its speed and
+            whether it was tuned, moved by a drag or by the arrow keys, with
+            a finger-wide reach around it. Grid points inside the no-go zone
+            are skipped (they are not part of the drawn curve). */}
         {matrix[activeTwsIdx].map((speed, twaIdx) => {
           if (twaDeg[twaIdx] < minUpwindDeg) return null;
           const pt = polarToCartesian(twaDeg[twaIdx], speed * pxPerKn);
           const isHover = hoverHandle === twaIdx;
           const isDragging = draggingTwaIdx === twaIdx;
           const isOverridden = overriddenKeys?.has(`${activeTwsIdx},${twaIdx}`) ?? false;
-          return (
+          const dot = (
             <circle
-              key={twaIdx}
               cx={pt.x}
               cy={pt.y}
               r={isHover || isDragging ? HANDLE_R_HOVER : HANDLE_R}
               className={`polar-handle ${isOverridden ? "is-overridden" : ""} ${editable ? "" : "is-readonly"}`}
+            />
+          );
+          if (!editable) {
+            return (
+              <g key={twaIdx}>
+                {dot}
+                <title>
+                  {t("config.polar.handle", { twa: twaDeg[twaIdx], speed: speed.toFixed(1) })}
+                </title>
+              </g>
+            );
+          }
+          const speedText = new Intl.NumberFormat(getLocale(), {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          }).format(speed);
+          return (
+            <g
+              key={twaIdx}
+              role="button"
+              tabIndex={0}
+              aria-label={t(isOverridden ? "settings.boat.pointTuned" : "settings.boat.point", {
+                twa: twaDeg[twaIdx],
+                speed: speedText,
+              })}
+              className="polar-point"
               onPointerDown={(e) => onHandlePointerDown(e, twaIdx)}
               onPointerEnter={() => setHoverHandle(twaIdx)}
               onPointerLeave={() => setHoverHandle(null)}
+              onKeyDown={(e) => onHandleKeyDown(e, twaIdx)}
             >
-              <title>
-                {t(editable ? "config.polar.handleEditable" : "config.polar.handle", {
-                  twa: twaDeg[twaIdx],
-                  speed: speed.toFixed(1),
-                })}
-              </title>
-            </circle>
+              <circle
+                cx={pt.x}
+                cy={pt.y}
+                r={Math.max(HANDLE_R_HOVER, HIT_RADIUS_PX * unitsPerPx)}
+                className="polar-handle-hit"
+              />
+              <circle cx={pt.x} cy={pt.y} r={HANDLE_R_HOVER + 4} className="polar-handle-ring" />
+              {dot}
+            </g>
           );
         })}
 
@@ -387,6 +495,12 @@ export function PolarDiagram({
           stroke-width: 1.1;
           opacity: 0.18;
         }
+        .polar-curve-baseline {
+          stroke: currentColor;
+          stroke-width: 1.4;
+          stroke-dasharray: 4 4;
+          opacity: 0.55;
+        }
         .polar-curve-selected {
           stroke: var(--ow-accent);
           stroke-width: 2;
@@ -404,6 +518,24 @@ export function PolarDiagram({
         }
         .polar-handle.is-overridden {
           fill: var(--ow-warn);
+        }
+        .polar-point {
+          outline: none;
+          cursor: ns-resize;
+        }
+        .polar-handle-hit {
+          fill: transparent;
+          touch-action: none;
+        }
+        .polar-handle-ring {
+          fill: none;
+          stroke: var(--ow-fg-0);
+          stroke-width: 2;
+          opacity: 0;
+          pointer-events: none;
+        }
+        .polar-point:focus-visible .polar-handle-ring {
+          opacity: 1;
         }
         .polar-handle.is-readonly {
           cursor: default;

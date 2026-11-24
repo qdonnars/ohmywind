@@ -23,6 +23,22 @@ export const settings: Record<keyof typeof frSettings, string> = {
   "settings.boat.summary": "{boat} · {percent}%",
   "settings.boat.summaryMotor": "engine below {speed} kn",
   "settings.boat.summaryImported": "imported polar",
+
+  // Boat: the Boat, My boat and Advanced views.
+  "settings.boat.intro": "These settings feed every passage plan you make. The essentials are enough to get started.",
+  "settings.boat.types.note":
+    "Each type carries its own polar and upwind angle. Then adjust the coefficient.",
+  "settings.boat.advanced.upwind": "upwind {deg}°",
+  "settings.boat.upwind.manual": "Set by hand",
+  "settings.boat.upwind.tighter": "Tighten the upwind angle",
+  "settings.boat.upwind.wider": "Widen the upwind angle",
+  "settings.boat.spi.lower": "Lower the dousing threshold",
+  "settings.boat.spi.higher": "Raise the dousing threshold",
+  "settings.boat.tuning.legend":
+    "Dashed: the curve before your tuning. Yellow points: tuned points. With the keyboard, the arrow keys change a point's speed by {step}\u00a0kn.",
+  "settings.boat.point": "Angle {twa}°, {speed}\u00a0kn",
+  "settings.boat.pointTuned": "Angle {twa}°, {speed}\u00a0kn, tuned",
+
   "settings.forecast.note":
     "The models fill the table on the map; the boat is used for all your passage plans.",
   "settings.storageNote":
