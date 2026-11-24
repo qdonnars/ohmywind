@@ -4,6 +4,32 @@ Every OhMyWind release, newest first. The ohmywind.fr site and the MCP server sh
 
 This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the reference. Each release is also published on the repository's [Releases](https://github.com/qdonnars/ohmywind/releases) page, and the app shows this log on its "What's new" page.
 
+## 1.15.0 · 2026-11-24 · Offline at sea, routes that go around the land, and real mobile apps
+
+### New
+
+- Without a network, the app reopens on what you were looking at: the forecasts of the last place you opened and of your saved spots stay on the device and show with their date, and an installed app comes back to the plan in progress (#537, #561).
+- Every page opens offline once the app is installed, methodology and settings included (#561).
+- A route drawn across an island or a headland is adjusted to go around the land, in the planner and in the assistant alike; a "Route adjusted" note, folded behind an "i", says what changed (#546, #547, #548).
+- In the assistant, a plan gives the tide at departure and at arrival, and can be computed with your boat's polar (#542).
+- The link to a plan given by the assistant carries the engine and the efficiency of the computation, and the app applies them to that plan without touching your settings (#534, #541, #543).
+- The mobile apps gain what a site cannot do: a vibration when a route point is dropped, a screen that stays on while a plan is shown (a setting turns it off), shortcuts on the icon, links to the site that open the app, and a copy of your spots and settings kept by the phone (#557, #563).
+- Opened on a phone, the site offers to install the app (#560).
+- The methodology, privacy and terms pages follow the app's light or dark theme (#557).
+
+### Fixes
+
+- On a phone, the plan drawer gives way instead of pushing the page off the screen (#563).
+- In the explorer, the tabs fade out against the locate button instead of being cut off (#558).
+- When the network comes back, the explorer no longer stays empty for half an hour (#561).
+- On a wide touch screen, the map hint speaks of a long press and no longer of a right click (#563).
+
+### Behind the scenes
+
+- The privacy policy says exactly what leaves your device and what the server logs, and the server's relay no longer keeps its automatic logs (#562, #564).
+- The mobile apps are tested on an emulator and a simulator before each release: first launch, relaunch, server down, plan page (#557, #563).
+- A server deployment waits for the new version to answer before calling itself done (#553).
+
 ## 1.14.0 · 2026-11-21 · A page to plug OhMyWind into your assistant
 
 ### New
