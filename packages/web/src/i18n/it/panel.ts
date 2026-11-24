@@ -154,7 +154,7 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.compare.stale": "Itinerario modificato. Ricalcoli per confrontare le finestre del nuovo percorso.",
   "panel.compare.empty": "Nessuna finestra da confrontare per ora. Regoli la finestra, poi applichi.",
   "panel.compare.frozen.departure": "Partenza fissa",
-  "panel.compare.frozen.edit": "Modificare",
+  "panel.compare.frozen.edit": "Modifica",
   "panel.compare.tracksEmpty": "Nessuna variante per ora. Ne tracci una per confrontarla con la rotta del piano.",
   "panel.compare.tracksDraw": "Tracciare una variante",
   "panel.window.title": "Finestra di partenza",

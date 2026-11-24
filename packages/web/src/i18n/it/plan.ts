@@ -32,7 +32,7 @@ export const plan: Record<keyof typeof frPlan, string> = {
   "plan.states.waking.body":
     "Era in pausa: il calcolo riparte da solo tra {seconds} s (tentativo {attempt} di {max}).",
   "plan.states.waking.retryNow": "Riprovare ora",
-  "plan.recap.edit": "Modificare",
+  "plan.recap.edit": "Modifica",
 
   // ── Mode picker and time anchor ───────────────────────────────────────────
   "plan.timeAnchor.tablist": "Ancoraggio orario",
