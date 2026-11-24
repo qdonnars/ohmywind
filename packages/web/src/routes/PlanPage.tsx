@@ -20,6 +20,7 @@ import { loadPlanDraft } from "../plan/draft";
 import { loadLastSimulation } from "../plan/lastSimulation";
 import { resolveInitialSession, type InitialSession } from "../plan/session/initial";
 import { usePlanSession, currentConfigFingerprint } from "../plan/session/usePlanSession";
+import { framesOnResults } from "../plan/framing";
 import { PlanProvider } from "../plan/session/PlanProvider";
 import { computeLegSegmentRanges, focusedSegmentIndex } from "../plan/aggregateLegs";
 import { loadPolarConfig } from "../config/polarConfig";
@@ -646,8 +647,20 @@ export function PlanPage() {
     wasPendingRef.current = tracksPending;
   }, [tracksPending]);
 
+  // One exception to « only at the user's request »: a route these results
+  // retraced at sea (see `framesOnResults`), whose far side otherwise sat
+  // outside the frame until a reload. The repair lands in the same update as
+  // its results: this effect still sees the repair the page last knew, and
+  // the one below, which runs after it, records the new one.
+  const knownRepairRef = useRef(state.routeRepair);
+
   useEffect(() => {
-    if (resultsFitKey == null || !frameOnResultsRef.current) return;
+    const frames = framesOnResults(
+      frameOnResultsRef.current,
+      state.routeRepair,
+      knownRepairRef.current,
+    );
+    if (resultsFitKey == null || !frames) return;
     frameOnResultsRef.current = false;
     // One frame later, like the drawer's own fit: the two run in the order
     // they were scheduled, the drawer's first, so the map is measured at the
@@ -661,6 +674,13 @@ export function PlanPage() {
     // move the camera.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resultsFitKey]);
+
+  // After the framing effect, on purpose (see `knownRepairRef`). A repair
+  // that changes without new results (an option picked on the route axis,
+  // « Revenir à mon tracé ») is recorded here and frames nothing.
+  useEffect(() => {
+    knownRepairRef.current = state.routeRepair;
+  }, [state.routeRepair]);
 
   if (initial.urlError !== null) {
     return (

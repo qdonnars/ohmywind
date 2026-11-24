@@ -2,23 +2,35 @@ name: iOS TestFlight
 
 # Archives the iOS shell (packages/mobile) and uploads it to App Store
 # Connect, where it lands in TestFlight. The shell loads the live site, so a
-# new build is only needed when its native part changes.
+# new build is only needed when its native part changes, and the owner
+# decides when: a build only goes out when the pull request merged into the
+# branch carries the `app-release` label (same rule as android-play.yml).
+#
+#   - PR merged into dev with `app-release`: OhMyWind Dev, environment
+#     `ios-testflight`;
+#   - PR merged into main with `app-release` (a promotion): OhMyWind,
+#     environment `ios-testflight-prod`, branch main only, the owner approves
+#     every run;
+#   - by hand (workflow_dispatch), with a dry run that archives but uploads
+#     nothing.
 #
 # Signing is manual and stays on the runner: the Apple Distribution
 # certificate and the App Store provisioning profile come from the secrets of
-# the `ios-testflight` environment, go into a temporary keychain, and are
-# deleted at the end whatever happens. The App Store Connect API key only
-# serves the upload.
+# the environment, go into a temporary keychain, and are deleted at the end
+# whatever happens. The App Store Connect API key reads the last build number
+# and serves the upload.
 #
-# One environment per variant, chosen from the variant: `ios-testflight` for
-# dev (branches dev and, for now, the shell's working branch), and
-# `ios-testflight-prod` for prod (branch main only, the owner approves every
-# run). Pushes always upload the dev variant; prod is only ever asked for by
-# hand, through workflow_dispatch.
+# Build number = highest build already on App Store Connect with its last
+# number raised by one (scripts/asc-next-build.mjs): 6.1, 6.2, 6.3, whatever
+# the number of workflow runs.
 #
-# Never `pull_request`: this job holds signing material and must only run
-# code that already sits on an allowed branch.
+# The workflow runs on the push, once the code sits on the branch, and only
+# reads the label of the pull request that produced the commit. Never
+# `pull_request`: this job holds signing material and must only run code that
+# already sits on an allowed branch.
 on:
+  push:
+    branches: [dev, main]
   workflow_dispatch:
     inputs:
       variant:
@@ -26,40 +38,67 @@ on:
         type: choice
         options: [dev, prod]
         default: dev
-  push:
-    branches:
-      - dev
-    # Only what ends up in the app: a change to the tests, the docs or this
-    # workflow uploads nothing (workflow_dispatch is there for that).
-    paths:
-      - "packages/mobile/ios/**"
-      - "packages/mobile/www/**"
-      - "packages/mobile/capacitor.config.ts"
-      - "packages/mobile/package.json"
-      - "packages/mobile/package-lock.json"
-      - "packages/mobile/scripts/ios-variant.mjs"
-      - "packages/web/public/icon-maskable-512.png"
+      dry_run:
+        description: "Archive only, upload nothing"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
-# Two uploads of the same variant never race; none is cancelled halfway.
-concurrency:
-  group: ios-testflight-${{ inputs.variant || 'dev' }}
-  cancel-in-progress: false
-
 jobs:
+  gate:
+    name: Release asked?
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      go: ${{ steps.decide.outputs.go }}
+      variant: ${{ steps.decide.outputs.variant }}
+    steps:
+      - id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VARIANT: ${{ inputs.variant }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            echo "variant=$INPUT_VARIANT" >> "$GITHUB_OUTPUT"
+            echo "go=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          case "$GITHUB_REF_NAME" in
+            dev) variant=dev ;;
+            main) variant=prod ;;
+            *) echo "unexpected branch $GITHUB_REF_NAME" >&2; exit 1 ;;
+          esac
+          echo "variant=$variant" >> "$GITHUB_OUTPUT"
+          prs=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+            --jq '[.[] | select(.merged_at != null and (.labels | map(.name) | index("app-release")))] | map("#\(.number)") | join(" ")')
+          if [ -n "$prs" ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+            echo "Build of the $variant app asked by $prs (label app-release)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "No merged pull request with the app-release label: no new build." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   upload:
-    name: Archive and upload (${{ inputs.variant || 'dev' }})
+    name: Archive and upload (${{ needs.gate.outputs.variant }})
+    needs: gate
+    if: needs.gate.outputs.go == 'true'
     runs-on: macos-26
-    environment: ${{ (inputs.variant || 'dev') == 'prod' && 'ios-testflight-prod' || 'ios-testflight' }}
+    environment: ${{ needs.gate.outputs.variant == 'prod' && 'ios-testflight-prod' || 'ios-testflight' }}
     timeout-minutes: 45
+    # Two uploads of the same variant never race; none is cancelled halfway.
+    concurrency:
+      group: ios-testflight-${{ needs.gate.outputs.variant }}
+      cancel-in-progress: false
     env:
-      VARIANT: ${{ inputs.variant || 'dev' }}
+      VARIANT: ${{ needs.gate.outputs.variant }}
+      DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
       TEAM_ID: Z2M67M742P
-      # Unique for every run and every re-run, and increasing: TestFlight
-      # refuses a build number it has already seen for the same version.
-      BUILD_NUMBER: ${{ github.run_number }}.${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -105,7 +144,7 @@ jobs:
         env:
           P12_B64: ${{ secrets.IOS_DIST_P12_B64 }}
           P12_PASSWORD: ${{ secrets.IOS_DIST_P12_PASSWORD }}
-          PROFILE_B64: ${{ (inputs.variant || 'dev') == 'prod' && secrets.IOS_PROFILE_PROD_B64 || secrets.IOS_PROFILE_DEV_B64 }}
+          PROFILE_B64: ${{ needs.gate.outputs.variant == 'prod' && secrets.IOS_PROFILE_PROD_B64 || secrets.IOS_PROFILE_DEV_B64 }}
         run: |
           keychain="$RUNNER_TEMP/signing.keychain-db"
           keychain_password=$(openssl rand -hex 24)
@@ -144,6 +183,23 @@ jobs:
           done
           rm -f "$RUNNER_TEMP/profile.mobileprovision" "$RUNNER_TEMP/profile.plist"
 
+      # TestFlight refuses a build number it has already seen for the same
+      # version: highest build of the app with its last number raised (6.1
+      # then 6.2), see scripts/asc-next-build.mjs.
+      - name: Next build number
+        working-directory: packages/mobile
+        env:
+          KEY_P8_B64: ${{ secrets.APP_STORE_CONNECT_KEY_P8_B64 }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          umask 077
+          export ASC_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          printf '%s' "$KEY_P8_B64" | base64 --decode > "$ASC_KEY_PATH"
+          build=$(node scripts/asc-next-build.mjs "$BUNDLE_ID")
+          echo "BUILD_NUMBER=$build" >> "$GITHUB_ENV"
+          echo "$BUNDLE_ID build $build"
+
       # The App target's Release configuration signs manually with "Apple
       # Distribution" and $(OHMYWIND_PROFILE_NAME) (see the project and
       # variant.xcconfig): the profile is never passed on the command line,
@@ -162,7 +218,12 @@ jobs:
             echo "$key = $(/usr/libexec/PlistBuddy -c "Print :$key" "$plist")"
           done
 
+      - name: Dry run summary
+        if: env.DRY_RUN == 'true'
+        run: echo "Dry run, $BUNDLE_ID build $BUILD_NUMBER archived, nothing uploaded." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload to App Store Connect
+        if: env.DRY_RUN != 'true'
         env:
           KEY_P8_B64: ${{ secrets.APP_STORE_CONNECT_KEY_P8_B64 }}
           KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
