@@ -9,8 +9,8 @@
 # 1. The variant settings (variant.xcconfig, written by `cap sync ios`) must
 #    describe the same app as the synced capacitor.config.json, so a build can
 #    never carry the prod bundle id with the dev site, or the reverse.
-# 2. The app icon is the PWA's own, read from packages/web/public at every
-#    build so the two never drift apart.
+# 2. The app icon is a 1024 px PNG without alpha, as App Store Connect
+#    demands.
 
 set -eu
 
@@ -29,20 +29,21 @@ if [ "${OHMYWIND_APP_ID:-}" != "$synced_app_id" ] || [ "${OHMYWIND_APP_BOUND_DOM
   exit 1
 fi
 
-# The maskable icon is full-bleed and has no alpha channel, which is what iOS
-# wants: the system rounds the corners itself. The web package only has it at
-# 512 px; the App Store asks for 1024.
-icon_src="${SRCROOT}/../../../web/public/icon-maskable-512.png"
-icon_dest="${SRCROOT}/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png"
-if [ ! -f "$icon_src" ]; then
-  echo "error: ${icon_src} is missing."
+# The app icon is versioned in the asset catalog: favicon.svg (the logo's
+# vector source in packages/web/public) rendered full-bleed at 1024 px, see
+# "Icône" in packages/mobile/README.md. iOS rounds the corners itself, and
+# App Store Connect rejects an icon with an alpha channel or of another size.
+icon="${SRCROOT}/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png"
+if [ ! -f "$icon" ]; then
+  echo "error: ${icon} is missing."
   exit 1
 fi
-if [ ! -f "$icon_dest" ] || [ "$icon_src" -nt "$icon_dest" ]; then
-  sips -z 1024 1024 "$icon_src" --out "$icon_dest" >/dev/null
+dims=$(sips -g pixelWidth -g pixelHeight "$icon" | awk '/pixel(Width|Height):/ { printf "%s ", $2 }')
+if [ "$dims" != "1024 1024 " ]; then
+  echo "error: ${icon} is ${dims}px, not 1024 x 1024."
+  exit 1
 fi
-# App Store Connect rejects an app icon with an alpha channel.
-if sips -g hasAlpha "$icon_dest" | grep -q "hasAlpha: yes"; then
-  echo "error: ${icon_dest} has an alpha channel; the App Store refuses it."
+if sips -g hasAlpha "$icon" | grep -q "hasAlpha: yes"; then
+  echo "error: ${icon} has an alpha channel; the App Store refuses it."
   exit 1
 fi

@@ -182,13 +182,12 @@
 			);
 			inputPaths = (
 				"$(SRCROOT)/App/capacitor.config.json",
-				"$(SRCROOT)/../../../web/public/icon-maskable-512.png",
+				"$(SRCROOT)/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png",
 			);
 			name = "Check variant, app icon";
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;

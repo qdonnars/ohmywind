@@ -150,7 +150,7 @@ Conséquences: la WebView ne peut naviguer que vers ces domaines (Capacitor ouvr
 ### Reste du projet iOS
 
 - `Info.plist`: `NSLocationWhenInUseUsageDescription` (anglais par défaut, traductions fr, de, it, es dans `<langue>.lproj/InfoPlist.strings`), `ITSAppUsesNonExemptEncryption = false`, `CFBundleLocalizations`.
-- Icône: `packages/web/public/icon-maskable-512.png` (pleine, sans transparence, iOS arrondit lui-même), agrandie à 1024 px par `sips` à chaque build dans `AppIcon.appiconset/AppIcon-1024.png` (non versionné). La phase de build refuse une icône avec canal alpha.
+- Icône: `AppIcon.appiconset/AppIcon-1024.png`, versionnée, rendue depuis la source vectorielle du logo, `packages/web/public/favicon.svg`, en pleine page (`rx="0"` sur le fond, sans coins arrondis: iOS arrondit lui-même), à 1024 × 1024 px, en RGB sans canal alpha. Même dessin que `icon-maskable-512.png` (écart limité à l'anticrénelage). Rendu fait par Chromium (Playwright): `svg` collé dans une page de 1024 px, capture de l'élément. La phase de build refuse une icône absente, d'une autre taille ou avec canal alpha. À refaire si le logo change.
 - Écran de lancement uni `#030712`, sans image.
 - Côté web, `packages/web/src/native/shellImport.ts` ne lance la reprise des données de la TWA que sur Android: sur iOS, ni `ShellInfo` interrogé, ni navigateur ouvert. La barre d'état suit le thème du site par le plugin `SystemBars`, disponible sur iOS dans le cœur de Capacitor 8.
 
@@ -236,7 +236,7 @@ Le projet `android/` est versionné, comme le veut la convention Capacitor: il p
 | `ios/App/CapApp-SPM/Package.swift` | versionné, réécrit par `cap sync` (liste des plugins) |
 | `ios/App/App/capacitor.config.json`, `ios/App/App/config.xml`, `ios/App/App/public/`, `ios/capacitor-cordova-ios-plugins/` | générés par `cap sync`, ignorés |
 | `ios/App/variant.xcconfig` | généré par le hook de sync, ignoré |
-| `ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` | généré au build depuis `packages/web/public/`, ignoré |
+| `ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` | versionné, rendu depuis `packages/web/public/favicon.svg` |
 | `ios/build/`, `DerivedData`, `xcuserdata` | locaux, ignorés |
 
 Le numéro de version de l'app (`versionCode` 9, `versionName` 2.0.0) est dans `android/app/build.gradle`. Il est indépendant de la version du web et doit rester au-dessus du `versionCode` 8 de la TWA pour être une mise à jour de la même fiche Play.
@@ -306,5 +306,4 @@ Comportement actuel:
 - **`server.url` en production**: la doc Capacitor le présente comme un réglage de développement. C'est un choix assumé (#535, #536): sur Android, le seul effet est l'absence de contenu embarqué. Sur iOS, c'est le risque de refus 4.2 décrit dans #536.
 - **iOS, pas encore fait**: raccourcis d'icône (Quick Actions), retour haptique, demande de note, liens universels (AASA, #502), `PrivacyInfo.xcprivacy` propre à l'app, captures et fiche App Store, iPad.
 - **iOS, non vérifié sur un vrai iPhone**: geste de retour par balayage (sur la carte, un glissé depuis le bord gauche peut être pris pour un retour), hors-ligne en mode avion, géolocalisation, taille du texte.
-- **Icône iOS agrandie**: la source web ne fait que 512 px; une source 1024 px dans `packages/web/public/` donnerait une icône nette sur l'App Store.
 - **Lockfile racine**: il ne porte que les binaires Linux de la chaîne web (rolldown, lightningcss), `vite build` échoue sur macOS. Le workflow de test contourne en construisant le web sous Linux.
