@@ -33,9 +33,9 @@ export function ReturnBanner() {
   return (
     <div
       role="status"
-      // Clear of the chart toggle on the right and, on a wide screen, of the
-      // menu on the left: both keep their corners.
-      className="absolute top-3 left-3 right-[68px] lg:left-[76px] z-[500] flex items-center gap-2 pointer-events-none"
+      // Hung under the bar over the map, in its middle slot (MapTopBar
+      // `under`), which keeps clear of the column of controls on the right.
+      className="w-full flex items-center gap-2 pointer-events-none"
     >
       <button
         type="button"

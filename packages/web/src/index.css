@@ -415,6 +415,13 @@ path.ow-spot-marker:focus-visible {
     width: min(480px, calc(100% - 2 * (var(--ow-chrome-side) + var(--ow-chrome-size) + 12px)));
   }
 }
+/* The least height of a map with the bar over it: the bar, the chart toggle
+   under it and the locate button at the bottom, one above the other without
+   touching (16 px from the bottom edge). The planner's drawer gives way
+   below it rather than the map (components/mapControlsLayout.ts). */
+.ow-map-min-height {
+  min-height: calc(var(--ow-chrome-top) + var(--ow-chrome-size) + var(--ow-chrome-gap) + 48px + 8px + 48px + 16px);
+}
 /* A light veil under the status bar of the apps, so the clock and the
    battery stay readable over a busy stretch of map. Its height is the inset
    itself plus a fade: zero in a browser tab, where no status bar lies over

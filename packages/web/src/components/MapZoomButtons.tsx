@@ -10,9 +10,12 @@ interface MapZoomButtonsProps {
   store: MapZoomStore;
   /** Positioning, left to the page like the other map controls. */
   className?: string;
-  /** Below this height of the map frame the group stands down: it would
-      run into the control under it. Wheel, keyboard and pinch still zoom. */
-  minFrameHeight?: number;
+  /** Room the group needs between its bottom and the bottom of the map
+      frame (the control under it and its air). Short of it the group stands
+      down: it would run into that control. Wheel, keyboard and pinch still
+      zoom. Measured from where the group actually sits, which hangs from
+      the bar over the map and so from the safe-area insets. */
+  clearanceBelow?: number;
 }
 
 /**
@@ -21,7 +24,7 @@ interface MapZoomButtonsProps {
  * rendered there. Drawn like the round controls of the map, as one capsule
  * of two halves, and disabled at either bound of the zoom.
  */
-export function MapZoomButtons({ store, className = "", minFrameHeight = 0 }: MapZoomButtonsProps) {
+export function MapZoomButtons({ store, className = "", clearanceBelow = 0 }: MapZoomButtonsProps) {
   const { t } = useT();
   const fine = useMediaQuery("(pointer: fine)");
   const { canZoomIn, canZoomOut } = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
@@ -32,12 +35,15 @@ export function MapZoomButtons({ store, className = "", minFrameHeight = 0 }: Ma
   // height changes with the drawer of the planner, without any resize of
   // the window, hence an observer rather than a media query.
   useEffect(() => {
-    const frame = ref.current?.offsetParent;
-    if (!frame || minFrameHeight <= 0) return;
-    const ro = new ResizeObserver(() => setRoomy(frame.getBoundingClientRect().height >= minFrameHeight));
+    const group = ref.current;
+    const frame = group?.offsetParent;
+    if (!group || !frame || clearanceBelow <= 0) return;
+    const ro = new ResizeObserver(() =>
+      setRoomy(frame.getBoundingClientRect().height >= group.offsetTop + group.offsetHeight + clearanceBelow),
+    );
     ro.observe(frame);
     return () => ro.disconnect();
-  }, [minFrameHeight, fine]);
+  }, [clearanceBelow, fine]);
 
   if (!fine) return null;
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useEffect, useRef, useImperativeHandle, useState, type Ref } from "react";
+import { useEffect, useRef, useImperativeHandle, useState, type Ref, type RefObject } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useTheme } from "../design/useTheme";
@@ -59,12 +59,14 @@ const ZOOM_SNAP = 0.1;
     right, the column of controls is kept clear as well, plus the radius of
     a disc: a waypoint framed in a corner used to sit under the locate
     button or the chart toggle (QA of 1.15.0, #579). */
-function routePadding(map: L.Map): L.FitBoundsOptions {
+function routePadding(map: L.Map, topCoverPx = 0): L.FitBoundsOptions {
   const size = map.getSize();
   const x = Math.max(28, size.x * 0.08);
   const y = Math.max(28, size.y * 0.08);
   return {
-    paddingTopLeft: L.point(x, y),
+    // At the top, the bar floating over the map (MapTopBar) is kept clear
+    // as well, with room for a marker's disc and its badge under it.
+    paddingTopLeft: L.point(x, Math.max(y, topCoverPx + 28)),
     paddingBottomRight: L.point(Math.max(x, MAP_CONTROLS_GUTTER_PX + 14), Math.max(y, 40)),
   };
 }
@@ -123,8 +125,11 @@ interface PlanMapProps {
   lockedEnds?: boolean;
   /** Where the zoom buttons go, as positioning classes; no buttons without
       it. They are only drawn for a mouse or a trackpad, and only while the
-      map is at least `minFrameHeight` tall. */
-  zoomButtons?: { className: string; minFrameHeight?: number };
+      map leaves `clearanceBelow` pixels under them. */
+  zoomButtons?: { className: string; clearanceBelow?: number };
+  /** What floats over the top edge of the map (the bar of `MapTopBar`), in
+      the same positioned box: framing a route keeps it clear. */
+  topInsetRef?: RefObject<HTMLElement | null>;
   /** Imperative handle, for the page to re-frame the camera on the route.
       A plain prop since React 19: `forwardRef` is no longer needed to
       receive one. */
@@ -155,7 +160,7 @@ function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon 
 }
 
 export function PlanMap(
-  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, focusedSegmentIdx = null, initialCenter, userPosition, onViewChange, initialZoom, showSeamarks = false, depths, overlays, hideBaseRoute = false, lockedEnds = false, zoomButtons, ref }: PlanMapProps,
+  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, focusedSegmentIdx = null, initialCenter, userPosition, onViewChange, initialZoom, showSeamarks = false, depths, overlays, hideBaseRoute = false, lockedEnds = false, zoomButtons, topInsetRef, ref }: PlanMapProps,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -185,6 +190,11 @@ export function PlanMap(
   // The delete button inside each marker carries a translated label, and
   // Leaflet keeps the rendered markup: a language switch has to redraw them.
   const lang = useLang();
+  // Bottom edge of the bar over the map, read when a frame is taken.
+  const topCover = () => {
+    const el = topInsetRef?.current;
+    return el ? el.offsetTop + el.offsetHeight : 0;
+  };
 
   useEffect(() => { onWptAddRef.current = onWptAdd; }, [onWptAdd]);
   useEffect(() => { onWptDeleteRef.current = onWptDelete; }, [onWptDelete]);
@@ -206,7 +216,7 @@ export function PlanMap(
       if (points.length >= 2) {
         map.fitBounds(
           L.latLngBounds(points.map(([lat, lon]) => L.latLng(lat, lon))),
-          routePadding(map),
+          routePadding(map, topCover()),
         );
       } else if (waypoints.length === 1) {
         map.setView([waypoints[0][0], waypoints[0][1]], 10);
@@ -309,14 +319,14 @@ export function PlanMap(
       const flyTimer = setTimeout(() => {
         map.invalidateSize();
         if (routeBounds) {
-          map.flyToBounds(routeBounds, { ...routePadding(map), duration: 1.2 });
+          map.flyToBounds(routeBounds, { ...routePadding(map, topCover()), duration: 1.2 });
         } else {
           map.flyTo([waypoints[0][0], waypoints[0][1]], 10, { duration: 1.2 });
         }
       }, 80);
       flyTimerRef.current = flyTimer;
     } else if (routeBounds) {
-      map.fitBounds(routeBounds, routePadding(map));
+      map.fitBounds(routeBounds, routePadding(map, topCover()));
     } else if (waypoints.length === 1) {
       map.setView([waypoints[0][0], waypoints[0][1]], 10);
     } else if (initialCenter) {
@@ -959,7 +969,7 @@ export function PlanMap(
         <MapZoomButtons
           store={zoomStore}
           className={zoomButtons.className}
-          minFrameHeight={zoomButtons.minFrameHeight}
+          clearanceBelow={zoomButtons.clearanceBelow}
         />
       )}
     </>

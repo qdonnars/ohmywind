@@ -8,8 +8,8 @@ import { WindScaleLegend } from "../plan/WindScaleLegend";
 import { DRAWER_HANDLE_REACH_PX, UNDO_MS } from "../domain/gestures";
 import { PlanSidebar } from "../plan/PlanSidebar";
 import { fetchArchetypes } from "../api/passage";
-import { Header } from "../components/Header";
-import { NavMenu } from "../components/NavMenu";
+import { MapTopBar } from "../components/MapTopBar";
+import { useCustomSpots } from "../hooks/useCustomSpots";
 import type { Archetype } from "../plan/types";
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { StatBand } from "../plan/PlanStates";
@@ -35,7 +35,7 @@ import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
 import { useT } from "../i18n";
 import { useKeepScreenOn } from "../hooks/useKeepScreenOn";
 import { usePointerWording } from "../hooks/usePointerWording";
-import { MAP_MIN_PX, ZOOM_MIN_FRAME_PX } from "../components/mapControlsLayout";
+import { ZOOM_CLEARANCE_BELOW_PX } from "../components/mapControlsLayout";
 import { useKeepAwakePreference } from "../config/useKeepAwakePreference";
 
 // ── ResizableMobileDrawer ────────────────────────────────────────────────────
@@ -246,7 +246,8 @@ export function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, cont
 
   // `min-h-0`, not `shrink-0`: the drawer is the one part of the column that
   // gives way when the column overflows. Its height is a share of the
-  // viewport while the header above it grows with the top safe-area inset;
+  // viewport while the map above it keeps a least height that grows with the
+  // top safe-area inset (the bar floating over it);
   // on an iPhone (62 px of inset) a drawer at 90 vh pushed the column some
   // 35 px past the bottom of the screen. The page clips that, but every
   // scrollIntoView of the panel (an opened leg, the comparison doors) or a
@@ -413,6 +414,11 @@ function ResizableDesktopSidebar({
 export function PlanPage() {
   const { t } = useT();
   const mapRef = useRef<PlanMapHandle>(null);
+  // The bar floating over the top of the map (MapTopBar): framing a route
+  // keeps it clear.
+  const topBarRef = useRef<HTMLDivElement>(null);
+  // The reader's spots, offered by the search before anything is typed.
+  const { customSpots } = useCustomSpots();
 
   const { position: userPosition, status: geolocStatus, attempt: geolocAttempt, locate } = useGeolocation();
   const { view: mapView, onViewChange } = useMapView();
@@ -686,27 +692,16 @@ export function PlanPage() {
       className="h-dvh flex flex-col overflow-hidden"
       style={{ background: "var(--ow-bg-0)", color: "var(--ow-fg-0)" }}
     >
-      {/* On the planner the route being drawn is the strongest statement of
-          where the user is working, so the first waypoint outranks the GPS
-          fix as the search reference. */}
-      <Header
-        onSelectSpot={(spot) => mapRef.current?.recenter(spot.latitude, spot.longitude)}
-        nearLat={waypoints[0]?.[0] ?? userPosition?.lat ?? mapView?.lat ?? null}
-        nearLon={waypoints[0]?.[1] ?? userPosition?.lon ?? mapView?.lon ?? null}
-        current="plan"
-        mapQuery={mapViewQuery(mapView)}
-      />
-
-      {/* Body. On a phone it is only the map, and it keeps the height its
-          column of controls needs: a drawer pulled to the top used to bring
-          it to nothing, and the chart toggle and the locate button then
-          spilled over the header and the drawer; in landscape the two sat
-          on top of each other (QA of 1.15.0, #579). The drawer is the part
-          of the column that gives way (see ResizableMobileDrawer). */}
-      <div
-        className="flex-1 min-h-0 flex flex-col lg:flex-row"
-        style={isDesktop ? undefined : { minHeight: MAP_MIN_PX }}
-      >
+      {/* Body, without a header: the map runs to the top of the screen,
+          under the status bar in the apps, and the menu, the search and the
+          settings float over it (MapTopBar, below). On a phone the body is
+          only the map, and it keeps the height the bar and its column of
+          controls need: a drawer pulled to the top used to bring it to
+          nothing, and the chart toggle and the locate button then spilled
+          over the drawer; in landscape the two sat on top of each other (QA
+          of 1.15.0, #579). The drawer is the part of the column that gives
+          way (see ResizableMobileDrawer). */}
+      <div className={`flex-1 min-h-0 flex flex-col lg:flex-row ${isDesktop ? "" : "ow-map-min-height"}`}>
         {/* Map — full height on mobile, flex-1 on desktop */}
         <div className="flex-1 min-h-0 relative">
           <PlanMap
@@ -740,27 +735,17 @@ export function PlanPage() {
             // Under the chart toggle, in the column of the map's controls
             // (#470). Mouse and trackpad only, and only on a map tall enough
             // to hold them above the locate button.
-            zoomButtons={{ className: "top-[68px] right-3", minFrameHeight: ZOOM_MIN_FRAME_PX }}
+            zoomButtons={{ className: "ow-chrome-right ow-chrome-slot-2", clearanceBelow: ZOOM_CLEARANCE_BELOW_PX }}
+            topInsetRef={topBarRef}
           />
-          {/* Navigation menu — same control, same corner as on the home
-              map; the camera travels with its links so going back to the
-              forecast leaves the map where it is. */}
-          {isDesktop && (
-            <NavMenu
-              variant="map"
-              current="plan"
-              mapQuery={mapViewQuery(mapView)}
-              className="top-3 left-3"
-            />
-          )}
-          {/* Marine-chart toggle — top right, the corner a layer control
-              conventionally lives in, and the only one free on this page:
-              the menu owns the top left and the locate button plus its
-              error bubble own the bottom right. With the zoom buttons
-              between them, they make one column along the right edge,
-              which the hints and the framing of a route keep clear of
-              (see components/mapControlsLayout.ts). */}
-          <SeamarkButton enabled={seamarks} onToggle={toggleSeamarks} className="top-3 right-3" />
+          {/* Marine-chart toggle — at the top of the column of controls
+              along the right edge, under the settings button of the bar.
+              With the zoom buttons under it and the locate button at the
+              bottom, they make one column, which the hints and the framing
+              of a route keep clear of (see components/mapControlsLayout.ts).
+              On every screen here, phone included: on the planner the marks
+              are part of the job. */}
+          <SeamarkButton enabled={seamarks} onToggle={toggleSeamarks} className="ow-chrome-right ow-chrome-slot-1" />
           {/* Scale of the track's tints, once a passage is drawn. Wide
               screens only: on a phone the map is a strip above the drawer,
               and the scale would sit on the route it explains. Bottom left,
@@ -768,9 +753,6 @@ export function PlanPage() {
           {isDesktop && planMode === "single" && !drawing && passage && !isStale && (
             <WindScaleLegend className="bottom-4 left-3" />
           )}
-          {/* Way back to the comparison a slot was opened from, while it is
-              still open behind the plan. */}
-          <ReturnBanner />
           {/* Once, after the first plan: the comparison is at the end of the
               results, and what comparing two routes means. */}
           <CompareHint />
@@ -782,28 +764,8 @@ export function PlanPage() {
             status={geolocStatus}
             attempt={geolocAttempt}
             onClick={handleLocate}
-            className="bottom-4 right-3"
+            className="bottom-4 ow-chrome-right"
           />
-          {/* Undo offer after a waypoint removal. Top centre: the corners
-              belong to the menu, the chart toggle and the locate button,
-              and the bottom edge to the hint while tracing. */}
-          {removed && (
-            <div
-              role="status"
-              className="absolute top-3 left-1/2 -translate-x-1/2 z-[500] flex items-center gap-3 rounded-xl px-3.5 py-2 text-sm font-medium whitespace-nowrap"
-              style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)", color: "var(--ow-fg-0)" }}
-            >
-              <span>{t("plan.map.waypoint.removed", { n: removed.index + 1 })}</span>
-              <button
-                type="button"
-                onClick={handleUndoRemove}
-                className="font-semibold underline underline-offset-2"
-                style={{ color: "var(--ow-accent)" }}
-              >
-                {t("plan.map.waypoint.undo")}
-              </button>
-            </div>
-          )}
           {/* Hint overlay while drawing a variant between the plan's ends */}
           {drawing && (
             <div className="absolute left-4 right-[68px] bottom-4 z-[400] flex justify-center pointer-events-none">
@@ -832,6 +794,46 @@ export function PlanPage() {
               </div>
             </div>
           )}
+          {/* Menu, search and settings, floating over the top of the map,
+              after everything else on it so they paint over it. On the
+              planner the route being drawn is the strongest statement of
+              where the user is working, so the first waypoint outranks the
+              GPS fix as the search reference. The camera travels with the
+              menu's links so going back to the forecast leaves the map
+              where it is. Under the bar, in its middle: the way back to the
+              comparison a slot was opened from, while it is still open
+              behind the plan, and the undo offer after a waypoint removal. */}
+          <MapTopBar
+            current="plan"
+            mapQuery={mapViewQuery(mapView)}
+            barRef={topBarRef}
+            onSelectSpot={(spot) => mapRef.current?.recenter(spot.latitude, spot.longitude)}
+            nearLat={waypoints[0]?.[0] ?? userPosition?.lat ?? mapView?.lat ?? null}
+            nearLon={waypoints[0]?.[1] ?? userPosition?.lon ?? mapView?.lon ?? null}
+            savedSpots={customSpots}
+            under={
+              <>
+                <ReturnBanner />
+                {removed && (
+                  <div
+                    role="status"
+                    className="pointer-events-auto flex items-center gap-3 rounded-xl px-3.5 py-2 text-sm font-medium whitespace-nowrap"
+                    style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)", color: "var(--ow-fg-0)" }}
+                  >
+                    <span>{t("plan.map.waypoint.removed", { n: removed.index + 1 })}</span>
+                    <button
+                      type="button"
+                      onClick={handleUndoRemove}
+                      className="font-semibold underline underline-offset-2"
+                      style={{ color: "var(--ow-accent)" }}
+                    >
+                      {t("plan.map.waypoint.undo")}
+                    </button>
+                  </div>
+                )}
+              </>
+            }
+          />
         </div>
 
         {/* Desktop sidebar — user-resizable via the handle on the left edge.
