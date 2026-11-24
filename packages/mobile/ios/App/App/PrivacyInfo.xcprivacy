@@ -11,9 +11,14 @@
      Collected data: the site the app loads sends the position the user asks
      a forecast for (the GPS fix when location is allowed, otherwise a point
      picked on the map) to the OhMyWind servers and to Open-Meteo, for that
-     forecast only. Declared as precise location for app functionality, not
-     linked to the user, never used for tracking. It must match the answers
-     given in App Store Connect ("App Privacy").
+     forecast only. Declared as precise location for app functionality,
+     never used for tracking. Declared as linked to the user: the relay in
+     front of the servers keeps, for up to 7 days, a technical log where the
+     coordinates of some requests sit next to information about the caller
+     (see the privacy policy and packages/edge-proxy/wrangler.toml). Cutting
+     those logs, or redacting their query strings, would make it "not linked"
+     again. It must match the answers given in App Store Connect
+     ("App Privacy").
 
      Required reason APIs: UserDefaults, read and written by the Preferences
      plugin for the copy of the user's own spots and settings (reason CA92.1,
@@ -33,7 +38,7 @@
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypePreciseLocation</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>
-			<false/>
+			<true/>
 			<key>NSPrivacyCollectedDataTypeTracking</key>
 			<false/>
 			<key>NSPrivacyCollectedDataTypePurposes</key>
