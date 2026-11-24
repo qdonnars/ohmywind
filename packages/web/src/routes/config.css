@@ -2,7 +2,10 @@
 /* SPDX-FileCopyrightText: 2026 Quentin Donnars */
 
 /*
- * Styles for /config.
+ * Styles of the editors the settings show (the order of the weather models,
+ * the boat: `ModelOrderEditor`, `BoatEditor` and the boat tiles). They were
+ * those of the /config page, which the settings replaced; the file is
+ * imported by `settings/SettingsSheet.tsx`, which shows them.
  *
  * They lived in a `<style>` element inside the page's JSX, which meant the
  * browser re-parsed 386 lines of CSS on every render of the route, none of it
@@ -193,46 +196,6 @@
   padding: 0;
   text-align: left;
 }
-.config-root {
-  background: var(--ow-bg-0, #0b1220);
-  color: var(--ow-fg-0, #e2e8f0);
-}
-.config-tab {
-  padding: 8px 16px;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ow-fg-1, #cbd5e1);
-  background: var(--ow-bg-1, rgba(255,255,255,0.04));
-  border: 1px solid var(--ow-line-2, rgba(255,255,255,0.10));
-  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
-}
-.config-tab:hover {
-  background: var(--ow-bg-2, rgba(255,255,255,0.08));
-  color: var(--ow-fg-0, #e2e8f0);
-}
-.config-tab.is-active {
-  background: var(--ow-accent, #14b8a6);
-  color: #fff;
-  border-color: var(--ow-accent, #14b8a6);
-}
-.config-storage-note {
-  font-size: 12px;
-  line-height: 1.55;
-  color: var(--ow-fg-2, #94a3b8);
-  padding: 14px 16px;
-  border-radius: 10px;
-  background: var(--ow-bg-1, rgba(255,255,255,0.03));
-  border: 1px solid var(--ow-line-2, rgba(255,255,255,0.08));
-  border-left-width: 3px;
-  border-left-color: var(--ow-fg-2, #94a3b8);
-}
-.config-header {
-  /* iPhone: the status bar area, see .safe-top in index.css. */
-  padding-top: env(safe-area-inset-top, 0px);
-  background: color-mix(in srgb, var(--ow-bg-0, #0b1220) 75%, transparent);
-  border-color: var(--ow-line-2, rgba(255,255,255,0.08));
-}
 .config-list-with-zones {
   display: grid;
   grid-template-columns: 1fr 140px;
@@ -395,65 +358,5 @@
     transform: rotate(180deg);
     font-size: 10px;
     letter-spacing: 0.08em;
-  }
-}
-
-/* Segmented picker (language). Same shape as the boat tiles' segments,
-   under a name that says what it is rather than where it came from. */
-.config-segment {
-  display: inline-flex;
-  flex-wrap: nowrap;
-  gap: 2px;
-  padding: 2px;
-  border-radius: 10px;
-  background: var(--ow-bg-1);
-  border: 1px solid var(--ow-line-2);
-}
-.config-segment-btn {
-  padding: 5px 12px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  color: var(--ow-fg-1);
-  background: transparent;
-  border: 0;
-  transition: background 120ms ease, color 120ms ease;
-}
-.config-segment-btn:hover:not(.is-active) {
-  background: var(--ow-bg-2);
-  color: var(--ow-fg-0);
-}
-.config-segment-btn.is-active {
-  background: var(--ow-accent);
-  color: #fff;
-}
-
-/*
- * Full endonym or trigram, one line either way.
- *
- * The five full names (Français / English / Deutsch / Italiano / Español)
- * measure 362.6 px on the built bundle. The picker sits in `main.px-6`, which
- * takes 2 x 24 px off the viewport, so they need 410.6 px of viewport to fit,
- * call it 411. Below that they used to run 13 px past the right edge on a
- * 375 px screen, unreachable because the overflow does not scroll. The pills
- * must stay on one line, so the labels shorten instead: the trigrams measure
- * 249.5 px, need 297.5 px of viewport and so clear a 320 px screen with
- * 22.5 px to spare.
- *
- * Breakpoint at 420 px rather than exactly 411 px: full names come back at
- * 421 px, a 10 px cushion for the font fallbacks that render a shade wider
- * than Inter, and it lands between the two device widths that matter (393 px
- * for an iPhone 15, 430 px for its Pro Max).
- */
-.config-segment-short {
-  display: none;
-}
-@media (max-width: 420px) {
-  .config-segment-full {
-    display: none;
-  }
-  .config-segment-short {
-    display: inline;
   }
 }
