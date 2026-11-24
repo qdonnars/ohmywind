@@ -193,8 +193,8 @@ La sonde relève, plusieurs fois par chargement, `Capacitor.isNativePlatform()`,
 | Étape | Situation | Conditions |
 |---|---|---|
 | `0-fallback` | installation neuve, serveur du site arrêté | page de secours à l'écran (texte lu par `uiautomator` sur Android, ligne du journal sur iOS), aucun rapport de la sonde |
-| `1-first` | serveur démarré | coquille native, bonne plateforme, `App.getInfo()` répond avec le bon identifiant, service worker enregistré et activé, reprise de données à `none` |
-| `2-second` | relance | page contrôlée par le service worker |
+| `1-first` | serveur démarré | coquille native, bonne plateforme, `App.getInfo()` répond avec le bon identifiant, service worker enregistré et activé, reprise de données à `none`, plugins qui répondent (`Haptics.impact`, aller-retour `Preferences`, `KeepAwake` allumé puis relâché, `InAppReview` présent), marque de la copie native posée |
+| `2-second` | relance | page contrôlée par le service worker, copie des données présente dans les préférences natives |
 | `3-offline` | serveur arrêté, relance | le site s'ouvre quand même, servi par le service worker |
 
 Captures à chaque étape, rapports, journaux de l'appareil en artefacts (`mobile-smoke-android`, `mobile-smoke-ios`), tableau récapitulatif dans le résumé du job.
@@ -225,14 +225,14 @@ Le projet `android/` est versionné, comme le veut la convention Capacitor: il p
 | `android/app/build.gradle` | versionné, lit la config synchronisée, génère raccourcis et icônes |
 | `android/app/src/main/AndroidManifest.xml` | versionné |
 | `android/app/src/main/java/fr/ohmywind/app/` | versionné (`MainActivity`, `ShellInfoPlugin`, `ShellWebViewClient`) |
-| `android/app/src/main/res/` | versionné (thème, couleurs, icônes adaptatives, libellés des raccourcis) |
+| `android/app/src/main/res/` | versionné (thème, couleurs, icônes adaptatives, libellés des raccourcis et leurs traductions) |
 | `android/capacitor.settings.gradle`, `android/app/capacitor.build.gradle` | versionnés, réécrits par `cap sync` à l'identique tant que la liste des plugins ne change pas |
 | `android/app/src/main/assets/` (`public/`, `capacitor.config.json`, `capacitor.plugins.json`) | généré par `cap sync`, ignoré |
 | `android/capacitor-cordova-android-plugins/` | généré par `cap sync` (porte le `usesCleartextTraffic` de la variante local), ignoré |
 | `android/app/src/main/res/xml/config.xml` | généré par `cap sync`, ignoré |
 | `android/local.properties`, `android/.gradle/`, `**/build/` | locaux, ignorés |
 | `android/app/build/generated/shell-res/` | généré par Gradle: raccourcis de la variante et icônes copiées depuis `packages/web/public/` |
-| `ios/App/App.xcodeproj`, `ios/App/App/` (Swift, `Info.plist`, storyboards, `*.lproj`), `ios/*.xcconfig`, `ios/App/shell-prebuild.sh` | versionnés |
+| `ios/App/App.xcodeproj`, `ios/App/App/` (Swift, `Info.plist`, `App.entitlements`, storyboards, `*.lproj`), `ios/*.xcconfig`, `ios/App/shell-prebuild.sh` | versionnés |
 | `ios/App/CapApp-SPM/Package.swift` | versionné, réécrit par `cap sync` (liste des plugins) |
 | `ios/App/App/capacitor.config.json`, `ios/App/App/config.xml`, `ios/App/App/public/`, `ios/capacitor-cordova-ios-plugins/` | générés par `cap sync`, ignorés |
 | `ios/App/variant.xcconfig` | généré par le hook de sync, ignoré |
@@ -270,7 +270,45 @@ L'activité est en `launchMode="singleTask"`. Le Custom Tab ouvert par `@capacit
 
 ### Raccourcis du launcher
 
-« Planifier » (`/plan`) et « Réglages » (`/config`), comme dans `twa-manifest.json`. Le système lit les raccourcis XML avec ses propres ressources, pas celles de l'app: `targetPackage` et `data` doivent être des valeurs en dur, d'où leur génération par Gradle pour chaque variante (`res/xml/shell_shortcuts.xml` dans `build/generated/shell-res`). Chaque raccourci envoie un `VIEW` vers `MainActivity` avec l'URL de la page (`https://ohmywind.fr/plan`, etc.): c'est le site qui route, sur `appUrlOpen` ou `getLaunchUrl()`, comme pour l'import.
+« Planifier » (`/plan`) et « Réglages » (`/config`), comme dans `twa-manifest.json`, traduits en anglais, allemand, italien et espagnol (`res/values-<langue>/strings.xml`, le français reste la valeur par défaut). Le système lit les raccourcis XML avec ses propres ressources, pas celles de l'app: `targetPackage` et `data` doivent être des valeurs en dur, d'où leur génération par Gradle pour chaque variante (`res/xml/shell_shortcuts.xml` dans `build/generated/shell-res`). Chaque raccourci envoie un `VIEW` vers `MainActivity` avec l'URL de la page (`https://ohmywind.fr/plan`, etc.): c'est le site qui route, sur `appUrlOpen` ou `getLaunchUrl()`, comme pour l'import.
+
+## Fonctions natives
+
+Tout ce que le site demande à la coquille passe par `packages/web/src/native/`: un petit module par fonction choisit le plugin dans la coquille, l'API web sinon, rien si aucune n'existe. Les plugins ne sont appelés que par `native/plugins.ts` et `native/capacitorShell.ts`, chargés par `import()` et seulement dans la coquille: le chunk principal de la PWA ne contient pas de code Capacitor.
+
+| Fonction | Dans la coquille | Hors coquille | Côté web |
+|---|---|---|---|
+| Retour haptique au dépôt d'un point sur la carte du plan | `@capacitor/haptics`, impact léger | `navigator.vibrate` s'il existe | `native/haptics.ts` |
+| Écran allumé tant qu'un plan calculé est affiché | API Screen Wake Lock, repli `@capacitor-community/keep-awake` si elle manque ou refuse | API Screen Wake Lock si elle existe | `native/keepAwake.ts`, réglage dans `/config` |
+| Demande de note | `@capacitor-community/in-app-review` (StoreKit, Play In-App Review) | rien | `native/reviewPrompt.ts` |
+| Copie des données dans le stockage natif | `@capacitor/preferences` | rien | `native/nativeBackup.ts` |
+| Liens vers un autre site | `Browser.open` (Custom Tab, Safari intégré) | navigation normale | `native/externalLinks.ts` |
+| Liens vers les pages de l'app sur le site | App Links, liens universels | navigation normale | `native/appLinks.ts` |
+
+### Écran allumé
+
+L'API web d'abord: Android WebView l'a depuis la 84, WKWebView depuis iOS 18.4. Le plugin couvre iOS 15 à 18.3 (`UIApplication.isIdleTimerDisabled`) et un refus de l'API (`FLAG_KEEP_SCREEN_ON` sur Android). Pris sur `/plan` avec un résultat, page visible; relâché en quittant la page ou en passant en arrière-plan, repris au retour. Réglage « Garder l'écran allumé » dans `/config`, actif par défaut (`ow_keep_awake`).
+
+### Demande de note
+
+Règle unique dans `REVIEW_RULES` (`native/reviewPrompt.ts`): au 3e plan calculé avec succès ou à un suivant, au moins 14 jours après le premier lancement de la coquille, une fois par version de l'app (`App.getInfo().version`) au plus, jamais quand un champ de saisie a le focus (la demande attend alors le plan suivant). La date de premier lancement est écrite par la coquille et n'est ni reprise de la TWA ni restaurée de la copie native: un utilisateur venu de la TWA attend tout le délai. Le store a le dernier mot (Apple: trois fois par an au plus) et ne dit pas s'il a montré la feuille. Le plugin Android tire `com.google.android.play:review`.
+
+### Copie native des données
+
+iOS peut purger le stockage d'un site; vider les données du WebView fait de même sur Android. `localStorage` reste la source de vérité, la coquille en garde une copie dans les préférences natives (clé `ow_backup_v1` du plugin Preferences: `UserDefaults` sur iOS, `shared_prefs/CapacitorStorage.xml` sur Android), écrite deux secondes après un changement de `localStorage` (les méthodes de `Storage` sont enveloppées dans la coquille seulement) et au passage en arrière-plan. Au démarrage, l'absence de la marque `ow_native_backup_v1` dans `localStorage` signale un stockage neuf ou vidé: la marque est écrite d'abord, puis chaque entrée de la copie absente de `localStorage` est réécrite (jamais une présente) et la page se recharge une fois. Avant la reprise de la TWA, dont l'état fait partie de la copie. Clés: `BACKUP_POLICY` dans `native/nativeBackup.ts`, typée sur le registre des clés.
+
+### Liens vers le site qui ouvrent l'app (#502)
+
+Pages concernées: `/`, `/plan`, `/comparer`, `/config`. Pas `/transfert`, qui doit rester dans le navigateur, ni les pages de lecture. Un test (`packages/web/src/native/appLinkPaths.test.ts`) garde les deux listes identiques.
+
+- Android: filtre `VIEW` + `BROWSABLE` avec `autoVerify`, sur le schéma et l'hôte de `server.url` (placeholders du manifeste posés par `app/build.gradle`). Android vérifie `https://<hôte>/.well-known/assetlinks.json` à l'installation. La variante `local` (`localhost`) ne peut pas être vérifiée: `adb shell pm set-app-links-user-selection --user 0 --package fr.ohmywind.app.dev true localhost` l'approuve à la main.
+- iOS: `packages/web/public/.well-known/apple-app-site-association` (servi en `application/json` par `_headers`), droit `com.apple.developer.associated-domains` dans `ios/App/App/App.entitlements` avec `applinks:$(OHMYWIND_APP_BOUND_DOMAIN)`, branché par `CODE_SIGN_ENTITLEMENTS` depuis `variant.xcconfig` (vide pour la variante `local`). Les deux profils App Store portent déjà la capacité.
+
+Dans les deux cas l'URL arrive au site par `appUrlOpen` (et `getLaunchUrl()` à froid), comme un raccourci.
+
+### Raccourcis d'icône sur iOS
+
+`UIApplicationShortcutItems` dans `Info.plist` (titres traduits par `InfoPlist.strings`, la valeur anglaise sert de clé), chemin de la page dans `UIApplicationShortcutItemUserInfo`. `SceneDelegate` en fait l'URL de la page sur le site de la variante et la remet au plugin App, à froid après le premier affichage de la vue du pont, à chaud par `windowScene(_:performActionFor:completionHandler:)`.
 
 ## Page de secours
 
@@ -294,7 +332,7 @@ Comportement actuel:
 - **Couleurs**: `#030712` pour le fond de la fenêtre, l'écran de démarrage et, avant Android 15, les barres système. À partir d'Android 15 (targetSdk 36), le bord à bord est imposé et les barres sont transparentes: c'est le site qui peint dessous.
 - **Bord à bord**: plugin `SystemBars` du cœur de Capacitor 8 en `insetsHandling: "native"`. Avec une WebView 140 ou plus, le site (qui déclare `viewport-fit=cover`) passe sous les barres et se décale avec `env(safe-area-inset-*)`. Avec une WebView plus ancienne, Capacitor réserve la place des barres autour de la WebView et les `env()` valent 0. Le style des icônes de barre suit le mode clair ou sombre du système (`style: "DEFAULT"`).
 - **Icônes**: celles de la PWA, copiées par Gradle depuis `packages/web/public/` à chaque build: icône adaptative à partir de `icon-maskable-512.png` (réduite aux 72 dp visibles, sur fond `#030712`), couche monochrome Android 13+ à partir de `icon-monochrome-512.png` (sans le patch que demande Bubblewrap), `icon-512.png` pour les launchers d'avant Android 8, et les deux icônes de raccourcis.
-- **Liens vers d'autres domaines**: ouverts dans le navigateur du système. C'est le comportement par défaut de Capacitor (`Bridge.launchIntent`): toute navigation vers un autre hôte que celui de `server.url` part en `ACTION_VIEW`.
+- **Liens vers d'autres domaines**: ouverts dans la feuille de navigation de l'app, voir « Fonctions natives ». Une navigation vers un autre hôte qui ne passe pas par un lien (redirection, `location`) part encore dans le navigateur du système, comportement par défaut de Capacitor (`Bridge.launchIntent`).
 
 ## Limites connues
 
@@ -302,9 +340,9 @@ Comportement actuel:
 - **Page de secours sur erreur HTTP**: une page du site qui répond 404 ou 5xx en navigation principale (sans service worker pour la servir) affiche la page de secours, pas la page d'erreur du site. Ce cas n'a pas été testé sur appareil.
 - **Détection de l'échec**: elle repose sur l'URL interne `chrome-error://chromewebdata/` de la page d'erreur de Chromium, stable depuis longtemps mais non documentée par Android. Si elle changeait, la WebView afficherait sa propre page d'erreur au lieu de la page de secours, sans casser le hors-ligne.
 - **`minSdk` 24** (Android 7.0) au lieu de 21 pour la TWA: c'est le minimum de Capacitor 8.
-- **Raccourcis en français seulement**, comme dans la TWA.
 - **`server.url` en production**: la doc Capacitor le présente comme un réglage de développement. C'est un choix assumé (#535, #536): sur Android, le seul effet est l'absence de contenu embarqué. Sur iOS, c'est le risque de refus 4.2 décrit dans #536.
-- **iOS, pas encore fait**: raccourcis d'icône (Quick Actions), retour haptique, demande de note, liens universels (AASA, #502), `PrivacyInfo.xcprivacy` propre à l'app, captures et fiche App Store, iPad.
+- **iOS, pas encore fait**: `PrivacyInfo.xcprivacy` propre à l'app (il devra déclarer `NSPrivacyAccessedAPICategoryUserDefaults`, raison `CA92.1`, à cause du plugin Preferences), captures et fiche App Store, iPad.
+- **iOS, écrit sans Mac, non vérifié**: raccourcis d'icône, liens universels, demande de note, écran allumé et retour haptique ne sont prouvés qu'au niveau des plugins par le scénario du simulateur (voir « Tests automatiques »).
 - **iOS, non vérifié sur un vrai iPhone**: geste de retour par balayage (sur la carte, un glissé depuis le bord gauche peut être pris pour un retour), hors-ligne en mode avion, géolocalisation, taille du texte.
 - **Icône iOS agrandie**: la source web ne fait que 512 px; une source 1024 px dans `packages/web/public/` donnerait une icône nette sur l'App Store.
 - **Lockfile racine**: il ne porte que les binaires Linux de la chaîne web (rolldown, lightningcss), `vite build` échoue sur macOS. Le workflow de test contourne en construisant le web sous Linux.
