@@ -250,7 +250,10 @@ describe("PlanSidebar views", () => {
     expect(screen.getByRole("button", { name: "Nouveau plan" })).toBeTruthy();
     // One row per leg, opening the build-up on click.
     expect(screen.getByRole("button", { name: /^1 → 2/ })).toBeTruthy();
-    expect(screen.getByText(/Données fraîches au/)).toBeTruthy();
+    // Dated, since a plan may be reopened from the device days later; and
+    // that one, computed long ago, carries the warning.
+    expect(screen.getByText(/Prévisions du .*9 sept.* à \d\d:\d\d/)).toBeTruthy();
+    expect(screen.getByRole("note").textContent).toMatch(/plus de 48 h/);
     // The two doors, after everything else.
     await userEvent.click(screen.getByRole("button", { name: "D'autres départs" }));
     expect(value.actions.openCompare).toHaveBeenCalledWith("slots");

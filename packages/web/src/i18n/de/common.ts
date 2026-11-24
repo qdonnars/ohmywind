@@ -12,6 +12,12 @@ export const common: Record<keyof typeof frCommon, string> = {
   "common.days.one": "{count} Tag",
   "common.days.other": "{count} Tage",
 
+  // Forecasts kept on the device (offline): their date, and the warning.
+  "common.forecast.dateAtTime": "{day} um {time}",
+  "common.forecast.from": "Vorhersage vom {when}",
+  "common.forecast.stale":
+    "Vorhersage älter als {hours} h: Aktualisieren Sie sie, sobald Sie wieder Netz haben.",
+
   // Navigation menu
   "common.nav.open": "Menü öffnen",
   "common.nav.close": "Menü schließen",

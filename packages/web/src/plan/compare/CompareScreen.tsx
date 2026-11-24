@@ -22,6 +22,8 @@ import { spanHours, windowCount } from "./slots";
 import { ChevronIcon } from "./icons";
 import { useT } from "../../i18n";
 import { RouteRepairRow } from "../sidebar/RouteRepairRow";
+import { formatForecastWhen } from "../../offline/freshness";
+import { ForecastStaleNote } from "../../components/ForecastStamp";
 
 const MONO = { fontFamily: "var(--ow-font-mono)" } as const;
 
@@ -62,6 +64,7 @@ export function CompareHead() {
 
 export function CompareScreen() {
   const { state } = usePlan();
+  const { t } = useT();
   return (
     <div className="animate-fade-in">
       <ResultsAnchor />
@@ -70,6 +73,16 @@ export function CompareScreen() {
       {state.variant === null && <CompareSettings />}
       {state.compareAxis === "slots" && <RouteRepairRow />}
       {state.compareAxis === "slots" ? <SlotList /> : <TrackList />}
+      {/* The departures table reopened from the device carries its date,
+          like the single plan (issue #537). */}
+      {state.compareAxis === "slots" && state.windows && state.windows.length > 0 && state.forecastUpdatedAt && (
+        <div className="px-4 py-2" style={{ borderTop: "1px solid var(--ow-line)" }}>
+          <p className="text-[10px]" style={{ color: "var(--ow-fg-2)" }}>
+            {t("panel.results.forecastUpdated", { when: formatForecastWhen(state.forecastUpdatedAt) })}
+          </p>
+          <ForecastStaleNote fetchedAt={state.forecastUpdatedAt} className="mt-1" />
+        </div>
+      )}
     </div>
   );
 }

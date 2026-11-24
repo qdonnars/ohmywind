@@ -19,6 +19,8 @@ import { RouteRepairRow } from "./RouteRepairRow";
 import { RecomputeButton, ResultsAnchor, StalePlaceholder } from "./parts";
 import { capitalise, fmtClock, fmtDay } from "../../domain/datetime";
 import { useT } from "../../i18n";
+import { formatForecastWhen } from "../../offline/freshness";
+import { ForecastStaleNote } from "../../components/ForecastStamp";
 
 /** Single mode with a passage behind it: recap, totals, warnings, legs. */
 export function SingleResults({
@@ -143,9 +145,14 @@ export function SingleResults({
       )}
 
       {forecastUpdatedAt && (
-        <p className="px-4 py-2 text-[10px]" style={{ color: "var(--ow-fg-2)", borderTop: "1px solid var(--ow-line)" }}>
-          {t("panel.results.forecastUpdated", { time: fmtClock(forecastUpdatedAt) })}
-        </p>
+        <div className="px-4 py-2" style={{ borderTop: "1px solid var(--ow-line)" }}>
+          {/* Dated, not just timed: a plan reopened from the device (issue
+              #537) may have been computed days ago. */}
+          <p className="text-[10px]" style={{ color: "var(--ow-fg-2)" }}>
+            {t("panel.results.forecastUpdated", { when: formatForecastWhen(forecastUpdatedAt) })}
+          </p>
+          <ForecastStaleNote fetchedAt={forecastUpdatedAt} className="mt-1" />
+        </div>
       )}
 
       {/* The comparison, last: after the figures and the legs, at the end

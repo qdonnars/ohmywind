@@ -52,7 +52,7 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.results.recapArrival": "Arrivo: {day} · {time}",
   "panel.results.stale":
     "Itinerario modificato. Cliccare su Ricalcolare per aggiornare i dettagli.",
-  "panel.results.forecastUpdated": "Dati aggiornati alle {time} · Open-Meteo.com (CC BY 4.0)",
+  "panel.results.forecastUpdated": "Previsioni del {when} · Open-Meteo.com (CC BY 4.0)",
 
   // ── LinkSettingsRow ───────────────────────────────────────────────────────
   "panel.link.lead": "Impostazioni del link",
