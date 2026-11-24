@@ -150,6 +150,7 @@ Conséquences: la WebView ne peut naviguer que vers ces domaines (Capacitor ouvr
 ### Reste du projet iOS
 
 - `Info.plist`: `NSLocationWhenInUseUsageDescription` (anglais par défaut, traductions fr, de, it, es dans `<langue>.lproj/InfoPlist.strings`), `ITSAppUsesNonExemptEncryption = false`, `CFBundleLocalizations`.
+- `PrivacyInfo.xcprivacy` (manifeste de confidentialité de l'app, à la racine du bundle): aucun suivi, aucun domaine de suivi; une donnée collectée, la position précise, pour le fonctionnement de l'app, non liée à l'utilisateur (la position demandée part vers les serveurs d'OhMyWind et Open-Meteo pour la prévision); aucune API « required reason » dans le code de l'app. Capacitor et les plugins portent chacun le leur. Tout code natif ajouté qui lit `UserDefaults`, des dates de fichiers, l'heure de démarrage, l'espace disque ou les claviers actifs doit y être déclaré avec sa raison, et les réponses « App Privacy » d'App Store Connect doivent rester cohérentes avec ce fichier.
 - Icône: `AppIcon.appiconset/AppIcon-1024.png`, versionnée, rendue depuis la source vectorielle du logo, `packages/web/public/favicon.svg`, en pleine page (`rx="0"` sur le fond, sans coins arrondis: iOS arrondit lui-même), à 1024 × 1024 px, en RGB sans canal alpha. Même dessin que `icon-maskable-512.png` (écart limité à l'anticrénelage). Rendu fait par Chromium (Playwright): `svg` collé dans une page de 1024 px, capture de l'élément. La phase de build refuse une icône absente, d'une autre taille ou avec canal alpha. À refaire si le logo change.
 - Écran de lancement uni `#030712`, sans image.
 - Côté web, `packages/web/src/native/shellImport.ts` ne lance la reprise des données de la TWA que sur Android: sur iOS, ni `ShellInfo` interrogé, ni navigateur ouvert. La barre d'état suit le thème du site par le plugin `SystemBars`, disponible sur iOS dans le cœur de Capacitor 8.
@@ -304,6 +305,6 @@ Comportement actuel:
 - **`minSdk` 24** (Android 7.0) au lieu de 21 pour la TWA: c'est le minimum de Capacitor 8.
 - **Raccourcis en français seulement**, comme dans la TWA.
 - **`server.url` en production**: la doc Capacitor le présente comme un réglage de développement. C'est un choix assumé (#535, #536): sur Android, le seul effet est l'absence de contenu embarqué. Sur iOS, c'est le risque de refus 4.2 décrit dans #536.
-- **iOS, pas encore fait**: raccourcis d'icône (Quick Actions), retour haptique, demande de note, liens universels (AASA, #502), `PrivacyInfo.xcprivacy` propre à l'app, captures et fiche App Store, iPad.
+- **iOS, pas encore fait**: raccourcis d'icône (Quick Actions), retour haptique, demande de note, liens universels (AASA, #502), captures et fiche App Store, iPad.
 - **iOS, non vérifié sur un vrai iPhone**: geste de retour par balayage (sur la carte, un glissé depuis le bord gauche peut être pris pour un retour), hors-ligne en mode avion, géolocalisation, taille du texte.
 - **Lockfile racine**: il ne porte que les binaires Linux de la chaîne web (rolldown, lightningcss), `vite build` échoue sur macOS. Le workflow de test contourne en construisant le web sous Linux.
