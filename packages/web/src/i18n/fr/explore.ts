@@ -35,7 +35,7 @@ export const explore = {
     "OhMyWind rend accessible une météo marine de qualité aux voileux. Les modèles AROME, ICON, GFS, ECMWF et les données de vagues, courants et marées sont publics et gratuits. Cette app les rassemble dans une vue lisible, sans compte ni installation.",
   "explore.infoPanel.privacy.title": "Vos données",
   "explore.infoPanel.privacy.body":
-    "Aucun tracking, aucun compte, aucune donnée enregistrée vous concernant. Tout tourne dans votre navigateur, c'est une page de consultation pure. Les requêtes météo partent en direct vers les API publiques.",
+    "Aucun tracking, aucun compte, aucune donnée enregistrée vous concernant. Vos spots et vos réglages restent sur votre appareil ; les requêtes météo et les calculs de trajet partent vers les services listés dans la politique de confidentialité, le temps de répondre.",
   "explore.infoPanel.privacy.link": "Lire la politique de confidentialité",
   "explore.infoPanel.privacy.termsLink": "Lire les conditions d'utilisation",
   "explore.infoPanel.sources.title": "Sources des données et méthodologie",

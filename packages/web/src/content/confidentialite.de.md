@@ -12,9 +12,10 @@ Vereinsgesetz von 1901, RNA W751285736) mit Sitz in 51 rue Fondary, 75015 Paris,
 Frankreich. Bei Fragen zu dieser Erklärung:
 [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
-Der Grundsatz: **OhMyWind hat weder Benutzerkonten noch eine Datenbank noch ein
-Werkzeug zur Reichweitenmessung**. Auf Servern von OhMyWind werden keine
-personenbezogenen Daten aufbewahrt.
+Der Grundsatz: **OhMyWind speichert Ihre Daten nicht**. Es gibt weder Benutzerkonten
+noch eine Datenbank noch ein Werkzeug zur Reichweitenmessung, und keine Tabelle, die
+eine IP-Adresse mit Suchen, Positionen oder Routen verknüpfen würde. Was die Anwendung
+sendet, dient der Beantwortung der laufenden Anfrage, ohne gespeichert zu werden.
 
 ## Was die Anwendung nicht tut
 
@@ -27,42 +28,64 @@ personenbezogenen Daten aufbewahrt.
 
 ### Geografischer Standort
 
-Wenn Sie es erlauben, dient Ihr Standort ausschließlich dazu, die Karte zu zentrieren
-und die Vorhersagen in Ihrer Nähe abzurufen. Er wird für die Dauer der Beantwortung der
-Anfrage an die unten aufgeführten Wetter- und Kartendienste übermittelt und von
-OhMyWind niemals gespeichert. Die Berechtigung ist optional und jederzeit in den
-Einstellungen Ihres Browsers oder Ihres Telefons widerrufbar.
+Wenn Sie es erlauben, dient Ihr Standort dazu, die Karte zu zentrieren, die Vorhersagen
+an diesem Ort anzuzeigen und bei einer Suche nahe gelegene Orte nach vorne zu reihen. Er
+wird für die Dauer der Beantwortung der Anfrage an die unten aufgeführten Dienste
+übermittelt und von OhMyWind niemals gespeichert. Die Berechtigung ist optional und
+jederzeit in den Einstellungen Ihres Browsers oder Ihres Telefons widerrufbar.
 
 ### Törnpläne und Einstellungen
 
-Ihre Wegpunkte, Bootspolaren und Einstellungen werden **lokal auf Ihrem Gerät**
-gespeichert (lokaler Speicher des Browsers oder der Anwendung). Nur die Koordinaten der
-Wegpunkte verlassen Ihr Gerät: Sobald ein Wegpunkt auf der Planerkarte gesetzt wird,
-werden sie an EMODnet gesendet, um die Wassertiefe anzuzeigen; wenn Sie eine
-Passageberechnung starten, werden sie an das OhMyWind-Backend (gehostet bei Hugging
-Face) gesendet, um die Berechnung durchzuführen, im Arbeitsspeicher verarbeitet und
-anschließend vergessen. Das Löschen der Website-Daten in Ihrem Browser (oder der
-Anwendungsdaten in den Einstellungen Ihres Telefons) entfernt alles.
+Ihre Spots, Wegpunkte, Bootspolaren und Einstellungen werden **lokal auf Ihrem Gerät**
+gespeichert (lokaler Speicher des Browsers oder der Anwendung). Das Löschen der
+Website-Daten in Ihrem Browser (oder der Anwendungsdaten in den Einstellungen Ihres
+Telefons) entfernt alles.
+
+Was Ihr Gerät verlässt, und wozu:
+
+- **Ein auf der Karte geöffneter Ort**, oder Ihr Standort, wenn Sie ihn freigegeben
+  haben: Seine Koordinaten werden an Open-Meteo für die Vorhersagen gesendet und an das
+  OhMyWind-Backend für Küstenlinie, Gezeiten und Strömungen.
+- **Ein Wegpunkt**, sobald er auf der Planerkarte gesetzt wird: Seine Koordinaten werden
+  an EMODnet gesendet, um die Wassertiefe anzuzeigen.
+- **Eine Route, die Sie berechnen oder vergleichen**: Ihre Koordinaten werden an
+  Open-Meteo und an das OhMyWind-Backend gesendet, für Vorhersagen, Gezeiten und
+  Strömungen entlang der Strecke. Für eine Passageberechnung erhält das Backend außerdem
+  das Abfahrts- oder Ankunftsdatum, das Boot (Bootstyp oder Polare), den Leistungsfaktor
+  und die gewählten Modelle und führt die Berechnung im Arbeitsspeicher durch.
+
+## Technische Protokolle
+
+Das OhMyWind-Backend schreibt eine Zeile pro Anfrage: die Methode, den Pfad ohne seine
+Parameter (zum Beispiel `/api/v1/passage`), den Status der Antwort, ihre Dauer, ihre
+Größe und einen kurzen Fingerabdruck, der aus der Adresse des Aufrufers berechnet wird
+und nur dazu dient, Missbrauch zu erkennen. Es schreibt dort niemals eine IP-Adresse,
+Koordinaten, Suchtext oder eine Route. Um die Zahl der Anfragen pro Minute zu begrenzen,
+wird die Adresse für die Dauer dieser Begrenzung im Arbeitsspeicher gehalten, ohne
+irgendwo geschrieben zu werden.
 
 ## Drittdienste
 
-Für ihren Betrieb ruft die Anwendung die folgenden Dienste direkt von Ihrem Gerät aus
-auf. Wie bei jeder Internetanfrage sieht jeder von ihnen Ihre IP-Adresse; die Tabelle
-nennt die darüber hinaus übermittelten Anwendungsdaten.
+Für ihren Betrieb nutzt die Anwendung die folgenden Dienste. Wie bei jeder
+Internetanfrage sieht jeder von ihnen Ihre IP-Adresse; die Tabelle nennt die darüber
+hinaus übermittelten Anwendungsdaten.
 
 | Dienst | Übermittelte Daten | Zweck |
 | --- | --- | --- |
-| [Open-Meteo](https://open-meteo.com/en/terms) (forecast, marine, geocoding) | Abgefragte geografische Koordinaten | Vorhersagen zu Wind, Wellen und Gezeiten; Geokodierung |
-| OhMyWind-Backend, gehostet von [Hugging Face](https://huggingface.co/privacy) | Koordinaten und Wegpunkte | Berechnung des Passageplans |
-| [Nominatim / OpenStreetMap](https://osmfoundation.org/wiki/Privacy_Policy) | Geografische Koordinaten | Umgekehrte Geokodierung (angezeigter Ortsname) |
-| [Photon (Komoot)](https://photon.komoot.io) | Text Ihrer Ortssuchen | Ortssuche |
+| [Cloudflare](https://www.cloudflare.com/privacypolicy/) | Anfragen an die Website und an das OhMyWind-Backend | Hosting der Website; Weiterleitung an das Backend |
+| OhMyWind-Backend, gehostet von [Hugging Face](https://huggingface.co/privacy) | Koordinaten der geöffneten Orte und der abgefragten Routen; bei einer Berechnung Wegpunkte, Datum, Boot und Einstellungen | Küstenlinie, Gezeiten und Strömungen; Berechnung des Passageplans |
+| [Open-Meteo](https://open-meteo.com/en/terms) (forecast, marine, geocoding) | Koordinaten der abgefragten Orte und Routen; Text Ihrer Ortssuchen, wenn Photon nicht antwortet | Vorhersagen zu Wind, Wellen und Gezeiten; Ersatz für die Ortssuche |
+| [Photon (Komoot)](https://photon.komoot.io) | Text Ihrer Ortssuchen und, sofern bekannt, eine gerundete Position (Ihre, wenn Sie sie freigegeben haben, oder ein Punkt der angezeigten Karte) | Ortssuche, nach Nähe sortiert |
+| [Nominatim / OpenStreetMap](https://osmfoundation.org/wiki/Privacy_Policy) | Koordinaten des Punkts, an dem Sie einen Spot anlegen; angezeigter Kartenausschnitt, auf den seltenen Geräten, die den üblichen Kartenhintergrund nicht darstellen können | Ortsname (umgekehrte Geokodierung); Ersatz-Kartenhintergrund |
 | [OpenFreeMap](https://openfreemap.org/privacy/) | Angezeigter Kartenausschnitt | Kartenhintergründe (Kacheln) |
 | [OpenSeaMap](https://www.openseamap.org/index.php?id=imprint) | Angezeigter Kartenausschnitt, wenn die Seezeichen-Ebene aktiv ist | Seezeichen-Overlay (Tonnen, Baken, Leuchttürme) |
 | [EMODnet Bathymetry](https://emodnet.ec.europa.eu/en/privacy-statement) | Koordinaten Ihrer Wegpunkte | Wassertiefe unter jedem Wegpunkt |
 | [Ko-fi](https://more.ko-fi.com/privacy) | Nichts, außer wenn Sie bewusst auf den Unterstützungslink klicken | Spenden |
 
 Diese Dienste sind unabhängige technische Auftragsverarbeiter und unterliegen ihren
-eigenen Datenschutzerklärungen (Links in der Tabelle).
+eigenen Datenschutzerklärungen (Links in der Tabelle). Einige werden von Unternehmen
+mit Sitz außerhalb der Europäischen Union betrieben, insbesondere Cloudflare und Hugging
+Face in den Vereinigten Staaten.
 
 Die Schriftarten werden von ohmywind.fr ausgeliefert: Das Anzeigen einer Seite sendet
 keine Anfrage an Google Fonts und damit auch keine IP-Adresse.
@@ -76,9 +99,9 @@ Anwendung funktioniert auch ohne sie, dann genügt es, einen Ort manuell zu such
 ## Ihre Rechte
 
 Gemäß der DSGVO haben Sie Rechte auf Auskunft, Berichtigung, Widerspruch und Löschung.
-Da OhMyWind serverseitig keine personenbezogenen Daten aufbewahrt, wird das Wesentliche
-unmittelbar auf Ihrem Gerät ausgeübt: Löschen Sie die Website-Daten oder die
-Anwendungsdaten. Bei Fragen oder Anliegen:
+Da OhMyWind weder Konten noch Positionen, Suchen oder Routen aufbewahrt, die Sie
+betreffen, wird das Wesentliche unmittelbar auf Ihrem Gerät ausgeübt: Löschen Sie die
+Website-Daten oder die Anwendungsdaten. Bei Fragen oder Anliegen:
 [contact@ohmywind.fr](mailto:contact@ohmywind.fr).
 
 ## Änderungen dieser Erklärung

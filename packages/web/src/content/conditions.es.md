@@ -54,8 +54,8 @@ perturbar el funcionamiento del servicio o utilizarlo de forma abusiva.
 
 ## Datos personales
 
-OhMyWind no pide ninguna cuenta y no conserva datos personales en sus servidores. Los
-detalles figuran en la [política de privacidad](/confidentialite).
+OhMyWind no pide ninguna cuenta y no registra sus datos: ni sus posiciones, ni sus
+búsquedas, ni sus rutas. Los detalles figuran en la [política de privacidad](/confidentialite).
 
 ## Propiedad intelectual
 
