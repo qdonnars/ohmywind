@@ -411,7 +411,7 @@ export function ComparePage() {
 
   if (isDesktop) {
     return (
-      <div className="h-dvh flex flex-col overflow-hidden" style={{ background: "var(--ow-bg-1)", color: "var(--ow-fg-0)" }}>
+      <div className="ow-app-screen flex flex-col overflow-hidden" style={{ background: "var(--ow-bg-1)", color: "var(--ow-fg-0)" }}>
         {header}
         <div className="flex-1 min-h-0 flex">
           <div className="flex-1 min-w-0 flex flex-col pt-4 pl-5">
@@ -471,7 +471,7 @@ export function ComparePage() {
   }
 
   return (
-    <div className="h-dvh flex flex-col overflow-hidden" style={{ background: "var(--ow-bg-0)", color: "var(--ow-fg-0)" }}>
+    <div className="ow-app-screen flex flex-col overflow-hidden" style={{ background: "var(--ow-bg-0)", color: "var(--ow-fg-0)" }}>
       {header}
       <div className="flex-1 min-h-0 relative">
         <div className="absolute inset-0">{map}</div>

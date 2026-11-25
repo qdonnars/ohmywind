@@ -1099,6 +1099,22 @@ path.ow-spot-marker:focus-visible {
 .ow-search-item:hover { background: color-mix(in srgb, var(--ow-bg-1) 80%, transparent); }
 .ow-search-item:active { background: var(--ow-bg-1); }
 
+/* ── The app's screen ────────────────────────────────────────────
+   The root of the three app pages (explorer, planner, compare) is pinned to
+   the four edges of what the browser gives the page, rather than given a
+   height of 100dvh. On the iPhone that unit is the height of the whole
+   screen in more than one place where the page does not have it all: a site
+   added to the home screen starts under the status bar, and Safari keeps
+   its own bars. The page was then taller than what was shown, with no
+   scroll to reach the rest: the bottom of the explorer (layer pills, table,
+   locate button) fell off the screen. A fixed box is laid out in exactly
+   the area the page is given, in a browser tab, on the home screen and in
+   the store apps alike, so nothing has to know which of them it runs in. */
+.ow-app-screen {
+  position: fixed;
+  inset: 0;
+}
+
 /* ── Visible part of the screen ──────────────────────────────────
    A fixed layer whose content sits in exactly what the reader sees: the
    whole screen, or what the on-screen keyboard leaves of it. Its backdrop,

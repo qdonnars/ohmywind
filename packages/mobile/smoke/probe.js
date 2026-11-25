@@ -106,14 +106,14 @@
   }
 
   // Page geometry as the WebView lays it out: whether the document or the
-  // page's own column (the h-dvh root of the map pages) is scrolled, and
+  // page's own column (the ow-app-screen root of the map pages) is scrolled, and
   // where the header, or the bar floating over the map, sits against the top
   // safe-area inset. On /plan it also
   // opens the drawer to its highest setting (90 vh) for one synchronous
   // measure, restored before anything paints: the column must still fit the
   // screen, or an in-page scroll shifts the whole page up (iPhone, 2026-11).
   function layout(settled, insets) {
-    var column = document.querySelector("#root .h-dvh");
+    var column = document.querySelector("#root .ow-app-screen");
     var vv = window.visualViewport;
     function overflows() {
       return !!column && column.scrollHeight - column.clientHeight > 1;

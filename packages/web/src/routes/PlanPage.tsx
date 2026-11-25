@@ -725,7 +725,7 @@ export function PlanPage() {
   if (initial.urlError !== null) {
     return (
       <div
-        className="h-dvh flex flex-col items-center justify-center px-6"
+        className="ow-app-screen flex flex-col items-center justify-center px-6"
         style={{ background: "var(--ow-bg-0)", color: "var(--ow-fg-0)" }}
       >
         <div className="max-w-sm text-center space-y-4">
@@ -749,7 +749,7 @@ export function PlanPage() {
       value={{ state, actions, archetypes, isLoading, compute: handleRefetch, computeWindows: handleCompareFetch }}
     >
     <div
-      className="h-dvh flex flex-col overflow-hidden"
+      className="ow-app-screen flex flex-col overflow-hidden"
       style={{ background: "var(--ow-bg-0)", color: "var(--ow-fg-0)" }}
     >
       {/* Body, without a header: the map runs to the top of the screen,

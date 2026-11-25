@@ -317,7 +317,7 @@ function App() {
 
   return (
     <div
-      className="h-dvh flex flex-col overflow-hidden"
+      className="ow-app-screen flex flex-col overflow-hidden"
       style={{ background: 'var(--ow-bg-0)', color: 'var(--ow-fg-0)' }}
     >
       {/* No header: the map fills the whole screen, under the status bar in
