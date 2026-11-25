@@ -1088,16 +1088,30 @@ path.ow-spot-marker:focus-visible {
 .ow-search-item:active { background: var(--ow-bg-1); }
 
 /* ── Visible part of the screen ──────────────────────────────────
-   A fixed box over exactly what the reader sees: the whole screen, or what
-   the on-screen keyboard leaves of it. The variables are written by
-   viewport/visibleViewport.ts; without them (no visualViewport) the box is
-   the whole screen. Only `top` and `height` here: `position` and the sides
-   come from the utilities next to it (`fixed inset-x-0`), and `inset-0`
-   must not be one of them, since which of the two `top` wins would then
-   depend on the order of the stylesheets in the bundle. */
+   A fixed layer whose content sits in exactly what the reader sees: the
+   whole screen, or what the on-screen keyboard leaves of it. Its backdrop,
+   though, runs on to the bottom of the screen (#608): the iPhone's keyboard
+   does not shorten the page and is translucent, so a layer that stopped at
+   the keys let the page show through them, and in any gap above them. The
+   part under the keys is a bottom border as thick as `--ow-vv-below`: the
+   layer's background (a scrim, a sheet's surface) is painted under it, while
+   its content is clipped, centred and scrolled above it, and an absolutely
+   placed child is placed above it. A layer with no background of its own
+   colours that border with `--ow-vv-below-fill` (the settings). Keyboard
+   closed, the border is 0 and the layer the box it always was.
+   The variables are written by viewport/visibleViewport.ts; without them (no
+   visualViewport) the layer is the whole screen. Only `top`, `height` and
+   the border here: `position` and the sides come from the utilities next to
+   it (`fixed inset-x-0`), and `inset-0` must not be one of them, since which
+   of the two `top` wins would then depend on the order of the stylesheets in
+   the bundle. */
 .ow-visible-viewport {
   top: var(--ow-vv-top, 0px);
-  height: var(--ow-vv-height, 100dvh);
+  height: calc(var(--ow-vv-height, 100dvh) + var(--ow-vv-below, 0px));
+  box-sizing: border-box;
+  border-bottom-style: solid;
+  border-bottom-width: var(--ow-vv-below, 0px);
+  border-bottom-color: var(--ow-vv-below-fill, transparent);
 }
 
 /* ── Theme-aware modals (SpotMap) ────────────────────────────── */

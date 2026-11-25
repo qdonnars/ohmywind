@@ -11,11 +11,15 @@
  * only, which carry both themes.
  */
 
+/* Under the keyboard (`.ow-visible-viewport` in index.css): the sheet's own
+   surface on a phone, as if it ran on behind the keys, and the scrim around
+   the centred window (#608). */
 .ow-settings-overlay {
   position: fixed;
   left: 0;
   right: 0;
   z-index: 1200;
+  --ow-vv-below-fill: var(--ow-bg-1);
 }
 
 .ow-settings-scrim {
@@ -40,6 +44,10 @@
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
   box-shadow: var(--ow-shadow-pop);
+  /* The shadow kept above and beside the sheet, not under it: with the
+     keyboard up, the sheet's surface runs on below its edge (the overlay's
+     `--ow-vv-below-fill`), and a shadow there would draw a seam (#608). */
+  clip-path: inset(-48px -48px 0 -48px);
   overflow: hidden;
   animation: ow-settings-up 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -54,6 +62,9 @@
 }
 
 @media (min-width: 64rem) {
+  .ow-settings-overlay {
+    --ow-vv-below-fill: var(--ow-scrim);
+  }
   .ow-settings-panel {
     left: 50%;
     right: auto;
@@ -63,6 +74,7 @@
     transform: translateX(-50%);
     border: 1px solid var(--ow-line-2);
     border-radius: 18px;
+    clip-path: none;
     animation: ow-settings-pop 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   .ow-settings-handle {

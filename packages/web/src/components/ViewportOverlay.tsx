@@ -4,12 +4,14 @@
 import { createPortal } from "react-dom";
 
 /**
- * A modal backdrop pinned to the part of the screen the reader can see.
+ * A modal backdrop whose content is pinned to the part of the screen the
+ * reader can see.
  *
  * With the keyboard closed that is the whole screen. With it open, it is what
  * is left above the keys, so a dialog centred in it keeps its field and its
  * buttons in sight (#569): see `viewport/visibleViewport.ts` for where the
- * box comes from. Its content is centred with `m-auto` rather than by the
+ * box comes from. The backdrop itself still runs on behind the keys, which
+ * are translucent on an iPhone (#608, `.ow-visible-viewport` in index.css). Its content is centred with `m-auto` rather than by the
  * flex alignment, so a dialog taller than a landscape phone with its keyboard
  * up scrolls from its top instead of losing it above the screen.
  *
