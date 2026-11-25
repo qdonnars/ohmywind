@@ -10,9 +10,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.emptyState.click":
     "Haga clic en el mapa para ver la previsión, clic derecho para guardar un spot",
 
-  // Offline banner
-  "explore.offlineBanner.message": "Sin conexión: las previsiones no se pueden actualizar.",
-
   // Info button
   "explore.infoButton.title": "Acerca de",
 
@@ -59,8 +56,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
 
   // Wind table
   "explore.windTable.empty": "No hay datos disponibles para este punto.",
-  "explore.windTable.offline":
-    "Sin conexión: no se pueden obtener las previsiones. Vuelva a conectarse y toque de nuevo este punto.",
   "explore.windTable.fallbackTitle":
     "{description} (mostrado en lugar de {model}, que no cubre este punto).",
   "explore.windTable.fallbackBadge": "fallback desde {model}",

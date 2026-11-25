@@ -97,6 +97,7 @@ function TrackRow({
   removable,
   onSelect,
   onRemove,
+  onRetry,
   onPoint,
 }: {
   track: Track;
@@ -110,6 +111,8 @@ function TrackRow({
   removable: boolean;
   onSelect: () => void;
   onRemove: () => void;
+  /** Compute this option again, after it failed. */
+  onRetry: () => void;
   onPoint: (on: boolean) => void;
 }) {
   const { t, tn } = useT();
@@ -229,7 +232,18 @@ function TrackRow({
             ) : computing ? (
               <span className="text-[10.5px]" style={{ color: "var(--ow-fg-2)" }}>{t("panel.tracks.row.computing")}</span>
             ) : (
-              <span className="text-[10.5px]" style={{ color: "var(--ow-warn-ink)" }}>{track.error}</span>
+              <>
+                <span className="text-[10.5px]" style={{ color: "var(--ow-warn-ink)" }}>{track.error}</span>
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  aria-label={`${t("common.retry")}, ${name}`}
+                  className="shrink-0 inline-flex items-center min-h-11 px-2 rounded-md text-[11px] font-semibold transition-colors hover:bg-[var(--ow-bg-2)]"
+                  style={{ color: "var(--ow-accent)" }}
+                >
+                  {t("common.retry")}
+                </button>
+              </>
             )}
           </div>
         )}
@@ -356,6 +370,7 @@ export function TrackList() {
             removable={track.id !== selectedId && tracks.length > 0}
             onSelect={() => actions.selectTrack(track.id)}
             onRemove={() => actions.removeTrack(track.id)}
+            onRetry={() => actions.computeTrack(track.id)}
             onPoint={(on) => actions.highlightTrack(on ? track.id : null)}
           />
         ))}

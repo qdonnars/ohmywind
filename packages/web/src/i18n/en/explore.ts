@@ -10,9 +10,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.emptyState.click":
     "Click the map for the forecast, right-click to save a spot",
 
-  // Offline banner
-  "explore.offlineBanner.message": "Offline: forecasts cannot be refreshed.",
-
   // Info button
   "explore.infoButton.title": "About",
 
@@ -60,8 +57,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
 
   // Wind table
   "explore.windTable.empty": "No data available for this point.",
-  "explore.windTable.offline":
-    "Offline: the forecasts cannot be fetched. Reconnect, then tap this point again.",
   "explore.windTable.fallbackTitle":
     "{description} (shown in place of {model}, which does not cover this point).",
   "explore.windTable.fallbackBadge": "fallback from {model}",

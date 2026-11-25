@@ -180,6 +180,7 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.tracks.drawing.hint.click": "Click the map to place a point between the plan's departure and arrival.",
   "panel.tracks.drawing.finish": "Finish and compare",
   "panel.tracks.row.computing": "computing…",
+  "panel.tracks.row.notComputed": "not computed",
   "panel.tracks.stale": "Departure or boat changed. Recalculate to compare the routes.",
   "panel.tracks.departure.title": "Departure, shared by every route",
   "panel.tracks.departure.note": "Changing this departure recomputes every route. To try several hours on one route, go back to the plan and choose « Other departures ».",

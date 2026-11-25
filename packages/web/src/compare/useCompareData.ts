@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchIsLand } from "../api/land";
 import { fetchMarineCorridor } from "../api/marine";
 import { fetchWindCorridor } from "../api/openmeteo";
 import { activeModels, loadModelConfig } from "../config/modelConfig";
+import { useOnline } from "../hooks/useOnline";
+import { notifyOffline } from "../offline/offlineNotice";
 import { useAppliedModelOrder } from "../settings/useAppliedModelOrder";
 import type { Spot } from "../types";
 import { mergeModelChain, rowKey, type CompareRow } from "./data";
@@ -46,29 +48,46 @@ export function useCompareData(spots: Spot[]): { rows: CompareRow[]; isLoading: 
   // The settings open over this page: a new model order fetches again, once
   // they close. The effect reads the order itself.
   const modelOrder = useAppliedModelOrder();
+  // Without a network the request still goes, for what the 30-minute caches
+  // hold; the network coming back fetches again, so the table fills without
+  // the page being reopened.
+  const online = useOnline();
+  // Read in the effect, which must not re-run when the rows land.
+  const loadedRef = useRef(loaded);
+  useEffect(() => {
+    loadedRef.current = loaded;
+  }, [loaded]);
 
   useEffect(() => {
     if (spots.length === 0) return;
+    // The network gone under rows already on screen: nothing to ask for.
+    if (!online && loadedRef.current.key === setKey(spots)) return;
     let cancelled = false;
     const coords = spots.map((s) => ({ lat: s.latitude, lon: s.longitude }));
     const models = activeModels(loadModelConfig());
     Promise.all([fetchWindCorridor(coords, models, COMPARE_DAYS), fetchMarineCorridor(coords)]).then(
       ([wind, marine]) => {
         if (cancelled) return;
-        setLoaded({
-          key: setKey(spots),
-          rows: spots.map((spot, i) => ({
-            spot,
-            forecast: mergeModelChain(wind[i] ?? []),
-            marine: marine[i] ?? null,
-          })),
-        });
+        let rows: CompareRow[] = spots.map((spot, i) => ({
+          spot,
+          forecast: mergeModelChain(wind[i] ?? []),
+          marine: marine[i] ?? null,
+        }));
+        if (!online && rows.some((row) => row.forecast === null)) {
+          // A spot added, or the page opened, without a network: say so
+          // once, and keep what was already on screen for the other spots
+          // rather than emptying their rows.
+          notifyOffline();
+          const before = new Map(loadedRef.current.rows.map((row) => [rowKey(row.spot), row]));
+          rows = rows.map((row) => (row.forecast === null ? (before.get(rowKey(row.spot)) ?? row) : row));
+        }
+        setLoaded({ key: setKey(spots), rows });
       },
     );
     return () => {
       cancelled = true;
     };
-  }, [spots, modelOrder]);
+  }, [spots, modelOrder, online]);
 
   // Open-Meteo Marine answers from the nearest sea cell however far inland
   // the spot is: a favourite in the Léon read 1.6 m of swell (#480). The

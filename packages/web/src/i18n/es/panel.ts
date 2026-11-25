@@ -181,6 +181,7 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.tracks.drawing.hint.click": "Haga clic en el mapa para colocar un punto entre la salida y la llegada del plan.",
   "panel.tracks.drawing.finish": "Terminar y comparar",
   "panel.tracks.row.computing": "calculando…",
+  "panel.tracks.row.notComputed": "sin calcular",
   "panel.tracks.stale": "Salida o barco modificados. Recalcule para comparar las rutas.",
   "panel.tracks.departure.title": "Salida, común a todas las rutas",
   "panel.tracks.departure.note": "Cambiar esta salida recalcula todas las rutas. Para probar varias horas en una sola ruta, vuelva al plan y elija « Otras salidas ».",

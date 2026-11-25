@@ -380,7 +380,8 @@ path.ow-spot-marker:focus-visible {
   top: calc(var(--ow-chrome-top) + var(--ow-chrome-size) + var(--ow-chrome-gap));
 }
 /* The bar itself, and what hangs under it in the middle (the offline
-   banner). Placed by these rules rather than by utilities, for the insets. */
+   toast, and on the planner its own notes). Placed by these rules rather
+   than by utilities, for the insets. */
 .ow-chrome-bar {
   top: var(--ow-chrome-top);
   left: calc(var(--ow-chrome-side) + env(safe-area-inset-left, 0px));
@@ -389,7 +390,7 @@ path.ow-spot-marker:focus-visible {
 }
 /* From lg up the three are apart: the menu in the top left corner, the
    settings in the top right one, the search centred between them, 480 px at
-   most, and the offline banner centred under the search. */
+   most, and what hangs under it centred under the search. */
 .ow-chrome-left {
   top: var(--ow-chrome-top);
   left: calc(var(--ow-chrome-side) + env(safe-area-inset-left, 0px));
@@ -405,8 +406,9 @@ path.ow-spot-marker:focus-visible {
   width: min(480px, calc(100% - var(--ow-map-cover-right, 0px) - 2 * (var(--ow-chrome-side) + var(--ow-chrome-size) + 12px)));
   height: var(--ow-chrome-size);
 }
-/* Under the bar, in the middle: the offline banner. On a phone it spans the
-   width but the right column, where the map's round controls hang. */
+/* Under the bar, in the middle: the offline toast and the planner's notes.
+   On a phone it spans the width but the right column, where the map's round
+   controls hang. */
 .ow-chrome-under {
   top: calc(var(--ow-chrome-top) + var(--ow-chrome-size) + var(--ow-chrome-gap));
   left: calc(var(--ow-chrome-side) + env(safe-area-inset-left, 0px));
@@ -418,6 +420,19 @@ path.ow-spot-marker:focus-visible {
     right: auto;
     transform: translateX(-50%);
     width: min(480px, calc(100% - var(--ow-map-cover-right, 0px) - 2 * (var(--ow-chrome-side) + var(--ow-chrome-size) + 12px)));
+  }
+}
+/* The offline toast in that strip (components/OfflineToast.tsx). On a phone
+   the strip stops short of the column of controls on the right, so its
+   middle is not the map's: the toast is moved back onto the middle of the
+   screen, and kept narrow enough that it reaches the column on neither
+   side. From lg up the strip is already centred on the visible map. */
+@media (max-width: 63.98rem) {
+  .ow-offline-toast-slot {
+    transform: translateX(calc((56px + env(safe-area-inset-right, 0px) - env(safe-area-inset-left, 0px)) / 2));
+    max-width: calc(
+      100vw - 2 * (var(--ow-chrome-side) + 56px + max(env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px)))
+    );
   }
 }
 /* The hints along the bottom of a map (« Touchez la carte… »), centred in

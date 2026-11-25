@@ -149,6 +149,8 @@ function stubActions(): PlanActions {
     cancelVariant: vi.fn(),
     finishVariant: vi.fn(),
     computeTracks: vi.fn(),
+    computeTrack: vi.fn(),
+    rerun: vi.fn(),
     openTrack: vi.fn(),
     selectTrack: vi.fn(),
     removeTrack: vi.fn(),
@@ -197,10 +199,12 @@ describe("PlanSidebar views", () => {
     expect(screen.queryByRole("button", { name: "Nouveau plan" })).toBeNull();
   });
 
-  it("shows the error, with the trash still reachable", () => {
-    mount({ apiError: "Trop de calculs lancés coup sur coup." });
+  it("shows the error, with the trash still reachable and a way to try again", async () => {
+    const value = mount({ apiError: "Trop de calculs lancés coup sur coup." });
     expect(screen.getByText("Trop de calculs lancés coup sur coup.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Nouveau plan" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Réessayer" }));
+    expect(value.actions.rerun).toHaveBeenCalledTimes(1);
   });
 
   it("shows the error under the comparison head, with the way back, when it failed there", async () => {
@@ -485,13 +489,13 @@ describe("the comparison", () => {
     expect(value.actions.removeTrack).toHaveBeenCalledWith("v1");
   });
 
-  it("keeps the computing and the failed states of an option on its sub-row", () => {
+  it("keeps the computing and the failed states of an option on its sub-row", async () => {
     const tracks = [
       { id: "plan", waypoints: [MARSEILLE, PORQUEROLLES] as [number, number][], createdAt: "", passage: passage(), complexity: complexity(), error: null },
       { id: "v1", waypoints: [MARSEILLE, MID, PORQUEROLLES] as [number, number][], createdAt: "", passage: null, complexity: null, error: null },
       { id: "v2", waypoints: [MARSEILLE, [43.1, 5.6], PORQUEROLLES] as [number, number][], createdAt: "", passage: null, complexity: null, error: "Le serveur météo est indisponible." },
     ];
-    mount({
+    const value = mount({
       mode: "compare",
       compareAxis: "tracks",
       tracks,
@@ -501,6 +505,10 @@ describe("the comparison", () => {
     });
     expect(screen.getByText("calcul en cours…")).toBeTruthy();
     expect(screen.getByText("Le serveur météo est indisponible.")).toBeTruthy();
+    // The failed option, and it alone, can be computed again.
+    expect(screen.getAllByRole("button", { name: /^Réessayer/ })).toHaveLength(1);
+    await userEvent.click(screen.getByRole("button", { name: "Réessayer, Option 3" }));
+    expect(value.actions.computeTrack).toHaveBeenCalledWith("v2");
     // Nothing to choose until a passage lands; removal stays.
     expect((screen.getByRole("button", { name: /Choisir l'option 2/ }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole("button", { name: "Supprimer l'option 3" })).toBeTruthy();

@@ -133,20 +133,22 @@ function SkeletonTable() {
  * `fetchAllModels` avale les echecs reseau et rend une liste vide, exactement
  * comme un point hors de toutes les grilles : le tableau ne peut donc pas
  * distinguer les deux cas tout seul. Le navigateur, lui, le sait. Hors ligne,
- * on nomme la cause au lieu de laisser croire que la mer n'a pas de meteo.
- * Meme chose quand Open-Meteo a refuse la connexion pour quota epuise : le
- * refus est note par le fetcher, et la phrase dit quel quota et quand il
- * revient (voir `api/openMeteoQuota.ts`). Hors ligne passe devant : sans
- * reseau, la question du quota ne se pose pas encore.
+ * la zone reste vide : le message passager « Hors ligne : mise a jour
+ * impossible » l'a dit au moment du toucher (offline/offlineNotice.ts, #607),
+ * et « Aucune donnee pour ce point » serait faux, la mer a sa meteo. Au
+ * retour du reseau, l'explorateur recharge le point de lui-meme. Quand
+ * Open-Meteo a refuse la connexion pour quota epuise, le refus est note par
+ * le fetcher, et la phrase dit quel quota et quand il revient (voir
+ * `api/openMeteoQuota.ts`).
  */
 function EmptyForecast() {
   const online = useOnline();
   const quota = useOpenMeteoQuota();
   const { t } = useT();
-  let text: string;
-  if (!online) text = t("explore.windTable.offline");
-  else if (quota) text = openMeteoQuotaMessage("connection", quota.window, quota.resetAt);
-  else text = t("explore.windTable.empty");
+  if (!online) return null;
+  const text = quota
+    ? openMeteoQuotaMessage("connection", quota.window, quota.resetAt)
+    : t("explore.windTable.empty");
   return (
     <div className="text-center py-8 px-4 text-sm" style={{ color: 'var(--ow-fg-2)' }}>
       {text}

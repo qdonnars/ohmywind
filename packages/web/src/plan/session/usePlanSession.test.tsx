@@ -30,6 +30,7 @@ import {
   type PolarConfig,
 } from "../../config/polarConfig";
 import { ApiError } from "../../api/passage";
+import { dismissOfflineNotice, offlineNoticeShown } from "../../offline/offlineNotice";
 
 const fetchPassage = vi.fn();
 const fetchPassageWindows = vi.fn();
@@ -173,6 +174,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  dismissOfflineNotice();
 });
 
 describe("usePlanSession", () => {
@@ -321,6 +323,49 @@ describe("usePlanSession", () => {
     act(() => result.current.actions.compute());
     await waitFor(() => expect(result.current.state.apiError).toBe("traduit: rate limit exceeded"));
     expect(result.current.isLoading).toBe(false);
+  });
+
+  it("goes back to its button without an error when there is no network, and computes once it is back", async () => {
+    const onLine = vi.spyOn(window.navigator, "onLine", "get").mockReturnValue(false);
+    fetchPassage.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    const { result } = renderHook(() => usePlanSession(session({ actionTaken: false })));
+
+    act(() => result.current.actions.compute());
+    expect(result.current.state.actionTaken).toBe(true);
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    // Not an error of the server: no frame, the step from before the request.
+    expect(result.current.state.apiError).toBeNull();
+    expect(result.current.state.retry).toBeNull();
+    expect(result.current.state.actionTaken).toBe(false);
+    expect(offlineNoticeShown()).toBe(true);
+
+    // The network is back: the same button computes, no reload.
+    onLine.mockReturnValue(true);
+    dismissOfflineNotice();
+    fetchPassage.mockResolvedValueOnce({
+      passage: passage(),
+      complexity: complexity(),
+      forecast_updated_at: "2026-09-09T06:00:00Z",
+    });
+    act(() => result.current.actions.compute());
+    await waitFor(() => expect(result.current.state.passage).not.toBeNull());
+    expect(result.current.state.apiError).toBeNull();
+  });
+
+  it("tries the failed computation again on « Réessayer »", async () => {
+    fetchPassage.mockRejectedValueOnce(new Error("boom")).mockResolvedValueOnce({
+      passage: passage(),
+      complexity: complexity(),
+      forecast_updated_at: "2026-09-09T06:00:00Z",
+    });
+    const { result } = renderHook(() => usePlanSession(session()));
+
+    act(() => result.current.actions.compute());
+    await waitFor(() => expect(result.current.state.apiError).toBe("traduit: boom"));
+    act(() => result.current.actions.rerun());
+    await waitFor(() => expect(result.current.state.passage).not.toBeNull());
+    expect(fetchPassage).toHaveBeenCalledTimes(2);
+    expect(result.current.state.apiError).toBeNull();
   });
 
   it("retries by itself while the backend wakes up, then shows the result", async () => {

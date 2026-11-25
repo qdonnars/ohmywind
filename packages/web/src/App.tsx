@@ -29,6 +29,7 @@ import { hasDeclinedGeolocation } from "./config/geolocPreference";
 import { loadLastSpot, saveLastSpot } from "./config/lastSpot";
 import { useOnline } from "./hooks/useOnline";
 import { loadSpotForecast } from "./offline/spotForecast";
+import { notifyOffline } from "./offline/offlineNotice";
 import { ForecastStamp } from "./components/ForecastStamp";
 import { usePointerWording } from "./hooks/usePointerWording";
 import { useAppliedModelOrder } from "./settings/useAppliedModelOrder";
@@ -125,6 +126,7 @@ function App() {
   const [cachedAt, setCachedAt] = useState<number | null>(null);
   // Read in the fetch effect, which must not re-run when the panel loads.
   const loadedSpotKeyRef = useRef<string | null>(null);
+  const askedSpotRef = useRef<Spot | null>(null);
   const savedSpotsRef = useRef(customSpots);
   useEffect(() => {
     loadedSpotKeyRef.current = loadedSpotKey;
@@ -172,10 +174,22 @@ function App() {
   useEffect(() => {
     if (!spot) return;
     const key = `${spot.latitude},${spot.longitude}`;
-    if (!online && loadedSpotKeyRef.current === key) return;
+    // A spot picked again (the same point touched twice), as opposed to a
+    // re-run because the network or the model order moved.
+    const asked = spot !== askedSpotRef.current;
+    askedSpotRef.current = spot;
+    if (!online && loadedSpotKeyRef.current === key) {
+      if (asked) notifyOffline();
+      return;
+    }
     let cancelled = false;
     loadSpotForecast(spot, { online, savedSpots: savedSpotsRef.current }).then(({ models: data, marine: marineData, cachedAt: at }) => {
       if (!cancelled) {
+        // Asked for without a network (a point tapped, the app opened on its
+        // last spot): say once that nothing new could come, whether the
+        // device had this point or not. A forecast it had shows with its
+        // date (ForecastStamp); without one the panel stays empty.
+        if (!online) notifyOffline();
         // A refresh that got nothing back must not empty a panel that the
         // device had filled: keep what is shown, with its date.
         if (data.length === 0 && loadedSpotKeyRef.current === key) return;

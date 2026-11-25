@@ -181,6 +181,7 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.tracks.drawing.hint.click": "Clicchi sulla mappa per posizionare un punto tra la partenza e l'arrivo del piano.",
   "panel.tracks.drawing.finish": "Terminare e confrontare",
   "panel.tracks.row.computing": "calcolo in corso…",
+  "panel.tracks.row.notComputed": "non calcolato",
   "panel.tracks.stale": "Partenza o barca modificata. Ricalcoli per confrontare le rotte.",
   "panel.tracks.departure.title": "Partenza, comune a tutte le rotte",
   "panel.tracks.departure.note": "Cambiare questa partenza ricalcola tutte le rotte. Per provare più orari su una sola rotta, torni al piano e scelga « Altre partenze ».",

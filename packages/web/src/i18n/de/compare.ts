@@ -10,8 +10,6 @@ export const compare: Record<keyof typeof frCompare, string> = {
   "compare.none.title": "Kein Spot angehakt",
   "compare.none.body": "Haken Sie mindestens einen Spot in der Liste an, um ihn hier zu lesen.",
   "compare.table.empty": "Keine Daten für Ihre Spots verfügbar.",
-  "compare.table.offline":
-    "Offline: Die Vorhersagen können nicht geladen werden. Verbinden Sie sich erneut und öffnen Sie diese Seite noch einmal.",
 
   "compare.row.focus": "Karte auf {name} zentrieren",
   "compare.row.open": "{name} in Erkunden öffnen",
