@@ -125,6 +125,7 @@ describe("startVisibleViewport", () => {
     const css = document.documentElement.style;
     expect(css.getPropertyValue("--ow-vv-top")).toBe("0px");
     expect(css.getPropertyValue("--ow-vv-height")).toBe("844px");
+    expect(css.getPropertyValue("--ow-vv-below")).toBe("0px");
     expect(screen.getByText("0/844/0")).toBeDefined();
 
     // A field low on the page takes the focus, the keyboard slides in.
@@ -138,6 +139,8 @@ describe("startVisibleViewport", () => {
     vv.dispatchEvent(new Event("resize"));
     flush();
     expect(css.getPropertyValue("--ow-vv-height")).toBe("464px");
+    // An overlay's backdrop runs on behind the keys (#608).
+    expect(css.getPropertyValue("--ow-vv-below")).toBe("380px");
     expect(screen.getByText("0/464/380")).toBeDefined();
     expect(list.scrollTop).toBe(188);
 
@@ -146,6 +149,8 @@ describe("startVisibleViewport", () => {
     vv.dispatchEvent(new Event("scroll"));
     flush();
     expect(css.getPropertyValue("--ow-vv-top")).toBe("100px");
+    // Down to the bottom of the screen, past the layout viewport's.
+    expect(css.getPropertyValue("--ow-vv-below")).toBe("380px");
     expect(screen.getByText("100/464/280")).toBeDefined();
 
     // Keyboard down: the whole screen again.
@@ -154,6 +159,7 @@ describe("startVisibleViewport", () => {
     vv.dispatchEvent(new Event("resize"));
     flush();
     expect(css.getPropertyValue("--ow-vv-height")).toBe("844px");
+    expect(css.getPropertyValue("--ow-vv-below")).toBe("0px");
     expect(screen.getByText("0/844/0")).toBeDefined();
   });
 });
