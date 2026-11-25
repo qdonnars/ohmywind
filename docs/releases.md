@@ -25,7 +25,7 @@ Les changements à venir s'écrivent en tête des deux journaux, sous une sectio
 ## 1.9.0 · Prochaine version · Titre en une ligne
 ```
 
-(`Next release` dans `CHANGELOG.en.md`), puis trois listes au plus, dans cet ordre : `### Nouveautés`, `### Corrections`, `### Coulisses` (`New`, `Fixes`, `Behind the scenes`). Une phrase par puce, écrite pour les utilisateurs, avec les numéros de PR entre parenthèses (`(#462)`) : la page les transforme en liens, GitHub aussi. Pas de tiret cadratin, le vouvoiement quand on s'adresse au lecteur. La section n'apparaît pas sur ohmywind.fr, seulement sur dev.ohmywind.fr.
+(`Next release` dans `CHANGELOG.en.md`), puis trois listes au plus, dans cet ordre : `### Nouveautés`, `### Corrections`, `### Coulisses` (`New`, `Fixes`, `Behind the scenes`). Une phrase courte par puce, écrite pour un utilisateur et non pour un développeur : ce qui change pour lui, avec ses mots, sans nom de composant ni détail de réalisation. Les numéros de PR ferment la puce entre parenthèses (`(#462)`) : ils servent à remonter au code et GitHub les lie dans une release, mais la page Quoi de neuf de l'application ne les affiche pas. Pas de tiret cadratin, le vouvoiement quand on s'adresse au lecteur. La section n'apparaît pas sur ohmywind.fr, seulement sur dev.ohmywind.fr.
 
 ## À chaque promotion `dev` vers `main`
 

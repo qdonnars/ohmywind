@@ -24,12 +24,11 @@ describe("WhatsNewPage", () => {
     expect(cards[cards.length - 1].id).toBe("v1.0.0");
   });
 
-  it("links pull request numbers to GitHub, in a new tab", () => {
+  it("shows the notes without their pull request numbers", () => {
     render(<WhatsNewPage />);
-    // #429, the fix outside the AROME domain, in the 1.8.0 notes.
-    const link = screen.getByRole("link", { name: "#429" });
-    expect(link.getAttribute("href")).toBe("https://github.com/qdonnars/ohmywind/pull/429");
-    expect(link.getAttribute("target")).toBe("_blank");
+    // The file ends each line on its numbers, "(#429)": none reaches the page.
+    expect(document.body.textContent ?? "").not.toMatch(/#\d{2,}/);
+    expect(screen.queryByRole("link", { name: /^#\d+$/ })).toBeNull();
   });
 
   it("goes back, top left, to « À propos », the page it hangs from", () => {
@@ -50,7 +49,7 @@ describe("WhatsNewPage", () => {
       expect(notes).not.toMatch(/android|google play|play store|iphone|\bios\b/i);
       // The rest of the log is all there.
       expect(container.querySelectorAll("article").length).toBeGreaterThan(10);
-      expect(screen.getByRole("link", { name: "#429" })).toBeTruthy();
+      expect(notes).toMatch(/AROME/);
     } finally {
       delete (window as { Capacitor?: unknown }).Capacitor;
     }
