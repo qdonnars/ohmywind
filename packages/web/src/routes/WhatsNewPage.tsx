@@ -6,7 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { LOCALE_BY_LANG, useT, type Lang } from "../i18n";
-import { formatReleaseDate, linkPullRequests, parseChangelog, visibleReleases, type Release } from "../content/changelog";
+import { formatReleaseDate, withoutPullRequests, parseChangelog, visibleReleases, type Release } from "../content/changelog";
 import { markWhatsNewSeen } from "../config/whatsNewSeen";
 import { APP_VERSION } from "../utils/version";
 import { inStoreApp } from "../install/platform";
@@ -83,7 +83,7 @@ function ReleaseCard({ release, contentLang, dateFormat }: {
       </h2>
       <div className="wn-body" lang={contentLang}>
         <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: MarkdownLink }}>
-          {linkPullRequests(release.body)}
+          {withoutPullRequests(release.body)}
         </ReactMarkdown>
       </div>
     </article>
