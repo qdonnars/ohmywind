@@ -40,19 +40,18 @@ function WifiOffIcon() {
  * the reader made could not go out (`offline/offlineNotice.ts`).
  *
  * Mounted once per page, where the offline banner used to be: under the
- * search floating over a full-screen map (`MapTopBar`, `floating`), centred
- * on the part of the map left visible and never as wide as the column of
- * round controls on the right (`.ow-offline-toast-slot` in index.css); under
- * the header of a page that keeps one (`Header`), centred on the page, over
- * the content rather than pushing it down. One line while the width allows,
- * two centred lines on the narrowest phones.
+ * search floating over a full-screen map (`MapTopBar`), centred on the part
+ * of the map left visible and never as wide as the column of round controls
+ * on the right (`.ow-offline-toast-slot` in index.css), over the map rather
+ * than pushing anything down. One line while the width allows, two centred
+ * lines on the narrowest phones.
  *
  * Neutral surface, not the warning colours: losing the network at sea is
  * ordinary, and the toast only says why nothing new came. The live region
  * stays in the tree so the text is heard when it appears (`role="status"`,
  * polite). Taken down as soon as the browser reports the network back.
  */
-export function OfflineToast({ floating = false }: { floating?: boolean }) {
+export function OfflineToast() {
   const { t } = useT();
   const online = useOnline();
   const shown = useSyncExternalStore(subscribeOfflineNotice, offlineNoticeShown, () => false);
@@ -64,11 +63,7 @@ export function OfflineToast({ floating = false }: { floating?: boolean }) {
     <div
       role="status"
       aria-live="polite"
-      className={
-        floating
-          ? "ow-offline-toast-slot flex justify-center pointer-events-none"
-          : "absolute inset-x-0 top-full mt-2 flex justify-center px-4 pointer-events-none"
-      }
+      className="ow-offline-toast-slot flex justify-center pointer-events-none"
     >
       {visible && (
         <p

@@ -21,11 +21,6 @@ interface SpotSearchProps {
   /** Searched locally, before anything leaves the browser. */
   savedSpots?: Spot[];
   /**
-   * "header": the field of a page header. "floating": the glass field of the
-   * bar over a full-screen map, as tall as the bar (`--ow-chrome-size`).
-   */
-  appearance?: "header" | "floating";
-  /**
    * On a phone, the field over the map is only a way in: touching it opens
    * the search over the whole screen, with « Annuler », the reader's saved
    * spots before anything is typed, and the results below the field once
@@ -46,10 +41,14 @@ const CACHE_MAX = 40;
 /** Ids of the two halves of the combobox. Fixed rather than derived from
     useId because the dropdown is portalled to document.body and the outside
     click handler looks it up by id; a page mounts a single SpotSearch (in
-    its header, or in the bar over its map). INPUT_ID also gives the field
-    the `id` that Chrome and Lighthouse ask of every form control. */
-const INPUT_ID = "ow-search-input";
+    the bar over its map). The input's id is also the one Chrome and
+    Lighthouse ask of every form control. */
+export const SEARCH_INPUT_ID = "ow-search-input";
 const LISTBOX_ID = "ow-search-dropdown-portal";
+/** The field over the map in full-screen mode, which is only a button that
+    opens the search: « Ajouter un spot » on /comparer presses it
+    (compare/focusSearch). */
+export const SEARCH_TRIGGER_ID = "ow-search-open";
 const GROUP_TITLE_ID = "ow-search-group-title";
 /** Gap kept between the suggestions and the keyboard (or the screen's edge),
     and the least the list shrinks to: two rows, still worth scrolling. */
@@ -95,7 +94,6 @@ export function SpotSearch({
   nearLat,
   nearLon,
   savedSpots = [],
-  appearance = "header",
   fullscreen = false,
 }: SpotSearchProps) {
   const { t, lang } = useT();
@@ -301,12 +299,12 @@ export function SpotSearch({
       ? t("explore.spotSearch.failed")
       : t("explore.spotSearch.empty");
 
-  // The combobox itself, the same element in the header, in the bar over the
-  // map and at the top of the full-screen search.
+  // The combobox itself, the same element in the bar over the map and at the
+  // top of the full-screen search.
   const input = (className: string) => (
     <input
       type="text"
-      id={INPUT_ID}
+      id={SEARCH_INPUT_ID}
       name="spot-search"
       // The suggestion list is ours, rendered below. Without this, naming
       // the field lets the browser stack its own history dropdown on top
@@ -336,6 +334,7 @@ export function SpotSearch({
       <div ref={containerRef} className="relative w-full min-w-0 pointer-events-auto">
         <button
           ref={triggerRef}
+          id={SEARCH_TRIGGER_ID}
           type="button"
           onClick={() => {
             // A new search each time: the field opens empty, on the saved
@@ -416,27 +415,21 @@ export function SpotSearch({
   const listMaxHeight = pos
     ? Math.max(LIST_MIN_PX, visible.top + visible.height - pos.top - LIST_EDGE_GAP_PX)
     : undefined;
-  const floating = appearance === "floating";
 
+  // The glass field of the bar over a full-screen map, as tall as the bar
+  // (`--ow-chrome-size`), with its suggestions under it.
   return (
-    <div
-      ref={containerRef}
-      className={floating ? "relative w-full pointer-events-auto" : "relative w-full max-w-md lg:max-w-lg"}
-    >
+    <div ref={containerRef} className="relative w-full pointer-events-auto">
       <div className="relative">
         <span
           // Above the field: the glass of the floating field blurs its
           // backdrop, which paints it over a sibling placed before it.
-          className={`absolute z-[1] top-1/2 -translate-y-1/2 pointer-events-none ${floating ? "left-[18px]" : "left-3"}`}
+          className="absolute z-[1] top-1/2 -translate-y-1/2 pointer-events-none left-[18px]"
           style={{ color: "var(--ow-fg-2)" }}
         >
-          <SearchIcon size={floating ? 18 : 16} />
+          <SearchIcon size={18} />
         </span>
-        {input(
-          floating
-            ? "ow-chrome-glass ow-search-floating w-full pl-12 pr-5 rounded-full text-[15px]"
-            : "ow-search-input w-full pl-9 pr-3 py-2.5 min-h-[44px] rounded-xl text-sm transition-all",
-        )}
+        {input("ow-chrome-glass ow-search-floating w-full pl-12 pr-5 rounded-full text-[15px]")}
       </div>
       {showDropdown && createPortal(
         <ul

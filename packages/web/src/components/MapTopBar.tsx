@@ -31,8 +31,9 @@ interface MapTopBarProps {
 }
 
 /**
- * What a page with a full-screen map floats over the top of it, in place of
- * a header: the menu, the search and the settings.
+ * What a page with a full-screen map (the explorer, the planner, the
+ * comparison) floats over the top of it, in place of a header: the menu,
+ * the search and the settings.
  *
  * Mounted inside the map's positioned box, after the map so it paints over
  * it. The map runs to the top edge of the screen, under the status bar in
@@ -73,7 +74,6 @@ export function MapTopBar({
       nearLat={nearLat}
       nearLon={nearLon}
       savedSpots={savedSpots}
-      appearance="floating"
       fullscreen={!isDesktop}
     />
   );
@@ -88,19 +88,19 @@ export function MapTopBar({
             {search}
           </div>
           <div className="ow-chrome-end absolute z-[400]">
-            <SettingsButton variant="floating" />
+            <SettingsButton />
           </div>
         </>
       ) : (
         <div ref={barRef} data-ow-chrome="" className="ow-chrome-bar absolute z-[400] flex items-center gap-2 pointer-events-none">
           <NavMenu variant="floating" current={current} mapQuery={mapQuery} triggerRef={navRef} />
           <div className="flex-1 min-w-0">{search}</div>
-          <SettingsButton variant="floating" />
+          <SettingsButton />
         </div>
       )}
       <div className="ow-chrome-under absolute z-[400] flex flex-col items-center gap-2 pointer-events-none">
         {under}
-        <OfflineToast floating />
+        <OfflineToast />
       </div>
     </>
   );

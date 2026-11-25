@@ -8,7 +8,8 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 
 ### Nouveautés
 
-- La carte prend tout l'écran : plus de bandeau en haut, le menu, la recherche et les réglages flottent sur la carte, dans l'explorateur comme dans le planificateur (#599, #600).
+- La carte prend tout l'écran : plus de bandeau en haut, le menu, la recherche et les réglages flottent sur la carte, dans l'explorateur, le planificateur et la comparaison des spots (#599, #600, #619).
+- Dans la comparaison des spots, plus de colonne à droite sur ordinateur : vos spots se choisissent partout par le bouton « Spots » (#619).
 - Sur ordinateur, le panneau du planificateur est posé sur la carte, détaché des bords ; les boutons et la recherche se rangent à côté (#603).
 - Le menu s'ouvre sur le côté et regroupe tout : Explorer, Planifier, Comparer, Quoi de neuf, Réglages, Méthodologie et À propos (#595).
 - Les Réglages s'ouvrent par-dessus la carte, sans quitter la page, avec les mêmes écrans sur téléphone, tablette et ordinateur (#596, #597, #598).
@@ -24,7 +25,7 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 - Les chiffres d'un plan tombent juste : vitesses, distances et durées se recoupent (#532, #583).
 - Sur téléphone, le clavier ne cache plus ce que vous saisissez (#569, #584, #608, #609, #612, #614).
 - Sans réseau, un message discret vous prévient quand une demande échoue, et le calcul reprend dès que le réseau revient, sans recharger la page (#607, #611).
-- Dans le navigateur d'un téléphone, le bas de l'écran n'est plus coupé (#613).
+- Dans le navigateur d'un téléphone, ou depuis l'écran d'accueil, le bas de l'écran n'est plus coupé (#613).
 - Un spot enregistré n'est plus entouré d'un carré quand on le touche (#545, #584).
 - Dans la comparaison des spots, un point placé à terre n'affiche plus de vagues (#480, #582).
 - Dans le planificateur sur téléphone, les boutons de la carte ne se chevauchent plus et la carte reste visible quand le tiroir est monté (#579, #587).

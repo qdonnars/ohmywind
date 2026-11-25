@@ -4,6 +4,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -12,8 +13,8 @@ import {
   type TransitionEvent,
 } from "react";
 import { isWavesRelevant } from "../api/marine";
-import { Header } from "../components/Header";
-import { NavMenu } from "../components/NavMenu";
+import { MapTopBar } from "../components/MapTopBar";
+import { ZOOM_CLEARANCE_BELOW_PX, ZOOM_GROUP_PX } from "../components/mapControlsLayout";
 import { SpotMap } from "../components/SpotMap";
 import {
   SpotsChip,
@@ -60,8 +61,9 @@ import { haversineNm } from "../utils/geo";
 
 const DEFAULT_MAP_CENTER: { lat: number; lon: number } = { lat: 43.3, lon: 5.35 };
 
-/** Under this much map left above the sheet, framing the spots would only
-    move them behind it: the reader has asked for the table, not the map. */
+/** Under this much map left between the bar and the sheet, framing the
+    spots would only move them behind it: the reader has asked for the
+    table, not the map. The button that frames them stands down too. */
 const MAP_STRIP_MIN_PX = 100;
 
 function Notice({ title, body, children }: { title: string; body: string; children?: ReactNode }) {
@@ -102,11 +104,13 @@ function SkeletonRows({ rows, dense }: { rows: number; dense: boolean }) {
 /**
  * `/comparer`: the saved spots side by side.
  *
- * The map stays on screen and situates the spots; the table takes the rest.
- * On a phone the map fills the screen and a sheet unfolds over it, on a
- * wide screen the map is a strip above the table and the list of
- * favourites becomes the right column. Same settings on both: the step,
- * the sea band, the hour window, and which favourites are read.
+ * Laid out as the explorer is, at every width: no header, the map over the
+ * whole screen (under the status bar in the apps), the menu, the search and
+ * the settings floating over its top (`MapTopBar`), and the table in a sheet
+ * over its bottom. The sheet grows from under the bar, never over it, and is
+ * dragged by its handle. One row of settings heads it: the step, the sea
+ * band, the hour window, and the « Spots » chip, which unfolds the list of
+ * favourites to tick under the row. From lg up only the sizes change.
  */
 export function ComparePage() {
   const { t } = useT();
@@ -116,6 +120,7 @@ export function ComparePage() {
   // "no data".
   const quota = useOpenMeteoQuota();
   const { customSpots, addSpot, removeSpot, renameSpot } = useCustomSpots();
+  // Presentation only: the cells and the chips are larger from lg up.
   const isDesktop = useMediaQuery(LG_MEDIA_QUERY);
   const { position: userPosition, locate } = useGeolocation();
   const { view: mapView, onViewChange } = useMapView();
@@ -153,13 +158,29 @@ export function ComparePage() {
   // reference for the place search until a spot is focused.
   const [lastSpot] = useState(loadLastSpot);
 
-  // Phone only: the height of the sheet, and the favourites panel inside it.
-  // The height is dragged by the handle and kept across visits, so a reader
-  // who works in the table full screen finds it full screen again.
+  // The height of the sheet, and the favourites panel inside it. The height
+  // is dragged by the handle and kept across visits, so a reader who works
+  // in the table full screen finds it full screen again.
   const [sheet, setSheet] = useState(() => prefs.sheet);
   const [sheetAnimating, setSheetAnimating] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
+  // The room the sheet grows in: from under the bar over the map to the
+  // bottom of the screen. Its height, for what the strip of map left above
+  // the sheet can hold.
+  const roomRef = useRef<HTMLDivElement>(null);
+  const [roomPx, setRoomPx] = useState(0);
+  useLayoutEffect(() => {
+    const room = roomRef.current;
+    if (!room) return;
+    const measure = () => setRoomPx(room.clientHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(room);
+    return () => ro.disconnect();
+  }, []);
+  // The bar over the map, which a point centred on the map must clear.
+  const topBarRef = useRef<HTMLDivElement>(null);
   // `value` rather than the state read back on release: a whole drag can land
   // in one batch, and the height committed then must be the one dragged to.
   const dragRef = useRef<{ y: number; from: number; moved: boolean; value: number } | null>(null);
@@ -264,9 +285,10 @@ export function ComparePage() {
 
   // ── The sheet's height ─────────────────────────────────────────────────
   // A drag on the handle sets it anywhere between a peek and the full
-  // screen; a tap keeps the two heights of the design. Percentages of the
-  // map area rather than of the viewport, so the header never counts.
-  const mapAreaHeight = () => sheetRef.current?.parentElement?.clientHeight ?? 0;
+  // room; a tap keeps the two heights of the design. Percentages of the
+  // room under the bar rather than of the viewport, so the bar never counts
+  // and the sheet at its highest stops under it.
+  const mapAreaHeight = () => roomRef.current?.clientHeight ?? 0;
 
   const refitMap = (pct: number) => {
     const height = mapAreaHeight();
@@ -372,175 +394,172 @@ export function ComparePage() {
     );
   };
 
-  const map = (
-    <SpotMap
-      current={focused}
-      customSpots={picked}
-      fitSpots={fitSpots}
-      fitStamp={fitTick}
-      markerNumbers={markerNumbers}
-      userPosition={userPosition}
-      onViewChange={onViewChange}
-      defaultCenter={DEFAULT_MAP_CENTER}
-      bottomInsetRef={isDesktop ? undefined : sheetRef}
-      onSelectSpot={handleFocus}
-      onAddSpot={addSpot}
-      onRemoveSpot={handleRemoveSpot}
-      onRenameSpot={handleRenameSpot}
-      forecasts={[]}
-      marine={null}
-      metric="wind"
-      selectedHour={null}
-    />
-  );
+  // The strip of map between the bar and the sheet, and the column of round
+  // controls along its right edge (components/mapControlsLayout.ts): the
+  // zoom buttons right under the bar (mouse and trackpad only), the button
+  // that frames the spots again at the bottom, above the sheet. A short
+  // strip keeps the bottom one, and none at all once the map is only a
+  // band: the zoom buttons stand down first, as on the planner.
+  const stripPx = roomPx * (1 - sheet / 100);
+  const recentreRoom = stripPx >= MAP_STRIP_MIN_PX;
+  const zoomRoom = stripPx >= ZOOM_GROUP_PX + ZOOM_CLEARANCE_BELOW_PX;
 
   // Not the map centre first, as on Explorer: here the sheet hides most of
   // the map, and the centre of a map framed above it lies far off. See
   // searchReference.
   const near = searchReference(userPosition, [focused, lastSpot, customSpots[0]], mapView);
-  const header = (
-    <Header
-      onSelectSpot={handleSearchSelect}
-      nearLat={near?.lat ?? null}
-      nearLon={near?.lon ?? null}
-      savedSpots={customSpots}
-      current="compare"
-      mapQuery=""
-    />
-  );
-
-  if (isDesktop) {
-    return (
-      <div className="h-dvh flex flex-col overflow-hidden" style={{ background: "var(--ow-bg-1)", color: "var(--ow-fg-0)" }}>
-        {header}
-        <div className="flex-1 min-h-0 flex">
-          <div className="flex-1 min-w-0 flex flex-col pt-4 pl-5">
-            <div className="pr-5 shrink-0">
-              <div
-                className="relative rounded-lg overflow-hidden"
-                style={{ height: 236, border: "1px solid var(--ow-line)" }}
-              >
-                {map}
-                <NavMenu variant="map" current="compare" className="top-3 left-3" />
-                <button
-                  type="button"
-                  onClick={() => setFitTick((v) => v + 1)}
-                  aria-label={t("compare.map.recentre")}
-                  title={t("compare.map.recentre")}
-                  className="absolute right-3 bottom-3 z-[400] w-[38px] h-[38px] rounded-full flex items-center justify-center cursor-pointer"
-                  style={{
-                    border: "2px solid var(--ow-accent)",
-                    background: "var(--ow-bg-1)",
-                    color: "var(--ow-accent)",
-                    boxShadow: "var(--ow-shadow-2)",
-                  }}
-                >
-                  <TargetIcon size={18} />
-                </button>
-              </div>
-            </div>
-            <div
-              className="shrink-0 flex items-center gap-3 mr-5 mt-3.5 mb-3 pb-3"
-              style={{ borderBottom: "1px solid var(--ow-line)" }}
-            >
-              <StepSegment value={prefs.res} onChange={setRes} small={false} />
-              {hasWaves && <WaveChip on={prefs.wave} onChange={setWave} small={false} />}
-              <div className="ml-auto">
-                <WindowChip win={prefs.win} onChange={setWin} small={false} />
-              </div>
-            </div>
-            {content(false)}
-          </div>
-          <div className="shrink-0 flex flex-col" style={{ width: 268, borderLeft: "1px solid var(--ow-line)" }}>
-            <SpotPicker
-              spots={customSpots}
-              hidden={hidden}
-              onToggle={toggleSpot}
-              onAll={pickAll}
-              distances={distances}
-              numbers={markerNumbers}
-              variant="column"
-            />
-            <div className="p-3" style={{ borderTop: "1px solid var(--ow-line)" }}>
-              <AddSpotButton onClick={focusSearch} />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const small = !isDesktop;
 
   return (
-    <div className="h-dvh flex flex-col overflow-hidden" style={{ background: "var(--ow-bg-0)", color: "var(--ow-fg-0)" }}>
-      {header}
+    <div className="ow-app-screen flex flex-col overflow-hidden" style={{ background: "var(--ow-bg-0)", color: "var(--ow-fg-0)" }}>
+      {/* No header: the map fills the whole screen, under the status bar in
+          the apps, and the menu, the search and the settings float over its
+          top (MapTopBar), as on the explorer. */}
       <div className="flex-1 min-h-0 relative">
-        <div className="absolute inset-0">{map}</div>
-        <div
-          ref={sheetRef}
-          onTransitionEnd={onSheetTransitionEnd}
-          className="absolute left-0 right-0 bottom-0 z-[400] flex flex-col"
-          style={{
-            height: `${sheet}%`,
-            background: "var(--ow-bg-1)",
-            borderRadius: "20px 20px 0 0",
-            boxShadow: "var(--ow-shadow-pop)",
-            borderTop: "1px solid var(--ow-line)",
-            transition: sheetAnimating ? "height .3s cubic-bezier(.3, 1, .4, 1)" : undefined,
-          }}
-        >
-          {/* The grab handle. Wide enough for a thumb, and the whole strip
-              takes the drag: the pill alone was a 5 px target. A press that
-              travels stays a resize, a press that does not is the tap the
-              design gives the two heights to. */}
-          <button
-            type="button"
-            onClick={toggleSheet}
-            onPointerDown={onHandleDown}
-            onPointerMove={onHandleMove}
-            onPointerUp={onHandleUp}
-            onPointerCancel={onHandleUp}
-            aria-expanded={sheetOpen}
-            aria-label={sheetOpen ? t("compare.sheet.collapse") : t("compare.sheet.expand")}
-            className="shrink-0 w-full flex items-center justify-center cursor-row-resize touch-none"
-            style={{ height: 28 }}
-          >
-            <span className="block rounded-[3px]" style={{ width: 40, height: 5, background: "var(--ow-line-2)" }} />
-          </button>
-          <div className="shrink-0 px-3 pb-2 flex items-center gap-[7px]">
-            <StepSegment value={prefs.res} onChange={setRes} small />
-            {hasWaves && <WaveChip on={prefs.wave} onChange={setWave} small />}
-            <WindowChip win={prefs.win} onChange={setWin} small />
-            <div className="ml-auto">
-              <SpotsChip
-                picked={picked.length}
-                total={customSpots.length}
-                open={panelOpen}
-                onClick={() => setPanelOpen((v) => !v)}
-                small
-              />
-            </div>
-          </div>
-          {panelOpen && (
-            <SpotPicker
-              spots={customSpots}
-              hidden={hidden}
-              onToggle={toggleSpot}
-              onAll={pickAll}
-              distances={distances}
-              numbers={markerNumbers}
-              variant="panel"
-              onClose={() => setPanelOpen(false)}
-              onAdd={() => {
-                setPanelOpen(false);
-                focusSearch();
-              }}
-            />
-          )}
-          {/* No « Ajouter un spot » under the table: the sheet is the table,
-              and the way to add one is in the « Spots » panel, with the list
-              it grows. */}
-          <div className="flex-1 min-h-0 flex flex-col pl-3.5">{content(true)}</div>
+        <div className="absolute inset-0">
+          <SpotMap
+            current={focused}
+            customSpots={picked}
+            fitSpots={fitSpots}
+            fitStamp={fitTick}
+            markerNumbers={markerNumbers}
+            userPosition={userPosition}
+            onViewChange={onViewChange}
+            defaultCenter={DEFAULT_MAP_CENTER}
+            bottomInsetRef={sheetRef}
+            topInsetRef={topBarRef}
+            onSelectSpot={handleFocus}
+            onAddSpot={addSpot}
+            onRemoveSpot={handleRemoveSpot}
+            onRenameSpot={handleRenameSpot}
+            forecasts={[]}
+            marine={null}
+            metric="wind"
+            selectedHour={null}
+            zoomButtons={zoomRoom ? { className: "ow-chrome-right ow-chrome-slot-1" } : undefined}
+          />
         </div>
+        {/* The room of the sheet starts where the column of controls does,
+            under the bar (.ow-chrome-slot-1), so the sheet at its highest
+            leaves the menu, the search and the settings in reach. It lets
+            the map take the taps it does not cover. */}
+        <div ref={roomRef} className="ow-chrome-slot-1 absolute inset-x-0 bottom-0 z-[400] pointer-events-none">
+          <div
+            ref={sheetRef}
+            onTransitionEnd={onSheetTransitionEnd}
+            className="absolute left-0 right-0 bottom-0 flex flex-col pointer-events-auto"
+            style={{
+              height: `${sheet}%`,
+              background: "var(--ow-bg-1)",
+              borderRadius: "20px 20px 0 0",
+              boxShadow: "var(--ow-shadow-pop)",
+              borderTop: "1px solid var(--ow-line)",
+              transition: sheetAnimating ? "height .3s cubic-bezier(.3, 1, .4, 1)" : undefined,
+              // Clear of the notch in landscape, as the bar is.
+              paddingLeft: "env(safe-area-inset-left, 0px)",
+              paddingRight: "env(safe-area-inset-right, 0px)",
+            }}
+          >
+            {/* At the bottom of the column of controls, 16 px above the
+                sheet, where the explorer has its locate button: frames the
+                compared spots again. */}
+            {recentreRoom && (
+              <button
+                type="button"
+                onClick={() => setFitTick((v) => v + 1)}
+                aria-label={t("compare.map.recentre")}
+                title={t("compare.map.recentre")}
+                className="ow-chrome-right absolute w-12 h-12 rounded-full flex items-center justify-center shadow-lg cursor-pointer transition-transform hover:scale-105 active:scale-95"
+                style={{
+                  bottom: "calc(100% + 16px)",
+                  background: "var(--ow-surface-glass)",
+                  backdropFilter: "blur(8px)",
+                  border: "1px solid var(--ow-line-2)",
+                  color: "var(--ow-accent)",
+                }}
+              >
+                <TargetIcon size={20} />
+              </button>
+            )}
+            {/* The grab handle. Wide enough for a thumb, and the whole strip
+                takes the drag: the pill alone was a 5 px target. A press that
+                travels stays a resize, a press that does not is the tap the
+                design gives the two heights to. */}
+            <button
+              type="button"
+              onClick={toggleSheet}
+              onPointerDown={onHandleDown}
+              onPointerMove={onHandleMove}
+              onPointerUp={onHandleUp}
+              onPointerCancel={onHandleUp}
+              aria-expanded={sheetOpen}
+              aria-label={sheetOpen ? t("compare.sheet.collapse") : t("compare.sheet.expand")}
+              className="shrink-0 w-full flex items-center justify-center cursor-row-resize touch-none"
+              style={{ height: 28 }}
+            >
+              <span className="block rounded-[3px]" style={{ width: 40, height: 5, background: "var(--ow-line-2)" }} />
+            </button>
+            {/* The row of settings, and the list the « Spots » chip unfolds
+                under it: in the flow on a phone, pushing the table down; from
+                lg up a panel hanging under the chip, over the table, which a
+                click beside it closes, as the hour window does. */}
+            <div className="relative z-[10] shrink-0">
+              <div className="relative z-[2] px-3 pb-2 lg:px-5 lg:pb-3 flex items-center gap-[7px] max-[380px]:gap-1.5 lg:gap-3">
+                <StepSegment value={prefs.res} onChange={setRes} small={small} />
+                {hasWaves && <WaveChip on={prefs.wave} onChange={setWave} small={small} />}
+                <WindowChip win={prefs.win} onChange={setWin} small={small} />
+                <div className="ml-auto">
+                  <SpotsChip
+                    picked={picked.length}
+                    total={customSpots.length}
+                    open={panelOpen}
+                    onClick={() => setPanelOpen((v) => !v)}
+                    small={small}
+                  />
+                </div>
+              </div>
+              {panelOpen && (
+                <SpotPicker
+                  spots={customSpots}
+                  hidden={hidden}
+                  onToggle={toggleSpot}
+                  onAll={pickAll}
+                  distances={distances}
+                  numbers={markerNumbers}
+                  onClose={() => setPanelOpen(false)}
+                  onAdd={() => {
+                    setPanelOpen(false);
+                    focusSearch();
+                  }}
+                />
+              )}
+              {panelOpen && (
+                <div
+                  aria-hidden="true"
+                  className="hidden lg:block fixed inset-0 z-[1]"
+                  onClick={() => setPanelOpen(false)}
+                />
+              )}
+            </div>
+            {/* No « Ajouter un spot » under the table: the sheet is the table,
+                and the way to add one is in the « Spots » panel, with the list
+                it grows. */}
+            <div className="flex-1 min-h-0 flex flex-col pl-3.5 lg:pl-5">{content(small)}</div>
+          </div>
+        </div>
+        {/* After the sheet, so what hangs under the bar (the offline toast)
+            paints over a sheet raised to its highest. The search adds the
+            place picked to the favourites. No camera on the menu's links: the
+            explorer opens on the spot focused here (saveLastSpot). */}
+        <MapTopBar
+          current="compare"
+          mapQuery=""
+          barRef={topBarRef}
+          onSelectSpot={handleSearchSelect}
+          nearLat={near?.lat ?? null}
+          nearLon={near?.lon ?? null}
+          savedSpots={customSpots}
+        />
       </div>
     </div>
   );
