@@ -151,9 +151,7 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.locate.label": "Auf meine Position zentrieren",
   "explore.locate.dismiss": "Diese Meldung schließen",
 
-  // Sea marks button
-  "explore.seamarks.show": "Seezeichen anzeigen: Tonnen, Baken und Leuchttürme",
-  "explore.seamarks.hide": "Seezeichen ausblenden",
+  // Zoom buttons
   "explore.zoom.group": "Kartenzoom",
   "explore.zoom.in": "Vergrößern",
   "explore.zoom.out": "Verkleinern",

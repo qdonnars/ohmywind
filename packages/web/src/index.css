@@ -375,13 +375,9 @@ path.ow-spot-marker:focus-visible {
       (var(--ow-chrome-size) - 48px) / 2
   );
 }
-/* First and second slot of that column, under the bar. A slot is a 48 px
-   control and 8 px of air. */
+/* The top of that column, right under the bar: the zoom buttons. */
 .ow-chrome-slot-1 {
   top: calc(var(--ow-chrome-top) + var(--ow-chrome-size) + var(--ow-chrome-gap));
-}
-.ow-chrome-slot-2 {
-  top: calc(var(--ow-chrome-top) + var(--ow-chrome-size) + var(--ow-chrome-gap) + 56px);
 }
 /* The bar itself, and what hangs under it in the middle (the offline
    banner). Placed by these rules rather than by utilities, for the insets. */
@@ -463,9 +459,10 @@ path.ow-spot-marker:focus-visible {
   border-radius: 16px;
   box-shadow: var(--ow-shadow-pop);
 }
-/* The least height of a map with the bar over it: the bar, the chart toggle
-   under it and the locate button at the bottom, one above the other without
-   touching (16 px from the bottom edge). The planner's drawer gives way
+/* The least height of a map with the bar over it: the bar, the first slot of
+   the column under it (one 48 px control and its air) and the locate button
+   at the bottom, one above the other without touching (16 px from the bottom
+   edge). The planner's drawer gives way
    below it rather than the map (components/mapControlsLayout.ts). */
 .ow-map-min-height {
   min-height: calc(var(--ow-chrome-top) + var(--ow-chrome-size) + var(--ow-chrome-gap) + 48px + 8px + 48px + 16px);

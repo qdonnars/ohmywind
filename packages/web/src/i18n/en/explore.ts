@@ -152,9 +152,7 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.locate.label": "Centre on my position",
   "explore.locate.dismiss": "Dismiss this message",
 
-  // Sea marks button
-  "explore.seamarks.show": "Show sea marks: buoys, beacons and lighthouses",
-  "explore.seamarks.hide": "Hide sea marks",
+  // Zoom buttons
   "explore.zoom.group": "Map zoom",
   "explore.zoom.in": "Zoom in",
   "explore.zoom.out": "Zoom out",
