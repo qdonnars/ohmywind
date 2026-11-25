@@ -13,7 +13,7 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 - Le menu s'ouvre en tiroir sur le côté, avec les trois pages de l'application, Quoi de neuf, Réglages, Méthodologie et À propos (#595).
 - Les Réglages s'ouvrent par-dessus la carte, sans quitter la page : thème, langue, écran allumé, balises, modèles météo et bateau, avec les mêmes écrans sur téléphone, tablette et ordinateur (#596, #597, #598).
 - Le thème a un mode Auto, qui suit le réglage clair ou sombre de votre appareil (#594).
-- Les balises et amers se règlent une fois pour les deux cartes, et sont affichés par défaut (#594).
+- Les balises et amers se règlent une fois pour les deux cartes, dans les Réglages, et sont affichés par défaut ; le bouton qui les basculait depuis la carte disparaît (#594, #610).
 - Sur téléphone, la recherche s'ouvre en plein écran et propose d'abord vos spots enregistrés (#599).
 - Sous le tableau du vent, une note dit quand un modèle ne couvre pas le point et lequel le remplace (#597).
 - Une route tracée à travers une presqu'île ou une île est retracée en mer avant le calcul, sur votre appareil : l'encart « Route ajustée » le signale et « Revenir à mon tracé » la défait. La zone couverte va de Lisbonne à Rotterdam avec le sud de l'Angleterre, et d'Alicante à Naples avec les Baléares, la Corse et la Sardaigne (#573, #586).
@@ -32,6 +32,9 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 - Dans l'application, après un effacement de ses données, la copie gardée par le téléphone rouvre directement le plan en cours (#579, #585).
 - Sur iPhone, à partir d'iOS 27, la position n'est demandée qu'une fois ; ce correctif arrive avec la prochaine version de l'application (#571, #585).
 - Au premier calcul d'une route retracée, la carte cadre la route obtenue et non plus le tracé de départ (#593).
+- Hors ligne, plus de bandeau permanent ni de cadre d'erreur : une bulle discrète le dit au moment où une demande échoue, et le calcul d'un passage se relance sans recharger la page dès que le réseau revient (#607, #611).
+- Sur téléphone, clavier ouvert, les Réglages, les fenêtres de spot et la recherche descendent jusqu'au clavier, sans laisser réapparaître la page derrière, et le champ en cours de saisie reste à l'écran (#608, #609, #612, #614).
+- Dans le navigateur d'un téléphone ou depuis l'écran d'accueil, le bas de l'explorateur ne sort plus de l'écran (#613).
 - Les réglages ne disent plus que l'ordre des modèles météo est sans effet sur les plans de passage : les plans calculés dans l'application suivent cet ordre (#600).
 
 ### Coulisses
