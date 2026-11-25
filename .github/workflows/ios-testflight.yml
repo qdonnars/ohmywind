@@ -88,7 +88,9 @@ jobs:
     name: Archive and upload (${{ needs.gate.outputs.variant }})
     needs: gate
     if: needs.gate.outputs.go == 'true'
-    runs-on: macos-26
+    # Xcode 27 image: App Store Connect requires the iOS 27 SDK from April 2027
+    # (ITMS-90725 warning on builds made with the iOS 26 SDK).
+    runs-on: xcode-27
     environment: ${{ needs.gate.outputs.variant == 'prod' && 'ios-testflight-prod' || 'ios-testflight' }}
     timeout-minutes: 45
     # Two uploads of the same variant never race; none is cancelled halfway.
@@ -110,14 +112,14 @@ jobs:
           cache: npm
           cache-dependency-path: packages/mobile/package-lock.json
 
-      # App Store Connect refuses uploads built with an SDK older than iOS 26.
-      - name: Select Xcode 26
+      # The image's default Xcode is 27. No hard-coded path: the patch
+      # version changes with image updates. Fails if the SDK is older than 27.
+      - name: Check Xcode 27
         run: |
-          sudo xcode-select -s /Applications/Xcode_26.6.app
           xcodebuild -version
           sdk=$(xcrun --sdk iphoneos --show-sdk-version)
           echo "iOS SDK $sdk"
-          [ "${sdk%%.*}" -ge 26 ]
+          [ "${sdk%%.*}" -ge 27 ]
 
       - name: Variant settings
         run: |
