@@ -546,7 +546,7 @@ function SheetRow({
  *
  * Pinned to the part of the screen the keyboard leaves visible
  * (`.ow-visible-viewport`), so the list ends at the keys and scrolls to its
- * last row. Rendered into `<body>`, and the page behind it made inert while
+ * last row, while its background runs on behind them (#608). Rendered into `<body>`, and the page behind it made inert while
  * it is open: nothing behind it takes the focus or is read out.
  */
 function SearchSheet({

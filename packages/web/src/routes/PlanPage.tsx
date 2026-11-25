@@ -25,7 +25,6 @@ import { PlanProvider } from "../plan/session/PlanProvider";
 import { computeLegSegmentRanges, focusedSegmentIndex } from "../plan/aggregateLegs";
 import { loadPolarConfig } from "../config/polarConfig";
 import { LocateButton } from "../components/LocateButton";
-import { SeamarkButton } from "../components/SeamarkButton";
 import { useSeamarks } from "../hooks/useSeamarks";
 import { useWaypointDepths } from "../hooks/useWaypointDepths";
 import { useGeolocation } from "../hooks/useGeolocation";
@@ -467,7 +466,7 @@ export function PlanPage() {
   const isDesktop = useMediaQuery(LG_MEDIA_QUERY);
   // Touch or click, for the hints laid over the map.
   const pointer = usePointerWording();
-  const { enabled: seamarks, toggle: toggleSeamarks } = useSeamarks();
+  const { enabled: seamarks } = useSeamarks();
   // Zoom handed over by the explore map, used only when no route frames the
   // camera itself. Read once: navigating remounts the page.
   const [handedView] = useState(() => parseMapView(window.location.search));
@@ -796,21 +795,17 @@ export function PlanPage() {
             depths={waypointDepths}
             highlightedSegmentRange={drawing ? null : highlightedSegmentRange}
             focusedSegmentIdx={drawing ? null : focusedSegmentIdx}
-            // Under the chart toggle, in the column of the map's controls
-            // (#470). Mouse and trackpad only, and only on a map tall enough
-            // to hold them above the locate button.
-            zoomButtons={{ className: "ow-chrome-right ow-chrome-slot-2", clearanceBelow: ZOOM_CLEARANCE_BELOW_PX }}
+            // At the top of the column of the map's controls along the right
+            // edge, under the settings button of the bar, the locate button
+            // at the bottom; the hints and the framing of a route keep clear
+            // of that column (#470, components/mapControlsLayout.ts). Mouse
+            // and trackpad only, and only on a map tall enough to hold them
+            // above the locate button. The sea marks have no button: they
+            // are a setting (Réglages > Carte).
+            zoomButtons={{ className: "ow-chrome-right ow-chrome-slot-1", clearanceBelow: ZOOM_CLEARANCE_BELOW_PX }}
             topInsetRef={topBarRef}
             rightInsetRef={isDesktop ? panelRef : undefined}
           />
-          {/* Marine-chart toggle — at the top of the column of controls
-              along the right edge, under the settings button of the bar.
-              With the zoom buttons under it and the locate button at the
-              bottom, they make one column, which the hints and the framing
-              of a route keep clear of (see components/mapControlsLayout.ts).
-              On every screen here, phone included: on the planner the marks
-              are part of the job. */}
-          <SeamarkButton enabled={seamarks} onToggle={toggleSeamarks} className="ow-chrome-right ow-chrome-slot-1" />
           {/* Scale of the track's tints, once a passage is drawn. Wide
               screens only: on a phone the map is a strip above the drawer,
               and the scale would sit on the route it explains. Bottom left,

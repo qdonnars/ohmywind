@@ -19,6 +19,7 @@ import { describe, expect, it } from "vitest";
 const SPOT_MARKER_CLASS = "ow-spot-marker";
 
 const CSS = readFileSync(fileURLToPath(new URL("../src/index.css", import.meta.url)), "utf8");
+const SETTINGS_CSS = readFileSync(fileURLToPath(new URL("../src/settings/settings.css", import.meta.url)), "utf8");
 
 /** The declarations of the first rule whose selector is exactly `selector`. */
 function rule(selector: string): string | null {
@@ -36,10 +37,31 @@ describe("index.css", () => {
   it("pins a viewport overlay to the visible box, with only its top and height (#569)", () => {
     const declarations = rule(".ow-visible-viewport");
     expect(declarations).toMatch(/top:\s*var\(--ow-vv-top,/);
-    expect(declarations).toMatch(/height:\s*var\(--ow-vv-height,/);
+    expect(declarations).toMatch(/height:\s*calc\(var\(--ow-vv-height, 100dvh\) \+ var\(--ow-vv-below, 0px\)\)/);
     // The sides and the position come from utilities; a `bottom` here would
     // fight the height.
-    expect(declarations).not.toMatch(/\b(bottom|inset|position):/);
+    expect(declarations).not.toMatch(/(?<![\w-])(bottom|inset|position):/);
+  });
+
+  it("runs an overlay's backdrop on behind the keyboard, its content kept above it (#608)", () => {
+    const declarations = rule(".ow-visible-viewport");
+    // The part of the screen under what is seen is a bottom border: painted
+    // with the layer's background, outside the box its content lives in.
+    expect(declarations).toMatch(/box-sizing:\s*border-box/);
+    expect(declarations).toMatch(/border-bottom-style:\s*solid/);
+    expect(declarations).toMatch(/border-bottom-width:\s*var\(--ow-vv-below, 0px\)/);
+    expect(declarations).toMatch(/border-bottom-color:\s*var\(--ow-vv-below-fill, transparent\)/);
+  });
+
+  // In settings.css: the settings' overlay has no background of its own.
+  it("colours the settings' part under the keyboard (#608)", () => {
+    // The sheet's surface on a phone, the scrim around the window from lg up.
+    expect(SETTINGS_CSS).toMatch(/\.ow-settings-overlay \{[^}]*--ow-vv-below-fill:\s*var\(--ow-bg-1\)/);
+    expect(SETTINGS_CSS).toMatch(
+      /@media \(min-width: 64rem\) \{\s*\.ow-settings-overlay \{\s*--ow-vv-below-fill:\s*var\(--ow-scrim\)/,
+    );
+    // No shadow drawn under the sheet, where its surface runs on.
+    expect(SETTINGS_CSS).toMatch(/\.ow-settings-panel \{[^}]*clip-path:\s*inset\(-48px -48px 0 -48px\)/);
   });
 
   it("runs the navigation drawer under the status bar and the notch without hiding its content", () => {

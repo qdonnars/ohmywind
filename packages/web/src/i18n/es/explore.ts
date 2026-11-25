@@ -146,9 +146,7 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.locate.label": "Centrar en mi posición",
   "explore.locate.dismiss": "Cerrar este mensaje",
 
-  // Sea marks button
-  "explore.seamarks.show": "Mostrar el balizamiento: boyas, balizas y faros",
-  "explore.seamarks.hide": "Ocultar el balizamiento",
+  // Zoom buttons
   "explore.zoom.group": "Zoom del mapa",
   "explore.zoom.in": "Acercar",
   "explore.zoom.out": "Alejar",
