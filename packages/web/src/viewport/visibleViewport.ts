@@ -160,7 +160,14 @@ export function revealFocusedField(doc: Document, box: VisibleBox): void {
   if (block !== field && rect.height > box.height - 2 * REVEAL_MARGIN_PX) {
     rect = field.getBoundingClientRect();
   }
-  let remaining = revealDelta(rect, box);
+  // Where the visible part starts, in the coordinates the rectangles above
+  // are given in. A layer sized to the visible part (`.ow-visible-viewport`)
+  // has its top edge exactly there, so its own rectangle says it whatever the
+  // browser measures from: the iPhone, keyboard out, has been seen reporting
+  // the field as in view against `box.top` while it sat under the keys.
+  const layer = block.closest(".ow-visible-viewport");
+  const seen = layer ? { ...box, top: layer.getBoundingClientRect().top } : box;
+  let remaining = revealDelta(rect, seen);
   for (let el = block.parentElement; el && remaining !== 0; el = el.parentElement) {
     const style = getComputedStyle(el);
     if (scrollsVertically(el, style)) {
@@ -218,11 +225,11 @@ export function startVisibleViewport(win: Window = window): void {
     frame = 0;
     const full = layoutHeight(win.innerHeight, root.clientHeight);
     const next = visibleBox(full, vv);
-    if (
+    const moved =
       next.top !== current.top ||
       next.height !== current.height ||
-      next.hiddenBelow !== current.hiddenBelow
-    ) {
+      next.hiddenBelow !== current.hiddenBelow;
+    if (moved) {
       current = next;
       for (const listener of listeners) listener();
     }
@@ -235,7 +242,10 @@ export function startVisibleViewport(win: Window = window): void {
     // keyboard the latter is smaller by that slide.
     const open = below >= KEYBOARD_MIN_PX;
     // On the opening only: once it is open, the reader scrolls as they like.
-    if (open && !keyboardOpen) revealFocusedField(win.document, next);
+    // Again each time the visible part moves while the keyboard is out: the
+    // iPhone slides the page in several steps as the keyboard comes up, and
+    // a field brought into view at the first may be back under it at the last.
+    if (open && (!keyboardOpen || moved)) revealFocusedField(win.document, next);
     keyboardOpen = open;
   };
   // One update per frame: iOS fires a burst of events while the keyboard
