@@ -79,6 +79,21 @@ export function visibleBox(innerHeight: number, vv: ViewportLike | null): Visibl
 }
 
 /**
+ * The height of the layout viewport, the box `position: fixed` is laid out
+ * in. Not `window.innerHeight` alone: with the keyboard out, WebKit on the
+ * iPhone shrinks `innerHeight` to what is left visible, while the layout
+ * viewport (the root's `clientHeight`) keeps the height of the screen and is
+ * merely slid under the keyboard. Measured against the shrunk height, the
+ * visible box lost as many pixels as the page had slid, and the sheets
+ * stopped that far above the keys (#608). The larger of the two is the
+ * layout viewport everywhere: they are equal on a computer and in a view the
+ * keyboard resizes, and a document without layout (tests) reports 0.
+ */
+export function layoutHeight(innerHeight: number, clientHeight: number): number {
+  return Math.max(innerHeight, clientHeight);
+}
+
+/**
  * Pure: how far the screen runs on below the visible box, in CSS pixels: the
  * keyboard, plus what iOS slid the view down by. The screen is as tall as the
  * layout viewport and starts where the visible box starts, so this is the
@@ -164,7 +179,10 @@ export function revealFocusedField(doc: Document, box: VisibleBox): void {
 let current: VisibleBox =
   typeof window === "undefined"
     ? { top: 0, height: 0, hiddenBelow: 0 }
-    : visibleBox(window.innerHeight, window.visualViewport ?? null);
+    : visibleBox(
+        layoutHeight(window.innerHeight, window.document.documentElement.clientHeight),
+        window.visualViewport ?? null,
+      );
 const listeners = new Set<() => void>();
 let started = false;
 
@@ -198,7 +216,8 @@ export function startVisibleViewport(win: Window = window): void {
 
   const apply = () => {
     frame = 0;
-    const next = visibleBox(win.innerHeight, vv);
+    const full = layoutHeight(win.innerHeight, root.clientHeight);
+    const next = visibleBox(full, vv);
     if (
       next.top !== current.top ||
       next.height !== current.height ||
@@ -209,8 +228,12 @@ export function startVisibleViewport(win: Window = window): void {
     }
     root.style.setProperty("--ow-vv-top", `${next.top}px`);
     root.style.setProperty("--ow-vv-height", `${next.height}px`);
-    root.style.setProperty("--ow-vv-below", `${screenBelow(win.innerHeight, next)}px`);
-    const open = next.hiddenBelow >= KEYBOARD_MIN_PX;
+    const below = screenBelow(full, next);
+    root.style.setProperty("--ow-vv-below", `${below}px`);
+    // What the keyboard takes off the screen, not what is left under the
+    // visible box in the layout viewport: once the page has slid under the
+    // keyboard the latter is smaller by that slide.
+    const open = below >= KEYBOARD_MIN_PX;
     // On the opening only: once it is open, the reader scrolls as they like.
     if (open && !keyboardOpen) revealFocusedField(win.document, next);
     keyboardOpen = open;
