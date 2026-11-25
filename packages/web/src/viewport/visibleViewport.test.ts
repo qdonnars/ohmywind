@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { describe, expect, it } from "vitest";
-import { revealDelta, visibleBox } from "./visibleViewport";
+import { revealDelta, screenBelow, visibleBox } from "./visibleViewport";
 
 // An iPhone 14 in portrait: 844 px of layout viewport, and the keyboard with
 // its bar covering the bottom 380.
@@ -62,6 +62,29 @@ describe("visibleBox", () => {
     const box = visibleBox(PHONE, { height: PHONE, offsetTop: 40, scale: 1 });
     expect(box.top + box.height).toBe(PHONE);
     expect(box.hiddenBelow).toBe(0);
+  });
+});
+
+describe("screenBelow", () => {
+  it("is nothing with the keyboard closed", () => {
+    expect(screenBelow(PHONE, visibleBox(PHONE, { height: PHONE, offsetTop: 0, scale: 1 }))).toBe(0);
+  });
+
+  it("reaches the bottom of the screen under the keyboard (#608)", () => {
+    const box = visibleBox(PHONE, { height: PHONE - KEYBOARD, offsetTop: 0, scale: 1 });
+    expect(screenBelow(PHONE, box)).toBe(KEYBOARD);
+  });
+
+  it("still reaches it when iOS slid the view down", () => {
+    // What is seen starts 120 px down: the screen ends 120 px past the layout
+    // viewport, the keyboard's whole height under what is seen.
+    const box = visibleBox(PHONE, { height: PHONE - KEYBOARD, offsetTop: 120, scale: 1 });
+    expect(box.top + box.height + screenBelow(PHONE, box)).toBe(PHONE + 120);
+  });
+
+  it("is nothing in a WebView that shrinks itself for the keyboard", () => {
+    const short = PHONE - KEYBOARD;
+    expect(screenBelow(short, visibleBox(short, { height: short, offsetTop: 0, scale: 1 }))).toBe(0);
   });
 });
 

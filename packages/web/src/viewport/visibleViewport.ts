@@ -18,9 +18,11 @@ import { useSyncExternalStore } from "react";
  * One tracker for the whole app, started from `main.tsx`, rather than one fix
  * per screen. It publishes the visible box three ways:
  *
- * - two CSS variables on `<html>`, `--ow-vv-top` and `--ow-vv-height`, which
- *   `.ow-visible-viewport` in index.css uses to pin an overlay to exactly the
- *   visible part of the screen (see `components/ViewportOverlay.tsx`);
+ * - three CSS variables on `<html>`, `--ow-vv-top`, `--ow-vv-height` and
+ *   `--ow-vv-below`, which `.ow-visible-viewport` in index.css uses to keep
+ *   an overlay's content in exactly the visible part of the screen while its
+ *   backdrop still covers the screen down to its bottom edge, behind the
+ *   keyboard (see `components/ViewportOverlay.tsx`);
  * - `useVisibleViewport()`, for a box placed in pixels by script, such as the
  *   search suggestions, which must stop above the keyboard;
  * - and, for a field that sits in the flow of a page, a nudge when the
@@ -74,6 +76,19 @@ export function visibleBox(innerHeight: number, vv: ViewportLike | null): Visibl
   const top = Math.min(Math.max(vv.offsetTop, 0), innerHeight);
   const height = Math.min(Math.max(vv.height, 0), innerHeight - top);
   return { top, height, hiddenBelow: Math.max(0, innerHeight - top - height) };
+}
+
+/**
+ * Pure: how far the screen runs on below the visible box, in CSS pixels: the
+ * keyboard, plus what iOS slid the view down by. The screen is as tall as the
+ * layout viewport and starts where the visible box starts, so this is the
+ * layout height less the visible one, not `hiddenBelow`, which stops at the
+ * bottom of the layout viewport. An overlay carries its backdrop this far down
+ * (`.ow-visible-viewport` in index.css): the iPhone's keyboard is translucent
+ * and the page must not show through it, nor in a gap above it (#608).
+ */
+export function screenBelow(innerHeight: number, box: VisibleBox): number {
+  return Math.max(0, innerHeight - box.height);
 }
 
 /**
@@ -194,6 +209,7 @@ export function startVisibleViewport(win: Window = window): void {
     }
     root.style.setProperty("--ow-vv-top", `${next.top}px`);
     root.style.setProperty("--ow-vv-height", `${next.height}px`);
+    root.style.setProperty("--ow-vv-below", `${screenBelow(win.innerHeight, next)}px`);
     const open = next.hiddenBelow >= KEYBOARD_MIN_PX;
     // On the opening only: once it is open, the reader scrolls as they like.
     if (open && !keyboardOpen) revealFocusedField(win.document, next);
