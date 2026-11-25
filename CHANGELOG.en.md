@@ -8,39 +8,35 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 
 ### New
 
-- The map takes the whole screen in the explorer and the planner: no more bar at the top, the menu, the search and the settings float on the map (#599, #600).
-- On a computer, the planner panel is a card detached from the edges, laid over the chart: the buttons and the search sit on its left and follow it when you resize it (#603).
-- The menu opens as a drawer on the side, with the three pages of the app, What's new, Settings, Methodology and About (#595).
-- The Settings open over the map, without leaving the page: theme, language, screen kept on, seamarks, weather models and boat, with the same screens on phone, tablet and computer (#596, #597, #598).
-- The theme has an Auto mode, which follows the light or dark setting of your device (#594).
-- Seamarks are set once for both maps, and are shown by default (#594).
-- On a phone, the search opens full screen and offers your saved spots first (#599).
-- Under the wind table, a note says when a model does not cover the point and which one replaces it (#597).
-- A route drawn across a peninsula or an island is redrawn at sea before the computation, on your device: the "Route adjusted" box says so and "Back to my route" undoes it. The covered area runs from Lisbon to Rotterdam with the south of England, and from Alicante to Naples with the Balearics, Corsica and Sardinia (#573, #586).
-- With a mouse, + and − buttons zoom the map of the explorer and of the planner (#470, #587).
+- The map takes the whole screen: no more bar at the top, the menu, the search and the settings float on the map, in the explorer and in the planner alike (#599, #600).
+- On a computer, the planner panel sits on the map, detached from the edges; the buttons and the search line up beside it (#603).
+- The menu opens on the side and gathers everything: Explore, Plan, Compare, What's new, Settings, Methodology and About (#595).
+- The Settings open over the map, without leaving the page, with the same screens on phone, tablet and computer (#596, #597, #598).
+- The theme can follow your device's, with the Auto mode (#594).
+- Seamarks are set once for both maps, in the Settings, and are shown by default (#594, #610).
+- On a phone, the search opens full screen and offers your spots first (#599).
+- A route drawn across an island or a peninsula is redrawn at sea before the computation, from Lisbon to Rotterdam and from Alicante to Naples; "Back to my route" undoes it (#573, #586, #593).
+- With a mouse, + and − buttons zoom the maps (#470, #587).
+- When a weather model does not cover the chosen place, the table says which one replaces it (#597).
 
 ### Fixes
 
-- The figures of a plan add up as printed: the speed build-up matches the speed, the legs sum to the total, and durations match the departure and arrival times, in the comparison of departures too (#532, #583).
-- On a phone, text fields and their buttons stay visible above the keyboard: new spot, renaming, search, settings (#569, #584).
+- The figures of a plan add up: speeds, distances and durations agree (#532, #583).
+- On a phone, the keyboard no longer hides what you are typing (#569, #584, #608, #609, #612, #614).
+- Without a network, a discreet message tells you when a request fails, and the computation resumes once the network is back, without reloading the page (#607, #611).
+- In a phone's browser, the bottom of the screen is no longer cut off (#613).
 - A saved spot is no longer framed by a square when you touch it (#545, #584).
-- In the comparison of spots, a favourite placed inland no longer shows waves: the row says "Inland" (#480, #582).
-- In the planner on a phone, the drawer pulled to its maximum leaves the map visible, and the map buttons no longer overlap or hide the hint and the arrival (#579, #587).
-- The map hints say tap on a touch screen and click with a mouse, in all five languages (#579, #587).
-- The place search no longer runs again every time the map moves (#579, #587).
-- The settings say your preferences stay on the device, with no mention of cookies (#579, #587).
-- In the app, after its data has been cleared, the copy kept by the phone reopens the plan in progress directly (#579, #585).
+- In the comparison of spots, a point placed on land no longer shows waves (#480, #582).
+- In the planner on a phone, the map buttons no longer overlap and the map stays visible when the drawer is pulled up (#579, #587).
+- The map hints say tap on a touch screen and click with a mouse (#579, #587).
+- The settings tell the truth on two points: your preferences stay on the device, and the order of the weather models also counts for your passage plans (#579, #587, #600).
+- "Keep the screen on" is no longer offered on a computer, where it is of no use (#602).
 - On iPhone, from iOS 27, the position is asked for only once; this fix comes with the next version of the app (#571, #585).
-- On the first computation of a redrawn route, the map frames the route obtained, no longer the one drawn (#593).
-- The settings no longer say the order of the weather models has no effect on passage plans: the plans computed in the app follow that order (#600).
 
 ### Behind the scenes
 
-- The server no longer computes a detour for the app: it serves coastline tiles, and the route is drawn on the device, whatever the load on the server (#586).
-- A test now refuses any binary file the server deployment could not carry (#590).
-- The boat settings and the tuning of its polar can be driven from the keyboard, point by point (#598).
-- "Keep the screen on" now concerns phones and tablets only: on a computer the setting is no longer offered (#602).
-- The automated test of the apps no longer fails when the emulator is slow to start (#578, #604).
+- Routes are drawn on your device: the server now only provides the coastline (#586, #590).
+- The automated tests of the apps are more reliable (#578, #604).
 
 ## 1.15.0 · 2026-11-24 · Offline at sea, and real mobile apps
 

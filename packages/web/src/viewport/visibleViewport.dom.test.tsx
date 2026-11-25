@@ -89,6 +89,29 @@ describe("revealFocusedField", () => {
     expect(scrollBy).not.toHaveBeenCalled();
   });
 
+  it("measures from the layer the field sits in, whatever the browser measures from (#608)", () => {
+    // The page has slid 256 px under the keyboard and the layer follows the
+    // visible part. Same screen, two ways of reporting it: rectangles from
+    // the layout viewport (layer at 256), or from what is seen (layer at 0).
+    for (const origin of [256, 0]) {
+      document.body.innerHTML = "";
+      const layer = document.createElement("div");
+      layer.className = "ow-visible-viewport";
+      const list = scroller(1000);
+      const input = document.createElement("input");
+      list.append(input);
+      layer.append(list);
+      document.body.append(layer);
+      input.focus();
+      placeAt(layer, origin, 956);
+      // 700 px below the top of the layer: under the keyboard, which starts 564 px down.
+      placeAt(input, origin + 700, 44);
+      revealFocusedField(document, { top: 256, height: 564, hiddenBelow: 136 });
+      // 700 + 44 - (564 - 12): the same scroll in both.
+      expect(list.scrollTop).toBe(192);
+    }
+  });
+
   it("leaves alone a control that brings up no keyboard", () => {
     const list = scroller(1000);
     const slider = document.createElement("input");

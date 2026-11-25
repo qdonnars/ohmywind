@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import changelogFr from "../../../../CHANGELOG.md?raw";
 import changelogEn from "../../../../CHANGELOG.en.md?raw";
 import { APP_VERSION, compareVersions } from "../utils/version";
-import { formatReleaseDate, linkPullRequests, parseChangelog, visibleReleases, type Release } from "./changelog";
+import { formatReleaseDate, withoutPullRequests, parseChangelog, visibleReleases, type Release } from "./changelog";
 
 const FILES: Array<[string, string, readonly string[]]> = [
   ["CHANGELOG.md", changelogFr, ["Nouveautés", "Corrections", "Coulisses"]],
@@ -100,16 +100,19 @@ describe("parseChangelog", () => {
   });
 });
 
-describe("linkPullRequests", () => {
-  it("links every pull request number and leaves headings alone", () => {
-    expect(linkPullRequests("### Nouveautés\n\n- Texte (#426, #428).")).toBe(
-      "### Nouveautés\n\n- Texte ([#426](https://github.com/qdonnars/ohmywind/pull/426), " +
-        "[#428](https://github.com/qdonnars/ohmywind/pull/428)).",
+describe("withoutPullRequests", () => {
+  it("drops the pull request numbers that close a line, and nothing else", () => {
+    expect(withoutPullRequests("### Nouveautés\n\n- Texte (#426, #428).\n- Autre (#12).")).toBe(
+      "### Nouveautés\n\n- Texte.\n- Autre.",
     );
+    expect(withoutPullRequests("- Two (#1 and #2).\n- Deux (#1 et #2).")).toBe("- Two.\n- Deux.");
   });
 
-  it("does not touch a hash inside a word", () => {
-    expect(linkPullRequests("C# et a#12")).toBe("C# et a#12");
+  it("does not touch a hash inside a word, a number in a sentence or another parenthesis", () => {
+    expect(withoutPullRequests("C# et a#12")).toBe("C# et a#12");
+    expect(withoutPullRequests("- Jusqu'à 30 kn (un réglage permet de le couper).")).toBe(
+      "- Jusqu'à 30 kn (un réglage permet de le couper).",
+    );
   });
 });
 

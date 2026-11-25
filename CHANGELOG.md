@@ -8,39 +8,35 @@ Chaque version est aussi publiée sur la page [Releases](https://github.com/qdon
 
 ### Nouveautés
 
-- La carte prend tout l'écran dans l'explorateur et le planificateur : plus de bandeau en haut, le menu, la recherche et les réglages flottent sur la carte (#599, #600).
-- Sur ordinateur, le panneau du planificateur est une carte détachée des bords, posée sur la carte marine : les boutons et la recherche se rangent à sa gauche et le suivent quand vous le redimensionnez (#603).
-- Le menu s'ouvre en tiroir sur le côté, avec les trois pages de l'application, Quoi de neuf, Réglages, Méthodologie et À propos (#595).
-- Les Réglages s'ouvrent par-dessus la carte, sans quitter la page : thème, langue, écran allumé, balises, modèles météo et bateau, avec les mêmes écrans sur téléphone, tablette et ordinateur (#596, #597, #598).
-- Le thème a un mode Auto, qui suit le réglage clair ou sombre de votre appareil (#594).
-- Les balises et amers se règlent une fois pour les deux cartes, et sont affichés par défaut (#594).
-- Sur téléphone, la recherche s'ouvre en plein écran et propose d'abord vos spots enregistrés (#599).
-- Sous le tableau du vent, une note dit quand un modèle ne couvre pas le point et lequel le remplace (#597).
-- Une route tracée à travers une presqu'île ou une île est retracée en mer avant le calcul, sur votre appareil : l'encart « Route ajustée » le signale et « Revenir à mon tracé » la défait. La zone couverte va de Lisbonne à Rotterdam avec le sud de l'Angleterre, et d'Alicante à Naples avec les Baléares, la Corse et la Sardaigne (#573, #586).
-- À la souris, des boutons + et − permettent de zoomer sur la carte de l'explorateur et sur celle du planificateur (#470, #587).
+- La carte prend tout l'écran : plus de bandeau en haut, le menu, la recherche et les réglages flottent sur la carte, dans l'explorateur comme dans le planificateur (#599, #600).
+- Sur ordinateur, le panneau du planificateur est posé sur la carte, détaché des bords ; les boutons et la recherche se rangent à côté (#603).
+- Le menu s'ouvre sur le côté et regroupe tout : Explorer, Planifier, Comparer, Quoi de neuf, Réglages, Méthodologie et À propos (#595).
+- Les Réglages s'ouvrent par-dessus la carte, sans quitter la page, avec les mêmes écrans sur téléphone, tablette et ordinateur (#596, #597, #598).
+- Le thème peut suivre celui de votre appareil, avec le mode Auto (#594).
+- Les balises et amers se règlent une fois pour les deux cartes, dans les Réglages, et sont affichés par défaut (#594, #610).
+- Sur téléphone, la recherche s'ouvre en plein écran et propose d'abord vos spots (#599).
+- Une route tracée à travers une île ou une presqu'île est retracée en mer avant le calcul, de Lisbonne à Rotterdam et d'Alicante à Naples ; « Revenir à mon tracé » l'annule (#573, #586, #593).
+- À la souris, des boutons + et − permettent de zoomer sur les cartes (#470, #587).
+- Quand un modèle météo ne couvre pas le lieu choisi, le tableau dit lequel le remplace (#597).
 
 ### Corrections
 
-- Les chiffres d'un plan se recoupent tels qu'ils sont affichés : la décomposition de la vitesse tombe juste, la somme des tronçons fait le total, et les durées collent aux heures de départ et d'arrivée, y compris dans la comparaison des départs (#532, #583).
-- Sur téléphone, les champs de saisie et leurs boutons restent visibles au-dessus du clavier : nouveau spot, renommage, recherche, réglages (#569, #584).
+- Les chiffres d'un plan tombent juste : vitesses, distances et durées se recoupent (#532, #583).
+- Sur téléphone, le clavier ne cache plus ce que vous saisissez (#569, #584, #608, #609, #612, #614).
+- Sans réseau, un message discret vous prévient quand une demande échoue, et le calcul reprend dès que le réseau revient, sans recharger la page (#607, #611).
+- Dans le navigateur d'un téléphone, le bas de l'écran n'est plus coupé (#613).
 - Un spot enregistré n'est plus entouré d'un carré quand on le touche (#545, #584).
-- Dans la comparaison des spots, un favori placé dans les terres n'affiche plus de vagues : la ligne dit « À terre » (#480, #582).
-- Dans le planificateur sur téléphone, le tiroir monté au maximum laisse la carte visible, les boutons de la carte ne se chevauchent plus et ne cachent plus ni l'aide ni l'arrivée (#579, #587).
-- Les aides de la carte parlent de toucher sur un écran tactile et de cliquer à la souris, dans les cinq langues (#579, #587).
-- La recherche de lieux n'est plus relancée à chaque déplacement de la carte (#579, #587).
-- Les réglages disent que vos préférences restent sur l'appareil, sans parler de cookies (#579, #587).
-- Dans l'application, après un effacement de ses données, la copie gardée par le téléphone rouvre directement le plan en cours (#579, #585).
+- Dans la comparaison des spots, un point placé à terre n'affiche plus de vagues (#480, #582).
+- Dans le planificateur sur téléphone, les boutons de la carte ne se chevauchent plus et la carte reste visible quand le tiroir est monté (#579, #587).
+- Les aides de la carte parlent de toucher sur un écran tactile et de cliquer à la souris (#579, #587).
+- Les réglages disent vrai sur deux points : vos préférences restent sur l'appareil, et l'ordre des modèles météo compte aussi pour vos plans de passage (#579, #587, #600).
+- « Garder l'écran allumé » n'est plus proposé sur ordinateur, où il ne sert pas (#602).
 - Sur iPhone, à partir d'iOS 27, la position n'est demandée qu'une fois ; ce correctif arrive avec la prochaine version de l'application (#571, #585).
-- Au premier calcul d'une route retracée, la carte cadre la route obtenue et non plus le tracé de départ (#593).
-- Les réglages ne disent plus que l'ordre des modèles météo est sans effet sur les plans de passage : les plans calculés dans l'application suivent cet ordre (#600).
 
 ### Coulisses
 
-- Le serveur ne calcule plus de détour pour l'application : il lui fournit des tuiles de trait de côte, et le tracé se fait sur l'appareil, sans dépendre de la charge du serveur (#586).
-- Un test refuse désormais tout fichier binaire que la mise en ligne du serveur ne saurait pas transporter (#590).
-- Les réglages du bateau et l'ajustement de sa polaire se pilotent au clavier, point par point (#598).
-- « Garder l'écran allumé » ne concerne plus que les téléphones et les tablettes : sur ordinateur, le réglage n'est plus proposé (#602).
-- Le test automatique des applications n'échoue plus quand l'émulateur met du temps à démarrer (#578, #604).
+- Le tracé des routes se fait sur votre appareil : le serveur ne fournit plus que le trait de côte (#586, #590).
+- Les tests automatiques des applications sont plus fiables (#578, #604).
 
 ## 1.15.0 · 2026-11-24 · Hors ligne en mer, et de vraies applications mobiles
 
