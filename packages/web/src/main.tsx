@@ -14,6 +14,7 @@ import { startLastViewTracking } from "./offline/lastView";
 import { InstallInvite } from "./install/InstallInvite";
 import { SettingsSheet } from "./settings/SettingsSheet";
 import { startVisibleViewport } from "./viewport/visibleViewport";
+import { startViewportDiagnostic } from "./viewport/viewportDiagnostic";
 
 // Before the first render, so the tokens the maps read from the DOM are
 // already those of the reader's theme. See applyInitialTheme.
@@ -22,6 +23,7 @@ applyInitialTheme();
 // The part of the screen the on-screen keyboard leaves visible, for the
 // dialogs and lists that must stay above it. See viewport/visibleViewport.
 startVisibleViewport();
+startViewportDiagnostic();
 
 // An app launch on bare `/` goes back to the plan it was closed on, before
 // anything renders, so the explorer never flashes first. See offline/lastView.

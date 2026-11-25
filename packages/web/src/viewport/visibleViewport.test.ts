@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { describe, expect, it } from "vitest";
-import { revealDelta, screenBelow, visibleBox } from "./visibleViewport";
+import { layoutHeight, revealDelta, screenBelow, visibleBox } from "./visibleViewport";
 
 // An iPhone 14 in portrait: 844 px of layout viewport, and the keyboard with
 // its bar covering the bottom 380.
@@ -108,5 +108,25 @@ describe("revealDelta", () => {
   it("scrolls down to a block above what is seen", () => {
     const panned = visibleBox(PHONE, { height: PHONE - KEYBOARD, offsetTop: 120, scale: 1 });
     expect(revealDelta({ top: 50, bottom: 100 }, panned, 12)).toBe(-82);
+  });
+});
+
+
+describe("layoutHeight", () => {
+  it("is the screen when the keyboard has shrunk innerHeight (iPhone)", () => {
+    // 956 px of screen, 392 of keyboard: innerHeight follows the visible part.
+    expect(layoutHeight(564, 956)).toBe(956);
+  });
+
+  it("is innerHeight where the two agree or the document has no layout", () => {
+    expect(layoutHeight(900, 900)).toBe(900);
+    expect(layoutHeight(844, 0)).toBe(844);
+  });
+
+  it("gives the sheet the whole visible part once the page has slid under the keyboard", () => {
+    const full = layoutHeight(564, 956);
+    const box = visibleBox(full, { height: 564, offsetTop: 256, scale: 1 });
+    expect(box).toEqual({ top: 256, height: 564, hiddenBelow: 136 });
+    expect(screenBelow(full, box)).toBe(392);
   });
 });
