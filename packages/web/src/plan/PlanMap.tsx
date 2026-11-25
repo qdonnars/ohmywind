@@ -318,8 +318,8 @@ export function PlanMap(
     // button, which is where they now are, alongside the other sources.
 
     // Leaflet's own zoom buttons stay off: they live in a corner of their
-    // own, against the menu. The page draws its own under the chart toggle,
-    // in the column of the other controls (#470).
+    // own, against the menu. The page draws its own under the bar over the
+    // map, at the top of the column of the other controls (#470).
     const detachZoom = zoomStore.attach(map);
 
     // Initial view. Falls back to a France-wide view rather than the Riviera
@@ -442,7 +442,8 @@ export function PlanMap(
   // Marine-chart overlay. Declared AFTER the init effect on purpose: effects
   // fire in declaration order, so on mount the map already exists here and a
   // returning user gets back the overlay they left on. Kept out of the init
-  // effect itself because the toggle also flips while the map is alive.
+  // effect itself because the setting can change while the map is alive
+  // (the Réglages open over it).
   useEffect(() => {
     if (!mapRef.current) return;
     syncSeamarkLayer(mapRef.current, seamarkLayerRef, showSeamarks);

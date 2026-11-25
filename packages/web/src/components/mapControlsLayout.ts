@@ -3,9 +3,9 @@
 
 /**
  * Geometry of the round controls laid over the maps, in one place (#579,
- * #470). They form one column along the right edge of the map: the chart
- * toggle at the top, the zoom buttons under it (mouse and trackpad only),
- * the locate button at the bottom. Everything else on the map either keeps
+ * #470). They form one column along the right edge of the map: the zoom
+ * buttons at the top (mouse and trackpad only), the locate button at the
+ * bottom. The sea marks have no button there: they are a setting. Everything else on the map either keeps
  * out of that column (the hints, the framing of a route) or gives the map
  * the height the column needs (the drawer of the planner).
  *
@@ -20,10 +20,8 @@
  * they are the `.ow-chrome-*` rules of index.css, the same geometry in CSS
  * variables. `.ow-chrome-right` lines the column up under the bar's right
  * button (12 px from the edge on a phone, 18 px from lg up, under a 52 px
- * button 16 px from the edge), `.ow-chrome-slot-1` and `-2` are its first
- * two places under the bar (the chart toggle, then the zoom buttons; on the
- * explorer's phone layout the zoom buttons alone, the chart toggle being a
- * setting there). On the planner from lg up, a panel floats over the right
+ * button 16 px from the edge), `.ow-chrome-slot-1` is its place right under
+ * the bar (the zoom buttons, on both maps). On the planner from lg up, a panel floats over the right
  * of the map: the page publishes the width it covers as
  * `--ow-map-cover-right`, and the column stands just left of it, the search
  * and the hints centred on the rest (`.ow-plan-body`, `.ow-map-hint`). The
@@ -67,5 +65,6 @@ export function mapControlsGutterPx(): number {
 export const ZOOM_CLEARANCE_BELOW_PX = GAP_PX + CONTROL_PX + LOCATE_BOTTOM_PX;
 
 /* The least height of the planner's map, which holds the bar over it, the
-   chart toggle and the locate button one above the other without touching,
+   first slot of the column and the locate button one above the other without
+   touching,
    is `.ow-map-min-height` in index.css: it depends on the safe-area insets. */

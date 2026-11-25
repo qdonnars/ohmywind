@@ -10,16 +10,14 @@ import {
 
 /**
  * The marine-chart overlay choice, shared by both maps and the settings.
- * Every component using it re-renders when any of them changes it, so the
- * map buttons and a settings control can never disagree.
+ * Every component using it re-renders when any of them changes it, so a
+ * map behind the settings follows a new choice at once.
  *
  * - `enabled`: Always (true) or Never (false).
- * - `setEnabled`: sets and stores a choice, for an Always / Never control.
- * - `toggle`: flips it, for the map buttons.
+ * - `setEnabled`: sets and stores a choice, for the Always / Never control.
  */
 export function useSeamarks() {
   const enabled = useSyncExternalStore(subscribeSeamarks, loadSeamarksEnabled, loadSeamarksEnabled);
   const setEnabled = useCallback((next: boolean) => saveSeamarksEnabled(next), []);
-  const toggle = useCallback(() => saveSeamarksEnabled(!loadSeamarksEnabled()), []);
-  return { enabled, setEnabled, toggle };
+  return { enabled, setEnabled };
 }

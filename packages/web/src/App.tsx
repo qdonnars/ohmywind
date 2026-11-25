@@ -20,12 +20,10 @@ import { TideChart } from "./components/TideChart";
 import { SpotMap } from "./components/SpotMap";
 import { Onboarding } from "./components/Onboarding";
 import { LocateButton } from "./components/LocateButton";
-import { SeamarkButton } from "./components/SeamarkButton";
 import { useSeamarks } from "./hooks/useSeamarks";
 import { useGeolocation } from "./hooks/useGeolocation";
 import { useBackDismiss } from "./hooks/useBackDismiss";
 import { useMapView } from "./hooks/useMapView";
-import { LG_MEDIA_QUERY, useMediaQuery } from "./hooks/useMediaQuery";
 import { parseMapView, mapViewQuery } from "./utils/mapViewParams";
 import { hasDeclinedGeolocation } from "./config/geolocPreference";
 import { loadLastSpot, saveLastSpot } from "./config/lastSpot";
@@ -96,7 +94,7 @@ function App() {
   }, [spot]);
   const { position: userPosition, status: geolocStatus, attempt: geolocAttempt, locate } = useGeolocation();
   const { view: mapView, onViewChange } = useMapView();
-  const { enabled: seamarks, toggle: toggleSeamarks } = useSeamarks();
+  const { enabled: seamarks } = useSeamarks();
   // Camera handed over by /plan. Read once: later navigations remount.
   const [initialView] = useState(() => parseMapView(window.location.search));
   // Which fix the map is allowed to fly to. Set only on an explicit request
@@ -296,7 +294,6 @@ function App() {
   // The bar itself, which covers the top of the map: a point the camera
   // centres lands in the middle of what the bar and the tables leave.
   const topBarRef = useRef<HTMLDivElement>(null);
-  const isDesktop = useMediaQuery(LG_MEDIA_QUERY);
   // Handed to SpotMap so camera moves can centre a point in the strip of map
   // the OPAQUE data tables leave visible, instead of the full (half-covered)
   // container. Attached to the tables area, not the whole overlay: the pills
@@ -335,21 +332,12 @@ function App() {
           metric={effectiveView}
           selectedHour={selectedHour}
           showSeamarks={seamarks}
-          // In the column of controls along the right edge, under the bar
-          // over the map and, from lg up, under the chart toggle (#470).
-          // Mouse and trackpad only.
-          zoomButtons={{
-            className: `ow-chrome-right ${isDesktop ? "ow-chrome-slot-2" : "ow-chrome-slot-1"}`,
-          }}
+          // At the top of the column of controls along the right edge,
+          // right under the settings button of the bar over the map (#470).
+          // Mouse and trackpad only. The sea marks have no button: they are
+          // a setting (Réglages > Carte).
+          zoomButtons={{ className: "ow-chrome-right ow-chrome-slot-1" }}
         />
-        {/* Marine-chart toggle — from lg up only, right under the settings
-            button, at the top of the column of controls along the right
-            edge. On a phone the bar is all the top of the map can carry:
-            the sea marks are a setting (Réglages > Carte), the same one
-            this button flips. */}
-        {isDesktop && (
-          <SeamarkButton enabled={seamarks} onToggle={toggleSeamarks} className="ow-chrome-right ow-chrome-slot-1" />
-        )}
         {/* Menu, search and settings — after SpotMap so they render on top.
             Search proximity reference: the granted position first, else
             where the map is currently looking, else the active spot. The
