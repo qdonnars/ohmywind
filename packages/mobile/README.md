@@ -188,7 +188,7 @@ iOS ne se teste pas en local faute de Mac: c'est le job iOS de la CI.
 ### Déroulé
 
 1. le web est construit et reçoit la sonde `smoke/probe.js` (`smoke/inject-probe.mjs`, dans le test seulement: le build déployé ne la contient jamais). En CI, un job Linux s'en charge une fois pour les deux plateformes;
-2. Android (émulateur API 35, KVM) et iOS (`macos-26`, iPhone 17 simulé) construisent la variante `local`, servent ce build sur `localhost:4173` (`smoke/serve.mjs`) et déroulent le même scénario, `smoke/run.sh`.
+2. Android (émulateur API 35, KVM) et iOS (runner `xcode-27`, iPhone simulé sur le runtime iOS le plus récent) construisent la variante `local`, servent ce build sur `localhost:4173` (`smoke/serve.mjs`) et déroulent le même scénario, `smoke/run.sh`.
 
 La sonde relève, plusieurs fois par chargement, `Capacitor.isNativePlatform()`, la plateforme, un aller-retour par le pont (`App.getInfo()`), l'état du service worker, les marges de sécurité, la géométrie de la page (`scrollY`, `visualViewport`, `innerHeight`, rectangle de l'en-tête, débord de la colonne), l'état de la reprise de données et les erreurs JavaScript, et envoie le tout à `smoke/collector.mjs` (port 4174). `smoke/expect.mjs` attend un rapport qui remplit les conditions de l'étape, sinon le job échoue:
 
@@ -217,7 +217,7 @@ Le workflow tourne à chaque push sur `dev` et `main`, mais un premier job lége
 
 Les secrets (certificat « Apple Distribution », profil App Store de la variante, clé d'API App Store Connect au rôle Développeur) ne vont que dans un trousseau et des fichiers temporaires, supprimés à la fin quoi qu'il arrive. Numéro de build: plus haut build déjà envoyé pour l'app, lu sur App Store Connect, dont le dernier nombre monte de un (`scripts/asc-next-build.mjs`): 6.1, 6.2, 6.3… Apple compare chaque nombre comme un entier, 6.10 vient donc après 6.9. Les builds jusqu'à 6.1 ont été numérotées par l'ancienne règle (`run_number.run_attempt`), d'où les trous. La variante dev est réservée aux testeurs internes (`testFlightInternalTestingOnly`).
 
-Premier envoi le 23/11/2026: OhMyWind Dev 2.0.0 (1.1), Xcode 26.6, SDK iOS 26.5, « Upload succeeded » avec la clé au rôle Développeur. App Store Connect a averti qu'**à partir d'avril 2027, les apps devront être construites avec le SDK iOS 27 (Xcode 27)**: passer `Select Xcode 26` du workflow à Xcode 27 avant cette date.
+Premier envoi le 23/11/2026: OhMyWind Dev 2.0.0 (1.1), Xcode 26.6, SDK iOS 26.5, « Upload succeeded » avec la clé au rôle Développeur. App Store Connect a averti qu'**à partir d'avril 2027, les apps devront être construites avec le SDK iOS 27 (Xcode 27)**: passer `Select Xcode 26` du workflow à Xcode 27 avant cette date. Fait le 25/11/2026 : les jobs iOS tournent sur le runner `xcode-27` (SDK iOS 27), avec une étape qui échoue si le SDK est antérieur.
 
 ## Google Play
 

@@ -178,8 +178,9 @@ jobs:
   ios:
     name: iOS (simulator)
     needs: web
-    # Capacitor 8 needs Xcode 26. Free on a public repository.
-    runs-on: macos-26
+    # Same toolchain as ios-testflight.yml (Xcode 27, iOS 27 SDK), so the
+    # smoke test checks what gets uploaded. Free on a public repository.
+    runs-on: xcode-27
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
