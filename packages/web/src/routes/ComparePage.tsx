@@ -111,8 +111,9 @@ function SkeletonRows({ rows, dense }: { rows: number; dense: boolean }) {
 export function ComparePage() {
   const { t } = useT();
   const online = useOnline();
-  // Same three-way empty state as the explore table: offline first, then a
-  // spent Open-Meteo quota with its return time, then a bare "no data".
+  // Same empty state as the explore table: nothing offline (the toast said
+  // it), then a spent Open-Meteo quota with its return time, then a bare
+  // "no data".
   const quota = useOpenMeteoQuota();
   const { customSpots, addSpot, removeSpot, renameSpot } = useCustomSpots();
   const isDesktop = useMediaQuery(LG_MEDIA_QUERY);
@@ -342,13 +343,15 @@ export function ComparePage() {
       return <Notice title={t("compare.none.title")} body={t("compare.none.body")} />;
     }
     if (!hasData) {
+      // Offline, nothing here: the passing « Hors ligne : mise à jour
+      // impossible » said it when the page asked (useCompareData), and the
+      // table fills by itself when the network comes back.
+      if (!online) return null;
       return (
         <div className="text-center py-8 px-4 text-sm" style={{ color: "var(--ow-fg-2)" }}>
-          {!online
-            ? t("compare.table.offline")
-            : quota
-              ? openMeteoQuotaMessage("connection", quota.window, quota.resetAt)
-              : t("compare.table.empty")}
+          {quota
+            ? openMeteoQuotaMessage("connection", quota.window, quota.resetAt)
+            : t("compare.table.empty")}
         </div>
       );
     }

@@ -12,8 +12,7 @@ import {
 } from "./api/marine";
 import { fetchIsLand, withoutSea } from "./api/land";
 import { useCustomSpots } from "./hooks/useCustomSpots";
-import { Header } from "./components/Header";
-import { NavMenu } from "./components/NavMenu";
+import { MapTopBar } from "./components/MapTopBar";
 import { WindTable } from "./components/WindTable";
 import { MarineTable } from "./components/MarineTable";
 import { MetricPills } from "./components/MetricPills";
@@ -21,18 +20,19 @@ import { TideChart } from "./components/TideChart";
 import { SpotMap } from "./components/SpotMap";
 import { Onboarding } from "./components/Onboarding";
 import { LocateButton } from "./components/LocateButton";
-import { SeamarkButton } from "./components/SeamarkButton";
 import { useSeamarks } from "./hooks/useSeamarks";
 import { useGeolocation } from "./hooks/useGeolocation";
 import { useBackDismiss } from "./hooks/useBackDismiss";
 import { useMapView } from "./hooks/useMapView";
-import { LG_MEDIA_QUERY, useMediaQuery } from "./hooks/useMediaQuery";
 import { parseMapView, mapViewQuery } from "./utils/mapViewParams";
 import { hasDeclinedGeolocation } from "./config/geolocPreference";
 import { loadLastSpot, saveLastSpot } from "./config/lastSpot";
 import { useOnline } from "./hooks/useOnline";
 import { loadSpotForecast } from "./offline/spotForecast";
+import { notifyOffline } from "./offline/offlineNotice";
 import { ForecastStamp } from "./components/ForecastStamp";
+import { usePointerWording } from "./hooks/usePointerWording";
+import { useAppliedModelOrder } from "./settings/useAppliedModelOrder";
 
 const DEFAULT_MAP_CENTER: { lat: number; lon: number } = { lat: 43.3, lon: 5.35 };
 
@@ -50,12 +50,13 @@ function previewSpot(lat: number, lon: number): Spot {
 function EmptyState() {
   const { t } = useT();
   // Touch or mouse wording from the pointer, not the width: an iPad in
-  // landscape gets the wide layout and was told to right-click. The width
-  // still decides when the device reports neither kind of pointer.
-  const coarse = useMediaQuery("(pointer: coarse)");
-  const fine = useMediaQuery("(pointer: fine)");
+  // landscape gets the wide layout and was told to right-click.
+  const pointer = usePointerWording();
   return (
-    <div className="flex items-end justify-center pb-6 px-4">
+    // Centred in the width the locate button leaves (12 or 18 px from the
+    // edge, 48 px wide, see .ow-chrome-right): in German at 360 px the
+    // bubble ran under it.
+    <div className="flex items-end justify-center pb-6 pl-4 pr-[68px] lg:pr-[74px]">
       <div
         className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full shadow-lg"
         style={{
@@ -70,16 +71,7 @@ function EmptyState() {
           style={{ background: 'var(--ow-accent)' }}
         />
         <span className="text-[12px] font-medium" style={{ color: 'var(--ow-fg-0)' }}>
-          {coarse ? (
-            t("explore.emptyState.touch")
-          ) : fine ? (
-            t("explore.emptyState.click")
-          ) : (
-            <>
-              <span className="lg:hidden">{t("explore.emptyState.touch")}</span>
-              <span className="hidden lg:inline">{t("explore.emptyState.click")}</span>
-            </>
-          )}
+          {t(`explore.emptyState.${pointer}`)}
         </span>
       </div>
     </div>
@@ -103,7 +95,7 @@ function App() {
   }, [spot]);
   const { position: userPosition, status: geolocStatus, attempt: geolocAttempt, locate } = useGeolocation();
   const { view: mapView, onViewChange } = useMapView();
-  const { enabled: seamarks, toggle: toggleSeamarks } = useSeamarks("explore");
+  const { enabled: seamarks } = useSeamarks();
   // Camera handed over by /plan. Read once: later navigations remount.
   const [initialView] = useState(() => parseMapView(window.location.search));
   // Which fix the map is allowed to fly to. Set only on an explicit request
@@ -134,6 +126,7 @@ function App() {
   const [cachedAt, setCachedAt] = useState<number | null>(null);
   // Read in the fetch effect, which must not re-run when the panel loads.
   const loadedSpotKeyRef = useRef<string | null>(null);
+  const askedSpotRef = useRef<Spot | null>(null);
   const savedSpotsRef = useRef(customSpots);
   useEffect(() => {
     loadedSpotKeyRef.current = loadedSpotKey;
@@ -174,13 +167,29 @@ function App() {
   // Re-run when the network comes back, so a forecast read from the device
   // is refreshed in the background and its date goes. Losing the network
   // re-runs it too, and the forecast already on screen then stays as it is.
+  // And when the reader reorders the models in the settings, opened over
+  // this page: the fetch reads the stored order itself, the value here only
+  // says when (once the settings close, see useAppliedModelOrder).
+  const modelOrder = useAppliedModelOrder();
   useEffect(() => {
     if (!spot) return;
     const key = `${spot.latitude},${spot.longitude}`;
-    if (!online && loadedSpotKeyRef.current === key) return;
+    // A spot picked again (the same point touched twice), as opposed to a
+    // re-run because the network or the model order moved.
+    const asked = spot !== askedSpotRef.current;
+    askedSpotRef.current = spot;
+    if (!online && loadedSpotKeyRef.current === key) {
+      if (asked) notifyOffline();
+      return;
+    }
     let cancelled = false;
     loadSpotForecast(spot, { online, savedSpots: savedSpotsRef.current }).then(({ models: data, marine: marineData, cachedAt: at }) => {
       if (!cancelled) {
+        // Asked for without a network (a point tapped, the app opened on its
+        // last spot): say once that nothing new could come, whether the
+        // device had this point or not. A forecast it had shows with its
+        // date (ForecastStamp); without one the panel stays empty.
+        if (!online) notifyOffline();
         // A refresh that got nothing back must not empty a panel that the
         // device had filled: keep what is shown, with its date.
         if (data.length === 0 && loadedSpotKeyRef.current === key) return;
@@ -211,7 +220,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [spot, online]);
+  }, [spot, online, modelOrder]);
   useEffect(() => {
     if (!spot) return;
     let cancelled = false;
@@ -294,9 +303,11 @@ function App() {
   const effectiveView: MetricView = relevant[view] ? view : "wind";
 
   // The navigation menu's trigger, for the onboarding card to point at.
-  // Mounted once: in the header on a phone, on the map on a wide screen.
+  // Mounted once, in the bar over the map (MapTopBar).
   const navRef = useRef<HTMLButtonElement>(null);
-  const isDesktop = useMediaQuery(LG_MEDIA_QUERY);
+  // The bar itself, which covers the top of the map: a point the camera
+  // centres lands in the middle of what the bar and the tables leave.
+  const topBarRef = useRef<HTMLDivElement>(null);
   // Handed to SpotMap so camera moves can centre a point in the strip of map
   // the OPAQUE data tables leave visible, instead of the full (half-covered)
   // container. Attached to the tables area, not the whole overlay: the pills
@@ -309,24 +320,11 @@ function App() {
       className="h-dvh flex flex-col overflow-hidden"
       style={{ background: 'var(--ow-bg-0)', color: 'var(--ow-fg-0)' }}
     >
-      {/* Search proximity reference: the granted position first, else where
-          the map is currently looking, else the active spot. The viewport
-          matters because without it a search for "Brest" from a phone with
-          no position granted ranks Brest in Belarus and Brest in Croatia
-          alongside the Finistère one. */}
-      <Header
-        onSelectSpot={selectSpot}
-        nearLat={userPosition?.lat ?? mapView?.lat ?? spot?.latitude ?? null}
-        nearLon={userPosition?.lon ?? mapView?.lon ?? spot?.longitude ?? null}
-        savedSpots={customSpots}
-        current="explore"
-        mapQuery={mapViewQuery(mapView)}
-        navRef={navRef}
-      />
-
-      {/* Map fills the entire space; pills + table are an overlay floating
-          above its bottom edge so the map keeps showing through the gaps
-          around the data cells. */}
+      {/* No header: the map fills the whole screen, under the status bar in
+          the apps, and the menu, the search and the settings float over its
+          top (MapTopBar). Pills + table are an overlay floating above its
+          bottom edge so the map keeps showing through the gaps around the
+          data cells. */}
       <div className="flex-1 min-h-0 relative">
         <SpotMap
           current={spot}
@@ -337,6 +335,7 @@ function App() {
           initialView={initialView}
           defaultCenter={DEFAULT_MAP_CENTER}
           bottomInsetRef={dataPanelRef}
+          topInsetRef={topBarRef}
           onSelectSpot={selectSpot}
           onPreviewSpot={handlePreviewSpot}
           onAddSpot={(s) => { addSpot(s); selectSpot(s); }}
@@ -347,25 +346,30 @@ function App() {
           metric={effectiveView}
           selectedHour={selectedHour}
           showSeamarks={seamarks}
+          // At the top of the column of controls along the right edge,
+          // right under the settings button of the bar over the map (#470).
+          // Mouse and trackpad only. The sea marks have no button: they are
+          // a setting (Réglages > Carte).
+          zoomButtons={{ className: "ow-chrome-right ow-chrome-slot-1" }}
         />
-        {/* Marine-chart toggle — top right, the corner a layer control
-            conventionally lives in, and the one free corner here: the
-            navigation menu owns the top left and the data overlay owns the
-            bottom. */}
-        <SeamarkButton enabled={seamarks} onToggle={toggleSeamarks} className="top-3 right-3" />
-        {/* Navigation menu — after SpotMap so it renders on top. The camera
-            travels with the links (`?center`, `?zoom`) so the planner opens
-            on the region the reader was just looking at. On a phone the
-            same menu sits in the header instead. */}
-        {isDesktop && (
-          <NavMenu
-            variant="map"
-            current="explore"
-            mapQuery={mapViewQuery(mapView)}
-            className="top-3 left-3"
-            triggerRef={navRef}
-          />
-        )}
+        {/* Menu, search and settings — after SpotMap so they render on top.
+            Search proximity reference: the granted position first, else
+            where the map is currently looking, else the active spot. The
+            viewport matters because without it a search for "Brest" from a
+            phone with no position granted ranks Brest in Belarus and Brest
+            in Croatia alongside the Finistère one. The camera travels with
+            the menu's links (`?center`, `?zoom`) so the planner opens on the
+            region the reader was just looking at. */}
+        <MapTopBar
+          current="explore"
+          mapQuery={mapViewQuery(mapView)}
+          navRef={navRef}
+          barRef={topBarRef}
+          onSelectSpot={selectSpot}
+          nearLat={userPosition?.lat ?? mapView?.lat ?? spot?.latitude ?? null}
+          nearLon={userPosition?.lon ?? mapView?.lon ?? spot?.longitude ?? null}
+          savedSpots={customSpots}
+        />
 
         {/* Bottom overlay: pills (fixed at top of overlay) + scrollable table
             below. Pills sit in a ``shrink-0`` band so vertical scroll inside
@@ -382,14 +386,15 @@ function App() {
               which is transparent over the map: the button straddles the
               pills and keeps the same gap to the panel as on /plan. Out of
               flow, so it does not push the pills around. */}
-          <LocateButton status={geolocStatus} attempt={geolocAttempt} onClick={handleLocate} className="-top-4 right-3" />
+          <LocateButton status={geolocStatus} attempt={geolocAttempt} onClick={handleLocate} className="-top-4 ow-chrome-right" />
           {spot ? (
             <>
-              {/* pr-16 keeps the scrolling row clear of the locate button
-                  above (right-3 + w-12): with four pills on a phone the
-                  last one slid under it and could not be read or tapped
+              {/* The right padding keeps the scrolling row clear of the
+                  locate button above (12 px + 48 on a phone, 18 + 48 from
+                  lg up, see .ow-chrome-right): with four pills on a phone
+                  the last one slid under it and could not be read or tapped
                   (#387). The row scrolls to it instead. */}
-              <div className="shrink-0 pr-16">
+              <div className="shrink-0 pr-16 lg:pr-[72px]">
                 <MetricPills
                   view={effectiveView}
                   onSelect={setView}

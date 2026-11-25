@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { LOCAL_STORAGE_KEYS } from "../storage/keys";
+import { LOCAL_STORAGE_KEYS, SESSION_STORAGE_KEYS } from "../storage/keys";
 import { getLocation, navigate, subscribe, type AppLocation } from "../navigation";
 import { isNativeShell } from "../native";
 
@@ -20,7 +20,10 @@ import { isNativeShell } from "../native";
  * - any other address: a deep link, a shared plan, the launcher shortcuts
  *   (`/plan`, `/config`), `/` with a camera handed over (`?center=`);
  * - a reload or a back/forward into the document: the reader is already
- *   where they want to be;
+ *   where they want to be. Except the reload the native shell does itself
+ *   after putting back a wiped storage (`native/nativeBackup.ts`): that one
+ *   stands for the launch it interrupted, which could not resume a plan
+ *   from a storage still empty (`markRestoredLaunch`);
  * - a plain browser tab. Typing ohmywind.fr is asking for the home page;
  *   reopening an *app* is asking for where one was. Only an installed PWA, the
  *   TWA and the native shells count as an app launch.
@@ -36,6 +39,7 @@ import { isNativeShell } from "../native";
 export type LastView = { view: "explore" } | { view: "plan"; url: string };
 
 const STORAGE_KEY = LOCAL_STORAGE_KEYS.lastView;
+const RESTORED_LAUNCH_KEY = SESSION_STORAGE_KEYS.restoredLaunch;
 
 function isPlanUrl(url: string): boolean {
   return url === "/plan" || url.startsWith("/plan?");
@@ -86,6 +90,8 @@ export interface ResumeInput {
   navigationType: string | undefined;
   /** Installed PWA, TWA or native shell. */
   appLaunch: boolean;
+  /** The document is the shell's reload after a restore (`markRestoredLaunch`). */
+  restoredLaunch?: boolean;
   lastView: LastView | null;
 }
 
@@ -93,7 +99,10 @@ export interface ResumeInput {
 export function resumeTarget(input: ResumeInput): string | null {
   if (!input.appLaunch) return null;
   if (input.path !== "/" || input.search !== "" || input.hash !== "") return null;
-  if (input.navigationType !== undefined && input.navigationType !== "navigate") return null;
+  const type = input.navigationType;
+  const fresh =
+    type === undefined || type === "navigate" || (input.restoredLaunch === true && type === "reload");
+  if (!fresh) return null;
   if (input.lastView?.view !== "plan") return null;
   return input.lastView.url;
 }
@@ -117,6 +126,31 @@ function navigationType(): string | undefined {
     return entry?.type;
   } catch {
     return undefined;
+  }
+}
+
+/**
+ * Called by the native shell right before it reloads the page with the data
+ * it put back in a wiped storage. The launch it interrupts found no last view
+ * (the storage was empty), and a reload never resumes: without this mark the
+ * app opened on the explorer, and the plan only came back at the next launch.
+ */
+export function markRestoredLaunch(): void {
+  try {
+    sessionStorage.setItem(RESTORED_LAUNCH_KEY, "1");
+  } catch {
+    /* no session storage: the reload opens on the explorer, as before */
+  }
+}
+
+/** Reads and clears the mark: it is worth one load, never a later reload. */
+function takeRestoredLaunch(): boolean {
+  try {
+    const marked = sessionStorage.getItem(RESTORED_LAUNCH_KEY) === "1";
+    sessionStorage.removeItem(RESTORED_LAUNCH_KEY);
+    return marked;
+  } catch {
+    return false;
   }
 }
 
@@ -152,6 +186,7 @@ export function startLastViewTracking(): void {
     hash: window.location.hash,
     navigationType: navigationType(),
     appLaunch: isAppLaunch(),
+    restoredLaunch: takeRestoredLaunch(),
     lastView: loadLastView(),
   });
   if (target) {

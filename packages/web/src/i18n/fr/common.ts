@@ -9,6 +9,8 @@ export const common = {
   "common.cancel": "Annuler",
   "common.back": "Retour",
   "common.retry": "Réessayer",
+  // Le message passager d'une demande partie sans réseau (offline/offlineNotice.ts).
+  "common.offline.toast": "Hors ligne : mise à jour impossible",
   "common.days.one": "{count} jour",
   "common.days.other": "{count} jours",
 
@@ -19,7 +21,7 @@ export const common = {
   "common.forecast.stale":
     "Prévisions vieilles de plus de {hours} h : actualisez-les dès que le réseau revient.",
 
-  // Menu de navigation : le burger et ses trois destinations
+  // Menu de navigation : le burger, le tiroir et ses entrées
   "common.nav.open": "Ouvrir le menu",
   "common.nav.close": "Fermer le menu",
   "common.nav.label": "Navigation",
@@ -29,6 +31,9 @@ export const common = {
   "common.nav.plan.desc": "Simuler une route, comparer les fenêtres",
   "common.nav.compare.title": "Comparer mes spots",
   "common.nav.compare.desc": "Mes favoris côte à côte",
+  "common.nav.settings": "Réglages",
+  "common.nav.sourcesNote":
+    "Prévisions Open-Meteo (CC BY 4.0). Ce ne sont pas des observations : écoutez le bulletin avant de partir.",
 
   // Quoi de neuf : l'entrée du menu, la page /nouveautes et la version
   "common.version": "Version {version}",

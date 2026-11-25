@@ -56,6 +56,8 @@ describe("cablage de la compression", () => {
     const back = JSON.parse(await new Response(stream).text());
     expect(back.forecast_cache.points).toHaveLength(15);
     expect(back.archetype).toBe("cruiser_30ft");
+    // The route is the browser's to repair: the server plans it as sent.
+    expect(back.repair_route).toBe(false);
   });
 });
 

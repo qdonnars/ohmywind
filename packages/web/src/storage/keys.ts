@@ -41,7 +41,12 @@ export const LOCAL_STORAGE_KEYS = {
   lang: "ow_lang",
   /** `"1"` once the user has declined geolocation, so we stop asking. */
   geolocDeclined: "ow_geoloc_declined_v1",
-  /** Sea marks overlay, one flag per map surface. */
+  /** Sea marks overlay on both maps: `"1"` Always, `"0"` Never; absent
+      means the default (`config/seamarkPreference.ts`). Bare scalar. */
+  seamarks: "ow_seamarks_v2",
+  /** Former per-map flags (`"1"`/`"0"`), superseded by `seamarks`. Never
+      written again, only read while `seamarks` is absent, to carry an
+      explicit choice over; still transferred and backed up for that reason. */
   seamarksExplore: "ow_seamarks_explore_v1",
   seamarksPlan: "ow_seamarks_plan_v1",
   /** Cached MARC atlas coverage (tiles + bbox), refreshed on a TTL. */
@@ -100,9 +105,7 @@ export type LocalStorageKeyName = keyof typeof LOCAL_STORAGE_KEYS;
 
 /** Keys written to `window.sessionStorage`, i.e. dropped when the tab closes. */
 export const SESSION_STORAGE_KEYS = {
-  /** Where `/config` should return to when the user backs out of it. */
-  configReturnPath: "ow_config_return_to",
-  /** Where `/a-propos` returns to: the page whose « i » opened it. */
+  /** Where `/a-propos` returns to: the page the menu opened it from. */
   aboutReturnPath: "ow_about_return_to",
   /** Waypoints drawn but not yet computed, so a service worker update or a
       reload does not throw away work in progress. */
@@ -110,6 +113,10 @@ export const SESSION_STORAGE_KEYS = {
   /** `"1"` in a tab the Android TWA opened. Its launch referrer is only
       there on the first load, a reload would lose it. See `install/platform.ts`. */
   storeApp: "ow_store_app",
+  /** `"1"` across the reload the native shell does after restoring a wiped
+      storage, so that reload counts as the launch it interrupted. One-shot,
+      see `offline/lastView.ts`. */
+  restoredLaunch: "ow_restored_launch",
 } as const;
 
 /**

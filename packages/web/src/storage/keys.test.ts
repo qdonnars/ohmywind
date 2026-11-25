@@ -21,6 +21,7 @@ describe("storage key registry", () => {
       timezone: "ow_tz",
       lang: "ow_lang",
       geolocDeclined: "ow_geoloc_declined_v1",
+      seamarks: "ow_seamarks_v2",
       seamarksExplore: "ow_seamarks_explore_v1",
       seamarksPlan: "ow_seamarks_plan_v1",
       marcCoverage: "ow_marc_coverage_v1",
@@ -44,10 +45,10 @@ describe("storage key registry", () => {
       installInvite: "ow_install_invite_v1",
     });
     expect(SESSION_STORAGE_KEYS).toEqual({
-      configReturnPath: "ow_config_return_to",
       aboutReturnPath: "ow_about_return_to",
       planDraft: "ow_plan_draft_v1",
       storeApp: "ow_store_app",
+      restoredLaunch: "ow_restored_launch",
     });
   });
 

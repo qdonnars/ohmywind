@@ -51,7 +51,7 @@ export const panel = {
   "panel.results.recapDeparture": "Départ : {day} · {time}",
   "panel.results.recapArrival": "Arrivée : {day} · {time}",
   "panel.results.stale":
-    "Itinéraire modifié. Cliquez sur Recalculer pour mettre à jour les détails.",
+    "Itinéraire modifié. Recalculez pour mettre à jour les détails.",
   "panel.results.forecastUpdated": "Prévisions du {when} · Open-Meteo.com (CC BY 4.0)",
 
   // ── LinkSettingsRow ───────────────────────────────────────────────────────
@@ -180,9 +180,11 @@ export const panel = {
   "panel.tracks.drawing.title": "Option {n} · itinéraire en cours",
   "panel.tracks.drawing.points.one": "{count} point posé",
   "panel.tracks.drawing.points.other": "{count} points posés",
-  "panel.tracks.drawing.hint": "Touchez la carte pour poser un point entre le départ et l'arrivée du plan.",
+  "panel.tracks.drawing.hint.touch": "Touchez la carte pour poser un point entre le départ et l'arrivée du plan.",
+  "panel.tracks.drawing.hint.click": "Cliquez sur la carte pour poser un point entre le départ et l'arrivée du plan.",
   "panel.tracks.drawing.finish": "Terminer et comparer",
   "panel.tracks.row.computing": "calcul en cours…",
+  "panel.tracks.row.notComputed": "non calculé",
   "panel.tracks.stale": "Départ ou bateau modifié. Recalculez pour comparer les itinéraires.",
   "panel.tracks.departure.title": "Départ, commun à tous les itinéraires",
   "panel.tracks.departure.note": "Changer ce départ recalcule tous les itinéraires. Pour tester plusieurs heures sur un seul itinéraire, revenez au plan et choisissez « D'autres départs ».",

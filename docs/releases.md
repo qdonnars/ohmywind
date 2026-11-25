@@ -1,6 +1,14 @@
 # Publier une version
 
-OhMyWind porte un seul numéro de version pour le site et le serveur MCP, en [semver](https://semver.org/lang/fr/) : une version par jour de mise en production, **mineure** (1.9.0) quand la promotion apporte une nouveauté visible, **corrective** (1.8.1) quand elle ne fait que corriger. L'application Android garde son propre numéro (`appVersion` dans `packages/android/twa-manifest.json`) ; quand une version en livre une, les notes le disent.
+OhMyWind porte un seul numéro de version pour le site et le serveur MCP, en [semver](https://semver.org/lang/fr/), et il monte lentement. Une mise en production change toujours de numéro, mais :
+
+- **corrective** (1.15.1, 1.15.2…) par défaut, y compris quand la promotion apporte de petites nouveautés visibles ;
+- **mineure** (1.16.0) seulement pour une grosse nouveauté, celle qu'on mettrait en avant dans une annonce ou un communiqué ;
+- **majeure** (2.0.0) seulement pour une rupture du contrat MCP (outil retiré ou renommé, paramètre obligatoire ajouté, réponse incompatible).
+
+Dans le doute, corrective. Jusqu'à la 1.15.0, toute nouveauté visible donnait une mineure : de là les quinze mineures en trois mois.
+
+Les applications mobiles ont leurs propres numéros, voir « Applications mobiles » plus bas.
 
 Quatre endroits portent la version, et des tests vérifient qu'ils s'accordent :
 
@@ -17,11 +25,11 @@ Les changements à venir s'écrivent en tête des deux journaux, sous une sectio
 ## 1.9.0 · Prochaine version · Titre en une ligne
 ```
 
-(`Next release` dans `CHANGELOG.en.md`), puis trois listes au plus, dans cet ordre : `### Nouveautés`, `### Corrections`, `### Coulisses` (`New`, `Fixes`, `Behind the scenes`). Une phrase par puce, écrite pour les utilisateurs, avec les numéros de PR entre parenthèses (`(#462)`) : la page les transforme en liens, GitHub aussi. Pas de tiret cadratin, le vouvoiement quand on s'adresse au lecteur. La section n'apparaît pas sur ohmywind.fr, seulement sur dev.ohmywind.fr.
+(`Next release` dans `CHANGELOG.en.md`), puis trois listes au plus, dans cet ordre : `### Nouveautés`, `### Corrections`, `### Coulisses` (`New`, `Fixes`, `Behind the scenes`). Une phrase courte par puce, écrite pour un utilisateur et non pour un développeur : ce qui change pour lui, avec ses mots, sans nom de composant ni détail de réalisation. Les numéros de PR ferment la puce entre parenthèses (`(#462)`) : ils servent à remonter au code et GitHub les lie dans une release, mais la page Quoi de neuf de l'application ne les affiche pas. Pas de tiret cadratin, le vouvoiement quand on s'adresse au lecteur. La section n'apparaît pas sur ohmywind.fr, seulement sur dev.ohmywind.fr.
 
 ## À chaque promotion `dev` vers `main`
 
-1. **Dater la section**, dans la PR de promotion : `Prochaine version` devient la date de mise en production (`2026-10-18`), `Next release` aussi, et le numéro est ajusté (mineur ou correctif).
+1. **Dater la section**, dans la PR de promotion : `Prochaine version` devient la date de mise en production (`2026-10-18`), `Next release` aussi, et le numéro est ajusté selon la règle du haut (corrective par défaut).
 2. **Monter la version** dans `packages/web/package.json` au même numéro, puis `npm install --package-lock-only` à la racine pour le lockfile, et dans `server.json` (la fiche du registre MCP). `npx vitest run src/content` (dans `packages/web`) vérifie que les deux journaux et `package.json` s'accordent, et `uv run pytest -q tests/test_server_version.py` (dans `packages/mcp-core`) que le serveur MCP annonce cette version et que `server.json` la porte. Le serveur n'a pas de copie à monter : son paquet prend la version de `package.json` au build.
 3. **Merger la promotion** en merge commit, comme toujours.
 4. **Taguer le commit de merge** sur `main`, hors heures de bureau :
@@ -43,3 +51,13 @@ Les changements à venir s'écrivent en tête des deux journaux, sous une sectio
    ```
 
 Les versions 1.0.0 à 1.8.0 ont été taguées et publiées après coup, le 11 octobre 2026, sur le dernier commit de `main` de chaque jour de mise en production ; `v1.0.1` existait déjà et n'a pas bougé.
+
+## Applications mobiles
+
+Les applications Android et iOS (`packages/mobile`) chargent le site en direct : une mise en production du site arrive dans les applications sans nouvelle version au store. Elles ont donc leurs propres numéros, qui ne suivent pas celui du site.
+
+- **Version affichée** (`versionName` dans `packages/mobile/android/app/build.gradle`, `MARKETING_VERSION` dans le projet iOS, identiques) : ne monte que quand la coquille native change de façon visible pour l'utilisateur, avec la même règle corrective, mineure, majeure que le site.
+- **Numéro de build** : calculé par le workflow d'envoi à partir du dernier numéro connu du store, personne ne le monte à la main, et il se suit quel que soit le nombre d'exécutions des workflows. Sur iOS (`CFBundleVersion`, `scripts/asc-next-build.mjs`), le dernier nombre monte de un : 6.1, 6.2, 6.3. Sur Android (`versionCode`, `scripts/play-publish.mjs next-version-code`), Google impose un entier : 10, 11, 12 ; il n'est montré nulle part aux utilisateurs, qui ne voient que la version affichée.
+- **Envoi** : une nouvelle build ne part que si la PR mergée porte le label **`app-release`**. Mergée sur `dev`, elle envoie les applications dev (test interne Google Play, TestFlight interne) ; mergée sur `main` (une promotion), les applications prod, après approbation dans les environnements `android-play-prod` et `ios-testflight-prod`. Sans le label, rien ne part. Ne le poser que quand la partie native a changé, ou pour une version qu'on veut faire tester sur téléphone.
+
+Détails des workflows dans le README de `packages/mobile` (« TestFlight », « Google Play »).

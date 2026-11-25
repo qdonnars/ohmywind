@@ -51,7 +51,7 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.results.recapDeparture": "Salida: {day} · {time}",
   "panel.results.recapArrival": "Llegada: {day} · {time}",
   "panel.results.stale":
-    "Itinerario modificado. Haga clic en Recalcular para actualizar los detalles.",
+    "Itinerario modificado. Recalcule para actualizar los detalles.",
   "panel.results.forecastUpdated": "Previsiones del {when} · Open-Meteo.com (CC BY 4.0)",
 
   // ── LinkSettingsRow ───────────────────────────────────────────────────────
@@ -177,9 +177,11 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.tracks.drawing.title": "Opción {n} · en curso de trazado",
   "panel.tracks.drawing.points.one": "{count} punto colocado",
   "panel.tracks.drawing.points.other": "{count} puntos colocados",
-  "panel.tracks.drawing.hint": "Toque el mapa para colocar un punto entre la salida y la llegada del plan.",
+  "panel.tracks.drawing.hint.touch": "Toque el mapa para colocar un punto entre la salida y la llegada del plan.",
+  "panel.tracks.drawing.hint.click": "Haga clic en el mapa para colocar un punto entre la salida y la llegada del plan.",
   "panel.tracks.drawing.finish": "Terminar y comparar",
   "panel.tracks.row.computing": "calculando…",
+  "panel.tracks.row.notComputed": "sin calcular",
   "panel.tracks.stale": "Salida o barco modificados. Recalcule para comparar las rutas.",
   "panel.tracks.departure.title": "Salida, común a todas las rutas",
   "panel.tracks.departure.note": "Cambiar esta salida recalcula todas las rutas. Para probar varias horas en una sola ruta, vuelva al plan y elija « Otras salidas ».",

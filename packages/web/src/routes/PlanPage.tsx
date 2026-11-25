@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useState, useEffect, useMemo, useRef, useCallback, useImperativeHandle, type Ref } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback, useImperativeHandle, type Ref, type RefObject } from "react";
 import { isParsedOk, parsePlanUrl } from "../plan/parseUrl";
 import { PlanMap, type PlanMapHandle } from "../plan/PlanMap";
 import { WindScaleLegend } from "../plan/WindScaleLegend";
 import { DRAWER_HANDLE_REACH_PX, UNDO_MS } from "../domain/gestures";
 import { PlanSidebar } from "../plan/PlanSidebar";
 import { fetchArchetypes } from "../api/passage";
-import { Header } from "../components/Header";
-import { NavMenu } from "../components/NavMenu";
+import { MapTopBar } from "../components/MapTopBar";
+import { useCustomSpots } from "../hooks/useCustomSpots";
 import type { Archetype } from "../plan/types";
 import { LOCAL_STORAGE_KEYS } from "../storage/keys";
 import { StatBand } from "../plan/PlanStates";
@@ -20,11 +20,11 @@ import { loadPlanDraft } from "../plan/draft";
 import { loadLastSimulation } from "../plan/lastSimulation";
 import { resolveInitialSession, type InitialSession } from "../plan/session/initial";
 import { usePlanSession, currentConfigFingerprint } from "../plan/session/usePlanSession";
+import { framesOnResults } from "../plan/framing";
 import { PlanProvider } from "../plan/session/PlanProvider";
 import { computeLegSegmentRanges, focusedSegmentIndex } from "../plan/aggregateLegs";
 import { loadPolarConfig } from "../config/polarConfig";
 import { LocateButton } from "../components/LocateButton";
-import { SeamarkButton } from "../components/SeamarkButton";
 import { useSeamarks } from "../hooks/useSeamarks";
 import { useWaypointDepths } from "../hooks/useWaypointDepths";
 import { useGeolocation } from "../hooks/useGeolocation";
@@ -34,7 +34,10 @@ import { LG_MEDIA_QUERY, useMediaQuery } from "../hooks/useMediaQuery";
 import { parseMapView, mapViewQuery } from "../utils/mapViewParams";
 import { useT } from "../i18n";
 import { useKeepScreenOn } from "../hooks/useKeepScreenOn";
-import { loadKeepAwakeEnabled } from "../config/keepAwakePreference";
+import { usePointerWording } from "../hooks/usePointerWording";
+import { ZOOM_CLEARANCE_BELOW_PX } from "../components/mapControlsLayout";
+import { useKeepAwakeApplies } from "../config/useKeepAwakeApplies";
+import { useKeepAwakePreference } from "../config/useKeepAwakePreference";
 
 // ── ResizableMobileDrawer ────────────────────────────────────────────────────
 // User-resizable bottom drawer: a 4 px grab-handle at the top responds to
@@ -244,7 +247,8 @@ export function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, cont
 
   // `min-h-0`, not `shrink-0`: the drawer is the one part of the column that
   // gives way when the column overflows. Its height is a share of the
-  // viewport while the header above it grows with the top safe-area inset;
+  // viewport while the map above it keeps a least height that grows with the
+  // top safe-area inset (the bar floating over it);
   // on an iPhone (62 px of inset) a drawer at 90 vh pushed the column some
   // 35 px past the bottom of the screen. The page clips that, but every
   // scrollIntoView of the panel (an opened leg, the comparison doors) or a
@@ -322,20 +326,26 @@ export function ResizableMobileDrawer({ defaultVh, targetVh, resultsFitKey, cont
   );
 }
 
-// ── ResizableDesktopSidebar ──────────────────────────────────────────────────
-// Desktop equivalent of ResizableMobileDrawer: vertical grab-handle on the left
-// edge adjusts width in px. Persists in localStorage so reload feels stable.
-// Useful when comparing windows — the 7-column table is cramped at 320–384 px.
+// ── FloatingDesktopPanel ─────────────────────────────────────────────────────
+// Desktop equivalent of ResizableMobileDrawer: from lg up, the planner's
+// panel is a card floating over the right of the map, 12 px from the edges
+// of the screen, the map running under it (`.ow-plan-panel` in index.css). A
+// small bar straddling its left edge adjusts its width in px, persisted in
+// localStorage so a reload feels stable. Useful when comparing windows: the
+// 7-column table is cramped at 320–384 px.
 
 const SIDEBAR_WIDTH_KEY = LOCAL_STORAGE_KEYS.sidebarWidth;
 const SIDEBAR_MIN_PX = 280;
 const SIDEBAR_MAX_PX = 800;
 
-function ResizableDesktopSidebar({
+function FloatingDesktopPanel({
   defaultPx,
+  panelRef,
   children,
 }: {
   defaultPx: number;
+  /** The panel itself, for the map to frame a route left of it. */
+  panelRef: RefObject<HTMLDivElement | null>;
   children: React.ReactNode;
 }) {
   const { t } = useT();
@@ -352,6 +362,22 @@ function ResizableDesktopSidebar({
   });
   const dragRef = useRef<{ startX: number; startPx: number } | null>(null);
 
+  // The width goes to the page's body, the panel's parent, as a CSS variable
+  // written straight to the element (`--ow-plan-panel-px`, read by
+  // `.ow-plan-body`): the controls of the map, the search and the hints
+  // follow the panel at every move of a drag without re-rendering the page.
+  // The CSS keeps the map at least --ow-plan-map-min wide beside it. The
+  // parent and not a ref of the page: a parent's ref is attached after its
+  // children's layout effects have run.
+  useLayoutEffect(() => {
+    const host = panelRef.current?.parentElement;
+    if (!host) return;
+    host.style.setProperty("--ow-plan-panel-px", `${px}px`);
+    return () => {
+      host.style.removeProperty("--ow-plan-panel-px");
+    };
+  }, [px, panelRef]);
+
   function persist(next: number) {
     try { localStorage.setItem(SIDEBAR_WIDTH_KEY, String(next)); } catch { /* best-effort */ }
   }
@@ -359,11 +385,14 @@ function ResizableDesktopSidebar({
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     e.preventDefault();
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
-    dragRef.current = { startX: e.clientX, startPx: px };
+    // Start from the width on screen, which the CSS may have narrowed on a
+    // small window, so the bar moves under the pointer from the first pixel.
+    const shown = panelRef.current?.getBoundingClientRect().width ?? px;
+    dragRef.current = { startX: e.clientX, startPx: Math.min(px, Math.round(shown)) };
   }
   function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
     if (!dragRef.current) return;
-    // Sidebar is on the right, so dragging left expands it.
+    // The panel is on the right, so dragging left widens it.
     const dx = dragRef.current.startX - e.clientX;
     const next = Math.max(SIDEBAR_MIN_PX, Math.min(SIDEBAR_MAX_PX, dragRef.current.startPx + dx));
     setPx(next);
@@ -377,10 +406,17 @@ function ResizableDesktopSidebar({
   }
 
   return (
-    <div
-      className="flex shrink-0"
-      style={{ width: `${px}px`, background: "var(--ow-bg-1)" }}
-    >
+    <div ref={panelRef} data-plan-panel="" className="ow-plan-panel absolute z-[500] flex">
+      {/* The card: rounded, its content scrolling inside it, so the head of
+          the panel (« Départ : … ») follows the rounded top and the legs
+          scroll under it within the card. `relative` on the scrolling box,
+          like every scroll container (tests/scrollContainers.test.ts). */}
+      <div className="ow-plan-panel-card relative flex-1 min-w-0 overflow-hidden flex flex-col">
+        <div className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain">{children}</div>
+      </div>
+      {/* The grab bar: a small grey bar astride the left edge of the card.
+          Its target reaches 30 px over the map and 14 px into the card, the
+          card's own padding, so it never takes a tap meant for the panel. */}
       <div
         role="separator"
         aria-orientation="vertical"
@@ -389,19 +425,22 @@ function ResizableDesktopSidebar({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        className="group shrink-0 flex items-center justify-center cursor-col-resize touch-none transition-colors hover:bg-[var(--ow-bg-2)]"
-        style={{
-          width: 12,
-          borderLeft: "1px solid var(--ow-line)",
-          borderRight: "1px solid var(--ow-line)",
-        }}
+        className="group absolute top-1/2 -translate-y-1/2 flex items-center cursor-col-resize touch-none"
+        style={{ left: -30, width: 44, height: 72 }}
       >
         <span
           className="block rounded-full transition-colors group-hover:bg-[var(--ow-accent)]"
-          style={{ width: 4, height: 56, background: "var(--ow-fg-3)" }}
+          style={{
+            marginLeft: 28,
+            width: 5,
+            height: 40,
+            // Mid grey in both themes, ringed with the card's surface so it
+            // reads over a dark chart as over a light one.
+            background: "var(--ow-fg-2)",
+            boxShadow: "0 0 0 1.5px var(--ow-bg-1)",
+          }}
         />
       </div>
-      <div className="relative flex-1 min-w-0 overflow-y-auto">{children}</div>
     </div>
   );
 }
@@ -411,13 +450,23 @@ function ResizableDesktopSidebar({
 export function PlanPage() {
   const { t } = useT();
   const mapRef = useRef<PlanMapHandle>(null);
+  // The bar floating over the top of the map (MapTopBar): framing a route
+  // keeps it clear.
+  const topBarRef = useRef<HTMLDivElement>(null);
+  // From lg up: the panel floating over the map, which framing a route
+  // keeps clear of.
+  const panelRef = useRef<HTMLDivElement>(null);
+  // The reader's spots, offered by the search before anything is typed.
+  const { customSpots } = useCustomSpots();
 
   const { position: userPosition, status: geolocStatus, attempt: geolocAttempt, locate } = useGeolocation();
   const { view: mapView, onViewChange } = useMapView();
   // Which of the two panel layouts to mount. Same breakpoint the CSS uses, so
   // React and Tailwind can never disagree about which one is on screen.
   const isDesktop = useMediaQuery(LG_MEDIA_QUERY);
-  const { enabled: seamarks, toggle: toggleSeamarks } = useSeamarks("plan");
+  // Touch or click, for the hints laid over the map.
+  const pointer = usePointerWording();
+  const { enabled: seamarks } = useSeamarks();
   // Zoom handed over by the explore map, used only when no route frames the
   // camera itself. Read once: navigating remounts the page.
   const [handedView] = useState(() => parseMapView(window.location.search));
@@ -552,18 +601,20 @@ export function PlanPage() {
     return filled ? {} : null;
   }, [passage, windows, planMode, isLoading, compareAxis, drawing, tracksPending, tracks]);
 
-  // The screen stays on while a computed plan is on screen (the setting in
-  // /config can turn it off). Same notion of "a result" as above, but not
+  // On a phone or a tablet, the screen stays on while a computed plan is on
+  // screen (the settings can turn it off, and the plan follows at once); a
+  // computer is left alone. Same notion of "a result" as above, but not
   // gated on loading: a recomputation keeps the previous plan in view. A
   // plan gone stale (route edited since) hides its details: no need.
-  const [keepAwakeEnabled] = useState(() => loadKeepAwakeEnabled());
+  const { enabled: keepAwakeEnabled } = useKeepAwakePreference();
+  const keepAwakeApplies = useKeepAwakeApplies();
   const showingPlan =
     planMode === "single"
       ? !!passage && !isStale
       : compareAxis === "tracks"
         ? !drawing && tracks.length > 0
         : !!windows && windows.length > 0;
-  useKeepScreenOn(keepAwakeEnabled && showingPlan);
+  useKeepScreenOn(keepAwakeApplies && keepAwakeEnabled && showingPlan);
 
   // The short steps of the mobile drawer, fitted to what they hold rather
   // than to a fixed slot: nothing drawn yet, a route with nothing asked yet,
@@ -636,8 +687,20 @@ export function PlanPage() {
     wasPendingRef.current = tracksPending;
   }, [tracksPending]);
 
+  // One exception to « only at the user's request »: a route these results
+  // retraced at sea (see `framesOnResults`), whose far side otherwise sat
+  // outside the frame until a reload. The repair lands in the same update as
+  // its results: this effect still sees the repair the page last knew, and
+  // the one below, which runs after it, records the new one.
+  const knownRepairRef = useRef(state.routeRepair);
+
   useEffect(() => {
-    if (resultsFitKey == null || !frameOnResultsRef.current) return;
+    const frames = framesOnResults(
+      frameOnResultsRef.current,
+      state.routeRepair,
+      knownRepairRef.current,
+    );
+    if (resultsFitKey == null || !frames) return;
     frameOnResultsRef.current = false;
     // One frame later, like the drawer's own fit: the two run in the order
     // they were scheduled, the drawer's first, so the map is measured at the
@@ -651,6 +714,13 @@ export function PlanPage() {
     // move the camera.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resultsFitKey]);
+
+  // After the framing effect, on purpose (see `knownRepairRef`). A repair
+  // that changes without new results (an option picked on the route axis,
+  // « Revenir à mon tracé ») is recorded here and frames nothing.
+  useEffect(() => {
+    knownRepairRef.current = state.routeRepair;
+  }, [state.routeRepair]);
 
   if (initial.urlError !== null) {
     return (
@@ -682,20 +752,20 @@ export function PlanPage() {
       className="h-dvh flex flex-col overflow-hidden"
       style={{ background: "var(--ow-bg-0)", color: "var(--ow-fg-0)" }}
     >
-      {/* On the planner the route being drawn is the strongest statement of
-          where the user is working, so the first waypoint outranks the GPS
-          fix as the search reference. */}
-      <Header
-        onSelectSpot={(spot) => mapRef.current?.recenter(spot.latitude, spot.longitude)}
-        nearLat={waypoints[0]?.[0] ?? userPosition?.lat ?? mapView?.lat ?? null}
-        nearLon={waypoints[0]?.[1] ?? userPosition?.lon ?? mapView?.lon ?? null}
-        current="plan"
-        mapQuery={mapViewQuery(mapView)}
-      />
-
-      {/* Body */}
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
-        {/* Map — full height on mobile, flex-1 on desktop */}
+      {/* Body, without a header: the map runs to the top of the screen,
+          under the status bar in the apps, and the menu, the search and the
+          settings float over it (MapTopBar, below). On a phone the body is
+          only the map, and it keeps the height the bar and its column of
+          controls need: a drawer pulled to the top used to bring it to
+          nothing, and the chart toggle and the locate button then spilled
+          over the drawer; in landscape the two sat on top of each other (QA
+          of 1.15.0, #579). The drawer is the part of the column that gives
+          way (see ResizableMobileDrawer). */}
+      <div
+        className={`flex-1 min-h-0 flex flex-col ${isDesktop ? "relative ow-plan-body" : "ow-map-min-height"}`}
+      >
+        {/* Map — full height on mobile; on desktop the whole window, the
+            panel floating over its right side (FloatingDesktopPanel). */}
         <div className="flex-1 min-h-0 relative">
           <PlanMap
             ref={mapRef}
@@ -725,23 +795,17 @@ export function PlanPage() {
             depths={waypointDepths}
             highlightedSegmentRange={drawing ? null : highlightedSegmentRange}
             focusedSegmentIdx={drawing ? null : focusedSegmentIdx}
+            // At the top of the column of the map's controls along the right
+            // edge, under the settings button of the bar, the locate button
+            // at the bottom; the hints and the framing of a route keep clear
+            // of that column (#470, components/mapControlsLayout.ts). Mouse
+            // and trackpad only, and only on a map tall enough to hold them
+            // above the locate button. The sea marks have no button: they
+            // are a setting (Réglages > Carte).
+            zoomButtons={{ className: "ow-chrome-right ow-chrome-slot-1", clearanceBelow: ZOOM_CLEARANCE_BELOW_PX }}
+            topInsetRef={topBarRef}
+            rightInsetRef={isDesktop ? panelRef : undefined}
           />
-          {/* Navigation menu — same control, same corner as on the home
-              map; the camera travels with its links so going back to the
-              forecast leaves the map where it is. */}
-          {isDesktop && (
-            <NavMenu
-              variant="map"
-              current="plan"
-              mapQuery={mapViewQuery(mapView)}
-              className="top-3 left-3"
-            />
-          )}
-          {/* Marine-chart toggle — top right, the corner a layer control
-              conventionally lives in, and the only one free on this page:
-              the menu owns the top left and the locate button plus its
-              error bubble own the bottom right. */}
-          <SeamarkButton enabled={seamarks} onToggle={toggleSeamarks} className="top-3 right-3" />
           {/* Scale of the track's tints, once a passage is drawn. Wide
               screens only: on a phone the map is a strip above the drawer,
               and the scale would sit on the route it explains. Bottom left,
@@ -749,9 +813,6 @@ export function PlanPage() {
           {isDesktop && planMode === "single" && !drawing && passage && !isStale && (
             <WindScaleLegend className="bottom-4 left-3" />
           )}
-          {/* Way back to the comparison a slot was opened from, while it is
-              still open behind the plan. */}
-          <ReturnBanner />
           {/* Once, after the first plan: the comparison is at the end of the
               results, and what comparing two routes means. */}
           <CompareHint />
@@ -763,63 +824,89 @@ export function PlanPage() {
             status={geolocStatus}
             attempt={geolocAttempt}
             onClick={handleLocate}
-            className="bottom-4 right-3"
+            className="bottom-4 ow-chrome-right"
           />
-          {/* Undo offer after a waypoint removal. Top centre: the corners
-              belong to the menu, the chart toggle and the locate button,
-              and the bottom edge to the hint while tracing. */}
-          {removed && (
-            <div
-              role="status"
-              className="absolute top-3 left-1/2 -translate-x-1/2 z-[500] flex items-center gap-3 rounded-xl px-3.5 py-2 text-sm font-medium whitespace-nowrap"
-              style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)", color: "var(--ow-fg-0)" }}
-            >
-              <span>{t("plan.map.waypoint.removed", { n: removed.index + 1 })}</span>
-              <button
-                type="button"
-                onClick={handleUndoRemove}
-                className="font-semibold underline underline-offset-2"
-                style={{ color: "var(--ow-accent)" }}
-              >
-                {t("plan.map.waypoint.undo")}
-              </button>
-            </div>
-          )}
           {/* Hint overlay while drawing a variant between the plan's ends */}
           {drawing && (
-            <div className="absolute inset-x-4 bottom-4 z-[400] flex justify-center pointer-events-none">
+            <div className="absolute ow-map-hint bottom-4 z-[400] flex justify-center pointer-events-none">
               <div
-                className="px-4 py-2 rounded-xl text-sm font-medium text-center"
+                className="px-4 py-2 rounded-xl text-sm font-medium text-center text-balance"
                 style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)", color: "var(--ow-fg-1)" }}
               >
-                {t("panel.tracks.drawing.hint")}
+                {t(`panel.tracks.drawing.hint.${pointer}`)}
               </div>
             </div>
           )}
-          {/* Hint overlay while building the route */}
+          {/* Hint overlay while building the route. Both hints keep out of
+              the column of controls on the right, and of the panel on a
+              wide screen (.ow-map-hint): at 360 px the German and Italian
+              ones ran under the locate button (#579). Centred in what is
+              left rather than on the map, so a short hint keeps to one line
+              on a phone. */}
           {!drawing && waypoints.length < 2 && (
-            <div className="absolute inset-x-4 bottom-4 z-[400] flex justify-center pointer-events-none">
+            <div className="absolute ow-map-hint bottom-4 z-[400] flex justify-center pointer-events-none">
               <div
-                className="px-4 py-2 rounded-xl text-sm font-medium"
+                className="px-4 py-2 rounded-xl text-sm font-medium text-center text-balance"
                 style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)", color: "var(--ow-fg-1)" }}
               >
                 {waypoints.length === 0
-                  ? t("plan.page.hint.placeStart")
-                  : t("plan.page.hint.drawRoute")}
+                  ? t(`plan.page.hint.placeStart.${pointer}`)
+                  : t(`plan.page.hint.drawRoute.${pointer}`)}
               </div>
             </div>
           )}
+          {/* Menu, search and settings, floating over the top of the map,
+              after everything else on it so they paint over it. On the
+              planner the route being drawn is the strongest statement of
+              where the user is working, so the first waypoint outranks the
+              GPS fix as the search reference. The camera travels with the
+              menu's links so going back to the forecast leaves the map
+              where it is. Under the bar, in its middle: the way back to the
+              comparison a slot was opened from, while it is still open
+              behind the plan, and the undo offer after a waypoint removal. */}
+          <MapTopBar
+            current="plan"
+            mapQuery={mapViewQuery(mapView)}
+            barRef={topBarRef}
+            onSelectSpot={(spot) => mapRef.current?.recenter(spot.latitude, spot.longitude)}
+            nearLat={waypoints[0]?.[0] ?? userPosition?.lat ?? mapView?.lat ?? null}
+            nearLon={waypoints[0]?.[1] ?? userPosition?.lon ?? mapView?.lon ?? null}
+            savedSpots={customSpots}
+            under={
+              <>
+                <ReturnBanner />
+                {removed && (
+                  <div
+                    role="status"
+                    className="pointer-events-auto flex items-center gap-3 rounded-xl px-3.5 py-2 text-sm font-medium whitespace-nowrap"
+                    style={{ background: "var(--ow-surface-glass)", backdropFilter: "blur(8px)", border: "1px solid var(--ow-line-2)", color: "var(--ow-fg-0)" }}
+                  >
+                    <span>{t("plan.map.waypoint.removed", { n: removed.index + 1 })}</span>
+                    <button
+                      type="button"
+                      onClick={handleUndoRemove}
+                      className="font-semibold underline underline-offset-2"
+                      style={{ color: "var(--ow-accent)" }}
+                    >
+                      {t("plan.map.waypoint.undo")}
+                    </button>
+                  </div>
+                )}
+              </>
+            }
+          />
         </div>
 
-        {/* Desktop sidebar — user-resizable via the handle on the left edge.
-            Mounted only above `lg`: both layouts used to be in the DOM at all
-            times with one hidden by CSS, so every state tick rendered the
-            panel twice, re-read ow_polar_config_v1 twice, and every button of
-            the planner existed twice for assistive technology. */}
+        {/* Desktop panel — floating over the map, user-resizable via the
+            bar on its left edge. Mounted only above `lg`: both layouts used
+            to be in the DOM at all times with one hidden by CSS, so every
+            state tick rendered the panel twice, re-read ow_polar_config_v1
+            twice, and every button of the planner existed twice for
+            assistive technology. */}
         {isDesktop && (
-          <ResizableDesktopSidebar defaultPx={384}>
+          <FloatingDesktopPanel defaultPx={384} panelRef={panelRef}>
             <PlanSidebar />
-          </ResizableDesktopSidebar>
+          </FloatingDesktopPanel>
         )}
       </div>
 

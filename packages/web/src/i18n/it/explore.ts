@@ -8,16 +8,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.emptyState.touch": "Toccare la mappa per il meteo, tenere premuto per salvare uno spot",
   "explore.emptyState.click": "Cliccare sulla mappa per il meteo, clic destro per salvare uno spot",
 
-  // Header
-  "explore.header.settings": "Impostazioni",
-
-  // Theme toggle (design/theme)
-  "explore.theme.toDark": "Passare al tema scuro",
-  "explore.theme.toLight": "Passare al tema chiaro",
-
-  // Offline banner
-  "explore.offlineBanner.message": "Offline: le previsioni non possono essere aggiornate.",
-
   // Info button
   "explore.infoButton.title": "Informazioni",
 
@@ -65,8 +55,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
 
   // Wind table
   "explore.windTable.empty": "Nessun dato disponibile per questo punto.",
-  "explore.windTable.offline":
-    "Offline: impossibile recuperare le previsioni. Ricollegarsi e poi toccare di nuovo questo punto.",
   "explore.windTable.fallbackTitle":
     "{description} (visualizzato al posto di {model}, che non copre questo punto).",
   "explore.windTable.fallbackBadge": "fallback da {model}",
@@ -141,6 +129,8 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.spotSearch.failed": "Ricerca non disponibile. Verificare la connessione.",
   "explore.spotSearch.empty": "Nessun luogo trovato.",
   "explore.spotSearch.goToPosition": "Andare a questa posizione",
+  "explore.spotSearch.mySpots": "I miei spot",
+  "explore.spotSearch.clear": "Cancellare la ricerca",
 
   // Spot dialogs
   "explore.spotDialogs.options": "Opzioni dello spot",
@@ -155,9 +145,10 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.locate.label": "Centrare sulla mia posizione",
   "explore.locate.dismiss": "Chiudere questo messaggio",
 
-  // Sea marks button
-  "explore.seamarks.show": "Mostrare i segnalamenti marittimi: boe, mede e fari",
-  "explore.seamarks.hide": "Nascondere i segnalamenti marittimi",
+  // Zoom buttons
+  "explore.zoom.group": "Zoom della mappa",
+  "explore.zoom.in": "Ingrandire",
+  "explore.zoom.out": "Ridurre",
 
   // Geolocation
   "explore.geoloc.denied":
@@ -190,4 +181,9 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.geocoding.feature.island": "Isola",
   "explore.geocoding.feature.islet": "Isolotto",
   "explore.geocoding.feature.archipelago": "Arcipelago",
+
+  // Modèles météo : la note sous le tableau du vent quand un modèle
+  // affiché ne couvre pas le point et qu'un ignoré le remplace.
+  "explore.windTable.coverageNote":
+    "{model} non copre questo punto: lo sostituisce {fallback} (↳). Per scegliere un altro modello: {settings} › {view}.",
 };

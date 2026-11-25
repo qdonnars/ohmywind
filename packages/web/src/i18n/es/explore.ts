@@ -10,16 +10,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.emptyState.click":
     "Haga clic en el mapa para ver la previsión, clic derecho para guardar un spot",
 
-  // Header
-  "explore.header.settings": "Ajustes",
-
-  // Theme toggle (design/theme)
-  "explore.theme.toDark": "Cambiar al tema oscuro",
-  "explore.theme.toLight": "Cambiar al tema claro",
-
-  // Offline banner
-  "explore.offlineBanner.message": "Sin conexión: las previsiones no se pueden actualizar.",
-
   // Info button
   "explore.infoButton.title": "Acerca de",
 
@@ -66,8 +56,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
 
   // Wind table
   "explore.windTable.empty": "No hay datos disponibles para este punto.",
-  "explore.windTable.offline":
-    "Sin conexión: no se pueden obtener las previsiones. Vuelva a conectarse y toque de nuevo este punto.",
   "explore.windTable.fallbackTitle":
     "{description} (mostrado en lugar de {model}, que no cubre este punto).",
   "explore.windTable.fallbackBadge": "fallback desde {model}",
@@ -142,6 +130,8 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.spotSearch.failed": "Búsqueda no disponible. Compruebe su conexión.",
   "explore.spotSearch.empty": "No se ha encontrado ningún lugar.",
   "explore.spotSearch.goToPosition": "Ir a esta posición",
+  "explore.spotSearch.mySpots": "Mis spots",
+  "explore.spotSearch.clear": "Borrar la búsqueda",
 
   // Spot dialogs
   "explore.spotDialogs.options": "Opciones del spot",
@@ -156,9 +146,10 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.locate.label": "Centrar en mi posición",
   "explore.locate.dismiss": "Cerrar este mensaje",
 
-  // Sea marks button
-  "explore.seamarks.show": "Mostrar el balizamiento: boyas, balizas y faros",
-  "explore.seamarks.hide": "Ocultar el balizamiento",
+  // Zoom buttons
+  "explore.zoom.group": "Zoom del mapa",
+  "explore.zoom.in": "Acercar",
+  "explore.zoom.out": "Alejar",
 
   // Geolocation
   "explore.geoloc.denied":
@@ -191,4 +182,9 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.geocoding.feature.island": "Isla",
   "explore.geocoding.feature.islet": "Islote",
   "explore.geocoding.feature.archipelago": "Archipiélago",
+
+  // Modèles météo : la note sous le tableau du vent quand un modèle
+  // affiché ne couvre pas le point et qu'un ignoré le remplace.
+  "explore.windTable.coverageNote":
+    "{model} no cubre este punto: lo sustituye {fallback} (↳). Para elegir otro modelo: {settings} › {view}.",
 };

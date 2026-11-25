@@ -9,6 +9,8 @@ export const common: Record<keyof typeof frCommon, string> = {
   "common.cancel": "Cancel",
   "common.back": "Back",
   "common.retry": "Retry",
+  // The passing note of a request made without a network (offline/offlineNotice.ts).
+  "common.offline.toast": "Offline: unable to update",
   "common.days.one": "{count} day",
   "common.days.other": "{count} days",
 
@@ -28,6 +30,9 @@ export const common: Record<keyof typeof frCommon, string> = {
   "common.nav.plan.desc": "Simulate a route, compare windows",
   "common.nav.compare.title": "Compare my spots",
   "common.nav.compare.desc": "My favourites side by side",
+  "common.nav.settings": "Settings",
+  "common.nav.sourcesNote":
+    "Forecasts from Open-Meteo (CC BY 4.0). They are not observations: listen to the bulletin before you set sail.",
 
   "common.version": "Version {version}",
   "common.nav.whatsNew.title": "What's new",

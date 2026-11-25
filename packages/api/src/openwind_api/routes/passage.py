@@ -97,10 +97,14 @@ async def _repair(
     the pool under load, the route is planned as drawn, as it always was.
 
     A repaired route is planned live, off the process-wide adapter: the
-    ``forecast_cache`` the browser sampled follows the route it drew, not
-    this one. The web app takes the repaired route as its own, so the next
-    computation sends a route at sea, which the pool checks in a few
-    milliseconds, and the cache applies again.
+    ``forecast_cache`` the caller sampled follows the route it drew, not
+    this one.
+
+    The web app does not come through here: it repairs the route in the
+    browser, on the land tiles this server hands it (``routes.land_tiles``),
+    and always sends ``repair_route: false``. This is for a REST caller
+    that draws a route and has no repair of its own, and for the web app's
+    builds from before it had one.
     """
     pool = getattr(request.app.state.services, "repair", None)
     if pool is None or not parsed.repair:

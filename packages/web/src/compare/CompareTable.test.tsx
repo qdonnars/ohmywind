@@ -43,3 +43,39 @@ describe("CompareTable, the way to Explorer", () => {
     expect(other.textContent).not.toContain("Explorer ›");
   });
 });
+
+describe("CompareTable, a favourite on land (#480)", () => {
+  const LEON: Spot = { name: "Léon", latitude: 48.565, longitude: -4.4 };
+  const forecast = { model: "meteofrance_arome_france", hourly: { time: [] } } as unknown as CompareRow["forecast"];
+  const rows: CompareRow[] = [
+    { spot: LEON, forecast, marine: null, onLand: true },
+    { spot: CASSIS, forecast, marine: null },
+  ];
+  function mountLand(wave: boolean) {
+    render(
+      <CompareTable
+        rows={rows}
+        res={3}
+        win={[6, 22]}
+        wave={wave}
+        dense
+        nameWidth={96}
+        gap={3}
+        focusedKey={null}
+        onFocusSpot={vi.fn()}
+      />,
+    );
+  }
+  const header = (name: string) => screen.getByRole("rowheader", { name: `Centrer la carte sur ${name}` });
+
+  it("says why the sea band of a spot on land is empty", () => {
+    mountLand(true);
+    expect(header("Léon").textContent).toContain("À terre");
+    expect(header("Cassis").textContent).not.toContain("À terre");
+  });
+
+  it("says nothing of land while the sea band is off", () => {
+    mountLand(false);
+    expect(header("Léon").textContent).not.toContain("À terre");
+  });
+});

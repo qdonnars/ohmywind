@@ -3,6 +3,7 @@
 
 import type { Spot } from "../types";
 import { useT } from "../i18n";
+import { ViewportOverlay } from "./ViewportOverlay";
 
 /**
  * The two modals a press on the spot map opens.
@@ -33,16 +34,19 @@ function DialogShell({
   label: string;
   children: React.ReactNode;
 }) {
+  // Pinned to what is seen of the screen rather than to the map: with the
+  // keyboard up, the dialog centred on the whole screen had its name field
+  // under the keyboard's bar and its buttons under the keys (#569).
+  // data-ow-keyboard-reveal: the field and its buttons are seen together.
   return (
-    <div
-      className="absolute inset-0 flex items-center justify-center z-[1000] bg-black/50 backdrop-blur-sm animate-fade-in"
-      role="dialog"
-      aria-label={label}
-    >
-      <div className="ow-modal-surface backdrop-blur rounded-xl p-5 mx-4 w-full max-w-xs animate-modal-in">
+    <ViewportOverlay label={label} className="bg-black/50 backdrop-blur-sm animate-fade-in">
+      <div
+        data-ow-keyboard-reveal
+        className="ow-modal-surface backdrop-blur rounded-xl p-5 m-auto w-full max-w-xs animate-modal-in"
+      >
         {children}
       </div>
-    </div>
+    </ViewportOverlay>
   );
 }
 

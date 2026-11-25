@@ -90,6 +90,35 @@ describe("SpotNameDialog", () => {
     expect(onNameChange).toHaveBeenCalledWith("Porquerolles!");
   });
 
+  it("sits over what is seen of the screen, field and buttons together (#569)", () => {
+    // Rendered inside a box, as the map renders it: the dialog leaves it for
+    // <body>, so no transformed ancestor can pin it anywhere but the screen.
+    const map = document.createElement("div");
+    document.body.append(map);
+    render(
+      <SpotNameDialog
+        pending={pending}
+        onNameChange={vi.fn()}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+      { container: map },
+    );
+    const dialog = screen.getByRole("dialog", { name: "Nouveau spot" });
+    expect(map.contains(dialog)).toBe(false);
+    expect(dialog.parentElement).toBe(document.body);
+    // Pinned by index.css to the box the keyboard leaves visible.
+    expect(dialog.classList.contains("ow-visible-viewport")).toBe(true);
+    expect(dialog.classList.contains("fixed")).toBe(true);
+    // The block brought into sight when the keyboard opens holds the field
+    // and both buttons.
+    const block = dialog.querySelector("[data-ow-keyboard-reveal]")!;
+    expect(block.contains(screen.getByRole("textbox", { name: "Nom du spot" }))).toBe(true);
+    expect(block.contains(screen.getByRole("button", { name: "Créer" }))).toBe(true);
+    expect(block.contains(screen.getByRole("button", { name: "Annuler" }))).toBe(true);
+    map.remove();
+  });
+
   it("routes confirm and cancel", async () => {
     const onConfirm = vi.fn();
     const onCancel = vi.fn();

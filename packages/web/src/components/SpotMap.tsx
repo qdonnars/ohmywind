@@ -18,6 +18,8 @@ import { syncPreviewMarker, syncSpotMarkers } from "../utils/spotMarkerLayer";
 import { addBasemap, BASEMAP_MAX_ZOOM, type Basemap } from "../utils/basemapLayer";
 import { useMapAutoCenter } from "../hooks/useMapAutoCenter";
 import type { MapView } from "../utils/mapViewParams";
+import { createMapZoomStore } from "../utils/mapZoomStore";
+import { MapZoomButtons } from "./MapZoomButtons";
 
 interface SpotMapProps {
   // null when the user has just removed their active spot — keep the map
@@ -65,6 +67,11 @@ interface SpotMapProps {
       element itself is unmounted while no spot is active, so the ref is
       re-read rather than captured. */
   bottomInsetRef?: RefObject<HTMLElement | null>;
+  /** What floats over the top edge of the map, on a page without a header
+      (the bar of `MapTopBar`): a centred point lands in the middle of the
+      strip between it and the bottom panel. Positioned in the same box as
+      the map, so its bottom edge is read as `offsetTop + offsetHeight`. */
+  topInsetRef?: RefObject<HTMLElement | null>;
   onSelectSpot: (spot: Spot) => void;
   /** Plain tap or left click on the water: show the forecast there without
       saving anything. Looking up conditions at a point should not oblige
@@ -81,6 +88,9 @@ interface SpotMapProps {
       exists to read wind arrows over a clean coastline. The preference
       belongs to the page, which persists it. */
   showSeamarks?: boolean;
+  /** Where the zoom buttons go, as positioning classes; no buttons without
+      it. They are only drawn for a mouse or a trackpad (#470). */
+  zoomButtons?: { className: string };
 }
 
 export function SpotMap({
@@ -95,6 +105,7 @@ export function SpotMap({
   fitStamp,
   markerNumbers,
   bottomInsetRef,
+  topInsetRef,
   onSelectSpot,
   onPreviewSpot,
   onAddSpot,
@@ -105,9 +116,11 @@ export function SpotMap({
   metric,
   selectedHour,
   showSeamarks = false,
+  zoomButtons,
 }: SpotMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const [zoomStore] = useState(createMapZoomStore);
   const markersRef = useRef<Map<string, L.CircleMarker>>(new Map());
   const arrowLayerRef = useRef<L.Marker | null>(null);
   const userLayerRef = useRef<L.LayerGroup | null>(null);
@@ -195,7 +208,7 @@ export function SpotMap({
   // Camera moves that account for the data panel covering the bottom of the
   // map, and re-aim when the panel's height settles. See the hook.
   const { visibleCenter, autoCenter, seed: seedAutoCenter, clear: clearAutoCenter, observe: observePanel } =
-    useMapAutoCenter(bottomInsetRef);
+    useMapAutoCenter(bottomInsetRef, topInsetRef);
 
   // Init map once
   useEffect(() => {
@@ -246,6 +259,7 @@ export function SpotMap({
     map.getPane(ARROW_PANE)!.style.zIndex = "450";
 
     mapRef.current = map;
+    const detachZoom = zoomStore.attach(map);
 
     // Plain click on the map background → preview the forecast there. Marker
     // clicks never reach this handler: Leaflet paths default to
@@ -285,6 +299,7 @@ export function SpotMap({
     return () => {
       ro.disconnect();
       detachPanelWatch();
+      detachZoom();
       map.remove();
       mapRef.current = null;
     };
@@ -405,6 +420,7 @@ export function SpotMap({
   return (
     <div className="w-full h-full relative">
       <div ref={containerRef} className="w-full h-full overflow-hidden" />
+      {zoomButtons && <MapZoomButtons store={zoomStore} className={zoomButtons.className} />}
       {/* Long press on a saved marker: rename or delete. */}
       {pendingEdit && (
         <SpotEditDialog

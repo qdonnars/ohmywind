@@ -50,7 +50,7 @@ export const panel: Record<keyof typeof frPanel, string> = {
   // ── SingleResults ──────────────────────────────────────────────────────────
   "panel.results.recapDeparture": "Departure: {day} · {time}",
   "panel.results.recapArrival": "Arrival: {day} · {time}",
-  "panel.results.stale": "Route changed. Click Recalculate to update the details.",
+  "panel.results.stale": "Route changed. Recalculate to update the details.",
   "panel.results.forecastUpdated": "Forecast from {when} · Open-Meteo.com (CC BY 4.0)",
 
   // ── LinkSettingsRow ───────────────────────────────────────────────────────
@@ -176,9 +176,11 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.tracks.drawing.title": "Option {n} · being drawn",
   "panel.tracks.drawing.points.one": "{count} point placed",
   "panel.tracks.drawing.points.other": "{count} points placed",
-  "panel.tracks.drawing.hint": "Tap the map to place a point between the plan's departure and arrival.",
+  "panel.tracks.drawing.hint.touch": "Tap the map to place a point between the plan's departure and arrival.",
+  "panel.tracks.drawing.hint.click": "Click the map to place a point between the plan's departure and arrival.",
   "panel.tracks.drawing.finish": "Finish and compare",
   "panel.tracks.row.computing": "computing…",
+  "panel.tracks.row.notComputed": "not computed",
   "panel.tracks.stale": "Departure or boat changed. Recalculate to compare the routes.",
   "panel.tracks.departure.title": "Departure, shared by every route",
   "panel.tracks.departure.note": "Changing this departure recomputes every route. To try several hours on one route, go back to the plan and choose « Other departures ».",

@@ -17,7 +17,7 @@ export const config = {
   "config.reset": "Réinitialiser",
   "config.saved": "· enregistré",
   "config.storageNote":
-    "OhMyWind ne propose volontairement pas de comptes utilisateurs : aucune donnée n'est envoyée sur un serveur pour identifier qui vous êtes. Vos préférences (modèles, polaire perso) sont stockées localement dans votre navigateur. Si vous changez d'appareil, de navigateur ou si vous effacez les cookies de ce site, ces ajustements seront perdus.",
+    "OhMyWind ne propose volontairement pas de comptes utilisateurs : aucune donnée n'est envoyée sur un serveur pour identifier qui vous êtes. Vos préférences (modèles, polaire perso) restent enregistrées sur cet appareil. Si vous changez d'appareil ou de navigateur, ou si vous effacez les données d'OhMyWind sur cet appareil, ces ajustements seront perdus.",
 
   // Onglet « Modèles météo » : intro, bracket des zones, horizon.
   "config.models.title": "Modèles météo",
@@ -193,7 +193,7 @@ export const config = {
   "config.docs.tidalCurrents": "Courants de marée",
 
   // La carte des sources de courants de marée de /methodologie (TidalSourcesMap).
-  "config.methodo.tidal.hint": "Cliquez sur la mer : la fiche indique la source que l'application utilise à cet endroit, telle que le serveur la choisit.",
+  "config.methodo.tidal.hint": "Choisissez un point en mer : la fiche indique la source que l'application utilise à cet endroit, telle que le serveur la choisit.",
   "config.methodo.tidal.fullscreen.enter": "Afficher la carte en plein écran",
   "config.methodo.tidal.fullscreen.exit": "Quitter le plein écran",
   "config.methodo.tidal.fullscreen.ramp": "0,5 à 5 kt et plus",

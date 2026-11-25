@@ -4,6 +4,40 @@ Toutes les versions d'OhMyWind, de la plus récente à la plus ancienne. Le site
 
 Chaque version est aussi publiée sur la page [Releases](https://github.com/qdonnars/ohmywind/releases) du dépôt, et l'application affiche ce journal sur sa page « Quoi de neuf ». La marche à suivre pour publier une version est dans [docs/releases.md](docs/releases.md). English version: [CHANGELOG.en.md](CHANGELOG.en.md).
 
+## 1.16.0 · 2026-11-25 · La carte en plein écran, des Réglages refaits, et la route retracée en mer par l'application
+
+### Nouveautés
+
+- La carte prend tout l'écran : plus de bandeau en haut, le menu, la recherche et les réglages flottent sur la carte, dans l'explorateur comme dans le planificateur (#599, #600).
+- Sur ordinateur, le panneau du planificateur est posé sur la carte, détaché des bords ; les boutons et la recherche se rangent à côté (#603).
+- Le menu s'ouvre sur le côté et regroupe tout : Explorer, Planifier, Comparer, Quoi de neuf, Réglages, Méthodologie et À propos (#595).
+- Les Réglages s'ouvrent par-dessus la carte, sans quitter la page, avec les mêmes écrans sur téléphone, tablette et ordinateur (#596, #597, #598).
+- Le thème peut suivre celui de votre appareil, avec le mode Auto (#594).
+- Les balises et amers se règlent une fois pour les deux cartes, dans les Réglages, et sont affichés par défaut (#594, #610).
+- Sur téléphone, la recherche s'ouvre en plein écran et propose d'abord vos spots (#599).
+- Une route tracée à travers une île ou une presqu'île est retracée en mer avant le calcul, de Lisbonne à Rotterdam et d'Alicante à Naples ; « Revenir à mon tracé » l'annule (#573, #586, #593).
+- À la souris, des boutons + et − permettent de zoomer sur les cartes (#470, #587).
+- Quand un modèle météo ne couvre pas le lieu choisi, le tableau dit lequel le remplace (#597).
+
+### Corrections
+
+- Les chiffres d'un plan tombent juste : vitesses, distances et durées se recoupent (#532, #583).
+- Sur téléphone, le clavier ne cache plus ce que vous saisissez (#569, #584, #608, #609, #612, #614).
+- Sans réseau, un message discret vous prévient quand une demande échoue, et le calcul reprend dès que le réseau revient, sans recharger la page (#607, #611).
+- Dans le navigateur d'un téléphone, le bas de l'écran n'est plus coupé (#613).
+- Un spot enregistré n'est plus entouré d'un carré quand on le touche (#545, #584).
+- Dans la comparaison des spots, un point placé à terre n'affiche plus de vagues (#480, #582).
+- Dans le planificateur sur téléphone, les boutons de la carte ne se chevauchent plus et la carte reste visible quand le tiroir est monté (#579, #587).
+- Les aides de la carte parlent de toucher sur un écran tactile et de cliquer à la souris (#579, #587).
+- Les réglages disent vrai sur deux points : vos préférences restent sur l'appareil, et l'ordre des modèles météo compte aussi pour vos plans de passage (#579, #587, #600).
+- « Garder l'écran allumé » n'est plus proposé sur ordinateur, où il ne sert pas (#602).
+- Sur iPhone, à partir d'iOS 27, la position n'est demandée qu'une fois ; ce correctif arrive avec la prochaine version de l'application (#571, #585).
+
+### Coulisses
+
+- Le tracé des routes se fait sur votre appareil : le serveur ne fournit plus que le trait de côte (#586, #590).
+- Les tests automatiques des applications sont plus fiables (#578, #604).
+
 ## 1.15.0 · 2026-11-24 · Hors ligne en mer, et de vraies applications mobiles
 
 ### Nouveautés

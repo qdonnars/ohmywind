@@ -116,6 +116,18 @@ describe("restoreIfWiped", () => {
     expect(s.getItem(K.customSpots)).toBe(USER_DATA[K.customSpots]);
   });
 
+  it("puts the plan back as the last view over the explorer the boot just recorded", async () => {
+    const PLAN_VIEW = '{"view":"plan","url":"/plan?wpts=43.1,5.9;43.0,6.2"}';
+    const old = new MemoryStorage({ ...USER_DATA, [K.lastView]: PLAN_VIEW });
+    // offline/lastView.ts records the view the page opens on before the
+    // shell's restore runs: in a wiped storage, always the explorer.
+    const wiped = new MemoryStorage({ [K.lastView]: '{"view":"explore"}' });
+    const d = deps(wiped, snapshot(old));
+    expect(await restoreIfWiped(d)).toBe("restored");
+    expect(wiped.getItem(K.lastView)).toBe(PLAN_VIEW);
+    expect(d.reload).toHaveBeenCalledTimes(1);
+  });
+
   it("restores nothing once the storage is known, even with entries missing", async () => {
     const s = new MemoryStorage({ [K.nativeBackup]: "1" });
     const d = deps(s, snapshot(new MemoryStorage(USER_DATA)));
@@ -127,7 +139,7 @@ describe("restoreIfWiped", () => {
   it("does not reload when there is no copy or nothing to write", async () => {
     const fresh = deps(new MemoryStorage(), null);
     expect(await restoreIfWiped(fresh)).toBe("nothing");
-    const same = new MemoryStorage(USER_DATA);
+    const same = new MemoryStorage({ ...USER_DATA, [K.lastView]: '{"view":"explore"}' });
     const d = deps(same, snapshot(same));
     expect(await restoreIfWiped(d)).toBe("nothing");
     expect(fresh.reload).not.toHaveBeenCalled();

@@ -16,7 +16,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.reset": "Zurücksetzen",
   "config.saved": "· gespeichert",
   "config.storageNote":
-    "OhMyWind bietet bewusst keine Benutzerkonten: Es werden keine Daten an einen Server gesendet, um Sie zu identifizieren. Ihre Einstellungen (Modelle, eigene Polare) liegen lokal in Ihrem Browser. Wenn Sie das Gerät oder den Browser wechseln oder die Cookies dieser Website löschen, gehen diese Anpassungen verloren.",
+    "OhMyWind bietet bewusst keine Benutzerkonten: Es werden keine Daten an einen Server gesendet, um Sie zu identifizieren. Ihre Einstellungen (Modelle, eigene Polare) bleiben auf diesem Gerät gespeichert. Wenn Sie das Gerät oder den Browser wechseln oder die Daten von OhMyWind auf diesem Gerät löschen, gehen diese Anpassungen verloren.",
 
   "config.models.title": "Wettermodelle",
   "config.models.intro":
@@ -188,7 +188,7 @@ export const config: Record<keyof typeof frConfig, string> = {
   "config.docs.tidalCurrents": "Gezeitenströme",
 
   // The tidal-sources map on /methodologie (TidalSourcesMap).
-  "config.methodo.tidal.hint": "Klicken Sie auf das Meer: die Karte zeigt die Quelle, die die App an dieser Stelle nutzt, so wie der Server sie auswählt.",
+  "config.methodo.tidal.hint": "Wählen Sie einen Punkt auf dem Meer: die Karte zeigt die Quelle, die die App an dieser Stelle nutzt, so wie der Server sie auswählt.",
   "config.methodo.tidal.fullscreen.enter": "Karte im Vollbild anzeigen",
   "config.methodo.tidal.fullscreen.exit": "Vollbild verlassen",
   "config.methodo.tidal.fullscreen.ramp": "0,5 bis 5 kn und mehr",

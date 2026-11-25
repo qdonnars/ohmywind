@@ -51,7 +51,7 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.results.recapDeparture": "Partenza: {day} · {time}",
   "panel.results.recapArrival": "Arrivo: {day} · {time}",
   "panel.results.stale":
-    "Itinerario modificato. Cliccare su Ricalcolare per aggiornare i dettagli.",
+    "Itinerario modificato. Ricalcolare per aggiornare i dettagli.",
   "panel.results.forecastUpdated": "Previsioni del {when} · Open-Meteo.com (CC BY 4.0)",
 
   // ── LinkSettingsRow ───────────────────────────────────────────────────────
@@ -154,7 +154,7 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.compare.stale": "Itinerario modificato. Ricalcoli per confrontare le finestre del nuovo percorso.",
   "panel.compare.empty": "Nessuna finestra da confrontare per ora. Regoli la finestra, poi applichi.",
   "panel.compare.frozen.departure": "Partenza fissa",
-  "panel.compare.frozen.edit": "Modificare",
+  "panel.compare.frozen.edit": "Modifica",
   "panel.compare.tracksEmpty": "Nessuna variante per ora. Ne tracci una per confrontarla con la rotta del piano.",
   "panel.compare.tracksDraw": "Tracciare una variante",
   "panel.window.title": "Finestra di partenza",
@@ -177,9 +177,11 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.tracks.drawing.title": "Opzione {n} · in corso di tracciamento",
   "panel.tracks.drawing.points.one": "{count} punto posizionato",
   "panel.tracks.drawing.points.other": "{count} punti posizionati",
-  "panel.tracks.drawing.hint": "Tocchi la mappa per posizionare un punto tra la partenza e l'arrivo del piano.",
+  "panel.tracks.drawing.hint.touch": "Tocchi la mappa per posizionare un punto tra la partenza e l'arrivo del piano.",
+  "panel.tracks.drawing.hint.click": "Clicchi sulla mappa per posizionare un punto tra la partenza e l'arrivo del piano.",
   "panel.tracks.drawing.finish": "Terminare e confrontare",
   "panel.tracks.row.computing": "calcolo in corso…",
+  "panel.tracks.row.notComputed": "non calcolato",
   "panel.tracks.stale": "Partenza o barca modificata. Ricalcoli per confrontare le rotte.",
   "panel.tracks.departure.title": "Partenza, comune a tutte le rotte",
   "panel.tracks.departure.note": "Cambiare questa partenza ricalcola tutte le rotte. Per provare più orari su una sola rotta, torni al piano e scelga « Altre partenze ».",

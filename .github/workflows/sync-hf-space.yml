@@ -137,12 +137,15 @@ jobs:
           # tracking for the binaries we ship (the landing demo and its
           # poster), or the push dies with "your push was rejected because it
           # contains binary files". Images count: video-poster.jpg was refused
-          # on 2026-10-21 (#488) when only *.mp4 was declared. The route
-          # repair's shoreline grids (*.npz, vendored with data-adapters) are
-          # binaries too, and so is the landing's font (*.woff2). Written
-          # before `git add` so the filter runs.
+          # on 2026-10-21 (#488) when only *.mp4 was declared, and the land
+          # tiles (*.owlt, vendored with data-adapters) on 2026-11-24 (#586),
+          # which left the dev Space on its old code. The landing's font
+          # (*.woff2) is a binary too. Written before `git add` so the filter
+          # runs. packages/hf-space/tests/test_sync_binaries.py reads this
+          # list and fails the CI when a vendored binary is not on it: add
+          # the extension here, not an exception there.
           printf '%s filter=lfs diff=lfs merge=lfs -text\n' \
-            '*.mp4' '*.webm' '*.jpg' '*.jpeg' '*.png' '*.webp' '*.gif' '*.npz' '*.woff2' > .gitattributes
+            '*.mp4' '*.webm' '*.jpg' '*.jpeg' '*.png' '*.webp' '*.gif' '*.npz' '*.owlt' '*.woff2' > .gitattributes
           git config user.name  "$GIT_USER_NAME"
           git config user.email "$GIT_USER_EMAIL"
           git add -A

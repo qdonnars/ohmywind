@@ -6,9 +6,10 @@
 
 import type { PassageReport, SegmentReport } from "./types";
 import { beaufortLevel, windSoftVar } from "../domain/thresholds";
-import { fmtDurationSafe, num1 } from "./format";
+import { fmtSpanSafe, num1 } from "./format";
 import { capitalise, fmtClock, fmtDay, parisDayDelta } from "../domain/datetime";
 import { useT } from "../i18n";
+import { usePointerWording } from "../hooks/usePointerWording";
 
 // ── EmptyState ────────────────────────────────────────────────────────────────
 // Shown when fewer than 2 waypoints are placed: invites the user to draw a
@@ -44,6 +45,7 @@ function RouteSketch() {
 // a phone the map itself is where the route gets drawn.
 export function EmptyState() {
   const { t } = useT();
+  const pointer = usePointerWording();
   return (
     <div className="px-2 pt-2 pb-6 lg:py-6 flex flex-col gap-4">
       <div>
@@ -54,7 +56,7 @@ export function EmptyState() {
           {t("plan.states.empty.title")}
         </div>
         <div className="text-xs leading-relaxed" style={{ color: "var(--ow-fg-1)" }}>
-          {t("plan.states.empty.body")}
+          {t(`plan.states.empty.body.${pointer}`)}
         </div>
       </div>
       <div className="hidden lg:block">
@@ -117,6 +119,13 @@ function HeroCell({
       )}
     </div>
   );
+}
+
+/** The duration of the passage read on its departure and arrival clocks,
+    so « 10:00 », « 5h31 » and « 15:31 » agree, and so do the legs below,
+    which add up to it (see `displayRounding`). */
+function passageDuration(passage: PassageReport): string {
+  return fmtSpanSafe(passage.departure_time, passage.arrival_time);
 }
 
 /** The arrival's day, in the departure's short form (« Dim. 12 oct. »), when
@@ -232,7 +241,7 @@ export function HeroStats({
     <div>
       <div className="grid grid-cols-3 gap-3 mb-3">
         <HeroCell label={t("plan.hero.distance")} value={num1(passage.distance_nm)} unit="nm" />
-        <HeroCell label={t("plan.hero.duration")} value={fmtDurationSafe(passage.duration_h)} />
+        <HeroCell label={t("plan.hero.duration")} value={passageDuration(passage)} />
         <HeroCell label={t("plan.hero.arrival")} value={fmtClock(passage.arrival_time)} note={arrivalDay(passage)} />
       </div>
       <SegmentBar
@@ -261,7 +270,7 @@ export function StatBand({ passage }: { passage: PassageReport }) {
     <div className="grid grid-cols-3 px-4 pt-0.5 pb-3.5" style={{ borderBottom: "1px solid var(--ow-line)" }}>
       <HeroCell size="lg" label={t("plan.hero.distance")} value={num1(passage.distance_nm)} unit="nm" />
       <div className="pl-3.5" style={divider}>
-        <HeroCell size="lg" label={t("plan.hero.duration")} value={fmtDurationSafe(passage.duration_h)} />
+        <HeroCell size="lg" label={t("plan.hero.duration")} value={passageDuration(passage)} />
       </div>
       <div className="pl-3.5" style={divider}>
         <HeroCell

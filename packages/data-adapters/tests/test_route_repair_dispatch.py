@@ -93,14 +93,16 @@ def test_the_repair_is_off_by_default_and_can_be_turned_on():
     assert parse_repair_mode("nonsense") == "off"
 
 
-def test_without_a_directory_the_pool_reads_the_bundled_grids():
+def test_without_a_directory_the_pool_reads_the_bundled_tiles():
     pool = RepairPool()
     assert pool._dir == str(BUNDLED_GRIDS_DIR)
-    assert len(pool.fine.regions) == 3
-    # Marseille to Porquerolles lies in the Provence grid, Brest to Ouessant
-    # in none (Ouessant is west of the Bretagne sud grid).
+    assert pool.fine.world is not None and pool.fine.regions == []
+    # The archive shipped here covers France and the coasts around it:
+    # Marseille to Porquerolles, Brest to Ouessant (which no regional grid
+    # held), not Cadiz to Gibraltar.
     assert pool.fine.region_for([Point(43.295, 5.361), Point(43.0, 6.242)]) is not None
-    assert pool.fine.region_for([Point(48.38, -4.49), Point(48.46, -5.10)]) is None
+    assert pool.fine.region_for([Point(48.38, -4.49), Point(48.46, -5.10)]) is not None
+    assert pool.fine.region_for([Point(36.50, -6.30), Point(36.10, -5.40)]) is None
 
 
 def _threaded(monkeypatch, tmp_path, work) -> RepairPool:

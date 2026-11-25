@@ -10,16 +10,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.emptyState.click":
     "Click the map for the forecast, right-click to save a spot",
 
-  // Header
-  "explore.header.settings": "Settings",
-
-  // Theme toggle (design/theme)
-  "explore.theme.toDark": "Switch to dark theme",
-  "explore.theme.toLight": "Switch to light theme",
-
-  // Offline banner
-  "explore.offlineBanner.message": "Offline: forecasts cannot be refreshed.",
-
   // Info button
   "explore.infoButton.title": "About",
 
@@ -67,8 +57,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
 
   // Wind table
   "explore.windTable.empty": "No data available for this point.",
-  "explore.windTable.offline":
-    "Offline: the forecasts cannot be fetched. Reconnect, then tap this point again.",
   "explore.windTable.fallbackTitle":
     "{description} (shown in place of {model}, which does not cover this point).",
   "explore.windTable.fallbackBadge": "fallback from {model}",
@@ -143,6 +131,8 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.spotSearch.failed": "Search unavailable. Check your connection.",
   "explore.spotSearch.empty": "No place found.",
   "explore.spotSearch.goToPosition": "Go to this position",
+  "explore.spotSearch.mySpots": "My spots",
+  "explore.spotSearch.clear": "Clear the search",
 
   // Spot dialogs
   "explore.spotDialogs.options": "Spot options",
@@ -157,9 +147,10 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.locate.label": "Centre on my position",
   "explore.locate.dismiss": "Dismiss this message",
 
-  // Sea marks button
-  "explore.seamarks.show": "Show sea marks: buoys, beacons and lighthouses",
-  "explore.seamarks.hide": "Hide sea marks",
+  // Zoom buttons
+  "explore.zoom.group": "Map zoom",
+  "explore.zoom.in": "Zoom in",
+  "explore.zoom.out": "Zoom out",
 
   // Geolocation
   "explore.geoloc.denied":
@@ -192,4 +183,9 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.geocoding.feature.island": "Island",
   "explore.geocoding.feature.islet": "Islet",
   "explore.geocoding.feature.archipelago": "Archipelago",
+
+  // Modèles météo : la note sous le tableau du vent quand un modèle
+  // affiché ne couvre pas le point et qu'un ignoré le remplace.
+  "explore.windTable.coverageNote":
+    "{model} does not cover this point: {fallback} replaces it (↳). To choose another model: {settings} › {view}.",
 };

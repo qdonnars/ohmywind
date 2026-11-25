@@ -35,8 +35,7 @@ describe("transfer policy", () => {
       "ow_theme",
       "ow_tz",
       "ow_compare_v1",
-      "ow_seamarks_explore_v1",
-      "ow_seamarks_plan_v1",
+      "ow_seamarks_v2",
       "ow_last_spot_v1",
       "ow_keep_awake",
       "ohmywind:onboarding-v1",
@@ -44,6 +43,8 @@ describe("transfer policy", () => {
       "ow_whats_new_seen_v1",
       "ow_drawer_vh_v1",
       "ow_sidebar_px_v1",
+      "ow_seamarks_plan_v1",
+      "ow_seamarks_explore_v1",
     ]);
     const skipped = Object.values(LOCAL_STORAGE_KEYS).filter((k) => !TRANSFERABLE_KEYS.includes(k));
     expect(skipped.sort()).toEqual(

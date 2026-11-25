@@ -182,7 +182,9 @@ export interface PlanState {
   retry: { at: number; attempt: number; max: number } | null;
 
   // ── in flight ─────────────────────────────────────────────────────────────
-  pending: { id: number; kind: FetchKind; editSeq: number } | null;
+  /** `actionTaken` is the reader's step before asking, put back when the
+      request could not go out for want of a network (FETCH_OFFLINE). */
+  pending: { id: number; kind: FetchKind; editSeq: number; actionTaken?: boolean } | null;
   /** Bumped by every action that marks the plan stale. See the module doc. */
   editSeq: number;
 
@@ -268,6 +270,10 @@ export type PlanAction =
       repairedRoute?: RepairedRoute;
     }
   | { type: "FETCH_FAILED"; requestId: number; error: string }
+  /** The request could not go out, the browser reporting no network: not an
+      error to show (the page says it in passing), the panel goes back to
+      where it was before the request, ready to be asked again. */
+  | { type: "FETCH_OFFLINE"; requestId: number }
   /** « Revenir à mon tracé »: the route drawn comes back, to be computed as
       drawn. The shell recomputes. */
   | { type: "ROUTE_REPAIR_REVERTED" }
@@ -752,7 +758,7 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
         // the mobile panel waits for.
         actionTaken: true,
         apiError: null, retry: null,
-        pending: { id: action.requestId, kind: action.kind, editSeq: state.editSeq },
+        pending: { id: action.requestId, kind: action.kind, editSeq: state.editSeq, actionTaken: state.actionTaken },
       };
 
     case "FETCH_SUCCEEDED": {
@@ -854,6 +860,14 @@ export function planReducer(state: PlanState, action: PlanAction): PlanState {
       // moved on from is noise, not information.
       if (applies === "outdated") return { ...state, pending: null };
       return { ...state, pending: null, apiError: action.error, retry: null };
+    }
+
+    case "FETCH_OFFLINE": {
+      const applies = verdict(state, action.requestId);
+      if (applies === "superseded") return state;
+      if (applies === "outdated") return { ...state, pending: null };
+      const actionTaken = state.pending?.actionTaken ?? state.actionTaken;
+      return { ...state, pending: null, apiError: null, retry: null, actionTaken };
     }
 
     case "FETCH_RETRY_SCHEDULED": {

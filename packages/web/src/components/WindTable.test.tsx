@@ -129,4 +129,43 @@ describe("WindTable", () => {
     fireEvent.click(directionCells[0]);
     expect(onSelectHour).toHaveBeenLastCalledWith(TIMES[0]);
   });
+
+  it("says under the table which model replaces one that does not cover the point", () => {
+    const { container } = render(
+      <WindTable
+        forecasts={[AROME, { ...ICON, modelName: "ARPEGE_EU", fellBackFrom: "ICON_D2" }]}
+        isLoading={false}
+        selectedHour={null}
+        onSelectHour={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByText(
+        "ICON D2 ne couvre pas ce point : ARPEGE EU le remplace (↳). Pour choisir un autre modèle : Réglages › Modèles météo.",
+      ),
+    ).toBeTruthy();
+    expect(container.querySelectorAll("p")).toHaveLength(1);
+  });
+
+  it("adds no note when every model covers the point", () => {
+    const { container } = renderTable();
+    expect(container.querySelector("p")).toBeNull();
+  });
+});
+
+describe("WindTable without any forecast", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("says there is no data for the point when the network answered nothing", () => {
+    render(<WindTable forecasts={[]} isLoading={false} selectedHour={null} onSelectHour={vi.fn()} />);
+    expect(screen.getByText("Aucune donnée disponible pour ce point.")).toBeTruthy();
+  });
+
+  it("stays empty offline: the passing toast said it, and the sea does have weather", () => {
+    vi.spyOn(window.navigator, "onLine", "get").mockReturnValue(false);
+    const { container } = render(
+      <WindTable forecasts={[]} isLoading={false} selectedHour={null} onSelectHour={vi.fn()} />,
+    );
+    expect(container.textContent).toBe("");
+  });
 });

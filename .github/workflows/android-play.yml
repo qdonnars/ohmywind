@@ -1,0 +1,187 @@
+name: Android Google Play
+
+# Builds the Android shell (packages/mobile), signs it with the Play upload
+# key and releases it on the internal testing track of Google Play. The shell
+# loads the live site, so a new build is only needed when its native part
+# changes, and the owner decides when: a release only goes out when the pull
+# request merged into the branch carries the `app-release` label.
+#
+#   - PR merged into dev with `app-release`: OhMyWind Dev
+#     (fr.ohmywind.app.dev), environment `android-play`;
+#   - PR merged into main with `app-release` (a promotion): OhMyWind
+#     (fr.ohmywind.app), environment `android-play-prod`, branch main only,
+#     the owner approves every run;
+#   - by hand (workflow_dispatch), with a dry run that builds and signs but
+#     uploads nothing.
+#
+# The workflow runs on the push, once the code sits on the branch, and only
+# reads the label of the pull request that produced the commit: it never runs
+# the code of an unmerged pull request. Never `pull_request`: this job holds
+# the upload key and the Play service account.
+#
+# Only the internal testing track: the script refuses the production track,
+# and the service account has no right to publish to production anyway.
+# versionCode = highest code the app has ever received on Play + 1, so codes
+# follow each other (10, 11, 12) whatever the number of workflow runs.
+on:
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: "Variant to upload"
+        type: choice
+        options: [dev, prod]
+        default: dev
+      dry_run:
+        description: "Build and sign only, upload nothing"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: Release asked?
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      go: ${{ steps.decide.outputs.go }}
+      variant: ${{ steps.decide.outputs.variant }}
+    steps:
+      - id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VARIANT: ${{ inputs.variant }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            echo "variant=$INPUT_VARIANT" >> "$GITHUB_OUTPUT"
+            echo "go=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          case "$GITHUB_REF_NAME" in
+            dev) variant=dev ;;
+            main) variant=prod ;;
+            *) echo "unexpected branch $GITHUB_REF_NAME" >&2; exit 1 ;;
+          esac
+          echo "variant=$variant" >> "$GITHUB_OUTPUT"
+          prs=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+            --jq '[.[] | select(.merged_at != null and (.labels | map(.name) | index("app-release")))] | map("#\(.number)") | join(" ")')
+          if [ -n "$prs" ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+            echo "Release of the $variant app asked by $prs (label app-release)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "No merged pull request with the app-release label: no new app." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  upload:
+    name: Build and upload (${{ needs.gate.outputs.variant }})
+    needs: gate
+    if: needs.gate.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ needs.gate.outputs.variant == 'prod' && 'android-play-prod' || 'android-play' }}
+    timeout-minutes: 30
+    # Two uploads of the same app never race; none is cancelled halfway.
+    concurrency:
+      group: android-play-${{ needs.gate.outputs.variant }}
+      cancel-in-progress: false
+    env:
+      VARIANT: ${{ needs.gate.outputs.variant }}
+      DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
+      # SHA-256 of the Play upload certificate: a bundle signed with anything
+      # else stops here rather than being refused by Play.
+      UPLOAD_CERT_SHA256: "6B:F4:67:EB:7E:EA:C5:F0:54:0A:67:E6:5A:86:2D:1D:67:66:C4:9A:B3:35:03:5C:A8:79:AA:81:2F:54:36:82"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: packages/mobile/package-lock.json
+
+      # capacitor-android compiles in Java 21.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+          cache-dependency-path: |
+            packages/mobile/android/*.gradle
+            packages/mobile/android/app/*.gradle
+            packages/mobile/android/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Variant settings
+        run: |
+          case "$VARIANT" in
+            dev)  echo "PACKAGE=fr.ohmywind.app.dev" >> "$GITHUB_ENV" ;;
+            prod) echo "PACKAGE=fr.ohmywind.app" >> "$GITHUB_ENV" ;;
+            *) echo "unknown variant $VARIANT" >&2; exit 1 ;;
+          esac
+
+      - name: Install
+        run: npm ci --prefix packages/mobile
+
+      # No web build: the app loads the live site, only www/fallback.html is
+      # embedded. The sync writes the variant's capacitor.config.json, which
+      # app/build.gradle reads the applicationId from.
+      - name: Sync
+        working-directory: packages/mobile
+        run: |
+          OHMYWIND_VARIANT="$VARIANT" npx cap sync android
+          grep -q "\"appId\": \"$PACKAGE\"" android/app/src/main/assets/capacitor.config.json
+
+      - name: Next versionCode
+        working-directory: packages/mobile
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          code=$(node scripts/play-publish.mjs next-version-code "$PACKAGE" --min 10)
+          name=$(sed -nE 's/^ *versionName "([^"]+)".*/\1/p' android/app/build.gradle)
+          [ -n "$name" ]
+          echo "VERSION_CODE=$code" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=$name" >> "$GITHUB_ENV"
+          echo "$PACKAGE $name ($code)"
+
+      - name: Install the upload key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_B64 }}
+        run: |
+          umask 077
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/upload.keystore"
+          echo "OHMYWIND_UPLOAD_KEYSTORE=$RUNNER_TEMP/upload.keystore" >> "$GITHUB_ENV"
+
+      - name: Build and sign
+        working-directory: packages/mobile/android
+        env:
+          OHMYWIND_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD }}
+        run: |
+          ./gradlew --no-daemon -q bundleRelease -PohmywindVersionCode="$VERSION_CODE"
+          aab="$PWD/app/build/outputs/bundle/release/ohmywind-$VARIANT-release.aab"
+          keytool -printcert -jarfile "$aab" | grep -q "SHA256: $UPLOAD_CERT_SHA256" \
+            || { echo "::error::The bundle is not signed with the Play upload key"; exit 1; }
+          echo "AAB=$aab" >> "$GITHUB_ENV"
+
+      - name: Upload to the internal testing track
+        if: env.DRY_RUN != 'true'
+        working-directory: packages/mobile
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          node scripts/play-publish.mjs upload "$PACKAGE" "$AAB" "$VERSION_NAME ($VERSION_CODE)" --track internal
+          echo "Released $PACKAGE $VERSION_NAME ($VERSION_CODE) on the internal testing track." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dry run summary
+        if: env.DRY_RUN == 'true'
+        run: echo "Dry run, $PACKAGE $VERSION_NAME ($VERSION_CODE) built and signed, nothing uploaded." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the upload key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload.keystore"

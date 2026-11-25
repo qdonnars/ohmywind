@@ -37,17 +37,21 @@ export const TRANSFER_POLICY: Readonly<Record<LocalStorageKeyName, TransferDecis
   theme: keep(5),
   timezone: keep(6),
   compare: keep(7),
-  seamarksExplore: keep(8),
-  seamarksPlan: keep(9),
-  lastSpot: keep(10),
-  keepAwake: keep(11),
+  seamarks: keep(8),
+  lastSpot: keep(9),
+  keepAwake: keep(10),
   // Hints already seen: without them the app greets a regular as a newcomer.
-  onboarding: keep(12),
-  compareHint: keep(13),
-  whatsNewSeen: keep(14),
+  onboarding: keep(11),
+  compareHint: keep(12),
+  whatsNewSeen: keep(13),
   // Layout, cheapest to lose.
-  drawerHeight: keep(15),
-  sidebarWidth: keep(16),
+  drawerHeight: keep(14),
+  sidebarWidth: keep(15),
+  // The former per-map sea marks flags: they only matter to a reader whose
+  // storage has no `seamarks` yet, whose choice the receiving end derives
+  // from them. Two bytes each, last in line.
+  seamarksPlan: keep(16),
+  seamarksExplore: keep(17),
 
   // Caches, refetched on demand.
   marcCoverage: SKIP,

@@ -57,15 +57,16 @@ export function parseChangelog(md: string): Release[] {
   return releases;
 }
 
-const REPO = "https://github.com/qdonnars/ohmywind";
-
 /**
- * "(#459)" and "#426, #428" become links to the pull requests. GitHub links
- * them by itself in a release note, not in the app. A heading ("### ") is
- * left alone: the pattern wants digits right after the hash.
+ * The notes as a reader sees them: without the pull request numbers that
+ * close each line in the file ("… sur la carte (#599, #600)."). They stay in
+ * CHANGELOG.md for whoever follows a change back to its code, and GitHub
+ * links them by itself in a release note; in the app they are noise between
+ * the reader and the sentence. Only a parenthesis made of nothing but numbers
+ * goes: a hash inside a word, or a number in a sentence, is left alone.
  */
-export function linkPullRequests(md: string): string {
-  return md.replace(/(^|[\s(,])#(\d+)\b/g, (_, before: string, n: string) => `${before}[#${n}](${REPO}/pull/${n})`);
+export function withoutPullRequests(md: string): string {
+  return md.replace(/[ \t]*\((?:#\d+(?:,[ \t]*|[ \t]+(?:et|and)[ \t]+)?)+\)/g, "");
 }
 
 /** The production site, where a release not shipped yet has no business showing. */

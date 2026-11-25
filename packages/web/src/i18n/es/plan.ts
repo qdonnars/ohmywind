@@ -7,8 +7,10 @@ export const plan: Record<keyof typeof frPlan, string> = {
   // ── PlanPage ──────────────────────────────────────────────────────────────
   "plan.page.urlError.title": "URL no válida",
   "plan.page.urlError.back": "← Explorar la meteorología",
-  "plan.page.hint.placeStart": "Haga clic para situar la salida",
-  "plan.page.hint.drawRoute": "Haga clic para trazar su ruta",
+  "plan.page.hint.placeStart.click": "Haga clic para situar la salida",
+  "plan.page.hint.placeStart.touch": "Toque para situar la salida",
+  "plan.page.hint.drawRoute.click": "Haga clic para trazar su ruta",
+  "plan.page.hint.drawRoute.touch": "Toque para trazar su ruta",
   "plan.panel.resize": "Redimensionar el panel",
 
   // ── Totals: panel block and mobile strip ──────────────────────────────────
@@ -25,8 +27,10 @@ export const plan: Record<keyof typeof frPlan, string> = {
 
   // ── Panel states ──────────────────────────────────────────────────────────
   "plan.states.empty.title": "Trace su trayecto",
-  "plan.states.empty.body":
+  "plan.states.empty.body.click":
     "Haga clic en el mapa para colocar una salida y una llegada. Después podrá calcular el paso y luego comparar otras salidas u otras rutas.",
+  "plan.states.empty.body.touch":
+    "Toque el mapa para colocar una salida y una llegada. Después podrá calcular el paso y luego comparar otras salidas u otras rutas.",
   "plan.states.error.title": "Error",
   "plan.states.waking.title": "El servidor meteorológico se está reactivando",
   "plan.states.waking.body":

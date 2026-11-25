@@ -10,13 +10,12 @@ export const compare: Record<keyof typeof frCompare, string> = {
   "compare.none.title": "No spot ticked",
   "compare.none.body": "Tick at least one spot in the list to read it here.",
   "compare.table.empty": "No data available for your spots.",
-  "compare.table.offline":
-    "Offline: the forecasts cannot be fetched. Reconnect, then reopen this page.",
 
   "compare.row.focus": "Centre the map on {name}",
   "compare.row.open": "Open {name} in Explore",
   "compare.row.openHint": "Explore ›",
   "compare.row.noData": "Out of coverage",
+  "compare.row.onLand": "Inland",
 
   "compare.controls.resLabel": "Time step",
   "compare.controls.res": "{hours} h",

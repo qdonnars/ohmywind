@@ -15,6 +15,7 @@ import { MODEL_META, type ModelName } from "../config/modelConfig";
 import { useT, t as translate } from "../i18n";
 import { circularMean, directionSpreadDeg, MODEL_DIRECTION_SPREAD_DEG } from "../domain/thresholds";
 import { DirectionArrow } from "./DirectionArrow";
+import { PanelNote } from "./PanelNote";
 
 function modelStep(name: string): number {
   const meta = MODEL_META[name as ModelName];
@@ -132,20 +133,22 @@ function SkeletonTable() {
  * `fetchAllModels` avale les echecs reseau et rend une liste vide, exactement
  * comme un point hors de toutes les grilles : le tableau ne peut donc pas
  * distinguer les deux cas tout seul. Le navigateur, lui, le sait. Hors ligne,
- * on nomme la cause au lieu de laisser croire que la mer n'a pas de meteo.
- * Meme chose quand Open-Meteo a refuse la connexion pour quota epuise : le
- * refus est note par le fetcher, et la phrase dit quel quota et quand il
- * revient (voir `api/openMeteoQuota.ts`). Hors ligne passe devant : sans
- * reseau, la question du quota ne se pose pas encore.
+ * la zone reste vide : le message passager « Hors ligne : mise a jour
+ * impossible » l'a dit au moment du toucher (offline/offlineNotice.ts, #607),
+ * et « Aucune donnee pour ce point » serait faux, la mer a sa meteo. Au
+ * retour du reseau, l'explorateur recharge le point de lui-meme. Quand
+ * Open-Meteo a refuse la connexion pour quota epuise, le refus est note par
+ * le fetcher, et la phrase dit quel quota et quand il revient (voir
+ * `api/openMeteoQuota.ts`).
  */
 function EmptyForecast() {
   const online = useOnline();
   const quota = useOpenMeteoQuota();
   const { t } = useT();
-  let text: string;
-  if (!online) text = t("explore.windTable.offline");
-  else if (quota) text = openMeteoQuotaMessage("connection", quota.window, quota.resetAt);
-  else text = t("explore.windTable.empty");
+  if (!online) return null;
+  const text = quota
+    ? openMeteoQuotaMessage("connection", quota.window, quota.resetAt)
+    : t("explore.windTable.empty");
   return (
     <div className="text-center py-8 px-4 text-sm" style={{ color: 'var(--ow-fg-2)' }}>
       {text}
@@ -338,6 +341,23 @@ export function WindTable({
           </table>
         </div>
       </div>
+      {/* A model of the table that does not cover the point has been
+          replaced by the first ignored one that does (`fetchAllModels`):
+          the row marked ↳ says so on hover only, this line for everyone,
+          with the way to choose another. */}
+      {forecasts.map(
+        (f) =>
+          f.fellBackFrom && (
+            <PanelNote key={f.modelName}>
+              {t("explore.windTable.coverageNote", {
+                model: modelLabel(f.fellBackFrom),
+                fallback: modelLabel(f.modelName),
+                settings: t("common.nav.settings"),
+                view: t("config.models.title"),
+              })}
+            </PanelNote>
+          ),
+      )}
     </div>
   );
 }

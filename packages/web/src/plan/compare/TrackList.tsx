@@ -22,9 +22,10 @@ import type { CSSProperties } from "react";
 import { usePlan } from "../session/planContext";
 import { StalePlaceholder } from "../sidebar/parts";
 import { AlertChip } from "../../components/AlertChip";
-import { fmtDurationSafe, num1 } from "../format";
+import { fmtSpanSafe, num1 } from "../format";
 import { fmtClock } from "../../domain/datetime";
 import { useT } from "../../i18n";
+import { usePointerWording } from "../../hooks/usePointerWording";
 import {
   isVariantComplete,
   planAsTrack,
@@ -96,6 +97,7 @@ function TrackRow({
   removable,
   onSelect,
   onRemove,
+  onRetry,
   onPoint,
 }: {
   track: Track;
@@ -109,6 +111,8 @@ function TrackRow({
   removable: boolean;
   onSelect: () => void;
   onRemove: () => void;
+  /** Compute this option again, after it failed. */
+  onRetry: () => void;
   onPoint: (on: boolean) => void;
 }) {
   const { t, tn } = useT();
@@ -118,7 +122,8 @@ function TrackRow({
   const usable = summary !== null;
   const inPlan = t("panel.tracks.row.inPlan");
   const arrival = summary ? fmtClock(summary.arrival) : "—";
-  const duration = summary ? fmtDurationSafe(summary.durationH) : "—";
+  // On the clocks, like the arrival beside it (see `displayRounding`).
+  const duration = summary ? fmtSpanSafe(summary.departure, summary.arrival) : "—";
   const distance = summary ? num1(summary.distanceNm) : "—";
   const seaMax = summary && summary.hsMaxM !== null ? num1(summary.hsMaxM) : "—";
   // An engine that never ran says nothing a sailing passage does not.
@@ -227,7 +232,18 @@ function TrackRow({
             ) : computing ? (
               <span className="text-[10.5px]" style={{ color: "var(--ow-fg-2)" }}>{t("panel.tracks.row.computing")}</span>
             ) : (
-              <span className="text-[10.5px]" style={{ color: "var(--ow-warn-ink)" }}>{track.error}</span>
+              <>
+                <span className="text-[10.5px]" style={{ color: "var(--ow-warn-ink)" }}>{track.error}</span>
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  aria-label={`${t("common.retry")}, ${name}`}
+                  className="shrink-0 inline-flex items-center min-h-11 px-2 rounded-md text-[11px] font-semibold transition-colors hover:bg-[var(--ow-bg-2)]"
+                  style={{ color: "var(--ow-accent)" }}
+                >
+                  {t("common.retry")}
+                </button>
+              </>
             )}
           </div>
         )}
@@ -252,6 +268,7 @@ function TrackRow({
 /** The panel while a variant is being drawn on the map. */
 function DrawingPanel({ variant, optionNumber }: { variant: [number, number][]; optionNumber: number }) {
   const { t, tn } = useT();
+  const pointer = usePointerWording();
   const { actions } = usePlan();
   const complete = isVariantComplete(variant);
   return (
@@ -265,7 +282,7 @@ function DrawingPanel({ variant, optionNumber }: { variant: [number, number][]; 
           {tn("panel.tracks.drawing.points", variant.length)}
         </span>
       </div>
-      <p className="text-xs leading-relaxed" style={{ color: "var(--ow-fg-2)" }}>{t("panel.tracks.drawing.hint")}</p>
+      <p className="text-xs leading-relaxed" style={{ color: "var(--ow-fg-2)" }}>{t(`panel.tracks.drawing.hint.${pointer}`)}</p>
       <div className="flex gap-2">
         <button
           type="button"
@@ -353,6 +370,7 @@ export function TrackList() {
             removable={track.id !== selectedId && tracks.length > 0}
             onSelect={() => actions.selectTrack(track.id)}
             onRemove={() => actions.removeTrack(track.id)}
+            onRetry={() => actions.computeTrack(track.id)}
             onPoint={(on) => actions.highlightTrack(on ? track.id : null)}
           />
         ))}

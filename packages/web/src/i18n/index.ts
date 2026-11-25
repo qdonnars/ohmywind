@@ -4,7 +4,6 @@
 export {
   AVAILABLE_LANGS,
   LANG_NAMES,
-  LANG_SHORT_NAMES,
   LOCALE_BY_LANG,
   type Lang,
 } from "./types";

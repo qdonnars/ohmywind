@@ -57,6 +57,9 @@ import type { PassageWindow } from "../types";
 import type { TimeAnchor } from "../ModeToggle";
 import { defaultSweep, type CompareAxis, type SweepParams } from "../compare/slots";
 import { isVariantComplete, PLAN_TRACK_ID } from "../compare/tracks";
+import { prepareRoute } from "../repair/client";
+import { noteIfOffline } from "../../offline/offlineNotice";
+import { t } from "../../i18n";
 import {
   createInitialState,
   planReducer,
@@ -181,6 +184,11 @@ export interface PlanActions {
   finishVariant: () => void;
   /** Recompute every option on the departure and the boat as they stand. */
   computeTracks: () => void;
+  /** One option again, after it failed. */
+  computeTrack: (id: string) => void;
+  /** The last computation again (a passage, or the departures), on the plan
+      as it stands: the « Réessayer » of a failure. */
+  rerun: () => void;
   openTrack: (id: string) => void;
   /** The option becomes the plan's route without leaving the comparison. */
   selectTrack: (id: string) => void;
@@ -260,6 +268,13 @@ export function usePlanSession(initial: InitialSession): PlanSession {
   const onFailure = useCallback((requestId: number, error: unknown) => {
     // An abort is not a failure: the request was replaced or the page left.
     if (error instanceof DOMException && error.name === "AbortError") return;
+    // No network at all: not an error of the server. The toast says it in
+    // passing, and the panel goes back to its button, for the reader to ask
+    // again once the network is back, without reloading.
+    if (noteIfOffline()) {
+      dispatch({ type: "FETCH_OFFLINE", requestId });
+      return;
+    }
     // An ApiError carries the server's stable code; anything else only has
     // words, and `friendlyError` falls back to matching them.
     const reported = error instanceof Error ? error : String(error);
@@ -292,8 +307,9 @@ export function usePlanSession(initial: InitialSession): PlanSession {
       // Read now rather than when the reply lands: the fingerprint persisted
       // with the result has to be that of the settings it was computed on.
       link: LinkSettings | null = stateRef.current.link,
-      // Whether the server may repair a route over land. Passed explicitly by
-      // « Revenir à mon tracé », whose state `stateRef` has not caught up with.
+      // Whether a route over land may be repaired (here, in the browser).
+      // Passed explicitly by « Revenir à mon tracé », whose state `stateRef`
+      // has not caught up with.
       repair: boolean = !stateRef.current.repairDeclined,
     ) => {
       const { requestId, signal } = startRequest("single");
@@ -305,33 +321,35 @@ export function usePlanSession(initial: InitialSession): PlanSession {
       // reads weather from this payload instead of calling Open-Meteo itself
       // (distributes the upstream load off the Space's single IP). On any
       // failure the cache is undefined and the server fetches live.
-      const window_ =
-        anchor === "arrival" ? etaWindowMs(waypoints, anchorMs) : singleWindowMs(waypoints, anchorMs);
-      buildForecastCacheSafe(waypoints, { window: window_ })
-        .then((forecastCache) =>
-          anchor === "arrival"
-            ? fetchPassageByEta({
-                waypoints,
-                targetArrival: departureIso,
-                archetype,
-                efficiency,
-                overrides,
-                forecastCache,
-                signal,
-                repairRoute: repair,
-              })
-            : fetchPassage({
-                waypoints,
-                departure: departureIso,
-                archetype,
-                efficiency,
-                overrides,
-                forecastCache,
-                signal,
-                repairRoute: repair,
-              }),
-        )
-        .then((res) => {
+      // A route over land is repaired here first (see `prepareRoute`); the
+      // corridor is then sampled along the route that will be planned.
+      prepareRoute(waypoints, repair)
+        .then(async (route) => {
+          const window_ =
+            anchor === "arrival"
+              ? etaWindowMs(route.waypoints, anchorMs)
+              : singleWindowMs(route.waypoints, anchorMs);
+          const forecastCache = await buildForecastCacheSafe(route.waypoints, { window: window_ });
+          const res =
+            anchor === "arrival"
+              ? await fetchPassageByEta({
+                  waypoints: route.waypoints,
+                  targetArrival: departureIso,
+                  archetype,
+                  efficiency,
+                  overrides,
+                  forecastCache,
+                  signal,
+                })
+              : await fetchPassage({
+                  waypoints: route.waypoints,
+                  departure: departureIso,
+                  archetype,
+                  efficiency,
+                  overrides,
+                  forecastCache,
+                  signal,
+                });
           retryAttemptRef.current = 0;
           dispatch({
             type: "FETCH_SUCCEEDED",
@@ -341,7 +359,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
             passage: res.passage,
             complexity: res.complexity,
             forecastUpdatedAt: res.forecast_updated_at,
-            repairedRoute: res.repaired_route,
+            repairedRoute: route.repaired,
           });
           notePlanComputed();
         })
@@ -370,40 +388,32 @@ export function usePlanSession(initial: InitialSession): PlanSession {
       const efficiency = resolveEfficiency(link);
       const departureIso = toTzAware(departure);
       const anchorMs = Date.parse(departureIso);
-      const window_ =
-        timeAnchor === "arrival"
-          ? etaWindowMs(track.waypoints, anchorMs)
-          : singleWindowMs(track.waypoints, anchorMs);
-      buildForecastCacheSafe(track.waypoints, { window: window_ })
-        .then((forecastCache) =>
-          timeAnchor === "arrival"
-            ? fetchPassageByEta({
-                waypoints: track.waypoints,
-                targetArrival: departureIso,
-                archetype,
-                efficiency,
-                overrides,
-                forecastCache,
-                signal: controller.signal,
-              })
-            : fetchPassage({
-                waypoints: track.waypoints,
-                departure: departureIso,
-                archetype,
-                efficiency,
-                overrides,
-                forecastCache,
-                signal: controller.signal,
-              }),
-        )
-        .then((res) => {
+      prepareRoute(track.waypoints, true)
+        .then(async (route) => {
+          const window_ =
+            timeAnchor === "arrival"
+              ? etaWindowMs(route.waypoints, anchorMs)
+              : singleWindowMs(route.waypoints, anchorMs);
+          const forecastCache = await buildForecastCacheSafe(route.waypoints, { window: window_ });
+          const params = {
+            waypoints: route.waypoints,
+            archetype,
+            efficiency,
+            overrides,
+            forecastCache,
+            signal: controller.signal,
+          };
+          const res =
+            timeAnchor === "arrival"
+              ? await fetchPassageByEta({ ...params, targetArrival: departureIso })
+              : await fetchPassage({ ...params, departure: departureIso });
           dispatch({
             type: "TRACK_COMPUTED",
             trackId: track.id,
             requestId,
             passage: res.passage,
             complexity: res.complexity,
-            repairedRoute: res.repaired_route,
+            repairedRoute: route.repaired,
           });
         })
         .catch((error: unknown) => {
@@ -412,7 +422,11 @@ export function usePlanSession(initial: InitialSession): PlanSession {
             type: "TRACK_FAILED",
             trackId: track.id,
             requestId,
-            error: friendlyError(error instanceof Error ? error : String(error)),
+            // Without a network the toast says why; the row only says what
+            // is missing, next to its « Réessayer ».
+            error: noteIfOffline()
+              ? t("panel.tracks.row.notComputed")
+              : friendlyError(error instanceof Error ? error : String(error)),
           });
         });
     },
@@ -434,11 +448,16 @@ export function usePlanSession(initial: InitialSession): PlanSession {
     const { requestId, signal } = startRequest("sweep");
     const earliestIso = toTzAware(sweepEarliest);
     const latestIso = toTzAware(sweepLatest);
-    const window_ = sweepWindowMs(waypoints, Date.parse(earliestIso), Date.parse(latestIso));
-    buildForecastCacheSafe(waypoints, { window: window_ })
-      .then((forecastCache) =>
-        fetchPassageWindows({
-          waypoints,
+    prepareRoute(waypoints, repair)
+      .then(async (route) => {
+        const window_ = sweepWindowMs(
+          route.waypoints,
+          Date.parse(earliestIso),
+          Date.parse(latestIso),
+        );
+        const forecastCache = await buildForecastCacheSafe(route.waypoints, { window: window_ });
+        const res = await fetchPassageWindows({
+          waypoints: route.waypoints,
           earliest: earliestIso,
           latest: latestIso,
           archetype,
@@ -447,10 +466,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
           overrides: resolveOverrides(link, archetype),
           forecastCache,
           signal,
-          repairRoute: repair,
-        }),
-      )
-      .then((res) => {
+        });
         retryAttemptRef.current = 0;
         dispatch({
           type: "FETCH_SUCCEEDED",
@@ -460,7 +476,7 @@ export function usePlanSession(initial: InitialSession): PlanSession {
           windows: res.windows,
           metaWarnings: res.meta_notices,
           forecastUpdatedAt: res.forecast_updated_at,
-          repairedRoute: res.repaired_route,
+          repairedRoute: route.repaired,
         });
         notePlanComputed();
       })
@@ -635,6 +651,10 @@ export function usePlanSession(initial: InitialSession): PlanSession {
       computeTracks: () => {
         for (const track of stateRef.current.tracks) runTrack(track);
       },
+      computeTrack: (id) => {
+        const track = stateRef.current.tracks.find((candidate) => candidate.id === id);
+        if (track) runTrack(track);
+      },
       openTrack: (id) =>
         dispatch({
           type: "TRACK_OPENED",
@@ -665,6 +685,10 @@ export function usePlanSession(initial: InitialSession): PlanSession {
       },
       selectLeg: (index) => dispatch({ type: "LEG_SELECTED", index }),
       selectStep: (index) => dispatch({ type: "STEP_SELECTED", index }),
+      rerun: () => {
+        retryAttemptRef.current = 0;
+        rerunRef.current();
+      },
       compute: () => {
         retryAttemptRef.current = 0;
         const { waypoints, archetype, departure, timeAnchor } = stateRef.current;

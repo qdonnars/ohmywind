@@ -1,29 +1,23 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useCallback, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import {
   loadSeamarksEnabled,
   saveSeamarksEnabled,
-  type MapSurface,
+  subscribeSeamarks,
 } from "../config/seamarkPreference";
 
 /**
- * The marine-chart overlay toggle for one map. Reads that map's stored
- * preference once at mount and writes it back on every flip. The two maps
- * are separate documents and separate preferences, so each opens the way
- * its own job needs.
+ * The marine-chart overlay choice, shared by both maps and the settings.
+ * Every component using it re-renders when any of them changes it, so a
+ * map behind the settings follows a new choice at once.
+ *
+ * - `enabled`: Always (true) or Never (false).
+ * - `setEnabled`: sets and stores a choice, for the Always / Never control.
  */
-export function useSeamarks(surface: MapSurface) {
-  const [enabled, setEnabled] = useState<boolean>(() => loadSeamarksEnabled(surface));
-
-  const toggle = useCallback(() => {
-    setEnabled((prev) => {
-      const next = !prev;
-      saveSeamarksEnabled(surface, next);
-      return next;
-    });
-  }, [surface]);
-
-  return { enabled, toggle };
+export function useSeamarks() {
+  const enabled = useSyncExternalStore(subscribeSeamarks, loadSeamarksEnabled, loadSeamarksEnabled);
+  const setEnabled = useCallback((next: boolean) => saveSeamarksEnabled(next), []);
+  return { enabled, setEnabled };
 }

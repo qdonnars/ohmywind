@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
-import { useEffect, useRef, useImperativeHandle, type Ref } from "react";
+import { useEffect, useRef, useImperativeHandle, useState, type Ref, type RefObject } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useTheme } from "../design/useTheme";
@@ -20,6 +20,9 @@ import { computeLegSegmentRanges } from "./aggregateLegs";
 import { closestOnPolyline, TapGuard } from "./mapGestures";
 import { waypointPlacedFeedback } from "../native/haptics";
 import { midpointAlong, type RouteOverlay } from "./compare/tracks";
+import { MapZoomButtons } from "../components/MapZoomButtons";
+import { createMapZoomStore } from "../utils/mapZoomStore";
+import { mapControlsGutterPx } from "../components/mapControlsLayout";
 import {
   HOLD_SLOP_PX,
   MARKER_SETTLE_MS,
@@ -52,14 +55,23 @@ const ZOOM_SNAP = 0.1;
 /** Frame for a route: 8 % of the map on each side, so the waypoints span
     about 84 % of the smaller dimension, and never less than what a marker
     needs to stay whole at the edge: its disc, the × badge on its top-right
-    corner (24 px from the centre) and the sounding 40 px below it. */
-function routePadding(map: L.Map): L.FitBoundsOptions {
+    corner (24 px from the centre) and the sounding 40 px below it. On the
+    right, the column of controls is kept clear as well, plus the radius of
+    a disc: a waypoint framed in a corner used to sit under the locate
+    button or the chart toggle (QA of 1.15.0, #579). */
+function routePadding(map: L.Map, topCoverPx = 0, rightCoverPx = 0): L.FitBoundsOptions {
   const size = map.getSize();
-  const x = Math.max(28, size.x * 0.08);
+  // The 8 % are taken of the map the reader sees: on a wide screen the
+  // planner's panel floats over the right of the map.
+  const x = Math.max(28, (size.x - rightCoverPx) * 0.08);
   const y = Math.max(28, size.y * 0.08);
   return {
-    paddingTopLeft: L.point(x, y),
-    paddingBottomRight: L.point(x, Math.max(y, 40)),
+    // At the top, the bar floating over the map (MapTopBar) is kept clear
+    // as well, with room for a marker's disc and its badge under it.
+    paddingTopLeft: L.point(x, Math.max(y, topCoverPx + 28)),
+    // On the right, the panel (when one floats there) and the column of
+    // controls standing beside it.
+    paddingBottomRight: L.point(rightCoverPx + Math.max(x, mapControlsGutterPx() + 14), Math.max(y, 40)),
   };
 }
 
@@ -115,6 +127,17 @@ interface PlanMapProps {
   /** The first and last waypoints cannot be removed: a variant keeps the
       plan's ends. */
   lockedEnds?: boolean;
+  /** Where the zoom buttons go, as positioning classes; no buttons without
+      it. They are only drawn for a mouse or a trackpad, and only while the
+      map leaves `clearanceBelow` pixels under them. */
+  zoomButtons?: { className: string; clearanceBelow?: number };
+  /** What floats over the top edge of the map (the bar of `MapTopBar`), in
+      the same positioned box: framing a route keeps it clear. */
+  topInsetRef?: RefObject<HTMLElement | null>;
+  /** What floats over the right of the map (the planner's panel on a wide
+      screen): framing a route, and centring a place, keep to the map left
+      of it. */
+  rightInsetRef?: RefObject<HTMLElement | null>;
   /** Imperative handle, for the page to re-frame the camera on the route.
       A plain prop since React 19: `forwardRef` is no longer needed to
       receive one. */
@@ -145,7 +168,7 @@ function waypointIcon(label: string, bg: string, deletable: boolean): L.DivIcon 
 }
 
 export function PlanMap(
-  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, focusedSegmentIdx = null, initialCenter, userPosition, onViewChange, initialZoom, showSeamarks = false, depths, overlays, hideBaseRoute = false, lockedEnds = false, ref }: PlanMapProps,
+  { waypoints, segments, isStale, onWptMove, onWptAdd, onWptDelete, onMapClick, highlightedSegmentRange, focusedSegmentIdx = null, initialCenter, userPosition, onViewChange, initialZoom, showSeamarks = false, depths, overlays, hideBaseRoute = false, lockedEnds = false, zoomButtons, topInsetRef, rightInsetRef, ref }: PlanMapProps,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -160,6 +183,7 @@ export function PlanMap(
   const segLabelsRef = useRef<L.Tooltip[]>([]);
   const userLayerRef = useRef<L.LayerGroup | null>(null);
   const flyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [zoomStore] = useState(createMapZoomStore);
   const onViewChangeRef = useRef(onViewChange);
   useEffect(() => { onViewChangeRef.current = onViewChange; }, [onViewChange]);
   const livePositionsRef = useRef<[number, number][]>(waypoints);
@@ -174,6 +198,20 @@ export function PlanMap(
   // The delete button inside each marker carries a translated label, and
   // Leaflet keeps the rendered markup: a language switch has to redraw them.
   const lang = useLang();
+  // Bottom edge of the bar over the map, read when a frame is taken.
+  const topCover = () => {
+    const el = topInsetRef?.current;
+    return el ? el.offsetTop + el.offsetHeight : 0;
+  };
+  // Width of the map hidden under the panel on its right, read when a frame
+  // is taken: the panel can be dragged wider or narrower at any time.
+  const rightCover = () => {
+    const el = rightInsetRef?.current;
+    const box = containerRef.current;
+    if (!el || !box) return 0;
+    return Math.max(0, box.getBoundingClientRect().right - el.getBoundingClientRect().left);
+  };
+  const padding = (map: L.Map) => routePadding(map, topCover(), rightCover());
 
   useEffect(() => { onWptAddRef.current = onWptAdd; }, [onWptAdd]);
   useEffect(() => { onWptDeleteRef.current = onWptDelete; }, [onWptDelete]);
@@ -181,7 +219,15 @@ export function PlanMap(
 
   useImperativeHandle(ref, () => ({
     recenter(lat, lon) {
-      mapRef.current?.setView([lat, lon], 12, { animate: true });
+      const map = mapRef.current;
+      if (!map) return;
+      // In the middle of the map left of the panel, not under it: the
+      // centre goes half the panel's width east of the place.
+      const zoom = 12;
+      const shift = rightCover() / 2;
+      const centre =
+        shift > 0 ? map.unproject(map.project([lat, lon], zoom).add([shift, 0]), zoom) : L.latLng(lat, lon);
+      map.setView(centre, zoom, { animate: true });
     },
     fitToWaypoints(extra = []) {
       const map = mapRef.current;
@@ -195,7 +241,7 @@ export function PlanMap(
       if (points.length >= 2) {
         map.fitBounds(
           L.latLngBounds(points.map(([lat, lon]) => L.latLng(lat, lon))),
-          routePadding(map),
+          padding(map),
         );
       } else if (waypoints.length === 1) {
         map.setView([waypoints[0][0], waypoints[0][1]], 10);
@@ -271,9 +317,10 @@ export function PlanMap(
     // Foundation allows this as long as they stay findable through an info
     // button, which is where they now are, alongside the other sources.
 
-    // No zoom buttons: they crowded the bottom-right corner against the
-    // locate control, and the explore map has done without them since day
-    // one. Wheel and pinch zoom stay enabled.
+    // Leaflet's own zoom buttons stay off: they live in a corner of their
+    // own, against the menu. The page draws its own under the bar over the
+    // map, at the top of the column of the other controls (#470).
+    const detachZoom = zoomStore.attach(map);
 
     // Initial view. Falls back to a France-wide view rather than the Riviera
     // so users landing on /plan from anywhere on the coast aren't whisked to
@@ -297,14 +344,14 @@ export function PlanMap(
       const flyTimer = setTimeout(() => {
         map.invalidateSize();
         if (routeBounds) {
-          map.flyToBounds(routeBounds, { ...routePadding(map), duration: 1.2 });
+          map.flyToBounds(routeBounds, { ...padding(map), duration: 1.2 });
         } else {
           map.flyTo([waypoints[0][0], waypoints[0][1]], 10, { duration: 1.2 });
         }
       }, 80);
       flyTimerRef.current = flyTimer;
     } else if (routeBounds) {
-      map.fitBounds(routeBounds, routePadding(map));
+      map.fitBounds(routeBounds, padding(map));
     } else if (waypoints.length === 1) {
       map.setView([waypoints[0][0], waypoints[0][1]], 10);
     } else if (initialCenter) {
@@ -383,6 +430,7 @@ export function PlanMap(
       window.removeEventListener("pointerup", onPointerUp, true);
       window.removeEventListener("pointercancel", onPointerCancel, true);
       tapGuardRef.current = null;
+      detachZoom();
       map.off("zoomend", onZoomEnd);
       segLabelsRef.current = [];
       map.remove();
@@ -394,7 +442,8 @@ export function PlanMap(
   // Marine-chart overlay. Declared AFTER the init effect on purpose: effects
   // fire in declaration order, so on mount the map already exists here and a
   // returning user gets back the overlay they left on. Kept out of the init
-  // effect itself because the toggle also flips while the map is alive.
+  // effect itself because the setting can change while the map is alive
+  // (the Réglages open over it).
   useEffect(() => {
     if (!mapRef.current) return;
     syncSeamarkLayer(mapRef.current, seamarkLayerRef, showSeamarks);
@@ -937,5 +986,18 @@ export function PlanMap(
     focusLayerRef.current = group;
   }, [focusedSegmentIdx, segments, resolvedTheme]);
 
-  return <div ref={containerRef} className="w-full h-full" />;
+  // The buttons are a sibling of the Leaflet container, not a child: the
+  // container belongs to Leaflet, and a click on them must not reach the map.
+  return (
+    <>
+      <div ref={containerRef} className="w-full h-full" />
+      {zoomButtons && (
+        <MapZoomButtons
+          store={zoomStore}
+          className={zoomButtons.className}
+          clearanceBelow={zoomButtons.clearanceBelow}
+        />
+      )}
+    </>
+  );
 }

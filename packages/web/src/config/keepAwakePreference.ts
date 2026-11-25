@@ -29,4 +29,19 @@ export function saveKeepAwakeEnabled(enabled: boolean, storage: Pick<Storage, "s
   } catch {
     /* storage unavailable: the choice holds for this visit only */
   }
+  for (const listener of listeners) listener();
+}
+
+const listeners = new Set<() => void>();
+
+/**
+ * Hears this page's own writes. The settings open over the planner, so a
+ * plan already on screen must follow a change made there without waiting
+ * for the page to be opened again. Returns the unsubscribe.
+ */
+export function subscribeKeepAwake(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }

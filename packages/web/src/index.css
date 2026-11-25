@@ -175,19 +175,19 @@ select,
 
    Une seule regle plutot qu'une retouche par composant : les tailles
    viennent de partout (Tailwind `text-sm` sur la recherche et les modales,
-   13 px sur `.polar-select` et `.polar-motor-input` dans config.css), et
-   c'est une contrainte de plateforme, pas une decision de design par champ.
+   des tailles propres aux champs des Reglages), et c'est une contrainte de
+   plateforme, pas une decision de design par champ.
 
    Portee `pointer: coarse` : sur poste, ou le zoom au focus n'existe pas,
    les tailles choisies restent intactes. Les trois `:not()` sortent les
    commandes sans texte (curseurs, cases, boutons radio), dont la taille de
    police ne sert a rien. Ils portent aussi la specificite du selecteur a
    (0,3,1), ce qui lui fait battre les classes utilitaires (`text-sm`) comme
-   les `.polar-*` de config.css sans `!important` et sans dependre de l'ordre
+   les classes des composants sans `!important` et sans dependre de l'ordre
    des feuilles dans le bundle. Le `:is()` sert precisement a cela : il
    distribue les `:not()` sur les trois elements a la fois, la ou trois
    selecteurs separes auraient laisse `select` et `textarea` a (0,0,1), donc
-   perdants face a `.polar-select`. */
+   perdants face a une simple classe. */
 @media (pointer: coarse) {
   :is(input, select, textarea):not([type="range"]):not([type="checkbox"]):not([type="radio"]) {
     font-size: 16px;
@@ -206,6 +206,21 @@ select,
 }
 .spot-tooltip::before {
   border-top-color: var(--ow-line-2);
+}
+/* A saved spot on the explorer map (utils/spotMarkerLayer.ts). Its SVG node
+   takes the focus on a tap, a click or Tab, because of the tooltip's focus
+   listeners, and the browser outline of an SVG node is its bounding box: a
+   square around the round dot (#545). No outline, then, and for the keyboard
+   a ring drawn by the circle's own stroke, which stays round. CSS beats the
+   stroke attributes Leaflet writes on the node, so the ring overrides the
+   style of the moment and goes away with the focus. */
+path.ow-spot-marker:focus {
+  outline: none;
+}
+path.ow-spot-marker:focus-visible {
+  stroke: var(--ow-fg-0);
+  stroke-width: 4px;
+  stroke-opacity: 1;
 }
 /* The rank of a spot on the comparison map: a digit inside its marker, not a
    bubble beside it. Four names at the scale of a coastline pile up on each
@@ -317,6 +332,180 @@ select,
   }
 }
 
+/* ── The controls floating over a full-screen map ───────────────────
+   Pages without a header (components/MapTopBar.tsx): the map runs to the
+   top edge of the screen, under the status bar in the apps, and the menu,
+   the search and the settings float over it. Their geometry lives here, as
+   variables, because it depends on the safe-area insets, which only CSS
+   knows. The column of round controls along the right edge of the map
+   (components/mapControlsLayout.ts) hangs from the bottom of that bar.
+
+   --ow-chrome-top    top of the bar: under the status bar when there is one
+                      (inset + 8 px), never closer than 12 px (16 from lg) to
+                      the edge when there is none (a browser tab).
+   --ow-chrome-size   height of the bar and of its round buttons.
+   --ow-chrome-gap    air between the bar and what hangs under it.
+   --ow-chrome-side   distance from the left and right edges, insets apart.
+
+   --ow-map-cover-right, when a page sets it, is the width a panel floating
+   over the right of the map covers (the planner's, from lg up, see
+   .ow-plan-body below): the column of controls stands just left of it, and
+   the search, the banner under it and the map's hints are centred on what
+   the panel leaves. Unset, it counts for nothing. */
+:root {
+  --ow-chrome-top: max(12px, calc(env(safe-area-inset-top, 0px) + 8px));
+  --ow-chrome-size: 48px;
+  --ow-chrome-gap: 8px;
+  --ow-chrome-side: 12px;
+}
+@media (min-width: 64rem) {
+  :root {
+    --ow-chrome-top: max(16px, calc(env(safe-area-inset-top, 0px) + 8px));
+    --ow-chrome-size: 52px;
+    --ow-chrome-gap: 12px;
+    --ow-chrome-side: 16px;
+  }
+}
+/* The round 48 px controls of the map, centred under the button at the right
+   end of the bar: 12 px from the edge on a phone, 18 px from lg up, where the
+   bar's buttons are 52 px wide and 16 px from the edge. */
+.ow-chrome-right {
+  right: calc(
+    max(var(--ow-map-cover-right, 0px), env(safe-area-inset-right, 0px)) + var(--ow-chrome-side) +
+      (var(--ow-chrome-size) - 48px) / 2
+  );
+}
+/* The top of that column, right under the bar: the zoom buttons. */
+.ow-chrome-slot-1 {
+  top: calc(var(--ow-chrome-top) + var(--ow-chrome-size) + var(--ow-chrome-gap));
+}
+/* The bar itself, and what hangs under it in the middle (the offline
+   toast, and on the planner its own notes). Placed by these rules rather
+   than by utilities, for the insets. */
+.ow-chrome-bar {
+  top: var(--ow-chrome-top);
+  left: calc(var(--ow-chrome-side) + env(safe-area-inset-left, 0px));
+  right: calc(var(--ow-chrome-side) + env(safe-area-inset-right, 0px));
+  height: var(--ow-chrome-size);
+}
+/* From lg up the three are apart: the menu in the top left corner, the
+   settings in the top right one, the search centred between them, 480 px at
+   most, and what hangs under it centred under the search. */
+.ow-chrome-left {
+  top: var(--ow-chrome-top);
+  left: calc(var(--ow-chrome-side) + env(safe-area-inset-left, 0px));
+}
+.ow-chrome-end {
+  top: var(--ow-chrome-top);
+  right: calc(max(var(--ow-map-cover-right, 0px), env(safe-area-inset-right, 0px)) + var(--ow-chrome-side));
+}
+.ow-chrome-search {
+  top: var(--ow-chrome-top);
+  left: calc((100% - var(--ow-map-cover-right, 0px)) / 2);
+  transform: translateX(-50%);
+  width: min(480px, calc(100% - var(--ow-map-cover-right, 0px) - 2 * (var(--ow-chrome-side) + var(--ow-chrome-size) + 12px)));
+  height: var(--ow-chrome-size);
+}
+/* Under the bar, in the middle: the offline toast and the planner's notes.
+   On a phone it spans the width but the right column, where the map's round
+   controls hang. */
+.ow-chrome-under {
+  top: calc(var(--ow-chrome-top) + var(--ow-chrome-size) + var(--ow-chrome-gap));
+  left: calc(var(--ow-chrome-side) + env(safe-area-inset-left, 0px));
+  right: calc(var(--ow-chrome-side) + 56px + env(safe-area-inset-right, 0px));
+}
+@media (min-width: 64rem) {
+  .ow-chrome-under {
+    left: calc((100% - var(--ow-map-cover-right, 0px)) / 2);
+    right: auto;
+    transform: translateX(-50%);
+    width: min(480px, calc(100% - var(--ow-map-cover-right, 0px) - 2 * (var(--ow-chrome-side) + var(--ow-chrome-size) + 12px)));
+  }
+}
+/* The offline toast in that strip (components/OfflineToast.tsx). On a phone
+   the strip stops short of the column of controls on the right, so its
+   middle is not the map's: the toast is moved back onto the middle of the
+   screen, and kept narrow enough that it reaches the column on neither
+   side. From lg up the strip is already centred on the visible map. */
+@media (max-width: 63.98rem) {
+  .ow-offline-toast-slot {
+    transform: translateX(calc((56px + env(safe-area-inset-right, 0px) - env(safe-area-inset-left, 0px)) / 2));
+    max-width: calc(
+      100vw - 2 * (var(--ow-chrome-side) + 56px + max(env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px)))
+    );
+  }
+}
+/* The hints along the bottom of a map (« Touchez la carte… »), centred in
+   the width the column of controls on the right leaves, and the panel over
+   the map when there is one. */
+.ow-map-hint {
+  left: 16px;
+  right: calc(var(--ow-map-cover-right, 0px) + var(--ow-chrome-side) + (var(--ow-chrome-size) - 48px) / 2 + 56px);
+}
+/* The planner's panel, from lg up: a card floating over the right of the
+   map, 12 px from the edges of the screen (and clear of the status bar and
+   the notch in the apps), the map running under it. Its width is the one
+   the reader dragged it to (--ow-plan-panel-px, written by PlanPage), never
+   so wide that the map keeps less than --ow-plan-map-min beside it. The page
+   publishes what the card covers as --ow-map-cover-right, for the controls
+   of the map to stand beside it (see the chrome rules above). */
+@media (min-width: 64rem) {
+  .ow-plan-body {
+    --ow-plan-panel-gap: 12px;
+    --ow-plan-map-min: 420px;
+    --ow-plan-panel-w: min(
+      var(--ow-plan-panel-px, 384px),
+      calc(100vw - 2 * var(--ow-plan-panel-gap) - var(--ow-plan-map-min))
+    );
+    --ow-map-cover-right: calc(var(--ow-plan-panel-w) + var(--ow-plan-panel-gap) + env(safe-area-inset-right, 0px));
+  }
+  .ow-plan-panel {
+    top: max(var(--ow-plan-panel-gap), calc(env(safe-area-inset-top, 0px) + 8px));
+    right: calc(var(--ow-plan-panel-gap) + env(safe-area-inset-right, 0px));
+    bottom: calc(var(--ow-plan-panel-gap) + env(safe-area-inset-bottom, 0px));
+    width: var(--ow-plan-panel-w);
+  }
+}
+/* The card itself: the panel's surface in either theme, its line and a
+   shadow that lift it off the chart, the corners of the floating controls. */
+.ow-plan-panel-card {
+  background: var(--ow-bg-1);
+  border: 1px solid var(--ow-line-2);
+  border-radius: 16px;
+  box-shadow: var(--ow-shadow-pop);
+}
+/* The least height of a map with the bar over it: the bar, the first slot of
+   the column under it (one 48 px control and its air) and the locate button
+   at the bottom, one above the other without touching (16 px from the bottom
+   edge). The planner's drawer gives way
+   below it rather than the map (components/mapControlsLayout.ts). */
+.ow-map-min-height {
+  min-height: calc(var(--ow-chrome-top) + var(--ow-chrome-size) + var(--ow-chrome-gap) + 48px + 8px + 48px + 16px);
+}
+/* A light veil under the status bar of the apps, so the clock and the
+   battery stay readable over a busy stretch of map. Its height is the inset
+   itself plus a fade: zero in a browser tab, where no status bar lies over
+   the page. The colour is the page's own background, which is what the
+   system bars' style follows (native/systemBars.ts): dark icons over a light
+   veil in the light theme, light icons over a dark one in the dark theme. */
+.ow-statusbar-veil {
+  height: calc(env(safe-area-inset-top, 0px) * 1.5);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--ow-bg-0) 72%, transparent) 0%,
+    color-mix(in srgb, var(--ow-bg-0) 55%, transparent) 66%,
+    transparent 100%
+  );
+}
+/* The round buttons and the field of the bar: glass over the map. */
+.ow-chrome-glass {
+  background: var(--ow-surface-glass);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--ow-line);
+  box-shadow: var(--ow-shadow-2);
+}
+
 /* Scroll fade indicator */
 .scroll-container {
   position: relative;
@@ -387,6 +576,48 @@ select,
 .wind-cell:active {
   transform: scale(0.95);
   filter: brightness(0.85);
+}
+
+/* Navigation drawer (components/NavMenu.tsx). 304 px on a phone, 320 px
+   from lg up, never so wide that the scrim to tap disappears. On a phone it
+   runs under the status bar and the notch: the safe-area insets go into its
+   padding, and into its width on the left, so the content keeps its room. */
+.ow-nav-drawer {
+  width: min(calc(304px + env(safe-area-inset-left, 0px)), calc(100vw - 48px));
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 12px calc(20px + env(safe-area-inset-bottom, 0px))
+    calc(12px + env(safe-area-inset-left, 0px));
+  animation: owDrawerIn 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@media (min-width: 64rem) {
+  .ow-nav-drawer {
+    width: min(calc(320px + env(safe-area-inset-left, 0px)), calc(100vw - 48px));
+    padding-top: calc(16px + env(safe-area-inset-top, 0px));
+  }
+}
+.ow-drawer-scrim {
+  animation: owFade 0.2s ease;
+}
+@keyframes owDrawerIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes owFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ow-nav-drawer,
+  .ow-drawer-scrim {
+    animation: none;
+  }
 }
 
 /* Modal enter animation */
@@ -783,6 +1014,14 @@ select,
   white-space: nowrap;
 }
 
+/* ── Zoom buttons of the maps (#470) ─────────────────────────── */
+/* Drawn inside the capsule: the default ring would be clipped by its
+   rounded, overflow-hidden edge. */
+.ow-map-zoom button:focus-visible {
+  outline: 2px solid var(--ow-accent);
+  outline-offset: -3px;
+}
+
 /* ── Theme-aware table header ────────────────────────────────── */
 .ow-tbl-bg {
   background: var(--ow-bg-1);
@@ -823,8 +1062,69 @@ select,
   color: var(--ow-fg-0);
 }
 .ow-search-item:last-child { border-bottom: none; }
+/* The field of the bar over a full-screen map (SpotSearch "floating"), on
+   top of .ow-chrome-glass: only the placeholder and the focus ring. */
+.ow-search-floating {
+  height: var(--ow-chrome-size);
+  color: var(--ow-fg-0);
+}
+.ow-search-floating::placeholder {
+  color: var(--ow-fg-2);
+}
+.ow-search-floating:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--ow-accent) 60%, transparent);
+}
+/* The search over the whole screen, on a phone (SpotSearch "fullscreen").
+   Its field starts where the bar over the map stands, under the status bar
+   and clear of the notch in landscape. */
+.ow-search-sheet {
+  background: var(--ow-bg-1);
+  color: var(--ow-fg-0);
+  animation: owFade 0.18s ease;
+}
+.ow-search-sheet-head {
+  padding: var(--ow-chrome-top) calc(12px + env(safe-area-inset-right, 0px)) 12px
+    calc(12px + env(safe-area-inset-left, 0px));
+}
+.ow-search-sheet-body {
+  padding: 0 calc(12px + env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px))
+    calc(12px + env(safe-area-inset-left, 0px));
+}
+@media (prefers-reduced-motion: reduce) {
+  .ow-search-sheet {
+    animation: none;
+  }
+}
 .ow-search-item:hover { background: color-mix(in srgb, var(--ow-bg-1) 80%, transparent); }
 .ow-search-item:active { background: var(--ow-bg-1); }
+
+/* ── Visible part of the screen ──────────────────────────────────
+   A fixed layer whose content sits in exactly what the reader sees: the
+   whole screen, or what the on-screen keyboard leaves of it. Its backdrop,
+   though, runs on to the bottom of the screen (#608): the iPhone's keyboard
+   does not shorten the page and is translucent, so a layer that stopped at
+   the keys let the page show through them, and in any gap above them. The
+   part under the keys is a bottom border as thick as `--ow-vv-below`: the
+   layer's background (a scrim, a sheet's surface) is painted under it, while
+   its content is clipped, centred and scrolled above it, and an absolutely
+   placed child is placed above it. A layer with no background of its own
+   colours that border with `--ow-vv-below-fill` (the settings). Keyboard
+   closed, the border is 0 and the layer the box it always was.
+   The variables are written by viewport/visibleViewport.ts; without them (no
+   visualViewport) the layer is the whole screen. Only `top`, `height` and
+   the border here: `position` and the sides come from the utilities next to
+   it (`fixed inset-x-0`), and `inset-0` must not be one of them, since which
+   of the two `top` wins would then depend on the order of the stylesheets in
+   the bundle. */
+.ow-visible-viewport {
+  top: var(--ow-vv-top, 0px);
+  height: calc(var(--ow-vv-height, 100dvh) + var(--ow-vv-below, 0px));
+  box-sizing: border-box;
+  border-bottom-style: solid;
+  border-bottom-width: var(--ow-vv-below, 0px);
+  border-bottom-color: var(--ow-vv-below-fill, transparent);
+}
 
 /* ── Theme-aware modals (SpotMap) ────────────────────────────── */
 .ow-modal-surface {

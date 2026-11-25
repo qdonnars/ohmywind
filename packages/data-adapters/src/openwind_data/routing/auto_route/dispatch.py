@@ -96,9 +96,9 @@ def _worker_repair(points: list[Point]) -> Repair | None:
 
 
 class RepairPool:
-    """The fine grids under ``grids_dir`` and one worker process to repair routes on them.
+    """The shoreline under ``grids_dir`` and one worker process to repair routes on it.
 
-    ``grids_dir`` empty or None means the grids bundled with this package.
+    ``grids_dir`` empty or None means the land tiles bundled with this package.
     One pool per process: a deployment that serves both the REST API and the
     MCP server hands the same pool to both, so their repairs queue on one
     worker rather than two.
@@ -118,7 +118,7 @@ class RepairPool:
 
     @property
     def fine(self) -> FineLand:
-        """The grids, read on first use (0.4 s, 7.5 MB): a server that is built but never asked pays nothing."""
+        """The shoreline, opened on first use: a server that is built but never asked pays nothing."""
         if self._fine is None:
             self._fine = FineLand.from_directory(self._dir)
         return self._fine

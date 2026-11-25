@@ -4,6 +4,40 @@ Every OhMyWind release, newest first. The ohmywind.fr site and the MCP server sh
 
 This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the reference. Each release is also published on the repository's [Releases](https://github.com/qdonnars/ohmywind/releases) page, and the app shows this log on its "What's new" page.
 
+## 1.16.0 · 2026-11-25 · A full-screen map, new Settings, and routes redrawn at sea by the app
+
+### New
+
+- The map takes the whole screen: no more bar at the top, the menu, the search and the settings float on the map, in the explorer and in the planner alike (#599, #600).
+- On a computer, the planner panel sits on the map, detached from the edges; the buttons and the search line up beside it (#603).
+- The menu opens on the side and gathers everything: Explore, Plan, Compare, What's new, Settings, Methodology and About (#595).
+- The Settings open over the map, without leaving the page, with the same screens on phone, tablet and computer (#596, #597, #598).
+- The theme can follow your device's, with the Auto mode (#594).
+- Seamarks are set once for both maps, in the Settings, and are shown by default (#594, #610).
+- On a phone, the search opens full screen and offers your spots first (#599).
+- A route drawn across an island or a peninsula is redrawn at sea before the computation, from Lisbon to Rotterdam and from Alicante to Naples; "Back to my route" undoes it (#573, #586, #593).
+- With a mouse, + and − buttons zoom the maps (#470, #587).
+- When a weather model does not cover the chosen place, the table says which one replaces it (#597).
+
+### Fixes
+
+- The figures of a plan add up: speeds, distances and durations agree (#532, #583).
+- On a phone, the keyboard no longer hides what you are typing (#569, #584, #608, #609, #612, #614).
+- Without a network, a discreet message tells you when a request fails, and the computation resumes once the network is back, without reloading the page (#607, #611).
+- In a phone's browser, the bottom of the screen is no longer cut off (#613).
+- A saved spot is no longer framed by a square when you touch it (#545, #584).
+- In the comparison of spots, a point placed on land no longer shows waves (#480, #582).
+- In the planner on a phone, the map buttons no longer overlap and the map stays visible when the drawer is pulled up (#579, #587).
+- The map hints say tap on a touch screen and click with a mouse (#579, #587).
+- The settings tell the truth on two points: your preferences stay on the device, and the order of the weather models also counts for your passage plans (#579, #587, #600).
+- "Keep the screen on" is no longer offered on a computer, where it is of no use (#602).
+- On iPhone, from iOS 27, the position is asked for only once; this fix comes with the next version of the app (#571, #585).
+
+### Behind the scenes
+
+- Routes are drawn on your device: the server now only provides the coastline (#586, #590).
+- The automated tests of the apps are more reliable (#578, #604).
+
 ## 1.15.0 · 2026-11-24 · Offline at sea, and real mobile apps
 
 ### New

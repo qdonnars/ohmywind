@@ -1,0 +1,330 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* SPDX-FileCopyrightText: 2026 Quentin Donnars */
+
+/*
+ * The settings: one container, a sheet from the bottom on a phone and a
+ * centred window from `lg` (64rem) up, and the grouped rows of their views.
+ *
+ * Every selector is a single `ow-settings-*` class that nothing else in the
+ * app uses, so the order in which the bundle emits this file against
+ * index.css and leaflet.css changes nothing. Colours are the design tokens
+ * only, which carry both themes.
+ */
+
+/* Under the keyboard (`.ow-visible-viewport` in index.css): the sheet's own
+   surface on a phone, as if it ran on behind the keys, and the scrim around
+   the centred window (#608). */
+.ow-settings-overlay {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 1200;
+  --ow-vv-below-fill: var(--ow-bg-1);
+}
+
+.ow-settings-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--ow-scrim);
+  animation: ow-settings-fade 0.2s ease;
+}
+
+/* Phone: a sheet that stops short of the status bar, the map still showing
+   above it, as on the system sheets. */
+.ow-settings-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: max(54px, calc(env(safe-area-inset-top, 0px) + 10px));
+  display: flex;
+  flex-direction: column;
+  background: var(--ow-bg-1);
+  color: var(--ow-fg-0);
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  box-shadow: var(--ow-shadow-pop);
+  /* The shadow kept above and beside the sheet, not under it: with the
+     keyboard up, the sheet's surface runs on below its edge (the overlay's
+     `--ow-vv-below-fill`), and a shadow there would draw a seam (#608). */
+  clip-path: inset(-48px -48px 0 -48px);
+  overflow: hidden;
+  animation: ow-settings-up 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.ow-settings-handle {
+  flex: none;
+  width: 36px;
+  height: 5px;
+  margin: 8px auto 0;
+  border-radius: 3px;
+  background: var(--ow-fg-3);
+}
+
+@media (min-width: 64rem) {
+  .ow-settings-overlay {
+    --ow-vv-below-fill: var(--ow-scrim);
+  }
+  .ow-settings-panel {
+    left: 50%;
+    right: auto;
+    top: 60px;
+    bottom: 60px;
+    width: min(600px, calc(100vw - 32px));
+    transform: translateX(-50%);
+    border: 1px solid var(--ow-line-2);
+    border-radius: 18px;
+    clip-path: none;
+    animation: ow-settings-pop 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .ow-settings-handle {
+    display: none;
+  }
+}
+
+@keyframes ow-settings-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes ow-settings-up {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+@keyframes ow-settings-pop {
+  from { opacity: 0; transform: translateX(-50%) scale(0.96); }
+  to { opacity: 1; transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ow-settings-scrim,
+  .ow-settings-panel {
+    animation: none;
+  }
+}
+
+/* ── Header: ‹ parent, title, OK ─────────────────────────────── */
+
+.ow-settings-header {
+  flex: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
+  height: 52px;
+  padding: 0 8px;
+}
+.ow-settings-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  outline: none;
+}
+.ow-settings-headbtn {
+  height: 44px;
+  max-width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--ow-accent);
+  font-size: 17px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border-radius: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ow-settings-headbtn > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ow-settings-done {
+  font-weight: 600;
+  padding: 0 8px;
+}
+
+/* ── One view's scroll area ──────────────────────────────────── */
+
+.ow-settings-body {
+  flex: 1;
+  min-height: 0;
+  padding: 0 calc(16px + env(safe-area-inset-right, 0px))
+    calc(34px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px));
+  animation: ow-settings-fade 0.15s ease;
+}
+@media (min-width: 64rem) {
+  .ow-settings-body {
+    padding: 0 20px 28px;
+  }
+}
+
+/* ── Grouped rows ────────────────────────────────────────────── */
+
+.ow-settings-group-title {
+  margin: 18px 4px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--ow-fg-1);
+}
+.ow-settings-body > .ow-settings-group-title:first-child {
+  margin-top: 6px;
+}
+.ow-settings-group {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+  border-radius: 14px;
+  background: var(--ow-bg-2);
+  overflow: hidden;
+}
+.ow-settings-body > .ow-settings-group:first-child {
+  margin-top: 6px;
+}
+.ow-settings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--ow-line);
+  background: transparent;
+  color: var(--ow-fg-0);
+  font-size: 16px;
+  line-height: 1.3;
+  text-align: left;
+}
+.ow-settings-row:last-child {
+  border-bottom: 0;
+}
+button.ow-settings-row {
+  cursor: pointer;
+}
+button.ow-settings-row:hover {
+  background: var(--ow-accent-soft);
+}
+.ow-settings-row-text {
+  flex: 1;
+  min-width: 0;
+}
+.ow-settings-row-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--ow-fg-1);
+}
+.ow-settings-row-sub.is-truncated {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ow-settings-row-value {
+  flex: none;
+  color: var(--ow-fg-1);
+}
+.ow-settings-chevron {
+  flex: none;
+  color: var(--ow-fg-2);
+}
+.ow-settings-check {
+  flex: none;
+  color: var(--ow-accent);
+}
+.ow-settings-note {
+  margin: 0 4px 4px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ow-fg-1);
+}
+.ow-settings-footnote {
+  margin-top: 22px;
+}
+
+/* ── Segmented control ───────────────────────────────────────────
+   A 44 px tall hit area for each choice around a 32 px pill: the track is
+   drawn behind, and each button paints only its content box. */
+
+.ow-settings-segment {
+  position: relative;
+  flex: none;
+  display: grid;
+  /* Equal columns, as wide as the longest choice needs: a translated label
+     never gets cut, and the control is at least `min-width` wide. */
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  gap: 2px;
+  padding: 0 2px;
+}
+.ow-settings-segment-track {
+  position: absolute;
+  inset: 4px 0;
+  border-radius: 9px;
+  background: var(--ow-bg-3);
+}
+.ow-settings-segment-btn {
+  position: relative;
+  height: 44px;
+  min-width: 0;
+  padding: 6px 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  background-clip: content-box;
+  color: var(--ow-fg-1);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ow-settings-segment-btn > span {
+  display: block;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+.ow-settings-segment-btn:hover:not([aria-checked="true"]) {
+  color: var(--ow-fg-0);
+}
+.ow-settings-segment-btn[aria-checked="true"] {
+  background-color: var(--ow-accent-strong);
+  color: var(--ow-on-accent);
+}
+
+/* ── Switch: the whole row toggles ─────────────────────────────── */
+
+.ow-settings-switch {
+  position: relative;
+  flex: none;
+  width: 51px;
+  height: 31px;
+  padding: 2px;
+  border-radius: 16px;
+  background: var(--ow-bg-3);
+  box-shadow: inset 0 0 0 1px var(--ow-line-2);
+  transition: background 0.2s;
+}
+.ow-settings-switch > span {
+  display: block;
+  width: 27px;
+  height: 27px;
+  border-radius: 14px;
+  background: var(--ow-on-accent);
+  box-shadow: var(--ow-shadow-1);
+  transition: transform 0.2s;
+}
+[aria-checked="true"] > .ow-settings-switch {
+  background: var(--ow-accent-strong);
+  box-shadow: none;
+}
+[aria-checked="true"] > .ow-settings-switch > span {
+  transform: translateX(20px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ow-settings-switch,
+  .ow-settings-switch > span {
+    transition: none;
+  }
+}

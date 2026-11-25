@@ -13,7 +13,9 @@
  * match.
  *
  * 1. computing: a skeleton, so the panel never shows half a plan;
- * 2. failed: the error, with the way back still reachable;
+ * 2. failed: the error, with « Réessayer » and the way back still reachable
+ *    (a request that found no network is not a failure: the panel stays
+ *    where it was, and a passing toast says why);
  * 3. no route yet: the empty state;
  * 4. a route but nothing asked yet: on a phone the compact step, on desktop
  *    the form;
@@ -50,7 +52,7 @@ function LoadingSkeleton() {
 
 export function PlanSidebar() {
   const { t } = useT();
-  const { state, archetypes, isLoading, compute, computeWindows } = usePlan();
+  const { state, actions, archetypes, isLoading, compute, computeWindows } = usePlan();
   const {
     passage,
     complexity,
@@ -91,7 +93,9 @@ export function PlanSidebar() {
     );
   }
 
-  // 2. failed
+  // 2. failed, the network present (without one the panel goes back to its
+  // button, see FETCH_OFFLINE). « Réessayer » runs the same computation on
+  // the plan as it stands.
   if (apiError) {
     return (
       <div className="p-4">
@@ -100,6 +104,14 @@ export function PlanSidebar() {
           <p className="font-semibold mb-1">{t("plan.states.error.title")}</p>
           <p className="leading-relaxed">{apiError}</p>
         </div>
+        <button
+          type="button"
+          onClick={actions.rerun}
+          className="mt-3 w-full min-h-11 rounded-xl px-4 py-2.5 text-sm font-bold"
+          style={{ background: "var(--ow-accent)", color: "var(--ow-on-accent)" }}
+        >
+          {t("common.retry")}
+        </button>
       </div>
     );
   }

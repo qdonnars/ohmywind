@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Quentin Donnars
 
 import { getLocale } from "../i18n/store";
+import { clockMinutes } from "./displayRounding";
 
 // Shared number/duration formatters for the /plan panel. Consolidates helpers
 // that had drifted into separate copies across PlanStates.tsx and
@@ -12,26 +13,34 @@ import { getLocale } from "../i18n/store";
 // the timezone rules they depend on.
 
 /**
- * Duration in decimal hours to the compact "12h30" convention.
- * - whole hours drop the minutes: 3 → "3h"
- * - sub-hour durations show only minutes: 0.5 → "30m"
- * - otherwise minutes are zero-padded: 12.5 → "12h30"
+ * Whole minutes to the compact "12h30" convention.
+ * - whole hours drop the minutes: 180 → "3h"
+ * - sub-hour durations show only minutes: 30 → "30m"
+ * - otherwise minutes are zero-padded: 750 → "12h30"
+ *
+ * Durations are counted in whole minutes before they are written: from
+ * decimal hours, rounding the minutes alone turned 1h59m45s into « 1h60 ».
  */
-export function fmtDuration(h: number): string {
-  const hrs = Math.floor(h);
-  const mins = Math.round((h - hrs) * 60);
+export function fmtMinutes(totalMin: number): string {
+  const hrs = Math.floor(totalMin / 60);
+  const mins = totalMin % 60;
   if (hrs === 0) return `${mins}m`;
   if (mins === 0) return `${hrs}h`;
   return `${hrs}h${String(mins).padStart(2, "0")}`;
 }
 
 /**
- * Defensive wrapper: a HF Space deployment lag may serve a response missing a
- * duration field. Prefer a graceful "—" over rendering "NaNh".
+ * The duration between two clocks printed beside it, read on those clocks
+ * (see `clockMinutes`): a departure at « 10:00 » and an arrival at « 15:31 »
+ * read « 5h31 », whatever the seconds. The server's `duration_h` is not
+ * used: rounded on its own it could say a minute more than the clocks, and in
+ * the sweep it comes rounded to the hundredth of an hour. "—" when either end
+ * is missing (an older deployment) or does not parse, rather than « NaNh ».
  */
-export function fmtDurationSafe(h: number | null | undefined): string {
-  if (h == null || !Number.isFinite(h)) return "—";
-  return fmtDuration(h);
+export function fmtSpanSafe(start: string | null | undefined, end: string | null | undefined): string {
+  if (!start || !end) return "—";
+  const min = clockMinutes(start, end);
+  return Number.isFinite(min) ? fmtMinutes(min) : "—";
 }
 
 /**

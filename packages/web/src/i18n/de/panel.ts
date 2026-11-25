@@ -51,7 +51,7 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.results.recapDeparture": "Abfahrt: {day} · {time}",
   "panel.results.recapArrival": "Ankunft: {day} · {time}",
   "panel.results.stale":
-    "Route geändert. Klicken Sie auf Neu berechnen, um die Details zu aktualisieren.",
+    "Route geändert. Berechnen Sie neu, um die Details zu aktualisieren.",
   "panel.results.forecastUpdated": "Vorhersage vom {when} · Open-Meteo.com (CC BY 4.0)",
 
   // ── LinkSettingsRow ───────────────────────────────────────────────────────
@@ -177,9 +177,11 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.tracks.drawing.title": "Option {n} · wird gezeichnet",
   "panel.tracks.drawing.points.one": "{count} Punkt gesetzt",
   "panel.tracks.drawing.points.other": "{count} Punkte gesetzt",
-  "panel.tracks.drawing.hint": "Tippen Sie auf die Karte, um einen Punkt zwischen Abfahrt und Ankunft des Plans zu setzen.",
+  "panel.tracks.drawing.hint.touch": "Tippen Sie auf die Karte, um einen Punkt zwischen Abfahrt und Ankunft des Plans zu setzen.",
+  "panel.tracks.drawing.hint.click": "Klicken Sie auf die Karte, um einen Punkt zwischen Abfahrt und Ankunft des Plans zu setzen.",
   "panel.tracks.drawing.finish": "Abschließen und vergleichen",
   "panel.tracks.row.computing": "wird berechnet…",
+  "panel.tracks.row.notComputed": "nicht berechnet",
   "panel.tracks.stale": "Abfahrt oder Boot geändert. Neu berechnen, um die Routen zu vergleichen.",
   "panel.tracks.departure.title": "Abfahrt, für alle Routen gleich",
   "panel.tracks.departure.note": "Eine andere Abfahrt berechnet alle Routen neu. Um mehrere Uhrzeiten auf einer Route zu testen, kehren Sie zum Plan zurück und wählen Sie « Andere Abfahrten ».",

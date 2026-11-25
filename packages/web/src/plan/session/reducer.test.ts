@@ -261,6 +261,22 @@ describe("the comparison over the plan", () => {
     expect(kept.compareAxis).toBe("tracks");
   });
 
+  it("puts the panel back where it was when the request found no network", () => {
+    const before = start({ actionTaken: false });
+    const offline = run(
+      before,
+      { type: "FETCH_STARTED", requestId: 1, kind: "single" },
+      { type: "FETCH_OFFLINE", requestId: 1 },
+    );
+    expect(offline.pending).toBeNull();
+    expect(offline.apiError).toBeNull();
+    expect(offline.retry).toBeNull();
+    expect(offline.actionTaken).toBe(false);
+    // A reply about a request already replaced changes nothing.
+    const replaced = run(before, { type: "FETCH_STARTED", requestId: 2, kind: "single" });
+    expect(run(replaced, { type: "FETCH_OFFLINE", requestId: 1 })).toBe(replaced);
+  });
+
   it("clears the error when the comparison opens or closes, and takes the axis of the door", () => {
     const failed = run(
       start(),
