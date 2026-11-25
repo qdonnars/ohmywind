@@ -13,7 +13,7 @@
  * literals (`right-3`, `top-[68px]`, `bottom-4`): Tailwind reads them from
  * the source, it cannot compute them.
  *
- * On a page without a header (the explorer, the planner), the map runs under the status
+ * On every page with a map (the explorer, the planner, the comparison), the map runs under the status
  * bar and a bar of controls floats over its top (`MapTopBar`). The column
  * then hangs from the bottom of that bar rather than from the top of the
  * map, and its places depend on the safe-area insets, which only CSS knows:
@@ -21,7 +21,9 @@
  * variables. `.ow-chrome-right` lines the column up under the bar's right
  * button (12 px from the edge on a phone, 18 px from lg up, under a 52 px
  * button 16 px from the edge), `.ow-chrome-slot-1` is its place right under
- * the bar (the zoom buttons, on both maps). On the planner from lg up, a panel floats over the right
+ * the bar (the zoom buttons, on every map). The comparison has no locate
+ * button: its bottom slot frames the compared spots again, 16 px above the
+ * sheet over the map. On the planner from lg up, a panel floats over the right
  * of the map: the page publishes the width it covers as
  * `--ow-map-cover-right`, and the column stands just left of it, the search
  * and the hints centred on the rest (`.ow-plan-body`, `.ow-map-hint`). The
@@ -63,6 +65,13 @@ export function mapControlsGutterPx(): number {
     stand down (`MapZoomButtons` `clearanceBelow`). Their top is measured
     where it is, since it hangs from the bar over the map. */
 export const ZOOM_CLEARANCE_BELOW_PX = GAP_PX + CONTROL_PX + LOCATE_BOTTOM_PX;
+
+/** The zoom group itself (`MapZoomButtons`): two 44 px halves, the hairline
+    between them and its border. On the comparison, whose sheet runs over
+    the map rather than shortening it, the page sets the group aside when
+    the strip between the bar and the sheet is shorter than this and the
+    clearance above. */
+export const ZOOM_GROUP_PX = 2 * 44 + 1 + 2;
 
 /* The least height of the planner's map, which holds the bar over it, the
    first slot of the column and the locate button one above the other without

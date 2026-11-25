@@ -20,8 +20,10 @@ import {
 const CHIP =
   "inline-flex items-center gap-1 rounded-full font-semibold whitespace-nowrap border cursor-pointer transition-colors";
 
+// Under 380 px (a 360 px phone) the row of four, with the sea band, ran
+// 15 px past the right edge: the chips and the step close up a little there.
 function chipPadding(small: boolean): string {
-  return small ? "px-2.5 py-[5px] text-[11px]" : "px-3 py-1.5 text-[12.5px]";
+  return small ? "px-2.5 max-[380px]:px-2 py-[5px] text-[11px]" : "px-3 py-1.5 text-[12.5px]";
 }
 
 // ── Step ─────────────────────────────────────────────────────────────────────
@@ -51,7 +53,7 @@ export function StepSegment({ value, onChange, small }: StepProps) {
             aria-checked={on}
             onClick={() => onChange(res)}
             className={`rounded-full whitespace-nowrap cursor-pointer transition-colors ${
-              small ? "px-2.5 py-1 text-[11px]" : "px-[13px] py-1.5 text-[12.5px]"
+              small ? "px-2.5 max-[380px]:px-2 py-1 text-[11px]" : "px-[13px] py-1.5 text-[12.5px]"
             } ${on ? "font-semibold" : "font-medium"}`}
             style={{
               background: on ? "var(--ow-accent-strong)" : "transparent",

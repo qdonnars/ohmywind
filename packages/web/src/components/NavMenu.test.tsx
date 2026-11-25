@@ -24,7 +24,7 @@ function Page({ current }: { current: "explore" | "plan" | "compare" }) {
   return (
     <>
       <span data-testid="path">{path}</span>
-      <NavMenu variant="header" current={current} />
+      <NavMenu variant="floating" current={current} />
     </>
   );
 }
@@ -72,7 +72,7 @@ describe("NavMenu", () => {
   });
 
   it("marks the current destination, and only it", () => {
-    render(<NavMenu variant="header" current="compare" />);
+    render(<NavMenu variant="floating" current="compare" />);
     open();
     const links = screen.getAllByRole("link").slice(0, 3);
     expect(links.map((a) => a.getAttribute("aria-current"))).toEqual([null, null, "page"]);
@@ -107,7 +107,7 @@ describe("NavMenu", () => {
   });
 
   it("keeps the focus inside the drawer", () => {
-    render(<NavMenu variant="header" current="explore" />);
+    render(<NavMenu variant="floating" current="explore" />);
     open();
     const dialog = screen.getByRole("dialog");
     const close = screen.getByRole("button", { name: "Fermer le menu" });
@@ -122,7 +122,7 @@ describe("NavMenu", () => {
     expect(dialog.contains(document.activeElement)).toBe(true);
   });
 
-  it.each(["map", "floating", "header"] as const)(
+  it.each(["map", "floating"] as const)(
     "carries the release dot on its %s trigger and on « Quoi de neuf » for a returning reader",
     (variant) => {
       localStorage.setItem(LOCAL_STORAGE_KEYS.lastSpot, "{}");
@@ -162,7 +162,7 @@ describe("NavMenu, leaving the page", () => {
   // the contract: no link but the current page closes the drawer by hand.
   it("leaves a click on another destination alone", () => {
     window.history.replaceState(null, "", "/comparer");
-    render(<NavMenu variant="header" current="compare" />);
+    render(<NavMenu variant="floating" current="compare" />);
     open();
 
     fireEvent.click(screen.getByRole("link", { name: /Planifier/ }));
@@ -173,7 +173,7 @@ describe("NavMenu, leaving the page", () => {
   });
 
   it("leaves a click on the pages around them alone too", () => {
-    render(<NavMenu variant="header" current="plan" />);
+    render(<NavMenu variant="floating" current="plan" />);
     for (const name of ["Quoi de neuf", "Méthodologie", "À propos"]) {
       if (!screen.queryByRole("dialog")) open();
       fireEvent.click(screen.getByRole("link", { name }));
@@ -183,7 +183,7 @@ describe("NavMenu, leaving the page", () => {
 
   it("remembers the page for the way back from « À propos » and « Quoi de neuf »", () => {
     window.history.replaceState(null, "", "/plan?wpts=43.29,5.37;43.00,6.20");
-    render(<NavMenu variant="header" current="plan" />);
+    render(<NavMenu variant="floating" current="plan" />);
     open();
     fireEvent.click(screen.getByRole("link", { name: "À propos" }));
     expect(aboutReturnPath()).toBe("/plan?wpts=43.29,5.37;43.00,6.20");
@@ -194,7 +194,7 @@ describe("NavMenu, leaving the page", () => {
   });
 
   it("closes itself, and only itself, on the page one is already on", () => {
-    render(<NavMenu variant="header" current="plan" />);
+    render(<NavMenu variant="floating" current="plan" />);
     open();
 
     fireEvent.click(screen.getByRole("link", { name: /Planifier/ }));
