@@ -1,6 +1,6 @@
 # Publier une version
 
-OhMyWind porte un seul numéro de version pour le site et le serveur MCP, en [semver](https://semver.org/lang/fr/), et il monte lentement. Une mise en production change toujours de numéro, mais :
+OhMyWind porte un seul numéro de version pour le site et le serveur MCP, en [semver](https://semver.org/lang/fr/), et il monte lentement. Une mise en production change de numéro, une seule fois par jour : une seconde promotion le même jour complète la version du jour, sans nouveau numéro (un test refuse deux versions datées du même jour), et son tag se pose sur le dernier commit de `main` de ce jour-là. Le numéro monte ainsi :
 
 - **corrective** (1.15.1, 1.15.2…) par défaut, y compris quand la promotion apporte de petites nouveautés visibles ;
 - **mineure** (1.16.0) seulement pour une grosse nouveauté, celle qu'on mettrait en avant dans une annonce ou un communiqué ;

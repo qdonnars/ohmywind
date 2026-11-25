@@ -8,7 +8,8 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 
 ### New
 
-- The map takes the whole screen: no more bar at the top, the menu, the search and the settings float on the map, in the explorer and in the planner alike (#599, #600).
+- The map takes the whole screen: no more bar at the top, the menu, the search and the settings float on the map, in the explorer, the planner and the comparison of spots (#599, #600, #619).
+- In the comparison of spots, no more column on the right on a computer: your spots are picked everywhere with the "Spots" button (#619).
 - On a computer, the planner panel sits on the map, detached from the edges; the buttons and the search line up beside it (#603).
 - The menu opens on the side and gathers everything: Explore, Plan, Compare, What's new, Settings, Methodology and About (#595).
 - The Settings open over the map, without leaving the page, with the same screens on phone, tablet and computer (#596, #597, #598).
@@ -24,7 +25,7 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 - The figures of a plan add up: speeds, distances and durations agree (#532, #583).
 - On a phone, the keyboard no longer hides what you are typing (#569, #584, #608, #609, #612, #614).
 - Without a network, a discreet message tells you when a request fails, and the computation resumes once the network is back, without reloading the page (#607, #611).
-- In a phone's browser, the bottom of the screen is no longer cut off (#613).
+- In a phone's browser, or from the home screen, the bottom of the screen is no longer cut off (#613).
 - A saved spot is no longer framed by a square when you touch it (#545, #584).
 - In the comparison of spots, a point placed on land no longer shows waves (#480, #582).
 - In the planner on a phone, the map buttons no longer overlap and the map stays visible when the drawer is pulled up (#579, #587).
