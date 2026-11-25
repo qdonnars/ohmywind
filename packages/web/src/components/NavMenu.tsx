@@ -111,11 +111,10 @@ interface NavMenuProps {
    * "map": the round control floating over the map, top left, on a wide
    * screen, with the current destination as a badge. "floating": the glass
    * one at the left end of the bar over the map on a phone, as tall as the
-   * bar, without the badge. "header": the compact one that takes the logo's
-   * place in a page header on a phone (the comparison). Same gesture, same
-   * drawer, one of them mounted at a time.
+   * bar, without the badge. Same gesture, same drawer, one of them mounted
+   * at a time.
    */
-  variant: "map" | "floating" | "header";
+  variant: "map" | "floating";
   className?: string;
   /** The trigger, for the onboarding card that points at it. */
   triggerRef?: RefObject<HTMLButtonElement | null>;
@@ -127,10 +126,9 @@ interface NavMenuProps {
  * the three destinations, then the pages around them (what's new, settings,
  * methodology, about).
  *
- * The drawer is portaled to `<body>`: the header and the bar over the map
- * blur their backdrop, which makes them both a stacking context and the
- * containing block of any fixed descendant, so a drawer rendered in place
- * would be clipped to them.
+ * The drawer is portaled to `<body>`: the bar over the map blurs its
+ * backdrop, which makes it a stacking context and the containing block of
+ * any fixed descendant, so a drawer rendered in place would be clipped to it.
  */
 export function NavMenu({ current, mapQuery = "", variant, className = "", triggerRef }: NavMenuProps) {
   const { t } = useT();
@@ -160,9 +158,8 @@ export function NavMenu({ current, mapQuery = "", variant, className = "", trigg
   const isMap = variant === "map";
   const isFloating = variant === "floating";
   // The design's proportions: 52 px on the map, 48 in the bar of a phone,
-  // 44 in a header, the glyph at 0.42 of that, the badge at 0.44 with its
-  // own glyph at 0.3.
-  const size = isMap ? 52 : isFloating ? 48 : 44;
+  // the glyph at 0.42 of that, the badge at 0.44 with its own glyph at 0.3.
+  const size = isMap ? 52 : 48;
   const glyph = Math.round(size * 0.42);
   const badge = Math.round(size * 0.44);
   const badgeGlyph = Math.round(size * 0.3);

@@ -20,6 +20,7 @@ import { useMapAutoCenter } from "../hooks/useMapAutoCenter";
 import type { MapView } from "../utils/mapViewParams";
 import { createMapZoomStore } from "../utils/mapZoomStore";
 import { MapZoomButtons } from "./MapZoomButtons";
+import { mapControlsGutterPx } from "./mapControlsLayout";
 
 interface SpotMapProps {
   // null when the user has just removed their active spot — keep the map
@@ -358,23 +359,26 @@ export function SpotMap({
     // read from the theme, and Leaflet keeps the resolved string.
   }, [current, customSpots, syncMarkers, autoCenter, clearAutoCenter, resolvedTheme]);
 
-  // Frame a set of spots, all of them in the strip above the data panel.
-  // The panel over the bottom edge is part of the padding, so no spot lands
-  // behind it; the top clears the controls in the corners. Capped at a zoom
-  // where a single spot still shows its coastline. Declared after the
-  // pan-to-spot effect so that, should both fire in one commit, the frame
-  // wins: it is the page's explicit request.
+  // Frame a set of spots, all of them in the strip between the bar over the
+  // top of the map and the data panel. The panel over the bottom edge is
+  // part of the padding, so no spot lands behind it; the top clears the bar
+  // (under the status bar in the apps), the right the column of round
+  // controls. Capped at a zoom where a single spot still shows its
+  // coastline. Declared after the pan-to-spot effect so that, should both
+  // fire in one commit, the frame wins: it is the page's explicit request.
   useEffect(() => {
     if (!mapRef.current || !fitSpots || fitSpots.length === 0) return;
+    const top = topInsetRef?.current;
+    const topPx = top ? top.offsetTop + top.offsetHeight : 64;
     mapRef.current.fitBounds(
       L.latLngBounds(fitSpots.map((s) => [s.latitude, s.longitude] as [number, number])),
       {
-        paddingTopLeft: [24, 88],
-        paddingBottomRight: [24, (bottomInsetRef?.current?.offsetHeight ?? 0) + 24],
+        paddingTopLeft: [24, topPx + 24],
+        paddingBottomRight: [mapControlsGutterPx(), (bottomInsetRef?.current?.offsetHeight ?? 0) + 24],
         maxZoom: 11,
       },
     );
-    // bottomInsetRef is a ref: read at the moment of the frame, by design.
+    // The insets are refs: read at the moment of the frame, by design.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitSpots, fitStamp]);
 

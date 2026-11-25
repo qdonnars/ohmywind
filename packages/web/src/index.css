@@ -310,32 +310,11 @@ path.ow-spot-marker:focus-visible {
   cursor: grabbing;
 }
 
-
-/* iPhone. index.html asks for viewport-fit=cover (#352), so the page may run
-   under the notch in landscape and under the home indicator; the status bar
-   itself is opaque (index.html), so the top inset is zero there today. The
-   header adds the insets to its own padding rather than replacing it: #377
-   had swapped the padding for the inset and the header lost its 8 px and
-   12 px on every device, logo flush left, icons flush right. The bottom is
-   deliberately not inset: a band under the last row read as a hole, and the
-   home indicator overlaying the table is what every app does. */
-.app-header {
-  padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
-  padding-bottom: 0.5rem;
-  padding-left: calc(0.75rem + env(safe-area-inset-left, 0px));
-  padding-right: calc(0.75rem + env(safe-area-inset-right, 0px));
-}
-@media (min-width: 64rem) {
-  .app-header {
-    padding-left: calc(1.5rem + env(safe-area-inset-left, 0px));
-    padding-right: calc(1.5rem + env(safe-area-inset-right, 0px));
-  }
-}
-
 /* ── The controls floating over a full-screen map ───────────────────
-   Pages without a header (components/MapTopBar.tsx): the map runs to the
-   top edge of the screen, under the status bar in the apps, and the menu,
-   the search and the settings float over it. Their geometry lives here, as
+   The pages with a map, none of which has a header (components/MapTopBar.tsx):
+   the map runs to the top edge of the screen, under the status bar in the
+   apps, and the menu, the search and the settings float over it. Their
+   geometry lives here, as
    variables, because it depends on the safe-area insets, which only CSS
    knows. The column of round controls along the right edge of the map
    (components/mapControlsLayout.ts) hangs from the bottom of that bar.
@@ -375,7 +354,9 @@ path.ow-spot-marker:focus-visible {
       (var(--ow-chrome-size) - 48px) / 2
   );
 }
-/* The top of that column, right under the bar: the zoom buttons. */
+/* The top of that column, right under the bar: the zoom buttons. On the
+   comparison, also the top of the room its sheet grows in, so the sheet at
+   its highest stops under the bar. */
 .ow-chrome-slot-1 {
   top: calc(var(--ow-chrome-top) + var(--ow-chrome-size) + var(--ow-chrome-gap));
 }
@@ -724,8 +705,8 @@ path.ow-spot-marker:focus-visible {
   animation: doorSpotlight 1.2s ease-in-out 3;
 }
 
-/* The header's search field, lit up by « Ajouter un spot » on /comparer
-   (compare/focusSearch): the same halo, twice. The class comes off on
+/* The search field floating over the map, lit up by « Ajouter un spot » on
+   /comparer from lg up (compare/focusSearch): the same halo, twice. The class comes off on
    animationend, and the halo ending on nothing is what lets it. */
 .search-spotlight {
   animation: doorSpotlight 1.2s ease-in-out 2;

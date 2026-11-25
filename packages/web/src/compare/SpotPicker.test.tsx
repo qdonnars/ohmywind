@@ -12,21 +12,16 @@ const SPOTS: Spot[] = [
   { name: "Cassis", latitude: 43.21, longitude: 5.54 },
 ];
 
-describe("SpotPicker, the phone's panel", () => {
+describe("SpotPicker, the panel of the « Spots » chip", () => {
   it("ends on « Ajouter un spot », after the list it grows", () => {
     const onAdd = vi.fn();
     render(
-      <SpotPicker spots={SPOTS} hidden={new Set()} onToggle={vi.fn()} onAll={vi.fn()} variant="panel" onClose={vi.fn()} onAdd={onAdd} />,
+      <SpotPicker spots={SPOTS} hidden={new Set()} onToggle={vi.fn()} onAll={vi.fn()} onClose={vi.fn()} onAdd={onAdd} />,
     );
     const buttons = screen.getAllByRole("button");
     expect(buttons[buttons.length - 1].textContent).toBe("Ajouter un spot");
     fireEvent.click(screen.getByRole("button", { name: "Ajouter un spot" }));
     expect(onAdd).toHaveBeenCalledTimes(1);
-  });
-
-  it("leaves the wide column without it: the page puts its own under the column", () => {
-    render(<SpotPicker spots={SPOTS} hidden={new Set()} onToggle={vi.fn()} onAll={vi.fn()} variant="column" onAdd={vi.fn()} />);
-    expect(screen.queryByRole("button", { name: "Ajouter un spot" })).toBeNull();
   });
 });
 
@@ -48,7 +43,7 @@ describe("SpotPicker, the fade over a list that scrolls", () => {
     // jsdom has no layout: the list's box is given by hand.
     const spy = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(scrollHeight);
     const spyH = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(168);
-    render(<SpotPicker spots={SPOTS} hidden={new Set()} onToggle={vi.fn()} onAll={vi.fn()} variant="panel" onClose={vi.fn()} />);
+    render(<SpotPicker spots={SPOTS} hidden={new Set()} onToggle={vi.fn()} onAll={vi.fn()} onClose={vi.fn()} />);
     spy.mockRestore();
     spyH.mockRestore();
   }

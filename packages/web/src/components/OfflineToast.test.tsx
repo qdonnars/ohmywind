@@ -32,14 +32,14 @@ afterEach(() => {
 describe("OfflineToast", () => {
   it("says nothing while nothing was asked, even offline", () => {
     setOnLine(false);
-    render(<OfflineToast floating />);
+    render(<OfflineToast />);
     // The live region is there, empty, so a later message is heard.
     expect(screen.getByRole("status").textContent).toBe("");
   });
 
   it("shows the short sentence when a request found no network, then goes by itself", () => {
     setOnLine(false);
-    render(<OfflineToast floating />);
+    render(<OfflineToast />);
     act(() => {
       expect(noteIfOffline()).toBe(true);
     });
@@ -50,7 +50,7 @@ describe("OfflineToast", () => {
 
   it("is extended by a second request rather than stacked", () => {
     setOnLine(false);
-    render(<OfflineToast floating />);
+    render(<OfflineToast />);
     act(() => notifyOffline());
     act(() => vi.advanceTimersByTime(OFFLINE_NOTICE_MS - 1000));
     act(() => notifyOffline());
@@ -75,7 +75,7 @@ describe("OfflineToast", () => {
 
   it("stays silent for a failure with the network present: that one keeps its own message", () => {
     setOnLine(true);
-    render(<OfflineToast floating />);
+    render(<OfflineToast />);
     act(() => {
       expect(noteIfOffline()).toBe(false);
     });
@@ -84,7 +84,7 @@ describe("OfflineToast", () => {
 
   it("writes no colour by hand, and not the warning ones", () => {
     setOnLine(false);
-    render(<OfflineToast floating />);
+    render(<OfflineToast />);
     act(() => notifyOffline());
     const toast = screen.getByText("Hors ligne : mise à jour impossible");
     const style = toast.getAttribute("style") ?? "";

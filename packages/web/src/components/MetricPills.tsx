@@ -23,7 +23,7 @@ interface PillDef {
   icon: ReactNode;
 }
 
-// Wind: stacked airflow lines (mirrors the brand mark in Header).
+// Wind: stacked airflow lines (mirrors the brand mark).
 const WindIcon = (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2" />
