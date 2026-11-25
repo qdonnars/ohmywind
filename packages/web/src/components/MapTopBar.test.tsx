@@ -56,7 +56,7 @@ describe("MapTopBar", () => {
     expect(screen.getAllByRole("button")).toHaveLength(2);
   });
 
-  it("hangs what the page hands it under the bar, after the offline banner", () => {
+  it("hangs what the page hands it under the bar, above the offline toast", () => {
     screenIsWide(false);
     render(
       <MapTopBar

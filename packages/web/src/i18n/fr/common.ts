@@ -9,6 +9,8 @@ export const common = {
   "common.cancel": "Annuler",
   "common.back": "Retour",
   "common.retry": "Réessayer",
+  // Le message passager d'une demande partie sans réseau (offline/offlineNotice.ts).
+  "common.offline.toast": "Hors ligne : mise à jour impossible",
   "common.days.one": "{count} jour",
   "common.days.other": "{count} jours",
 

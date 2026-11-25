@@ -4,7 +4,7 @@
 import type { Spot } from "../types";
 import { SpotSearch } from "./SpotSearch";
 import { NavMenu, type NavDestination } from "./NavMenu";
-import { OfflineBanner } from "./OfflineBanner";
+import { OfflineToast } from "./OfflineToast";
 import { SettingsButton } from "./SettingsButton";
 import { LG_MEDIA_QUERY, useMediaQuery } from "../hooks/useMediaQuery";
 
@@ -68,11 +68,10 @@ export function Header({ onSelectSpot, nearLat, nearLon, savedSpots, current, ma
             (with the release log and its dot) is in the menu's drawer. */}
         <SettingsButton variant="header" />
       </div>
-      {/* Sous la barre plutot qu'au-dessus : la ligne du logo et de la
-          recherche ne bouge pas quand le reseau tombe. Une seule instance
-          par page : les pages sans en-tete (carte plein ecran) la montent
-          sous leur recherche flottante (MapTopBar). */}
-      <OfflineBanner />
+      {/* Pendu sous l'en-tete, par-dessus le contenu : rien ne bouge quand il
+          parait. Une seule instance par page : les pages sans en-tete (carte
+          plein ecran) le montent sous leur recherche flottante (MapTopBar). */}
+      <OfflineToast />
     </header>
   );
 }

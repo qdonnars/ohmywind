@@ -10,10 +10,6 @@ export const explore = {
   "explore.emptyState.click":
     "Cliquez la carte pour la météo, clic droit pour enregistrer un spot",
 
-  // Bandeau hors connexion
-  "explore.offlineBanner.message":
-    "Hors connexion : les prévisions ne peuvent pas être actualisées.",
-
   // Bouton d'information
   "explore.infoButton.title": "À propos",
 
@@ -61,8 +57,6 @@ export const explore = {
 
   // Table du vent
   "explore.windTable.empty": "Aucune donnée disponible pour ce point.",
-  "explore.windTable.offline":
-    "Hors connexion : impossible de récupérer les prévisions. Reconnectez-vous puis touchez à nouveau ce point.",
   "explore.windTable.fallbackTitle":
     "{description} (affiché à la place de {model}, qui ne couvre pas ce point).",
   "explore.windTable.fallbackBadge": "fallback depuis {model}",

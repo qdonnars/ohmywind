@@ -152,3 +152,20 @@ describe("WindTable", () => {
     expect(container.querySelector("p")).toBeNull();
   });
 });
+
+describe("WindTable without any forecast", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("says there is no data for the point when the network answered nothing", () => {
+    render(<WindTable forecasts={[]} isLoading={false} selectedHour={null} onSelectHour={vi.fn()} />);
+    expect(screen.getByText("Aucune donnée disponible pour ce point.")).toBeTruthy();
+  });
+
+  it("stays empty offline: the passing toast said it, and the sea does have weather", () => {
+    vi.spyOn(window.navigator, "onLine", "get").mockReturnValue(false);
+    const { container } = render(
+      <WindTable forecasts={[]} isLoading={false} selectedHour={null} onSelectHour={vi.fn()} />,
+    );
+    expect(container.textContent).toBe("");
+  });
+});

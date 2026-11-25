@@ -9,6 +9,8 @@ export const common: Record<keyof typeof frCommon, string> = {
   "common.cancel": "Annullare",
   "common.back": "Indietro",
   "common.retry": "Riprovare",
+  // The passing note of a request made without a network (offline/offlineNotice.ts).
+  "common.offline.toast": "Offline: aggiornamento impossibile",
   "common.days.one": "{count} giorno",
   "common.days.other": "{count} giorni",
 

@@ -59,11 +59,12 @@ export function onlineStore(
  *
  * - `false` is trustworthy. The browser reports no link at all (airplane
  *   mode, no interface up), and no request can succeed. That is the case
- *   worth telling the sailor about, because a forecast that cannot be
- *   refreshed is the one thing this app must never let pass silently.
+ *   worth telling the sailor about, when they ask for something the network
+ *   should have served (`offline/offlineNotice.ts`): a forecast that cannot
+ *   be refreshed must never pass silently.
  * - `true` proves nothing. A captive portal, a marina wifi with no route
  *   out, or an origin that is down all read as online. So `true` is never
- *   used to promise anything, only to hide the warning.
+ *   used to promise anything, only to hold the offline note back.
  *
  * That asymmetry is why the fallbacks read as online: a browser without the
  * API, and any non-DOM render path, must not be accused of being offline.
@@ -71,7 +72,7 @@ export function onlineStore(
  * `friendlyError` in `api/passage.ts` handles the network error on its own.
  *
  * `useSyncExternalStore` rather than state plus an effect: the value is read
- * from the browser during render, so there is no frame where the banner and
+ * from the browser during render, so there is no frame where the screen and
  * the actual connectivity disagree.
  */
 export function useOnline(): boolean {

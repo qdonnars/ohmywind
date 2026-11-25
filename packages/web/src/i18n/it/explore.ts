@@ -8,9 +8,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
   "explore.emptyState.touch": "Toccare la mappa per il meteo, tenere premuto per salvare uno spot",
   "explore.emptyState.click": "Cliccare sulla mappa per il meteo, clic destro per salvare uno spot",
 
-  // Offline banner
-  "explore.offlineBanner.message": "Offline: le previsioni non possono essere aggiornate.",
-
   // Info button
   "explore.infoButton.title": "Informazioni",
 
@@ -58,8 +55,6 @@ export const explore: Record<keyof typeof frExplore, string> = {
 
   // Wind table
   "explore.windTable.empty": "Nessun dato disponibile per questo punto.",
-  "explore.windTable.offline":
-    "Offline: impossibile recuperare le previsioni. Ricollegarsi e poi toccare di nuovo questo punto.",
   "explore.windTable.fallbackTitle":
     "{description} (visualizzato al posto di {model}, che non copre questo punto).",
   "explore.windTable.fallbackBadge": "fallback da {model}",

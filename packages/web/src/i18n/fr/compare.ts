@@ -12,8 +12,6 @@ export const compare = {
   "compare.none.title": "Aucun spot coché",
   "compare.none.body": "Cochez au moins un spot dans la liste pour le lire ici.",
   "compare.table.empty": "Aucune donnée disponible pour vos spots.",
-  "compare.table.offline":
-    "Hors connexion : impossible de récupérer les prévisions. Reconnectez-vous puis rouvrez cette page.",
 
   // Lignes
   "compare.row.focus": "Centrer la carte sur {name}",

@@ -181,6 +181,7 @@ export const panel: Record<keyof typeof frPanel, string> = {
   "panel.tracks.drawing.hint.click": "Klicken Sie auf die Karte, um einen Punkt zwischen Abfahrt und Ankunft des Plans zu setzen.",
   "panel.tracks.drawing.finish": "Abschließen und vergleichen",
   "panel.tracks.row.computing": "wird berechnet…",
+  "panel.tracks.row.notComputed": "nicht berechnet",
   "panel.tracks.stale": "Abfahrt oder Boot geändert. Neu berechnen, um die Routen zu vergleichen.",
   "panel.tracks.departure.title": "Abfahrt, für alle Routen gleich",
   "panel.tracks.departure.note": "Eine andere Abfahrt berechnet alle Routen neu. Um mehrere Uhrzeiten auf einer Route zu testen, kehren Sie zum Plan zurück und wählen Sie « Andere Abfahrten ».",

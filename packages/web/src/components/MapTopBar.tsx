@@ -5,7 +5,7 @@ import type { ReactNode, RefObject } from "react";
 import type { Spot } from "../types";
 import { LG_MEDIA_QUERY, useMediaQuery } from "../hooks/useMediaQuery";
 import { NavMenu, type NavDestination } from "./NavMenu";
-import { OfflineBanner } from "./OfflineBanner";
+import { OfflineToast } from "./OfflineToast";
 import { SettingsButton } from "./SettingsButton";
 import { SpotSearch } from "./SpotSearch";
 
@@ -24,10 +24,9 @@ interface MapTopBarProps {
   nearLat?: number | null;
   nearLon?: number | null;
   savedSpots?: Spot[];
-  /** What the page hangs under the bar, in the middle, after the offline
-      banner (on the planner: the way back to a comparison, the undo of a
-      removed waypoint). It keeps out of the column of controls on the
-      right, like the banner. */
+  /** What the page hangs under the bar, in the middle (on the planner: the
+      way back to a comparison, the undo of a removed waypoint), above the
+      offline toast. It keeps out of the column of controls on the right. */
   under?: ReactNode;
 }
 
@@ -48,7 +47,8 @@ interface MapTopBarProps {
  *   (52 px), the search centred (480 px at most, 52 px tall, with its
  *   suggestions under it), the settings in the top right corner.
  *
- * The offline banner hangs under the search. Every box of the bar lets the
+ * The offline toast hangs under the search, after what the page puts there
+ * (`under`), so the two stack rather than overlap. Every box of the bar lets the
  * map take the taps around its controls (`pointer-events`). The bar carries
  * `data-ow-chrome`, which the smoke test of the apps measures against the
  * status bar (packages/mobile/smoke/probe.js).
@@ -99,8 +99,8 @@ export function MapTopBar({
         </div>
       )}
       <div className="ow-chrome-under absolute z-[400] flex flex-col items-center gap-2 pointer-events-none">
-        <OfflineBanner floating />
         {under}
+        <OfflineToast floating />
       </div>
     </>
   );
