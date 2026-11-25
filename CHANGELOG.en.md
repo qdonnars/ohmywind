@@ -13,7 +13,7 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 - The menu opens as a drawer on the side, with the three pages of the app, What's new, Settings, Methodology and About (#595).
 - The Settings open over the map, without leaving the page: theme, language, screen kept on, seamarks, weather models and boat, with the same screens on phone, tablet and computer (#596, #597, #598).
 - The theme has an Auto mode, which follows the light or dark setting of your device (#594).
-- Seamarks are set once for both maps, and are shown by default (#594).
+- Seamarks are set once for both maps, in the Settings, and are shown by default; the button that toggled them from the map is gone (#594, #610).
 - On a phone, the search opens full screen and offers your saved spots first (#599).
 - Under the wind table, a note says when a model does not cover the point and which one replaces it (#597).
 - A route drawn across a peninsula or an island is redrawn at sea before the computation, on your device: the "Route adjusted" box says so and "Back to my route" undoes it. The covered area runs from Lisbon to Rotterdam with the south of England, and from Alicante to Naples with the Balearics, Corsica and Sardinia (#573, #586).
@@ -32,6 +32,9 @@ This is a translation of [CHANGELOG.md](CHANGELOG.md), the French text being the
 - In the app, after its data has been cleared, the copy kept by the phone reopens the plan in progress directly (#579, #585).
 - On iPhone, from iOS 27, the position is asked for only once; this fix comes with the next version of the app (#571, #585).
 - On the first computation of a redrawn route, the map frames the route obtained, no longer the one drawn (#593).
+- Offline, no more permanent banner or error box: a discreet message says so when a request fails, and a passage can be computed again without reloading the page once the network is back (#607, #611).
+- On a phone with the keyboard out, the Settings, the spot windows and the search reach down to the keyboard, without letting the page show through behind, and the field being typed in stays on screen (#608, #609, #612, #614).
+- In a phone's browser or from the home screen, the bottom of the explorer no longer falls off the screen (#613).
 - The settings no longer say the order of the weather models has no effect on passage plans: the plans computed in the app follow that order (#600).
 
 ### Behind the scenes
