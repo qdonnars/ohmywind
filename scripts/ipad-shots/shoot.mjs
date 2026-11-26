@@ -52,16 +52,8 @@ async function shot(name, path, act) {
   await page.close();
 }
 
-await shot("1_plan", PLAN);
-await shot("2_spots", "/comparer", async (page) => {
-  await settle(page, 8000);
-});
-await shot("3_departs", PLAN, async (page) => {
-  await page.getByText("D'autres départs", { exact: true }).first().tap({ timeout: 15000 });
-  await settle(page, 15000);
-});
-await shot("4_troncon", PLAN, async (page) => {
-  await page.getByText("4 → 5", { exact: true }).first().tap({ timeout: 15000 });
-  await settle(page, 6000);
+await shot("5_explore", "/?center=43.05,5.60&zoom=10", async (page) => {
+  await page.touchscreen.tap(520, 480);
+  await settle(page, 14000);
 });
 await browser.close();
