@@ -7,9 +7,11 @@ const BASE = "https://ohmywind.fr";
 const PLAN =
   "/plan?wpts=43.2790,5.3250;43.1650,5.3900;43.0250,5.8600;42.9950,6.1150;43.0080,6.1980" +
   "&departure=2026-11-28T08:00&archetype=cruiser_30ft&motor=4,5.5";
-const SHOTS = [
-  ["1_plan", PLAN],
-  ["2_meteo", "/?center=43.05,5.60&zoom=10", [516, 700]],
+const SPOTS = [
+  { name: "Marseille, Frioul", latitude: 43.275, longitude: 5.305 },
+  { name: "Cassis", latitude: 43.205, longitude: 5.535 },
+  { name: "La Ciotat", latitude: 43.165, longitude: 5.625 },
+  { name: "Porquerolles", latitude: 43.012, longitude: 6.2 },
 ];
 
 mkdirSync("out", { recursive: true });
@@ -24,18 +26,45 @@ const ctx = await browser.newContext({
   userAgent:
     "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
 });
-for (const [name, path, tap] of SHOTS) {
+await ctx.addInitScript((spots) => {
+  try {
+    if (!localStorage.getItem("ohmywind_custom_spots"))
+      localStorage.setItem("ohmywind_custom_spots", JSON.stringify(spots));
+  } catch {}
+}, SPOTS);
+
+async function settle(page, ms) {
+  await page.waitForLoadState("networkidle", { timeout: 45000 }).catch(() => console.log("no networkidle"));
+  await page.waitForTimeout(ms);
+}
+async function shot(name, path, act) {
   const page = await ctx.newPage();
   page.on("pageerror", (e) => console.log(name, "pageerror", e.message));
-  await page.goto(BASE + path, { waitUntil: "load", timeout: 60000 });
-  await page.waitForLoadState("networkidle", { timeout: 60000 }).catch(() => console.log(name, "no networkidle"));
-  await page.waitForTimeout(8000);
-  if (tap) {
-    await page.touchscreen.tap(tap[0], tap[1]);
-    await page.waitForTimeout(12000);
+  try {
+    await page.goto(BASE + path, { waitUntil: "load", timeout: 60000 });
+    await settle(page, 9000);
+    if (act) await act(page);
+  } catch (e) {
+    console.log(name, "FAILED", e.message);
   }
   await page.screenshot({ path: `out/${name}.png` });
-  console.log(name, page.url(), (await page.title()));
+  console.log(name, page.url());
   await page.close();
 }
+
+await shot("1_plan", PLAN);
+await shot("2_modeles", "/?center=43.05,5.60&zoom=10", async (page) => {
+  await page.touchscreen.tap(516, 700);
+  await settle(page, 8000);
+  // The map is resized when the forecast sheet opens: ask it to fill in.
+  await page.evaluate(() => window.dispatchEvent(new Event("resize")));
+  await settle(page, 10000);
+});
+await shot("3_spots", "/comparer", async (page) => {
+  await settle(page, 8000);
+});
+await shot("4_troncon", PLAN, async (page) => {
+  await page.getByText("4 → 5", { exact: true }).first().tap({ timeout: 15000 });
+  await settle(page, 6000);
+});
 await browser.close();
