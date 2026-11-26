@@ -1,0 +1,29 @@
+name: iPad screenshots (throwaway)
+on:
+  push:
+    branches: [ci/ipad-screenshots]
+permissions:
+  contents: read
+jobs:
+  shoot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Install Playwright
+        working-directory: scripts/ipad-shots
+        run: |
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+      - name: Shoot
+        working-directory: scripts/ipad-shots
+        run: node shoot.mjs
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ipad-screenshots
+          path: scripts/ipad-shots/out
