@@ -52,20 +52,8 @@ async function shot(name, path, act) {
   await page.close();
 }
 
-await shot("2_modeles", "/?center=43.05,5.60&zoom=10", async (page) => {
-  await page.touchscreen.tap(516, 700);
-  await settle(page, 8000);
-  // The sheet shifts the map down: bring the tiles north of the frame in,
-  // then come back, Leaflet keeps them in its buffer.
-  const drag = async (dy) => {
-    await page.mouse.move(250, 500);
-    await page.mouse.down();
-    for (let i = 1; i <= 10; i++) await page.mouse.move(250, 500 + (dy * i) / 10);
-    await page.mouse.up();
-    await settle(page, 4000);
-  };
-  await drag(240);
-  await drag(-240);
-  await settle(page, 4000);
+await shot("5_departs", PLAN, async (page) => {
+  await page.getByText("D'autres départs", { exact: true }).first().tap({ timeout: 15000 });
+  await settle(page, 15000);
 });
 await browser.close();
