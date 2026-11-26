@@ -52,8 +52,37 @@ async function shot(name, path, act) {
   await page.close();
 }
 
-await shot("5_explore", "/?center=43.05,5.60&zoom=10", async (page) => {
-  await page.touchscreen.tap(520, 480);
-  await settle(page, 14000);
-});
+async function explore(name, w, h) {
+  const c = await browser.newContext({
+    viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+    locale: "fr-FR", timezoneId: "Europe/Paris",
+  });
+  const page = await c.newPage();
+  await page.goto(BASE + "/?center=43.05,5.60&zoom=10", { waitUntil: "load", timeout: 60000 });
+  await settle(page, 9000);
+  await page.touchscreen.tap(Math.round(w / 2), Math.round(h * 0.47));
+  await settle(page, 12000);
+  // Finger drag: pull the map down to load the tiles north of the frame,
+  // then push it back, Leaflet keeps them in its buffer.
+  const cdp = await c.newCDPSession(page);
+  const drag = async (dy) => {
+    const x = 200, y0 = Math.round(h * 0.4);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y: y0 }] });
+    for (let i = 1; i <= 12; i++) {
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: y0 + (dy * i) / 12 }] });
+      await page.waitForTimeout(40);
+    }
+    await page.waitForTimeout(300);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await settle(page, 5000);
+  };
+  await drag(230);
+  await page.screenshot({ path: `out/${name}_mid.png` });
+  await drag(-230);
+  await settle(page, 5000);
+  await page.screenshot({ path: `out/${name}.png` });
+  await c.close();
+}
+await explore("5_explore_paysage", 1376, 1032);
+await explore("5_explore_portrait", 1032, 1376);
 await browser.close();
