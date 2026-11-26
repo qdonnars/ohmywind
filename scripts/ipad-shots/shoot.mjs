@@ -17,7 +17,7 @@ const SPOTS = [
 mkdirSync("out", { recursive: true });
 const browser = await chromium.launch();
 const ctx = await browser.newContext({
-  viewport: { width: 1032, height: 1376 },
+  viewport: { width: 1376, height: 1032 },
   deviceScaleFactor: 2,
   isMobile: true,
   hasTouch: true,
@@ -52,8 +52,16 @@ async function shot(name, path, act) {
   await page.close();
 }
 
-await shot("5_departs", PLAN, async (page) => {
+await shot("1_plan", PLAN);
+await shot("2_spots", "/comparer", async (page) => {
+  await settle(page, 8000);
+});
+await shot("3_departs", PLAN, async (page) => {
   await page.getByText("D'autres départs", { exact: true }).first().tap({ timeout: 15000 });
   await settle(page, 15000);
+});
+await shot("4_troncon", PLAN, async (page) => {
+  await page.getByText("4 → 5", { exact: true }).first().tap({ timeout: 15000 });
+  await settle(page, 6000);
 });
 await browser.close();
